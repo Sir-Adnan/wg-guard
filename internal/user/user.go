@@ -315,8 +315,10 @@ func (s *Service) Renew(ctx context.Context, id string, mode string, duration *i
 		return nil, domain.E(domain.CodeInvalidRequest, "renew mode must be from_expiration|from_now|exact")
 	}
 
-	// Renewal reactivates expired/traffic-exceeded accounts (quota state is
-	// reset only by an explicit traffic reset — renewal alone keeps usage).
+	// Renewal reactivates expired accounts. A traffic_exceeded account is
+	// deliberately NOT reactivated here — quota recovery is an explicit
+	// admin action (traffic reset or a status change), enforced edge-wise by
+	// the accounting cycle.
 	if u.Status == domain.UserExpired {
 		u.Status = domain.UserActive
 		u.DisableReason = nil
@@ -325,30 +327,6 @@ func (s *Service) Renew(ctx context.Context, id string, mode string, duration *i
 		return nil, err
 	}
 	return u, nil
-}
-
-// MarkActivated stamps activated_at/expires_at for first_connection users at
-// their first valid handshake (idempotent; Phase 3 calls it). Returns false
-// when the user was already activated.
-func (s *Service) MarkActivated(ctx context.Context, id string) (bool, error) {
-	u, err := s.Get(ctx, id)
-	if err != nil {
-		return false, err
-	}
-	if u.ActivatedAt != nil {
-		return false, nil
-	}
-	now := s.now().UTC()
-	u.ActivatedAt = &now
-	u.Status = domain.UserActive
-	if u.DurationSeconds != nil {
-		exp := now.Add(time.Duration(*u.DurationSeconds) * time.Second)
-		u.ExpiresAt = &exp
-	}
-	if err := s.save(ctx, u); err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 // SoftDelete marks the user deleted (devices keep existing until purge —

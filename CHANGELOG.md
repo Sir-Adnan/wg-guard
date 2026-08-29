@@ -8,6 +8,28 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 3 — limits & accounting** (all unit tested, `-race` clean; tc and real-runtime paths
+  integration tested in WSL2):
+  - Centralized scheduler (`internal/scheduler`): one goroutine, due-heap, sequential jobs,
+    panic recovery, catch-up-once semantics, live interval changes (Phase 4 composes the jobs).
+  - Delta accounting pipeline (`internal/accounting`): one dump per interface per cycle, the
+    `new < last ⇒ reset ⇒ count current and re-baseline` invariant, one transaction per cycle
+    writing only changed rows; restart/recovery safe (kernel-continue and link-recreate paths).
+  - Quota & expiry enforcement: edge-triggered `traffic_exceeded` and `expired` transitions with
+    audit entries; transitions trigger a reconciliation pass so blocked users actually lose
+    their peers. First-connection activation stamps `activated_at`/`expires_at` idempotently.
+  - Traffic mutations: reset (one-op unblock, no double counting), add/remove (charged-counter
+    corrections with level-check at mutation time); all audit-logged.
+  - tc shaper (`internal/shaper`): HTB egress, one class per user with per-device-IP filters,
+    rendered-state rebuild via one `tc -b` batch, change detection, restart recovery, cleanup on
+    limit removal; restored at bring-up and re-ensured by the accounting cycle. Upload (ingress)
+    shaping deferred per docs/architecture/networking.md.
+  - Traffic samples & rollups: accumulator flushed on `accounting.sample_flush_seconds`
+    (default 300 s), hourly/daily rollup upserts in the same transaction, retention pruning.
+  - Settings: `accounting.sample_flush_seconds`, `accounting.sample_retention_hours`,
+    `accounting.rollup_hourly_days`, `accounting.rollup_daily_days`.
+  - Benchmarks recorded (WSL2): idle cycle @100 devices 0.32 ms; @1000 devices 2.7 ms; @1000
+    devices all-active 10.1 ms; sample flush @1000 devices 8.3 ms (budget ≤ 15 ms).
 - **Phase 2 — AWG backend & networking** (unit tested, `-race` clean; userspace paths
   integration-tested against the pinned runtime in WSL2):
   - `subprocess` package: the single exec choke point — explicit argv only (never a shell),

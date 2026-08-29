@@ -34,6 +34,12 @@ transaction with conflict retry; IPs released on permanent device delete.
   count current as delta and re-baseline` (no negative deltas, no reset corruption, no double
   counting). Peer deletion snapshots final usage. One transaction per accounting cycle, writing
   only changed rows.
+- Samples: fine-grained `traffic_samples` rows are flushed from an in-memory accumulator every
+  `accounting.sample_flush_seconds` (default 300 s) — not every cycle — to bound SQLite churn
+  (~288k rows/day per 1000 active devices vs ~5.8M with per-cycle rows). Accumulated totals are
+  persisted every cycle, so a crash can only lose chart granularity for one flush interval,
+  never usage. Rollup upserts happen in the same transaction as the sample flush, so a retried
+  flush can never double count.
 - Concurrency: device-limit races and duplicate IP allocation prevented by constraints +
   transactions (race-tested in CI); first-connection activation is idempotent.
 - Retention: scheduler prunes `traffic_samples` (24–48 h), rollups per policy,

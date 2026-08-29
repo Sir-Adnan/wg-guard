@@ -5,6 +5,44 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
+## Phase 3 — Limits & accounting (complete, 2026-08-30)
+
+All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
+WSL2 Ubuntu/Go 1.26; `go test -race ./...` green in WSL2 — zero failures across 26 packages).
+Where marked **integration tested**, behavior was exercised against real iproute2 `tc` and the
+real pinned userspace runtime in WSL2 (`go test -tags integration`, root).
+
+| Item | Status |
+|---|---|
+| `scheduler` package: the single centralized scheduler — one goroutine, due-heap, sequential jobs (no overlap, no per-user timers), panic-recovered jobs, catch-up runs a missed job ONCE (anchored at finish+interval, never N back-to-back runs), live interval re-registration (incl. from inside the running job), one-shot `At` for future retries (webhooks, Phase 4) | ✅ implemented + unit tested (deterministic step-level tests incl. replace-while-running and hot-loop regression) |
+| `accounting` delta cycle: one dump per enabled interface per cycle, delta invariant `new < last ⇒ reset ⇒ count current from zero and re-baseline`, one BEGIN IMMEDIATE transaction per cycle, only changed rows written (idle devices/users are not rewritten — asserted via `updated_at`) | ✅ implemented + unit tested (fake backend simulates counters/handshakes) |
+| Restart/recovery: totals live in SQLite; a fresh Service over the same DB counts down-time traffic when the backend kept counters (kernel case) and takes the reset path when the link was recreated (userspace case) — no usage loss, no double counting | ✅ implemented + unit tested |
+| First-connection activation: first observed handshake on a waiting-first-connection user stamps `activated_at`, sets `expires_at = now + duration`, flips to active; idempotent (later cycles never move the dates); a never-activated account returns to waiting (not active) on traffic reset | ✅ implemented + unit tested |
+| Quota enforcement (RX+TX): edge-triggered — an active/waiting account at/over its limit flips to `traffic_exceeded` (`disable_reason=traffic_limit`) exactly once with an audit entry; deltas keep counting for blocked accounts; admin-blocked and soft-deleted users are counted but never re-labelled. Recovery is an admin action (reset/add/remove traffic), never automatic | ✅ implemented + unit tested |
+| Expiry enforcement: set-based pass — live users past `expires_at` in `active`/`waiting_first_connection` flip to `expired` + audit; already-blocked accounts keep their status (renewal semantics differ per status); deleted users untouched | ✅ implemented + unit tested |
+| Enforcement stops traffic: transitions trigger a reconcile pass through the `Reconciler` seam (expired/quota-exceeded users lose their peers — not just a status flip) | ✅ implemented + unit tested |
+| Traffic mutations: `ResetTraffic` (zero user + device totals, one-op unblock, baselines kept so no double counting), `AddTraffic`/`RemoveTraffic` (charged-counter corrections, rx-then-tx, floored at zero, saturating add; level-check at mutation time trips or reactivates); all audit-logged | ✅ implemented + unit tested |
+| `shaper` package: tc HTB per interface — one class per (user, interface) with one u32 filter per device IP (aggregate enforcement of the user-level limit), unshaped users pass via HTB direct service (`default 0`); rendered-state rebuild = `qdisc del` + one `tc -b` batch (`qdisc add`; `replace` rejected by HTB — verified live); change detection (identical desired state = zero subprocesses); first ensure per process = restart recovery; cleanup on limit removal | ✅ implemented + unit tested (golden renders, determinism, change detection); **integration tested** against real tc in WSL2 (apply/no-dup-rebuild/cleanup on a dummy interface) |
+| Shaper wiring: restored at bring-up (`boot`, tc failures are non-fatal findings with remedy), re-ensured by the accounting cycle within one interval of a limit change | ✅ implemented + unit tested |
+| Traffic samples & rollups: deltas buffered in an in-memory accumulator, flushed every `accounting.sample_flush_seconds` (default 300 s) — one transaction upserting `traffic_samples` (bucket-aligned) and accumulating hourly/daily `traffic_rollups` (same txn ⇒ no double count); prune enforces sample (24–48 h), hourly (30 d) and daily (1 y) retention settings | ✅ implemented + unit tested (bucket spanning, accumulation, prune) |
+| Accounting cycle against the real pinned runtime: real 29-field dump → delta pipeline → correct no-op state for a non-handshaken peer | ✅ **integration tested** in WSL2 (amneziawg-go v3.1.20260828); real-traffic counting **requires real VPS** |
+| Benchmarks (WSL2, Go 1.26, `go test -bench`): idle cycle @100 devices **0.32 ms**; idle cycle @1000 devices **2.7 ms**; cycle @1000 devices all-active **10.1 ms**; sample flush @1000 devices **8.3 ms** — the ≤ 15 ms/cycle budget holds with 8× headroom at the stress point | ✅ measured (budget: archive proposal §8) |
+| Settings added: `accounting.sample_flush_seconds` (300), `accounting.sample_retention_hours` (48), `accounting.rollup_hourly_days` (30), `accounting.rollup_daily_days` (365) | ✅ implemented + unit tested (registry validation) |
+
+Deferred within Phase 3 scope (honest notes):
+
+- **Upload (ingress) shaping is deferred by design** — docs/architecture/networking.md pinned
+  "tc (HTB) per device IP on the interface egress" and "separate upload/download designed for
+  later"; Phase 3 limits are egress (server→client) only. Ingress shaping needs an IFB-based
+  design and belongs with the Phase 8 benchmarking pass.
+- **Per-user speed limits apply to tunnel egress only** and require `tc` (iproute2) on the host;
+  a missing tc is surfaced as a boot finding, never silently ignored when limits are configured.
+- **Scheduler composition into a long-running service lands with `serve` (Phase 4)** — the
+  package, its jobs contract, and all catch-up/panic/replace semantics are implemented and
+  tested; `serve` will register the accounting/expiry/flush/prune jobs and the webhook worker.
+- RSS/idle-CPU soak (`scripts/bench-idle.sh`) remains a Phase 4/8 deliverable once the server
+  runs; static budgets hold (stripped linux/amd64 binary 8.1 MB, ≤ 30 MB budget).
+
 ## Phase 2 — AWG backend & networking (complete, 2026-08-29)
 
 All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27;
@@ -76,7 +114,7 @@ Deferred within Phase 1 scope (honest notes):
 - **Resource measurement**: static budgets hold (stripped linux/amd64 CLI binary 1.5 MB;
   12.6 MB test-binary upper bound with SQLite linked — well under the ≤30 MB budget; pool
   capped at 8 conns; argon2id memory cost only on login). RSS/idle-CPU measurement is a
-  Phase 3/8 deliverable (`scripts/bench-idle.sh`) once the server runs.
+  Phase 4/8 deliverable (`scripts/bench-idle.sh`) once the server runs.
 - **Key rotation CLI/UI trigger** lands with Phase 6 (the engine + carriers are done and tested).
 
 ## Phase 0 — Documentation & scaffold (complete, 2026-08-29)
@@ -91,19 +129,18 @@ Deferred within Phase 1 scope (honest notes):
 | DKMS module build | ✅ build verified; ⚠️ module load + netlink dump **requires real VPS** |
 | PPA on Ubuntu 26.04 | ✅ verified with noble-suite pin (workaround documented) |
 
-## Phases 3–8 — not started
+## Phases 4–8 — not started
 
 Everything below is `designed` (architecture approved) until implemented:
 
-- Phase 3 Limits & accounting: delta accounting, quota/expiry, first-connection activation
-  (MarkActivated), tc shaper, samples/rollups, scheduler
 - Phase 4 REST API: full surface, idempotency, durable webhooks, OpenAPI (`serve` reuses
-  internal/boot for bring-up)
+  internal/boot for bring-up and composes internal/scheduler with the accounting jobs)
 - Phase 5 Web UI: design system, shell, i18n/RTL, dashboard, users, plans, interfaces
 - Phase 6 Backup/ops: archives (plain + optional password), schedules, Telegram, restore wizard,
   settings UI, admins/tokens/audit screens, doctor, rotation trigger
 - Phase 7 Deployment: image, installer (Docker default), shim, update/uninstall
-- Phase 8 Hardening: security review, benchmarks vs budgets, VPS matrix
+- Phase 8 Hardening: security review, benchmarks vs budgets, VPS matrix (incl. IFB-based upload
+  shaping design + 1000-shaped-peer tc benchmark)
 
 ## Requires real VPS (carried forward)
 

@@ -2,10 +2,10 @@
 // the single orchestration used at service start (`serve`) and on demand
 // from the CLI (`wg-guard reconcile`). Sequence per
 // docs/architecture/networking.md: verify tooling, enable IPv4 forwarding,
-// reconcile tunnels and peers, apply the namespaced firewall table, and
-// handle firewall-manager coexistence. Failures on essential steps
-// (tooling, forwarding, reconcile, firewall) abort bring-up; coexistence
-// findings are advisory and never abort.
+// reconcile tunnels and peers, apply the namespaced firewall table, restore
+// speed limits (tc), and handle firewall-manager coexistence. Failures on
+// essential steps (tooling, forwarding, reconcile, firewall) abort bring-up;
+// shaper and coexistence problems are surfaced as findings and never abort.
 package boot
 
 import (
@@ -20,6 +20,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
@@ -34,6 +35,7 @@ type Deps struct {
 	Backend  tunnel.Backend
 	Run      subprocess.Runner
 	Audit    *audit.Service
+	Shaper   *shaper.Manager // nil = skip shaping (tests, minimal runs)
 }
 
 // Result reports what bring-up observed and changed. It carries no secret
@@ -44,6 +46,7 @@ type Result struct {
 	ForwardingChanged      bool // net.ipv4.ip_forward was off and is now on
 	Reconcile              *reconcile.Report
 	ManagedIfaces          int
+	ShapedGroups           int      // (user, interface) pairs with speed limits
 	UfwRoutes              []string // interfaces the ufw route rule was added for
 	Findings               []firewall.Finding
 }
@@ -98,7 +101,29 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 		return nil, fmt.Errorf("boot: firewall: %w", err)
 	}
 
-	// 5. Coexistence: add the ufw forward-allow rule when ufw runs
+	// 5. Speed limits (tc): restore shaping from DB state. Never fatal — a
+	// broken tc must not take tunnels down; it is reported as a finding.
+	// (The accounting cycle re-ensures with change detection afterwards.)
+	if d.Shaper != nil {
+		groups, err := shaper.LoadGroups(ctx, d.DB)
+		if err != nil {
+			res.Findings = append(res.Findings, shaperFinding(err.Error()))
+		} else {
+			res.ShapedGroups = len(groups)
+			byIface := map[string][]shaper.Group{}
+			for _, g := range groups {
+				byIface[g.InterfaceName] = append(byIface[g.InterfaceName], g)
+			}
+			for _, ifc := range ifaces {
+				if _, err := d.Shaper.Ensure(ctx, ifc.Name, byIface[ifc.Name]); err != nil {
+					res.Findings = append(res.Findings, shaperFinding(err.Error()))
+					break
+				}
+			}
+		}
+	}
+
+	// 6. Coexistence: add the ufw forward-allow rule when ufw runs
 	// (idempotent, scoped to our interfaces); gather findings for the
 	// operator. Never fatal.
 	routes, err := fw.EnsureUfwRoutes(ctx, ifaces)
@@ -109,7 +134,7 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 	}
 	findings, ferr := fw.Coexistence(ctx)
 	if ferr == nil {
-		res.Findings = findings
+		res.Findings = append(res.Findings, findings...)
 	}
 
 	if d.Audit != nil {
@@ -127,10 +152,23 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 				"drift_items":        len(rep.Drift),
 				"forwarding_changed": changed,
 				"fw_ifaces":          len(ifaces),
+				"shaped_groups":      res.ShapedGroups,
 			},
 		})
 	}
 	return res, nil
+}
+
+// shaperFinding reports a speed-limit enforcement problem as an advisory
+// finding: tunnels run unshaped rather than bring-up failing.
+func shaperFinding(detail string) firewall.Finding {
+	return firewall.Finding{
+		Tool:     "tc",
+		Active:   true,
+		Blocking: true,
+		Detail:   detail,
+		Remedy:   "install iproute2 (tc) — or remove the configured speed limits",
+	}
 }
 
 // toolsVersion probes through the backend when it supports it; fake backends

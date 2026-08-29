@@ -62,10 +62,27 @@ recreation (their PSKs are unknowable) and the drift report says so.
 
 ## Shaping (speed limits)
 
-Linux `tc` (HTB) per device IP on the interface egress; unlimited/preset/custom Mbps; separate
-upload/download designed-for-later. Rules are deterministic (rendered from DB state), rebuilt on
-restart/reconcile, and cleaned up on delete. Thousands of tc classes cost CPU — benchmarked at
-1000 shaped peers in Phase 8 with a documented graceful-degradation policy if needed.
+Implemented in Phase 3 (`internal/shaper`): Linux `tc` (HTB) on the **tunnel interface egress**
+— the direction pinned here ("per device IP on the interface egress"), i.e. server→client
+traffic. One HTB class per (user, interface) carries the user's `speed_limit_kbps` (the limit
+is a user field, so all of that user's device IPs on the interface share the class — aggregate
+enforcement); one u32 filter per device IP selects the class. Users without limits are
+unclassified and pass through HTB's direct service (`default 0`) — shaping one user never
+degrades another.
+
+Rules are deterministic (rendered from DB state), rebuilt on restart/bring-up and re-ensured by
+the accounting cycle (change detection: identical desired state costs zero subprocesses), and
+cleaned up when a limit is removed. A rebuild deletes the root qdisc and recreates the tree in
+one `tc -b` batch (`qdisc add` — `qdisc replace` is rejected by HTB with "Change operation not
+supported", verified against iproute2 in WSL2 2026-08-30). tc failures at bring-up are
+non-fatal findings with a remedy; with limits configured and tc missing, ensure fails loudly —
+an unenforced limit must never look enforced.
+
+Separate upload/download limits remain **designed-for-later** (per the same pinned doc):
+ingress (client→server) shaping needs an IFB-based design and lands with the Phase 8
+benchmarking pass (1000-shaped-peer tc benchmark, graceful-degradation policy). Thousands of tc
+classes cost CPU — the per-user class design keeps the class count at users-with-limits, not
+devices.
 
 ## Addressing
 

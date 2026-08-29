@@ -1,11 +1,11 @@
 // Package reconcile makes the tunnel backend match the database — the DB is
-// the source of truth (docs/architecture/overview.md). It runs at boot, as a
-// cheap drift check on the accounting cycle, and on demand from `doctor
-// --fix`. Enabled interfaces and peer-eligible users' devices are applied;
-// everything else is removed from interfaces WG-Guard owns. Unknown peers on
-// owned interfaces follow the drift policy (report | adopt | remove);
-// interfaces unknown to the DB are never touched — ownership requires a DB
-// record (ADR-0004).
+// the source of truth (docs/architecture/overview.md). It runs at boot, after
+// accounting enforcement changes who may hold peers (quota trips, expiry,
+// first-connection activations), and on demand from `doctor --fix`. Enabled
+// interfaces and peer-eligible users' devices are applied; everything else is
+// removed from interfaces WG-Guard owns. Unknown peers on owned interfaces
+// follow the drift policy (report | adopt | remove); interfaces unknown to
+// the DB are never touched — ownership requires a DB record (ADR-0004).
 package reconcile
 
 import (

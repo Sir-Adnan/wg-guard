@@ -35,10 +35,13 @@ internal/
   network/               ip link/addr wrappers, sysctls (Phase 2 ✅)
   subprocess/            the single exec choke point: explicit argv, timeouts, structured
                          exit errors; output is never logged (Phase 2 ✅)
-  shaper/                tc (HTB) speed limiting, deterministic rebuildable rendering (Phase 3)
-  accounting/            delta counters, persistence, quota enforcement, rollups (Phase 3)
+  shaper/                tc (HTB) speed limiting, deterministic rebuildable rendering;
+                         per-user class + per-device-IP filters, egress-only (Phase 3 ✅)
+  accounting/            delta counters, persistence, quota/expiry enforcement, first-
+                         connection activation, samples/rollups (Phase 3 ✅)
   scheduler/             one centralized scheduler (due-heap): expiry, accounting, webhooks,
-                         backups, housekeeping — no per-user goroutines (Phase 3+)
+                         backups, housekeeping — no per-user goroutines (Phase 3 ✅; jobs
+                         composed into serve in Phase 4)
   webhook/               durable event delivery: events table, worker, HMAC signing (Phase 4)
   backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6)
   metrics/               healthz/readyz + optional hand-written /metrics (Phase 4)

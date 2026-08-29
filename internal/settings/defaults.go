@@ -37,6 +37,17 @@ func Defaults() []Definition {
 			Category: "accounting"},
 		{Key: "accounting.online_window_seconds", Kind: KindInt, Default: 180, Min: 30, Max: 3600,
 			Category: "accounting"},
+		// Traffic samples are flushed from an in-memory accumulator on this
+		// cadence (not every cycle) to bound SQLite churn; accumulated
+		// totals never depend on it (persisted every cycle).
+		{Key: "accounting.sample_flush_seconds", Kind: KindInt, Default: 300, Min: 60, Max: 3600,
+			Category: "accounting"},
+		{Key: "accounting.sample_retention_hours", Kind: KindInt, Default: 48, Min: 24, Max: 48,
+			Category: "accounting"},
+		{Key: "accounting.rollup_hourly_days", Kind: KindInt, Default: 30, Min: 7, Max: 90,
+			Category: "accounting"},
+		{Key: "accounting.rollup_daily_days", Kind: KindInt, Default: 365, Min: 30, Max: 730,
+			Category: "accounting"},
 		{Key: "drift.policy", Kind: KindString, Default: "report", Options: []string{"report", "adopt", "remove"},
 			Category: "drift", Persistent: true},
 

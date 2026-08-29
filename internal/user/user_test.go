@@ -69,19 +69,8 @@ func TestCreateFirstConnection(t *testing.T) {
 	if u.ActivatedAt != nil || u.ExpiresAt != nil {
 		t.Fatal("waiting user must not be activated")
 	}
-	activated, err := svc.MarkActivated(ctx, u.ID)
-	if err != nil || !activated {
-		t.Fatalf("mark activated: %v %v", activated, err)
-	}
-	// Idempotent.
-	activated, err = svc.MarkActivated(ctx, u.ID)
-	if err != nil || activated {
-		t.Fatalf("second activation must be a no-op: %v %v", activated, err)
-	}
-	got, _ := svc.Get(ctx, u.ID)
-	if got.Status != domain.UserActive || got.ExpiresAt == nil {
-		t.Fatalf("activation not persisted: %+v", got)
-	}
+	// Activation itself is the accounting cycle's transactional job
+	// (internal/accounting); here only the waiting state contract is tested.
 }
 
 func TestUsernameUniqueness(t *testing.T) {

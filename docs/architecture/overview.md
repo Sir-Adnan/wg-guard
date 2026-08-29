@@ -53,9 +53,10 @@ No cycles; no `utils` packages. Package responsibilities:
 On boot and continuously, kernel state is verified against the database: missing interfaces are
 created and configured; mismatched ports/params are corrected (audited); missing peers are
 re-applied; unknown peers follow `drift_policy` (`report` default | `adopt` | `remove`). The
-30 s accounting dump doubles as a cheap drift detector. `wg-guard doctor [--fix]` performs the
-same repairs on demand plus environment checks (permissions, upstream pin, module, nft, sysctls,
-disk, endpoint DNS, cert expiry, DB integrity).
+30 s accounting cycle triggers a reconciliation pass whenever enforcement changes who may hold
+peers (quota trips, expiry, first-connection activations). `wg-guard doctor [--fix]` performs
+the same repairs on demand plus environment checks (permissions, upstream pin, module, nft,
+sysctls, shaper, disk, endpoint DNS, cert expiry, DB integrity).
 
 ## Failure & recovery posture
 

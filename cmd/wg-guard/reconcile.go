@@ -14,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
 )
@@ -68,6 +69,7 @@ func runReconcile(args []string) error {
 		Settings: reg,
 		Backend:  backend,
 		Run:      runner,
+		Shaper:   shaper.New(runner),
 	})
 	if err != nil {
 		return err
@@ -108,11 +110,19 @@ func printReconcileReport(res *boot.Result) {
 	}
 
 	fmt.Printf("firewall: table applied for %d interface(s)\n", res.ManagedIfaces)
+	if res.ShapedGroups > 0 {
+		fmt.Printf("shaper: %d speed-limited group(s) ensured\n", res.ShapedGroups)
+	}
 	if len(res.UfwRoutes) > 0 {
 		fmt.Printf("ufw: route rules ensured for %s\n", strings.Join(res.UfwRoutes, ", "))
 	}
 	for _, f := range res.Findings {
-		fmt.Printf("coexistence: %s active%s\n  remedy: %s\n", f.Tool, blockingSuffix(f), f.Remedy)
+		switch f.Tool {
+		case "tc":
+			fmt.Printf("shaper: %s\n  remedy: %s\n", f.Detail, f.Remedy)
+		default:
+			fmt.Printf("coexistence: %s active%s\n  remedy: %s\n", f.Tool, blockingSuffix(f), f.Remedy)
+		}
 	}
 	fmt.Println("reconcile complete")
 }

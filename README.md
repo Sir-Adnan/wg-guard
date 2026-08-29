@@ -11,8 +11,10 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–2 complete (foundation: config, database, settings, secrets, auth, domain services; AWG backend & networking: pinned-CLI tunnel backend, dump parser, nftables, sysctls, reconcile-on-boot).** The architecture is
-approved and pinned; implementation proceeds phase by phase. See
+**In active development — Phases 0–3 complete (foundation; AWG backend & networking: pinned-CLI
+tunnel backend, dump parser, nftables, sysctls, reconcile-on-boot; limits & accounting: delta
+pipeline, quota/expiry enforcement, first-connection activation, tc shaper, samples/rollups).**
+The architecture is approved and pinned; implementation proceeds phase by phase. See
 [ROADMAP.md](ROADMAP.md) and [docs/development/status.md](docs/development/status.md).
 
 ## Features

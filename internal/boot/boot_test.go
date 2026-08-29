@@ -13,6 +13,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
@@ -159,6 +160,67 @@ func TestBringUpFreshNode(t *testing.T) {
 	rec, err := auditSvc.Recent(ctx, 10)
 	if err != nil || len(rec) != 1 || rec[0].Action != "node.reconcile" {
 		t.Fatalf("audit records = %+v err=%v", rec, err)
+	}
+}
+
+func TestBringUpAppliesShaper(t *testing.T) {
+	ctx := context.Background()
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+
+	// A user with a speed limit and one device.
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := d.db.Exec(`INSERT INTO users (id, username, status, speed_limit_kbps, start_policy, enabled, created_at, updated_at)
+		VALUES ('u1', 'limited', 'active', 2048, 'immediate', 1, ?, ?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.db.Exec(`INSERT INTO devices (id, user_id, interface_id, name, ipv4_address, public_key, private_key_encrypted, enabled, created_at, updated_at)
+		VALUES ('d1', 'u1', 'id-awg0', 'phone', '10.8.0.2/32', 'devpub', x'00', 1, ?, ?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+
+	sh := shaper.New(d.runner)
+	res, err := BringUp(ctx, Deps{
+		DB: d.db, Ring: d.ring, Backend: d.backend, Run: d.runner,
+		Settings: mustRegistry(t, d), Shaper: sh,
+	})
+	if err != nil {
+		t.Fatalf("bring up: %v", err)
+	}
+	if res.ShapedGroups != 1 {
+		t.Fatalf("shaped groups = %d", res.ShapedGroups)
+	}
+	if !strings.Contains(d.runner.joined(), "tc -b") {
+		t.Fatalf("tc batch missing:\n%s", d.runner.joined())
+	}
+
+	// A failing tc surfaces as a finding and never aborts bring-up.
+	d2 := newDeps(t)
+	d2.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	if _, err := d2.db.Exec(`INSERT INTO users (id, username, status, speed_limit_kbps, start_policy, enabled, created_at, updated_at)
+		VALUES ('u1', 'limited', 'active', 2048, 'immediate', 1, ?, ?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d2.db.Exec(`INSERT INTO devices (id, user_id, interface_id, name, ipv4_address, public_key, private_key_encrypted, enabled, created_at, updated_at)
+		VALUES ('d1', 'u1', 'id-awg0', 'phone', '10.8.0.2/32', 'devpub', x'00', 1, ?, ?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	d2.runner.errs["tc -b"] = &subprocess.ExitError{Name: "tc", ExitCode: 1, Stderr: "cannot find device"}
+	res2, err := BringUp(ctx, Deps{
+		DB: d2.db, Ring: d2.ring, Backend: d2.backend, Run: d2.runner,
+		Settings: mustRegistry(t, d2), Shaper: shaper.New(d2.runner),
+	})
+	if err != nil {
+		t.Fatalf("shaper failure must not abort bring-up: %v", err)
+	}
+	found := false
+	for _, f := range res2.Findings {
+		if f.Tool == "tc" && f.Blocking {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("tc finding missing: %+v", res2.Findings)
 	}
 }
 
