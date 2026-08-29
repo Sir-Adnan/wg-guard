@@ -1,0 +1,11 @@
+# Minimal, low-noise configuration (docs/development/workflow.md):
+# tools improve quality, not ceremony.
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused

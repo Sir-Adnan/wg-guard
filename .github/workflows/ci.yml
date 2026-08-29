@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: gofmt check
+        run: test -z "$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
+      - name: go vet
+        run: go vet ./...
+      - name: Test (race)
+        run: go test -race ./...
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build
+        run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -o wg-guard ./cmd/wg-guard

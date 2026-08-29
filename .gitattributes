@@ -1,0 +1,8 @@
+# Normalize line endings: LF in the repository and working tree.
+# Keeps gofmt checks deterministic across Windows/Linux checkouts.
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.woff2 binary
+*.ttf binary
