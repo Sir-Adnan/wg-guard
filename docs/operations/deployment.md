@@ -37,13 +37,19 @@ The installer never silently exposes plaintext management to the public internet
 
 ## Ports & networking defaults
 
-| Setting | Default | Editable later |
+All values below are **recommended defaults** (sensible starting points chosen from upstream
+constraints), fully editable after install — not verified optima; guidance is revisited after
+the Phase 8 VPS matrix.
+
+| Setting | Recommended default | Editable later |
 |---|---|---|
 | Panel HTTP | 8080 | yes (boot config + Settings) |
 | Panel TLS | 443 (any port supported) | yes |
 | AWG listen port (per interface) | random 30000–50000; low ports prompt in installer | yes (per interface, hot-applied) |
 | MTU | 1420 | yes (global default + per interface) |
 | VPN pool | `10.8.0.0/16` carved per interface (`10.8.N.0/24`) | yes (per interface, validated) |
+| Client DNS (generated configs) | `1.1.1.1, 1.0.0.1` | yes (Settings) |
+| Max tunnel interfaces | 8 (`awg0…awg7`) | yes (Settings) |
 
 ## Updates
 

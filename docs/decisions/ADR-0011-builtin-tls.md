@@ -4,8 +4,8 @@ Status: accepted · Date: 2026-08-29
 
 ## Context
 
-The panel and public API must use HTTPS in production without requiring a second long-running
-web server. Administrators want domain-based installs on any port (e.g.
+The panel and the management REST API must use HTTPS in production without requiring a second
+long-running web server. Administrators want domain-based installs on any port (e.g.
 `https://sub.example.com:34562`).
 
 ## Decision

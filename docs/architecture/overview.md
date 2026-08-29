@@ -41,7 +41,7 @@ No cycles; no `utils` packages. Package responsibilities:
 | Namespaced nftables table; never touch foreign rules | [0004](../decisions/ADR-0004-namespaced-nftables.md) |
 | Pure-Go SQLite (modernc), CGO_ENABLED=0 | [0005](../decisions/ADR-0005-pure-go-sqlite.md) |
 | Docker-default deployment, native secondary | [0006](../decisions/ADR-0006-docker-default-deployment.md) |
-| Backup/restore excluded from the public REST API | [0007](../decisions/ADR-0007-no-backup-rest-api.md) |
+| Backup/restore excluded from the REST API (panel + CLI only) | [0007](../decisions/ADR-0007-no-backup-rest-api.md) |
 | Optional backup password via standard age encryption | [0008](../decisions/ADR-0008-optional-backup-password.md) |
 | Vanilla-JS frontend (no Alpine), HTMX | [0009](../decisions/ADR-0009-vanilla-js-frontend.md) |
 | Bilingual fa/en panel with full RTL | [0010](../decisions/ADR-0010-bilingual-fa-en-rtl.md) |

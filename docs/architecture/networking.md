@@ -6,15 +6,16 @@ self-inflicted outage).
 
 ## Tunnel interfaces
 
-- Interfaces `awg0…awg7` (15-char name limit applies), one per obfuscation profile.
+- Interfaces `awg0…awg7` (15-char name limit applies), one per obfuscation profile; the count
+  cap is a configurable WG-Guard default, not an upstream limit.
 - WG-Guard brings interfaces up itself (`ip link add awgN type amneziawg`, `awg setconf`,
   address, MTU) — **not** `awg-quick`, whose firewall/routing mutations are global and outside
   our ownership model.
-- Per interface: listen port (random 30000–50000 by default, low-port prompt available), IPv4
-  pool (default `10.8.N.0/24`, validated: RFC1918, no overlap with host routes or other
-  interfaces, minimum size warnings), MTU (default 1420; final guidance after Phase 0 AWG
-  overhead review — junk/signature packets are separate packets, but transport-level overhead
-  must be re-confirmed against the pinned versions on a real VPS), endpoint override
+- Per interface: listen port (recommended default: random 30000–50000, low-port prompt
+  available), IPv4 pool (recommended default `10.8.N.0/24`, validated: RFC1918, no overlap with
+  host routes or other interfaces, minimum size warnings), MTU (recommended default 1420 —
+  Phase 0 pinned the upstream constraints; transport-level overhead on real hardware is
+  confirmed in the Phase 8 VPS matrix before any guidance change), endpoint override
   (host[:port]) for generated client configs.
 - Bulk peer changes use `awg syncconf` (diff-apply without resetting active sessions);
   single-peer ops use `awg set`. One `awg show awgN dump` per interface per accounting cycle

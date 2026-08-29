@@ -25,7 +25,7 @@ current product contract.
 - No redesign of WireGuard cryptography or custom obfuscation schemes.
 - No PostgreSQL/MySQL/Redis/RabbitMQ/Node.js runtime/nginx requirement.
 - No auto-updates; updates are administrator-initiated.
-- Backup/restore is administrative (panel + CLI), not a public REST API surface.
+- Backup/restore is administrative (panel + CLI), not a REST API surface.
 
 ## Core model
 
@@ -37,10 +37,14 @@ current product contract.
   handshake, last endpoint, rx/tx (accumulated), counters for delta accounting.
 - **Plan** — reusable preset (quota, duration, start policy, device limit, speed limit,
   profile). Users do not need a plan; API clients may pass limits directly.
-- **Tunnel interface / profile** — `awg0…awg7`; each = one obfuscation profile with its own
-  listen port, IPv4 subnet pool (default `10.8.N.0/24`), MTU (default 1420), endpoint override.
-  One profile per interface is an upstream constraint (obfuscation params live in `[Interface]`
-  and are shared by all peers). Changing a profile's params is a guided **rotation** workflow.
+- **Tunnel interface / profile** — `awg0…awg7` (8 by default; the cap is administrator-
+  configurable, not an upstream limit); each = one obfuscation profile with its own listen port,
+  IPv4 subnet pool (recommended default `10.8.N.0/24` for `awgN`), MTU (recommended default
+  1420), endpoint override. Ports, MTU, subnet pools, client DNS, and the interface count are
+  **recommended configurable defaults** chosen from upstream constraints — not verified optima;
+  final guidance follows the Phase 8 VPS matrix. One profile per interface is an upstream
+  constraint (obfuscation params live in `[Interface]` and are shared by all peers). Changing a
+  profile's params is a guided **rotation** workflow.
 
 ## Lifecycle
 

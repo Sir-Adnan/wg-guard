@@ -10,8 +10,9 @@ impossible upstream. The product requires per-user/per-plan obfuscation profiles
 
 ## Decision
 
-Manage multiple tunnel interfaces (`awg0…awg7`, cap 8, lazy creation), one per obfuscation
-profile, each with its own listen port and IPv4 pool. A user's profile selects the interface its
+Manage multiple tunnel interfaces (`awg0…awg7` — a cap of 8 is the WG-Guard default, not an
+upstream limit; administrator-configurable in Settings), one per obfuscation profile, each with
+its own listen port and IPv4 pool. A user's profile selects the interface its
 devices' peers live in. Changing a profile's parameters is a guided **rotation** (new interface
 → migrate users/devices → retire old), never a silent in-place edit (existing clients embed the
 old parameters).

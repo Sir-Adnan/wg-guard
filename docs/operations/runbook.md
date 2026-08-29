@@ -6,10 +6,10 @@ this file is the "type this, expect that" reference.
 ## Install
 
 Docker (default): run the installer, answer the prompts (domain/subdomain, panel port, TLS,
-AWG ports, MTU, VPN subnet; optional Telegram backup setup and backup password — everything
-skippable with safe defaults). Verify: `wg-guard status` → service healthy; open the printed
-panel URL; complete the onboarding wizard (owner password, endpoint confirmation, first
-interface + user).
+AWG ports, MTU, VPN subnet; optional Telegram backup setup and optional backup password —
+everything skippable, every value starting at its recommended default). Verify: `wg-guard
+status` → service healthy; open the printed panel URL; complete the onboarding wizard (owner
+password, endpoint confirmation, first interface + user).
 
 Native: same installer with the native mode selected; systemd unit replaces compose.
 

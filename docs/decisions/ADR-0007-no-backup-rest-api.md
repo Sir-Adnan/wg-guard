@@ -1,4 +1,4 @@
-# ADR-0007 — Backup/restore excluded from the public REST API
+# ADR-0007 — Backup/restore excluded from the REST API
 
 Status: accepted · Date: 2026-08-29
 
@@ -11,7 +11,7 @@ archives contain every secret the node holds.
 ## Decision
 
 Backup/restore is exposed through the **web panel (session-authenticated admin endpoints) and
-the CLI** only. The public token API has no backup endpoints by design.
+the CLI** only. The token-authenticated REST API has no backup endpoints by design.
 
 ## Consequences
 
