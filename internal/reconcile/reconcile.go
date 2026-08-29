@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/netip"
 	"sort"
 	"time"
 
@@ -41,9 +42,17 @@ type Engine struct {
 // DriftItem describes one observed difference and the action taken.
 type DriftItem struct {
 	Interface string
-	Kind      string // missing_interface|param_drift|missing_peer|unknown_peer|foreign_interface|unwanted_interface
+	Kind      string // missing_interface|mode_transition|param_drift|missing_peer|unknown_peer|foreign_interface|unwanted_interface
 	Detail    string
-	Action    string // created|applied|added|removed|adopt|reported|none
+	Action    string // created|applied|added|removed|adopt|reported|recreated|none
+}
+
+// InterfaceError is a per-interface failure. Reconcile continues with the
+// other interfaces after collecting it: one broken profile must not take
+// down the whole bring-up (the operator still sees every error).
+type InterfaceError struct {
+	Interface string
+	Err       string
 }
 
 // Report summarizes one reconcile pass.
@@ -55,12 +64,13 @@ type Report struct {
 	PeersRemoved      int
 	PeersUpdated      int
 	Drift             []DriftItem
+	Errors            []InterfaceError
 	Duration          time.Duration
 }
 
-// Run performs one full pass. A failure on one interface aborts the pass
-// with the error (callers decide retry/alert policy); work already done is
-// reflected in the report.
+// Run performs one full pass. DB-level failures abort the pass (nothing can
+// be trusted); backend failures on a single interface are collected in
+// Report.Errors and the pass continues with the remaining interfaces.
 func (e *Engine) Run(ctx context.Context) (*Report, error) {
 	start := time.Now()
 	rep := &Report{}
@@ -77,7 +87,7 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 	for _, ifc := range ifaces {
 		if ifc.Enabled {
 			if err := e.reconcileInterface(ctx, ifc, desired[ifc.ID], knownKeys, rep); err != nil {
-				return nil, err
+				rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
 			}
 			continue
 		}
@@ -86,7 +96,8 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 		switch {
 		case err == nil:
 			if rmErr := e.Backend.RemoveInterface(ctx, ifc.Name); rmErr != nil && !errors.Is(rmErr, tunnel.ErrInterfaceNotFound) {
-				return nil, fmt.Errorf("reconcile: remove disabled %s: %w", ifc.Name, rmErr)
+				rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: rmErr.Error()})
+				continue
 			}
 			rep.InterfacesRemoved++
 			rep.Drift = append(rep.Drift, DriftItem{
@@ -96,7 +107,7 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 		case errors.Is(err, tunnel.ErrInterfaceNotFound):
 			// Already absent: nothing to do.
 		default:
-			return nil, fmt.Errorf("reconcile: dump %s: %w", ifc.Name, err)
+			rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
 		}
 	}
 
@@ -128,11 +139,19 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 // DB has device rows for: a peer carrying one of them but not desired is
 // *stale* (disabled device or user) and is removed — the drift policy
 // governs only keys WG-Guard has never seen.
+//
+// Obfuscation-mode transitions (plain ↔ obfuscated) recreate the link: the
+// pinned runtime accepts explicit zero obfuscation params with EINVAL and
+// keeps old params when the block is omitted, so the all-plain state is only
+// reachable at link creation (verified against amneziawg-go v3.1, WSL2
+// 2026-08-29). Recreating also clears non-WG-Guard peers — their PSKs are
+// unknowable, so they cannot be reconstructed.
 func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desired []peerDesire, knownKeys map[string]bool, rep *Report) error {
 	spec := tunnel.InterfaceSpec{
 		Name:        ifc.Name,
 		ListenPort:  ifc.ListenPort,
 		MTU:         ifc.MTU,
+		Address:     gatewayAddress(ifc.Subnet),
 		Obfuscation: toTunnelObfuscation(ifc.Obf),
 	}
 	wantCfg := tunnel.InterfaceConfig{
@@ -147,10 +166,10 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 	case errors.Is(err, tunnel.ErrInterfaceNotFound):
 		created = true
 		if err := e.Backend.CreateInterface(ctx, spec); err != nil {
-			return fmt.Errorf("reconcile: create %s: %w", ifc.Name, err)
+			return fmt.Errorf("create: %w", err)
 		}
 		if err := e.Backend.ApplyInterfaceConfig(ctx, ifc.Name, wantCfg); err != nil {
-			return fmt.Errorf("reconcile: apply %s: %w", ifc.Name, err)
+			return fmt.Errorf("apply: %w", err)
 		}
 		rep.InterfacesCreated++
 		rep.Drift = append(rep.Drift, DriftItem{
@@ -158,11 +177,31 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 			Detail: "recreated from DB", Action: "created",
 		})
 	case err != nil:
-		return fmt.Errorf("reconcile: dump %s: %w", ifc.Name, err)
+		return fmt.Errorf("dump: %w", err)
 	default:
-		if state.ListenPort != ifc.ListenPort || state.Obfuscation != spec.Obfuscation {
+		modeChanged := state.Obfuscation.Enabled != spec.Obfuscation.Enabled
+		paramDrift := state.ListenPort != ifc.ListenPort || state.Obfuscation != spec.Obfuscation
+		switch {
+		case modeChanged:
+			// Recreate: setconf cannot move between plain and obfuscated
+			// states (see above). Peers are wiped and re-synced below.
+			if err := e.Backend.RemoveInterface(ctx, ifc.Name); err != nil {
+				return fmt.Errorf("recreate remove: %w", err)
+			}
+			if err := e.Backend.CreateInterface(ctx, spec); err != nil {
+				return fmt.Errorf("recreate create: %w", err)
+			}
+			rep.InterfacesUpdated++
+			created = true
+			rep.Drift = append(rep.Drift, DriftItem{
+				Interface: ifc.Name, Kind: "mode_transition",
+				Detail: fmt.Sprintf("obfuscation mode changed (backend plain=%v, DB plain=%v); link recreated, peers re-synced",
+					!state.Obfuscation.Enabled, !spec.Obfuscation.Enabled),
+				Action: "recreated",
+			})
+		case paramDrift:
 			if err := e.Backend.ApplyInterfaceConfig(ctx, ifc.Name, wantCfg); err != nil {
-				return fmt.Errorf("reconcile: apply %s: %w", ifc.Name, err)
+				return fmt.Errorf("apply: %w", err)
 			}
 			rep.InterfacesUpdated++
 			rep.Drift = append(rep.Drift, DriftItem{
@@ -174,7 +213,10 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 		}
 	}
 
-	// Peer diff: desired (enabled devices) vs observed.
+	// Peer diff: desired (enabled devices) vs observed. After a create or
+	// recreate the observed state is empty/wiped: desired peers are synced
+	// wholesale, and stale/unknown peers are simply gone (the
+	// mode_transition drift item records it).
 	want := map[string]bool{}
 	have := map[string]tunnel.PeerState{}
 	for _, p := range state.Peers {
@@ -191,6 +233,12 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 			AllowedIPs:   []string{d.AllowedIP},
 		}
 		sync = append(sync, cfg)
+		if created {
+			// Fresh state: every desired peer is simply added (the
+			// missing_interface/mode_transition drift item covers the why).
+			rep.PeersAdded++
+			continue
+		}
 		existing, ok := have[d.PublicKey]
 		switch {
 		case !ok:
@@ -212,56 +260,58 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 			})
 		}
 	}
-	for key, st := range have {
-		if want[key] {
-			continue
-		}
-		if knownKeys[key] {
-			// Known device, no longer peer-eligible (disabled device or
-			// user, expired, deleted…): the DB is the source of truth.
-			dirty = true
-			rep.PeersRemoved++
-			rep.Drift = append(rep.Drift, DriftItem{
-				Interface: ifc.Name, Kind: "stale_peer",
-				Detail: fmt.Sprintf("device peer %s removed (not peer-eligible in DB)", describe(key, st)),
-				Action: "removed",
-			})
-			continue
-		}
-		// Truly unknown peer on an owned interface: drift policy decides.
-		// Under report/adopt the peer is passed back to SyncPeers without a
-		// PSK (omitted PSK keeps the stored one — syncconf semantics).
-		switch e.Policy {
-		case PolicyRemove:
-			dirty = true
-			rep.PeersRemoved++
-			rep.Drift = append(rep.Drift, DriftItem{
-				Interface: ifc.Name, Kind: "unknown_peer",
-				Detail: fmt.Sprintf("unknown peer %s removed (drift policy)", describe(key, st)),
-				Action: "removed",
-			})
-		case PolicyAdopt:
-			sync = append(sync, tunnel.PeerConfig{
-				PublicKey:        key,
-				AllowedIPs:       st.AllowedIPs,
-				KeepaliveSeconds: st.KeepaliveSeconds,
-			})
-			rep.Drift = append(rep.Drift, DriftItem{
-				Interface: ifc.Name, Kind: "unknown_peer",
-				Detail: fmt.Sprintf("unknown peer %s adopted (drift policy)", describe(key, st)),
-				Action: "adopt",
-			})
-		default: // report
-			sync = append(sync, tunnel.PeerConfig{
-				PublicKey:        key,
-				AllowedIPs:       st.AllowedIPs,
-				KeepaliveSeconds: st.KeepaliveSeconds,
-			})
-			rep.Drift = append(rep.Drift, DriftItem{
-				Interface: ifc.Name, Kind: "unknown_peer",
-				Detail: fmt.Sprintf("unknown peer %s reported (drift policy)", describe(key, st)),
-				Action: "reported",
-			})
+	if !created {
+		for key, st := range have {
+			if want[key] {
+				continue
+			}
+			if knownKeys[key] {
+				// Known device, no longer peer-eligible (disabled device or
+				// user, expired, deleted…): the DB is the source of truth.
+				dirty = true
+				rep.PeersRemoved++
+				rep.Drift = append(rep.Drift, DriftItem{
+					Interface: ifc.Name, Kind: "stale_peer",
+					Detail: fmt.Sprintf("device peer %s removed (not peer-eligible in DB)", describe(key, st)),
+					Action: "removed",
+				})
+				continue
+			}
+			// Truly unknown peer on an owned interface: drift policy decides.
+			// Under report/adopt the peer is passed back to SyncPeers without
+			// a PSK (omitted PSK keeps the stored one — syncconf semantics).
+			switch e.Policy {
+			case PolicyRemove:
+				dirty = true
+				rep.PeersRemoved++
+				rep.Drift = append(rep.Drift, DriftItem{
+					Interface: ifc.Name, Kind: "unknown_peer",
+					Detail: fmt.Sprintf("unknown peer %s removed (drift policy)", describe(key, st)),
+					Action: "removed",
+				})
+			case PolicyAdopt:
+				sync = append(sync, tunnel.PeerConfig{
+					PublicKey:        key,
+					AllowedIPs:       st.AllowedIPs,
+					KeepaliveSeconds: st.KeepaliveSeconds,
+				})
+				rep.Drift = append(rep.Drift, DriftItem{
+					Interface: ifc.Name, Kind: "unknown_peer",
+					Detail: fmt.Sprintf("unknown peer %s adopted (drift policy)", describe(key, st)),
+					Action: "adopt",
+				})
+			default: // report
+				sync = append(sync, tunnel.PeerConfig{
+					PublicKey:        key,
+					AllowedIPs:       st.AllowedIPs,
+					KeepaliveSeconds: st.KeepaliveSeconds,
+				})
+				rep.Drift = append(rep.Drift, DriftItem{
+					Interface: ifc.Name, Kind: "unknown_peer",
+					Detail: fmt.Sprintf("unknown peer %s reported (drift policy)", describe(key, st)),
+					Action: "reported",
+				})
+			}
 		}
 	}
 
@@ -269,7 +319,7 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 	// churn every cycle).
 	if dirty {
 		if err := e.Backend.SyncPeers(ctx, ifc.Name, sync); err != nil {
-			return fmt.Errorf("reconcile: sync %s: %w", ifc.Name, err)
+			return fmt.Errorf("sync: %w", err)
 		}
 	}
 	return nil
@@ -302,10 +352,22 @@ type dbInterface struct {
 	ID         string
 	Name       string
 	ListenPort int
+	Subnet     string // device pool CIDR, e.g. "10.8.0.0/24"
 	MTU        int
 	Obf        obfuscation
 	Enabled    bool
 	PrivateKey string // decrypted for backend apply
+}
+
+// gatewayAddress derives the interface address (first host of the pool) —
+// the same address the device allocator reserves (.1, internal/iface).
+// Derived, not stored: it is a pure function of the pool.
+func gatewayAddress(subnet string) string {
+	p, err := netip.ParsePrefix(subnet)
+	if err != nil {
+		return "" // invalid pool: creation fails later with a clear error
+	}
+	return netip.PrefixFrom(p.Addr().Next(), p.Bits()).String()
 }
 
 type obfuscation struct {
@@ -334,7 +396,7 @@ type peerDesire struct {
 }
 
 func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
-	rows, err := e.DB.QueryContext(ctx, `SELECT id, name, listen_port, mtu, public_key,
+	rows, err := e.DB.QueryContext(ctx, `SELECT id, name, listen_port, ipv4_subnet, mtu, public_key,
 		private_key_encrypted, jc, jmin, jmax, s1, s2, h1, h2, h3, h4, enabled
 		FROM tunnel_interfaces ORDER BY name`)
 	if err != nil {
@@ -350,7 +412,7 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			jc, jmin, jm, s1, s2 sql.NullInt64
 			h1, h2, h3, h4       sql.NullInt64
 		)
-		if err := rows.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.MTU, &pubkey, &privEnc,
+		if err := rows.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.Subnet, &ifc.MTU, &pubkey, &privEnc,
 			&jc, &jmin, &jm, &s1, &s2, &h1, &h2, &h3, &h4, &ifc.Enabled); err != nil {
 			return nil, fmt.Errorf("reconcile: scan interface: %w", err)
 		}

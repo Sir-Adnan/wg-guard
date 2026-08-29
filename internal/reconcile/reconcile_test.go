@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -375,8 +376,92 @@ func TestReconcileFailureInjected(t *testing.T) {
 	h.seedProfile(t, "awg0", 1, true)
 	boom := errors.New("injected backend failure")
 	h.backend.FailOn[fake.OpSync] = boom
-	if _, err := h.engine.Run(ctx); !errors.Is(err, boom) {
-		t.Fatalf("expected injected failure, got %v", err)
+	rep, err := h.engine.Run(ctx)
+	if err != nil {
+		t.Fatalf("per-interface failures are collected, not returned: %v", err)
+	}
+	if len(rep.Errors) != 1 || !strings.Contains(rep.Errors[0].Err, "injected backend failure") {
+		t.Fatalf("errors = %+v", rep.Errors)
+	}
+	if rep.Errors[0].Interface != "awg0" {
+		t.Fatalf("error interface = %q", rep.Errors[0].Interface)
+	}
+}
+
+// A failing interface must not abort the pass: interfaces are processed in
+// name order, so awg0's (one-shot) sync failure is collected and awg1 still
+// reconciles cleanly.
+func TestReconcileFailureDoesNotAbortOtherInterfaces(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	h.seedProfile(t, "awg0", 1, true)
+	h.seedProfile(t, "awg1", 1, true)
+	h.backend.FailOn[fake.OpSync] = errors.New("awg0-only failure")
+
+	rep, err := h.engine.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Errors) != 1 || rep.Errors[0].Interface != "awg0" {
+		t.Fatalf("errors = %+v", rep.Errors)
+	}
+	// awg1 was fully created despite awg0's failure.
+	st, err := h.backend.Dump(ctx, "awg1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Peers) != 1 {
+		t.Fatalf("awg1 peers = %d, want 1", len(st.Peers))
+	}
+}
+
+// An obfuscation-mode transition (foreign drift, or a future profile-edit
+// flow) cannot be done with setconf on the pinned runtime — the engine
+// recreates the link and re-syncs peers.
+func TestReconcileModeTransitionRecreates(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	h.seedProfile(t, "awg0", 1, true) // plain profile
+	if _, err := h.engine.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	h.backend.ResetOps()
+
+	// Foreign drift: someone obfuscated the interface out-of-band.
+	if err := h.backend.SetObfuscation("awg0", tunnel.Obfuscation{
+		Enabled: true, Jc: 8, Jmin: 40, Jmax: 70, S1: 15, S2: 64,
+		H1: 1, H2: 2, H3: 3, H4: 4,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rep, err := h.engine.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var item *DriftItem
+	for i := range rep.Drift {
+		if rep.Drift[i].Kind == "mode_transition" {
+			item = &rep.Drift[i]
+		}
+	}
+	if item == nil || item.Action != "recreated" {
+		t.Fatalf("mode transition not recreated: %+v", rep.Drift)
+	}
+	ops := h.backend.Ops()
+	if len(ops) < 2 || ops[0].Kind != fake.OpRemove || ops[1].Kind != fake.OpCreate {
+		t.Fatalf("op sequence must be remove+create: %+v", ops)
+	}
+	if rep.PeersAdded != 1 {
+		t.Fatalf("peers must be re-synced after recreate: %+v", rep)
+	}
+	// The interface is plain again after recreation.
+	st, err := h.backend.Dump(ctx, "awg0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Obfuscation.Enabled || len(st.Peers) != 1 {
+		t.Fatalf("post-recreate state = %+v peers=%d", st.Obfuscation, len(st.Peers))
 	}
 }
 

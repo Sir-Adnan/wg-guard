@@ -16,9 +16,10 @@ Usage:
   wg-guard <command> [flags]
 
 Commands:
-  version   Print version information
-  serve     Run the WG-Guard service (Phase 1)
-  help      Show this help
+  version     Print version information
+  reconcile   Bring tunnels, peers, and firewall to DB state (boot bring-up)
+  serve       Run the WG-Guard service (Phase 4)
+  help        Show this help
 `
 
 func main() {
@@ -32,8 +33,13 @@ func main() {
 		fmt.Println(version.String())
 	case "help", "-h", "--help":
 		fmt.Print(usage)
+	case "reconcile":
+		if err := runReconcile(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: reconcile: %v\n", err)
+			os.Exit(1)
+		}
 	case "serve":
-		fmt.Fprintln(os.Stderr, "wg-guard: serve is not implemented yet (Phase 1)")
+		fmt.Fprintln(os.Stderr, "wg-guard: serve is not implemented yet (Phase 4)")
 		os.Exit(1)
 	default:
 		fmt.Fprintf(os.Stderr, "wg-guard: unknown command %q\n\n%s", os.Args[1], usage)

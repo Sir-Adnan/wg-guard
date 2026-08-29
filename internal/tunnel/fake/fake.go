@@ -139,6 +139,10 @@ func (b *Backend) ApplyInterfaceConfig(_ context.Context, name string, cfg tunne
 	}
 	b.record(OpApply, name)
 	ifc.cfg = cfg
+	// NB: unlike the real runtime (where omitted obfuscation params persist),
+	// the fake applies the config struct verbatim — the reconcile engine
+	// never issues setconf for mode transitions (it recreates the link), so
+	// full-replace stays a faithful model of the operations it issues.
 	if cfg.ListenPort != 0 {
 		ifc.spec.ListenPort = cfg.ListenPort
 	}
@@ -260,5 +264,19 @@ func (b *Backend) SetPublicKey(name, publicKey string) error {
 		return tunnel.ErrInterfaceNotFound
 	}
 	ifc.publicKey = publicKey
+	return nil
+}
+
+// SetObfuscation simulates foreign drift on the interface parameters (the
+// panel does not expose in-place edits; tests use it to drive the
+// mode-transition recreate path).
+func (b *Backend) SetObfuscation(name string, o tunnel.Obfuscation) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	ifc, exists := b.interfaces[name]
+	if !exists {
+		return tunnel.ErrInterfaceNotFound
+	}
+	ifc.spec.Obfuscation = o
 	return nil
 }

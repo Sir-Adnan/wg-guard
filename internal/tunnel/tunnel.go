@@ -32,12 +32,16 @@ type Obfuscation struct {
 }
 
 // InterfaceSpec is the identity-level configuration of a backend interface.
+// Address was added in Phase 2: a backend that creates the link (kernel path)
+// must assign the interface gateway address at bring-up, and the spec is the
+// only state the backend receives — the phase-1 draft omitted it.
 type InterfaceSpec struct {
 	Name        string
 	PrivateKey  string // base64
 	ListenPort  int
 	Fwmark      string // "" = off
 	MTU         int
+	Address     string // interface gateway CIDR, e.g. "10.8.0.1/24"
 	Obfuscation Obfuscation
 }
 

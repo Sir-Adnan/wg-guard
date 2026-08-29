@@ -106,6 +106,26 @@ set itself before ever invoking `awg`: `Jc` 1–128 (recommended 4–12), `Jmin 
 `S1 ≤ 1132`, `S2 ≤ 1188`, `S1 + 56 ≠ S2`, `H1–H4` pairwise distinct. Client↔server parity rule:
 all params must match except `Jc/Jmin/Jmax` and `I1–I5` (client-side).
 
+## setconf semantics for obfuscation params (verified Phase 2, WSL2)
+
+Two facts verified against the pinned userspace daemon (2026-08-29, exercised by the
+`internal/tunnel/amneziawg` integration tests) that the parser/kernel-README alone do not
+reveal:
+
+1. **Explicit zeros are rejected.** `setconf` with an all-zero obfuscation block
+   (`Jc = 0 … H4 = 0`) fails with `Unable to modify interface: Invalid argument` — the runtime
+   enforces the constraint set on the *written* values, so the all-plain state is not directly
+   settable.
+2. **Omitted keys persist.** `setconf` without an obfuscation block leaves previously-set
+   params untouched (setconf replaces peers and written fields; obfuscation params persist).
+   WG-Guard's verify-after-apply catches the resulting state mismatch.
+
+Consequence (implemented): a profile cannot move between plain and obfuscated states in place.
+The all-plain state exists only at link creation, so obfuscation-mode transitions recreate the
+link (remove + create + peer re-sync) — owned by the reconcile engine. Same-mode value changes
+apply cleanly via `setconf`. Kernel-backend parity of these two facts remains a Phase 8 matrix
+item.
+
 ## Interface naming
 
 AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-…` filename over
@@ -122,6 +142,9 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | Dump format + field order | userspace daemon + `dump_print` source | 29-field interface line, 8-field peer line | ✅ verified (WSL2 + source) |
 | UAPI socket path | daemon source + runtime | `/var/run/amneziawg/<iface>.sock` | ✅ verified |
 | Runtime constraint rejection | `awg setconf` with duplicate H | rejected (`Invalid argument`) | ✅ verified (userspace) |
+| setconf explicit-zero obfuscation block | `awg setconf` with `Jc=0…H4=0` | rejected (`Invalid argument`) | ✅ verified (userspace, Phase 2 integration test) |
+| setconf omitted obfuscation keys persist | apply obf config, then plain config without block | old params kept (verify detects) | ✅ verified (userspace, Phase 2 integration test) |
+| setconf/syncconf/dump round-trip via WG-Guard backend | `go test -tags integration ./internal/tunnel/amneziawg` (WSL2, root) | pass | ✅ verified (userspace) |
 | genkey/genpsk/pubkey | direct invocation | work as wireguard-tools | ✅ verified |
 | Userspace daemon on WSL2 | built + ran `amneziawg-go awg0` | works (TUN, setconf, dump) | ✅ verified |
 | DKMS module build | `apt install amneziawg-dkms` | module compiled (for host kernel series) | ✅ verified (build only) |

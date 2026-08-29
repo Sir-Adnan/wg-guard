@@ -37,8 +37,11 @@ webhook/Telegram credentials) are unrecoverable by design — devices can be re-
 is documented honestly as data loss.
 
 No `math/rand` for secrets; `crypto/rand` everywhere. Secrets are passed to subprocesses via
-stdin or 0600 temp files, never argv, never shell interpolation (`exec.Command` with explicit
-argv only).
+stdin or 0600 temp files, never argv, never shell interpolation. All exec traffic goes through
+`internal/subprocess` — the single audited choke point (explicit argv, per-command timeout,
+structured exit errors): `awg` config files are written to 0600 temp files that live only for
+the duration of one CLI call; command stdout (which can contain key material, e.g. `awg show
+dump`) is parsed, never logged, and never embedded in errors.
 
 ## Panel hardening
 
@@ -57,6 +60,9 @@ argv only).
   coexistence handled explicitly (see [../architecture/networking.md](../architecture/networking.md)).
 - Subprocess surface minimized: pinned `awg` binary, argv-only, timeouts, output treated as
   untrusted input, parsed strictly (see [../integrations/amneziawg.md](../integrations/amneziawg.md)).
+  Applied configs are verified after apply (post-apply dump must match the applied key/port/
+  obfuscation set), so a silently-ignored write becomes a hard error rather than invisible
+  drift.
 - Systemd hardening in native mode; non-privileged container defaults with only `NET_ADMIN`
   added, in Docker mode.
 

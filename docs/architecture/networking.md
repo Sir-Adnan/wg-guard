@@ -26,19 +26,39 @@ self-inflicted outage).
 - Everything lives in one namespaced table: `table inet wgguard`. Rules are commented
   `wgguard:managed`. WG-Guard **never** flushes or edits foreign tables (Docker, ufw, admin
   rules) and only ever *adds* scoped rules — never global policies.
-- Contents: forward accept for `awgN` subnets (priority `filter + 10` so host firewall chains
-  evaluate first), srcnat masquerade (or explicit SNAT) for tunnel egress.
+- The table is applied as **rendered state**: its full content is a pure function of the
+  enabled interfaces' device pools, applied atomically with `nft -f` (probe → when present,
+  one transaction deletes and recreates it, so re-applying never duplicates rules; with zero
+  enabled interfaces the desired state is "no table"). Forward chain priority 10 (after the
+  standard `filter` chains evaluate), postrouting priority 100 (`srcnat`); chain policies are
+  `accept` because a base chain needs one and `drop` here would be a global policy.
+- Contents: forward accept for `awgN` (both directions), and per-interface masquerade
+  `oifname != "awgN" ip saddr <pool> masquerade` — the wg-quick pattern, so multi-WAN hosts and
+  interface renames need no re-config. Tunnel-to-tunnel traffic is masqueraded too (same as
+  wg-quick); per-profile isolation stays a possible future setting.
 - **Firewall coexistence**: doctor/installer detect ufw/firewalld. With ufw's default forward
-  DROP policy, forwarded tunnel traffic dies before our accept rules run — so we add the
-  required allow rule *through that framework* (`ufw route allow in on awgN`) or print the
-  exact commands. This is the most common "installed fine, no traffic" failure and is handled
+  DROP policy, forwarded tunnel traffic dies before our accept rules run — so bring-up adds the
+  required allow rule *through that framework* (`ufw route allow in on awgN`, idempotent) and
+  reports findings (active managers, whether the routed policy blocks forwarding, and the exact
+  remedy commands). This is the most common "installed fine, no traffic" failure and is handled
   explicitly.
 - Uninstaller removes exactly the `wgguard` table and nothing else.
 
 ## Sysctls & system state
 
-`net.ipv4.ip_forward=1` (and IPv6 forwarding when used) set idempotently; prior values recorded
-under `/var/lib/wg-guard` for clean restore on uninstall. Recorded in the runbook.
+`net.ipv4.ip_forward=1` (and IPv6 forwarding when used) set idempotently at bring-up (the read
+value is checked first; only `sysctl -w` when off); prior values are recorded under
+`/var/lib/wg-guard` for clean restore on uninstall. Recorded in the runbook.
+
+## Reconciliation of mode changes
+
+The pinned runtime cannot switch an interface between plain and obfuscated states with
+`setconf` (explicit zeros are rejected; omitted keys persist — see
+[../integrations/amneziawg.md](../integrations/amneziawg.md)). The reconcile engine therefore
+recreates the link (remove → create → peer re-sync) when it observes an obfuscation-mode
+transition; same-mode parameter drift applies via `setconf`. Peer reconciliation of a freshly
+(re)created interface re-adds desired devices wholesale; non-WG-Guard peers are lost by
+recreation (their PSKs are unknowable) and the drift report says so.
 
 ## Shaping (speed limits)
 

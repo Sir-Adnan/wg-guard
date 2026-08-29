@@ -8,6 +8,28 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 2 — AWG backend & networking** (unit tested, `-race` clean; userspace paths
+  integration-tested against the pinned runtime in WSL2):
+  - `subprocess` package: the single exec choke point — explicit argv only (never a shell),
+    per-command timeout, structured exit errors; stdout (which can contain key material) is
+    never embedded in errors or logs (`internal/subprocess`).
+  - Real `TunnelBackend`: pinned `awg` CLI driven through the choke point — setconf/syncconf
+    renderer, 29-field AWG v3.1 dump parser (field-count gate rejects unknown formats loudly),
+    interface lifecycle via iproute2 with link rollback, verify-after-apply gate,
+    tools-version probe (`internal/tunnel/amneziawg`).
+  - `network` package: `ip link/addr` wrappers with missing-link classification, idempotent
+    IPv4 forwarding via sysctl (`internal/network`).
+  - `firewall` package: namespaced `table inet wgguard` applied as rendered state (atomic
+    `nft -f` delete+recreate, no duplicate rules on re-apply), forward-accept + masquerade,
+    ufw/firewalld coexistence detection with idempotent `ufw route allow` for managed
+    interfaces (`internal/firewall`).
+  - `boot` package: bring-up orchestration (tooling probe → forwarding → reconcile → firewall
+    → coexistence) shared by the CLI and the future `serve`; per-interface error collection so
+    one broken profile cannot abort bring-up; audit record (`internal/boot`).
+  - `wg-guard reconcile` CLI command: full boot bring-up with a human-readable report.
+  - Integration tests (`-tags integration`, WSL2/root): real amneziawg-go setconf/syncconf/
+    dump round-trip incl. verify gate and runtime constraint rejection; real nftables
+    apply/re-apply/remove cycle.
 - **Phase 1 — core foundation** (all unit tested, `-race` clean):
   - Boot config (TOML + env overrides) with TLS-exposure validation (`internal/config`).
   - SQLite layer: WAL, busy_timeout, bounded pool, `txlock=immediate` write transactions
@@ -42,6 +64,16 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Changed
+- Phase 2 discoveries pinned in `docs/integrations/amneziawg.md`: the runtime rejects
+  explicit-zero obfuscation params (`EINVAL`) and keeps obfuscation params omitted from
+  `setconf` — so plain↔obfuscated profile transitions recreate the link (reconcile-owned);
+  plain profiles omit the obfuscation block entirely (an earlier explicit-zeros design was
+  corrected by the integration test).
+- Reconcile engine: per-interface failures are collected into `Report.Errors` (bring-up
+  continues; `wg-guard reconcile` exits non-zero) instead of aborting the whole pass; fresh
+  create/recreate counts peer adds and forces a peer re-sync.
+- `tunnel.InterfaceSpec` gains `Address` (gateway CIDR): a link-creating backend needs the
+  interface address at bring-up; the phase-1 draft omitted it.
 - Terminology consistency: "management/REST API" (never "public API"); backup password
   documented as strictly optional; ports/MTU/DNS/interface cap framed as recommended
   configurable defaults pending the Phase 8 VPS matrix.
