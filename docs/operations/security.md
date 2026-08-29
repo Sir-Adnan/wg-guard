@@ -21,9 +21,20 @@ access). Principles: least privilege, secure defaults, standard primitives only,
 | Admin passwords | argon2id (OWASP parameter baseline), never plaintext, never logged |
 | Admin sessions | random tokens, stored hashed; HttpOnly, Secure, SameSite=Lax cookies; absolute + idle expiry; rotation on login |
 | API tokens | `wg_` + 32 chars crypto/rand; stored as SHA-256 with indexed prefix; scopes, expiry, optional CIDR allowlist; revocable |
-| Device private keys / preshared keys | AES-256-GCM encrypted with the node-local master key (32 B, file 0600 outside the DB); required for config re-download; rotation procedure + loss consequence documented |
+| Device private keys / preshared keys | AES-256-GCM encrypted with the node-local master key (32 B, file 0600 outside the DB); required for config re-download; rotation procedure below + loss consequence documented |
 | Webhook secrets, Telegram credentials, backup password | encrypted at rest with the master key |
 | Audit log | never contains secrets (redaction list enforced in code) |
+
+### Master-key rotation (implemented in `internal/secrets`)
+
+Rotation is crash-safe via a dual-key window: (1) the old key file is renamed to
+`master.key.prev` and a new key takes its place — from this instant both key versions can
+decrypt; (2) every carrier (interface keys, device keys, encrypted settings) re-encrypts its
+rows old→new; (3) on full success `.prev` is deleted. A crash at any point leaves the key ring
+(current + previous) able to decrypt every stored envelope; the next boot resumes with both keys
+loaded. If the master key **and** every backup are lost, encrypted secrets (device private keys,
+webhook/Telegram credentials) are unrecoverable by design — devices can be re-enrolled, but this
+is documented honestly as data loss.
 
 No `math/rand` for secrets; `crypto/rand` everywhere. Secrets are passed to subprocesses via
 stdin or 0600 temp files, never argv, never shell interpolation (`exec.Command` with explicit

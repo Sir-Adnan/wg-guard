@@ -7,8 +7,8 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 
 | Table | Purpose / key columns |
 |---|---|
-| `tunnel_interfaces` | name (`awg0…awg7`, unique), listen_port, ipv4_subnet, mtu, obfuscation params (Jc, Jmin, Jmax, S1, S2, H1–H4, optional I1–I5 blob, preset name), enabled, backend mode, endpoint override |
-| `users` | id (UUIDv7), username UNIQUE, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_kbps, device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, metadata JSON |
+| `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1, S2, H1–H4, optional I1–I5 blob, preset name), enabled, backend mode, endpoint override |
+| `users` | id (UUIDv7), username UNIQUE, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_kbps, device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit, interface/profile selector, enabled |
 | `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled |

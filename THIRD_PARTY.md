@@ -2,8 +2,7 @@
 
 WG-Guard is MIT-licensed. This file lists third-party code and assets that are vendored,
 embedded, or executed, with their licenses. SPDX identifiers are confirmed against the actual
-pinned version at the time each dependency is introduced (Phase 1+); entries below marked
-"planned" are not yet vendored.
+pinned version when the dependency is introduced.
 
 ## Executed, not distributed
 
@@ -16,15 +15,20 @@ Executing a GPL program as a separate process is not covered by the GPL. WG-Guar
 redistribute AWG binaries inside its own artifacts; the installer installs upstream packages
 from the official PPA, whose source availability satisfies the license.
 
-## Planned Go dependencies (SPDX to be confirmed at pin time, Phase 1+)
+## Active Go dependencies (confirmed at pin time)
+
+| Module | Version | License | Purpose |
+|---|---|---|---|
+| modernc.org/sqlite | v1.57.0 | MIT (bundled SQLite sources: public domain / SQLite blessing — see LICENSE-SQLITE in the module) | Pure-Go SQLite driver (CGO_ENABLED=0) |
+| golang.org/x/crypto | v0.55.0 | BSD-3-Clause | argon2id password hashing |
+| BurntSushi/toml | v1.6.0 | MIT | Boot configuration file |
+
+## Planned Go dependencies (SPDX to be confirmed at pin time)
 
 | Module | License (expected) | Purpose |
 |---|---|---|
-| modernc.org/sqlite | MIT (bundled SQLite: public domain / SQLite blessing) | Pure-Go SQLite driver |
-| golang.org/x/crypto | BSD-3-Clause | argon2id password hashing |
 | golang.org/x/time/rate | BSD-3-Clause | Rate limiting |
 | filippo.io/age | BSD-3-Clause | Standard age encryption for optional backup protection |
-| BurntSushi/toml | MIT | Boot configuration file |
 | skip2/go-qrcode | MIT (to confirm) | Server-side QR generation |
 
 ## Planned embedded frontend assets (committed prebuilt; no Node.js at runtime)

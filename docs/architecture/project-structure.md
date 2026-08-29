@@ -10,31 +10,33 @@ cmd/wg-guard/            CLI entry: serve, version, status, doctor, backup, rest
                          parsing — no CLI framework)
 internal/
   config/                boot config (TOML + env overrides), validation, exposure modes
-  database/              SQLite open (WAL, busy_timeout, FK), migrations runner, tx helpers
-  domain/                shared types: IDs, statuses, disable reasons, machine error codes
+  database/              SQLite open (WAL, busy_timeout, FK, txlock=immediate), migrations runner, tx helpers
+  domain/                shared types: IDs (UUIDv7), statuses, disable reasons, machine error codes
   settings/              typed runtime settings registry (validators, categories, defaults)
   user/ device/ plan/    domain packages: model + service + repository
-  interface/             tunnel interface/profile service (ports, subnets, params, rotation)
-  admin/ auth/           owner/admin accounts, argon2id, sessions, CSRF, permission registry
+  iface/                 tunnel interface/profile service (ports, subnets, params, rotation);
+                         package name `iface` — `interface` is a Go keyword
+  admin/ auth/           owner/admin accounts, argon2id, sessions, permission registry
   token/                 API tokens (hash storage, scopes, CIDR allowlists)
-  tunnel/                TunnelBackend interface + types
+  secrets/               master key ring, AES-256-GCM cipher, crash-safe master-key rotation
+  tunnel/                TunnelBackend interface + types + key generation (standard X25519)
     amneziawg/           pinned AWG implementation: exec wrapper, conf renderer, dump parser,
                          capability detection (see ../integrations/amneziawg.md)
     fake/                in-memory backend for tests/dev (no root required)
-  firewall/              namespaced nftables table `wgguard`, NAT/forward rules
-  network/               ip link/addr wrappers, sysctls, interface detection
-  shaper/                tc (HTB) speed limiting, deterministic rebuildable rendering
-  accounting/            delta counters, persistence, quota enforcement, rollups
-  scheduler/             one centralized scheduler (due-heap): expiry, accounting, webhooks,
-                         backups, housekeeping — no per-user goroutines
-  webhook/               durable event delivery: events table, worker, HMAC signing
-  audit/                 audit log (never secrets)
-  backup/                archive builder/restorer (tar.gz, optional age password), sinks
   reconcile/             boot-time + continuous DB↔kernel reconciliation
-  metrics/               healthz/readyz + optional hand-written /metrics
-  i18n/                  fa/en catalogs (embedded), locale helpers, Jalali date conversion
-  api/                   REST /api/v1: handlers, middleware, errors, pagination, idempotency
-  web/                   admin UI handlers, session middleware, template rendering
+  audit/                 audit log (never secrets)
+  firewall/              namespaced nftables table `wgguard`, NAT/forward rules (Phase 2)
+  network/               ip link/addr wrappers, sysctls, interface detection (Phase 2)
+  shaper/                tc (HTB) speed limiting, deterministic rebuildable rendering (Phase 3)
+  accounting/            delta counters, persistence, quota enforcement, rollups (Phase 3)
+  scheduler/             one centralized scheduler (due-heap): expiry, accounting, webhooks,
+                         backups, housekeeping — no per-user goroutines (Phase 3+)
+  webhook/               durable event delivery: events table, worker, HMAC signing (Phase 4)
+  backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6)
+  metrics/               healthz/readyz + optional hand-written /metrics (Phase 4)
+  i18n/                  fa/en catalogs (embedded), locale helpers, Jalali dates (Phase 5)
+  api/                   REST /api/v1: handlers, middleware, errors, pagination, idempotency (Phase 4)
+  web/                   admin UI handlers, session middleware, template rendering (Phase 5)
 web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
 migrations/              numbered SQL migrations (embedded)
 packaging/               systemd unit, sysctl fragment, Dockerfile, compose template

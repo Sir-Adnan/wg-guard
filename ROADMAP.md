@@ -8,7 +8,7 @@ requires real VPS verification). Full acceptance criteria per phase:
 | Phase | Scope | Status |
 |---|---|---|
 | **0 — Documentation & scaffold** | Docs tree, ADRs, repo scaffold, CI; Go toolchain; WSL2 Ubuntu + pinned AmneziaWG packages → verified upstream facts | ✅ Complete |
-| **1 — Core foundation** | Config, DB/migrations, settings registry, crypto/secret store, admins/sessions/tokens/scopes, user/device/plan/interface services, `TunnelBackend` + fake backend, reconcile engine | ⬜ Not started |
+| **1 — Core foundation** | Config, DB/migrations, settings registry, crypto/secret store, admins/sessions/tokens/scopes, user/device/plan/interface services, `TunnelBackend` + fake backend, reconcile engine | ✅ Complete |
 | **2 — AWG backend & networking** | Exec wrapper (pinned CLI), interface lifecycle, `syncconf` peer ops, dump parsing, nftables manager, sysctls, firewall coexistence, reconcile-on-boot | ⬜ Not started |
 | **3 — Limits & accounting** | Delta accounting, quota/expiry enforcement, first-connection activation, tc shaper, traffic samples/rollups | ⬜ Not started |
 | **4 — REST API** | Full `/api/v1` management surface, idempotency, pagination, error envelope, rate limits, durable webhooks, OpenAPI + coverage test | ⬜ Not started |
