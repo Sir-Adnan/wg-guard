@@ -1,0 +1,6 @@
+# `awg show awg0 dump` — userspace backend (amneziawg-go v3.1.20260828)
+# Captured in WSL2 Ubuntu 26.04 on 2026-08-29; keys redacted.
+# NOTE: the interface line has 29 tab-separated fields in AWG v3.1 tools
+# (stock WireGuard dump has only 4). See docs/integrations/amneziawg.md.
+SFMhedNboAgpzEeKzfGmz1hC0iKD+R2Odzwlb5izG1A=	HmFweuq2rTVwdSFIV60UeFB3CRHafUv9T1jdAW4vQVw=	39411	5	40	70	86	61	0	0	1234567	2345678	3456789	4567890	(null)	(null)	(null)	(null)	(null)	(none)	0	0	0	0	0	0	off	off	off
+HSg3u5yrUGweFJcJ0giKX1/swvDP5LBohvXihss3Mi8=	(none)	(none)	10.8.0.2/32	0	0	0	off
