@@ -8,11 +8,15 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Minimum supported toolchain (go.mod) plus the current stable one.
+        go-version: [1.25.x, stable]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version: ${{ matrix.go-version }}
       - name: gofmt check
         run: test -z "$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
       - name: go vet
@@ -33,3 +37,13 @@ jobs:
           go-version: stable
       - name: Build
         run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -o wg-guard ./cmd/wg-guard
+
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: govulncheck (tool version pinned)
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...

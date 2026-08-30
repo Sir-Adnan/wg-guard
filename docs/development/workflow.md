@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- Go ≥ 1.22 (module `github.com/Sir-Adnan/wg-guard`), `CGO_ENABLED=0`.
+- Go ≥ 1.25 (the version declared in `go.mod`; module
+  `github.com/Sir-Adnan/wg-guard`), `CGO_ENABLED=0`.
 - Linux-specific verification runs inside WSL2 Ubuntu (`wsl -d Ubuntu`) or CI; a real KVM VPS is
   required for final kernel/firewall verification (see [status.md](status.md)).
 
@@ -32,9 +33,11 @@ make tidy         # go mod tidy
 
 ## CI (GitHub Actions)
 
-- `gofmt` check, `go vet`, unit tests + race tests on Linux.
+- `gofmt` check, `go vet`, unit tests + race tests on Linux — against both the minimum
+  supported toolchain (`1.25.x`) and `stable`.
 - Build matrix: `CGO_ENABLED=0` for linux/amd64 and linux/arm64.
-- `govulncheck` (added with Phase 1 dependencies).
+- `govulncheck` (tool version pinned in the workflow) scans all packages for reachable
+  vulnerabilities in dependencies.
 - Release pipeline (Phase 8): checksummed binaries + provenance notes; no signing secrets in
   the repository.
 

@@ -7,6 +7,20 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ## [Unreleased]
 
+### Fixed
+- **CI: flaky token-forgery test** (`internal/token` `TestVerifyRejectsForgedAndRevoked`,
+  failed ~1 in 16 runs): the forged token was built by overwriting the last plaintext
+  character with a fixed symbol, which reproduces the original whenever the minted token
+  already ends in that symbol — the final base64url character of a 32-byte token carries only
+  4 bits of entropy. The mutation now guarantees a different token, and an unknown but
+  well-formed token is covered explicitly.
+
+### Changed
+- **CI**: the test job runs on the minimum supported toolchain (`1.25.x`, per `go.mod`) in
+  addition to `stable`; a `govulncheck` job scans all packages with a pinned tool version
+  (documented since Phase 1 but previously missing from the workflow).
+  [docs/development/workflow.md](docs/development/workflow.md) synced.
+
 ### Added
 - **Phase 4 — REST API** (all unit tested, `-race` clean; real-tc/ingress paths integration
   tested in WSL2):
