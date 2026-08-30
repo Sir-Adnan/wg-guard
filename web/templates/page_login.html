@@ -1,0 +1,30 @@
+{{define "title"}}{{.T "login.title"}}{{end}}
+{{define "content"}}
+<h1>{{.T "login.title"}}</h1>
+<p class="sub">{{.T "login.subtitle"}}</p>
+
+{{if .Data.Created}}<div class="auth-alert auth-alert--ok">{{.IconS "check"}}<span>{{.T "login.account_created"}}</span></div>{{end}}
+{{if .Data.Expired}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.T "login.session_expired"}}</span></div>{{end}}
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.T .Data.Error}}</span></div>{{end}}
+
+<form method="post" action="/login" class="auth-form">
+  <input type="hidden" name="next" value="{{.Data.Next}}">
+  <div class="field">
+    <label for="f-username">{{.T "login.username"}}</label>
+    <input class="input" id="f-username" name="username" dir="ltr" autocomplete="username"
+           spellcheck="false" required autofocus>
+  </div>
+  <div class="field">
+    <label for="f-password">{{.T "login.password"}}</label>
+    <div class="input-adj">
+      <input class="input" id="f-password" name="password" type="password" dir="ltr"
+             autocomplete="current-password" required>
+      <button type="button" class="icon-btn" data-toggle-password="f-password"
+              aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">
+        {{.IconS "eye"}}{{.IconS "eye-off"}}
+      </button>
+    </div>
+  </div>
+  <button type="submit" class="btn btn--primary btn--block">{{.IconS "log-in"}}<span>{{.T "login.submit"}}</span></button>
+</form>
+{{end}}

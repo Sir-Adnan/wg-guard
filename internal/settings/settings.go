@@ -398,6 +398,30 @@ func (r *Registry) Reset(ctx context.Context, key string) error {
 	return nil
 }
 
+// Validate checks a value against the key's constraints WITHOUT persisting —
+// the panel uses it to validate form input before committing a sequence of
+// writes (e.g. onboarding validates node.endpoint before creating the owner).
+func (r *Registry) Validate(key string, value any) error {
+	def, ok := r.defs[key]
+	if !ok {
+		return domain.E(domain.CodeSettingUnknown, "unknown setting %q", key)
+	}
+	switch def.Kind {
+	case KindInt:
+		n, ok := toInt(value)
+		if !ok {
+			return domain.E(domain.CodeSettingInvalid, "%s: expected integer, got %T", key, value)
+		}
+		return r.validateValue(def, n)
+	default:
+		s, ok := value.(string)
+		if !ok {
+			return domain.E(domain.CodeSettingInvalid, "%s: expected string, got %T", key, value)
+		}
+		return r.validateValue(def, s)
+	}
+}
+
 // All resolves every definition (settings screens). Secret values are
 // redacted to "<set>"/"" — never returned in plaintext.
 func (r *Registry) All(ctx context.Context) ([]Item, error) {

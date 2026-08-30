@@ -38,6 +38,33 @@ func NewService(db *database.DB, sessions *auth.SessionStore) *Service {
 	return &Service{db: db, sessions: sessions, now: time.Now}
 }
 
+// SetLocale stores the panel language preference for one account. Values
+// are the i18n catalog locales ('fa' | 'en'); anything else is rejected.
+func (s *Service) SetLocale(ctx context.Context, id, locale string) error {
+	if locale != "fa" && locale != "en" {
+		return domain.E(domain.CodeInvalidRequest, "unsupported locale %q", locale)
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE admins SET locale = ?, updated_at = ? WHERE id = ?`,
+		locale, s.now().UTC().Format(time.RFC3339Nano), id)
+	if err != nil {
+		return fmt.Errorf("admin: set locale: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.E(domain.CodeAdminNotFound, "admin %s not found", id)
+	}
+	return nil
+}
+
+// HasOwner reports whether an owner account exists — the onboarding gate
+// (first run shows the setup wizard instead of the login form).
+func (s *Service) HasOwner(ctx context.Context) (bool, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE role = 'owner'`).Scan(&count); err != nil {
+		return false, fmt.Errorf("admin: count owners: %w", err)
+	}
+	return count > 0, nil
+}
+
 // BootstrapOwner creates the first owner account; it is a no-op (returns
 // created=false) when an owner already exists — onboarding calls this
 // exactly once per node.

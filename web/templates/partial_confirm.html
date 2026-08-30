@@ -1,0 +1,15 @@
+{{define "confirm-dialog"}}
+<dialog id="confirm-dialog" class="modal modal--danger" aria-labelledby="confirm-title">
+  <div class="modal-head">
+    <h2 id="confirm-title" data-confirm-title>{{.T "common.confirm_delete"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <div class="modal-body">
+    <p data-confirm-message class="text-muted"></p>
+  </div>
+  <div class="modal-foot">
+    <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+    <button type="button" class="btn btn--danger" data-confirm-ok>{{.T "common.confirm"}}</button>
+  </div>
+</dialog>
+{{end}}

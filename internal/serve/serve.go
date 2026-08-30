@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
+	"github.com/Sir-Adnan/wg-guard/internal/admin"
 	"github.com/Sir-Adnan/wg-guard/internal/api"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
@@ -47,6 +48,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
+	"github.com/Sir-Adnan/wg-guard/internal/web"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
@@ -87,6 +89,7 @@ type Node struct {
 	metrics       *metrics.Collector
 	accounting    *accounting.Service
 	apiServer     *api.Server
+	webServer     *web.Server
 	webhookWorker *webhook.Worker
 	sessions      *auth.SessionStore
 
@@ -204,6 +207,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	users.Recorder = recorder
 	devices := device.NewService(db, n.ring)
 	devices.Recorder = recorder
+	plans := plan.NewService(db)
+	ifaces := iface.NewService(db, n.reg, n.ring)
+	webhooksSvc := webhook.NewService(db, n.ring)
 
 	n.accounting = accounting.NewService(db, backend, auditSvc, shaperMgr, n.reg)
 	n.accounting.Reconciler = rec
@@ -211,6 +217,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 
 	n.webhookWorker = webhook.NewWorker(db, n.ring, n.reg, log)
 	n.sessions = auth.NewSessionStore(db, n.sessionIdleTTL(ctx), n.sessionAbsoluteTTL(ctx))
+	admins := admin.NewService(db, n.sessions)
 
 	nodeID, _ := n.reg.GetString(ctx, "node.id")
 	n.apiServer = api.New(api.Deps{
@@ -218,13 +225,13 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Tokens:       token.NewService(db),
 		Users:        users,
 		Devices:      devices,
-		Plans:        plan.NewService(db),
-		Ifaces:       iface.NewService(db, n.reg, n.ring),
+		Plans:        plans,
+		Ifaces:       ifaces,
 		Settings:     n.reg,
 		Ring:         n.ring,
 		Audit:        auditSvc,
 		Accounting:   n.accounting,
-		Webhooks:     webhook.NewService(db, n.ring),
+		Webhooks:     webhooksSvc,
 		Metrics:      n.metrics,
 		Log:          log,
 		Reconciler:   rec,
@@ -232,8 +239,33 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		ToolsVersion: toolsVersion,
 	})
 
-	// Listener + HTTP server. The root mux exists so config-gated endpoints
-	// (/metrics) live outside the versioned API surface.
+	// Admin panel: same services, session-cookie surface (Phase 5).
+	n.webServer, err = web.New(web.Deps{
+		DB:           db,
+		Sessions:     n.sessions,
+		Admins:       admins,
+		Settings:     n.reg,
+		Ring:         n.ring,
+		Audit:        auditSvc,
+		Users:        users,
+		Devices:      devices,
+		Plans:        plans,
+		Ifaces:       ifaces,
+		Accounting:   n.accounting,
+		Log:          log,
+		Reconciler:   rec,
+		Version:      version.Version,
+		TLSMode:      cfg.TLS.Mode,
+		NodeID:       nodeID,
+		ToolsVersion: toolsVersion,
+	})
+	if err != nil {
+		return fail(fmt.Errorf("serve: web: %w", err))
+	}
+
+	// Listener + HTTP server. The root mux keeps the public ops endpoints
+	// and the versioned API on their documented paths; everything else is
+	// the admin panel.
 	ln, err := n.listen()
 	if err != nil {
 		return fail(err)
@@ -244,7 +276,13 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		root.HandleFunc("/metrics", n.metrics.Handler)
 		log.Info("metrics endpoint enabled", "path", "/metrics")
 	}
-	root.Handle("/", n.apiServer.Handler())
+	apiHandler := n.apiServer.Handler()
+	root.Handle("/healthz", apiHandler)
+	root.Handle("/readyz", apiHandler)
+	root.Handle("/openapi.json", apiHandler)
+	root.Handle("/docs", apiHandler)
+	root.Handle("/api/", apiHandler)
+	root.Handle("/", n.webServer.Handler())
 	n.httpServer = &http.Server{
 		Handler:           root,
 		ReadHeaderTimeout: 10 * time.Second, // slowloris bound

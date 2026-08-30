@@ -1,0 +1,82 @@
+{{define "app"}}<!DOCTYPE html>
+<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"historyCacheSize":0}'>
+{{if .CSRF}}<meta name="csrf-token" content="{{.CSRF}}">{{end}}
+<title>{{template "title" .}} · {{.T "app.name"}}</title>
+<link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
+<link rel="stylesheet" href="{{.A "/css/app.css"}}">
+<script src="{{.A "/js/htmx.min.js"}}" defer></script>
+<script type="module" src="{{.A "/js/app.js"}}" defer></script>
+</head>
+<body>
+<a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="{{.T "nav.section"}}">
+    <a class="brand" href="/">
+      <span class="logo">{{.Icon "shield"}}</span>
+      <span>{{.T "app.name"}}<small>{{.T "app.tagline"}}</small></span>
+    </a>
+    <nav class="nav">
+      <div class="nav-label">{{.T "nav.section"}}</div>
+      <a href="/dashboard" {{if eq .Path "/dashboard"}}aria-current="page"{{end}}>{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="menu-anchor">
+        <button type="button" class="btn btn--ghost btn--sm btn--block" aria-haspopup="menu" aria-expanded="false">
+          {{.Icon "sun"}}<span>{{.T "common.theme"}}</span>{{.IconS "chevron-down"}}
+        </button>
+        <div class="menu" role="menu">
+          <button type="button" role="menuitem" data-theme-choice="light">{{.IconS "sun"}}<span>{{.T "theme.light"}}</span></button>
+          <button type="button" role="menuitem" data-theme-choice="dark">{{.IconS "moon"}}<span>{{.T "theme.dark"}}</span></button>
+          <button type="button" role="menuitem" data-theme-choice="system">{{.IconS "monitor"}}<span>{{.T "theme.system"}}</span></button>
+        </div>
+      </div>
+      <div class="menu-anchor">
+        <button type="button" class="btn btn--ghost btn--sm btn--block" aria-haspopup="menu" aria-expanded="false">
+          {{.Icon "globe"}}<span>{{.T "common.language"}}</span>{{.IconS "chevron-down"}}
+        </button>
+        <div class="menu" role="menu">
+          <form method="post" action="/prefs/locale">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <input type="hidden" name="next" value="{{.Path}}">
+            <button type="submit" name="locale" value="fa" role="menuitem">فارسی</button>
+          </form>
+          <form method="post" action="/prefs/locale">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <input type="hidden" name="next" value="{{.Path}}">
+            <button type="submit" name="locale" value="en" role="menuitem">English</button>
+          </form>
+        </div>
+      </div>
+      <div class="user-row">
+        <span class="avatar" aria-hidden="true">{{slice .Admin.Username 0 1}}</span>
+        <span class="user-name">
+          <span class="cell-main">{{.Admin.Username}}</span>
+          <span class="cell-sub">{{if eq (printf "%v" .Admin.Role) "owner"}}{{.T "role.owner"}}{{else if eq (printf "%v" .Admin.Role) "admin"}}{{.T "role.admin"}}{{else}}{{printf "%v" .Admin.Role}}{{end}}</span>
+        </span>
+        <form method="post" action="/logout">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button type="submit" class="icon-btn" data-tip="{{.T "common.logout"}}" aria-label="{{.T "common.logout"}}">{{.IconS "log-out"}}</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="icon-btn drawer-toggle" id="btn-drawer" aria-label="{{.T "common.menu"}}" aria-controls="sidebar" aria-expanded="false">{{.Icon "menu"}}</button>
+      <h1>{{template "title" .}}</h1>
+      <span class="spacer"></span>
+      {{block "topbar" .}}{{end}}
+    </header>
+    <main class="content" id="main">
+      {{block "content" .}}{{end}}
+    </main>
+  </div>
+</div>
+{{template "confirm-dialog" .}}
+</body>
+</html>{{end}}

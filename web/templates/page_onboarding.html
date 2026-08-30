@@ -1,0 +1,47 @@
+{{define "title"}}{{.T "onboard.title"}}{{end}}
+{{define "content"}}
+<h1>{{.T "onboard.title"}}</h1>
+<p class="sub">{{.T "onboard.subtitle"}}</p>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+<form method="post" action="/onboarding" class="auth-form">
+  <fieldset class="onboard-section">
+    <legend>{{.T "onboard.section_owner"}}</legend>
+    <div class="field">
+      <label for="o-username">{{.T "onboard.username"}}</label>
+      <input class="input" id="o-username" name="username" dir="ltr" autocomplete="username"
+             spellcheck="false" required autofocus value="{{.Data.Username}}"
+             pattern="[A-Za-z0-9_-]{3,32}">
+      <span class="hint">{{.T "onboard.username_hint"}}</span>
+    </div>
+    <div class="field">
+      <label for="o-password">{{.T "onboard.password"}}</label>
+      <div class="input-adj">
+        <input class="input" id="o-password" name="password" type="password" dir="ltr"
+               autocomplete="new-password" required minlength="{{.Data.MinPass}}">
+        <button type="button" class="icon-btn" data-toggle-password="o-password"
+                aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">
+          {{.IconS "eye"}}{{.IconS "eye-off"}}
+        </button>
+      </div>
+      <span class="hint">{{printf .Data.PasswordHint .Data.MinPass}}</span>
+    </div>
+    <div class="field">
+      <label for="o-password-confirm">{{.T "onboard.password_confirm"}}</label>
+      <input class="input" id="o-password-confirm" name="password_confirm" type="password"
+             dir="ltr" autocomplete="new-password" required>
+    </div>
+  </fieldset>
+  <fieldset class="onboard-section">
+    <legend>{{.T "onboard.section_node"}} <span class="text-subtle">({{.T "common.optional"}})</span></legend>
+    <div class="field">
+      <label for="o-endpoint">{{.T "onboard.endpoint"}}</label>
+      <input class="input" id="o-endpoint" name="endpoint" dir="ltr" spellcheck="false"
+             value="{{.Data.Endpoint}}" placeholder="vpn.example.com">
+      <span class="hint">{{.T "onboard.endpoint_hint"}}</span>
+    </div>
+  </fieldset>
+  <button type="submit" class="btn btn--primary btn--block">{{.IconS "shield-check"}}<span>{{.T "onboard.submit"}}</span></button>
+</form>
+{{end}}
