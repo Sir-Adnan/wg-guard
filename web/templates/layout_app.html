@@ -23,6 +23,8 @@
       <div class="nav-label">{{.T "nav.section"}}</div>
       <a href="/dashboard" {{if eq .Path "/dashboard"}}aria-current="page"{{end}}>{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
       <a href="/users" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
+      <a href="/plans" {{if .IsActive "/plans"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
+      <a href="/interfaces" {{if .IsActive "/interfaces"}}aria-current="page"{{end}}>{{.Icon "network"}}<span>{{.T "nav.interfaces"}}</span></a>
     </nav>
     <div class="sidebar-foot">
       <div class="menu-anchor">

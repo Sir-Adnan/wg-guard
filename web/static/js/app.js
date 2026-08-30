@@ -247,6 +247,19 @@
     toast(msg || (e.detail?.headers && e.detail.headers["X-WG-Error"]) || "Error", "err");
   });
 
+  /* obfuscation section: disable its inputs while the toggle is off */
+  const obfToggle = $("[data-obf-toggle]");
+  if (obfToggle) {
+    const obfBox = obfToggle.closest(".collapse-body");
+    const sync = () => {
+      obfBox?.querySelectorAll("input:not([data-obf-toggle])").forEach((inp) => {
+        inp.disabled = !obfToggle.checked;
+      });
+    };
+    sync();
+    obfToggle.addEventListener("change", sync);
+  }
+
   /* ---------- boot ---------- */
 
   $$("[data-theme-choice]").forEach((b) =>

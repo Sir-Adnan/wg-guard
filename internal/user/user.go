@@ -928,6 +928,38 @@ func (s *Service) List(ctx context.Context, limit int) ([]*User, error) {
 	return scanUsers(rows)
 }
 
+// CountForPlans returns live users per plan id (batch for plan lists;
+// plans deleted with users on SET NULL show their remaining references).
+func (s *Service) CountForPlans(ctx context.Context, planIDs []string) (map[string]int, error) {
+	counts := make(map[string]int, len(planIDs))
+	if len(planIDs) == 0 {
+		return counts, nil
+	}
+	placeholders := strings.Repeat("?,", len(planIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, len(planIDs))
+	for i, id := range planIDs {
+		args[i] = id
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT plan_id, COUNT(*) FROM users
+		WHERE deleted_at IS NULL AND plan_id IN (`+placeholders+`) GROUP BY plan_id`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("user: count by plan: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("user: count by plan scan: %w", err)
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
 func scanUsers(rows *sql.Rows) ([]*User, error) {
 	defer rows.Close()
 	var out []*User

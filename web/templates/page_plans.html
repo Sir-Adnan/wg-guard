@@ -1,0 +1,87 @@
+{{define "title"}}{{.T "plans.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "plans.title"}}</h1>
+    <p>{{.T "plans.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.new"}}</span></a>
+  </div>
+</div>
+
+{{if .Data.Rows}}
+<div class="table-wrap">
+  <table class="table table--cards">
+    <thead>
+      <tr>
+        <th>{{.T "plans.name"}}</th>
+        <th>{{.T "plans.quota"}}</th>
+        <th>{{.T "plans.duration"}}</th>
+        <th>{{.T "plans.device_limit"}}</th>
+        <th>{{.T "plans.speed"}}</th>
+        <th>{{.T "plans.users_count"}}</th>
+        <th class="text-end">{{.T "common.actions"}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Data.Rows}}{{template "plans_row" (dict "row" . "v" $)}}{{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="table-wrap">
+  <div class="empty">
+    {{.Icon "layers"}}
+    <h3>{{.T "plans.empty.title"}}</h3>
+    <p>{{.T "plans.empty.desc"}}</p>
+    <a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>
+  </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "plans_row"}}
+{{$row := .row}}{{$p := $row.P}}{{$v := .v}}
+<tr>
+  <td data-label="{{$v.T "plans.name"}}">
+    <span class="cell-main">{{$p.Name}}</span>
+    {{if not $p.Enabled}}<span class="badge">{{$v.T "plans.disabled"}}</span>{{end}}
+    {{if $row.IfaceName}}<span class="cell-sub ltr-data">{{$row.IfaceName}}</span>{{end}}
+  </td>
+  <td data-label="{{$v.T "plans.quota"}}" class="ltr-data">{{$v.BLim $p.TrafficLimitBytes}}</td>
+  <td data-label="{{$v.T "plans.duration"}}">{{if $p.DurationSeconds}}{{$v.Dur (i64u $p.DurationSeconds)}}{{else}}<span class="text-subtle">{{$v.T "common.none"}}</span>{{end}}</td>
+  <td data-label="{{$v.T "plans.device_limit"}}" class="ltr-data">{{$v.U $p.DeviceLimit}}</td>
+  <td data-label="{{$v.T "plans.speed"}}" class="ltr-data text-subtle">
+    {{$v.U $p.SpeedLimitDownKbps}} · {{$v.U $p.SpeedLimitUpKbps}}
+  </td>
+  <td data-label="{{$v.T "plans.users_count"}}" class="ltr-data">{{$v.N (i64u $row.Users)}}</td>
+  <td class="text-end">
+    <div class="menu-anchor">
+      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
+      <div class="menu" role="menu">
+        <a role="menuitem" href="/plans/{{$p.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
+        {{if $p.Enabled}}
+        <form role="none" method="post" action="/plans/{{$p.ID}}/disable">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.disable"}}</span></button>
+        </form>
+        {{else}}
+        <form role="none" method="post" action="/plans/{{$p.ID}}/enable">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.enable"}}</span></button>
+        </form>
+        {{end}}
+        <hr>
+        <form role="none" method="post" action="/plans/{{$p.ID}}/delete" data-confirm
+              data-confirm-title="{{$v.T "common.confirm_delete"}}"
+              data-confirm-message="{{$v.T "plans.delete_confirm" $p.Name}}"
+              data-confirm-label="{{$v.T "common.delete"}}">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+        </form>
+      </div>
+    </div>
+  </td>
+</tr>
+{{end}}

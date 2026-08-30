@@ -1,0 +1,89 @@
+{{define "title"}}{{.T "ifaces.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "ifaces.title"}}</h1>
+    <p>{{.T "ifaces.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <a class="btn btn--primary" href="/interfaces/new">{{.IconS "plus"}}<span>{{.T "ifaces.new"}}</span></a>
+  </div>
+</div>
+
+{{if .Data.Rows}}
+<div class="table-wrap">
+  <table class="table table--cards">
+    <thead>
+      <tr>
+        <th>{{.T "ifaces.name"}}</th>
+        <th>{{.T "ifaces.port"}}</th>
+        <th>{{.T "ifaces.subnet"}}</th>
+        <th>{{.T "ifaces.obfuscation"}}</th>
+        <th>{{.T "ifaces.peers"}}</th>
+        <th class="text-end">{{.T "common.actions"}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Data.Rows}}{{template "ifaces_row" (dict "row" . "v" $)}}{{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="table-wrap">
+  <div class="empty">
+    {{.Icon "network"}}
+    <h3>{{.T "ifaces.empty.title"}}</h3>
+    <p>{{.T "ifaces.empty.desc"}}</p>
+    <a class="btn btn--primary" href="/interfaces/new">{{.IconS "plus"}}<span>{{.T "ifaces.empty.cta"}}</span></a>
+  </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "ifaces_row"}}
+{{$row := .row}}{{$i := $row.I}}{{$v := .v}}
+<tr>
+  <td data-label="{{$v.T "ifaces.name"}}">
+    <span class="cell-main ltr-data">{{$i.Name}}</span>
+    {{if not $i.Enabled}}<span class="badge">{{$v.T "ifaces.status_disabled"}}</span>{{end}}
+    <span class="cell-sub ltr-data">MTU {{$i.MTU}}</span>
+  </td>
+  <td data-label="{{$v.T "ifaces.port"}}" class="ltr-data">{{$i.ListenPort}}</td>
+  <td data-label="{{$v.T "ifaces.subnet"}}" class="ltr-data">{{$i.Subnet}}</td>
+  <td data-label="{{$v.T "ifaces.obfuscation"}}">
+    {{if $i.Obfuscation.Enabled}}
+    <span class="badge badge--info">{{$v.IconS "shield"}}{{$v.T "ifaces.obfuscation_on"}}</span>
+    {{else}}
+    <span class="badge">{{$v.T "ifaces.obfuscation_off"}}</span>
+    {{end}}
+  </td>
+  <td data-label="{{$v.T "ifaces.peers"}}" class="ltr-data">{{$v.N (i64u $row.Devices)}}</td>
+  <td class="text-end">
+    <div class="menu-anchor">
+      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
+      <div class="menu" role="menu">
+        <a role="menuitem" href="/interfaces/{{$i.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
+        {{if $i.Enabled}}
+        <form role="none" method="post" action="/interfaces/{{$i.ID}}/disable">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "ifaces.action.disable"}}</span></button>
+        </form>
+        {{else}}
+        <form role="none" method="post" action="/interfaces/{{$i.ID}}/enable">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "ifaces.action.enable"}}</span></button>
+        </form>
+        {{end}}
+        <hr>
+        <form role="none" method="post" action="/interfaces/{{$i.ID}}/delete" data-confirm
+              data-confirm-title="{{$v.T "common.confirm_delete"}}"
+              data-confirm-message="{{$v.T "ifaces.delete_confirm" $i.Name}}"
+              data-confirm-label="{{$v.T "common.delete"}}">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+        </form>
+      </div>
+    </div>
+  </td>
+</tr>
+{{end}}

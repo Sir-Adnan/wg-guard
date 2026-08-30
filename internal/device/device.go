@@ -345,6 +345,38 @@ func (s *Service) CountForUsers(ctx context.Context, userIDs []string) (map[stri
 	return counts, rows.Err()
 }
 
+// CountForIfaces returns device counts per interface id (batch for the
+// interface list). Counts all devices — including those of soft-deleted
+// users — to mirror the interface Delete guard.
+func (s *Service) CountForIfaces(ctx context.Context, ifaceIDs []string) (map[string]int, error) {
+	counts := make(map[string]int, len(ifaceIDs))
+	if len(ifaceIDs) == 0 {
+		return counts, nil
+	}
+	placeholders := strings.Repeat("?,", len(ifaceIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, len(ifaceIDs))
+	for i, id := range ifaceIDs {
+		args[i] = id
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT interface_id, COUNT(*) FROM devices WHERE interface_id IN (`+placeholders+`) GROUP BY interface_id`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("device: count by iface: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("device: count by iface scan: %w", err)
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
 // SetEnabled toggles a device (disabled devices are removed from the backend
 // by reconciliation).
 func (s *Service) SetEnabled(ctx context.Context, id string, enabled bool) error {

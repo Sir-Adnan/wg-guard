@@ -1,0 +1,145 @@
+{{define "title"}}{{if .Data.I}}{{.T "ifaces.edit"}}{{else}}{{.T "ifaces.new"}}{{end}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{if .Data.I}}{{.T "ifaces.edit"}}{{else}}{{.T "ifaces.new"}}{{end}}</h1>
+    {{if .Data.I}}<p class="ltr-data">{{.Data.I.Name}}</p>{{end}}
+  </div>
+  <div class="actions"><a class="btn btn--ghost" href="/interfaces">{{.IconS "arrow-left"}}<span>{{.T "common.back"}}</span></a></div>
+</div>
+
+<form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="card card--pad form-card" novalidate>
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+
+  <fieldset class="onboard-section">
+    <legend>{{.T "ifaces.form.section_profile"}}</legend>
+    <div class="field-row">
+      <div class="field">
+        <label for="i-name">{{.T "ifaces.name"}}</label>
+        <input class="input" id="i-name" name="name" dir="ltr" spellcheck="false" placeholder="awg0"
+               value="{{if .Data.I}}{{.Data.I.Name}}{{end}}"
+               {{if .Data.I}}disabled{{else}}required pattern="awg[0-9]{1,3}"{{end}}>
+        {{if not .Data.I}}<span class="hint">{{.T "ifaces.form.name_hint"}}</span>{{end}}
+      </div>
+      <div class="field">
+        <label for="i-port">{{.T "ifaces.port"}}</label>
+        <input class="input" id="i-port" name="listen_port" type="number" dir="ltr" inputmode="numeric"
+               min="1024" max="65535"
+               value="{{if .Data.I}}{{.Data.I.ListenPort}}{{end}}" {{if .Data.I}}disabled{{end}}>
+        {{if .Data.I}}<span class="hint">{{.T "ifaces.form.immutable_hint"}}</span>
+        {{else}}<span class="hint">{{.T "ifaces.create_hint"}}</span>{{end}}
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="i-subnet">{{.T "ifaces.subnet"}}</label>
+        <input class="input" id="i-subnet" name="subnet" dir="ltr" spellcheck="false" placeholder="10.8.0.0/24"
+               value="{{if .Data.I}}{{.Data.I.Subnet}}{{end}}" {{if .Data.I}}disabled{{end}}>
+      </div>
+      <div class="field">
+        <label for="i-mtu">{{.T "ifaces.mtu"}}</label>
+        <input class="input" id="i-mtu" name="mtu" type="number" dir="ltr" inputmode="numeric" min="576" max="65535"
+               value="{{if .Data.I}}{{.Data.I.MTU}}{{end}}">
+      </div>
+    </div>
+    {{if .Data.I}}
+    <div class="field">
+      <label class="check-label" for="i-enabled">
+        <input class="checkbox" id="i-enabled" type="checkbox" name="enabled" value="1"
+               {{if .Data.I.Enabled}}checked{{end}}>
+        <span>{{.T "ifaces.status_enabled"}}</span>
+      </label>
+    </div>
+    {{end}}
+  </fieldset>
+
+  <details class="collapse onboard-section" {{if or (not .Data.I) .Data.I.Obfuscation.Enabled}}open{{end}}>
+    <summary>{{.IconS "shield"}}<span>{{.T "ifaces.obfuscation"}}</span></summary>
+    <div class="collapse-body">
+      <div class="field">
+        <label class="check-label" for="i-obf-enabled">
+          <input class="checkbox" id="i-obf-enabled" type="checkbox" name="obf_enabled" value="1"
+                 data-obf-toggle {{if and .Data.I .Data.I.Obfuscation.Enabled}}checked{{end}}>
+          <span>{{.T "ifaces.form.obf_enable"}}</span>
+        </label>
+      </div>
+      <p class="hint">{{.T "ifaces.obf.hint"}}</p>
+      {{$obfOn := false}}{{$obf := .Data.I.Obfuscation}}
+      {{if and .Data.I .Data.I.Obfuscation.Enabled}}{{$obfOn = true}}{{end}}
+      <div class="field-row">
+        <div class="field">
+          <label for="i-obf-jc">{{.T "ifaces.obf.jc"}}</label>
+          <input class="input" id="i-obf-jc" name="obf_jc" type="number" dir="ltr" min="1" max="128"
+                 value="{{if $obfOn}}{{$obf.Jc}}{{end}}">
+        </div>
+        <div class="field">
+          <label for="i-obf-jmin">{{.T "ifaces.obf.jmin"}}</label>
+          <input class="input" id="i-obf-jmin" name="obf_jmin" type="number" dir="ltr" min="0" max="1280"
+                 value="{{if $obfOn}}{{$obf.Jmin}}{{end}}">
+        </div>
+        <div class="field">
+          <label for="i-obf-jmax">{{.T "ifaces.obf.jmax"}}</label>
+          <input class="input" id="i-obf-jmax" name="obf_jmax" type="number" dir="ltr" min="0" max="1280"
+                 value="{{if $obfOn}}{{$obf.Jmax}}{{end}}">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="i-obf-s1">{{.T "ifaces.obf.s1"}}</label>
+          <input class="input" id="i-obf-s1" name="obf_s1" type="number" dir="ltr" min="0" max="1132"
+                 value="{{if $obfOn}}{{$obf.S1}}{{end}}">
+        </div>
+        <div class="field">
+          <label for="i-obf-s2">{{.T "ifaces.obf.s2"}}</label>
+          <input class="input" id="i-obf-s2" name="obf_s2" type="number" dir="ltr" min="0" max="1188"
+                 value="{{if $obfOn}}{{$obf.S2}}{{end}}">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="i-obf-h1">{{.T "ifaces.obf.h1"}}</label>
+          <input class="input" id="i-obf-h1" name="obf_h1" type="number" dir="ltr" min="1" max="4294967295"
+                 value="{{if $obfOn}}{{$obf.H1}}{{end}}">
+        </div>
+        <div class="field">
+          <label for="i-obf-h2">{{.T "ifaces.obf.h2"}}</label>
+          <input class="input" id="i-obf-h2" name="obf_h2" type="number" dir="ltr" min="1" max="4294967295"
+                 value="{{if $obfOn}}{{$obf.H2}}{{end}}">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="i-obf-h3">{{.T "ifaces.obf.h3"}}</label>
+          <input class="input" id="i-obf-h3" name="obf_h3" type="number" dir="ltr" min="1" max="4294967295"
+                 value="{{if $obfOn}}{{$obf.H3}}{{end}}">
+        </div>
+        <div class="field">
+          <label for="i-obf-h4">{{.T "ifaces.obf.h4"}}</label>
+          <input class="input" id="i-obf-h4" name="obf_h4" type="number" dir="ltr" min="1" max="4294967295"
+                 value="{{if $obfOn}}{{$obf.H4}}{{end}}">
+        </div>
+      </div>
+      {{if .Data.I}}
+      <div class="auth-alert auth-alert--warn">
+        {{.IconS "alert-triangle"}}<span>{{.T "ifaces.rotation_warning"}}</span>
+      </div>
+      {{end}}
+    </div>
+  </details>
+
+  <fieldset class="onboard-section">
+    <legend>{{.T "users.form.section_advanced"}}</legend>
+    <div class="field">
+      <label for="i-endpoint">{{.T "ifaces.endpoint_override"}}</label>
+      <input class="input" id="i-endpoint" name="endpoint_override" dir="ltr" spellcheck="false"
+             value="{{if .Data.I}}{{.Data.I.EndpointOverride}}{{end}}">
+      <span class="hint">{{.T "ifaces.form.endpoint_hint"}}</span>
+    </div>
+  </fieldset>
+
+  <div class="inline-actions">
+    <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
+    <a class="btn btn--ghost" href="/interfaces">{{.T "common.cancel"}}</a>
+  </div>
+</form>
+{{end}}

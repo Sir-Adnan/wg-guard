@@ -135,6 +135,26 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /devices/{id}/config", s.requireAuth(s.handleDeviceConfig))
 	mux.HandleFunc("GET /devices/{id}/qr", s.requireAuth(s.handleDeviceQR))
 
+	// --- plans ---
+	mux.HandleFunc("GET /plans", s.requireAuth(s.handlePlanList))
+	mux.HandleFunc("GET /plans/new", s.requireAuth(s.handlePlanNew))
+	mux.HandleFunc("POST /plans", s.requireAuth(s.handlePlanCreate))
+	mux.HandleFunc("GET /plans/{id}/edit", s.requireAuth(s.handlePlanEditPage))
+	mux.HandleFunc("POST /plans/{id}/edit", s.requireAuth(s.handlePlanUpdate))
+	mux.HandleFunc("POST /plans/{id}/enable", s.requireAuth(s.handlePlanEnable))
+	mux.HandleFunc("POST /plans/{id}/disable", s.requireAuth(s.handlePlanDisable))
+	mux.HandleFunc("POST /plans/{id}/delete", s.requireAuth(s.handlePlanDelete))
+
+	// --- interfaces ---
+	mux.HandleFunc("GET /interfaces", s.requireAuth(s.handleIfaceList))
+	mux.HandleFunc("GET /interfaces/new", s.requireAuth(s.handleIfaceNew))
+	mux.HandleFunc("POST /interfaces", s.requireAuth(s.handleIfaceCreate))
+	mux.HandleFunc("GET /interfaces/{id}/edit", s.requireAuth(s.handleIfaceEditPage))
+	mux.HandleFunc("POST /interfaces/{id}/edit", s.requireAuth(s.handleIfaceUpdate))
+	mux.HandleFunc("POST /interfaces/{id}/enable", s.requireAuth(s.handleIfaceEnable))
+	mux.HandleFunc("POST /interfaces/{id}/disable", s.requireAuth(s.handleIfaceDisable))
+	mux.HandleFunc("POST /interfaces/{id}/delete", s.requireAuth(s.handleIfaceDelete))
+
 	h := http.Handler(mux)
 	h = s.requireCSRF(h)
 	h = s.sessionMiddleware(h)

@@ -1295,3 +1295,41 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
 .host-item .value { font-weight: 600; }
 .host-item .meta { font-size: var(--fs-xs); color: var(--fg-muted); }
 .text-md { font-size: var(--fs-md); }
+
+/* ---------- collapsible advanced sections ---------- */
+
+.collapse {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+  margin-block: var(--sp-4);
+}
+.collapse > summary {
+  cursor: pointer;
+  padding: var(--sp-3) var(--sp-4);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  border-radius: inherit;
+  transition: background var(--t-fast) var(--ease);
+}
+.collapse > summary::-webkit-details-marker { display: none; }
+.collapse > summary:hover { background: var(--bg-hover); }
+.collapse[open] > summary { border-block-end: 1px solid var(--border); }
+.collapse > summary .icon { transition: transform var(--t-fast) var(--ease); }
+.collapse[open] > summary .icon { transform: rotate(90deg); }
+.collapse > .collapse-body { padding: var(--sp-4); }
+
+/* checkbox with label text (form rows) */
+.check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.auth-alert--warn { background: var(--warn-soft); color: var(--warn); }
