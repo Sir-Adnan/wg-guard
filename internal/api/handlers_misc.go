@@ -55,13 +55,20 @@ func (s *Server) handleTrafficSeries(w http.ResponseWriter, r *http.Request) {
 
 	since := time.Now().UTC().Add(-time.Duration(hours) * time.Hour)
 	table, bucket := "traffic_samples", "ts"
-	if granularity == "hourly" || granularity == "daily" {
+	valueExpr := "SUM(d.rx_delta), SUM(d.tx_delta)"
+	granFilter := ""
+	switch granularity {
+	case "hourly", "daily":
+		// Rollups aggregate the deltas into rx/tx per bucket; the table
+		// holds both granularities, so filter explicitly.
 		table, bucket = "traffic_rollups", "bucket_start"
+		valueExpr = "SUM(d.rx), SUM(d.tx)"
+		granFilter = " AND d.granularity = '" + granularity + "'"
 	}
-	rows, err := s.DB.QueryContext(r.Context(), `SELECT d.`+bucket+`, SUM(d.rx_delta), SUM(d.tx_delta)
+	rows, err := s.DB.QueryContext(r.Context(), `SELECT d.`+bucket+`, `+valueExpr+`
 		FROM `+table+` d
 		JOIN devices dev ON dev.id = d.device_id
-		WHERE dev.user_id = ? AND d.`+bucket+` >= ?
+		WHERE dev.user_id = ? AND d.`+bucket+` >= ?`+granFilter+`
 		GROUP BY d.`+bucket+` ORDER BY d.`+bucket+``,
 		userID, since.Format(time.RFC3339Nano))
 	if err != nil {

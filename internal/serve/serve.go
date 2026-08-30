@@ -34,6 +34,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
@@ -254,6 +255,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Accounting:   n.accounting,
 		Log:          log,
 		Reconciler:   rec,
+		Host:         hoststats.New(cfg.DataDir),
 		Version:      version.Version,
 		TLSMode:      cfg.TLS.Mode,
 		NodeID:       nodeID,

@@ -1,0 +1,80 @@
+{{define "dash_live"}}
+<div id="live" data-pause-hidden hx-get="/dashboard/live" hx-trigger="every 30s" hx-swap="outerHTML">
+  <div class="metric-grid">
+    <div class="metric">
+      <span class="label">{{.IconS "users"}}{{.T "dash.users_total"}}</span>
+      <span class="value">{{.N .Data.Live.Total}}</span>
+    </div>
+    <div class="metric">
+      <span class="label">{{.IconS "activity"}}{{.T "dash.users_active"}}</span>
+      <span class="value">{{.N .Data.Live.Active}}</span>
+      <span class="meta">{{.N .Data.Live.Waiting}} {{.T "status.waiting_first_connection"}}</span>
+    </div>
+    <div class="metric">
+      <span class="label">{{.IconS "wifi"}}{{.T "dash.users_online"}}</span>
+      <span class="value text-ok">{{.N .Data.Live.Online}}</span>
+      <span class="meta">{{.T "dash.online_window" .Data.Live.OnlineWindow}}</span>
+    </div>
+    <div class="metric">
+      <span class="label">{{.IconS "timer"}}{{.T "dash.users_expiring"}}</span>
+      <span class="value{{if gt .Data.Live.Expiring 0}} text-warn{{end}}">{{.N .Data.Live.Expiring}}</span>
+    </div>
+    <div class="metric">
+      <span class="label">{{.IconS "timer"}}{{.T "dash.users_expired"}}</span>
+      <span class="value">{{.N .Data.Live.Expired}}</span>
+    </div>
+    <div class="metric">
+      <span class="label">{{.IconS "gauge"}}{{.T "dash.users_exceeded"}}</span>
+      <span class="value{{if gt .Data.Live.Exceeded 0}} text-danger{{end}}">{{.N .Data.Live.Exceeded}}</span>
+    </div>
+    <div class="metric">
+      <span class="label">{{.IconS "zap"}}{{.T "dash.traffic_total"}}</span>
+      <span class="value">{{.B .Data.Live.TrafficTotal}}</span>
+    </div>
+  </div>
+
+  <div class="card card--pad mt-4" id="host-card">
+    <h2>{{.T "dash.host"}}</h2>
+    {{if .Data.Live.HostView.Has}}
+    <div class="host-grid">
+      {{with .Data.Live.HostView}}
+      {{if .CPUPct}}
+      <div class="host-item">
+        <span class="label">{{$.T "dash.cpu"}}</span>
+        <span class="value text-md ltr-data">{{.CPUPct}}</span>
+      </div>
+      {{end}}
+      {{if .MemTotal}}
+      <div class="host-item">
+        <span class="label">{{$.T "dash.memory"}}</span>
+        <div class="meter {{.MemClass}}"><span class="bar"><span></span></span></div>
+        <span class="meta">{{$.T "dash.mem_of" .MemUsed .MemTotal}}</span>
+      </div>
+      {{end}}
+      {{if .DiskUsed}}
+      <div class="host-item">
+        <span class="label">{{$.T "dash.disk"}}</span>
+        <div class="meter {{.DiskClass}}"><span class="bar"><span></span></span></div>
+        <span class="meta">{{$.T "dash.disk_free" .DiskFree}}</span>
+      </div>
+      {{end}}
+      {{if .Load}}
+      <div class="host-item">
+        <span class="label">{{$.T "dash.load"}}</span>
+        <span class="value text-md ltr-data">{{.Load}}</span>
+      </div>
+      {{end}}
+      {{if .Uptime}}
+      <div class="host-item">
+        <span class="label">{{$.T "dash.uptime"}}</span>
+        <span class="value text-md ltr-data">{{.Uptime}}</span>
+      </div>
+      {{end}}
+      {{end}}
+    </div>
+    {{else}}
+    <p class="text-muted text-sm">{{.T "dash.host_stats_unavailable"}}</p>
+    {{end}}
+  </div>
+</div>
+{{end}}

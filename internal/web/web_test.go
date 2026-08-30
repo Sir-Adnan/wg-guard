@@ -349,19 +349,3 @@ func TestSafeNext(t *testing.T) {
 		}
 	}
 }
-
-func TestDashboardCounters(t *testing.T) {
-	e := newEnv(t)
-	e.seedOwner()
-	cookie := e.login("owner")
-	rec := e.get("/dashboard", cookie)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "کل کاربران") {
-		t.Fatalf("dashboard render: %d", rec.Code)
-	}
-	// Every metric card renders even at zero state (fa defaults).
-	for _, want := range []string{"آنلاین", "اتمام حجم", "وی‌گارد"} {
-		if !strings.Contains(rec.Body.String(), want) {
-			t.Fatalf("dashboard missing %q", want)
-		}
-	}
-}

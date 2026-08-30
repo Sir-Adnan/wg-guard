@@ -10,41 +10,19 @@
   </div>
 </div>
 
-<div class="metric-grid">
-  <div class="metric">
-    <span class="label">{{.IconS "users"}}{{.T "dash.users_total"}}</span>
-    <span class="value">{{.N .Data.Total}}</span>
-  </div>
-  <div class="metric">
-    <span class="label">{{.IconS "activity"}}{{.T "dash.users_active"}}</span>
-    <span class="value">{{.N .Data.Active}}</span>
-    <span class="meta">{{.N .Data.Waiting}} {{.T "status.waiting_first_connection"}}</span>
-  </div>
-  <div class="metric">
-    <span class="label">{{.IconS "wifi"}}{{.T "dash.users_online"}}</span>
-    <span class="value text-ok">{{.N .Data.Online}}</span>
-    <span class="meta">{{.T "dash.online_window" .Data.OnlineWindow}}</span>
-  </div>
-  <div class="metric">
-    <span class="label">{{.IconS "timer"}}{{.T "dash.users_expiring"}}</span>
-    <span class="value{{if gt .Data.Expiring 0}} text-warn{{end}}">{{.N .Data.Expiring}}</span>
-    <span class="meta">{{.T "users.sort.expires"}}</span>
-  </div>
-  <div class="metric">
-    <span class="label">{{.IconS "timer"}}{{.T "dash.users_expired"}}</span>
-    <span class="value">{{.N .Data.Expired}}</span>
-  </div>
-  <div class="metric">
-    <span class="label">{{.IconS "gauge"}}{{.T "dash.users_exceeded"}}</span>
-    <span class="value{{if gt .Data.Exceeded 0}} text-danger{{end}}">{{.N .Data.Exceeded}}</span>
-  </div>
-</div>
+{{template "dash_live" .}}
+
+{{template "dash_chart" .}}
 
 <div class="card card--pad mt-4">
   <h2>{{.T "dash.node"}}</h2>
   <dl class="detail-list">
     <dt>{{.T "dash.node_status"}}</dt>
     <dd><span class="badge badge--ok badge--pulse"><span class="dot"></span>{{.T "dash.node_up"}}</span></dd>
+    {{if .Data.Endpoint}}
+    <dt>{{.T "dash.endpoint"}}</dt>
+    <dd class="ltr-data">{{.Data.Endpoint}}</dd>
+    {{end}}
     <dt>{{.T "dash.version"}}</dt>
     <dd class="ltr-data">{{.Version}}</dd>
     <dt>{{.T "dash.backend"}}</dt>

@@ -22,6 +22,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
+	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -50,6 +51,10 @@ type Deps struct {
 
 	// ClientConf renders client configs + QR (shared with the REST API).
 	ClientConf *clientconf.Renderer
+
+	// Host reads host metrics for the dashboard (nil on platforms without
+	// support — the card is hidden). Wired from serve.
+	Host *hoststats.Reader
 
 	Version      string
 	TLSMode      config.TLSMode
@@ -101,6 +106,8 @@ func (s *Server) Handler() http.Handler {
 	// --- app pages ---
 	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
+	mux.HandleFunc("GET /dashboard/live", s.requireAuth(s.handleDashboardLive))
+	mux.HandleFunc("GET /dashboard/chart", s.requireAuth(s.handleDashboardChart))
 
 	// --- users ---
 	mux.HandleFunc("GET /users", s.requireAuth(s.handleUserList))

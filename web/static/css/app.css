@@ -1223,3 +1223,75 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
   .sidebar, .topbar, .toasts, .toolbar, .pagination { display: none !important; }
   .shell { grid-template-columns: 1fr; }
 }
+
+/* ---------- dashboard: traffic chart ---------- */
+
+.chart-legend {
+  display: flex;
+  gap: var(--sp-4);
+  margin-block-start: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.swatch {
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.swatch--tx { background: var(--ok); }
+
+.chart-wrap { margin-block-start: var(--sp-3); }
+.chart { display: block; inline-size: 100%; block-size: auto; }
+.chart-grid { stroke: var(--border); stroke-width: 1; shape-rendering: crispEdges; }
+.chart-axis {
+  fill: var(--fg-subtle);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.chart-rx { fill: var(--accent); opacity: 0.9; }
+.chart-tx { fill: var(--ok); opacity: 0.75; }
+
+/* segmented range control (chart period) */
+.seg-group {
+  display: inline-flex;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 2px;
+  gap: 2px;
+}
+.seg {
+  padding: 5px 12px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--fg-muted);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.seg:hover { color: var(--fg); }
+.seg.is-on {
+  background: var(--bg-elev);
+  color: var(--fg);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---------- dashboard: host metrics ---------- */
+
+.host-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-4) var(--sp-5);
+  margin-block-start: var(--sp-2);
+}
+.host-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.host-item .label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--fg-subtle);
+  letter-spacing: 0.02em;
+}
+.host-item .value { font-weight: 600; }
+.host-item .meta { font-size: var(--fs-xs); color: var(--fg-muted); }
+.text-md { font-size: var(--fs-md); }

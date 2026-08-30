@@ -334,23 +334,7 @@ func (v *View) MeterClass(used int64, limit *int64) string {
 	if limit == nil || *limit <= 0 {
 		return "w0"
 	}
-	pct := float64(used) / float64(*limit) * 100
-	step := int(pct/5+0.5) * 5
-	if step > 100 {
-		step = 100
-	}
-	tone := ""
-	switch {
-	case pct >= 100:
-		tone = " is-danger"
-	case pct >= 85:
-		tone = " is-warn"
-	}
-	return "w" + itoa(step) + tone
-}
-
-func itoa(n int) string {
-	return fmt.Sprintf("%d", n)
+	return meterClass(used, *limit)
 }
 
 // render executes a page inside the given layout ("app" or "auth").

@@ -1,0 +1,32 @@
+{{define "dash_chart"}}
+<div id="chart-card" class="card">
+  <div class="card-head">
+    <h2>{{.T "dash.traffic"}}</h2>
+    <div class="seg-group" role="group" aria-label="{{.T "dash.traffic"}}">
+      {{$r := .Data.Chart.Range}}
+      <a class="seg{{if eq $r "24h"}} is-on{{end}}" href="/dashboard?range=24h"
+         hx-get="/dashboard/chart?range=24h" hx-target="#chart-card" hx-swap="outerHTML"
+         hx-push-url="false">{{.T "dash.range_24h"}}</a>
+      <a class="seg{{if eq $r "7d"}} is-on{{end}}" href="/dashboard?range=7d"
+         hx-get="/dashboard/chart?range=7d" hx-target="#chart-card" hx-swap="outerHTML"
+         hx-push-url="false">{{.T "dash.range_7d"}}</a>
+      <a class="seg{{if eq $r "30d"}} is-on{{end}}" href="/dashboard?range=30d"
+         hx-get="/dashboard/chart?range=30d" hx-target="#chart-card" hx-swap="outerHTML"
+         hx-push-url="false">{{.T "dash.range_30d"}}</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="chart-legend">
+      <span class="legend-item"><span class="swatch"></span>{{.T "dash.rx"}}</span>
+      <span class="legend-item"><span class="swatch swatch--tx"></span>{{.T "dash.tx"}}</span>
+    </div>
+    {{if .Data.Chart.SVG}}
+    <div class="chart-wrap">{{.Data.Chart.SVG}}</div>
+    {{else}}
+    <div class="empty">
+      <p>{{.T "dash.no_traffic"}}</p>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
