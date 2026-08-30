@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WG-Guard API reference</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 46rem;
+         margin: 0 auto; padding: 2rem 1.25rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  p.sub { opacity: .75; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+  code { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: .85em; }
+  .scope { opacity: .65; font-size: .8rem; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>WG-Guard API</h1>
+<p class="sub">REST management surface — <code>/api/v1</code>. Full machine-readable contract:
+<a href="/openapi.json"><code>/openapi.json</code></a>. Auth: <code>Authorization: Bearer wg_…</code> token with scopes.</p>
+
+<table>
+  <tr><th>Group</th><th>Endpoints</th></tr>
+  <tr><td>Ops</td><td><code>GET /healthz</code>, <code>GET /readyz</code> (public)</td></tr>
+  <tr><td>Node</td><td><code>GET /api/v1/node</code>, <code>GET /api/v1/node/health</code> (public), <code>GET /api/v1/node/stats</code></td></tr>
+  <tr><td>Users</td><td><code>POST/GET /users</code>, <code>GET/PATCH/DELETE /users/{id}</code>, <code>POST /users/{id}/enable|disable|renew</code>, <code>POST /users/{id}/traffic/add|set|reset</code>, <code>GET /users/{id}/traffic</code></td></tr>
+  <tr><td>Bulk</td><td><code>POST /users/bulk</code>, <code>POST /users/bulk-action</code></td></tr>
+  <tr><td>Devices</td><td><code>GET/POST /users/{id}/devices</code>, <code>GET/PATCH/DELETE /devices/{id}</code>, <code>POST /devices/{id}/enable|disable|regenerate</code>, <code>GET /devices/{id}/config|qr</code></td></tr>
+  <tr><td>Stats</td><td><code>GET /stats</code>, <code>GET /users/{id}/stats</code>, <code>GET /devices/{id}/stats</code></td></tr>
+  <tr><td>Plans</td><td><code>GET/POST /plans</code>, <code>GET/PATCH/DELETE /plans/{id}</code></td></tr>
+  <tr><td>Interfaces</td><td><code>GET/POST /interfaces</code>, <code>GET/PATCH/DELETE /interfaces/{id}</code></td></tr>
+  <tr><td>Settings</td><td><code>GET /settings</code>, <code>PATCH /settings</code></td></tr>
+  <tr><td>Webhooks</td><td><code>GET/POST /webhooks</code>, <code>GET/PATCH/DELETE /webhooks/{id}</code>, <code>POST /webhooks/{id}/redeliver</code></td></tr>
+</table>
+
+<p class="sub scope">Limits are tri-state: a speed-limit field left absent defaults to unlimited on create;
+<code>null</code> on update clears it to unlimited — download (server→client) and upload
+(client→server) are independent. Mutating endpoints accept <code>Idempotency-Key</code>.
+Errors: one envelope with a stable <code>error.code</code>.</p>
+</body>
+</html>

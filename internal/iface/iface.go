@@ -497,6 +497,64 @@ func (s *Service) UpdateMTU(ctx context.Context, id string, mtu int) error {
 	return nil
 }
 
+// UpdateInput is a partial profile update. The name, port, and pool are
+// deliberately immutable here: moving an interface's port happens through
+// reconcile, and a pool change would orphan allocated device addresses.
+// Obfuscation-mode changes (plain ↔ obfuscated) are supported — the
+// reconcile engine recreates the link for that transition (pinned fact:
+// setconf cannot switch modes in place).
+type UpdateInput struct {
+	MTU              *int
+	Enabled          *bool
+	EndpointOverride *string
+	Obfuscation      *Obfuscation
+}
+
+// Update applies a partial profile change and returns the updated row.
+func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Interface, error) {
+	ifc, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if in.MTU != nil {
+		if *in.MTU < 576 || *in.MTU > 65535 {
+			return nil, domain.E(domain.CodeInvalidRequest, "MTU must be 576–65535, got %d", *in.MTU)
+		}
+		ifc.MTU = *in.MTU
+	}
+	if in.Enabled != nil {
+		ifc.Enabled = *in.Enabled
+	}
+	if in.EndpointOverride != nil {
+		ifc.EndpointOverride = strings.TrimSpace(*in.EndpointOverride)
+	}
+	if in.Obfuscation != nil {
+		if err := ValidateObfuscation(*in.Obfuscation); err != nil {
+			return nil, err
+		}
+		ifc.Obfuscation = *in.Obfuscation
+	}
+	ifc.UpdatedAt = s.now().UTC()
+	_, err = s.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET
+		mtu = ?, enabled = ?, endpoint_override = ?,
+		jc = ?, jmin = ?, jmax = ?, s1 = ?, s2 = ?, h1 = ?, h2 = ?, h3 = ?, h4 = ?,
+		i1 = ?, i2 = ?, i3 = ?, i4 = ?, i5 = ?, preset_name = ?, updated_at = ?
+		WHERE id = ?`,
+		ifc.MTU, boolInt(ifc.Enabled), nullText(ifc.EndpointOverride),
+		nullInt(ifc.Obfuscation.Jc, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.Jmin, ifc.Obfuscation.Enabled),
+		nullInt(ifc.Obfuscation.Jmax, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.S1, ifc.Obfuscation.Enabled),
+		nullInt(ifc.Obfuscation.S2, ifc.Obfuscation.Enabled),
+		nullU32(ifc.Obfuscation.H1, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H2, ifc.Obfuscation.Enabled),
+		nullU32(ifc.Obfuscation.H3, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H4, ifc.Obfuscation.Enabled),
+		nullText(ifc.Obfuscation.I1), nullText(ifc.Obfuscation.I2), nullText(ifc.Obfuscation.I3),
+		nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
+		ifc.Preset, ifc.UpdatedAt.Format(time.RFC3339Nano), ifc.ID)
+	if err != nil {
+		return nil, fmt.Errorf("iface: update: %w", err)
+	}
+	return ifc, nil
+}
+
 // Delete removes an interface row. Refused while devices still reference it
 // (the caller migrates devices first — part of the rotation workflow).
 func (s *Service) Delete(ctx context.Context, id string) error {

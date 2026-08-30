@@ -1,0 +1,604 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WG-Guard API",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). All errors use one envelope (`error.code` is a stable machine code). Mutating integration endpoints accept `Idempotency-Key` for safe retries. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "version": "1.0.0"
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "BearerAuth": [] }],
+  "tags": [
+    { "name": "node" }, { "name": "users" }, { "name": "bulk" }, { "name": "devices" },
+    { "name": "config" }, { "name": "stats" }, { "name": "plans" }, { "name": "interfaces" },
+    { "name": "settings" }, { "name": "webhooks" }, { "name": "ops" }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["ops"], "summary": "Public liveness probe", "security": [],
+        "responses": { "200": { "description": "Process is up", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": ["ops"], "summary": "Public readiness probe (bring-up complete, DB reachable)", "security": [],
+        "responses": { "200": { "description": "Ready", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } }, "503": { "description": "Not ready", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+      }
+    },
+    "/openapi.json": {
+      "get": { "tags": ["ops"], "summary": "This document", "security": [], "responses": { "200": { "description": "OpenAPI document" } } }
+    },
+    "/docs": {
+      "get": { "tags": ["ops"], "summary": "Lightweight API reference page", "security": [], "responses": { "200": { "description": "HTML reference page" } } }
+    },
+    "/api/v1/node/health": {
+      "get": {
+        "tags": ["node"], "summary": "Public capability discovery: version + liveness only", "security": [],
+        "responses": { "200": { "description": "Node status", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "version": { "type": "string" } } } } } } }
+      }
+    },
+    "/api/v1/node": {
+      "get": {
+        "tags": ["node"], "summary": "Node identity, uptime, interface inventory", "security": [{ "BearerAuth": ["node.read"] }],
+        "responses": { "200": { "description": "Node description", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Node" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
+      }
+    },
+    "/api/v1/node/stats": {
+      "get": {
+        "tags": ["node"], "summary": "Runtime counters (uptime, user/device counts)", "security": [{ "BearerAuth": ["node.read"] }],
+        "responses": { "200": { "description": "Runtime statistics" } }
+      }
+    },
+    "/api/v1/users": {
+      "post": {
+        "tags": ["users"], "summary": "Create a user", "operationId": "createUser",
+        "description": "Idempotent with `Idempotency-Key`. Limit fields are tri-state: absent = unlimited (create), `null` = clear to unlimited (update), value = set. Speed limits are independent per direction (kbps).",
+        "security": [{ "BearerAuth": ["users.create"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserCreate" }, "example": { "username": "alice", "duration_seconds": 2592000, "traffic_limit_bytes": 107374182400, "speed_limit_down_kbps": 10240, "speed_limit_up_kbps": null, "device_limit": 3 } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "409": { "$ref": "#/components/responses/Conflict" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
+      },
+      "get": {
+        "tags": ["users"], "summary": "List users (cursor pagination)", "security": [{ "BearerAuth": ["users.read"] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "maximum": 500, "default": 50 } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["created_at", "username", "expires_at", "used"], "default": "created_at" } },
+          { "name": "order", "in": "query", "schema": { "type": "string", "enum": ["asc", "desc"] } },
+          { "name": "username", "in": "query", "schema": { "type": "string" }, "description": "Substring filter (wildcards are literal)" },
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/UserStatus" } },
+          { "name": "traffic_exceeded", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "enabled", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "expires_before", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "expires_after", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "created_before", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "created_after", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "plan_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "interface_id", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Page of users", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPage" } } } } }
+      }
+    },
+    "/api/v1/users/bulk": {
+      "post": {
+        "tags": ["bulk"], "summary": "Bulk-create users (prefix + zero-padded index)", "security": [{ "BearerAuth": ["users.bulk"] }],
+        "description": "Idempotent with `Idempotency-Key`. One transaction: either all created users exist or none. Taken usernames are skipped (usernames stay reserved after soft delete).",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["count"], "properties": { "count": { "type": "integer", "minimum": 1, "maximum": 500 }, "prefix": { "type": "string", "example": "gs" }, "start_index": { "type": "integer", "default": 1 }, "width": { "type": "integer", "default": 3 }, "duration_seconds": { "type": "integer" }, "traffic_limit_bytes": { "type": "integer", "nullable": true }, "speed_limit_down_kbps": { "type": "integer", "nullable": true }, "speed_limit_up_kbps": { "type": "integer", "nullable": true }, "device_limit": { "type": "integer", "nullable": true }, "plan_id": { "type": "string", "nullable": true }, "interface_id": { "type": "string", "nullable": true }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" } } } } } },
+        "responses": { "201": { "description": "Created users + skipped count", "content": { "application/json": { "schema": { "type": "object", "properties": { "created": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }, "skipped": { "type": "integer" } } } } } } }
+      }
+    },
+    "/api/v1/users/bulk-action": {
+      "post": {
+        "tags": ["bulk"], "summary": "Apply one action to many users (per-item results)", "security": [{ "BearerAuth": ["users.bulk"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action", "user_ids"], "properties": { "action": { "type": "string", "enum": ["enable", "disable", "delete", "renew", "reset_traffic", "add_traffic", "update"] }, "user_ids": { "type": "array", "maxItems": 500, "items": { "type": "string" } }, "params": { "type": "object", "properties": { "reason": { "type": "string" }, "mode": { "type": "string" }, "duration_seconds": { "type": "integer" }, "rx_bytes": { "type": "integer" }, "tx_bytes": { "type": "integer" } } } } } } } },
+        "responses": { "200": { "description": "Per-item results", "content": { "application/json": { "schema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "ok": { "type": "boolean" }, "error": { "type": "string" } } } }, "ok": { "type": "integer" } } } } } } }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": ["users"], "summary": "Get a user", "security": [{ "BearerAuth": ["users.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "User", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "patch": {
+        "tags": ["users"], "summary": "Partially update a user (username immutable; `null` clears a limit)", "security": [{ "BearerAuth": ["users.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPatch" } } } },
+        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "delete": {
+        "tags": ["users"], "summary": "Soft-delete a user (username stays reserved; peers removed)", "security": [{ "BearerAuth": ["users.delete"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Deleted" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/users/{id}/enable": {
+      "post": {
+        "tags": ["users"], "summary": "Enable a user (returns to active/waiting)", "security": [{ "BearerAuth": ["users.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Enabled", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/api/v1/users/{id}/disable": {
+      "post": {
+        "tags": ["users"], "summary": "Disable a user", "security": [{ "BearerAuth": ["users.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "reason": { "type": "string", "enum": ["manual", "admin_action"], "default": "manual" } } } } } },
+        "responses": { "200": { "description": "Disabled", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/api/v1/users/{id}/renew": {
+      "post": {
+        "tags": ["users"], "summary": "Renew a subscription", "description": "Idempotent with `Idempotency-Key`. Reactivates expired accounts; traffic_exceeded accounts are NOT reactivated here (quota recovery is an explicit admin action).", "security": [{ "BearerAuth": ["users.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["from_expiration", "from_now", "exact"] }, "duration_seconds": { "type": "integer" }, "exact": { "type": "string", "format": "date-time" } } } } } },
+        "responses": { "200": { "description": "Renewed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/api/v1/users/{id}/traffic/add": {
+      "post": {
+        "tags": ["users"], "summary": "Add traffic to the charged counters", "description": "Idempotent with `Idempotency-Key`. Pushing the total to/over the limit trips the account immediately.", "security": [{ "BearerAuth": ["traffic.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "rx_bytes": { "type": "integer", "minimum": 0 }, "tx_bytes": { "type": "integer", "minimum": 0 } } } } } },
+        "responses": { "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/users/{id}/traffic/set": {
+      "post": {
+        "tags": ["users"], "summary": "Set the charged counters to absolute values", "description": "Idempotent with `Idempotency-Key`. `null` leaves a counter untouched; landing below the limit reactivates a traffic_exceeded account.", "security": [{ "BearerAuth": ["traffic.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "rx_bytes": { "type": "integer", "minimum": 0, "nullable": true }, "tx_bytes": { "type": "integer", "minimum": 0, "nullable": true } } } } } },
+        "responses": { "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/api/v1/users/{id}/traffic/reset": {
+      "post": {
+        "tags": ["users"], "summary": "Reset usage to zero (one-op unblock)", "description": "Idempotent with `Idempotency-Key`. Zeroes user and device totals; a traffic_exceeded account returns to active (or waiting per policy).", "security": [{ "BearerAuth": ["traffic.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Reset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/api/v1/users/{id}/traffic": {
+      "get": {
+        "tags": ["stats"], "summary": "Traffic time series for the user's devices", "security": [{ "BearerAuth": ["traffic.read"] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/UserID" },
+          { "name": "granularity", "in": "query", "schema": { "type": "string", "enum": ["samples", "hourly", "daily"], "default": "samples" } },
+          { "name": "hours", "in": "query", "schema": { "type": "integer", "default": 48 }, "description": "Window; capped by retention (samples 48, hourly 720, daily 8760)" }
+        ],
+        "responses": { "200": { "description": "Series", "content": { "application/json": { "schema": { "type": "object", "properties": { "granularity": { "type": "string" }, "series": { "type": "array", "items": { "type": "object", "properties": { "ts": { "type": "string" }, "rx": { "type": "integer" }, "tx": { "type": "integer" } } } } } } } } } }
+      }
+    },
+    "/api/v1/users/{id}/devices": {
+      "get": {
+        "tags": ["devices"], "summary": "List the user's devices", "security": [{ "BearerAuth": ["devices.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Devices", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Device" } } } } } } } }
+      },
+      "post": {
+        "tags": ["devices"], "summary": "Create a device (keys generated server-side)", "security": [{ "BearerAuth": ["devices.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "interface_id": { "type": "string" }, "preshared_key": { "type": "boolean", "default": false } } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Device" } } } }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/devices/{id}": {
+      "get": {
+        "tags": ["devices"], "summary": "Get a device", "security": [{ "BearerAuth": ["devices.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "responses": { "200": { "description": "Device", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Device" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "patch": {
+        "tags": ["devices"], "summary": "Rename a device", "security": [{ "BearerAuth": ["devices.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Renamed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Device" } } } } }
+      },
+      "delete": {
+        "tags": ["devices"], "summary": "Delete a device (IP released; peer removed)", "security": [{ "BearerAuth": ["devices.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/api/v1/devices/{id}/enable": {
+      "post": { "tags": ["devices"], "summary": "Enable a device", "security": [{ "BearerAuth": ["devices.write"] }], "parameters": [{ "$ref": "#/components/parameters/DeviceID" }], "responses": { "200": { "description": "Enabled" } } }
+    },
+    "/api/v1/devices/{id}/disable": {
+      "post": { "tags": ["devices"], "summary": "Disable a device", "security": [{ "BearerAuth": ["devices.write"] }], "parameters": [{ "$ref": "#/components/parameters/DeviceID" }], "responses": { "200": { "description": "Disabled" } } }
+    },
+    "/api/v1/devices/{id}/regenerate": {
+      "post": {
+        "tags": ["devices"], "summary": "Regenerate device keys", "description": "The old peer key is revoked by reconciliation (matched by device IP), the new key is applied.", "security": [{ "BearerAuth": ["devices.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "preshared_key": { "type": "boolean" } } } } } },
+        "responses": { "200": { "description": "Regenerated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Device" } } } } }
+      }
+    },
+    "/api/v1/devices/{id}/config": {
+      "get": {
+        "tags": ["config"], "summary": "Download the client configuration (text)", "description": "Requires configs.read; `Cache-Control: no-store`; contains the private key — treat as a secret.", "security": [{ "BearerAuth": ["configs.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "responses": { "200": { "description": "AWG client configuration", "content": { "text/plain": { "schema": { "type": "string" } } } } }
+      }
+    },
+    "/api/v1/devices/{id}/qr": {
+      "get": {
+        "tags": ["config"], "summary": "Client configuration as a PNG QR code", "security": [{ "BearerAuth": ["configs.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "responses": { "200": { "description": "PNG image", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } } } }
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "tags": ["stats"], "summary": "Node-wide statistics", "security": [{ "BearerAuth": ["stats.read"] }],
+        "responses": { "200": { "description": "Counts and traffic totals" } }
+      }
+    },
+    "/api/v1/users/{id}/stats": {
+      "get": {
+        "tags": ["stats"], "summary": "Per-user statistics (used, limit, remaining, percent)", "security": [{ "BearerAuth": ["stats.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "User statistics" } }
+      }
+    },
+    "/api/v1/devices/{id}/stats": {
+      "get": {
+        "tags": ["stats"], "summary": "Per-device statistics (totals, handshake, online)", "security": [{ "BearerAuth": ["stats.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
+        "responses": { "200": { "description": "Device statistics" } }
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "tags": ["plans"], "summary": "List plans", "security": [{ "BearerAuth": ["plans.read"] }],
+        "responses": { "200": { "description": "Plans", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Plan" } } } } } } } }
+      },
+      "post": {
+        "tags": ["plans"], "summary": "Create a plan", "security": [{ "BearerAuth": ["plans.write"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanPatch" } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } } } }
+      }
+    },
+    "/api/v1/plans/{id}": {
+      "get": {
+        "tags": ["plans"], "summary": "Get a plan", "security": [{ "BearerAuth": ["plans.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/PlanID" }],
+        "responses": { "200": { "description": "Plan", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "patch": {
+        "tags": ["plans"], "summary": "Update a plan", "security": [{ "BearerAuth": ["plans.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/PlanID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanPatch" } } } },
+        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } } } }
+      },
+      "delete": {
+        "tags": ["plans"], "summary": "Delete a plan (refused while assigned to users)", "security": [{ "BearerAuth": ["plans.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/PlanID" }],
+        "responses": { "200": { "description": "Deleted" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/interfaces": {
+      "get": {
+        "tags": ["interfaces"], "summary": "List tunnel interfaces/profiles", "security": [{ "BearerAuth": ["interfaces.read"] }],
+        "responses": { "200": { "description": "Interfaces", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Interface" } } } } } } } }
+      },
+      "post": {
+        "tags": ["interfaces"], "summary": "Create a profile (server keypair generated)", "security": [{ "BearerAuth": ["interfaces.write"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer" }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24" }, "mtu": { "type": "integer" }, "preset": { "type": "string" }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/interfaces/{id}": {
+      "get": {
+        "tags": ["interfaces"], "summary": "Get a profile", "security": [{ "BearerAuth": ["interfaces.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/InterfaceID" }],
+        "responses": { "200": { "description": "Interface", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "patch": {
+        "tags": ["interfaces"], "summary": "Update MTU/endpoint/obfuscation/enabled", "description": "Name, port, and pool are immutable here. Obfuscation-mode transitions recreate the link (reconcile).", "security": [{ "BearerAuth": ["interfaces.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/InterfaceID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "mtu": { "type": "integer" }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": "string", "nullable": true }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } } }
+      },
+      "delete": {
+        "tags": ["interfaces"], "summary": "Delete a profile (refused while devices exist)", "security": [{ "BearerAuth": ["interfaces.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/InterfaceID" }],
+        "responses": { "200": { "description": "Deleted" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "tags": ["settings"], "summary": "List settings (secrets redacted — only `secret_set`)", "security": [{ "BearerAuth": ["node.read"] }],
+        "responses": { "200": { "description": "Settings catalog" } }
+      },
+      "patch": {
+        "tags": ["settings"], "summary": "Update settings (typed registry; validated)", "security": [{ "BearerAuth": ["node.settings"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true, "example": { "node.endpoint": "vpn.example.com", "api.rate_limit_per_minute": 600 } } } } },
+        "responses": { "200": { "description": "Updated keys" }, "400": { "$ref": "#/components/responses/Invalid" } }
+      }
+    },
+    "/api/v1/webhooks": {
+      "get": {
+        "tags": ["webhooks"], "summary": "List webhook endpoints (with delivery stats)", "security": [{ "BearerAuth": ["webhooks.read"] }],
+        "responses": { "200": { "description": "Endpoints", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEndpoint" } } } } } } } }
+      },
+      "post": {
+        "tags": ["webhooks"], "summary": "Create a webhook endpoint", "description": "An empty `secret` generates one and returns it exactly once. Signing: `X-WG-Signature: t=<ts>,v1=<hex hmac-sha256(secret, \"<ts>.<body>\")>` with a ~5-minute replay window.", "security": [{ "BearerAuth": ["webhooks.write"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url", "events"], "properties": { "url": { "type": "string" }, "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }, "secret": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "Created (secret present when generated)" } }
+      }
+    },
+    "/api/v1/webhooks/{id}": {
+      "get": {
+        "tags": ["webhooks"], "summary": "Get a webhook endpoint", "security": [{ "BearerAuth": ["webhooks.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/WebhookID" }],
+        "responses": { "200": { "description": "Endpoint", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookEndpoint" } } } } }
+      },
+      "patch": {
+        "tags": ["webhooks"], "summary": "Update url/events/enabled or rotate the secret", "security": [{ "BearerAuth": ["webhooks.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/WebhookID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "url": { "type": "string" }, "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }, "enabled": { "type": "boolean" }, "secret": { "type": "string", "description": "Empty string generates a new secret (returned once)" } } } } } },
+        "responses": { "200": { "description": "Updated" } }
+      },
+      "delete": {
+        "tags": ["webhooks"], "summary": "Delete a webhook endpoint", "security": [{ "BearerAuth": ["webhooks.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/WebhookID" }],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/api/v1/webhooks/{id}/redeliver": {
+      "post": {
+        "tags": ["webhooks"], "summary": "Manually redeliver one delivery (resets attempts)", "security": [{ "BearerAuth": ["webhooks.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/WebhookID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["delivery_id"], "properties": { "delivery_id": { "type": "string" } } } } } },
+        "responses": { "202": { "description": "Queued for redelivery" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": { "type": "http", "scheme": "bearer", "description": "API token: `Authorization: Bearer wg_…` with scopes; separate from admin sessions." }
+    },
+    "parameters": {
+      "UserID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "DeviceID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "PlanID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "InterfaceID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "WebhookID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Missing or invalid token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Forbidden": { "description": "Token lacks the required scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Conflict": { "description": "Conflict (exists, limit reached, pool exhausted, in use)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Invalid": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "request_id"],
+            "properties": {
+              "code": { "type": "string", "description": "Stable machine code: USER_NOT_FOUND, USERNAME_EXISTS, DEVICE_LIMIT_REACHED, TRAFFIC_EXCEEDED, INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, RATE_LIMITED, NODE_UNAVAILABLE, INTERNAL_ERROR, …" },
+              "message": { "type": "string" },
+              "request_id": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "properties": { "status": { "type": "string" } }
+      },
+      "Node": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string" },
+          "node_id": { "type": "string" },
+          "tools_version": { "type": "string" },
+          "uptime_seconds": { "type": "integer" },
+          "interfaces": { "type": "array", "items": { "type": "object", "properties": {
+            "id": { "type": "string" }, "name": { "type": "string" }, "listen_port": { "type": "integer" },
+            "ipv4_subnet": { "type": "string" }, "enabled": { "type": "boolean" },
+            "backend_mode": { "type": "string" }, "devices": { "type": "integer" } } } }
+        }
+      },
+      "UserStatus": { "type": "string", "enum": ["active", "disabled", "suspended", "expired", "traffic_exceeded", "waiting_first_connection"] },
+      "StartPolicy": { "type": "string", "enum": ["immediate", "first_connection"] },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "display_name": { "type": "string" },
+          "note": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "status": { "$ref": "#/components/schemas/UserStatus" },
+          "disable_reason": { "type": "string", "nullable": true, "enum": ["manual", "expired", "traffic_limit", "admin_action", null] },
+          "traffic_limit_bytes": { "type": "integer", "nullable": true, "description": "null = unlimited" },
+          "traffic_used_rx": { "type": "integer" },
+          "traffic_used_tx": { "type": "integer" },
+          "traffic_used_total": { "type": "integer" },
+          "speed_limit_down_kbps": { "type": "integer", "nullable": true, "description": "Download (server→client) limit; null = unlimited" },
+          "speed_limit_up_kbps": { "type": "integer", "nullable": true, "description": "Upload (client→server) limit; null = unlimited" },
+          "device_limit": { "type": "integer", "nullable": true },
+          "plan_id": { "type": "string", "nullable": true },
+          "interface_id": { "type": "string", "nullable": true },
+          "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
+          "duration_seconds": { "type": "integer", "nullable": true },
+          "activated_at": { "type": "string", "format": "date-time", "nullable": true },
+          "expires_at": { "type": "string", "format": "date-time", "nullable": true },
+          "last_activity_at": { "type": "string", "format": "date-time", "nullable": true },
+          "enabled": { "type": "boolean" },
+          "metadata": { "type": "object", "additionalProperties": true },
+          "deleted": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserCreate": {
+        "type": "object",
+        "required": ["username"],
+        "properties": {
+          "username": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{3,32}$" },
+          "display_name": { "type": "string" },
+          "note": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "traffic_limit_bytes": { "type": "integer", "nullable": true },
+          "speed_limit_down_kbps": { "type": "integer", "nullable": true },
+          "speed_limit_up_kbps": { "type": "integer", "nullable": true },
+          "device_limit": { "type": "integer", "nullable": true },
+          "plan_id": { "type": "string", "nullable": true },
+          "interface_id": { "type": "string", "nullable": true },
+          "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
+          "duration_seconds": { "type": "integer", "nullable": true },
+          "enabled": { "type": "boolean", "default": true },
+          "metadata": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "UserPatch": {
+        "type": "object",
+        "properties": {
+          "display_name": { "type": "string" },
+          "note": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "traffic_limit_bytes": { "type": "integer", "nullable": true },
+          "speed_limit_down_kbps": { "type": "integer", "nullable": true },
+          "speed_limit_up_kbps": { "type": "integer", "nullable": true },
+          "device_limit": { "type": "integer", "nullable": true },
+          "plan_id": { "type": "string", "nullable": true },
+          "interface_id": { "type": "string", "nullable": true },
+          "duration_seconds": { "type": "integer" },
+          "enabled": { "type": "boolean" },
+          "metadata": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "UserPage": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+          "next_cursor": { "type": "string", "description": "Opaque; empty = last page" }
+        }
+      },
+      "Device": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "interface_id": { "type": "string" },
+          "name": { "type": "string" },
+          "ipv4_address": { "type": "string" },
+          "public_key": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "last_handshake_at": { "type": "string", "format": "date-time", "nullable": true },
+          "last_endpoint": { "type": "string" },
+          "rx_bytes": { "type": "integer" },
+          "tx_bytes": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "traffic_limit_bytes": { "type": "integer", "nullable": true },
+          "duration_seconds": { "type": "integer", "nullable": true },
+          "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
+          "device_limit": { "type": "integer", "nullable": true },
+          "speed_limit_down_kbps": { "type": "integer", "nullable": true },
+          "speed_limit_up_kbps": { "type": "integer", "nullable": true },
+          "interface_id": { "type": "string", "nullable": true },
+          "enabled": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PlanPatch": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "traffic_limit_bytes": { "type": "integer", "nullable": true },
+          "duration_seconds": { "type": "integer", "nullable": true },
+          "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
+          "device_limit": { "type": "integer", "nullable": true },
+          "speed_limit_down_kbps": { "type": "integer", "nullable": true },
+          "speed_limit_up_kbps": { "type": "integer", "nullable": true },
+          "interface_id": { "type": "string", "nullable": true },
+          "enabled": { "type": "boolean" }
+        }
+      },
+      "Obfuscation": {
+        "type": "object",
+        "description": "AmneziaWG obfuscation profile (kernel-README constraint set: Jc 1–128, Jmin < Jmax ≤ 1280, S1 ≤ 1132, S2 ≤ 1188, S1+56 ≠ S2, H1–H4 pairwise distinct).",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "jc": { "type": "integer" },
+          "jmin": { "type": "integer" },
+          "jmax": { "type": "integer" },
+          "s1": { "type": "integer" },
+          "s2": { "type": "integer" },
+          "h1": { "type": "integer" },
+          "h2": { "type": "integer" },
+          "h3": { "type": "integer" },
+          "h4": { "type": "integer" },
+          "i1": { "type": "string" },
+          "i2": { "type": "string" },
+          "i3": { "type": "string" },
+          "i4": { "type": "string" },
+          "i5": { "type": "string" }
+        }
+      },
+      "Interface": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "listen_port": { "type": "integer" },
+          "ipv4_subnet": { "type": "string" },
+          "mtu": { "type": "integer" },
+          "public_key": { "type": "string" },
+          "obfuscation": { "$ref": "#/components/schemas/Obfuscation" },
+          "preset": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] },
+          "endpoint_override": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WebhookEvent": { "type": "string", "enum": ["user.created", "user.updated", "user.enabled", "user.disabled", "user.expired", "user.traffic_exceeded", "user.first_connected", "device.created", "device.deleted", "node.started"] },
+      "WebhookEndpoint": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "url": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } },
+          "created_at": { "type": "string", "format": "date-time" },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "pending": { "type": "integer" },
+              "delivered": { "type": "integer" },
+              "dead": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-webhooks": {
+    "description": "Durable, restart-safe outbound webhooks. Deliveries POST a JSON envelope {id, type, timestamp, node_id, data} with headers X-WG-Event and X-WG-Signature: t=<ts>,v1=<hex hmac-sha256(secret, \"<ts>.<body>\")>. Retries use exponential backoff (30 s doubling, 6 h cap); after `webhooks.max_attempts` (default 12) the delivery is dead and manually redeliverable.",
+    "payloadExample": {
+      "id": "01J...",
+      "type": "user.created",
+      "timestamp": "2026-08-30T12:00:00Z",
+      "node_id": "node-1",
+      "data": { "user_id": "01J...", "username": "alice", "status": "active" }
+    }
+  }
+}

@@ -33,7 +33,7 @@ func TestMigrateFresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(versions) != 1 || versions[0] != "0001_init.sql" {
+	if len(versions) != 2 || versions[0] != "0001_init.sql" || versions[1] != "0002_speed_limits.sql" {
 		t.Fatalf("unexpected applied versions: %v", versions)
 	}
 }

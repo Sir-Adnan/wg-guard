@@ -3,3 +3,4 @@ dist/
 *.test
 *.wgg
 coverage.out
+bench-wgguard/

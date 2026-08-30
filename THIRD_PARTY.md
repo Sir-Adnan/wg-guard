@@ -22,14 +22,14 @@ from the official PPA, whose source availability satisfies the license.
 | modernc.org/sqlite | v1.57.0 | MIT (bundled SQLite sources: public domain / SQLite blessing — see LICENSE-SQLITE in the module) | Pure-Go SQLite driver (CGO_ENABLED=0) |
 | golang.org/x/crypto | v0.55.0 | BSD-3-Clause | argon2id password hashing |
 | BurntSushi/toml | v1.6.0 | MIT | Boot configuration file |
+| rsc.io/qr | v0.2.0 | BSD-3-Clause | Server-side QR generation for device configs (chosen over skip2/go-qrcode: zero transitive dependencies, maintained encoding; the planned skip2 entry is superseded) |
 
 ## Planned Go dependencies (SPDX to be confirmed at pin time)
 
 | Module | License (expected) | Purpose |
 |---|---|---|
-| golang.org/x/time/rate | BSD-3-Clause | Rate limiting |
-| filippo.io/age | BSD-3-Clause | Standard age encryption for optional backup protection |
-| skip2/go-qrcode | MIT (to confirm) | Server-side QR generation |
+| filippo.io/age | BSD-3-Clause | Standard age encryption for optional backup protection (Phase 6) |
+| golang.org/x/crypto/acme/autocert | BSD-3-Clause | Built-in ACME (already a transitive pin of x/crypto; imported with the installer, Phase 7 — ADR-0011) |
 
 ## Planned embedded frontend assets (committed prebuilt; no Node.js at runtime)
 

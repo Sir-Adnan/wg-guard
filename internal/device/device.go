@@ -54,6 +54,12 @@ type Service struct {
 	db   *database.DB
 	ring *secrets.KeyRing
 	now  func() time.Time
+
+	// Recorder (optional, satisfied by *webhook.Recorder) emits durable
+	// device events inside the state-changing transaction (webhooks.md).
+	Recorder interface {
+		RecordTx(tx *sql.Tx, eventType string, data map[string]any) error
+	}
 }
 
 func NewService(db *database.DB, ring *secrets.KeyRing) *Service {
@@ -179,6 +185,11 @@ func (s *Service) Create(ctx context.Context, userID string, name string, keys K
 
 		if err := insertDevice(ctx, tx, d); err != nil {
 			return err
+		}
+		if s.Recorder != nil {
+			return s.Recorder.RecordTx(tx, "device.created", map[string]any{
+				"device_id": d.ID, "user_id": d.UserID, "name": d.Name, "ipv4": d.IPv4,
+			})
 		}
 		return nil
 	})
@@ -317,6 +328,33 @@ func (s *Service) SetEnabled(ctx context.Context, id string, enabled bool) error
 	return nil
 }
 
+// Rename changes the device display name (unique per user).
+func (s *Service) Rename(ctx context.Context, id, name string) (*Device, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 64 {
+		return nil, domain.E(domain.CodeInvalidRequest, "device name must be 1-64 characters")
+	}
+	d, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	var existing string
+	err = s.db.QueryRowContext(ctx, `SELECT name FROM devices WHERE user_id = ? AND name = ? AND id != ?`,
+		d.UserID, name, id).Scan(&existing)
+	if err == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "device name %q already exists for this user", name)
+	} else if err != sql.ErrNoRows {
+		return nil, fmt.Errorf("device: rename check: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE devices SET name = ?, updated_at = ? WHERE id = ?`,
+		name, s.now().UTC().Format(time.RFC3339Nano), id); err != nil {
+		return nil, fmt.Errorf("device: rename: %w", err)
+	}
+	d.Name = name
+	d.UpdatedAt = s.now().UTC()
+	return d, nil
+}
+
 // Regenerate replaces the device keys (caller supplies the new encrypted
 // keypair; the public key change propagates to the backend via reconcile).
 func (s *Service) Regenerate(ctx context.Context, id string, keys KeyMaterial) error {
@@ -347,14 +385,32 @@ func (s *Service) Regenerate(ctx context.Context, id string, keys KeyMaterial) e
 
 // Delete permanently removes a device and releases its VPN IP.
 func (s *Service) Delete(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM devices WHERE id = ?`, id)
-	if err != nil {
-		return fmt.Errorf("device: delete: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
-	}
-	return nil
+	return s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var (
+			userID, name, ipv4 string
+		)
+		err := tx.QueryRowContext(ctx, `SELECT user_id, name, ipv4_address FROM devices WHERE id = ?`, id).
+			Scan(&userID, &name, &ipv4)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
+		}
+		if err != nil {
+			return fmt.Errorf("device: delete lookup: %w", err)
+		}
+		res, err := tx.ExecContext(ctx, `DELETE FROM devices WHERE id = ?`, id)
+		if err != nil {
+			return fmt.Errorf("device: delete: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
+		}
+		if s.Recorder != nil {
+			return s.Recorder.RecordTx(tx, "device.deleted", map[string]any{
+				"device_id": id, "user_id": userID, "name": name, "ipv4": ipv4,
+			})
+		}
+		return nil
+	})
 }
 
 // PrivateKey decrypts the stored private key (config generation and peer

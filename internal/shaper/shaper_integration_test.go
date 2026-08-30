@@ -44,8 +44,8 @@ func TestIntegrationTcHTBApplies(t *testing.T) {
 
 	// Apply: two users, three device IPs, one shared class per user.
 	groups := []Group{
-		{InterfaceName: ifc, UserID: "u1", IPs: []string{"10.8.0.2/32", "10.8.0.3/32"}, Kbps: 20480},
-		{InterfaceName: ifc, UserID: "u2", IPs: []string{"10.8.0.9/32"}, Kbps: 512},
+		{InterfaceName: ifc, UserID: "u1", IPs: []string{"10.8.0.2/32", "10.8.0.3/32"}, DownKbps: 20480, UpKbps: 4096},
+		{InterfaceName: ifc, UserID: "u2", IPs: []string{"10.8.0.9/32"}, DownKbps: 512},
 	}
 	applied, err := m.Ensure(ctx, ifc, groups)
 	if err != nil || !applied {
@@ -76,7 +76,7 @@ func TestIntegrationTcHTBApplies(t *testing.T) {
 	}
 
 	// Changing a limit rebuilds the tree: same class count, different rate.
-	groups[1].Kbps = 1024
+	groups[1].DownKbps = 1024
 	if applied, err = m.Ensure(ctx, ifc, groups); err != nil || !applied {
 		t.Fatalf("rebuild: applied=%v err=%v", applied, err)
 	}
@@ -100,9 +100,84 @@ func TestIntegrationTcHTBApplies(t *testing.T) {
 	}
 }
 
-func tcShow(t *testing.T, run *subprocess.System, kind, ifc string) string {
+// TestIntegrationIngressIFBShaping exercises the upload direction end-to-end
+// against real iproute2: the ingress qdisc, the mirred redirect, and the HTB
+// tree on the IFB mirror device (kernel ifb support verified in WSL2,
+// 2026-08-30 — see docs/architecture/networking.md).
+func TestIntegrationIngressIFBShaping(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("integration test requires root")
+	}
+	run := subprocess.NewSystem()
+	ctx := context.Background()
+	if _, err := exec.LookPath("tc"); err != nil {
+		t.Skip("tc not available")
+	}
+
+	const ifc = "wgshap1"
+	ifb := IFBName(ifc)
+	_, err := run.Run(ctx, []string{"ip", "link", "add", ifc, "type", "dummy"})
+	if err != nil {
+		t.Skipf("cannot create dummy interface (no NET_ADMIN?): %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = run.Run(ctx, []string{"ip", "link", "del", ifc})
+		_, _ = run.Run(ctx, []string{"ip", "link", "del", ifb})
+	})
+
+	m := New(run)
+	groups := []Group{
+		{InterfaceName: ifc, UserID: "u1", IPs: []string{"10.8.0.2/32", "10.8.0.3/32"}, UpKbps: 4096},
+	}
+	if applied, err := m.Ensure(ctx, ifc, groups); err != nil || !applied {
+		t.Fatalf("apply: applied=%v err=%v", applied, err)
+	}
+
+	// The tunnel interface carries the ingress qdisc with the redirect.
+	// (Ingress filters live under parent ffff:; this iproute2 lists them
+	// only with the parent given explicitly — verified live 2026-08-30.)
+	qdiscOut := tcShow(t, run, "qdisc", ifc)
+	if !strings.Contains(qdiscOut, "ingress") {
+		t.Fatalf("no ingress qdisc on %s: %s", ifc, qdiscOut)
+	}
+	filterOut := tcShow(t, run, "filter", ifc, "parent", "ffff:")
+	if !strings.Contains(filterOut, "mirred") || !strings.Contains(filterOut, ifb) {
+		t.Fatalf("no mirred redirect into %s: %s", ifb, filterOut)
+	}
+
+	// The IFB device carries the HTB tree: 1 class, 2 source filters.
+	classOut := tcShow(t, run, "class", ifb)
+	if got := strings.Count(classOut, "htb"); got != 1 {
+		t.Fatalf("want 1 class on %s, got %d: %s", ifb, got, classOut)
+	}
+	if got := strings.Count(tcShow(t, run, "filter", ifb), "flowid 1:"); got != 2 {
+		t.Fatalf("want 2 source filters on %s, got %d", ifb, got)
+	}
+	if _, err := run.Run(ctx, []string{"ip", "link", "show", ifb}); err != nil {
+		t.Fatalf("ifb device missing: %v", err)
+	}
+
+	// Identical desired state: no-op.
+	if applied, err := m.Ensure(ctx, ifc, groups); err != nil || applied {
+		t.Fatalf("re-apply must be a no-op: applied=%v err=%v", applied, err)
+	}
+
+	// Cleanup: the ingress tree and the IFB device are removed.
+	if applied, err := m.Ensure(ctx, ifc, nil); err != nil || !applied {
+		t.Fatalf("cleanup: applied=%v err=%v", applied, err)
+	}
+	if out := tcShow(t, run, "qdisc", ifc); strings.Contains(out, "ingress") {
+		t.Fatalf("ingress qdisc not removed: %s", out)
+	}
+	if _, err := run.Run(ctx, []string{"ip", "link", "show", ifb}); err == nil {
+		t.Fatal("ifb device must be removed on cleanup")
+	}
+}
+
+func tcShow(t *testing.T, run *subprocess.System, kind, ifc string, extra ...string) string {
 	t.Helper()
-	res, err := run.Run(context.Background(), []string{"tc", kind, "show", "dev", ifc})
+	args := append([]string{"tc", kind, "show", "dev", ifc}, extra...)
+	res, err := run.Run(context.Background(), args)
 	if err != nil {
 		t.Fatalf("tc %s show: %v", kind, err)
 	}

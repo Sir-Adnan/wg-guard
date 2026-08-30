@@ -170,7 +170,7 @@ func TestBringUpAppliesShaper(t *testing.T) {
 
 	// A user with a speed limit and one device.
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	if _, err := d.db.Exec(`INSERT INTO users (id, username, status, speed_limit_kbps, start_policy, enabled, created_at, updated_at)
+	if _, err := d.db.Exec(`INSERT INTO users (id, username, status, speed_limit_down_kbps, start_policy, enabled, created_at, updated_at)
 		VALUES ('u1', 'limited', 'active', 2048, 'immediate', 1, ?, ?)`, now, now); err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestBringUpAppliesShaper(t *testing.T) {
 	// A failing tc surfaces as a finding and never aborts bring-up.
 	d2 := newDeps(t)
 	d2.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
-	if _, err := d2.db.Exec(`INSERT INTO users (id, username, status, speed_limit_kbps, start_policy, enabled, created_at, updated_at)
+	if _, err := d2.db.Exec(`INSERT INTO users (id, username, status, speed_limit_down_kbps, start_policy, enabled, created_at, updated_at)
 		VALUES ('u1', 'limited', 'active', 2048, 'immediate', 1, ?, ?)`, now, now); err != nil {
 		t.Fatal(err)
 	}

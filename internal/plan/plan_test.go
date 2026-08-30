@@ -30,8 +30,11 @@ func TestCreateAndRoundTrip(t *testing.T) {
 	devices := 5
 	speed := 20480
 	p, err := svc.Create(ctx, Input{
-		Name: "monthly-50", TrafficLimitBytes: &traffic, DurationSeconds: &dur,
-		StartPolicy: domain.StartFirstConnection, DeviceLimit: &devices, SpeedLimitKbps: &speed,
+		Name: "monthly-50", TrafficLimitBytes: domain.OptInt64{Set: true, Value: traffic},
+		DurationSeconds: &dur,
+		StartPolicy:     domain.StartFirstConnection, DeviceLimit: domain.OptInt{Set: true, Value: devices},
+		SpeedLimitDownKbps: domain.OptInt{Set: true, Value: speed},
+		SpeedLimitUpKbps:   domain.OptInt{Set: true, Value: speed / 2},
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -41,7 +44,9 @@ func TestCreateAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Name != "monthly-50" || got.TrafficLimitBytes == nil || *got.TrafficLimitBytes != traffic ||
-		got.DeviceLimit == nil || *got.DeviceLimit != 5 || got.SpeedLimitKbps == nil || *got.SpeedLimitKbps != speed {
+		got.DeviceLimit == nil || *got.DeviceLimit != 5 ||
+		got.SpeedLimitDownKbps == nil || *got.SpeedLimitDownKbps != speed ||
+		got.SpeedLimitUpKbps == nil || *got.SpeedLimitUpKbps != speed/2 {
 		t.Fatalf("round trip broken: %+v", got)
 	}
 	if got.StartPolicy != domain.StartFirstConnection {
@@ -62,9 +67,10 @@ func TestValidation(t *testing.T) {
 		in   Input
 	}{
 		{"empty name", Input{Name: "  "}},
-		{"negative traffic", Input{Name: "x", TrafficLimitBytes: &negative}},
+		{"negative traffic", Input{Name: "x", TrafficLimitBytes: domain.OptInt64{Set: true, Value: negative}}},
 		{"zero duration", Input{Name: "x", DurationSeconds: i64Ptr(0)}},
-		{"zero devices", Input{Name: "x", DeviceLimit: &zero}},
+		{"zero devices", Input{Name: "x", DeviceLimit: domain.OptInt{Set: true, Value: zero}}},
+		{"zero speed down", Input{Name: "x", SpeedLimitDownKbps: domain.OptInt{Set: true, Value: 0}}},
 		{"bad policy", Input{Name: "x", StartPolicy: "later"}},
 	}
 	for _, tc := range cases {
@@ -110,8 +116,7 @@ func TestUpdatePartial(t *testing.T) {
 		t.Fatal(err)
 	}
 	enabled := false
-	devices := 2
-	updated, err := svc.Update(ctx, p.ID, Input{DeviceLimit: &devices, Enabled: &enabled})
+	updated, err := svc.Update(ctx, p.ID, Input{DeviceLimit: domain.OptInt{Set: true, Value: 2}, Enabled: &enabled})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,6 +125,22 @@ func TestUpdatePartial(t *testing.T) {
 	}
 	if updated.TrafficLimitBytes != nil {
 		t.Fatal("unspecified field must stay untouched")
+	}
+
+	// Null clears to unlimited; absent keeps.
+	upDown := 100
+	if _, err := svc.Update(ctx, p.ID, Input{SpeedLimitDownKbps: domain.OptInt{Set: true, Value: upDown}}); err != nil {
+		t.Fatal(err)
+	}
+	cleared, err := svc.Update(ctx, p.ID, Input{SpeedLimitDownKbps: domain.OptInt{Set: true, Null: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared.SpeedLimitDownKbps != nil {
+		t.Fatalf("null must clear the down limit: %+v", cleared.SpeedLimitDownKbps)
+	}
+	if _, err := svc.Update(ctx, p.ID, Input{Name: ""}); err != nil {
+		t.Fatal(err)
 	}
 }
 

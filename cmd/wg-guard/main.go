@@ -18,7 +18,12 @@ Usage:
 Commands:
   version     Print version information
   reconcile   Bring tunnels, peers, and firewall to DB state (boot bring-up)
-  serve       Run the WG-Guard service (Phase 4)
+  serve       Run the WG-Guard service (API + scheduler)
+              -config PATH   boot config (default /etc/wg-guard/wg-guard.toml)
+              -backend fake  dev/benchmark backend: no tunnels, no host changes
+  token       Manage REST API tokens
+              token create -name NAME -scopes a,b [-expires-in 720h] [-cidr LIST]
+              token list | token revoke ID | token scopes
   help        Show this help
 `
 
@@ -39,8 +44,15 @@ func main() {
 			os.Exit(1)
 		}
 	case "serve":
-		fmt.Fprintln(os.Stderr, "wg-guard: serve is not implemented yet (Phase 4)")
-		os.Exit(1)
+		if err := runServe(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: serve: %v\n", err)
+			os.Exit(1)
+		}
+	case "token":
+		if err := runToken(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: token: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "wg-guard: unknown command %q\n\n%s", os.Args[1], usage)
 		os.Exit(2)

@@ -5,7 +5,9 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.22, `CGO_ENABLED=0`).
 ## Layout
 
 ```
-cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (Phase 4), later:
+cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
+                         HTTP + scheduler + graceful shutdown), token (create/list/revoke/
+                         scopes — the token-minting path until the Phase 5 panel), later:
                          status, doctor, backup, restore, update, admin reset-password,
                          uninstall helpers (single binary, hand-rolled arg parsing — no CLI
                          framework)
@@ -36,17 +38,24 @@ internal/
   subprocess/            the single exec choke point: explicit argv, timeouts, structured
                          exit errors; output is never logged (Phase 2 ✅)
   shaper/                tc (HTB) speed limiting, deterministic rebuildable rendering;
-                         per-user class + per-device-IP filters, egress-only (Phase 3 ✅)
+                         per-user class + per-device-IP filters; independent directions:
+                         egress HTB + IFB ingress mirroring (Phase 4 ✅)
   accounting/            delta counters, persistence, quota/expiry enforcement, first-
                          connection activation, samples/rollups (Phase 3 ✅)
   scheduler/             one centralized scheduler (due-heap): expiry, accounting, webhooks,
                          backups, housekeeping — no per-user goroutines (Phase 3 ✅; jobs
                          composed into serve in Phase 4)
-  webhook/               durable event delivery: events table, worker, HMAC signing (Phase 4)
+  webhook/               durable event delivery: events table, recorder (in-txn emit),
+                         worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
   backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6)
-  metrics/               healthz/readyz + optional hand-written /metrics (Phase 4)
+  serve/                 runtime composition: config → DB → secrets → settings → services →
+                         boot → HTTP(S) listener → scheduler; serialized reconciler shared by
+                         API + accounting (Phase 4 ✅)
+  metrics/               healthz/readyz + optional hand-written /metrics (Phase 4 ✅)
   i18n/                  fa/en catalogs (embedded), locale helpers, Jalali dates (Phase 5)
-  api/                   REST /api/v1: handlers, middleware, errors, pagination, idempotency (Phase 4)
+  api/                   REST /api/v1: handlers, middleware (request id, security headers,
+                         CORS, body cap, logging, auth, rate limit), error envelope, keyset
+                         pagination, idempotency, OpenAPI + /docs (Phase 4 ✅)
   web/                   admin UI handlers, session middleware, template rendering (Phase 5)
 web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
 migrations/              numbered SQL migrations (embedded)

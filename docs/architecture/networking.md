@@ -62,27 +62,37 @@ recreation (their PSKs are unknowable) and the drift report says so.
 
 ## Shaping (speed limits)
 
-Implemented in Phase 3 (`internal/shaper`): Linux `tc` (HTB) on the **tunnel interface egress**
-— the direction pinned here ("per device IP on the interface egress"), i.e. server→client
-traffic. One HTB class per (user, interface) carries the user's `speed_limit_kbps` (the limit
-is a user field, so all of that user's device IPs on the interface share the class — aggregate
-enforcement); one u32 filter per device IP selects the class. Users without limits are
-unclassified and pass through HTB's direct service (`default 0`) — shaping one user never
-degrades another.
+Implemented in Phase 3 (egress) and Phase 4 (ingress) in `internal/shaper`. Limits are
+**independent per direction** and stored per user (and per plan) as
+`speed_limit_down_kbps` / `speed_limit_up_kbps`; NULL/0 means unlimited for that direction,
+and setting one direction never touches the other's qdisc tree.
+
+- **Download (server→client) = egress**: Linux `tc` HTB on the tunnel interface itself. One
+  class per (user, interface) carries the user's download limit; one u32 filter per device IP
+  selects the class — aggregate enforcement across a user's devices. Users without limits pass
+  via HTB's direct service (`default 0`), so shaping one user never degrades another.
+- **Upload (client→server) = ingress**: the tunnel's ingress qdisc mirrors packets into an IFB
+  device `ifb-<iface>` (`mirred egress redirect`), where the same HTB design applies to packet
+  **source** addresses (client IPs). IFB is created on demand and torn down with the tree when
+  the last upload limit on the interface is removed. An IFB-unavailable kernel (module missing)
+  fails **upload** shaping with an explicit error ("ifb device … unavailable") while download
+  limits remain enforced — direction independence degrades independently, and a failure never
+  looks like an enforced limit.
 
 Rules are deterministic (rendered from DB state), rebuilt on restart/bring-up and re-ensured by
 the accounting cycle (change detection: identical desired state costs zero subprocesses), and
-cleaned up when a limit is removed. A rebuild deletes the root qdisc and recreates the tree in
-one `tc -b` batch (`qdisc add` — `qdisc replace` is rejected by HTB with "Change operation not
-supported", verified against iproute2 in WSL2 2026-08-30). tc failures at bring-up are
-non-fatal findings with a remedy; with limits configured and tc missing, ensure fails loudly —
-an unenforced limit must never look enforced.
+cleaned up per direction when a limit is removed. A rebuild deletes the affected root qdisc(s)
+and recreates the tree(s) in one `tc -b` batch (`qdisc add` — `qdisc replace` is rejected by
+HTB with "Change operation not supported", verified against iproute2 in WSL2 2026-08-30).
+tc failures at bring-up are non-fatal findings with a remedy; with limits configured and tc
+missing, ensure fails loudly — an unenforced limit must never look enforced.
 
-Separate upload/download limits remain **designed-for-later** (per the same pinned doc):
-ingress (client→server) shaping needs an IFB-based design and lands with the Phase 8
-benchmarking pass (1000-shaped-peer tc benchmark, graceful-degradation policy). Thousands of tc
-classes cost CPU — the per-user class design keeps the class count at users-with-limits, not
-devices.
+Live-pinned ingress facts (WSL2, kernel 6.18.33.1-microsoft-standard, 2026-08-30): `ip link add
+X type ifb` works; `tc qdisc add dev X handle ffff: ingress` + `mirred egress redirect` filters
+work; HTB on ifb works; `tc qdisc del dev X ingress` exits 0 even when absent (tolerated in the
+rebuild). Thousands of tc classes cost CPU — the per-user class design keeps the class count at
+users-with-limits, not devices. The 1000-shaped-peer tc benchmark and production degradation
+policy remain the Phase 8 pass.
 
 ## Addressing
 

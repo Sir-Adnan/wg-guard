@@ -29,7 +29,9 @@ func TestCreateImmediate(t *testing.T) {
 	dur := int64(30 * 24 * 3600)
 	u, err := svc.Create(ctx, Input{
 		Username: "alice", DisplayName: strPtr("Alice"), Tags: []string{"vip", "sold"},
-		TrafficLimitBytes: i64Ptr(100 << 30), DeviceLimit: intPtr(3), DurationSeconds: &dur,
+		TrafficLimitBytes: domain.OptInt64{Set: true, Value: 100 << 30},
+		DeviceLimit:       domain.OptInt{Set: true, Value: 3}, DurationSeconds: &dur,
+		SpeedLimitDownKbps: domain.OptInt{Set: true, Value: 10240},
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -53,6 +55,24 @@ func TestCreateImmediate(t *testing.T) {
 	}
 	if got.TrafficLimitBytes == nil || *got.TrafficLimitBytes != 100<<30 {
 		t.Fatalf("traffic limit lost: %v", got.TrafficLimitBytes)
+	}
+	if got.SpeedLimitDownKbps == nil || *got.SpeedLimitDownKbps != 10240 || got.SpeedLimitUpKbps != nil {
+		t.Fatalf("speed limits lost: %v %v", got.SpeedLimitDownKbps, got.SpeedLimitUpKbps)
+	}
+	// Tri-state PATCH: absent keeps, null clears.
+	if _, err := svc.Update(ctx, got.ID, Input{SpeedLimitUpKbps: domain.OptInt{Set: true, Value: 5120}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = svc.Get(ctx, got.ID)
+	if got.SpeedLimitUpKbps == nil || *got.SpeedLimitUpKbps != 5120 || got.SpeedLimitDownKbps == nil || *got.SpeedLimitDownKbps != 10240 {
+		t.Fatalf("independent limits broken: %v %v", got.SpeedLimitDownKbps, got.SpeedLimitUpKbps)
+	}
+	if _, err := svc.Update(ctx, got.ID, Input{SpeedLimitDownKbps: domain.OptInt{Set: true, Null: true}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = svc.Get(ctx, got.ID)
+	if got.SpeedLimitDownKbps != nil || got.SpeedLimitUpKbps == nil {
+		t.Fatalf("null must clear only the down limit: %v %v", got.SpeedLimitDownKbps, got.SpeedLimitUpKbps)
 	}
 }
 

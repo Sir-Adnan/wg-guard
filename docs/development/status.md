@@ -5,6 +5,53 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
+## Phase 4 — REST API (complete, 2026-08-30)
+
+All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
+WSL2 Ubuntu/Go 1.26; `go test -race ./...` green in WSL2 — zero failures across 31 packages).
+Where marked **integration tested**, behavior was exercised against real iproute2 `tc` (egress
+HTB and the IFB ingress path) and the real pinned userspace runtime in WSL2
+(`go test -tags integration`, root).
+
+| Item | Status |
+|---|---|
+| Full `/api/v1` management surface: users (CRUD, enable/disable, renew, traffic add/set/reset, traffic series), bulk create + bulk actions (enable, disable, delete, renew, reset_traffic, add_traffic, update), devices (CRUD, enable/disable, key regeneration with old-key revocation, config + QR download), plans, interfaces (incl. obfuscation parameter validation), settings (secrets redacted as `value: null` + `secret_set`; PATCH validates per registry), webhooks (CRUD, redeliver), user/device/node stats, public `node/health` | ✅ implemented + unit tested (handler-level over the full middleware chain) |
+| Route table as single source of truth: one `routeDef` table drives the mux, the OpenAPI document AND the coverage test (every route documented with correct scope/pagination/idempotency; reverse check: every documented operation is registered; mux smoke: anonymous requests never receive a bare route-miss 404 envelope) | ✅ implemented + unit tested (both directions + smoke) |
+| Middleware chain: request-id (client-supplied validated), panic-recover, security headers, CORS (API only), 1 MiB body cap, structured request logging (method/path/status/duration/request_id — never bodies, query strings or auth headers), authn/authz (any token verification failure = 401; scope gap = 403) | ✅ implemented + unit tested |
+| Error envelope `{"error":{code,message,request_id}}` with stable machine codes; every domain error maps to exactly one HTTP status family; `X-Request-Id` echoed/set on every response | ✅ implemented + unit tested |
+| Keyset cursor pagination: `limit` ≤ 500, opaque base64url cursor, `julianday()` ordering (RFC3339Nano strings do not sort lexicographically), id tiebreak for same-microsecond rows (deterministic, not insertion-ordered within one µs), NULL `expires_at` sentinel, full filter set incl. literal `%`/`_` LIKE semantics | ✅ implemented + unit tested (cursor walk over full sets, filter/sort matrix) |
+| Idempotency keys: 1–128 printable, `method+path+body` hash, PK-insert claim arbiter, response snapshot replay with `Idempotency-Replayed: true`, 409 `IDEMPOTENCY_KEY_REUSED` on hash mismatch, claim released on failure, 24 h TTL pruned by housekeeping | ✅ implemented + unit tested (replay, conflict, release-on-failure) |
+| Per-token rate limiting: fixed 60 s window, `X-RateLimit-*` + `Retry-After` headers, 429 `RATE_LIMITED`, `api.rate_limit_per_minute` (default 600, 0 = off) applied live without restart | ✅ implemented + unit tested |
+| Tri-state PATCH semantics (`domain.Opt*`): absent = no change, JSON null = clear to unlimited/none, value = set — `encoding/json` snake_case keys are DTO-owned; independent direction updates verified end-to-end | ✅ implemented + unit tested |
+| **Independent up/down speed limits** (`speed_limit_down_kbps`/`speed_limit_up_kbps` on users + plans; migration 0002 converts Phase 3's single column in-transaction): download = tc HTB egress on the interface, upload = ingress qdisc + `mirred egress redirect` into `ifb-<iface>` with an HTB tree matching client SOURCE IPs; directions apply/rebuild/clean up independently; either unset = unlimited; missing IFB support fails upload only with an explicit error while download keeps working | ✅ implemented + unit tested (golden renders, direction independence, determinism, IFB-failure confinement); **integration tested** against real tc + real IFB in WSL2 |
+| Durable webhooks: event row inserted in the SAME transaction as the state change (recorder seam injected into user/device/accounting), per-endpoint delivery rows fan out at emit time; worker pass every 5 s — indexed due query, capped concurrency (4), 10 s timeout, backoff 30 s × 2ⁿ cap 6 h, dead after `webhooks.max_attempts` (12), HMAC `X-WG-Signature: t=<ts>,v1=<hex>`; secrets AES-GCM encrypted at rest, shown exactly once, rotatable, never echoed or logged; redeliver resets pending; events pruned after 7 d | ✅ implemented + unit tested (delivery + signature verify over HTTP, backoff/dead-letter arithmetic, redeliver, prune cascade, rotation); production endpoint behavior **requires real VPS** |
+| Lifecycle webhook events V1: user.created/updated/enabled/disabled/expired/traffic_exceeded/first_connected, device.created/deleted, node.started (emitted once the node is serving) | ✅ implemented + unit tested |
+| Node runtime (`internal/serve` + `wg-guard serve`): config → mkdirs → DB/migrations → master key → settings (node.id hostname fill) → services → boot bring-up (findings logged, tooling drift reported) → TLS listener → scheduler; HTTP timeouts (10 s header / 30 s read / 60 s write / 120 s idle, 64 KiB headers); graceful shutdown drains HTTP → finishes the running job → closes DB; `-backend fake` dev/bench mode (no host networking, loud warning) | ✅ implemented + unit tested (lifecycle, restart over the same data dir, manual-TLS serving with TLS-1.2 floor, ACME deferral error, full API through the running node) |
+| TLS modes: manual (TLS 1.2 min), proxy (plain, explicit), dev (loopback-only plaintext enforced by config validation); ACME designed (ADR-0011) and rejected with a clear message until the Phase 7 installer | ✅ manual/proxy/dev implemented + unit tested; ACME deferred by design |
+| Scheduler composition: accounting cycle + expiry pass (`accounting.interval_seconds`, live re-applied from inside the job), sample flush (`accounting.sample_flush_seconds`), webhook pass (5 s), housekeeping (10 min: idempotency + session + traffic-history + webhook prunes, rate-limit reload); ONE goroutine | ✅ implemented + unit tested (scheduler semantics Phase 3; composition exercised in serve lifecycle tests) |
+| Serialized reconciler: boot, accounting/enforcement and API-triggered reconcile passes share one engine behind a mutex — concurrent AWG operations on one interface cannot interleave | ✅ implemented + unit tested (composition) |
+| Metrics & health: `/healthz` (liveness) + `/readyz` (bring-up done + DB ping) public; `/metrics` Prometheus-text endpoint **config-gated off by default** (uptime, request classes, accounting cycle stats, goroutines, heap) | ✅ implemented + unit tested |
+| `wg-guard token create/list/revoke/scopes` CLI: mints/inspects tokens without boot (migrations included, works on a fresh node); plaintext printed once, never stored/logged; least-privilege scopes required at create | ✅ implemented + unit tested via binary smoke test |
+| OpenAPI 3.0.3 + no-JS `/docs` reference: hand-authored, coverage-tested (see route table above) | ✅ implemented + unit tested |
+| Settings added: `node.id`, `node.endpoint`, `network.client_allowed_ips`, `network.client_keepalive_seconds`, `webhooks.max_attempts`, `api.rate_limit_per_minute` | ✅ implemented + unit tested (registry validation) |
+| Behavior correction: `SetStatus` now keeps the `enabled` flag consistent with lifecycle status (disabled/suspended/expired/traffic_exceeded ⇒ disabled; active/waiting ⇒ enabled) — Phase 1's set-status left `enabled=true` on disabled accounts, which also gated device creation | ✅ implemented + unit tested (documented here as a deliberate fix) |
+| Benchmarks — API (Go bench over `httptest`, rate limiter off): 20-row user list @1000 users **2.4 ms** (WSL2/Go 1.26; **1.0 ms** on Windows/Go 1.27); LIKE search @1000 **2.4 ms**; full 1000-row cursor walk (50 pages) **83 ms**; bulk create 100 **3.7 ms**; device config render incl. AES-GCM key decrypt **65 µs**. Idle RSS/CPU via `scripts/bench-idle.sh` (`-backend fake`, WSL2 Ubuntu, 10-min windows): @100 users+devices **18 MB / 0.01 % CPU** (budget 50 MB / 0.5 %); @1000 users+devices **21 MB / 0.02 % CPU** (budget 80 MB / 0.5 %) — both §8 stress points met with ≥ 3.8× memory and 25× CPU headroom. Stripped linux/amd64 binary 13.8 MB (budget ≤ 30 MB) | ✅ measured |
+
+Deferred within Phase 4 scope (honest notes):
+
+- **ACME/autocert is not implemented** — designed in ADR-0011, implementation deliberately
+  deferred to the Phase 7 installer (it brings the x/crypto autocert import and port-80
+  lifecycle that belong with deployment); `tls.mode=acme` fails with a clear, actionable error.
+- **Webhook delivery against real production endpoints** (real receivers, TLS trust chains,
+  real replay windows) **requires real VPS** — the HTTP receiver used in tests verifies
+  signatures and backoff semantics locally.
+- **Real-traffic shaping measurement** (1000-shaped-peer tc benchmark, production degradation
+  policy) remains Phase 8 per the pinned plan; correctness of both directions is integration
+  tested.
+- **Regenerate-key revocation of a stale peer is best-effort by IP match**: the old peer dies
+  on the next reconcile pass because the device IP is re-applied under the new key; if the
+  backend lost the interface entirely, recreation removes everything anyway.
+
 ## Phase 3 — Limits & accounting (complete, 2026-08-30)
 
 All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and

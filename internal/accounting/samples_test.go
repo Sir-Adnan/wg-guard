@@ -201,7 +201,7 @@ func (r *scriptRunner) Run(_ context.Context, argv []string) (subprocess.Result,
 func TestCycleAppliesShaper(t *testing.T) {
 	e := newEnv(t)
 	uid := e.seedUser(t, "zara", "active", nil, "immediate")
-	if _, err := e.db.Exec(`UPDATE users SET speed_limit_kbps = 10240 WHERE id = ?`, uid); err != nil {
+	if _, err := e.db.Exec(`UPDATE users SET speed_limit_down_kbps = 10240 WHERE id = ?`, uid); err != nil {
 		t.Fatal(err)
 	}
 	e.seedDevice(t, uid, "phone", keyA, 0, 0)
@@ -210,12 +210,16 @@ func TestCycleAppliesShaper(t *testing.T) {
 	e.svc.shaper = newShaperForTest(runner)
 
 	// Cycle 1: shaping applied for the limited user (del + rebuild batch).
+	// The first ensure per process also cleans the (unused) ingress tree once.
 	rep := cycle(t, e)
 	if !rep.ShaperApplied || rep.ShaperError != "" {
 		t.Fatalf("cycle 1 shaper: applied=%v err=%q", rep.ShaperApplied, rep.ShaperError)
 	}
-	if len(runner.calls) != 2 || runner.calls[1][0] != "tc" {
-		t.Fatalf("del + tc batch expected: %v", runner.calls)
+	if len(runner.calls) != 5 || runner.calls[0][0] != "tc" || runner.calls[1][0] != "tc" {
+		t.Fatalf("del + tc batch + ingress cleanup expected: %v", runner.calls)
+	}
+	if runner.calls[1][1] != "-b" {
+		t.Fatalf("second call must be the tc batch: %v", runner.calls[1])
 	}
 	// Cycle 2 (no state change): zero subprocesses.
 	e.now = e.now.Add(time.Minute)
@@ -224,19 +228,19 @@ func TestCycleAppliesShaper(t *testing.T) {
 	if rep.ShaperApplied {
 		t.Fatal("unchanged shaping must not re-apply")
 	}
-	if len(runner.calls) != 2 {
+	if len(runner.calls) != 5 {
 		t.Fatalf("no tc calls expected: %v", runner.calls)
 	}
 
 	// Limit removed → cleanup call on the next cycle.
-	if _, err := e.db.Exec(`UPDATE users SET speed_limit_kbps = NULL WHERE id = ?`, uid); err != nil {
+	if _, err := e.db.Exec(`UPDATE users SET speed_limit_down_kbps = NULL WHERE id = ?`, uid); err != nil {
 		t.Fatal(err)
 	}
 	rep = cycle(t, e)
 	if !rep.ShaperApplied {
 		t.Fatal("limit removal must clean up the qdisc")
 	}
-	if len(runner.calls) != 3 || strings.Join(runner.calls[2], " ") != "tc qdisc del dev awg0 root" {
+	if len(runner.calls) != 6 || strings.Join(runner.calls[5], " ") != "tc qdisc del dev awg0 root" {
 		t.Fatalf("cleanup call expected: %v", runner.calls)
 	}
 }
@@ -244,7 +248,7 @@ func TestCycleAppliesShaper(t *testing.T) {
 func TestCycleShaperErrorIsReportedNotFatal(t *testing.T) {
 	e := newEnv(t)
 	uid := e.seedUser(t, "abel", "active", nil, "immediate")
-	if _, err := e.db.Exec(`UPDATE users SET speed_limit_kbps = 1024 WHERE id = ?`, uid); err != nil {
+	if _, err := e.db.Exec(`UPDATE users SET speed_limit_down_kbps = 1024 WHERE id = ?`, uid); err != nil {
 		t.Fatal(err)
 	}
 	e.seedDevice(t, uid, "phone", keyA, 0, 0)

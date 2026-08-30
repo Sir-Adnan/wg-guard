@@ -17,29 +17,32 @@ import (
 
 // Plan is a stored preset.
 type Plan struct {
-	ID                string
-	Name              string
-	TrafficLimitBytes *int64 // nil = unlimited
-	DurationSeconds   *int64
-	StartPolicy       domain.StartPolicy
-	DeviceLimit       *int
-	SpeedLimitKbps    *int
-	InterfaceID       *string // profile selector, nil = default profile
-	Enabled           bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                 string
+	Name               string
+	TrafficLimitBytes  *int64 // nil = unlimited
+	DurationSeconds    *int64
+	StartPolicy        domain.StartPolicy
+	DeviceLimit        *int
+	SpeedLimitDownKbps *int    // nil = unlimited (server→client)
+	SpeedLimitUpKbps   *int    // nil = unlimited (client→server)
+	InterfaceID        *string // profile selector, nil = default profile
+	Enabled            bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
-// Input is a create/update request.
+// Input is a create/update request. Limits are domain.Opt values so PATCH
+// can distinguish "absent" (keep) from "null" (clear to unlimited).
 type Input struct {
-	Name              string
-	TrafficLimitBytes *int64
-	DurationSeconds   *int64
-	StartPolicy       domain.StartPolicy
-	DeviceLimit       *int
-	SpeedLimitKbps    *int
-	InterfaceID       *string
-	Enabled           *bool
+	Name               string
+	TrafficLimitBytes  domain.OptInt64
+	DurationSeconds    *int64
+	StartPolicy        domain.StartPolicy
+	DeviceLimit        domain.OptInt
+	SpeedLimitDownKbps domain.OptInt
+	SpeedLimitUpKbps   domain.OptInt
+	InterfaceID        domain.OptString
+	Enabled            *bool
 }
 
 type Service struct {
@@ -57,17 +60,31 @@ func (s *Service) Create(ctx context.Context, in Input) (*Plan, error) {
 		return nil, err
 	}
 	p := &Plan{
-		ID:                domain.NewID(),
-		Name:              strings.TrimSpace(in.Name),
-		TrafficLimitBytes: in.TrafficLimitBytes,
-		DurationSeconds:   in.DurationSeconds,
-		StartPolicy:       in.StartPolicy,
-		DeviceLimit:       in.DeviceLimit,
-		SpeedLimitKbps:    in.SpeedLimitKbps,
-		InterfaceID:       in.InterfaceID,
-		Enabled:           in.Enabled == nil || *in.Enabled,
-		CreatedAt:         s.now().UTC(),
-		UpdatedAt:         s.now().UTC(),
+		ID:              domain.NewID(),
+		Name:            strings.TrimSpace(in.Name),
+		DurationSeconds: in.DurationSeconds,
+		StartPolicy:     in.StartPolicy,
+		InterfaceID:     resolveString(in.InterfaceID, nil),
+		Enabled:         in.Enabled == nil || *in.Enabled,
+		CreatedAt:       s.now().UTC(),
+		UpdatedAt:       s.now().UTC(),
+	}
+	// On create, absent and null are the same: unlimited / no limit.
+	if in.TrafficLimitBytes.Set && !in.TrafficLimitBytes.Null {
+		v := in.TrafficLimitBytes.Value
+		p.TrafficLimitBytes = &v
+	}
+	if in.DeviceLimit.Set && !in.DeviceLimit.Null {
+		v := in.DeviceLimit.Value
+		p.DeviceLimit = &v
+	}
+	if in.SpeedLimitDownKbps.Set && !in.SpeedLimitDownKbps.Null {
+		v := in.SpeedLimitDownKbps.Value
+		p.SpeedLimitDownKbps = &v
+	}
+	if in.SpeedLimitUpKbps.Set && !in.SpeedLimitUpKbps.Null {
+		v := in.SpeedLimitUpKbps.Value
+		p.SpeedLimitUpKbps = &v
 	}
 	if p.StartPolicy == "" {
 		p.StartPolicy = domain.StartImmediate
@@ -81,10 +98,11 @@ func (s *Service) Create(ctx context.Context, in Input) (*Plan, error) {
 func (s *Service) insert(ctx context.Context, p *Plan) error {
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO plans
 		(id, name, traffic_limit_bytes, duration_seconds, start_policy, device_limit,
-		 speed_limit_kbps, interface_id, enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 speed_limit_down_kbps, speed_limit_up_kbps, interface_id, enabled, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, nullI64(p.TrafficLimitBytes), nullI64(p.DurationSeconds),
-		string(p.StartPolicy), nullInt(p.DeviceLimit), nullInt(p.SpeedLimitKbps),
+		string(p.StartPolicy), nullInt(p.DeviceLimit), nullInt(p.SpeedLimitDownKbps),
+		nullInt(p.SpeedLimitUpKbps),
 		nullText(p.InterfaceID), boolInt(p.Enabled),
 		p.CreatedAt.Format(time.RFC3339Nano), p.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
 		if isUnique(err) {
@@ -95,8 +113,8 @@ func (s *Service) insert(ctx context.Context, p *Plan) error {
 	return nil
 }
 
-// Update applies an input to an existing plan (partial: nil fields keep the
-// current value; name checked for uniqueness).
+// Update applies an input to an existing plan (partial; name checked for
+// uniqueness).
 func (s *Service) Update(ctx context.Context, id string, in Input) (*Plan, error) {
 	p, err := s.Get(ctx, id)
 	if err != nil {
@@ -105,9 +123,7 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Plan, error
 	if in.Name != "" {
 		p.Name = strings.TrimSpace(in.Name)
 	}
-	if in.TrafficLimitBytes != nil {
-		p.TrafficLimitBytes = in.TrafficLimitBytes
-	}
+	p.TrafficLimitBytes = in.TrafficLimitBytes.Resolve(p.TrafficLimitBytes)
 	if in.DurationSeconds != nil {
 		p.DurationSeconds = in.DurationSeconds
 	}
@@ -117,30 +133,27 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Plan, error
 		}
 		p.StartPolicy = in.StartPolicy
 	}
-	if in.DeviceLimit != nil {
-		p.DeviceLimit = in.DeviceLimit
-	}
-	if in.SpeedLimitKbps != nil {
-		p.SpeedLimitKbps = in.SpeedLimitKbps
-	}
-	if in.InterfaceID != nil {
-		p.InterfaceID = in.InterfaceID
-	}
+	p.DeviceLimit = in.DeviceLimit.Resolve(p.DeviceLimit)
+	p.SpeedLimitDownKbps = in.SpeedLimitDownKbps.Resolve(p.SpeedLimitDownKbps)
+	p.SpeedLimitUpKbps = in.SpeedLimitUpKbps.Resolve(p.SpeedLimitUpKbps)
+	p.InterfaceID = resolveString(in.InterfaceID, p.InterfaceID)
 	if in.Enabled != nil {
 		p.Enabled = *in.Enabled
 	}
 	if err := validate(Input{
-		Name: p.Name, TrafficLimitBytes: p.TrafficLimitBytes, DurationSeconds: p.DurationSeconds,
-		DeviceLimit: p.DeviceLimit, SpeedLimitKbps: p.SpeedLimitKbps,
+		Name: p.Name, DeviceLimit: optOfPtr(p.DeviceLimit),
+		SpeedLimitDownKbps: optOfPtr(p.SpeedLimitDownKbps), SpeedLimitUpKbps: optOfPtr(p.SpeedLimitUpKbps),
+		TrafficLimitBytes: optOfI64(p.TrafficLimitBytes),
 	}); err != nil {
 		return nil, err
 	}
 	p.UpdatedAt = s.now().UTC()
 	if _, err := s.db.ExecContext(ctx, `UPDATE plans SET name = ?, traffic_limit_bytes = ?,
-		duration_seconds = ?, start_policy = ?, device_limit = ?, speed_limit_kbps = ?,
-		interface_id = ?, enabled = ?, updated_at = ? WHERE id = ?`,
+		duration_seconds = ?, start_policy = ?, device_limit = ?, speed_limit_down_kbps = ?,
+		speed_limit_up_kbps = ?, interface_id = ?, enabled = ?, updated_at = ? WHERE id = ?`,
 		p.Name, nullI64(p.TrafficLimitBytes), nullI64(p.DurationSeconds), string(p.StartPolicy),
-		nullInt(p.DeviceLimit), nullInt(p.SpeedLimitKbps), nullText(p.InterfaceID),
+		nullInt(p.DeviceLimit), nullInt(p.SpeedLimitDownKbps), nullInt(p.SpeedLimitUpKbps),
+		nullText(p.InterfaceID),
 		boolInt(p.Enabled), p.UpdatedAt.Format(time.RFC3339Nano), p.ID); err != nil {
 		if isUnique(err) {
 			return nil, domain.E(domain.CodeInvalidRequest, "plan name %q is taken", p.Name)
@@ -201,7 +214,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 }
 
 const planColumns = `SELECT id, name, traffic_limit_bytes, duration_seconds, start_policy,
-	device_limit, speed_limit_kbps, interface_id, enabled, created_at, updated_at`
+	device_limit, speed_limit_down_kbps, speed_limit_up_kbps, interface_id, enabled, created_at, updated_at`
 
 func scanPlan(row rowScanner) (*Plan, error) {
 	var (
@@ -209,14 +222,15 @@ func scanPlan(row rowScanner) (*Plan, error) {
 		traffic    sql.NullInt64
 		duration   sql.NullInt64
 		devices    sql.NullInt64
-		speed      sql.NullInt64
+		down       sql.NullInt64
+		up         sql.NullInt64
 		ifaceID    sql.NullString
 		enabled    int
 		createdStr string
 		updatedStr string
 	)
 	if err := row.Scan(&p.ID, &p.Name, &traffic, &duration, &p.StartPolicy,
-		&devices, &speed, &ifaceID, &enabled, &createdStr, &updatedStr); err != nil {
+		&devices, &down, &up, &ifaceID, &enabled, &createdStr, &updatedStr); err != nil {
 		return nil, err
 	}
 	if traffic.Valid {
@@ -231,9 +245,13 @@ func scanPlan(row rowScanner) (*Plan, error) {
 		v := int(devices.Int64)
 		p.DeviceLimit = &v
 	}
-	if speed.Valid {
-		v := int(speed.Int64)
-		p.SpeedLimitKbps = &v
+	if down.Valid {
+		v := int(down.Int64)
+		p.SpeedLimitDownKbps = &v
+	}
+	if up.Valid {
+		v := int(up.Int64)
+		p.SpeedLimitUpKbps = &v
 	}
 	if ifaceID.Valid {
 		v := ifaceID.String
@@ -249,22 +267,48 @@ func validate(in Input) error {
 	if strings.TrimSpace(in.Name) == "" || len(in.Name) > 64 {
 		return domain.E(domain.CodeInvalidRequest, "plan name must be 1-64 characters")
 	}
-	if in.TrafficLimitBytes != nil && *in.TrafficLimitBytes < 0 {
-		return domain.E(domain.CodeInvalidRequest, "traffic limit must be non-negative (nil = unlimited)")
+	if in.TrafficLimitBytes.Set && !in.TrafficLimitBytes.Null && in.TrafficLimitBytes.Value < 0 {
+		return domain.E(domain.CodeInvalidRequest, "traffic limit must be non-negative (null = unlimited)")
 	}
 	if in.DurationSeconds != nil && *in.DurationSeconds <= 0 {
-		return domain.E(domain.CodeInvalidRequest, "duration must be positive (nil = no expiry)")
+		return domain.E(domain.CodeInvalidRequest, "duration must be positive (null = no expiry)")
 	}
-	if in.DeviceLimit != nil && *in.DeviceLimit <= 0 {
-		return domain.E(domain.CodeInvalidRequest, "device limit must be positive (nil = unlimited)")
-	}
-	if in.SpeedLimitKbps != nil && *in.SpeedLimitKbps <= 0 {
-		return domain.E(domain.CodeInvalidRequest, "speed limit must be positive (nil = unlimited)")
+	for _, o := range []domain.OptInt{in.DeviceLimit, in.SpeedLimitDownKbps, in.SpeedLimitUpKbps} {
+		if o.Set && !o.Null && o.Value <= 0 {
+			return domain.E(domain.CodeInvalidRequest, "device/speed limits must be positive (null = unlimited)")
+		}
 	}
 	if in.StartPolicy != "" && !in.StartPolicy.Valid() {
 		return domain.E(domain.CodeInvalidRequest, "start_policy must be immediate|first_connection")
 	}
 	return nil
+}
+
+// optOfPtr/optOfI64 wrap a stored pointer back into an Opt for validation of
+// the merged state (a non-nil pointer is always a set value; nil = unlimited).
+func optOfPtr(v *int) domain.OptInt {
+	if v == nil {
+		return domain.OptInt{}
+	}
+	return domain.OptInt{Set: true, Value: *v}
+}
+
+func optOfI64(v *int64) domain.OptInt64 {
+	if v == nil {
+		return domain.OptInt64{}
+	}
+	return domain.OptInt64{Set: true, Value: *v}
+}
+
+func resolveString(o domain.OptString, current *string) *string {
+	if !o.Set {
+		return current
+	}
+	if o.Null {
+		return nil
+	}
+	v := o.Value
+	return &v
 }
 
 type rowScanner interface{ Scan(dest ...any) error }

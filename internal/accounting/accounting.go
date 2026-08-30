@@ -46,6 +46,13 @@ type Reconciler interface {
 	Run(ctx context.Context) (*reconcile.Report, error)
 }
 
+// EventRecorder is the webhook seam (satisfied by *webhook.Recorder): events
+// are inserted inside the same transaction as the state change so they can
+// never disappear while the change survives (docs/integrations/webhooks.md).
+type EventRecorder interface {
+	RecordTx(tx *sql.Tx, eventType string, data map[string]any) error
+}
+
 // Service runs accounting cycles, expiry and traffic mutations.
 type Service struct {
 	db      *database.DB
@@ -58,6 +65,9 @@ type Service struct {
 	// Reconciler (optional) runs when the cycle or expiry pass changed who
 	// may hold peers. Nil = status-only enforcement (tests).
 	Reconciler Reconciler
+	// Recorder (optional) emits durable webhook events for lifecycle
+	// transitions. Nil = no events (tests).
+	Recorder EventRecorder
 
 	samples accumulator
 }
@@ -343,6 +353,13 @@ func (s *Service) cycleTx(ctx context.Context, tx *sql.Tx, observed map[string]t
 				ActorType: audit.ActorSystem, Action: "user.activated", Target: u.id,
 				Metadata: map[string]any{"username": u.username},
 			})
+			if s.Recorder != nil {
+				if err := s.Recorder.RecordTx(tx, "user.first_connected", map[string]any{
+					"user_id": u.id, "username": u.username,
+				}); err != nil {
+					return err
+				}
+			}
 		}
 
 		// 2. Quota edge: only an unblocked account trips (never re-audit a
@@ -359,6 +376,13 @@ func (s *Service) cycleTx(ctx context.Context, tx *sql.Tx, observed map[string]t
 				ActorType: audit.ActorSystem, Action: "user.traffic_exceeded", Target: u.id,
 				Metadata: map[string]any{"username": u.username, "used_bytes": total, "limit_bytes": *u.limit},
 			})
+			if s.Recorder != nil {
+				if err := s.Recorder.RecordTx(tx, "user.traffic_exceeded", map[string]any{
+					"user_id": u.id, "username": u.username, "used_bytes": total, "limit_bytes": *u.limit,
+				}); err != nil {
+					return err
+				}
+			}
 		}
 
 		if u.deltaRX == 0 && u.deltaTX == 0 && u.transition == "" && u.activity == nil {
@@ -518,6 +542,15 @@ func (s *Service) EnforceExpiry(ctx context.Context) (*ExpiryReport, error) {
 		}
 		n, _ := res.RowsAffected()
 		rep.Expired = int(n)
+		if s.Recorder != nil {
+			for _, d := range dueUsers {
+				if err := s.Recorder.RecordTx(tx, "user.expired", map[string]any{
+					"user_id": d.id, "username": d.username,
+				}); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -620,12 +653,13 @@ func (s *Service) ResetTraffic(ctx context.Context, userID string, actor Actor) 
 
 // AddTraffic adds bytes to the charged counter (top-up style corrections);
 // a push over the limit trips the account immediately (same edge as the
-// cycle).
-func (s *Service) AddTraffic(ctx context.Context, userID string, bytes int64, actor Actor) error {
-	if bytes <= 0 {
-		return domain.E(domain.CodeInvalidRequest, "bytes must be positive")
+// cycle). rx and tx are charged to their respective counters with saturating
+// adds (never wrap).
+func (s *Service) AddTraffic(ctx context.Context, userID string, rxBytes, txBytes int64, actor Actor) error {
+	if rxBytes < 0 || txBytes < 0 || rxBytes+txBytes <= 0 {
+		return domain.E(domain.CodeInvalidRequest, "bytes must be non-negative with at least one positive")
 	}
-	return s.adjustTraffic(ctx, userID, bytes, "user.traffic_added", actor)
+	return s.addTraffic(ctx, userID, rxBytes, txBytes, "user.traffic_added", actor)
 }
 
 // RemoveTraffic subtracts bytes from the charged counter (rx first, then tx,
@@ -635,7 +669,173 @@ func (s *Service) RemoveTraffic(ctx context.Context, userID string, bytes int64,
 	if bytes <= 0 {
 		return domain.E(domain.CodeInvalidRequest, "bytes must be positive")
 	}
-	return s.adjustTraffic(ctx, userID, -bytes, "user.traffic_removed", actor)
+	return s.removeTraffic(ctx, userID, bytes, "user.traffic_removed", actor)
+}
+
+// SetTraffic sets the charged counters to absolute values (admin meter
+// corrections; nil leaves a direction untouched, negatives rejected). The
+// level-check applies: a set that lands at/over the limit trips the account,
+// one that lands below reactivates a traffic_exceeded account.
+func (s *Service) SetTraffic(ctx context.Context, userID string, rxBytes, txBytes *int64, actor Actor) error {
+	if (rxBytes != nil && *rxBytes < 0) || (txBytes != nil && *txBytes < 0) {
+		return domain.E(domain.CodeInvalidRequest, "bytes must be non-negative (null leaves the counter untouched)")
+	}
+	if rxBytes == nil && txBytes == nil {
+		return domain.E(domain.CodeInvalidRequest, "at least one of rx_bytes/tx_bytes is required")
+	}
+	var username string
+	var auditExtra map[string]any
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var (
+			status, policy string
+			usedRX, usedTX int64
+			limit          sql.NullInt64
+			activated      sql.NullString
+		)
+		err := tx.QueryRowContext(ctx, `SELECT username, status, traffic_used_rx, traffic_used_tx,
+			traffic_limit_bytes, start_policy, activated_at
+			FROM users WHERE id = ? AND deleted_at IS NULL`, userID).
+			Scan(&username, &status, &usedRX, &usedTX, &limit, &policy, &activated)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.E(domain.CodeUserNotFound, "user %s not found", userID)
+		}
+		if err != nil {
+			return fmt.Errorf("accounting: set lookup: %w", err)
+		}
+		newRX, newTX := usedRX, usedTX
+		if rxBytes != nil {
+			newRX = *rxBytes
+		}
+		if txBytes != nil {
+			newTX = *txBytes
+		}
+		total := newRX + newTX
+
+		newStatus := domain.UserStatus(status)
+		var reason any
+		st := newStatus
+		live := st == domain.UserActive || st == domain.UserWaitingFirstConnection
+		overLimit := limit.Valid && total >= limit.Int64
+		switch {
+		case live && overLimit:
+			newStatus = domain.UserTrafficExceeded
+			r := domain.DisableTrafficLimit
+			reason = &r
+		case st == domain.UserTrafficExceeded && limit.Valid && total < limit.Int64:
+			if !activated.Valid && domain.StartPolicy(policy) == domain.StartFirstConnection {
+				newStatus = domain.UserWaitingFirstConnection
+			} else {
+				newStatus = domain.UserActive
+			}
+			reason = nil
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET traffic_used_rx = ?, traffic_used_tx = ?,
+			status = ?, disable_reason = ?, updated_at = ? WHERE id = ?`,
+			newRX, newTX, string(newStatus), reason,
+			s.now().UTC().Format(time.RFC3339Nano), userID); err != nil {
+			return fmt.Errorf("accounting: set user: %w", err)
+		}
+		auditExtra = map[string]any{"username": username, "used_bytes": total}
+		if rxBytes != nil {
+			auditExtra["rx_bytes"] = *rxBytes
+		}
+		if txBytes != nil {
+			auditExtra["tx_bytes"] = *txBytes
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	s.record(ctx, []audit.Entry{{
+		ActorType: actor.typ(), ActorID: actor.ID, Action: "user.traffic_set", Target: userID,
+		Metadata: auditExtra,
+	}})
+	return nil
+}
+
+// addTraffic saturating-adds the deltas to the charged counters.
+func (s *Service) addTraffic(ctx context.Context, userID string, drx, dtx int64, action string, actor Actor) error {
+	var username string
+	var auditExtra map[string]any
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var (
+			status, policy string
+			usedRX, usedTX int64
+			limit          sql.NullInt64
+			activated      sql.NullString
+		)
+		err := tx.QueryRowContext(ctx, `SELECT username, status, traffic_used_rx, traffic_used_tx,
+			traffic_limit_bytes, start_policy, activated_at
+			FROM users WHERE id = ? AND deleted_at IS NULL`, userID).
+			Scan(&username, &status, &usedRX, &usedTX, &limit, &policy, &activated)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.E(domain.CodeUserNotFound, "user %s not found", userID)
+		}
+		if err != nil {
+			return fmt.Errorf("accounting: adjust lookup: %w", err)
+		}
+
+		newRX, newTX := usedRX, usedTX
+		if drx > 0 {
+			if drx > math.MaxInt64-newRX {
+				newRX = math.MaxInt64 // saturate, never wrap
+			} else {
+				newRX += drx
+			}
+		}
+		if dtx > 0 {
+			if dtx > math.MaxInt64-newTX {
+				newTX = math.MaxInt64
+			} else {
+				newTX += dtx
+			}
+		}
+		total := newRX + newTX
+
+		newStatus := domain.UserStatus(status)
+		var reason any
+		st := newStatus
+		live := st == domain.UserActive || st == domain.UserWaitingFirstConnection
+		overLimit := limit.Valid && total >= limit.Int64
+		switch {
+		case live && overLimit:
+			newStatus = domain.UserTrafficExceeded
+			r := domain.DisableTrafficLimit
+			reason = &r
+		case st == domain.UserTrafficExceeded && limit.Valid && total < limit.Int64:
+			// Usage dropped below the limit: one-op unblock.
+			if !activated.Valid && domain.StartPolicy(policy) == domain.StartFirstConnection {
+				newStatus = domain.UserWaitingFirstConnection
+			} else {
+				newStatus = domain.UserActive
+			}
+			reason = nil
+		}
+
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET traffic_used_rx = ?, traffic_used_tx = ?,
+			status = ?, disable_reason = ?, updated_at = ? WHERE id = ?`,
+			newRX, newTX, string(newStatus), reason,
+			s.now().UTC().Format(time.RFC3339Nano), userID); err != nil {
+			return fmt.Errorf("accounting: adjust user: %w", err)
+		}
+		auditExtra = map[string]any{"username": username, "used_bytes": total}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	s.record(ctx, []audit.Entry{{
+		ActorType: actor.typ(), ActorID: actor.ID, Action: action, Target: userID,
+		Metadata: auditExtra,
+	}})
+	return nil
+}
+
+// removeTraffic drains `bytes` from the charged counters (rx first, then tx,
+// floored at zero).
+func (s *Service) removeTraffic(ctx context.Context, userID string, bytes int64, action string, actor Actor) error {
+	return s.adjustTraffic(ctx, userID, -bytes, action, actor)
 }
 
 func (s *Service) adjustTraffic(ctx context.Context, userID string, deltaBytes int64, action string, actor Actor) error {

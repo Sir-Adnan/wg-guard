@@ -617,27 +617,27 @@ func TestAddRemoveTraffic(t *testing.T) {
 	e.seedDevice(t, uid, "phone", keyA, 0, 0)
 
 	// Add below limit.
-	if err := e.svc.AddTraffic(context.Background(), uid, 400, Actor{Type: "admin", ID: "a1"}); err != nil {
+	if err := e.svc.AddTraffic(context.Background(), uid, 250, 150, Actor{Type: "admin", ID: "a1"}); err != nil {
 		t.Fatal(err)
 	}
 	usedRX, usedTX, status, _ := e.userRow(t, uid)
-	if usedRX != 400 || status != "active" {
-		t.Fatalf("after add: %d %q", usedRX, status)
+	if usedRX != 250 || usedTX != 150 || status != "active" {
+		t.Fatalf("after add: %d/%d %q", usedRX, usedTX, status)
 	}
-	// Add pushing over limit trips immediately.
-	if err := e.svc.AddTraffic(context.Background(), uid, 700, Actor{}); err != nil {
+	// Add pushing over limit trips immediately (total 250+150+700 = 1100 ≥ 1000).
+	if err := e.svc.AddTraffic(context.Background(), uid, 700, 0, Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	_, _, status, reason := e.userRow(t, uid)
 	if status != "traffic_exceeded" || reason != "traffic_limit" {
 		t.Fatalf("after trip-add: %q/%q", status, reason)
 	}
-	// Remove below limit → one-op unblock.
+	// Remove below limit → one-op unblock (rx drains first).
 	if err := e.svc.RemoveTraffic(context.Background(), uid, 200, Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	usedRX, _, status, reason = e.userRow(t, uid)
-	if usedRX != 900 || status != "active" || reason != "" {
+	if usedRX != 750 || status != "active" || reason != "" {
 		t.Fatalf("after remove: %d %q/%q", usedRX, status, reason)
 	}
 	// Clamp at zero.
@@ -648,18 +648,53 @@ func TestAddRemoveTraffic(t *testing.T) {
 	if usedRX != 0 || usedTX != 0 {
 		t.Fatalf("clamp: %d/%d", usedRX, usedTX)
 	}
+	// Set: absolute values, level-check reactivates below the limit and
+	// trips at/over it; nil leaves a direction untouched.
+	rx := int64(1200)
+	if err := e.svc.SetTraffic(context.Background(), uid, &rx, nil, Actor{Type: "admin", ID: "a1"}); err != nil {
+		t.Fatal(err)
+	}
+	usedRX, usedTX, status, reason = e.userRow(t, uid)
+	if usedRX != 1200 || usedTX != 0 || status != "traffic_exceeded" || reason != "traffic_limit" {
+		t.Fatalf("after set-over: %d/%d %q/%q", usedRX, usedTX, status, reason)
+	}
+	// Setting only tx leaves rx untouched (still over → stays blocked); then
+	// setting rx below the limit reactivates.
+	tx := int64(50)
+	if err := e.svc.SetTraffic(context.Background(), uid, nil, &tx, Actor{}); err != nil {
+		t.Fatal(err)
+	}
+	usedRX, usedTX, status, _ = e.userRow(t, uid)
+	if usedRX != 1200 || usedTX != 50 || status != "traffic_exceeded" {
+		t.Fatalf("nil rx must stay: %d/%d %q", usedRX, usedTX, status)
+	}
+	rx2 := int64(500)
+	if err := e.svc.SetTraffic(context.Background(), uid, &rx2, nil, Actor{}); err != nil {
+		t.Fatal(err)
+	}
+	usedRX, usedTX, status, _ = e.userRow(t, uid)
+	if usedRX != 500 || usedTX != 50 || status != "active" {
+		t.Fatalf("after set-under: %d/%d %q", usedRX, usedTX, status)
+	}
 	// Invalid input rejected.
-	if err := e.svc.AddTraffic(context.Background(), uid, 0, Actor{}); err == nil {
+	if err := e.svc.AddTraffic(context.Background(), uid, 0, 0, Actor{}); err == nil {
 		t.Fatal("zero bytes must be rejected")
 	}
-	if err := e.svc.AddTraffic(context.Background(), "usr-nope", 100, Actor{}); err == nil {
+	if err := e.svc.AddTraffic(context.Background(), "usr-nope", 100, 0, Actor{}); err == nil {
 		t.Fatal("unknown user must be rejected")
+	}
+	neg := int64(-1)
+	if err := e.svc.SetTraffic(context.Background(), uid, &neg, nil, Actor{}); err == nil {
+		t.Fatal("negative set must be rejected")
 	}
 	if n := e.auditCount(t, "user.traffic_added"); n != 2 {
 		t.Fatalf("add audit: %d", n)
 	}
 	if n := e.auditCount(t, "user.traffic_removed"); n != 2 {
 		t.Fatalf("remove audit: %d", n)
+	}
+	if n := e.auditCount(t, "user.traffic_set"); n != 3 {
+		t.Fatalf("set audit: %d", n)
 	}
 }
 

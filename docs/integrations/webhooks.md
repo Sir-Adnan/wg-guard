@@ -8,12 +8,14 @@ events).
 
 1. The state-changing transaction also inserts the `webhook_events` row (atomic with the
    change — events cannot disappear).
-2. A single worker (part of the central scheduler) selects due deliveries by index, delivers
-   with capped concurrency, and records attempts — one broken endpoint can never block the
-   process.
-3. Retry: exponential backoff; after N attempts (configurable, default 12) the delivery becomes
-   `dead` (visible in the UI/API, manual redeliver endpoint).
-4. Payloads are pruned per retention policy; event rows are compact.
+2. A single worker (part of the central scheduler, one pass every 5 s) selects due deliveries
+   by index, delivers with capped concurrency (4), and records attempts — one broken endpoint
+   can never block the process.
+3. Retry: exponential backoff (30 s × 2ⁿ, capped at 6 h); after N attempts (configurable,
+   `webhooks.max_attempts`, default 12) the delivery becomes `dead` (visible in the UI/API,
+   manual redeliver endpoint).
+4. Payloads are pruned after 7 days (serve housekeeping, every 10 min); event rows are compact.
+   Redeliver a dead delivery within that window or it is gone by design.
 
 ## Signature
 

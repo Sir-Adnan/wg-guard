@@ -11,21 +11,24 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–3 complete (foundation; AWG backend & networking: pinned-CLI
-tunnel backend, dump parser, nftables, sysctls, reconcile-on-boot; limits & accounting: delta
-pipeline, quota/expiry enforcement, first-connection activation, tc shaper, samples/rollups).**
-The architecture is approved and pinned; implementation proceeds phase by phase. See
-[ROADMAP.md](ROADMAP.md) and [docs/development/status.md](docs/development/status.md).
+**In active development — Phases 0–4 complete.** Phase 4 delivered the full REST API
+(`/api/v1`: users, devices, plans, interfaces, settings, webhooks, stats; idempotency, keyset
+pagination, error envelope, per-token rate limits, OpenAPI + coverage test), durable signed
+webhooks, the node runtime (`wg-guard serve` with the central scheduler, TLS modes and graceful
+shutdown), the `wg-guard token` CLI, and **independent upload/download speed limits** (tc HTB
+egress + IFB ingress). The architecture is approved and pinned; implementation proceeds phase
+by phase. See [ROADMAP.md](ROADMAP.md) and [docs/development/status.md](docs/development/status.md).
 
 ## Features
 
 - **AmneziaWG tunnel profiles** (`awg0`, `awg1`, …) — each with its own obfuscation parameters,
   listen port, subnet pool, and MTU; managed entirely from the panel
 - **User management** — subscriptions with duration, expiration (including first-connection
-  activation), traffic quotas (RX+TX), per-device speed limits, device limits, bulk creation
+  activation), traffic quotas (RX+TX), **independent upload/download speed limits**, device
+  limits, bulk creation
 - **Devices** — one peer per device, config/QR download, revocation, regeneration
 - **Stable REST API** (`/api/v1`) — token auth with scopes, idempotency keys, cursor pagination,
-  durable signed webhooks, OpenAPI document
+  per-token rate limits, durable signed webhooks, OpenAPI document (`/openapi.json`, `/docs`)
 - **Premium bilingual panel** — Persian (default) and English, full RTL, light/dark themes,
   excellent on mobile and desktop, server-rendered with HTMX — no heavy frontend runtime
 - **Backups** — manual, scheduled, Telegram delivery, optional password protection; restore with

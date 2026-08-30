@@ -8,6 +8,43 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 4 — REST API** (all unit tested, `-race` clean; real-tc/ingress paths integration
+  tested in WSL2):
+  - Full `/api/v1` management surface (`internal/api`): users (CRUD, lifecycle, traffic
+    add/set/reset, series), bulk create + bulk actions, devices (CRUD, enable/disable,
+    key regeneration, on-demand config + QR), plans, interfaces (incl. obfuscation params),
+    settings (redacted secrets), webhooks (CRUD, redeliver), stats, node health/info, and
+    public ops endpoints (`/healthz`, `/readyz`, `/openapi.json`, `/docs`).
+  - Conventions: one error envelope with stable machine codes + `X-Request-Id`; keyset cursor
+    pagination (limit ≤ 500, id tiebreak); idempotency keys (24 h replay window, 409 on key
+    reuse, `Idempotency-Replayed: true`); per-token rate limiting (fixed 60 s window,
+    live-reloadable, 0 = unlimited); tri-state PATCH semantics (absent = no change, null =
+    clear to unlimited) for independent up/down speed limits.
+  - **Independent upload/download speed limits** on users and plans (`speed_limit_down_kbps`,
+    `speed_limit_up_kbps`; migration 0002 converts the Phase 3 column). Download = tc HTB on the
+    interface egress; upload = ingress qdisc mirroring into an IFB device with an HTB tree on
+    client source IPs. Directions apply, rebuild and clean up independently; either direction
+    unset means unlimited. Live-verified against iproute2 + kernel 6.18 in WSL2 (documented in
+    docs/architecture/networking.md).
+  - Durable webhooks (`internal/webhook`): events commit in the same transaction as the state
+    change via a recorder seam injected into user/device/accounting services; worker pass every
+    5 s with capped concurrency (4), 10 s timeout, exponential backoff (30 s × 2ⁿ, cap 6 h),
+    dead-letter after `webhooks.max_attempts`; HMAC `X-WG-Signature` signing; secrets AES-GCM
+    encrypted at rest, shown exactly once; 7-day payload retention; event catalog V1
+    (user.*/device.*/node.started).
+  - Node runtime (`internal/serve` + `wg-guard serve`): config → migrations → master key →
+    settings → services → boot bring-up → HTTP(S) listener → central scheduler; TLS modes
+    manual/proxy/dev implemented (ACME deferred to the installer phase with a clear error);
+    graceful shutdown drains HTTP, finishes the running job, closes the DB; reconcile passes
+    serialized across API and accounting; config-gated `/metrics` (Prometheus text);
+    `-backend fake` dev/bench mode.
+  - `wg-guard token create|list|revoke|scopes` CLI (the token-minting path until Phase 5).
+  - Metrics collector (`internal/metrics`): health/ready gates, request-class counters,
+    accounting-cycle gauges; `internal/api` route table doubles as the OpenAPI coverage input
+    (test-enforced, both directions).
+  - Settings: `node.id`, `node.endpoint`, `network.client_allowed_ips`,
+    `network.client_keepalive_seconds`, `webhooks.max_attempts`, `api.rate_limit_per_minute`.
+  - Dependency: `rsc.io/qr` v0.2.0 (BSD-3-Clause, zero transitive deps) for QR rendering.
 - **Phase 3 — limits & accounting** (all unit tested, `-race` clean; tc and real-runtime paths
   integration tested in WSL2):
   - Centralized scheduler (`internal/scheduler`): one goroutine, due-heap, sequential jobs,

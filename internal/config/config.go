@@ -40,8 +40,17 @@ type Config struct {
 	MasterKeyFile string `toml:"master_key_file"`
 	HTTPListen    string `toml:"http_listen"`
 
-	TLS TLSConfig `toml:"tls"`
-	Log LogConfig `toml:"log"`
+	TLS     TLSConfig     `toml:"tls"`
+	Log     LogConfig     `toml:"log"`
+	Metrics MetricsConfig `toml:"metrics"`
+}
+
+// MetricsConfig gates the Prometheus-style /metrics endpoint. It is off by
+// default: the endpoint exposes node topology (interfaces, request rates)
+// and belongs behind the operator's own monitoring decision, not on by
+// default on a public listener (docs/operations/security.md).
+type MetricsConfig struct {
+	Enabled bool `toml:"enabled"`
 }
 
 type TLSConfig struct {
@@ -110,6 +119,14 @@ func applyEnv(cfg *Config, get func(string) string) {
 	setString(&cfg.TLS.CertFile, get("WGG_TLS_CERT_FILE"))
 	setString(&cfg.TLS.KeyFile, get("WGG_TLS_KEY_FILE"))
 	setString(&cfg.Log.Level, get("WGG_LOG_LEVEL"))
+	if v := get("WGG_METRICS_ENABLED"); v != "" {
+		switch strings.ToLower(v) {
+		case "1", "true", "yes", "on":
+			cfg.Metrics.Enabled = true
+		case "0", "false", "no", "off":
+			cfg.Metrics.Enabled = false
+		}
+	}
 }
 
 func setString(dst *string, v string) {

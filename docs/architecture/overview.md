@@ -48,6 +48,19 @@ No cycles; no `utils` packages. Package responsibilities:
 | Built-in TLS/ACME without a reverse proxy | [0011](../decisions/ADR-0011-builtin-tls.md) |
 | stdlib net/http ServeMux routing | [0012](../decisions/ADR-0012-net-http-mux.md) |
 
+## Runtime (`serve`)
+
+`wg-guard serve` composes the whole node (internal/serve): boot config → DB + migrations →
+master key → settings → domain services → boot bring-up → HTTP(S) listener → the central
+scheduler. All periodic work runs on the one scheduler goroutine: accounting cycle + expiry
+(`accounting.interval_seconds`, live-reloadable), sample flush, webhook delivery pass (5 s),
+housekeeping (10 min prunes + rate-limit reload). Reconcile passes are serialized behind one
+mutex shared by boot, the accounting/enforcement paths and API-triggered reconciles —
+concurrent AWG operations on one interface are the race verify-after-apply exists to catch.
+Graceful shutdown drains HTTP, lets the running job finish, then closes the DB. TLS: manual
+cert, proxy, and loopback dev modes implemented; ACME is designed (ADR-0011) and lands with the
+installer (Phase 7) — the mode is rejected with a clear message until then.
+
 ## Reconciliation (DB is the source of truth)
 
 On boot and continuously, kernel state is verified against the database: missing interfaces are

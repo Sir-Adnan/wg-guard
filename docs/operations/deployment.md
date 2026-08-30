@@ -26,14 +26,40 @@ Spec compliance: Docker is never *required*.
 
 ## Listening & TLS (built-in; no reverse proxy required)
 
-| Mode | Behavior |
-|---|---|
-| Domain + ACME | Built-in `autocert`: HTTP-01 on port 80, TLS served on the configured panel port — any port works (e.g. `https://sub.example.com:34562`); port 80 must stay reachable for issuance/renewal |
-| Manual certs | Administrator-provided cert/key paths |
-| Behind reverse proxy | HTTP bound to loopback/private interface (explicit, documented choice) |
-| Development | Loopback-only HTTP with loud warnings |
+`wg-guard serve` loads boot config from `/etc/wg-guard/wg-guard.toml` (override with
+`-config PATH` or the `WGG_*` environment variables listed in `internal/config`). Every
+runtime-tunable knob (accounting cadence, rate limits, node identity, webhooks…) lives in the
+Settings registry and hot-applies; only paths, the listener and the TLS mode require a restart.
+
+| Mode | Behavior | Status |
+|---|---|---|
+| Domain + ACME | Built-in `autocert`: HTTP-01 on port 80, TLS served on the configured panel port — any port works (e.g. `https://sub.example.com:34562`); port 80 must stay reachable for issuance/renewal | designed (ADR-0011); lands with the installer (Phase 7) — serve rejects the mode with a clear message today |
+| Manual certs | `tls.mode = "manual"` with `cert_file`/`key_file`; TLS 1.2 minimum | implemented |
+| Behind reverse proxy | `tls.mode = "proxy"`: HTTP bound to loopback/private interface (explicit, documented choice) | implemented |
+| Development | `tls.mode = "dev"`: loopback-only HTTP with loud warnings | implemented |
 
 The installer never silently exposes plaintext management to the public internet.
+
+### Scheduler & background work
+
+All periodic work runs on ONE scheduler goroutine: the accounting delta cycle +
+expiry pass (every `accounting.interval_seconds`, live-reloadable), traffic-sample flush
+(`accounting.sample_flush_seconds`), webhook delivery pass (5 s), and housekeeping (10 min:
+idempotency-key, session, traffic-history and webhook-event pruning + rate-limit reload).
+Graceful shutdown drains in-flight HTTP requests before stopping jobs and closing the DB.
+
+### Dev/benchmark backend
+
+`wg-guard serve -backend fake` substitutes the in-memory tunnel backend: no root, no AWG
+tooling, no host networking changes. Intended for development and the resource measurements in
+`scripts/bench-idle.sh` — it logs a loud warning and never touches tunnels or firewall.
+
+### Metrics
+
+`GET /metrics` (Prometheus text: uptime, request classes, accounting cycle stats, goroutines,
+heap) is **off by default**; enable with `[metrics] enabled = true` (or `WGG_METRICS_ENABLED=1`)
+when your monitoring stack needs it — it exposes topology signals and belongs behind an
+operator's decision, ideally not on a public listener.
 
 ## Ports & networking defaults
 

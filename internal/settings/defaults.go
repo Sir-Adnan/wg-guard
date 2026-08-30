@@ -4,7 +4,30 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 )
+
+// validHostname is the syntactic hostname check used by node.endpoint
+// validation (DNS resolution itself is deliberately NOT required here — an
+// endpoint may be registered before its DNS record exists; it is a warning,
+// not an error, surface at doctor time).
+func validHostname(s string) bool {
+	if s == "" || len(s) > 253 {
+		return false
+	}
+	for _, label := range strings.Split(strings.TrimSuffix(s, "."), ".") {
+		if label == "" || len(label) > 63 {
+			return false
+		}
+		for i, r := range label {
+			ok := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-'
+			if !ok || (r == '-' && (i == 0 || i == len(label)-1)) {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 // Defaults is the Phase 1 catalog. Every value here is a *recommended
 // default* chosen from upstream constraints (docs/operations/deployment.md) —
@@ -60,6 +83,56 @@ func Defaults() []Definition {
 		// Users (defaults applied at creation; per-user overrides exist).
 		{Key: "users.default_device_limit", Kind: KindInt, Default: 3, Min: 1, Max: 100,
 			Category: "general"},
+
+		// Node identity (client-config Endpoint and webhook envelopes).
+		// node.id is filled with the hostname on first serve when empty.
+		{Key: "node.id", Kind: KindString, Default: "", Category: "general",
+			Validator: func(v any) error {
+				if s := v.(string); len(s) > 128 {
+					return fmt.Errorf("node id must be at most 128 characters")
+				}
+				return nil
+			}},
+		{Key: "node.endpoint", Kind: KindString, Default: "", Category: "general",
+			Validator: func(v any) error {
+				s := v.(string)
+				if s == "" {
+					return nil
+				}
+				host, _, err := net.SplitHostPort(s)
+				if err != nil {
+					host = s // host-only is valid; the listen port is appended per interface
+				}
+				if net.ParseIP(host) == nil && !validHostname(host) {
+					return fmt.Errorf("%q is not an IP address or hostname", s)
+				}
+				return nil
+			}},
+
+		// Client-config rendering (GET /api/v1/devices/{id}/config).
+		{Key: "network.client_allowed_ips", Kind: KindString, Default: "0.0.0.0/0", Category: "networking",
+			Validator: func(v any) error {
+				for _, s := range strings.Split(v.(string), ",") {
+					if s = strings.TrimSpace(s); s != "" {
+						if _, _, err := net.ParseCIDR(s); err != nil {
+							return fmt.Errorf("%q is not a valid CIDR", s)
+						}
+					}
+				}
+				return nil
+			}},
+		{Key: "network.client_keepalive_seconds", Kind: KindInt, Default: 25, Min: 0, Max: 120,
+			Category: "networking"},
+
+		// Webhook delivery (internal/webhook): exponential backoff caps here;
+		// a dead delivery is visible in the API and manually redeliverable.
+		{Key: "webhooks.max_attempts", Kind: KindInt, Default: 12, Min: 1, Max: 50,
+			Category: "webhooks"},
+
+		// REST API (internal/api): per-token fixed-window request limit;
+		// 0 disables limiting (trusted internal networks only).
+		{Key: "api.rate_limit_per_minute", Kind: KindInt, Default: 600, Min: 0, Max: 100000,
+			Category: "security"},
 
 		// Backup (encryption is optional; an empty password means plain
 		// archives — ADR-0008).
