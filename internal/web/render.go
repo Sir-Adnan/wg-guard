@@ -103,7 +103,36 @@ type pageTemplate struct {
 // initTemplates parses the base once and clones it per page so every page
 // can own a "content" block without name collisions.
 func (s *Server) initTemplates() error {
-	base := template.New("base").Funcs(template.FuncMap{})
+	base := template.New("base").Funcs(template.FuncMap{
+		"list": func(items ...string) []string { return items },
+		"dict": func(kvs ...any) map[string]any {
+			m := make(map[string]any, len(kvs)/2)
+			for i := 0; i+1 < len(kvs); i += 2 {
+				if k, ok := kvs[i].(string); ok {
+					m[k] = kvs[i+1]
+				}
+			}
+			return m
+		},
+		// i64u normalizes the integer shapes stored on domain structs so
+		// formatting helpers (which take int64) can be used uniformly.
+		"i64u": func(v any) int64 {
+			switch x := v.(type) {
+			case int64:
+				return x
+			case uint64:
+				return int64(x)
+			case *int64:
+				if x != nil {
+					return *x
+				}
+			case int:
+				return int64(x)
+			}
+			return 0
+		},
+		"timePtr": func(t time.Time) *time.Time { return &t },
+	})
 	files, err := fs.Glob(webassets.FS, "templates/*.html")
 	if err != nil {
 		return fmt.Errorf("web: templates glob: %w", err)
@@ -161,6 +190,9 @@ type View struct {
 	// assetFn resolves cache-busted asset URLs (set per server).
 	assetFn func(string) string
 
+	// ToastMsg carries a post-redirect-flash message (already localized).
+	ToastMsg string
+
 	// Data carries the page-specific payload (typed per page).
 	Data any
 }
@@ -168,6 +200,14 @@ type View struct {
 // A returns the cache-busted URL for an embedded static asset, e.g.
 // {{.A "/css/app.css"}}.
 func (v *View) A(name string) string { return v.assetFn(name) }
+
+// IsActive reports whether the current path belongs to a nav section.
+func (v *View) IsActive(section string) bool {
+	if section == "/" {
+		return v.Path == "/"
+	}
+	return v.Path == section || strings.HasPrefix(v.Path, section+"/")
+}
 
 // T translates key with the request's locale.
 func (v *View) T(key string, args ...any) string {
@@ -265,13 +305,36 @@ func (v *View) U(n *int) string {
 	return i18n.FormatKbps(v.Locale, *n)
 }
 
+// BLim renders a byte limit ("unlimited" when nil).
+func (v *View) BLim(limit *int64) string {
+	if limit == nil {
+		return v.T("common.unlimited")
+	}
+	return v.B(*limit)
+}
+
+// ExpiryClass colors imminent (warn) and passed (danger) expiries.
+func (v *View) ExpiryClass(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	d := time.Until(*t)
+	if d < 0 {
+		return "text-danger"
+	}
+	if d < 7*24*time.Hour {
+		return "text-warn"
+	}
+	return ""
+}
+
 // MeterClass picks the nearest width step (CSP forbids inline styles) and
 // the tone class for a used/limit pair; limit == nil renders full bar.
-func (v *View) MeterClass(used, limit *int64) string {
+func (v *View) MeterClass(used int64, limit *int64) string {
 	if limit == nil || *limit <= 0 {
 		return "w0"
 	}
-	pct := float64(*used) / float64(*limit) * 100
+	pct := float64(used) / float64(*limit) * 100
 	step := int(pct/5+0.5) * 5
 	if step > 100 {
 		step = 100
@@ -298,9 +361,29 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page, layout str
 	}
 	v := s.newView(r)
 	v.Data = data
+	s.applyFlash(r, v)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	return pt.t.ExecuteTemplate(w, layout, v)
+	if err := pt.t.ExecuteTemplate(w, layout, v); err != nil {
+		if s.Log != nil {
+			s.Log.Error("web: render", "page", page, "err", err)
+		}
+		return err
+	}
+	return nil
+}
+
+// applyFlash resolves the ?toast= PRG flash into a localized message.
+func (s *Server) applyFlash(r *http.Request, v *View) {
+	key := r.URL.Query().Get("toast")
+	if key == "" {
+		return
+	}
+	if targ := r.URL.Query().Get("targ"); targ != "" {
+		v.ToastMsg = s.t(r, key, targ)
+	} else {
+		v.ToastMsg = s.t(r, key)
+	}
 }
 
 // partial executes one {{define}} block (htmx fragment swap target).

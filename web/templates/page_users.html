@@ -1,0 +1,248 @@
+{{define "title"}}{{.T "users.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "users.title"}}</h1>
+    <p>{{.T "users.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn" data-open-modal="bulk-modal">{{.IconS "user-plus"}}<span>{{.T "users.bulk_create"}}</span></button>
+    <a class="btn btn--primary" href="/users/new">{{.IconS "plus"}}<span>{{.T "users.new"}}</span></a>
+  </div>
+</div>
+
+<form class="toolbar" method="get" action="/users">
+  <div class="search-box">
+    {{.Icon "search"}}
+    <input class="input" type="search" name="q" value="{{.Data.Search}}" placeholder="{{.T "users.search_hint"}}">
+  </div>
+  <select class="select" name="status" aria-label="{{.T "common.status"}}">
+    <option value="all">{{.T "common.all"}}</option>
+    {{$st := .Data.Status}}
+    {{range $s := list "active" "waiting_first_connection" "expired" "traffic_exceeded" "suspended" "disabled"}}
+    <option value="{{$s}}" {{if eq $st $s}}selected{{end}}>{{$.St $s}}</option>
+    {{end}}
+  </select>
+  {{$sort := .Data.Sort}}
+  <select class="select" name="sort" aria-label="{{.T "users.sort"}}">
+    <option value="created_new" {{if eq $sort "created_new"}}selected{{end}}>{{.T "users.sort.created_new"}}</option>
+    <option value="created_old" {{if eq $sort "created_old"}}selected{{end}}>{{.T "users.sort.created_old"}}</option>
+    <option value="username" {{if eq $sort "username"}}selected{{end}}>{{.T "users.sort.username"}}</option>
+    <option value="expires" {{if eq $sort "expires"}}selected{{end}}>{{.T "users.sort.expires"}}</option>
+    <option value="used" {{if eq $sort "used"}}selected{{end}}>{{.T "users.sort.used"}}</option>
+  </select>
+  <button type="submit" class="btn">{{.T "common.filter"}}</button>
+  {{if .Data.HasFilters}}<a class="btn btn--ghost" href="/users">{{.T "common.clear_filters"}}</a>{{end}}
+</form>
+
+{{template "users_bulkbar" .}}
+
+{{if .Data.Items}}
+<div class="table-wrap">
+  <table class="table table--cards">
+    <thead>
+      <tr>
+        <th class="card-hide"><input type="checkbox" class="checkbox" id="sel-all" aria-label="{{.T "common.select_all"}}"></th>
+        <th>{{.T "users.username"}}</th>
+        <th>{{.T "common.status"}}</th>
+        <th>{{.T "users.traffic"}}</th>
+        <th>{{.T "users.expires"}}</th>
+        <th>{{.T "users.devices"}}</th>
+        <th>{{.T "users.last_activity"}}</th>
+        <th class="text-end">{{.T "common.actions"}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Data.Items}}{{template "users_row" (dict "row" . "v" $)}}{{end}}
+    </tbody>
+  </table>
+</div>
+{{if .Data.NextCursor}}
+<nav class="pagination" aria-label="{{.T "common.page"}}">
+  <span></span>
+  <div class="links">
+    <a href="/users?cursor={{.Data.NextCursor}}&q={{.Data.Search}}&status={{.Data.Status}}&sort={{.Data.Sort}}">{{.T "common.next"}} {{.IconS "chevron-right"}}</a>
+  </div>
+</nav>
+{{end}}
+{{else if .Data.HasFilters}}
+<div class="table-wrap">
+  <div class="empty">
+    {{.Icon "inbox"}}
+    <h3>{{.T "users.empty_filtered_title"}}</h3>
+    <p>{{.T "users.empty_filtered_desc"}}</p>
+    <a class="btn" href="/users">{{.T "common.clear_filters"}}</a>
+  </div>
+</div>
+{{else}}
+<div class="table-wrap">
+  <div class="empty">
+    {{.Icon "users"}}
+    <h3>{{.T "users.empty.title"}}</h3>
+    <p>{{.T "users.empty.desc"}}</p>
+    <a class="btn btn--primary" href="/users/new">{{.IconS "plus"}}<span>{{.T "users.empty.cta"}}</span></a>
+  </div>
+</div>
+{{end}}
+
+{{template "users_bulk_modal" .}}
+{{end}}
+
+{{define "users_bulkbar"}}
+<div class="toolbar hidden" data-bulk-bar>
+  <span class="badge badge--accent"><span data-sel-count>0</span> {{.T "common.selected"}}</span>
+  <form method="post" action="/users/bulk-action" data-bulk-action>
+    <input type="hidden" name="ids" value="">
+    <input type="hidden" name="action" value="enable">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="btn btn--sm">{{.IconS "power"}}<span>{{.T "users.action.enable"}}</span></button>
+  </form>
+  <form method="post" action="/users/bulk-action" data-bulk-action data-confirm
+        data-confirm-title="{{.T "common.confirm_delete"}}"
+        data-confirm-message="{{.T "users.bulk.confirm_disable" 0}}"
+        data-confirm-kind="danger" data-confirm-label="{{.T "users.action.disable"}}">
+    <input type="hidden" name="ids" value="">
+    <input type="hidden" name="action" value="disable">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="btn btn--sm">{{.IconS "power"}}<span>{{.T "users.action.disable"}}</span></button>
+  </form>
+  <form method="post" action="/users/bulk-action" data-bulk-action data-confirm
+        data-confirm-title="{{.T "common.confirm_delete"}}"
+        data-confirm-message=""
+        data-bulk-confirm-msg="{{.T "users.bulk.confirm_delete" 0}}"
+        data-confirm-kind="danger" data-confirm-label="{{.T "users.action.delete"}}">
+    <input type="hidden" name="ids" value="">
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "trash-2"}}<span>{{.T "users.action.delete"}}</span></button>
+  </form>
+</div>
+{{end}}
+
+{{define "users_row"}}
+{{$row := .row}}{{$u := $row.U}}{{$v := .v}}
+<tr>
+  <td class="card-hide"><input type="checkbox" class="checkbox js-sel" value="{{$u.ID}}" aria-label="{{$u.Username}}"></td>
+  <td data-label="{{$v.T "users.username"}}">
+    <a class="row-link" href="/users/{{$u.ID}}">
+      <span class="cell-main ltr-data">{{$u.Username}}</span>
+    </a>
+    {{if $u.DisplayName}}<span class="cell-sub">{{$u.DisplayName}}</span>{{end}}
+    {{if $row.PlanName}}<span class="cell-sub"> · {{$row.PlanName}}</span>{{end}}
+  </td>
+  <td data-label="{{$v.T "common.status"}}">
+    <span class="badge {{$v.StClass (printf "%v" $u.Status)}}">{{$v.St (printf "%v" $u.Status)}}</span>
+  </td>
+  <td data-label="{{$v.T "users.traffic"}}">
+    <div class="meter {{$v.MeterClass $row.Used $u.TrafficLimitBytes}}">
+      <span class="bar"><span></span></span>
+      <span class="num">{{$v.B $row.Used}}{{if $u.TrafficLimitBytes}} / {{$v.BLim $u.TrafficLimitBytes}}{{end}}</span>
+    </div>
+  </td>
+  <td data-label="{{$v.T "users.expires"}}">
+    <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
+  </td>
+  <td data-label="{{$v.T "users.devices"}}" class="ltr-data">{{$v.N (i64u $row.DeviceCount)}}</td>
+  <td data-label="{{$v.T "users.last_activity"}}" class="text-subtle">{{$v.Rel $u.LastActivityAt}}</td>
+  <td class="text-end">
+    <div class="menu-anchor">
+      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
+      <div class="menu" role="menu">
+        <a role="menuitem" href="/users/{{$u.ID}}">{{$v.IconS "eye"}}<span>{{$v.T "common.details"}}</span></a>
+        {{if eq (printf "%v" $u.Status) "active"}}
+        <form role="none" method="post" action="/users/{{$u.ID}}/disable">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.disable"}}</span></button>
+        </form>
+        {{else}}
+        <form role="none" method="post" action="/users/{{$u.ID}}/enable">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.enable"}}</span></button>
+        </form>
+        {{end}}
+        <hr>
+        <form role="none" method="post" action="/users/{{$u.ID}}/delete" data-confirm
+              data-confirm-title="{{$v.T "common.confirm_delete"}}"
+              data-confirm-message="{{$v.T "users.confirm_delete" $u.Username}}"
+              data-confirm-label="{{$v.T "users.action.delete"}}">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "users.action.delete"}}</span></button>
+        </form>
+      </div>
+    </div>
+  </td>
+</tr>
+{{end}}
+
+{{define "users_bulk_modal"}}
+<dialog id="bulk-modal" class="modal" aria-labelledby="bulk-title">
+  <div class="modal-head">
+    <h2 id="bulk-title">{{.T "users.bulk.title"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/users/bulk">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <div class="field">
+        <label for="b-prefix">{{.T "users.bulk.prefix"}}</label>
+        <input class="input" id="b-prefix" name="prefix" dir="ltr" spellcheck="false" placeholder="gold-" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="b-count">{{.T "users.bulk.count"}}</label>
+          <input class="input" id="b-count" name="count" type="number" min="1" max="500" value="10" required>
+        </div>
+        <div class="field">
+          <label for="b-start">{{.T "users.bulk.start_index"}}</label>
+          <input class="input" id="b-start" name="start_index" type="number" min="0" value="1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="b-traffic">{{.T "users.form.traffic_limit"}}</label>
+          <input class="input" id="b-traffic" name="traffic_limit_gb" type="number" min="1" step="any" inputmode="decimal">
+          <span class="hint">{{.T "users.form.traffic_limit_hint"}}</span>
+        </div>
+        <div class="field">
+          <label for="b-duration">{{.T "users.form.duration_days"}}</label>
+          <input class="input" id="b-duration" name="duration_days" type="number" min="1" max="3650">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="b-speed-down">{{.T "users.form.speed_down"}}</label>
+          <input class="input" id="b-speed-down" name="speed_down" type="number" min="1">
+        </div>
+        <div class="field">
+          <label for="b-speed-up">{{.T "users.form.speed_up"}}</label>
+          <input class="input" id="b-speed-up" name="speed_up" type="number" min="1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="b-device-limit">{{.T "users.form.device_limit"}}</label>
+          <input class="input" id="b-device-limit" name="device_limit" type="number" min="1" max="100">
+        </div>
+        <div class="field">
+          <label for="b-plan">{{.T "users.plan"}}</label>
+          <select class="select" id="b-plan" name="plan">
+            <option value="">{{.T "users.no_plan"}}</option>
+            {{range .Data.Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="b-policy">{{.T "users.start_policy"}}</label>
+        <select class="select" id="b-policy" name="start_policy">
+          <option value="immediate">{{.T "users.start_policy.immediate"}}</option>
+          <option value="first_connection">{{.T "users.start_policy.first_connection"}}</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "users.bulk_create"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

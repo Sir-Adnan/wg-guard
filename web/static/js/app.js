@@ -107,6 +107,45 @@
     }
   });
 
+  /* ---------- bulk selection (users table) ---------- */
+
+  document.addEventListener("change", (e) => {
+    const all = e.target.id === "sel-all";
+    if (all) {
+      $$(".js-sel").forEach((c) => { c.checked = e.target.checked; });
+    }
+    if (!all && !e.target.classList.contains("js-sel")) return;
+    const n = $$(".js-sel:checked").length;
+    $$("[data-sel-count]").forEach((el) => { el.textContent = n; });
+    $$("[data-bulk-bar]").forEach((el) => el.classList.toggle("hidden", n === 0));
+    const allBox = $("#sel-all");
+    if (allBox) allBox.checked = n > 0 && n === $$(".js-sel").length;
+  });
+
+  /* fill selected ids + dynamic confirm message, then let the submit run */
+  document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (!f.matches("[data-bulk-action]")) return;
+    const ids = $$(".js-sel:checked").map((c) => c.value);
+    if (!ids.length) { e.preventDefault(); return; }
+    const input = f.querySelector('input[name="ids"]');
+    if (input) input.value = ids.join(",");
+    if (f.dataset.bulkConfirmMsg) {
+      f.dataset.confirmMessage = f.dataset.bulkConfirmMsg.replace("%d", String(ids.length));
+    }
+  }, true); // capture: runs before the confirm-flow listener reads the message
+
+  /* ---------- QR modal ---------- */
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-qr]");
+    if (!btn) return;
+    e.preventDefault();
+    const img = $("#qr-img");
+    if (img) img.src = btn.dataset.qr;
+    openModal("qr-modal");
+  });
+
   /* ---------- confirm flow ---------- */
 
   let pendingConfirm = null;
@@ -212,4 +251,13 @@
 
   $$("[data-theme-choice]").forEach((b) =>
     b.addEventListener("click", () => setTheme(b.dataset.themeChoice)));
+
+  /* PRG flash toast: show once, then clean the URL */
+  const flash = $("[data-toast-msg]");
+  if (flash) {
+    toast(flash.dataset.toastMsg, "ok");
+    history.replaceState(null, "", location.pathname + location.search
+      .replace(/([?&])toast=[^&]*&?/, "$1").replace(/([?&])targ=[^&]*&?/, "$1")
+      .replace(/[?&]+$/, ""));
+  }
 })();

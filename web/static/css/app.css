@@ -1076,6 +1076,48 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
   height: 30px;
 }
 
+/* two-column field rows (stack on small screens) */
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--sp-4);
+}
+@media (max-width: 560px) {
+  .field-row { grid-template-columns: 1fr; }
+}
+
+/* forms on dedicated pages */
+.form-card { max-width: 760px; }
+
+/* user detail: overview + devices side by side, stacked on mobile */
+.user-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .user-detail-grid { grid-template-columns: 1fr; }
+}
+.user-detail-grid .card + .card { margin-block-start: var(--sp-4); }
+
+/* table nested inside a card */
+.table-wrap--flush {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* QR dialog */
+.qr-body { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); }
+.qr-body img {
+  width: 280px;
+  height: 280px;
+  background: #fff;
+  border-radius: var(--r-md);
+  padding: 8px;
+}
+
 /* skip link becomes visible on keyboard focus */
 a.skip-link:focus {
   position: fixed;

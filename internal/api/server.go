@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
+	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
@@ -36,6 +37,9 @@ type Deps struct {
 	Webhooks   *webhook.Service
 	Metrics    *metrics.Collector
 	Log        *slog.Logger
+
+	// ClientConf renders client configs + QR (shared with the web panel).
+	ClientConf *clientconf.Renderer
 
 	// Reconciler runs after structural mutations so peer changes take
 	// effect immediately (satisfied by *reconcile.Engine; serve wraps it in
@@ -71,6 +75,11 @@ type routeDef struct {
 
 // New builds the server and registers every route.
 func New(d Deps) *Server {
+	if d.ClientConf == nil {
+		d.ClientConf = &clientconf.Renderer{
+			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
+		}
+	}
 	s := &Server{Deps: d, idem: &idempotencyStore{db: d.DB}}
 	s.limiter = newRateLimiter(s.rateLimitSetting())
 	s.registerRoutes()

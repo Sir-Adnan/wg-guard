@@ -314,6 +314,37 @@ func (s *Service) CountForUser(ctx context.Context, userID string) (int, error) 
 	return n, err
 }
 
+// CountForUsers returns device counts for a batch of users (one query per
+// page, not per row). Missing IDs count 0.
+func (s *Service) CountForUsers(ctx context.Context, userIDs []string) (map[string]int, error) {
+	counts := make(map[string]int, len(userIDs))
+	if len(userIDs) == 0 {
+		return counts, nil
+	}
+	placeholders := strings.Repeat("?,", len(userIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, len(userIDs))
+	for i, id := range userIDs {
+		args[i] = id
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT user_id, COUNT(*) FROM devices WHERE user_id IN (`+placeholders+`) GROUP BY user_id`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("device: count batch: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("device: count batch scan: %w", err)
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
 // SetEnabled toggles a device (disabled devices are removed from the backend
 // by reconciliation).
 func (s *Service) SetEnabled(ctx context.Context, id string, enabled bool) error {

@@ -2,10 +2,9 @@ package api
 
 import (
 	"fmt"
-	"net"
 	"net/http"
-	"strings"
 
+	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
@@ -187,7 +186,7 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 		writeServiceErr(w, r, err)
 		return
 	}
-	png, err := qrPNG(text)
+	img, err := clientconf.QR(text)
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
@@ -195,95 +194,11 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(png)
+	_, _ = w.Write(img)
 }
 
-// renderClientConfig builds the AWG client configuration for one device —
-// a pure function of current settings and interface state, so endpoint/DNS/
-// MTU changes propagate to every new download immediately (api.md). The
-// private key is decrypted for the response only and never logged.
-//
-// Obfuscation parameters follow the pinned client↔server parity rule
-// (docs/integrations/amneziawg.md): S1/S2/H1–H4 must match the server;
-// Jc/Jmin/Jmax and I1–I5 are client-side (the server's values are offered as
-// defaults; I1–I5 only when configured — iOS rejects I1–I5 configs, #115).
+// renderClientConfig delegates to the shared renderer (internal/clientconf)
+// — the admin panel renders the exact same configs through the same code.
 func (s *Server) renderClientConfig(r *http.Request, deviceID string) (string, error) {
-	ctx := r.Context()
-	d, err := s.Devices.Get(ctx, deviceID)
-	if err != nil {
-		return "", err
-	}
-	ifc, err := s.Ifaces.Get(ctx, d.InterfaceID)
-	if err != nil {
-		return "", err
-	}
-	priv, err := s.Devices.PrivateKey(r.Context(), d)
-	if err != nil {
-		return "", err
-	}
-	psk, err := s.Devices.PresharedKey(r.Context(), d)
-	if err != nil {
-		return "", err
-	}
-
-	endpoint := ifc.EndpointOverride
-	if endpoint == "" {
-		endpoint, _ = s.Settings.GetString(ctx, "node.endpoint")
-	}
-	var b strings.Builder
-	w := func(format string, args ...any) { fmt.Fprintf(&b, format, args...) }
-
-	w("[Interface]\nPrivateKey = %s\n", priv)
-	w("Address = %s\n", d.IPv4)
-	if dns, err := s.Settings.GetStringList(ctx, "network.dns_servers"); err == nil && len(dns) > 0 {
-		w("DNS = %s\n", strings.Join(dns, ", "))
-	}
-	if mtu, err := s.Settings.GetInt(ctx, "network.mtu"); err == nil && mtu > 0 {
-		w("MTU = %d\n", mtu)
-	}
-	b.WriteString("\n[Peer]\n")
-	w("PublicKey = %s\n", ifc.PublicKey)
-	if psk != "" {
-		w("PresharedKey = %s\n", psk)
-	}
-	if allowed, err := s.Settings.GetString(ctx, "network.client_allowed_ips"); err == nil && allowed != "" {
-		w("AllowedIPs = %s\n", strings.ReplaceAll(allowed, ",", ", "))
-	}
-	if endpoint != "" {
-		w("Endpoint = %s\n", withPort(endpoint, ifc.ListenPort))
-	}
-	if ka, err := s.Settings.GetInt(ctx, "network.client_keepalive_seconds"); err == nil && ka > 0 {
-		w("PersistentKeepalive = %d\n", ka)
-	}
-	o := ifc.Obfuscation
-	if o.Enabled {
-		w("Jc = %d\nJmin = %d\nJmax = %d\n", o.Jc, o.Jmin, o.Jmax)
-		w("S1 = %d\nS2 = %d\n", o.S1, o.S2)
-		w("H1 = %d\nH2 = %d\nH3 = %d\nH4 = %d\n", o.H1, o.H2, o.H3, o.H4)
-		for i, v := range []string{o.I1, o.I2, o.I3, o.I4, o.I5} {
-			if v != "" {
-				w("I%d = %s\n", i+1, v)
-			}
-		}
-	}
-	return b.String(), nil
-}
-
-// withPort appends the interface listen port unless the endpoint already
-// carries one. Bare IPv6 literals are bracketed (they would otherwise read
-// as host:port garbage).
-func withPort(endpoint string, port int) string {
-	if strings.Contains(endpoint, "]") { // [v6] or [v6]:port
-		if strings.HasSuffix(endpoint, "]") {
-			return fmt.Sprintf("%s:%d", endpoint, port)
-		}
-		return endpoint
-	}
-	if ip := net.ParseIP(endpoint); ip != nil && ip.To4() == nil {
-		return fmt.Sprintf("[%s]:%d", endpoint, port)
-	}
-	if _, _, err := net.SplitHostPort(endpoint); err == nil {
-		return endpoint // already host:port
-	}
-	return fmt.Sprintf("%s:%d", endpoint, port)
+	return s.ClientConf.Render(r.Context(), deviceID)
 }

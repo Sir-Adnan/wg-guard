@@ -32,6 +32,7 @@ type env struct {
 	srv     *Server
 	handler http.Handler
 	admins  *admin.Service
+	ifaces  *iface.Service
 }
 
 func newEnv(t *testing.T) *env {
@@ -55,20 +56,21 @@ func newEnv(t *testing.T) *env {
 	auditSvc := audit.NewService(db)
 	sessions := auth.NewSessionStore(db, time.Hour, 24*time.Hour)
 	admins := admin.NewService(db, sessions)
+	ifaces := iface.NewService(db, reg, ring)
 	srv, err := New(Deps{
 		DB: db, Sessions: sessions, Admins: admins, Settings: reg, Ring: ring,
 		Audit:      auditSvc,
 		Users:      user.NewService(db),
 		Devices:    device.NewService(db, ring),
 		Plans:      plan.NewService(db),
-		Ifaces:     iface.NewService(db, reg, ring),
+		Ifaces:     ifaces,
 		Accounting: accounting.NewService(db, nil, auditSvc, nil, reg),
 		Version:    "test", TLSMode: config.TLSModeDev, NodeID: "node-1", ToolsVersion: "fake",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{t: t, db: db, reg: reg, srv: srv, handler: srv.Handler(), admins: admins}
+	return &env{t: t, db: db, reg: reg, srv: srv, handler: srv.Handler(), admins: admins, ifaces: ifaces}
 }
 
 const testPassword = "correct-horse-battery"
@@ -77,6 +79,17 @@ const testPassword = "correct-horse-battery"
 func (e *env) seedOwner() {
 	e.t.Helper()
 	if _, err := e.admins.BootstrapOwner(context.Background(), "owner", testPassword); err != nil {
+		e.t.Fatal(err)
+	}
+}
+
+// seedIface creates one enabled tunnel interface so device creation has a
+// target (device.Create falls back to the first enabled interface).
+func (e *env) seedIface() {
+	e.t.Helper()
+	if _, err := e.ifaces.Create(context.Background(), iface.CreateInput{
+		Name: "awg0", ListenPort: 39001, Subnet: "10.77.0.0/24",
+	}); err != nil {
 		e.t.Fatal(err)
 	}
 }

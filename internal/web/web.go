@@ -18,6 +18,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
@@ -47,6 +48,9 @@ type Deps struct {
 	// Reconciler runs after structural mutations (see api.Server).
 	Reconciler accounting.Reconciler
 
+	// ClientConf renders client configs + QR (shared with the REST API).
+	ClientConf *clientconf.Renderer
+
 	Version      string
 	TLSMode      config.TLSMode
 	NodeID       string
@@ -64,6 +68,11 @@ type Server struct {
 // New builds the panel: parse templates once, hash assets once.
 func New(d Deps) (*Server, error) {
 	s := &Server{Deps: d, loginRL: newIPLimiter()}
+	if s.ClientConf == nil {
+		s.ClientConf = &clientconf.Renderer{
+			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
+		}
+	}
 	if err := s.initAssets(); err != nil {
 		return nil, err
 	}
@@ -92,6 +101,32 @@ func (s *Server) Handler() http.Handler {
 	// --- app pages ---
 	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
+
+	// --- users ---
+	mux.HandleFunc("GET /users", s.requireAuth(s.handleUserList))
+	mux.HandleFunc("GET /users/new", s.requireAuth(s.handleUserNew))
+	mux.HandleFunc("POST /users", s.requireAuth(s.handleUserCreate))
+	mux.HandleFunc("POST /users/bulk", s.requireAuth(s.handleBulkCreate))
+	mux.HandleFunc("POST /users/bulk-action", s.requireAuth(s.handleBulkAction))
+	mux.HandleFunc("GET /users/{id}", s.requireAuth(s.handleUserDetail))
+	mux.HandleFunc("GET /users/{id}/edit", s.requireAuth(s.handleUserEditPage))
+	mux.HandleFunc("POST /users/{id}/edit", s.requireAuth(s.handleUserUpdate))
+	mux.HandleFunc("POST /users/{id}/enable", s.requireAuth(s.handleUserEnable))
+	mux.HandleFunc("POST /users/{id}/disable", s.requireAuth(s.handleUserDisable))
+	mux.HandleFunc("POST /users/{id}/delete", s.requireAuth(s.handleUserDelete))
+	mux.HandleFunc("POST /users/{id}/restore", s.requireAuth(s.handleUserRestore))
+	mux.HandleFunc("POST /users/{id}/renew", s.requireAuth(s.handleUserRenew))
+	mux.HandleFunc("POST /users/{id}/traffic/add", s.requireAuth(s.handleUserTrafficAdd))
+	mux.HandleFunc("POST /users/{id}/traffic/reset", s.requireAuth(s.handleUserTrafficReset))
+	mux.HandleFunc("POST /users/{id}/devices", s.requireAuth(s.handleDeviceCreate))
+
+	// --- devices ---
+	mux.HandleFunc("POST /devices/{id}/enable", s.requireAuth(s.handleDeviceEnable))
+	mux.HandleFunc("POST /devices/{id}/disable", s.requireAuth(s.handleDeviceDisable))
+	mux.HandleFunc("POST /devices/{id}/regenerate", s.requireAuth(s.handleDeviceRegenerate))
+	mux.HandleFunc("POST /devices/{id}/delete", s.requireAuth(s.handleDeviceDelete))
+	mux.HandleFunc("GET /devices/{id}/config", s.requireAuth(s.handleDeviceConfig))
+	mux.HandleFunc("GET /devices/{id}/qr", s.requireAuth(s.handleDeviceQR))
 
 	h := http.Handler(mux)
 	h = s.requireCSRF(h)
