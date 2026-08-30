@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,11 +59,23 @@ func TestVerifyRejectsForgedAndRevoked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Verify(ctx, plaintext[:len(plaintext)-1]+"A", ""); domain.CodeOf(err) != domain.CodeTokenInvalid {
+	// Forge a token guaranteed to differ from the original: overwriting the
+	// last character with a fixed symbol reproduces the original 1 time in 16
+	// (the final base64url character of a 32-byte token carries only 4 bits of
+	// entropy), which would make this test flaky.
+	forged := []byte(plaintext)
+	if forged[len(forged)-1] == 'A' {
+		forged[len(forged)-1] = 'B'
+	} else {
+		forged[len(forged)-1] = 'A'
+	}
+	if _, err := svc.Verify(ctx, string(forged), ""); domain.CodeOf(err) != domain.CodeTokenInvalid {
 		t.Fatal("forged token accepted")
 	}
-	if _, err := svc.Verify(ctx, "sk-not-ours-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ""); domain.CodeOf(err) != domain.CodeTokenInvalid {
-		t.Fatal("foreign token accepted")
+	// A well-formed token that was never issued must not authenticate either
+	// (the sk- shape above is rejected as malformed before the lookup).
+	if _, err := svc.Verify(ctx, "wg_"+strings.Repeat("a", 43), ""); domain.CodeOf(err) != domain.CodeTokenInvalid {
+		t.Fatal("unknown token accepted")
 	}
 	// Revoke then verify.
 	toks, _ := svc.List(ctx)
