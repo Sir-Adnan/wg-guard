@@ -7,7 +7,8 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.22, `CGO_ENABLED=0`).
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
                          HTTP + scheduler + graceful shutdown), token (create/list/revoke/
-                         scopes — the token-minting path until the Phase 5 panel), later:
+                         scopes — bootstrap token minting; the panel manages tokens from
+                         Phase 6), later:
                          status, doctor, backup, restore, update, admin reset-password,
                          uninstall helpers (single binary, hand-rolled arg parsing — no CLI
                          framework)
@@ -52,11 +53,17 @@ internal/
                          boot → HTTP(S) listener → scheduler; serialized reconciler shared by
                          API + accounting (Phase 4 ✅)
   metrics/               healthz/readyz + optional hand-written /metrics (Phase 4 ✅)
-  i18n/                  fa/en catalogs (embedded), locale helpers, Jalali dates (Phase 5)
+  i18n/                  fa/en catalogs (embedded) with key-parity test, locale helpers,
+                         Jalali dates (Phase 5 ✅)
+  hoststats/             on-demand /proc readers for the dashboard host card: CPU% (counter
+                         deltas), mem/disk/load/uptime; OK=false off Linux (Phase 5 ✅)
+  clientconf/            client config + QR rendering shared by API and web (bounded payload;
+                         manual QR raster) (Phase 5 ✅)
   api/                   REST /api/v1: handlers, middleware (request id, security headers,
                          CORS, body cap, logging, auth, rate limit), error envelope, keyset
                          pagination, idempotency, OpenAPI + /docs (Phase 4 ✅)
-  web/                   admin UI handlers, session middleware, template rendering (Phase 5)
+  web/                   admin UI: session auth + CSRF, handlers, i18n/theme middleware,
+                         templates, CSP-safe SVG charts (Phase 5 ✅)
 web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
 migrations/              numbered SQL migrations (embedded)
 packaging/               systemd unit, sysctl fragment, Dockerfile, compose template

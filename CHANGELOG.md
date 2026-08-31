@@ -7,21 +7,28 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ## [Unreleased]
 
-### Fixed
-- **CI: flaky token-forgery test** (`internal/token` `TestVerifyRejectsForgedAndRevoked`,
-  failed ~1 in 16 runs): the forged token was built by overwriting the last plaintext
-  character with a fixed symbol, which reproduces the original whenever the minted token
-  already ends in that symbol — the final base64url character of a 32-byte token carries only
-  4 bits of entropy. The mutation now guarantees a different token, and an unknown but
-  well-formed token is covered explicitly.
-
-### Changed
-- **CI**: the test job runs on the minimum supported toolchain (`1.25.x`, per `go.mod`) in
-  addition to `stable`; a `govulncheck` job scans all packages with a pinned tool version
-  (documented since Phase 1 but previously missing from the workflow).
-  [docs/development/workflow.md](docs/development/workflow.md) synced.
-
 ### Added
+- **Phase 5 — Web UI** (all unit tested, `-race` clean in WSL2; end-to-end browser-verified on
+  desktop + mobile, fa/en × light/dark, over the running node):
+  - `internal/web`: server-rendered panel on `html/template` + HTMX partial swaps + one vanilla
+    ES module — session-auth pages (login with language/theme pickers, first-run onboarding
+    wizard), users (list/search/filter/pagination, bulk actions, tri-state forms, detail with
+    renew/traffic/device management), devices (add, enable/disable, key regeneration, session-
+    gated config download + QR), plans and tunnel interfaces (CRUD, enable/disable, AWG
+    obfuscation parameter section with plain↔obfuscated rotation warning, device-count delete
+    guard), dashboard (user metrics, host card, CSP-safe server-rendered SVG traffic chart with
+    24 h/7 d/30 d ranges, 30 s live refresh paused on hidden tab).
+  - `internal/i18n`: embedded fa/en catalogs with enforced key parity, per-admin language
+    persisted, full RTL via CSS logical properties, Jalali dates for fa, LTR/Latin-digit data.
+  - Design system: CSS custom-property tokens, light/dark/system themes (`data-theme` +
+    `prefers-color-scheme`, cookie-persisted), embedded Lucide SVG sprite, responsive shell
+    (sidebar → drawer below 960 px), WCAG-AA contrast both themes.
+  - `internal/hoststats`: on-demand `/proc` readers (CPU from counter deltas, mem/disk/load/
+    uptime) with no background polling; graceful "unavailable" state off Linux.
+  - `internal/clientconf`: config/QR renderer shared by API and web; QR raster drawn manually
+    (rsc.io/qr's `code.Image()` leaves modules unscaled — regression-tested).
+  - Asset budgets enforced by `scripts/check-assets.sh`: JS ≤ 30 KiB gz (measured 19.5), CSS
+    ≤ 25 KiB gz (measured 8.4), fonts ≤ 150 KiB gz (measured 101.8).
 - **Phase 4 — REST API** (all unit tested, `-race` clean; real-tc/ingress paths integration
   tested in WSL2):
   - Full `/api/v1` management surface (`internal/api`): users (CRUD, lifecycle, traffic
@@ -136,7 +143,22 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 - Verified AmneziaWG upstream pinning results (WSL2 Ubuntu 24.04, `ppa:amnezia/ppa`) recorded in
   `docs/integrations/amneziawg.md`.
 
+### Fixed
+- **CI: flaky token-forgery test** (`internal/token` `TestVerifyRejectsForgedAndRevoked`,
+  failed ~1 in 16 runs): the forged token was built by overwriting the last plaintext
+  character with a fixed symbol, which reproduces the original whenever the minted token
+  already ends in that symbol — the final base64url character of a 32-byte token carries only
+  4 bits of entropy. The mutation now guarantees a different token, and an unknown but
+  well-formed token is covered explicitly.
+- **API: traffic series endpoint** returned errors for rollup queries (nonexistent
+  `rx_delta`/`tx_delta` columns) and mixed hourly + daily rows without a granularity filter —
+  found while building the dashboard chart; regression test added over the API.
+
 ### Changed
+- **CI**: the test job runs on the minimum supported toolchain (`1.25.x`, per `go.mod`) in
+  addition to `stable`; a `govulncheck` job scans all packages with a pinned tool version
+  (documented since Phase 1 but previously missing from the workflow).
+  [docs/development/workflow.md](docs/development/workflow.md) synced.
 - Phase 2 discoveries pinned in `docs/integrations/amneziawg.md`: the runtime rejects
   explicit-zero obfuscation params (`EINVAL`) and keeps obfuscation params omitted from
   `setconf` — so plain↔obfuscated profile transitions recreate the link (reconcile-owned);

@@ -5,6 +5,41 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
+## Phase 5 — Web UI (complete, 2026-08-31)
+
+All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
+WSL2 Ubuntu/Go 1.26; `go test -race ./...` green in WSL2 — Windows has no C toolchain for the
+race runtime, so race verification runs in WSL2, same as CI). The panel was additionally
+exercised end-to-end in a browser against the running node (`-backend fake`): desktop 1366/1440
+and mobile 390 widths, fa/en × light/dark, including login → onboarding → users → devices →
+plans → interfaces circuits and the config/QR session gating. Frontend asset budgets are
+enforced by `scripts/check-assets.sh`: JS 19.5/30 KiB gz, CSS 8.4/25 KiB gz, fonts
+101.8/150 KiB gz.
+
+| Item | Status |
+|---|---|
+| i18n foundations: embedded fa/en catalogs with enforced key parity, per-admin language persisted to the admin record, `<html lang/dir>` server-side, full RTL via CSS logical properties (one stylesheet both directions), Jalali dates for fa / Gregorian for en, language-neutral LTR data (IPs, keys, counters — Latin digits, tabular numerals) | ✅ implemented + unit tested (parity, conversion, handler-level rendering both locales) |
+| Design system + shell: CSS custom-property tokens, light/dark/system themes (`data-theme` + `prefers-color-scheme`, cookie-persisted choice), Lucide SVG sprite (embedded, no icon runtime), one vanilla ES module (drawer, dropdown menus, `<dialog>` modals, password/obfuscation toggles, toasts), responsive shell (sidebar → drawer + scrim below 960 px, focus/aria state synced) | ✅ implemented + unit tested; browser-verified desktop + mobile |
+| Session auth pages: login (username/password, show-password, session-expired + account-created alerts, language/theme pickers), first-run onboarding wizard (owner account + node identity), CSRF on all mutating forms, login throttling, session cookie flags | ✅ implemented + unit tested (handler-level: redirects, bad credentials, CSRF rejection) |
+| Users: list (search, status filter, cursor pagination, bulk select + enable/disable/delete/renew/reset-traffic/add-traffic), tri-state create/edit form (empty = absent on create, empty = explicit clear on edit), detail page (overview list, renew, add traffic, reset traffic, device management) | ✅ implemented + unit tested (CRUD flows, bulk, permission gating) |
+| Devices: add (name + optional IP hint), enable/disable, key regeneration with revocation of the old peer, config download + QR modal, delete with confirm; per-user device limit enforced; config/QR endpoints are session-gated and never log key material | ✅ implemented + unit tested; browser-verified |
+| Dashboard: user metric cards (total/active/waiting/online/expiring/expired/exceeded/total traffic), host card (CPU/RAM/disk/load/uptime read from `/proc` on demand — `internal/hoststats`, no background polling; graceful "unavailable" state off Linux), CSP-safe server-rendered SVG traffic chart (24 h/7 d/30 d ranges, zero-filled buckets, nice-axis scaling, SI-suffixed axis labels), live fragment refresh every 30 s with `data-pause-hidden` (Page Visibility hook in app.js), no-JS fallback links | ✅ implemented + unit tested (chart buckets/escaping/geometry, hoststats fixtures incl. degradation, live fragment) |
+| Plans: CRUD + enable/disable with per-plan live user counts and interface references; tri-state limit fields (traffic GB, duration days, up/down kbps) | ✅ implemented + unit tested (CRUD flow) |
+| Interfaces: CRUD + enable/disable, AWG obfuscation parameter section (jc/jmin/jmax/s1/s2/h1–h4 with the kernel-README ranges), plain↔obfuscated edit warns that clients must re-import profiles, delete guarded while devices exist, auto port + subnet defaults, immutable name/port/subnet on edit | ✅ implemented + unit tested (CRUD flow incl. rotation toast + nil-create regression) |
+| `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); QR raster drawn manually — rsc.io/qr's `code.Image()` leaves modules unscaled in the canvas corner (regression test asserts a filled canvas) | ✅ implemented + unit tested |
+| API correctness fixes surfaced by web work: `/api/v1` traffic series used nonexistent `rx_delta`/`tx_delta` columns for rollups and mixed granularities — now correct per-granularity sums (regression test over the API) | ✅ implemented + unit tested |
+
+Deferred / honest notes within Phase 5 scope:
+
+- Phase 6 screens (settings UI, administrators, API tokens, webhooks, audit log, backup) are
+  deliberately absent from the navigation; the shell reserves their place in the design system.
+- Browser QA ran through in-app browser automation; the screenshot pipeline was intermittently
+  unavailable, so several mobile-layout checks were verified via DOM geometry (scroll widths,
+  computed grid/flex columns, overflow probes) instead of pixel inspection. A short human pass
+  on real phone hardware is still worthwhile before release.
+- The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
+  visual effect was observed manually, not soak-tested.
+
 ## Phase 4 — REST API (complete, 2026-08-30)
 
 All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
@@ -176,13 +211,10 @@ Deferred within Phase 1 scope (honest notes):
 | DKMS module build | ✅ build verified; ⚠️ module load + netlink dump **requires real VPS** |
 | PPA on Ubuntu 26.04 | ✅ verified with noble-suite pin (workaround documented) |
 
-## Phases 4–8 — not started
+## Phases 6–8 — not started
 
 Everything below is `designed` (architecture approved) until implemented:
 
-- Phase 4 REST API: full surface, idempotency, durable webhooks, OpenAPI (`serve` reuses
-  internal/boot for bring-up and composes internal/scheduler with the accounting jobs)
-- Phase 5 Web UI: design system, shell, i18n/RTL, dashboard, users, plans, interfaces
 - Phase 6 Backup/ops: archives (plain + optional password), schedules, Telegram, restore wizard,
   settings UI, admins/tokens/audit screens, doctor, rotation trigger
 - Phase 7 Deployment: image, installer (Docker default), shim, update/uninstall
