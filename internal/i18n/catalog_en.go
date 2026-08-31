@@ -230,6 +230,8 @@ var catalogEN = map[string]string{
 	"users.action.delete":        "Delete",
 	"users.action.restore":       "Restore",
 	"users.confirm_delete":       "Delete %s? Their devices stop working immediately.",
+	"users.share":                "Share configs",
+	"sub.card.open":              "Open subscription page",
 	"users.toast.created":        "User created.",
 	"users.toast.updated":        "User updated.",
 	"users.toast.deleted":        "User deleted.",

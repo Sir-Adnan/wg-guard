@@ -230,6 +230,8 @@ var catalogFA = map[string]string{
 	"users.action.delete":        "حذف",
 	"users.action.restore":       "بازیابی",
 	"users.confirm_delete":       "حذف %s؟ دستگاه‌هایش بلافاصله از کار می‌افتند.",
+	"users.share":                "اشتراک‌گذاری کانفیگ‌ها",
+	"sub.card.open":              "باز کردن صفحه اشتراک",
 	"users.toast.created":        "کاربر ساخته شد.",
 	"users.toast.updated":        "کاربر به‌روزرسانی شد.",
 	"users.toast.deleted":        "کاربر حذف شد.",

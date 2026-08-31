@@ -609,6 +609,21 @@ table.table {
 .table a.row-link { color: inherit; }
 .table a.row-link:hover { color: var(--accent); }
 
+/* identity cell in list rows (avatar + name stack + plan chip) */
+.id-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.id-cell .avatar { width: 32px; height: 32px; }
+.id-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
 /* ---------- meter / traffic bar ---------- */
 
 .meter {
@@ -672,8 +687,8 @@ table.table {
     visibility var(--t-fast);
 }
 .menu.is-open { opacity: 1; visibility: visible; translate: 0 0; }
-/* footer menus (theme, language) sit at the viewport bottom — open upward */
-.sidebar-foot .menu { top: auto; bottom: calc(100% + 6px); }
+/* Positioning is owned by app.js (fixed coordinates + viewport flipping) so
+ * menus can never be clipped by overflow ancestors — no CSS inset rules. */
 .menu button, .menu a {
   display: flex;
   align-items: center;

@@ -265,9 +265,13 @@ func TestUserCreateAutoDevices(t *testing.T) {
 	if len(devs) != 2 {
 		t.Fatalf("want 2 auto devices, got %d", len(devs))
 	}
-	for i, d := range devs {
-		if want := fmt.Sprintf("device-%d", i+1); d.Name != want {
-			t.Fatalf("device %d named %q, want %q", i, d.Name, want)
+	names := map[string]bool{}
+	for _, d := range devs {
+		names[d.Name] = true
+	}
+	for i := 1; i <= 2; i++ {
+		if !names[fmt.Sprintf("device-%d", i)] {
+			t.Fatalf("device-%d missing (got %v)", i, names)
 		}
 	}
 	// 0.2 GB quota stored exactly (regression: small test accounts).

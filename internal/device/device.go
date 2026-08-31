@@ -307,6 +307,36 @@ func (s *Service) ListForUser(ctx context.Context, userID string) ([]*Device, er
 	return out, rows.Err()
 }
 
+// ListForUsers batch-loads the devices of a page of users (one query per
+// page for the list-view quick-share menus), newest first within each user.
+func (s *Service) ListForUsers(ctx context.Context, userIDs []string) (map[string][]*Device, error) {
+	out := make(map[string][]*Device, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	placeholders := strings.Repeat("?,", len(userIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, len(userIDs))
+	for i, id := range userIDs {
+		args[i] = id
+	}
+	rows, err := s.db.QueryContext(ctx,
+		deviceColumns+` FROM devices WHERE user_id IN (`+placeholders+`) ORDER BY created_at DESC, id DESC`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("device: list batch: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		d, err := scanDevice(rows)
+		if err != nil {
+			return nil, fmt.Errorf("device: list batch scan: %w", err)
+		}
+		out[d.UserID] = append(out[d.UserID], d)
+	}
+	return out, rows.Err()
+}
+
 // CountForUser returns the live device count.
 func (s *Service) CountForUser(ctx context.Context, userID string) (int, error) {
 	var n int

@@ -59,14 +59,36 @@
     if (msg) toast(msg, d.kind);
   });
 
-  /* ---------- dropdown menus ---------- */
+  /* ---------- dropdown menus ----------
+   * Menus open with position:fixed coordinates so they are never clipped by
+   * overflow:hidden/auto ancestors (table wrappers on mobile were cutting
+   * row action menus off). The fixed rect flips above when it would overflow
+   * the viewport bottom, which also keeps sidebar footer menus opening up. */
+
+  function placeMenu(menu, btn) {
+    menu.style.position = "fixed";
+    const r = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const rtl = document.documentElement.dir === "rtl";
+    let x = rtl ? r.left : r.right - mw;
+    x = Math.max(8, Math.min(x, window.innerWidth - mw - 8));
+    let y = r.bottom + 6;
+    if (y + mh > window.innerHeight - 8) y = Math.max(8, r.top - mh - 6);
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+  }
+
+  function resetMenu(menu) {
+    menu.classList.remove("is-open");
+    menu.style.position = "";
+    menu.style.left = "";
+    menu.style.top = "";
+    menu.closest(".menu-anchor")?.querySelector("button")?.setAttribute("aria-expanded", "false");
+  }
 
   function closeMenus(except) {
     $$(".menu.is-open").forEach((m) => {
-      if (m !== except) {
-        m.classList.remove("is-open");
-        m.closest(".menu-anchor")?.querySelector("button")?.setAttribute("aria-expanded", "false");
-      }
+      if (m !== except) resetMenu(m);
     });
   }
 
@@ -76,12 +98,18 @@
       const menu = btn.parentElement.querySelector(".menu");
       const open = !menu.classList.contains("is-open");
       closeMenus();
-      menu.classList.toggle("is-open", open);
-      btn.setAttribute("aria-expanded", String(open));
+      if (open) {
+        placeMenu(menu, btn);
+        menu.classList.add("is-open");
+        btn.setAttribute("aria-expanded", "true");
+      }
       return;
     }
     if (!e.target.closest(".menu")) closeMenus();
   });
+
+  /* scrolling invalidates fixed menu coordinates — close instead of drift */
+  document.addEventListener("scroll", () => closeMenus(), true);
 
   /* ---------- dialogs ---------- */
 

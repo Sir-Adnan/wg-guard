@@ -141,14 +141,17 @@
 <tr>
   <td class="card-hide"><input type="checkbox" class="checkbox js-sel" value="{{$u.ID}}" aria-label="{{$u.Username}}"></td>
   <td data-label="{{$v.T "users.username"}}">
-    <a class="row-link" href="/users/{{$u.ID}}">
-      <span class="cell-main ltr-data">{{$u.Username}}</span>
-    </a>
-    {{if $u.DisplayName}}<span class="cell-sub">{{$u.DisplayName}}</span>{{end}}
-    {{if $row.PlanName}}<span class="cell-sub"> · {{$row.PlanName}}</span>{{end}}
+    <div class="id-cell">
+      <span class="avatar" aria-hidden="true">{{slice $u.Username 0 1}}</span>
+      <span class="id-text">
+        <a class="row-link" href="/users/{{$u.ID}}"><span class="cell-main ltr-data">{{$u.Username}}</span></a>
+        {{if $u.DisplayName}}<span class="cell-sub">{{$u.DisplayName}}</span>{{end}}
+      </span>
+      {{if $row.PlanName}}<span class="chip">{{$row.PlanName}}</span>{{end}}
+    </div>
   </td>
   <td data-label="{{$v.T "common.status"}}">
-    <span class="badge {{$v.StClass (printf "%v" $u.Status)}}">{{$v.St (printf "%v" $u.Status)}}</span>
+    <span class="badge {{$v.StClass (printf "%v" $u.Status)}}"><span class="dot"></span>{{$v.St (printf "%v" $u.Status)}}</span>
   </td>
   <td data-label="{{$v.T "users.traffic"}}">
     <div class="meter {{$v.MeterClass $row.Used $u.TrafficLimitBytes}}">
@@ -157,38 +160,58 @@
     </div>
   </td>
   <td data-label="{{$v.T "users.expires"}}">
-    <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
+    <span class="id-text">
+      <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
+      {{if $u.ExpiresAt}}<span class="cell-sub">{{$v.Rel $u.ExpiresAt}}</span>{{end}}
+    </span>
   </td>
   <td data-label="{{$v.T "users.devices"}}" class="ltr-data">{{$v.N (i64u $row.DeviceCount)}}</td>
-  <td data-label="{{$v.T "users.last_activity"}}" class="text-subtle">{{$v.Rel $u.LastActivityAt}}</td>
+  <td data-label="{{$v.T "users.last_activity"}}" class="card-hide text-subtle">{{$v.Rel $u.LastActivityAt}}</td>
   <td class="text-end">
     <div class="inline-actions">
       {{if $row.SubURL}}
       <button type="button" class="icon-btn" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "link"}}</button>
       {{end}}
+      {{if $row.Devices}}
       <div class="menu-anchor">
-      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
-      <div class="menu" role="menu">
-        <a role="menuitem" href="/users/{{$u.ID}}">{{$v.IconS "eye"}}<span>{{$v.T "common.details"}}</span></a>
-        {{if eq (printf "%v" $u.Status) "active"}}
-        <form role="none" method="post" action="/users/{{$u.ID}}/disable">
-          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.disable"}}</span></button>
-        </form>
-        {{else}}
-        <form role="none" method="post" action="/users/{{$u.ID}}/enable">
-          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.enable"}}</span></button>
-        </form>
-        {{end}}
-        <hr>
-        <form role="none" method="post" action="/users/{{$u.ID}}/delete" data-confirm
-              data-confirm-title="{{$v.T "common.confirm_delete"}}"
-              data-confirm-message="{{$v.T "users.confirm_delete" $u.Username}}"
-              data-confirm-label="{{$v.T "users.action.delete"}}">
-          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-          <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "users.action.delete"}}</span></button>
-        </form>
+        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "users.share"}}" aria-label="{{$v.T "users.share"}}">{{$v.IconS "qr-code"}}</button>
+        <div class="menu" role="menu">
+          {{if $row.SubURL}}
+          <a role="menuitem" href="{{$row.SubURL}}" target="_blank" rel="noopener">{{$v.IconS "external-link"}}<span>{{$v.T "sub.card.open"}}</span></a>
+          <button type="button" role="menuitem" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}">{{$v.IconS "copy"}}<span>{{$v.T "sub.card.copy"}}</span></button>
+          <hr>
+          {{end}}
+          {{range $row.Devices}}
+          <button type="button" role="menuitem" data-qr="/devices/{{.ID}}/qr">{{$v.IconS "qr-code"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "devices.qr"}}</button>
+          <a role="menuitem" href="/devices/{{.ID}}/config" download>{{$v.IconS "download"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "sub.download"}}</a>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+      <div class="menu-anchor">
+        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
+        <div class="menu" role="menu">
+          <a role="menuitem" href="/users/{{$u.ID}}">{{$v.IconS "eye"}}<span>{{$v.T "common.details"}}</span></a>
+          {{if eq (printf "%v" $u.Status) "active"}}
+          <form role="none" method="post" action="/users/{{$u.ID}}/disable">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.disable"}}</span></button>
+          </form>
+          {{else}}
+          <form role="none" method="post" action="/users/{{$u.ID}}/enable">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.enable"}}</span></button>
+          </form>
+          {{end}}
+          <hr>
+          <form role="none" method="post" action="/users/{{$u.ID}}/delete" data-confirm
+                data-confirm-title="{{$v.T "common.confirm_delete"}}"
+                data-confirm-message="{{$v.T "users.confirm_delete" $u.Username}}"
+                data-confirm-label="{{$v.T "users.action.delete"}}">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "users.action.delete"}}</span></button>
+          </form>
+        </div>
       </div>
     </div>
   </td>

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
+	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
@@ -35,6 +36,7 @@ type userRow struct {
 	U           *user.User
 	Used        int64 // RX+TX, precomputed for the meter
 	DeviceCount int
+	Devices     []*device.Device // id/name summaries for the quick-share menu
 	PlanName    string
 	SubURL      string // customer subscription URL ("" when no active link)
 }
@@ -181,8 +183,13 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 		}
 	}
 	rows := make([]userRow, len(items))
+	deviceLists, err := s.Devices.ListForUsers(ctx, ids)
+	if err != nil {
+		s.logError(r, "device list batch", err)
+	}
 	for i, u := range items {
-		rows[i] = userRow{U: u, Used: u.TrafficUsedRX + u.TrafficUsedTX, DeviceCount: counts[u.ID],
+		rows[i] = userRow{U: u, Used: u.TrafficUsedRX + u.TrafficUsedTX,
+			DeviceCount: counts[u.ID], Devices: deviceLists[u.ID],
 			PlanName: planNames[deref(u.PlanID)], SubURL: subURLs[u.ID]}
 	}
 	return rows, plans
