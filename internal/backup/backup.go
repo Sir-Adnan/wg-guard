@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -540,4 +541,16 @@ func newNonce() string {
 		panic("backup: crypto/rand unavailable: " + err.Error())
 	}
 	return hex.EncodeToString(b[:])
+}
+
+// ServiceRunning reports whether a WG-Guard service answers on the
+// configured listen address — restore/doctor --fix guard their mutating
+// paths with it.
+func ServiceRunning(listenAddr string) bool {
+	conn, err := net.DialTimeout("tcp", listenAddr, 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }

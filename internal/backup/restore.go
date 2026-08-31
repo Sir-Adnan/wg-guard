@@ -66,6 +66,7 @@ type RestoreReport struct {
 type PendingRestore struct {
 	Dir      string
 	Archive  string
+	Size     int64
 	StagedAt time.Time
 	Manifest Manifest
 	Files    map[string]string
@@ -156,6 +157,14 @@ func (s *Service) Stage(ctx context.Context, archivePath, password string) (*Pen
 
 // writeStagedMeta records the verified manifest beside the staged payload so
 // the boot consumer can see what is pending without re-verifying blindly.
+type stagedMeta struct {
+	Archive  string            `json:"archive"`
+	StagedAt string            `json:"staged_at"`
+	Size     int64             `json:"size"`
+	Manifest Manifest          `json:"manifest"`
+	Files    map[string]string `json:"files"`
+}
+
 func (s *Service) writeStagedMeta(pr *PendingRestore, size int64) error {
 	files := map[string]string{}
 	for _, name := range []string{ManifestName, DBMember, ConfigMember, KeyMember} {
@@ -164,13 +173,7 @@ func (s *Service) writeStagedMeta(pr *PendingRestore, size int64) error {
 		}
 	}
 	pr.Files = files
-	type stagedMeta struct {
-		Archive  string            `json:"archive"`
-		StagedAt string            `json:"staged_at"`
-		Size     int64             `json:"size"`
-		Manifest Manifest          `json:"manifest"`
-		Files    map[string]string `json:"files"`
-	}
+	pr.Size = size
 	b, err := json.MarshalIndent(stagedMeta{
 		Archive: pr.Archive, StagedAt: pr.StagedAt.Format(time.RFC3339),
 		Size: size, Manifest: pr.Manifest, Files: files,
@@ -361,12 +364,21 @@ func (s *Service) Pending() (*PendingRestore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("backup: read staged meta: %w", err)
 	}
-	var pr PendingRestore
-	if err := json.Unmarshal(raw, &pr); err != nil {
+	var meta struct {
+		Archive  string            `json:"archive"`
+		StagedAt string            `json:"staged_at"`
+		Size     int64             `json:"size"`
+		Manifest Manifest          `json:"manifest"`
+		Files    map[string]string `json:"files"`
+	}
+	if err := json.Unmarshal(raw, &meta); err != nil {
 		return nil, fmt.Errorf("backup: staged meta unreadable — inspect %s", dir)
 	}
-	pr.Dir = dir
-	return &pr, nil
+	stagedAt, _ := time.Parse(time.RFC3339, meta.StagedAt)
+	return &PendingRestore{
+		Dir: dir, Archive: meta.Archive, Size: meta.Size, StagedAt: stagedAt,
+		Manifest: meta.Manifest, Files: meta.Files,
+	}, nil
 }
 
 // DiscardPending removes a staged restore without applying it.

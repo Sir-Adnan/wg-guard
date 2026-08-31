@@ -516,6 +516,50 @@ func (s *Service) getBy(ctx context.Context, col, val string) (*Interface, error
 	return ifc, nil
 }
 
+// ReencryptSecrets rotates interface private-key envelopes (master-key
+// rotation carrier). Collect-then-update like the device carrier: rotation
+// order in secrets.Rotate guarantees both keys stay available.
+func (s *Service) ReencryptSecrets(from, to *secrets.Cipher) error {
+	rows, err := s.db.Query(`SELECT id, private_key_encrypted FROM tunnel_interfaces`)
+	if err != nil {
+		return fmt.Errorf("iface: rotate scan: %w", err)
+	}
+	type row struct {
+		id string
+		pk []byte
+	}
+	var updates []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.pk); err != nil {
+			rows.Close()
+			return fmt.Errorf("iface: rotate: %w", err)
+		}
+		pt, err := from.Decrypt(r.pk)
+		if err != nil {
+			rows.Close()
+			return fmt.Errorf("iface: rotate %s: %w", r.id, err)
+		}
+		r.pk, err = to.Encrypt(pt)
+		if err != nil {
+			rows.Close()
+			return fmt.Errorf("iface: rotate %s: %w", r.id, err)
+		}
+		updates = append(updates, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iface: rotate: %w", err)
+	}
+	for _, r := range updates {
+		if _, err := s.db.Exec(`UPDATE tunnel_interfaces SET private_key_encrypted = ? WHERE id = ?`,
+			r.pk, r.id); err != nil {
+			return fmt.Errorf("iface: rotate update %s: %w", r.id, err)
+		}
+	}
+	return nil
+}
+
 // PrivateKey decrypts the interface private key (config rendering and peer
 // apply only — never logged, never returned by API handlers).
 func (s *Service) PrivateKey(ifc *Interface) (string, error) {
