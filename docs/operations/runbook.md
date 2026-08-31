@@ -5,27 +5,56 @@ this file is the "type this, expect that" reference.
 
 ## Install
 
-Docker (default): run the installer, answer the prompts (domain/subdomain, panel port, TLS,
-AWG ports, MTU, VPN subnet; optional Telegram backup setup and optional backup password —
-everything skippable, every value starting at its recommended default). Verify: `wg-guard
-status` → service healthy; open the printed panel URL; complete the onboarding wizard (owner
-password, endpoint confirmation, first interface + user).
+```bash
+wg-guard install                      # interactive wizard (Docker default)
+wg-guard install --mode docker --domain vpn.example.com --yes
+wg-guard install --mode native --tls proxy --panel-port 8080 --yes
+```
 
-Native: same installer with the native mode selected; systemd unit replaces compose.
+The wizard asks for: mode (Docker default / native systemd), domain (blank = IP-only),
+TLS mode (ACME automatic with a domain; manual certs; proxy; dev), panel port, ACME challenge
+port (default 80), and the container image (Docker mode). `--yes` skips every prompt (flags +
+defaults; it never reads stdin). AWG ports, subnet and MTU are deliberately not collected —
+the panel's Settings own those defaults and per-interface values are hot-editable.
+
+What it writes: `/etc/wg-guard/wg-guard.toml` (0600), `/var/lib/wg-guard/`, the compose
+project (`/etc/wg-guard/compose.yaml`) or the hardened systemd unit, the host CLI at
+`/usr/local/bin/wg-guard` (in Docker mode it is the mode-aware shim: panel commands exec into
+the container, `install|update|uninstall|status|doctor|version` run on the host, `serve` is
+refused with compose hints), and `/etc/modules-load.d/wg-guard.conf` so the AmneziaWG module
+loads at boot. Preflight refuses busy ports and completed installs; a domain that does not
+resolve yet is a loud warning (ACME will fail until DNS points at the host).
+
+Verify: `wg-guard status` → container/unit healthy; open the printed panel URL; complete the
+onboarding wizard. Diagnostics: `wg-guard doctor`.
 
 ## Update
 
-1. `wg-guard update` (or the UI updater) — checks the release, verifies checksums, creates an
-   automatic pre-upgrade backup, applies (image pull / atomic binary replace), restarts,
-   health-checks.
-2. If startup health fails: follow printed rollback instructions (previous image tag or binary
-   + `wg-guard restore <pre-upgrade archive>`).
+```bash
+wg-guard update --image wgguard/wg-guard:vX      # docker mode
+wg-guard update --binary /path/to/new-wg-guard   # native mode (staged file; nothing is downloaded)
+```
+
+Explicit only — nothing auto-updates. The flow: pre-upgrade backup (in the owning
+environment) → swap (compose image switch + pull + recreate, or previous binary kept at
+`<bin>.pre-update` and the staged one applied) → restart → health check → **automatic
+rollback** to the previous artifact when the health check fails.
+
+If an update is interrupted (killed mid-flight, host reboot), the state file still records
+the last health-checked artifact:
+
+```bash
+wg-guard update --rollback          # re-deploy the recorded image / <bin>.pre-update
+```
 
 ## Uninstall
 
-`wg-guard uninstall [--dry-run] [--keep-data]` — dry-run lists exactly what will be removed
-(files, units/containers, the `wgguard` nftables table, recorded sysctls, installer-installed
-packages). Data and backups are preserved unless explicitly discarded.
+`wg-guard uninstall --dry-run` prints the exact plan first. Real removal
+(`wg-guard uninstall --yes`) stops the node and deletes only the state-recorded artifacts
+(compose/unit, host CLI, boot-persistence file, boot config, state). Data
+(`/var/lib/wg-guard` — database, master key, backups, ACME cache) and installer-installed
+packages are **kept** unless `--purge-data` / `--purge-packages` is passed. Uninstall removes
+the CLI itself — run it from the installed path and expect the command to disappear.
 
 ## Backup / restore / migration
 
@@ -77,7 +106,8 @@ the serialized reconciler for the AWG subprocess. Read-only doctor is safe anyti
 
 ## Verification status
 
-Phase 6 procedures (backup/restore/doctor/settings/rotation) are **implemented + unit tested**;
-their real-host verification record lives in [../development/status.md](../development/status.md)
-and [../development/phase6.md](../development/phase6.md). Installer-era procedures (update/
-uninstall) remain Phase 7.
+Phase 6 procedures (backup/restore/doctor/settings/rotation) and the Phase 7 deployment
+procedures (install docker/native, update + rollback, uninstall, status, ACME issuance,
+reboot persistence) are **implemented + unit tested + verified on the real VPS**; the drill
+record lives in [../development/phase7.md](../development/phase7.md) and
+[../development/status.md](../development/status.md).

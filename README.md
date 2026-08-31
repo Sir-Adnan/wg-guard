@@ -11,13 +11,15 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–4 complete.** Phase 4 delivered the full REST API
-(`/api/v1`: users, devices, plans, interfaces, settings, webhooks, stats; idempotency, keyset
-pagination, error envelope, per-token rate limits, OpenAPI + coverage test), durable signed
-webhooks, the node runtime (`wg-guard serve` with the central scheduler, TLS modes and graceful
-shutdown), the `wg-guard token` CLI, and **independent upload/download speed limits** (tc HTB
-egress + IFB ingress). The architecture is approved and pinned; implementation proceeds phase
-by phase. See [ROADMAP.md](ROADMAP.md) and [docs/development/status.md](docs/development/status.md).
+**In active development — Phases 0–7 complete.** Phase 7 delivered production deployment: the
+interactive installer (Docker default, native systemd secondary), built-in ACME TLS on any
+panel port (no reverse proxy required), the mode-aware host CLI (one binary for panel, backup,
+restore, update/rollback and uninstall in both modes), update with pre-upgrade backups and
+health-checked rollback, and uninstall with a dry-run plan — all verified end-to-end on a real
+Ubuntu 24.04 VPS, including ACME issuance for a public domain, reboot persistence, kernel-module
+self-heal after OS upgrades, and both install modes. The checksummed release pipeline and the
+full OS/version matrix are Phase 8. See [ROADMAP.md](ROADMAP.md) and
+[docs/development/status.md](docs/development/status.md).
 
 ## Features
 
@@ -38,15 +40,25 @@ by phase. See [ROADMAP.md](ROADMAP.md) and [docs/development/status.md](docs/dev
 - **Clean deployment** — Docker by default (official image + compose), native systemd supported;
   built-in TLS/ACME, no reverse proxy required
 
-## Installation (designed UX — shipping in Phase 7)
+## Installation
+
+Build the binary, then run the interactive installer as root (Docker is the default target; a
+native systemd mode is fully supported):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash
+go build -o wg-guard ./cmd/wg-guard
+sudo ./wg-guard install            # wizard: mode, domain, TLS, ports — every value has a safe default
+sudo ./wg-guard install --mode docker --domain vpn.example.com --yes   # non-interactive
 ```
 
-The interactive installer asks for the panel domain/port, AmneziaWG ports, MTU, VPN subnet, and
-optionally Telegram backup delivery — everything has a safe default; press Enter to accept.
-Docker is the default installation method; a native systemd mode is also supported.
+The installer writes `/etc/wg-guard/wg-guard.toml` and the data directory, brings the service
+up (compose project or hardened systemd unit), health-checks it, and prints the panel URL —
+open it and finish the first-run owner wizard. Certificate issuance (ACME) happens
+automatically on the first visit; port 80 must stay reachable. For Docker mode the container
+image is built from [Dockerfile](Dockerfile) (`docker build -t wgguard/wg-guard:<tag> .`) and
+selected with `--image`; the registry publication of versioned images is part of the Phase 8
+release pipeline. Day-2 operations: `wg-guard status · update · uninstall · doctor · backup`,
+all documented in [docs/operations/runbook.md](docs/operations/runbook.md).
 
 ## Documentation
 

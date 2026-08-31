@@ -6,12 +6,10 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.22, `CGO_ENABLED=0`).
 
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
-                         HTTP + scheduler + graceful shutdown), token (create/list/revoke/
-                         scopes — bootstrap token minting; the panel manages tokens from
-                         Phase 6), later:
-                         status, doctor, backup, restore, update, admin reset-password,
-                         uninstall helpers (single binary, hand-rolled arg parsing — no CLI
-                         framework)
+                         HTTP + scheduler + graceful shutdown), token, install/update/
+                         uninstall/status (Phase 7; mode-aware docker dispatch), doctor,
+                         backup, restore, settings, secrets (single binary, hand-rolled arg
+                         parsing — no CLI framework)
 internal/
   config/                boot config (TOML + env overrides), validation, exposure modes
   database/              SQLite open (WAL, busy_timeout, FK, txlock=immediate), migrations runner, tx helpers
@@ -48,10 +46,13 @@ internal/
                          composed into serve in Phase 4)
   webhook/               durable event delivery: events table, recorder (in-txn emit),
                          worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
-  backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6)
+  backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6 ✅)
+  install/               deployment layer: install plan + wizard, compose/systemd renderers,
+                         update/rollback, uninstall, install-state contract, Host seam for
+                         in-memory testing (Phase 7 ✅)
   serve/                 runtime composition: config → DB → secrets → settings → services →
-                         boot → HTTP(S) listener → scheduler; serialized reconciler shared by
-                         API + accounting (Phase 4 ✅)
+                         boot → HTTP(S) listener (manual/proxy/dev/ACME) → scheduler;
+                         serialized reconciler shared by API + accounting (Phase 4 ✅)
   metrics/               healthz/readyz + optional hand-written /metrics (Phase 4 ✅)
   i18n/                  fa/en catalogs (embedded) with key-parity test, locale helpers,
                          Jalali dates (Phase 5 ✅)
@@ -70,9 +71,12 @@ internal/
                          pages (Phase 5 ✅)
 web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
 migrations/              numbered SQL migrations (embedded; 0004 sub_links,
-                         0005 gated interface obfuscation parameters)
-packaging/               systemd unit, sysctl fragment, Dockerfile, compose template
-scripts/                 dev helpers (bench-idle.sh, fixtures)
+                         0005 gated interface obfuscation parameters,
+                         0006 backup schedules)
+deploy/                  reference compose for Docker mode (installer generates the tailored one)
+Dockerfile               official image: multi-stage build onto ubuntu:24.04 + pinned
+                         amneziawg-tools (ppa:amnezia/ppa) + nftables (Phase 7 ✅)
+scripts/                 dev helpers (bench-idle.sh, check-assets.sh, fixtures)
 docs/                    this documentation tree
 .github/workflows/       CI
 ```

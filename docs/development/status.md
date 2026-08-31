@@ -299,21 +299,52 @@ Honest notes within Phase 6 scope:
   the panel restores from the node's local sink.
 - Aggregate "sing-box/clash subscription" endpoints remain a later-phase candidate.
 
-## Phases 7–8 — not started
+## Phase 7 — Deployment & installer (complete, 2026-08-31)
 
-Everything below is `designed` (architecture approved) until implemented:
+All items below are **implemented + unit tested** (Windows/Go 1.27 + WSL2 `-race`; the install
+package exercises the full install/update/uninstall/rollback flows against an in-memory `Host`
+seam, including health-checked rollback paths). Deployment drills ran on the dedicated Ubuntu
+24.04 VPS with the real domain — per-item evidence in [phase7.md](phase7.md), which also lists
+**six real-host defects the phase found and fixed** (ETXTBSY on self-install, shim argv bug,
+`status` hash output, DKMS module stranded after a kernel upgrade, missing `backup create
+-reason`, update not recreating the container) plus the interrupted-update recovery command.
 
-- Phase 7 Deployment: image, installer (Docker default), shim, update/uninstall, ACME
-- Phase 8 Hardening: security review, benchmarks vs budgets, VPS matrix (incl. IFB-based upload
-  shaping design + 1000-shaped-peer tc benchmark)
+| Item | Status |
+|---|---|
+| Built-in ACME (ADR-0011): `tls.mode=acme` via `autocert` (x/crypto; x/net+x/text join as indirect deps — no new module), HTTP-01 sidecar on `tls.acme_http_port` (default 80) bound synchronously (busy port fails boot loudly), cert cache `<data_dir>/acme`, TLS 1.2 floor, redirect fallback that targets the configured domain + real TLS port (autocert's built-in fallback hardcodes :443) and never bounces arbitrary Host headers | ✅ implemented + unit tested (wiring: sidecar host-policy gate, redirect target, port-busy boot failure, shutdown closes both listeners); **issuance verified on the real VPS** (Let's Encrypt cert for the drill domain, HTTPS 200, port-80 302) |
+| Interactive installer `wg-guard install`: Docker default / native secondary, domain→ACME derivation, panel/challenge ports, image; `--yes` non-interactive (flags + defaults, never reads stdin); preflight (root, completed-install refusal, busy ports, DNS warning, docker/systemd presence); artifacts: boot config 0600, compose project, hardened systemd unit (ProtectSystem=strict, NET_ADMIN+NET_BIND_SERVICE bounding set, ip_forward sysctl re-admitted, MDE), host CLI, install-state contract, module boot persistence | ✅ implemented + unit tested (plan resolve/validation, renderers golden, full flows on the in-memory host); **both modes installed on the real VPS**; AWG ports/subnet/MTU deliberately NOT collected (registry owns the defaults, per-interface values hot-editable) |
+| Host shim (docker mode): mode-aware dispatch via the install state — panel/data commands exec into the container (`docker exec -i`), host commands (`install/update/uninstall/status/doctor/version`) run locally, `serve` refused with compose hints | ✅ implemented + unit tested (routing table); **routing verified on the real VPS** (status host-side, backup list in-container, serve refusal) |
+| `wg-guard update`: pre-upgrade backup in the owning environment (version-tolerant retry for images predating `-reason`), compose-as-source-of-truth image switch + pull (best-effort for local images) + recreate, or staged binary swap with `<bin>.pre-update` kept; health-checked **automatic rollback**; `--rollback` re-deploys the state-recorded artifact after an interrupted update | ✅ implemented + unit tested (update/rollback flows incl. unhealthy rollback paths); **verified live**: docker update recreated the container on the new tag; a broken image triggered automatic rollback; a deliberately killed update was recovered with `--rollback`; native `--binary` swap healthy |
+| `wg-guard uninstall`: `--dry-run` plan, stops the node, removes only state-recorded artifacts (compose/unit/host CLI/modules-load entry/config/state); data + installer-installed packages kept unless `--purge-data`/`--purge-packages` | ✅ implemented + unit tested (dry-run non-mutation, kept/purged data); **verified in both modes on the real VPS** |
+| `wg-guard status`: install state, image, container/unit status line (via new capturing `Host.Output`), mode-aware health probe | ✅ implemented + unit tested; **verified on the real VPS** (docker + native) |
+| Docker image + reference compose: multi-stage CGO_ENABLED=0 build onto ubuntu:24.04 + pinned amneziawg-tools (ppa:amnezia/ppa) + nftables + iproute2; `deploy/compose.yaml` reference; installer-generated compose adds a TLS-mode-aware healthcheck | ✅ built and run on the real VPS (amd64); **registry publication of versioned multi-arch tags is the Phase 8 release pipeline** — `--image` override is the documented path until then |
+| Kernel module lifecycle: `/etc/modules-load.d/wg-guard.conf` boot persistence; DKMS recovery ladder when the module is registered for a different kernel series (headers for the running kernel → `dkms autoinstall` → `depmod -a` → modprobe) | ✅ implemented + unit tested; **the reboot + kernel-upgrade scenario verified live** (module auto-loaded at boot after the rebuild) |
+| i18n raw-key leak class eliminated: template-vs-catalog audit tests walk every embedded template (constant `.T` keys must resolve in BOTH locales) + lifecycle status labels pinned | ✅ implemented + unit tested (the audit test fails CI on any future leak); all 9 leaked keys fixed in fa+en |
+
+Honest notes within Phase 7 scope:
+
+- The official `wgguard/wg-guard` registry image is not published yet (Phase 8 release
+  pipeline); all image drills used locally-built tags through the documented `--image` flag.
+- ACME renewal is automatic (autocert) but only initial issuance was observed on the drill
+  window; renewal exercises the same cache + challenge path.
+- The ACME redirect fallback intentionally redirects to the configured domain (not the request
+  Host) — plain-HTTP probes with forged Host headers cannot be bounced to third-party origins.
+- Debian 12 has no AmneziaWG PPA build; the installer's module step warns and the userspace
+  fallback applies (untested — Phase 8 VPS matrix).
+- Browser QA ran through the live ACME deployment (onboarding → dashboard → settings → ops
+  screens; fa/en × light/dark × 390/1440/2560): zero horizontal overflow, no raw i18n keys on
+  any route. At 2560 px the screenshot pipeline returned stale composited frames, so ultrawide
+  correctness was verified via DOM geometry (symmetric auto margins, max-width tier, no
+  overflow) — same documented pipeline limitation as Phase 5.
+
+## Phases 8 — not started
 
 ## Requires real VPS (carried forward)
 
-- Kernel-module load + `awg show dump` format against the kernel backend (fields may
-  default-fill differently than userspace); kernel-backend parity of the Phase 2 setconf facts
-  (explicit-zero rejection, persisting params)
-- Kernel link bring-up end-to-end (`ip link add type amneziawg` on a module-capable host)
 - nftables + NAT behavior with real traffic and firewall coexistence (ufw/firewalld) on a
-  production host; `wg-guard reconcile` on a clean VPS
+  production host (installer drills covered table creation on a clean host; heavy-traffic NAT
+  remains)
 - PPA on Ubuntu 22.04 / Debian 12; arm64 end-to-end
-- ACME issuance on a public host; installer end-to-end on clean VPS images
+- ACME certificate RENEWAL (60-day cycle; issuance verified, renewal shares the code path)
+- Phase 8 matrix: Ubuntu 22.04/24.04, Debian 12, amd64/arm64; 1000-shaped-peer tc benchmark;
+  registry image publication + checksummed release pipeline

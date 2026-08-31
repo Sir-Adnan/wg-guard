@@ -9,8 +9,8 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 - **Auth**: `Authorization: Bearer wg_…` API tokens with scopes (users.read/create/update/delete/
   bulk, devices.*, configs.read, traffic.read/update, plans.read/write, stats.read, node.read,
   node.settings, webhooks.read/write, interfaces.*). Tokens are separate from admin sessions; the
-  `wg-guard token create|list|revoke|scopes` CLI mints them (the token-management screen
-  arrives with the Phase 6 settings area).
+  `wg-guard token create|list|revoke|scopes` CLI mints them (the panel's token screen is the
+  day-to-day manager).
 - **Errors**: one envelope — `{"error": {"code", "message", "request_id"}}` with stable codes
   (`USER_NOT_FOUND`, `USERNAME_EXISTS`, `DEVICE_LIMIT_REACHED`, `TRAFFIC_EXCEEDED`, `INVALID_REQUEST`,
   `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `NODE_UNAVAILABLE`, `INTERNAL_ERROR`, …). No stack

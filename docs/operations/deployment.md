@@ -6,17 +6,27 @@ data paths, so backups and mode-switching are layout-independent.
 
 ## Docker mode (default)
 
-- **Official image** (`wgguard/wg-guard`, multi-arch amd64/arm64): Ubuntu 24.04 base + pinned
-  `amneziawg-tools` from `ppa:amnezia/ppa` + nftables + ca-certificates + the WG-Guard binary.
+- **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + pinned `amneziawg-tools` from
+  `ppa:amnezia/ppa` + nftables + ca-certificates + the WG-Guard binary
+  ([Dockerfile](../../Dockerfile), amd64/arm64). The registry publication of versioned
+  multi-arch tags is part of the Phase 8 release pipeline; until then build locally
+  (`docker build -t wgguard/wg-guard:<tag> .`) and pass `--image` to the installer, which is
+  also what `wg-guard update` consumes.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
-  `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups).
+  `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups,
+  ACME cache). The generated compose file adds a TLS-mode-aware healthcheck.
 - **Why this split**: the AmneziaWG kernel module and forwarding run on the **host** — the VPN
   data plane never traverses the container, so Docker adds zero hot-path overhead. The panel and
   AWG tooling run in the container with host networking (interfaces appear on the host, nftables
   edits the host's tables through the shared netns). Rejected alternatives (host agent process;
   privileged module-loading container) are recorded in [ADR-0006](../decisions/ADR-0006-docker-default-deployment.md).
-- **Host `wg-guard` shim**: a tiny wrapper execs into the container so every CLI command is
-  identical in both modes (`wg-guard status|doctor|backup|restore|update|uninstall|user …`).
+- **Host `wg-guard` shim**: the same binary, mode-aware — panel/data commands exec into the
+  container; `install`, `update`, `uninstall`, `status`, `doctor`, `version` run on the host;
+  `serve` is refused with compose hints. Every CLI command is identical in both modes.
+- **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
+  persistence) and, when the DKMS module is registered for a different kernel series than the
+  running one (typical after an unattended kernel upgrade), installs the matching headers and
+  rebuilds via `dkms autoinstall`.
 
 ## Native mode (secondary, fully supported)
 
@@ -33,7 +43,7 @@ Settings registry and hot-applies; only paths, the listener and the TLS mode req
 
 | Mode | Behavior | Status |
 |---|---|---|
-| Domain + ACME | Built-in `autocert`: HTTP-01 on port 80, TLS served on the configured panel port — any port works (e.g. `https://sub.example.com:34562`); port 80 must stay reachable for issuance/renewal | designed (ADR-0011); lands with the installer (Phase 7) — serve rejects the mode with a clear message today |
+| Domain + ACME | Built-in `autocert`: HTTP-01 on the challenge port (`tls.acme_http_port`, default 80 — must stay reachable for issuance/renewal), TLS served on the configured panel port — any port works (e.g. `https://sub.example.com:34562`); certificates cached under `<data_dir>/acme`; the challenge listener also redirects plain-HTTP visitors to the real HTTPS URL | implemented + verified on a public domain ([phase7.md](../development/phase7.md)) |
 | Manual certs | `tls.mode = "manual"` with `cert_file`/`key_file`; TLS 1.2 minimum | implemented |
 | Behind reverse proxy | `tls.mode = "proxy"`: HTTP bound to loopback/private interface (explicit, documented choice) | implemented |
 | Development | `tls.mode = "dev"`: loopback-only HTTP with loud warnings | implemented |
@@ -79,14 +89,17 @@ the Phase 8 VPS matrix.
 
 ## Updates
 
-`wg-guard update` (CLI or UI): pre-upgrade backup → pull new image / atomic binary replace →
-restart → health check → rollback instructions. Never auto-updates.
+`wg-guard update` (CLI): pre-upgrade backup → compose image switch + pull + recreate (docker)
+or staged binary replace with the previous kept at `<bin>.pre-update` (native) → restart →
+health check → automatic rollback on failure. Interrupted updates recover with
+`wg-guard update --rollback` (re-deploys the state-recorded last healthy artifact). Never
+auto-updates. Full procedures: [runbook.md](runbook.md).
 
 ## Uninstall
 
-Stops services; `--dry-run` lists every artifact; preserves data/backups optionally; removes
-only WG-Guard-owned resources (files, units, nftables table, recorded sysctls, packages the
-installer itself installed).
+`wg-guard uninstall --dry-run` first: stops services and removes only the state-recorded
+WG-Guard-owned artifacts; data/backups and installer-installed packages are preserved unless
+`--purge-data` / `--purge-packages` is passed.
 
 ## Host requirements
 

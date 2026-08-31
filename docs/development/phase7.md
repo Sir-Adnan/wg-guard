@@ -50,17 +50,20 @@ documented in [../operations/deployment.md](../operations/deployment.md) and
 All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27
 and WSL2 `-race` across all packages; the install package runs its whole flow against an
 in-memory `Host` seam including health-checked rollback paths). VPS drills executed on the
-dedicated Ubuntu 24.04 host (`zedutch.zenmode.ir`), recorded per item:
+dedicated Ubuntu 24.04 host (`panel.example.com`), recorded per item:
 
 | Drill | Result |
 |---|---|
-| Docker-mode fresh install (`install --mode docker --domain zedutch.zenmode.ir`) | ✅ preflight → config 0600 → compose → shim → container up → health 302 on the challenge sidecar → state file. Artifacts inspected (config content, compose shape, state JSON, modules-load.d) |
-| ACME issuance on a public domain | ✅ real Let's Encrypt certificate issued for `zedutch.zenmode.ir` on first HTTPS visit; `/healthz` over TLS 200; port 80 redirects 302 to the HTTPS URL; cert + account key land in `/var/lib/wg-guard/acme` |
+| Docker-mode fresh install (`install --mode docker --domain panel.example.com`) | ✅ preflight → config 0600 → compose → shim → container up → health 302 on the challenge sidecar → state file. Artifacts inspected (config content, compose shape, state JSON, modules-load.d) |
+| ACME issuance on a public domain | ✅ real Let's Encrypt certificate issued for `panel.example.com` on first HTTPS visit; `/healthz` over TLS 200; port 80 redirects 302 to the HTTPS URL; cert + account key land in `/var/lib/wg-guard/acme` |
 | Host shim routing (docker mode) | ✅ `wg-guard status` host-side; `wg-guard backup list` execs into the container; `serve` refused with compose hint |
 | Reboot persistence | ✅ container auto-restarted healthy (restart: unless-stopped), panel answered HTTPS 200 from the cached certificate, kernel module auto-loaded via `/etc/modules-load.d/wg-guard.conf` |
 | Kernel-upgrade self-heal | ✅ after apt upgraded the kernel (6.8.0-137 → 6.8.0-138) the DKMS module no longer matched; the installer's recovery ladder installed the matching headers, rebuilt via `dkms autoinstall`, and modprobe succeeded (verified live during reinstall) |
-| Uninstall | ✅ `--dry-run` plan matches the real removal; artifacts removed; data kept by default; the CLI removes itself (documented) |
-| Update (docker) | see below — executed after this table was written |
+| Uninstall | ✅ `--dry-run` plan matches the real removal; artifacts removed; data kept by default; the CLI removes itself (documented). Verified for docker AND native modes |
+| Update (docker) | ✅ `update --image wgguard/wg-guard:phase7v2`: pre-upgrade backup created (with a version-tolerant retry for images predating the `-reason` flag), compose switched, container **recreated**, health check passed; a failed registry pull is a warning (locally-built image) |
+| Update rollback (docker) | ✅ a deliberately broken image (serve exits) left the container restart-looping → health check failed → automatic rollback redeployed the previous image. An update killed mid-drill (SSH drop) left the node on the bad image → `wg-guard update --rollback` recovered it to the last healthy image (panel back at HTTPS 200) |
+| Native install + mode switch | ✅ `install --mode native` over the SAME data dir: unit active with the hardening set observed (`ProtectSystem=strict`, bounding set `net_admin,net_bind_service`, `NoNewPrivileges`), HTTPS 200 reusing the cached ACME certificate (no re-issuance), port-80 redirect intact, `doctor` passes with expected fresh-node warnings |
+| Native update | ✅ `update --binary <staged>`: pre-upgrade backup → previous binary kept at `<bin>.pre-update` → swap → restart → healthy |
 
 ### Real-host defects found and fixed during this phase
 
@@ -74,6 +77,13 @@ dedicated Ubuntu 24.04 host (`zedutch.zenmode.ir`), recorded per item:
 4. **Module not loaded after reboot** — the apt kernel upgrade left the DKMS module built for
    the old series; fixed by the recovery ladder above (the modules-load.d entry alone was
    necessary but not sufficient).
+5. **`backup create` had no `-reason` flag** — the update flow assumed one; added (≤64 chars,
+   lands in the manifest/audit) plus a version-tolerant retry in the update flow for older
+   container images.
+6. **Update did not recreate the container** — the compose image reference was only patched
+   in the state file, so `up -d` was a no-op and the health check crowned the OLD image;
+   the compose file is now the source of truth, patched before pull/up, with an explicit
+   "already on this image" error.
 
 ## Honest notes
 

@@ -8,6 +8,22 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 7 — deployment & installer** (tracked in `docs/development/phase7.md`; drills on a
+  real Ubuntu 24.04 VPS with a public domain):
+  - Built-in ACME (`tls.mode=acme`): autocert issuance/renewal, HTTP-01 challenge sidecar on
+    `tls.acme_http_port` (default 80), certificates cached under the data dir, and a redirect
+    fallback that targets the configured domain + the real TLS port on any panel port.
+  - `wg-guard install`: interactive wizard (Docker default, native systemd secondary,
+    `--yes` non-interactive) with preflight, a hardened systemd unit, a generated compose
+    project with a TLS-mode-aware healthcheck, the mode-aware host CLI, and kernel-module boot
+    persistence (`/etc/modules-load.d/wg-guard.conf`) with a DKMS rebuild ladder for
+    post-upgrade kernel mismatches.
+  - `wg-guard update`: pre-upgrade backup → image/binary swap → health check → automatic
+    rollback; `--rollback` recovers interrupted updates from the state-recorded artifact.
+  - `wg-guard uninstall --dry-run` (removes only state-recorded artifacts; data and
+    installer-installed packages kept unless explicitly purged) and `wg-guard status`.
+  - Multi-stage Dockerfile (Ubuntu 24.04 + pinned `amneziawg-tools` from `ppa:amnezia/ppa`,
+    amd64/arm64) and a reference compose file under `deploy/`.
 - **Phase 6 — backup / ops** (tracked in `docs/development/phase6.md`; verification matrix in
   `docs/development/status.md`):
   - `internal/backup` archive engine: `.wgg` archives (manifest + `VACUUM INTO` snapshot +
@@ -235,6 +251,16 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **CI: three jobs red after the Phase 6 push** (vet, arm64 build, govulncheck — all the same
+  root cause): the bare `wg-guard` pattern in `.gitignore` matched the `cmd/wg-guard/`
+  DIRECTORY, so every file added there after the rule existed (`backup.go`, `settings.go`,
+  `secrets.go`) was silently ignored and never pushed; CI checked out a tree whose `main.go`
+  referenced undefined functions. Patterns are now root-anchored and the files committed.
+- **UI: nine raw translation keys leaked** (`common.utc`, `hooks.empty_*`, `hooks.status_*`,
+  `tokens.empty_*`, `ifaces.obf.randomize_all`) plus a duplicate randomize button bound to a
+  non-existent key — all keys added in fa+en, Persian "dead" badge wording naturalized, and
+  two audit tests now walk every embedded template against the catalogs so a future leaked
+  key fails CI instead of shipping.
 - Expiry hints showed "just now"/"همین حالا" for future dates (the relative-time helper was
   past-only and clamped skew); expiry columns now use a future-relative form ("in 3 days").
 - Create-user drawer: `X`/Cancel did nothing (close handlers were bound to `dialog.modal`
