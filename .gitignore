@@ -8,3 +8,6 @@ bench-wgguard/
 /wg-guard
 /wg-guard.exe
 .vps/
+
+# Editor/backup copies of the built binary
+*.exe~
