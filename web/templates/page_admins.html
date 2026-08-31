@@ -45,7 +45,7 @@
             {{else}}<span class="text-subtle">{{$.T "admins.no_permissions"}}</span>{{end}}
           </td>
           <td data-label="{{$.T "admins.col_created"}}"><span class="ltr-data">{{.CreatedAt.Format "2006-01-02"}}</span></td>
-          <td class="card-hide">
+          <td>
             <div class="row-actions">
               <button type="button" class="icon-btn" data-tip="{{$.T "admins.reset_password"}}" aria-label="{{$.T "admins.reset_password"}}"
                       data-admin-pw="{{.ID}}" data-admin-name="{{.Username}}">{{$.IconS "key"}}</button>

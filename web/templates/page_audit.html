@@ -51,7 +51,7 @@
           </td>
           <td data-label="{{$.T "audit.col_action"}}"><span class="cell-main ltr-data">{{.Action}}</span></td>
           <td data-label="{{$.T "audit.col_target"}}"><span class="ltr-data cell-sub">{{.Target}}</span></td>
-          <td class="card-hide">
+          <td>
             {{if and .Metadata (ne .Metadata "{}")}}
             <details class="audit-meta">
               <summary class="icon-btn" data-tip="{{$.T "audit.metadata"}}" aria-label="{{$.T "audit.metadata"}}">{{$.IconS "info"}}</summary>

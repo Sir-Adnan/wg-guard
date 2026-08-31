@@ -59,7 +59,7 @@
             {{if .ExpiresAt}}<span class="ltr-data">{{.ExpiresAt.Format "2006-01-02"}}</span>{{else}}<span class="text-subtle">{{$.T "common.never"}}</span>{{end}}
           </td>
           <td data-label="{{$.T "tokens.col_last_used"}}">{{$v := .LastUsed}}{{if $v}}<span class="ltr-data">{{$v.Format "2006-01-02 15:04"}}</span>{{else}}<span class="text-subtle">{{$.T "backups.never"}}</span>{{end}}</td>
-          <td class="card-hide">
+          <td>
             <div class="row-actions">
               {{if .Enabled}}
               <form method="post" action="/tokens/{{.ID}}/revoke" class="inline-actions" data-confirm

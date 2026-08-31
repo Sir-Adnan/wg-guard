@@ -85,7 +85,7 @@
             {{if .Encrypted}}<span class="badge badge--ok">{{$.IconS "shield-check"}}{{$.T "backups.encrypted"}}</span>
             {{else}}<span class="badge">{{$.T "backups.plain"}}</span>{{end}}
           </td>
-          <td class="card-hide">
+          <td>
             <div class="row-actions">
               <a class="icon-btn" href="/backups/{{.Name}}/download" download data-tip="{{$.T "backups.download"}}" aria-label="{{$.T "backups.download"}}">{{$.IconS "download"}}</a>
               <form method="post" action="/backups/restore" class="inline-actions">
@@ -152,7 +152,7 @@
             {{else}}<span class="text-subtle">{{$.T "backups.never"}}</span>{{end}}
           </td>
           <td data-label="{{$.T "backups.col_next_run"}}"><span class="ltr-data">{{.NextRunAt.Format "2006-01-02 15:04"}}</span></td>
-          <td class="card-hide">
+          <td>
             <div class="row-actions">
               <form method="post" action="/backups/schedules/{{.ID}}/toggle" class="inline-actions">
                 <input type="hidden" name="_csrf" value="{{$.CSRF}}">

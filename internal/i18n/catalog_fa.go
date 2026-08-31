@@ -97,7 +97,7 @@ var catalogFA = map[string]string{
 	"nav.backups":    "پشتیبان‌گیری",
 
 	"settings.title":               "تنظیمات",
-	"settings.subtitle":            "رفتار پنل — بسته‌ها، پیش‌فرض‌های ساخت کاربر و نشانی پایه اشتراک.",
+	"settings.subtitle":            "رفتار پنل — هویت، پیش‌فرض‌ها، شبکه، حسابداری، نشست‌ها و پشتیبان‌گیری.",
 	"settings.section_users":       "کاربران",
 	"settings.quota_presets":       "بسته‌های ترافیک (گیگابایت)",
 	"settings.quota_presets_hint":  "فهرست اعداد گیگابایت جدا شده با ویرگول که در فرم ساخت نمایش داده می‌شود.",

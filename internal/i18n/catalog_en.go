@@ -97,7 +97,7 @@ var catalogEN = map[string]string{
 	"nav.backups":    "Backups",
 
 	"settings.title":               "Settings",
-	"settings.subtitle":            "Panel behavior — presets, create-form defaults and subscription base.",
+	"settings.subtitle":            "Panel behavior — identity, defaults, networking, accounting, sessions and backups.",
 	"settings.section_users":       "Users",
 	"settings.quota_presets":       "Traffic packages (GB)",
 	"settings.quota_presets_hint":  "Comma-separated GB values offered on the create form.",
