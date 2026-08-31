@@ -48,24 +48,33 @@ done only when its tests are green and the record below says exactly what was ve
 
 ## Verification record
 
-_(filled in as stages land)_
+Windows/Go 1.27 unit suite green (0 failures, all packages); WSL2 `-race` green (36 packages,
+exit 0); asset budgets after the phase: JS 26.2/30 KiB gz, CSS 10.9/25 KiB gz, fonts
+99/150 KiB gz (`scripts/check-assets.sh`).
 
-Will be filled as stages land — Windows/Go 1.27 unit suite, WSL2 `-race`, real VPS
-(Ubuntu 24.04, kernel module) integration + operational drills, browser QA (fa/en × light/dark
-× desktop/mobile), and asset budgets.
+**Real-VPS drills (Ubuntu 24.04, kernel module `amneziawg` loaded, pinned tools
+v3.1.20260812, disposable drill node with a real `awg0` interface and peer):**
 
-| Item | Verified |
+| Drill | Result |
 |---|---|
-| Theme rebase visible + consistent (fa/en × light/dark, 390 px–1920 px) | browser QA |
-| Backup archive round-trip (create → verify manifest/checksums → restore staged DB → migrate) | unit tests + real VPS drill |
-| Age-encrypted archive round-trip (wrong password rejected, correct restores) | unit tests + real VPS drill |
-| Scheduled backup fires on the due minute; retention prunes | unit tests (fake clock) + real VPS drill |
-| Telegram sink | unit tests against a local HTTP stub (request shape, size warning); real Bot-API delivery **not verified** (no bot token available) |
-| Restore CLI refuses while the service runs; pending-restore consumed at boot with safety snapshot | unit tests + real VPS drill |
-| `doctor` check list + `--fix` repairs on a real host | real VPS |
-| Rotation trigger: round-trip after rotate (configs decrypt, device keys intact, crash-window recovery) | unit tests + real VPS drill |
-| Ops screens permission gating (non-owner admin cannot reach restricted screens) | unit tests |
-| Asset budgets (JS/CSS) | scripts/check-assets.sh |
+| Integration suite (`go test -tags integration ./...`) | 36 packages ok, 0 FAIL |
+| Interface lifecycle on the kernel path | **two real bugs found and fixed here**: the creation spec missed the decrypted private key (empty `PrivateKey=` rejected by the pinned tooling; commit `ddf4333`), and the kernel's plain-profile dump baseline H1..H4=1,2,3,4 broke verify-after-apply (commit `523589c`). After the fixes: boot bring-up creates and verifies `awg0` (link UP, address applied), the API-created device's peer is on the interface, and the device config downloads |
+| Archive create (stored password) | age-encrypted archive (`age-en` magic verified), listed, CLI + panel paths |
+| Scheduled backup | due schedule inserted; the once-per-minute in-process scan fired it (last_status=ok, archive created); retention kept the newest 2 |
+| Restore — service running | verified + staged (`restore.pending`), explicit "applies at next restart" |
+| Restore — boot consumption | next start logged "staged restore applied at boot", staging consumed, `*.pre-restore` safety copies present, `backup.restored` audit row, config-review warning, data intact after reconcile |
+| Restore — service stopped | immediate apply, safety copies, then service restart green |
+| Master-key rotation | refuses while the service answers; rotated when stopped; device config downloads under the NEW key (decryption round-trip); kernel peer unchanged; no secrets in logs |
+| `doctor` | read-only pass/warn/skip honest (data-dir perms + endpoint warnings on the drill node, skips for platform-specific checks); `--fix` refuses while running, applies repairs when stopped, recheck has 0 FAILs |
+| Telegram sink | real Bot-API HTTP path exercised with a bogus token — clean "HTTP 401: Unauthorized" failure, no token in the error; actual delivery **not verified** (no live bot) |
+| Log hygiene | 0 occurrences of the drill password/token in server logs |
+
+**Browser QA** (in-app browser, smoke node `-backend fake`): `/backups`, `/admins`, `/tokens`,
+`/webhooks`, `/audit`, `/settings` exercised fa/en × light/dark at 1280 px and 390 px; token and
+webhook creation driven through the UI (show-once secret views render exactly once, listings
+never leak plaintext); schedule modal kind-switching + edit prefill verified live; two further
+UI defects found and fixed (hidden CSS tooltips inflated every table's scroll width; mobile
+card adaptation hid row actions — commit `45d6866`). No horizontal overflow at either width.
 
 ## Round notes
 
