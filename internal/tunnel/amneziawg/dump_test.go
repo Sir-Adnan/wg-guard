@@ -218,3 +218,31 @@ func TestParseDumpGatedFields(t *testing.T) {
 		t.Fatalf("flags: %v %v", o.RandomTrailers, o.DisableCookies)
 	}
 }
+
+// TestParseDumpKernelPlainBaseline is the regression for the VPS finding
+// (2026-08-31): the kernel module dumps H1..H4 = 1,2,3,4 on a fresh plain
+// interface (userspace dumps zeros). The parser normalizes that inert
+// default so verify-after-apply and drift comparison see the applied plain
+// profile, not the link's cosmetic baseline.
+func TestParseDumpKernelPlainBaseline(t *testing.T) {
+	line := "priv\tpub\t39101\t0\t0\t0\t0\t0\t0\t0\t1\t2\t3\t4\t(null)\t(null)\t(null)\t(null)\t(null)\t(none)\t0\t0\t0\t0\t0\t0\toff\toff\t0x0"
+	st, err := parseDump("awg0", []byte(line))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Obfuscation.Enabled {
+		t.Fatal("plain profile parsed as enabled")
+	}
+	if st.Obfuscation.H1 != 0 || st.Obfuscation.H2 != 0 || st.Obfuscation.H3 != 0 || st.Obfuscation.H4 != 0 {
+		t.Fatalf("kernel plain baseline not normalized: %+v", st.Obfuscation)
+	}
+	// With junk packets configured the kernel values are real and must stay.
+	lineObf := "priv\tpub\t39101\t5\t20\t80\t10\t140\t0\t0\t1\t2\t3\t4\t(null)\t(null)\t(null)\t(null)\t(null)\t(none)\t0\t0\t0\t0\t0\t0\toff\toff\t0x0"
+	st2, err := parseDump("awg0", []byte(lineObf))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !st2.Obfuscation.Enabled || st2.Obfuscation.H1 != 1 || st2.Obfuscation.H4 != 4 {
+		t.Fatalf("enabled profile headers must be preserved: %+v", st2.Obfuscation)
+	}
+}

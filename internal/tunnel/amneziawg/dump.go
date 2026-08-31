@@ -126,6 +126,15 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 			o.H4 = v
 		}
 	}
+	if jc == 0 {
+		// Kernel-module baseline: a fresh plain interface dumps
+		// H1..H4 = 1,2,3,4 — inert defaults that vanish the moment junk
+		// packets are configured. The userspace daemon dumps zeros. Normalize
+		// so the verify-after-apply gate and drift comparison compare the
+		// applied plain profile against an equivalent observation (captured
+		// on the VPS kernel, 2026-08-31; docs/integrations/amneziawg.md).
+		o.H1, o.H2, o.H3, o.H4 = 0, 0, 0, 0
+	}
 	// I1–I5: hex blob or literal "(null)".
 	is := [5]*string{&o.I1, &o.I2, &o.I3, &o.I4, &o.I5}
 	for i := 0; i < 5; i++ {
