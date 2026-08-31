@@ -242,6 +242,35 @@ func FormatRelative(locale Locale, now, t time.Time) string {
 	}
 }
 
+// FormatRelativeUntil renders "in n …" for future timestamps (expiry hints);
+// past timestamps fall back to FormatRelative.
+func FormatRelativeUntil(locale Locale, now, t time.Time) string {
+	d := t.Sub(now)
+	if d <= 0 {
+		return FormatRelative(locale, now, t)
+	}
+	switch {
+	case d < time.Hour:
+		n := int64(d.Minutes()) + 1
+		if locale == Fa {
+			return fmt.Sprintf("%d دقیقه دیگر", n)
+		}
+		return fmt.Sprintf("in %dm", n)
+	case d < 24*time.Hour:
+		n := int64(d.Hours()) + 1
+		if locale == Fa {
+			return fmt.Sprintf("%d ساعت دیگر", n)
+		}
+		return fmt.Sprintf("in %dh", n)
+	default:
+		n := int64(d.Hours())/24 + 1
+		if locale == Fa {
+			return fmt.Sprintf("%d روز دیگر", n)
+		}
+		return fmt.Sprintf("in %dd", n)
+	}
+}
+
 // MonthNames returns the month names for locale (used by the traffic chart
 // axis): fa Jalali names, en Gregorian abbreviations.
 func MonthNames(locale Locale) [12]string {

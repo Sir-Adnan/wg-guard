@@ -74,7 +74,7 @@
   <div class="main">
     <header class="topbar">
       <button type="button" class="icon-btn drawer-toggle" id="btn-drawer" aria-label="{{.T "common.menu"}}" aria-controls="sidebar" aria-expanded="false">{{.Icon "menu"}}</button>
-      <h1>{{template "title" .}}</h1>
+      <span class="topbar-brand">{{.T "app.name"}}</span>
       <span class="spacer"></span>
       {{block "topbar" .}}{{end}}
     </header>

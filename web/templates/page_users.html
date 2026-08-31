@@ -162,7 +162,7 @@
   <td data-label="{{$v.T "users.expires"}}">
     <span class="id-text">
       <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
-      {{if $u.ExpiresAt}}<span class="cell-sub">{{$v.Rel $u.ExpiresAt}}</span>{{end}}
+      {{if $u.ExpiresAt}}<span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{end}}
     </span>
   </td>
   <td data-label="{{$v.T "users.devices"}}" class="ltr-data">{{$v.N (i64u $row.DeviceCount)}}</td>

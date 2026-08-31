@@ -257,6 +257,15 @@ func (v *View) Rel(t *time.Time) string {
 	return i18n.FormatRelative(v.Locale, time.Now(), *t)
 }
 
+// RelIn renders a future-relative hint ("in 3 days") for expiry columns;
+// past dates fall back to the past-relative form.
+func (v *View) RelIn(t *time.Time) string {
+	if t == nil {
+		return v.T("common.never")
+	}
+	return i18n.FormatRelativeUntil(v.Locale, time.Now(), *t)
+}
+
 // Dur renders a duration in seconds.
 func (v *View) Dur(sec int64) string { return i18n.FormatDuration(v.Locale, sec) }
 

@@ -338,7 +338,12 @@ input, select, textarea { font: inherit; color: inherit; }
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
-.topbar h1 { font-size: var(--fs-lg); }
+.topbar-brand {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg-subtle);
+}
 .topbar .spacer { flex: 1 1 auto; }
 .topbar .subtitle { color: var(--fg-subtle); font-size: var(--fs-sm); }
 
@@ -564,7 +569,7 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--sp-4);
 }
 .metric {
@@ -1537,6 +1542,8 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
   padding: 2px;
   gap: 2px;
 }
+/* inside flex-column fields the inline group must not stretch */
+.field > .seg-group { align-self: flex-start; max-width: 100%; }
 .seg {
   padding: 5px 12px;
   border-radius: var(--r-sm);
@@ -1696,7 +1703,7 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
   .sub-device-body { flex-direction: column; gap: var(--sp-3); }
   .content { padding-inline: var(--sp-3); }
   .topbar { padding-inline: var(--sp-3); padding-inline-end: max(var(--sp-3), env(safe-area-inset-right)); }
-  .topbar h1 { font-size: var(--fs-md); }
+  .topbar-brand { display: none; }
   .topbar .subtitle { display: none; }
   .page-head { margin-block-end: var(--sp-4); }
   .page-head h1 { font-size: var(--fs-lg); }

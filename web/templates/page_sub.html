@@ -22,7 +22,7 @@
     </dd>
     <dt>{{.T "users.expires"}}</dt>
     <dd class="ltr-data {{.ExpiryClass .Data.U.ExpiresAt}}">
-      {{.D .Data.U.ExpiresAt}}{{if .Data.U.ExpiresAt}} <span class="text-subtle">({{.Rel .Data.U.ExpiresAt}})</span>{{end}}
+      {{.D .Data.U.ExpiresAt}}{{if .Data.U.ExpiresAt}} <span class="text-subtle">({{.RelIn .Data.U.ExpiresAt}})</span>{{end}}
     </dd>
     <dt>{{.T "users.duration"}}</dt>
     <dd>{{if .Data.U.DurationSeconds}}{{.Dur (i64u .Data.U.DurationSeconds)}}{{else}}<span class="text-subtle">—</span>{{end}}</dd>

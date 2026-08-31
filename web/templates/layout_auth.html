@@ -2,7 +2,9 @@
 <html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f2eb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171512">
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
 <link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
 <link rel="stylesheet" href="{{.A "/css/app.css"}}">

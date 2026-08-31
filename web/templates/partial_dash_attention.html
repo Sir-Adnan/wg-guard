@@ -11,7 +11,7 @@
       {{range .Expiring}}
       <div class="attention-row">
         <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
-        <span class="attention-when ltr-data {{$v.ExpiryClass .When}}">{{$v.D .When}}{{$v.Rel .When}}</span>
+        <span class="attention-when ltr-data {{$v.ExpiryClass .When}}">{{$v.D .When}} · {{$v.RelIn .When}}</span>
       </div>
       {{end}}
     </div>
