@@ -1,0 +1,37 @@
+# WG-Guard reference compose (Docker mode, ADR-0006).
+#
+# `wg-guard install` generates a tailored file at /etc/wg-guard/compose.yaml
+# with your ports, TLS mode and healthcheck; this reference documents the
+# shape. host networking + CAP_NET_ADMIN put links, nftables and tc on the
+# host's own netns — the AmneziaWG kernel module must be installed on the
+# HOST (the installer does this; manual: apt install amneziawg-dkms from
+# ppa:amnezia/ppa).
+#
+#   docker compose -f /etc/wg-guard/compose.yaml up -d
+
+name: wg-guard
+
+services:
+  wg-guard:
+    # Pin a version tag in production; :latest follows releases.
+    image: wgguard/wg-guard:latest
+    container_name: wg-guard
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    volumes:
+      # Boot config: read-only inside the container.
+      - /etc/wg-guard/wg-guard.toml:/etc/wg-guard/wg-guard.toml:ro
+      # Database, master key, backups, ACME cache, TLS material.
+      - /var/lib/wg-guard:/var/lib/wg-guard
+    # In acme mode the panel itself also listens on the ACME challenge port
+    # (default 80) via host networking — no extra port mapping is needed.
+    #
+    # Healthcheck example (adjust port/scheme to the deployed TLS mode):
+    # healthcheck:
+    #   test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 15s

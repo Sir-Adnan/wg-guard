@@ -17,6 +17,15 @@ Usage:
 
 Commands:
   version     Print version information
+  install     Interactive installer (Docker default, native systemd secondary;
+              --yes for non-interactive installs)
+              install [--mode docker|native] [--domain D] [--tls acme|manual|proxy|dev]
+                      [--panel-port N] [--image REF] [--yes]
+  update      Explicit update: pre-upgrade backup, swap, health-checked rollback
+              update [--image REF] (docker) | update --binary PATH (native)
+  uninstall   Remove WG-Guard (data kept unless --purge-data)
+              uninstall [--dry-run] [--purge-data] [--purge-packages] [--yes]
+  status      Install state, service state and health
   reconcile   Bring tunnels, peers, and firewall to DB state (boot bring-up)
   serve       Run the WG-Guard service (API + scheduler)
               -config PATH   boot config (default /etc/wg-guard/wg-guard.toml)
@@ -45,11 +54,35 @@ func main() {
 		os.Exit(2)
 	}
 
+	// Docker-mode host shim: on a docker-mode install the host binary routes
+	// panel/data commands into the container (ADR-0006). No-op otherwise.
+	routeDockerMode()
+
 	switch os.Args[1] {
 	case "version":
 		fmt.Println(version.String())
 	case "help", "-h", "--help":
 		fmt.Print(usage)
+	case "install":
+		if err := runInstall(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: install: %v\n", err)
+			os.Exit(1)
+		}
+	case "update":
+		if err := runUpdate(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: update: %v\n", err)
+			os.Exit(1)
+		}
+	case "uninstall":
+		if err := runUninstall(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: uninstall: %v\n", err)
+			os.Exit(1)
+		}
+	case "status":
+		if err := runStatus(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: status: %v\n", err)
+			os.Exit(1)
+		}
 	case "reconcile":
 		if err := runReconcile(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "wg-guard: reconcile: %v\n", err)

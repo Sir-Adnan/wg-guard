@@ -1,0 +1,13 @@
+.git
+.github
+bin/
+dist/
+docs/
+scripts/
+*.md
+*.wgg
+*.test
+coverage.out
+bench-wgguard/
+wg-guard
+wg-guard.exe
