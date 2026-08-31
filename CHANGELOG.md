@@ -8,6 +8,31 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 5 refinement — subscription links, create-user redesign, theme/shell overhaul,
+  capability-gated AWG parameters** (same verification standard as Phase 5; tracked in
+  `docs/development/phase5-refinement.md` with a verification record):
+  - `internal/subscription` + migration 0004: per-user subscription links — 256-bit
+    crypto/rand tokens (SHA-256-hashed for lookup, AES-GCM-encrypted for re-display, never
+    logged), ensured at user creation, regenerate/revoke/restore lifecycle; public
+    rate-limited `/sub/{token}` page (fa/en) with traffic meter, expiry, per-device QR +
+    config download; admin subscription card + users-list quick-share; `subscription.base_url`
+    setting reserved for the Phase 6 settings screen.
+  - Create-user drawer: username generator, settings-driven quota/duration preset chips
+    (`users.quota_presets_gb`, `users.duration_presets_months`), auto device provisioning
+    (count = device limit, cap 10), exact expiry date; Jalali (fa) / Gregorian (en) vanilla-JS
+    calendar with an exhaustively verified leap-year algorithm.
+  - Users page redesign: identity rows, per-row quick-share (QR/download/link copy via one
+    batch device query), fixed-coordinate menu positioning that can no longer be clipped by
+    overflow containers.
+  - Theme + shell: zinc-neutral light and refined near-black dark palettes, 8/12 px radii,
+    component polish pass, persisted 68 px desktop sidebar rail with tooltips.
+  - Interfaces: capability-gated 2.0/3.x AWG parameters (S3, S4, HeaderProtectionKey,
+    ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout,
+    MaxHandshakeAttempts, RandomTrailers, DisableCookies) through storage → validation →
+    reconcile → setconf → dump → client-config parity (migration 0005); value formats
+    verified against the pinned `amneziawg-tools` v3.1 `src/config.c`; gated drift is
+    report-only so an unsupported runtime cannot trigger recreate loops; magic headers are
+    crypto/rand generated at profile creation.
 - **Phase 5 — Web UI** (all unit tested, `-race` clean in WSL2; end-to-end browser-verified on
   desktop + mobile, fa/en × light/dark, over the running node):
   - `internal/web`: server-rendered panel on `html/template` + HTMX partial swaps + one vanilla
@@ -27,8 +52,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
     uptime) with no background polling; graceful "unavailable" state off Linux.
   - `internal/clientconf`: config/QR renderer shared by API and web; QR raster drawn manually
     (rsc.io/qr's `code.Image()` leaves modules unscaled — regression-tested).
-  - Asset budgets enforced by `scripts/check-assets.sh`: JS ≤ 30 KiB gz (measured 19.5), CSS
-    ≤ 25 KiB gz (measured 8.4), fonts ≤ 150 KiB gz (measured 101.8).
+  - Asset budgets enforced by `scripts/check-assets.sh`: JS ≤ 30 KiB gz, CSS ≤ 25 KiB gz,
+    fonts ≤ 150 KiB gz (final measurements in docs/development/status.md).
 - **Phase 4 — REST API** (all unit tested, `-race` clean; real-tc/ingress paths integration
   tested in WSL2):
   - Full `/api/v1` management surface (`internal/api`): users (CRUD, lifecycle, traffic
@@ -153,6 +178,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 - **API: traffic series endpoint** returned errors for rollup queries (nonexistent
   `rx_delta`/`tx_delta` columns) and mixed hourly + daily rows without a granularity filter —
   found while building the dashboard chart; regression test added over the API.
+- **Web: small quotas misdisplayed** — edit forms rendered a 0.2 GB limit as `0`
+  (`%.0f` rounding), so re-saving an honest value failed or zeroed it; quota values are now
+  parsed digit-by-digit into exact bytes and displayed with exact scaled formatting
+  (`0.2`, `100 MB`, `6-hour` accounts round-trip; regression tests).
+- **Web: onboarding password hint double-formatted** (`%!(EXTRA int=10)` visible on the
+  first-run page) — the catalog string was formatted twice (service + template `printf`).
 
 ### Changed
 - **CI**: the test job runs on the minimum supported toolchain (`1.25.x`, per `go.mod`) in

@@ -5,7 +5,12 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 5 — Web UI (complete, 2026-08-31)
+## Phase 5 — Web UI (complete, 2026-08-31; refinement pass same day)
+
+The refinement pass (subscription links, create-user redesign, users-page redesign, theme +
+shell redesign, panel-wide polish, capability-gated AWG 2.0/3.x parameters) is tracked in
+[phase5-refinement.md](phase5-refinement.md) with its own verification record; the asset
+budgets after the pass are JS 24.1/30 KiB gz, CSS 10.0/25 KiB gz, fonts 101.8/150 KiB gz.
 
 All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
 WSL2 Ubuntu/Go 1.26; `go test -race ./...` green in WSL2 — Windows has no C toolchain for the
@@ -29,6 +34,17 @@ enforced by `scripts/check-assets.sh`: JS 19.5/30 KiB gz, CSS 8.4/25 KiB gz, fon
 | `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); QR raster drawn manually — rsc.io/qr's `code.Image()` leaves modules unscaled in the canvas corner (regression test asserts a filled canvas) | ✅ implemented + unit tested |
 | API correctness fixes surfaced by web work: `/api/v1` traffic series used nonexistent `rx_delta`/`tx_delta` columns for rollups and mixed granularities — now correct per-granularity sums (regression test over the API) | ✅ implemented + unit tested |
 
+Refinement pass additions (same status rules as above):
+
+| Item | Status |
+|---|---|
+| Exact quota/duration parsing: digit-by-digit decimal → bytes/seconds (no float64), GB/MB unit select, hours/days/months duration units, exact expiry date on create (noon-UTC convention), legacy form fields still accepted | ✅ implemented + unit tested (0.2 GB, 100 MB, 6 h round-trips) |
+| Subscription links (`internal/subscription` + migration 0004): 256-bit crypto/rand token, SHA-256-hashed lookup + AES-GCM-encrypted re-display, ensured at user creation, regenerate/revoke/restore lifecycle; public rate-limited `/sub/{token}` page (fa/en) with traffic meter, expiry, per-device QR + config download; admin card + list quick actions; `subscription.base_url` setting; tokens never logged (path masked) | ✅ implemented + unit tested (service + handler lifecycle incl. cross-user device isolation) |
+| Create-user drawer on the users page (shared partial with the `/users/new` fallback): username generator, settings-driven quota/duration preset chips (`users.quota_presets_gb`, `users.duration_presets_months`), auto device provisioning (count = device limit, cap 10, per-device transactional), Jalali (fa) / Gregorian (en) vanilla-JS calendar — leap-year algorithm exhaustively verified against server-side conversions | ✅ implemented + unit tested (auto-device flow, quota/duration exactness); calendar verified in browser |
+| Users page redesign: identity rows, quick-share menu (per-device QR/download + sub-link copy, batch device load), fixed-coordinate menu positioning (no clipping in overflow containers; close on scroll) | ✅ implemented + unit tested; browser-verified desktop + 390 px mobile |
+| Theme + shell refinement: zinc-neutral light palette, refined dark palette (`#09090b` base), 8/12 px radii, component polish (buttons, inputs, badges, tables, menus, dialogs, empty states, metric icon chips), desktop sidebar collapse to a persisted 68 px icon rail with tooltips, compact footer icon row | ✅ implemented; palettes/collapse verified live in browser |
+| Interfaces: capability-gated 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; gated drift is report-only (`Obfuscation.LegacyVerified`); magic headers crypto/rand generated at creation (presets no longer hardcode weak values); I1–I5 inputs with iOS warning | ✅ implemented + unit tested (validation, render, dump, gated-drift classification); runtime behavior of the gated set remains unverified until the Phase 8 VPS matrix |
+
 Deferred / honest notes within Phase 5 scope:
 
 - Phase 6 screens (settings UI, administrators, API tokens, webhooks, audit log, backup) are
@@ -39,6 +55,12 @@ Deferred / honest notes within Phase 5 scope:
   on real phone hardware is still worthwhile before release.
 - The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
   visual effect was observed manually, not soak-tested.
+- The capability-gated 2.0/3.x obfuscation parameters are parser-verified against the pinned
+  tools source but their runtime behavior is unverified until the Phase 8 VPS matrix; they are
+  off by default and flagged as such in the UI. Gated-parameter drift is report-only so an
+  unsupported runtime cannot trigger link-recreate loops.
+- The subscription page exposes per-device configs to whoever holds the (unguessable) link;
+  the link is treated as a capability credential — rotate or revoke it to cut access.
 
 ## Phase 4 — REST API (complete, 2026-08-30)
 

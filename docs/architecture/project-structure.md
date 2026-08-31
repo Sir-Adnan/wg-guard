@@ -62,10 +62,15 @@ internal/
   api/                   REST /api/v1: handlers, middleware (request id, security headers,
                          CORS, body cap, logging, auth, rate limit), error envelope, keyset
                          pagination, idempotency, OpenAPI + /docs (Phase 4 ✅)
+  subscription/          per-user subscription links: 256-bit crypto/rand tokens (SHA-256
+                         hashed for lookup, AES-GCM-encrypted for re-display), ensure/
+                         regenerate/revoke/restore lifecycle (Phase 5 ✅)
   web/                   admin UI: session auth + CSRF, handlers, i18n/theme middleware,
-                         templates, CSP-safe SVG charts (Phase 5 ✅)
+                         templates, CSP-safe SVG charts; public rate-limited /sub/{token}
+                         pages (Phase 5 ✅)
 web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
-migrations/              numbered SQL migrations (embedded)
+migrations/              numbered SQL migrations (embedded; 0004 sub_links,
+                         0005 gated interface obfuscation parameters)
 packaging/               systemd unit, sysctl fragment, Dockerfile, compose template
 scripts/                 dev helpers (bench-idle.sh, fixtures)
 docs/                    this documentation tree
