@@ -500,3 +500,32 @@ func TestReconcilePskPreservedForUnknownReportedPeer(t *testing.T) {
 		}
 	}
 }
+
+// TestEngineCreateCarriesPrivateKey is the regression for the VPS finding
+// (2026-08-31): the creation spec must carry the decrypted private key —
+// the backend renders the initial setconf from the spec, and the pinned
+// tooling rejects an empty PrivateKey line (userspace tolerated it, the
+// kernel module does not; the fake never checked).
+func TestEngineCreateCarriesPrivateKey(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	ifc := h.seedProfile(t, "awg0", 0, true)
+
+	if _, err := h.engine.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	spec, ok := h.backend.Spec("awg0")
+	if !ok {
+		t.Fatal("interface never created")
+	}
+	if spec.PrivateKey == "" {
+		t.Fatal("creation spec has an empty private key")
+	}
+	want, err := h.ifaceSvc.PrivateKey(ifc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.PrivateKey != want {
+		t.Fatal("creation spec carries a different key than the stored one")
+	}
+}

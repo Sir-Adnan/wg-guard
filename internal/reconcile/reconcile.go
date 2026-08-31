@@ -153,6 +153,7 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 		MTU:         ifc.MTU,
 		Address:     gatewayAddress(ifc.Subnet),
 		Obfuscation: toTunnelObfuscation(ifc.Obf),
+		PrivateKey:  ifc.PrivateKey, // CreateInterface renders the initial setconf from the spec — an empty key is rejected by the pinned tooling (VPS kernel, 2026-08-31)
 	}
 	wantCfg := tunnel.InterfaceConfig{
 		PrivateKey:  ifc.PrivateKey,

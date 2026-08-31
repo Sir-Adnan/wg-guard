@@ -280,3 +280,14 @@ func (b *Backend) SetObfuscation(name string, o tunnel.Obfuscation) error {
 	ifc.spec.Obfuscation = o
 	return nil
 }
+
+// Spec exposes the creation spec of one interface (test assertions).
+func (b *Backend) Spec(name string) (tunnel.InterfaceSpec, bool) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	ifc, ok := b.interfaces[name]
+	if !ok {
+		return tunnel.InterfaceSpec{}, false
+	}
+	return ifc.spec, true
+}

@@ -883,7 +883,16 @@ func (s *Server) runReconcile(r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	if _, err := s.Reconciler.Run(ctx); err != nil && s.Log != nil {
+	rep, err := s.Reconciler.Run(ctx)
+	if err != nil && s.Log != nil {
 		s.Log.Warn("reconcile after mutation failed", "error", err)
+	}
+	if rep != nil && len(rep.Errors) > 0 && s.Log != nil {
+		// Per-interface failures never fail the request (boot and the
+		// accounting cycle re-derive the same state), but they must be
+		// visible — a silently missing link is how drift hides.
+		for _, e := range rep.Errors {
+			s.Log.Warn("reconcile interface error", "interface", e.Interface, "error", e.Err)
+		}
 	}
 }

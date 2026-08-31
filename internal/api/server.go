@@ -240,7 +240,14 @@ func (s *Server) reconcile(r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	if _, err := s.Reconciler.Run(ctx); err != nil && s.Log != nil {
+	rep, err := s.Reconciler.Run(ctx)
+	if err != nil && s.Log != nil {
 		s.Log.Warn("reconcile after mutation failed", "error", err, "request_id", RequestID(r.Context()))
+	}
+	if rep != nil {
+		for _, e := range rep.Errors {
+			s.Log.Warn("reconcile interface error", "interface", e.Interface,
+				"error", e.Err, "request_id", RequestID(r.Context()))
+		}
 	}
 }
