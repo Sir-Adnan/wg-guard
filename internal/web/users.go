@@ -29,6 +29,9 @@ type usersData struct {
 	// Create-drawer preset chips (settings-driven).
 	QuotaPresets    []string
 	DurationPresets []string
+	// FieldErr is always empty here; the create-fields partial is shared
+	// with the user form, which uses it for error redisplay.
+	FieldErr string
 }
 
 // userRow is one list row: the user plus panel-computed display fields.
