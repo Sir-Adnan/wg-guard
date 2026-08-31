@@ -97,6 +97,17 @@ The parser accepts the 2.0/3.x-generation keys (S3/S4, header protection, timers
 **parser acceptance ≠ runtime support**. Legacy 1.0 params are the only set verified end-to-end
 this phase; 2.0/3.x remain capability-gated and off by default.
 
+Value formats verified from the pinned `src/config.c` (2026-08-31):
+
+| Key | Parser | Value format |
+|---|---|---|
+| S3, S4 | `parse_uint16` | plain integer 0–65535 |
+| H1–H4 | `u32_range_from_string` | `N` or `N-M` (u32 range; WG-Guard writes plain `N`) |
+| HeaderProtectionKey | `parse_key` | base64-encoded 32-byte key (44 chars) |
+| ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts | `u16_range_from_string` | `N` or `N-M` (u16 bounds) |
+| RandomTrailers, DisableCookies | `parse_bool` | `on` / `off` (case-insensitive) |
+| AdvancedSecurity | `parse_bool` on `ctx->last_peer` | **peer-section key** — it is rejected in `[Interface]`; WG-Guard defers it (per-device plumbing needed) |
+
 ## Constraint enforcement lives at runtime, not in the parser
 
 Verified: the tools parser accepts `Jmin > Jmax`, duplicate `H1 = H2`, and `S1 + 56 == S2` —

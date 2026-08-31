@@ -128,3 +128,44 @@ func TestRenderSyncconfEmptyRemovesAllPeers(t *testing.T) {
 		t.Fatalf("empty peer list must render an empty file, got %q", out)
 	}
 }
+
+func TestRenderSetconfGatedParams(t *testing.T) {
+	cfg := tunnel.InterfaceConfig{
+		PrivateKey: "8N8eM9uMx9WcXWvOHbiu4B9kB8eSvbG3wfZugvwtCWU=",
+		ListenPort: 39001,
+		Obfuscation: tunnel.Obfuscation{
+			Enabled: true,
+			Jc:      4, Jmin: 40, Jmax: 70, S1: 15, S2: 64,
+			H1: 11, H2: 22, H3: 33, H4: 44,
+			S3:                     40,
+			HeaderProtectionKey:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+			ContentPaddingAddition: "10-20",
+			RekeyAfterTime:         "120-180",
+			RejectAfterTime:        "90",
+			RandomTrailers:         true,
+			DisableCookies:         true,
+		},
+	}
+	out := string(renderSetconf(cfg))
+	for _, want := range []string{
+		"S3 = 40\n", "HeaderProtectionKey = AAAAAAAA", "ContentPaddingAddition = 10-20\n",
+		"RekeyAfterTime = 120-180\n", "RejectAfterTime = 90\n",
+		"RandomTrailers = on\n", "DisableCookies = on\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("rendered config missing %q", want)
+		}
+	}
+	if strings.Contains(out, "S4 = ") {
+		t.Error("unset S4 must not render")
+	}
+
+	// Plain profiles omit the gated block entirely (explicit zeros are
+	// rejected by the runtime).
+	plain := string(renderSetconf(tunnel.InterfaceConfig{
+		PrivateKey: cfg.PrivateKey, Obfuscation: tunnel.Obfuscation{Enabled: false},
+	}))
+	if strings.Contains(plain, "RandomTrailers") || strings.Contains(plain, "S3") {
+		t.Error("plain profile must not carry gated keys")
+	}
+}

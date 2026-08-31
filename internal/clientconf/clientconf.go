@@ -95,6 +95,36 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 				w("I%d = %s\n", i+1, v)
 			}
 		}
+		// Capability-gated 2.0/3.x parameters (amneziawg.md): the
+		// client↔server parity rule requires S3/S4, header protection,
+		// padding and timers to match the server; rendered only when set.
+		if o.S3 != 0 {
+			w("S3 = %d\n", o.S3)
+		}
+		if o.S4 != 0 {
+			w("S4 = %d\n", o.S4)
+		}
+		if o.HeaderProtectionKey != "" {
+			w("HeaderProtectionKey = %s\n", o.HeaderProtectionKey)
+		}
+		for _, kv := range []struct{ key, val string }{
+			{"ContentPaddingAddition", o.ContentPaddingAddition},
+			{"RekeyAfterTime", o.RekeyAfterTime},
+			{"RekeyTimeout", o.RekeyTimeout},
+			{"RejectAfterTime", o.RejectAfterTime},
+			{"KeepaliveTimeout", o.KeepaliveTimeout},
+			{"MaxHandshakeAttempts", o.MaxHandshakeAttempts},
+		} {
+			if kv.val != "" {
+				w("%s = %s\n", kv.key, kv.val)
+			}
+		}
+		if o.RandomTrailers {
+			w("RandomTrailers = on\n")
+		}
+		if o.DisableCookies {
+			w("DisableCookies = on\n")
+		}
 	}
 	return b.String(), nil
 }

@@ -8,7 +8,10 @@ package iface
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -42,8 +45,11 @@ type Interface struct {
 	UpdatedAt        time.Time
 }
 
-// Obfuscation mirrors the Phase-1 parameter set (Jc/Jmin/Jmax/S1/S2/H1–H4 +
-// optional I1–I5). Zero-value with Enabled=false is the "plain WG" profile.
+// Obfuscation mirrors the pinned parameter set: legacy 1.0 (Jc/Jmin/Jmax/
+// S1/S2/H1–H4 + optional I1–I5, verified end-to-end) plus the capability-gated
+// 2.0/3.x fields (formats verified against the pinned tools src/config.c;
+// runtime verification pending the Phase 8 VPS matrix — amneziawg.md).
+// Zero-value with Enabled=false is the "plain WG" profile.
 type Obfuscation struct {
 	Enabled            bool
 	Jc                 int
@@ -51,6 +57,17 @@ type Obfuscation struct {
 	S1, S2             int
 	H1, H2, H3, H4     uint32
 	I1, I2, I3, I4, I5 string
+
+	S3, S4                 int    // plain u16 when set
+	HeaderProtectionKey    string // base64 32-byte key, "" = disabled
+	ContentPaddingAddition string // "N" or "N-M" (u16 bounds), "" = disabled
+	RekeyAfterTime         string // seconds, "N" or "N-M", "" = upstream default
+	RekeyTimeout           string
+	RejectAfterTime        string
+	KeepaliveTimeout       string
+	MaxHandshakeAttempts   string
+	RandomTrailers         bool
+	DisableCookies         bool
 }
 
 // Constraints from the AmneziaWG kernel-README (docs/integrations/amneziawg.md).
@@ -64,16 +81,69 @@ const (
 
 var nameRe = regexp.MustCompile(`^awg([0-9]{1,3})$`)
 
+// rangeRe matches the u16-range form the pinned tools parser accepts
+// ("N" or "N-M", verified: u16_range_from_string in src/config.c).
+var rangeRe = regexp.MustCompile(`^([0-9]{1,5})(-([0-9]{1,5}))?$`)
+
+// validateRange checks an "N" or "N-M" string within u16 bounds.
+func validateRange(field, v string) error {
+	m := rangeRe.FindStringSubmatch(v)
+	if m == nil {
+		return domain.E(domain.CodeParamConstraint, `%s must be "N" or "low-high" (u16), got %q`, field, v)
+	}
+	lo, _ := strconv.Atoi(m[1])
+	if lo > 65535 {
+		return domain.E(domain.CodeParamConstraint, "%s exceeds the u16 bound (65535)", field)
+	}
+	if m[3] != "" {
+		hi, _ := strconv.Atoi(m[3])
+		if hi > 65535 || hi < lo {
+			return domain.E(domain.CodeParamConstraint, `%s range %q is invalid (low <= high <= 65535)`, field, v)
+		}
+	}
+	return nil
+}
+
 // ValidateObfuscation enforces the constraint set. A zero params struct with
 // Enabled=false is the plain-WG profile; Enabled=true requires a complete,
 // constraint-clean parameter set (no partial profiles).
 func ValidateObfuscation(o Obfuscation) error {
 	if !o.Enabled {
 		if o.Jc != 0 || o.Jmin != 0 || o.Jmax != 0 || o.S1 != 0 || o.S2 != 0 ||
-			o.H1 != 0 || o.H2 != 0 || o.H3 != 0 || o.H4 != 0 {
+			o.H1 != 0 || o.H2 != 0 || o.H3 != 0 || o.H4 != 0 ||
+			o.S3 != 0 || o.S4 != 0 || o.HeaderProtectionKey != "" ||
+			o.ContentPaddingAddition != "" || o.RekeyAfterTime != "" || o.RekeyTimeout != "" ||
+			o.RejectAfterTime != "" || o.KeepaliveTimeout != "" || o.MaxHandshakeAttempts != "" ||
+			o.RandomTrailers || o.DisableCookies {
 			return domain.E(domain.CodeParamConstraint, "obfuscation disabled but parameters are set")
 		}
 		return nil
+	}
+	// Capability-gated 2.0/3.x parameters (formats verified from the pinned
+	// tools source; runtime support pending Phase 8).
+	if o.S3 < 0 || o.S3 > 65535 || o.S4 < 0 || o.S4 > 65535 {
+		return domain.E(domain.CodeParamConstraint, "S3/S4 must be 0–65535 (0 = unset)")
+	}
+	if o.HeaderProtectionKey != "" {
+		k, err := base64.StdEncoding.DecodeString(o.HeaderProtectionKey)
+		if err != nil || len(k) != 32 {
+			return domain.E(domain.CodeParamConstraint, "HeaderProtectionKey must be a base64-encoded 32-byte key")
+		}
+	}
+	for _, rv := range []struct{ name, val string }{
+		{"ContentPaddingAddition", o.ContentPaddingAddition},
+		{"RekeyAfterTime", o.RekeyAfterTime},
+		{"RekeyTimeout", o.RekeyTimeout},
+		{"RejectAfterTime", o.RejectAfterTime},
+		{"KeepaliveTimeout", o.KeepaliveTimeout},
+		{"MaxHandshakeAttempts", o.MaxHandshakeAttempts},
+	} {
+		if rv.val == "" {
+			continue
+		}
+		if err := validateRange(rv.name, rv.val); err != nil {
+			return err
+		}
 	}
 	if o.Jc < 1 || o.Jc > JcMax {
 		return domain.E(domain.CodeParamConstraint, "Jc must be 1–%d (recommended 4–12), got %d", JcMax, o.Jc)
@@ -105,6 +175,40 @@ func ValidateObfuscation(o Obfuscation) error {
 		}
 	}
 	return nil
+}
+
+// randomizeHeaders fills unset H1-H4 with crypto/rand values - pairwise
+// distinct and non-zero (the runtime rejects duplicates/zero at setconf).
+// Strong magic headers are per-profile secrets; the shipped presets no longer
+// hardcode them. Set headers are left untouched.
+func randomizeHeaders(o *Obfuscation) {
+	if !o.Enabled {
+		return
+	}
+	hs := [4]*uint32{&o.H1, &o.H2, &o.H3, &o.H4}
+	used := map[uint32]bool{}
+	for _, h := range hs {
+		if *h != 0 {
+			used[*h] = true
+		}
+	}
+	for _, h := range hs {
+		if *h != 0 {
+			continue
+		}
+		var b [4]byte
+		for {
+			if _, err := rand.Read(b[:]); err != nil {
+				return // keep any remaining zeros; Create validates the result
+			}
+			v := binary.LittleEndian.Uint32(b[:])
+			if v != 0 && !used[v] {
+				*h = v
+				used[v] = true
+				break
+			}
+		}
+	}
 }
 
 // ValidatePortRange enforces the registry-driven random allocation window.
@@ -201,6 +305,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 		return nil, domain.E(domain.CodeInvalidRequest, "MTU must be 576–65535, got %d", mtu)
 	}
 
+	randomizeHeaders(&in.Obfuscation)
 	if err := ValidateObfuscation(in.Obfuscation); err != nil {
 		return nil, err
 	}
@@ -267,8 +372,12 @@ func (s *Service) insertWithChecks(ctx context.Context, tx *sql.Tx, ifc *Interfa
 	_, err = tx.ExecContext(ctx, `INSERT INTO tunnel_interfaces
 		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
 		 jc, jmin, jmax, s1, s2, h1, h2, h3, h4,
-		 i1, i2, i3, i4, i5, preset_name, enabled, backend_mode, endpoint_override, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 i1, i2, i3, i4, i5, preset_name, enabled, backend_mode, endpoint_override, created_at, updated_at,
+		 s3, s4, header_protection_key, content_padding_addition, rekey_after_time,
+		 rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
+		 random_trailers, disable_cookies)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		ifc.ID, ifc.Name, ifc.ListenPort, ifc.Subnet, ifc.MTU, ifc.PublicKey, ifc.PrivKeyEnc,
 		nullInt(ifc.Obfuscation.Jc, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.Jmin, ifc.Obfuscation.Enabled),
 		nullInt(ifc.Obfuscation.Jmax, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.S1, ifc.Obfuscation.Enabled),
@@ -279,7 +388,13 @@ func (s *Service) insertWithChecks(ctx context.Context, tx *sql.Tx, ifc *Interfa
 		nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
 		ifc.Preset, boolInt(ifc.Enabled), string(ifc.BackendMode),
 		nullText(ifc.EndpointOverride),
-		ifc.CreatedAt.Format(time.RFC3339Nano), ifc.UpdatedAt.Format(time.RFC3339Nano))
+		ifc.CreatedAt.Format(time.RFC3339Nano), ifc.UpdatedAt.Format(time.RFC3339Nano),
+		ifc.Obfuscation.S3, ifc.Obfuscation.S4,
+		ifc.Obfuscation.HeaderProtectionKey, ifc.Obfuscation.ContentPaddingAddition,
+		ifc.Obfuscation.RekeyAfterTime, ifc.Obfuscation.RekeyTimeout,
+		ifc.Obfuscation.RejectAfterTime, ifc.Obfuscation.KeepaliveTimeout,
+		ifc.Obfuscation.MaxHandshakeAttempts,
+		boolInt(ifc.Obfuscation.RandomTrailers), boolInt(ifc.Obfuscation.DisableCookies))
 	if err != nil {
 		if isUnique(err) {
 			return domain.E(domain.CodeInterfaceNameTaken, "interface %s already exists", ifc.Name)
@@ -407,7 +522,10 @@ func (s *Service) PrivateKey(ifc *Interface) (string, error) {
 const ifaceColumns = `id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
 	jc, jmin, jmax, s1, s2,
 	h1, h2, h3, h4, i1, i2, i3, i4, i5, preset_name, enabled, backend_mode,
-	endpoint_override, created_at, updated_at`
+	endpoint_override, created_at, updated_at,
+	s3, s4, header_protection_key, content_padding_addition,
+	rekey_after_time, rekey_timeout, reject_after_time, keepalive_timeout,
+	max_handshake_attempts, random_trailers, disable_cookies`
 
 type rowScanner interface{ Scan(dest ...any) error }
 
@@ -423,12 +541,24 @@ func scanIface(row rowScanner) (*Interface, error) {
 		h1, h2, h3, h4         sql.NullInt64
 		i1, i2, i3, i4, i5     sql.NullString
 		endpoint               sql.NullString
+		s3, s4                 sql.NullInt64
+		hpk                    sql.NullString
+		padding                sql.NullString
+		rekeyAfter             sql.NullString
+		rekeyTimeout           sql.NullString
+		rejectAfter            sql.NullString
+		keepaliveTimeout       sql.NullString
+		maxHandshake           sql.NullString
+		randomTrailers         sql.NullInt64
+		disableCookies         sql.NullInt64
 	)
 	err := row.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.Subnet, &ifc.MTU,
 		&ifc.PublicKey, &ifc.PrivKeyEnc,
 		&jc, &jmin, &jmax, &s1, &s2, &h1, &h2, &h3, &h4,
 		&i1, &i2, &i3, &i4, &i5, &preset, &enabled, &mode, &endpoint,
-		&createdStr, &updatedStr)
+		&createdStr, &updatedStr,
+		&s3, &s4, &hpk, &padding, &rekeyAfter, &rekeyTimeout, &rejectAfter,
+		&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies)
 	if err != nil {
 		return nil, err
 	}
@@ -438,6 +568,16 @@ func scanIface(row rowScanner) (*Interface, error) {
 		S1: int(s1.Int64), S2: int(s2.Int64),
 		H1: uint32(h1.Int64), H2: uint32(h2.Int64), H3: uint32(h3.Int64), H4: uint32(h4.Int64),
 		I1: i1.String, I2: i2.String, I3: i3.String, I4: i4.String, I5: i5.String,
+		S3: int(s3.Int64), S4: int(s4.Int64),
+		HeaderProtectionKey:    hpk.String,
+		ContentPaddingAddition: padding.String,
+		RekeyAfterTime:         rekeyAfter.String,
+		RekeyTimeout:           rekeyTimeout.String,
+		RejectAfterTime:        rejectAfter.String,
+		KeepaliveTimeout:       keepaliveTimeout.String,
+		MaxHandshakeAttempts:   maxHandshake.String,
+		RandomTrailers:         randomTrailers.Int64 == 1,
+		DisableCookies:         disableCookies.Int64 == 1,
 	}
 	ifc.Preset = preset
 	ifc.Enabled = enabled == 1
@@ -538,7 +678,10 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 	_, err = s.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET
 		mtu = ?, enabled = ?, endpoint_override = ?,
 		jc = ?, jmin = ?, jmax = ?, s1 = ?, s2 = ?, h1 = ?, h2 = ?, h3 = ?, h4 = ?,
-		i1 = ?, i2 = ?, i3 = ?, i4 = ?, i5 = ?, preset_name = ?, updated_at = ?
+		i1 = ?, i2 = ?, i3 = ?, i4 = ?, i5 = ?, preset_name = ?, updated_at = ?,
+		s3 = ?, s4 = ?, header_protection_key = ?, content_padding_addition = ?,
+		rekey_after_time = ?, rekey_timeout = ?, reject_after_time = ?, keepalive_timeout = ?,
+		max_handshake_attempts = ?, random_trailers = ?, disable_cookies = ?
 		WHERE id = ?`,
 		ifc.MTU, boolInt(ifc.Enabled), nullText(ifc.EndpointOverride),
 		nullInt(ifc.Obfuscation.Jc, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.Jmin, ifc.Obfuscation.Enabled),
@@ -548,7 +691,14 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		nullU32(ifc.Obfuscation.H3, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H4, ifc.Obfuscation.Enabled),
 		nullText(ifc.Obfuscation.I1), nullText(ifc.Obfuscation.I2), nullText(ifc.Obfuscation.I3),
 		nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
-		ifc.Preset, ifc.UpdatedAt.Format(time.RFC3339Nano), ifc.ID)
+		ifc.Preset, ifc.UpdatedAt.Format(time.RFC3339Nano),
+		ifc.Obfuscation.S3, ifc.Obfuscation.S4,
+		ifc.Obfuscation.HeaderProtectionKey, ifc.Obfuscation.ContentPaddingAddition,
+		ifc.Obfuscation.RekeyAfterTime, ifc.Obfuscation.RekeyTimeout,
+		ifc.Obfuscation.RejectAfterTime, ifc.Obfuscation.KeepaliveTimeout,
+		ifc.Obfuscation.MaxHandshakeAttempts,
+		boolInt(ifc.Obfuscation.RandomTrailers), boolInt(ifc.Obfuscation.DisableCookies),
+		ifc.ID)
 	if err != nil {
 		return nil, fmt.Errorf("iface: update: %w", err)
 	}

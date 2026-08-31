@@ -66,8 +66,8 @@ func parseDump(name string, data []byte) (tunnel.InterfaceState, error) {
 		return tunnel.InterfaceState{}, err
 	}
 	st.Obfuscation = obf
-	// Remaining fields (S3/S4, header protection, timers, flags, fwmark) are
-	// parsed positionally but unused: 2.0/3.x generation is capability-gated.
+	// fwmark (f[28]) stays unused: WG-Guard pins an explicit listen port and
+	// does not manage fwmark.
 
 	for _, ln := range lines {
 		ln = strings.TrimRight(ln, "\r")
@@ -133,6 +133,27 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 			*is[i] = v
 		}
 	}
+	// 2.0/3.x generation fields (capability-gated, amneziawg.md dump table):
+	// f[8] S3, f[9] S4 (plain uints); f[19] header-protection key ("(none)"
+	// when unset); f[20]–f[25] u16-range strings ("0" when unset); f[26]
+	// random_trailers, f[27] disable_cookies ("on"/"off").
+	if o.S3, err = strconv.Atoi(f[8]); err != nil {
+		return invalid("S3", f[8], err)
+	}
+	if o.S4, err = strconv.Atoi(f[9]); err != nil {
+		return invalid("S4", f[9], err)
+	}
+	if v := f[19]; v != "(none)" {
+		o.HeaderProtectionKey = v
+	}
+	for i, dst := range []*string{&o.ContentPaddingAddition, &o.RekeyAfterTime,
+		&o.RekeyTimeout, &o.RejectAfterTime, &o.KeepaliveTimeout, &o.MaxHandshakeAttempts} {
+		if v := f[20+i]; v != "0" {
+			*dst = v
+		}
+	}
+	o.RandomTrailers = f[26] == "on"
+	o.DisableCookies = f[27] == "on"
 	return o, nil
 }
 

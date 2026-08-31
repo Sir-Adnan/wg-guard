@@ -2,6 +2,7 @@ package iface
 
 import (
 	"context"
+	"encoding/base64"
 	"path/filepath"
 	"testing"
 
@@ -241,5 +242,75 @@ func TestInterfaceCountCapFromSettings(t *testing.T) {
 	// awg2 is below the *old* default cap but above the configured one.
 	if _, err := svc.Create(ctx, CreateInput{Name: "awg2"}); domain.CodeOf(err) != domain.CodeInvalidRequest {
 		t.Fatalf("cap not enforced from settings: %v", err)
+	}
+}
+
+func TestValidateObfuscationGated(t *testing.T) {
+	base := Obfuscation{Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, S1: 15, S2: 64, H1: 1, H2: 2, H3: 3, H4: 4}
+	cases := []struct {
+		name    string
+		mutate  func(*Obfuscation)
+		wantErr bool
+	}{
+		{"plain defaults ok", func(o *Obfuscation) {}, false},
+		{"S3/S4 in range", func(o *Obfuscation) { o.S3 = 40; o.S4 = 100 }, false},
+		{"S3 over u16", func(o *Obfuscation) { o.S3 = 70000 }, true},
+		{"padding single value", func(o *Obfuscation) { o.ContentPaddingAddition = "10" }, false},
+		{"padding range", func(o *Obfuscation) { o.ContentPaddingAddition = "10-20" }, false},
+		{"padding inverted range", func(o *Obfuscation) { o.ContentPaddingAddition = "20-10" }, true},
+		{"padding over u16", func(o *Obfuscation) { o.ContentPaddingAddition = "70000" }, true},
+		{"padding garbage", func(o *Obfuscation) { o.ContentPaddingAddition = "10;20" }, true},
+		{"rekey range ok", func(o *Obfuscation) { o.RekeyAfterTime = "120-180" }, false},
+		{"hpk valid", func(o *Obfuscation) {
+			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
+		}, false},
+		{"hpk wrong length", func(o *Obfuscation) {
+			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 16))
+		}, true},
+		{"hpk not base64", func(o *Obfuscation) { o.HeaderProtectionKey = "not-base64!!" }, true},
+		{"timers set", func(o *Obfuscation) {
+			o.RekeyAfterTime = "120"
+			o.RekeyTimeout = "5-10"
+			o.RejectAfterTime = "90"
+			o.KeepaliveTimeout = "25"
+			o.MaxHandshakeAttempts = "5"
+		}, false},
+	}
+	for _, tc := range cases {
+		o := base
+		tc.mutate(&o)
+		err := ValidateObfuscation(o)
+		if tc.wantErr && err == nil {
+			t.Errorf("%s: want error, got nil", tc.name)
+		}
+		if !tc.wantErr && err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+		}
+	}
+}
+
+func TestRandomizeHeaders(t *testing.T) {
+	// Zero headers get filled with distinct non-zero values.
+	o := Obfuscation{Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, H1: 5}
+	randomizeHeaders(&o)
+	hs := [4]uint32{o.H1, o.H2, o.H3, o.H4}
+	seen := map[uint32]bool{}
+	for i, h := range hs {
+		if h == 0 {
+			t.Fatalf("H%d not randomized", i+1)
+		}
+		if seen[h] {
+			t.Fatalf("duplicate header value %d", h)
+		}
+		seen[h] = true
+	}
+	if o.H1 != 5 {
+		t.Fatalf("pre-set header H1 overwritten: %d", o.H1)
+	}
+	// Disabled profiles are untouched.
+	p := Obfuscation{}
+	randomizeHeaders(&p)
+	if p != (Obfuscation{}) {
+		t.Fatal("plain profile mutated")
 	}
 }

@@ -22,6 +22,12 @@ var ErrInterfaceNotFound = errors.New("tunnel: interface not found")
 // constraints are pinned in docs/integrations/amneziawg.md; validation of
 // the kernel-README constraint set happens in the interface service before
 // anything reaches a backend.
+//
+// The 2.0/3.x-generation fields below are capability-gated: the pinned tools
+// parser accepts them (formats verified against src/config.c) but their
+// runtime behavior is unverified until the Phase 8 VPS matrix. They render
+// only when set, and a runtime that silently ignores them surfaces through
+// verify-after-apply.
 type Obfuscation struct {
 	Enabled            bool
 	Jc                 int
@@ -29,6 +35,32 @@ type Obfuscation struct {
 	S1, S2             int
 	H1, H2, H3, H4     uint32
 	I1, I2, I3, I4, I5 string // hex blobs, "" = unset (client-side only params)
+
+	S3, S4                 int    // plain u16 when set
+	HeaderProtectionKey    string // base64 32-byte key, "" = disabled
+	ContentPaddingAddition string // "N" or "N-M" (u16 bounds), "" = disabled
+	RekeyAfterTime         string // seconds, "N" or "N-M", "" = upstream default
+	RekeyTimeout           string
+	RejectAfterTime        string
+	KeepaliveTimeout       string
+	MaxHandshakeAttempts   string
+	RandomTrailers         bool // rendered as "on" (upstream panic history — default off)
+	DisableCookies         bool // rendered as "on" (security implications — default off)
+}
+
+// legacyVerified returns the subset of fields whose runtime behavior is
+// verified end-to-end (the legacy 1.0 parameter set). Drift classification
+// recreates links only on verified-set mismatches; capability-gated 2.0/3.x
+// parameters are report-only so an unverified runtime can never thrash the
+// tunnel with recreate loops (amneziawg.md).
+func (o Obfuscation) LegacyVerified() Obfuscation {
+	return Obfuscation{
+		Enabled: o.Enabled,
+		Jc:      o.Jc, Jmin: o.Jmin, Jmax: o.Jmax,
+		S1: o.S1, S2: o.S2,
+		H1: o.H1, H2: o.H2, H3: o.H3, H4: o.H4,
+		I1: o.I1, I2: o.I2, I3: o.I3, I4: o.I4, I5: o.I5,
+	}
 }
 
 // InterfaceSpec is the identity-level configuration of a backend interface.

@@ -66,6 +66,7 @@ func obfuscationFromForm(r *http.Request) iface.Obfuscation {
 		n, _ := strconv.Atoi(strings.TrimSpace(r.PostFormValue(key)))
 		return n
 	}
+	trim := func(key string) string { return strings.TrimSpace(r.PostFormValue(key)) }
 	o.Jc = atoi("obf_jc")
 	o.Jmin = atoi("obf_jmin")
 	o.Jmax = atoi("obf_jmax")
@@ -75,6 +76,18 @@ func obfuscationFromForm(r *http.Request) iface.Obfuscation {
 	o.H2 = uint32(atoi("obf_h2"))
 	o.H3 = uint32(atoi("obf_h3"))
 	o.H4 = uint32(atoi("obf_h4"))
+	// Capability-gated 2.0/3.x parameters (amneziawg.md).
+	o.S3 = atoi("obf_s3")
+	o.S4 = atoi("obf_s4")
+	o.HeaderProtectionKey = trim("obf_hpk")
+	o.ContentPaddingAddition = trim("obf_padding")
+	o.RekeyAfterTime = trim("obf_rekey_after")
+	o.RekeyTimeout = trim("obf_rekey_timeout")
+	o.RejectAfterTime = trim("obf_reject_after")
+	o.KeepaliveTimeout = trim("obf_keepalive")
+	o.MaxHandshakeAttempts = trim("obf_max_handshake")
+	o.RandomTrailers = r.PostFormValue("obf_random_trailers") == "1"
+	o.DisableCookies = r.PostFormValue("obf_disable_cookies") == "1"
 	return o
 }
 

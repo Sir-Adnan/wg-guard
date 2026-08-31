@@ -89,6 +89,35 @@ func writeObfuscation(sb *strings.Builder, o tunnel.Obfuscation) {
 			sb.WriteString(fmt.Sprintf("I%d = %s\n", i+1, v))
 		}
 	}
+	// 2.0/3.x generation keys (capability-gated, amneziawg.md): written only
+	// when set; flag values are "on"/"off" per the pinned parse_bool.
+	if o.S3 != 0 {
+		sb.WriteString("S3 = " + strconv.Itoa(o.S3) + "\n")
+	}
+	if o.S4 != 0 {
+		sb.WriteString("S4 = " + strconv.Itoa(o.S4) + "\n")
+	}
+	if o.HeaderProtectionKey != "" {
+		sb.WriteString("HeaderProtectionKey = " + o.HeaderProtectionKey + "\n")
+	}
+	for _, kv := range []struct{ key, val string }{
+		{"ContentPaddingAddition", o.ContentPaddingAddition},
+		{"RekeyAfterTime", o.RekeyAfterTime},
+		{"RekeyTimeout", o.RekeyTimeout},
+		{"RejectAfterTime", o.RejectAfterTime},
+		{"KeepaliveTimeout", o.KeepaliveTimeout},
+		{"MaxHandshakeAttempts", o.MaxHandshakeAttempts},
+	} {
+		if kv.val != "" {
+			sb.WriteString(kv.key + " = " + kv.val + "\n")
+		}
+	}
+	if o.RandomTrailers {
+		sb.WriteString("RandomTrailers = on\n")
+	}
+	if o.DisableCookies {
+		sb.WriteString("DisableCookies = on\n")
+	}
 }
 
 func writePeer(sb *strings.Builder, p tunnel.PeerConfig) {

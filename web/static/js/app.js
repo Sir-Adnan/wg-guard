@@ -251,6 +251,21 @@
     if (e.target.closest(".nav a")) setDrawer(false);
   });
 
+  /* ---------- desktop sidebar collapse (persisted) ---------- */
+
+  const shell = $("#shell");
+  function setCollapsed(collapsed) {
+    if (!shell) return;
+    shell.toggleAttribute("data-collapsed", collapsed);
+    try { localStorage.setItem("wg_sidebar", collapsed ? "1" : "0"); } catch { /* private mode */ }
+    $("#btn-collapse")?.setAttribute("aria-expanded", String(!collapsed));
+  }
+  $("#btn-collapse")?.addEventListener("click", () =>
+    setCollapsed(!shell.hasAttribute("data-collapsed")));
+  try {
+    if (localStorage.getItem("wg_sidebar") === "1") shell?.toggleAttribute("data-collapsed", true);
+  } catch { /* ignore */ }
+
   /* ---------- htmx integration ---------- */
 
   document.body.addEventListener("htmx:configRequest", (e) => {
@@ -279,10 +294,38 @@
       obfBox?.querySelectorAll("input:not([data-obf-toggle])").forEach((inp) => {
         inp.disabled = !obfToggle.checked;
       });
+      // Recommended defaults on first enable (the "balanced" preset values;
+      // magic headers stay empty until randomized or typed).
+      if (obfToggle.checked && !obfBox.dataset.defaultsApplied) {
+        obfBox.dataset.defaultsApplied = "1";
+        const defaults = { "obf_jc": 4, "obf_jmin": 40, "obf_jmax": 70, "obf_s1": 15, "obf_s2": 64 };
+        for (const [name, val] of Object.entries(defaults)) {
+          const inp = obfBox.querySelector('input[name="' + name + '"]');
+          if (inp && inp.value === "") inp.value = val;
+        }
+      }
     };
     sync();
     obfToggle.addEventListener("change", sync);
   }
+
+  /* randomize AWG magic headers: distinct non-zero u32 per input */
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-randomize-hs]");
+    if (!btn) return;
+    e.preventDefault();
+    const inputs = btn.dataset.randomizeHs.split(",").map((s) => $(s)).filter(Boolean);
+    const used = new Set(inputs.map((i) => Number(i.value)).filter((v) => v > 0));
+    inputs.forEach((inp) => {
+      if (inp.disabled) return;
+      let v;
+      do {
+        v = Math.floor(Math.random() * 4294967295) + 1;
+      } while (used.has(v));
+      used.add(v);
+      inp.value = v;
+    });
+  });
 
   /* ---------- preset chips (quota / duration quick fill) ---------- */
 

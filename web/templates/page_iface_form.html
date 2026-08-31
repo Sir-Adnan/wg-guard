@@ -11,7 +11,7 @@
 <form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="card card--pad form-card" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
 
-  <fieldset class="onboard-section">
+  <fieldset class="form-section">
     <legend>{{.T "ifaces.form.section_profile"}}</legend>
     <div class="field-row">
       <div class="field">
@@ -66,6 +66,7 @@
       <p class="hint">{{.T "ifaces.obf.hint"}}</p>
       {{$obfOn := false}}
       {{if and .Data.I .Data.I.Obfuscation.Enabled}}{{$obfOn = true}}{{end}}
+
       <div class="field-row">
         <div class="field">
           <label for="i-obf-jc">{{.T "ifaces.obf.jc"}}</label>
@@ -77,11 +78,14 @@
           <input class="input" id="i-obf-jmin" name="obf_jmin" type="number" dir="ltr" min="0" max="1280"
                  value="{{if $obfOn}}{{.Data.I.Obfuscation.Jmin}}{{end}}">
         </div>
+      </div>
+      <div class="field-row">
         <div class="field">
           <label for="i-obf-jmax">{{.T "ifaces.obf.jmax"}}</label>
           <input class="input" id="i-obf-jmax" name="obf_jmax" type="number" dir="ltr" min="0" max="1280"
                  value="{{if $obfOn}}{{.Data.I.Obfuscation.Jmax}}{{end}}">
         </div>
+        <div class="field"></div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -95,30 +99,123 @@
                  value="{{if $obfOn}}{{.Data.I.Obfuscation.S2}}{{end}}">
         </div>
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="i-obf-h1">{{.T "ifaces.obf.h1"}}</label>
+      <div class="field">
+        <label>{{.T "ifaces.obf.h1"}}</label>
+        <div class="field-row">
           <input class="input" id="i-obf-h1" name="obf_h1" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H1}}{{end}}">
-        </div>
-        <div class="field">
-          <label for="i-obf-h2">{{.T "ifaces.obf.h2"}}</label>
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H1}}{{end}}" placeholder="H1">
           <input class="input" id="i-obf-h2" name="obf_h2" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H2}}{{end}}">
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="i-obf-h3">{{.T "ifaces.obf.h3"}}</label>
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H2}}{{end}}" placeholder="H2">
           <input class="input" id="i-obf-h3" name="obf_h3" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H3}}{{end}}">
-        </div>
-        <div class="field">
-          <label for="i-obf-h4">{{.T "ifaces.obf.h4"}}</label>
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H3}}{{end}}" placeholder="H3">
           <input class="input" id="i-obf-h4" name="obf_h4" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H4}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H4}}{{end}}" placeholder="H4">
         </div>
+        <button type="button" class="btn btn--sm" data-randomize-hs="#i-obf-h1,#i-obf-h2,#i-obf-h3,#i-obf-h4">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize"}}</span></button>
       </div>
+
+      <div class="field">
+        <label for="i-obf-i1">{{.T "ifaces.obf.i"}}</label>
+        <div class="field-row">
+          <input class="input" id="i-obf-i1" name="obf_i1" dir="ltr" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.I1}}{{end}}" placeholder="I1 (hex)">
+          <input class="input" id="i-obf-i2" name="obf_i2" dir="ltr" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.I2}}{{end}}" placeholder="I2 (hex)">
+        </div>
+        <div class="field-row">
+          <input class="input" id="i-obf-i3" name="obf_i3" dir="ltr" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.I3}}{{end}}" placeholder="I3 (hex)">
+          <input class="input" id="i-obf-i4" name="obf_i4" dir="ltr" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.I4}}{{end}}" placeholder="I4 (hex)">
+        </div>
+        <input class="input" id="i-obf-i5" name="obf_i5" dir="ltr" spellcheck="false"
+               value="{{if $obfOn}}{{.Data.I.Obfuscation.I5}}{{end}}" placeholder="I5 (hex)">
+        <span class="hint">{{.T "ifaces.obf.ios_warning"}}</span>
+      </div>
+
+      <details class="collapse">
+        <summary>{{.IconS "alert-triangle"}}<span>{{.T "ifaces.obf.gated_title"}}</span></summary>
+        <div class="collapse-body">
+          <div class="callout callout--warn">
+            {{.IconS "alert-triangle"}}<span>{{.T "ifaces.obf.gated_warning"}}</span>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="i-obf-s3">{{.T "ifaces.obf.s3"}}</label>
+              <input class="input" id="i-obf-s3" name="obf_s3" type="number" dir="ltr" min="0" max="65535"
+                     value="{{if $obfOn}}{{if .Data.I.Obfuscation.S3}}{{.Data.I.Obfuscation.S3}}{{end}}{{end}}">
+            </div>
+            <div class="field">
+              <label for="i-obf-s4">{{.T "ifaces.obf.s4"}}</label>
+              <input class="input" id="i-obf-s4" name="obf_s4" type="number" dir="ltr" min="0" max="65535"
+                     value="{{if $obfOn}}{{if .Data.I.Obfuscation.S4}}{{.Data.I.Obfuscation.S4}}{{end}}{{end}}">
+            </div>
+          </div>
+          <div class="field">
+            <label for="i-obf-hpk">{{.T "ifaces.obf.hpk"}}</label>
+            <input class="input" id="i-obf-hpk" name="obf_hpk" dir="ltr" spellcheck="false" maxlength="44"
+                   value="{{if $obfOn}}{{.Data.I.Obfuscation.HeaderProtectionKey}}{{end}}">
+            <span class="hint">{{.T "ifaces.obf.hpk_hint"}}</span>
+          </div>
+          <div class="field">
+            <label for="i-obf-padding">{{.T "ifaces.obf.padding"}}</label>
+            <input class="input" id="i-obf-padding" name="obf_padding" dir="ltr" spellcheck="false" placeholder="10 / 10-20"
+                   value="{{if $obfOn}}{{.Data.I.Obfuscation.ContentPaddingAddition}}{{end}}">
+            <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="i-obf-rekey-after">{{.T "ifaces.obf.rekey_after"}}</label>
+              <input class="input" id="i-obf-rekey-after" name="obf_rekey_after" dir="ltr" spellcheck="false"
+                     value="{{if $obfOn}}{{.Data.I.Obfuscation.RekeyAfterTime}}{{end}}">
+              <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
+            </div>
+            <div class="field">
+              <label for="i-obf-rekey-timeout">{{.T "ifaces.obf.rekey_timeout"}}</label>
+              <input class="input" id="i-obf-rekey-timeout" name="obf_rekey_timeout" dir="ltr" spellcheck="false"
+                     value="{{if $obfOn}}{{.Data.I.Obfuscation.RekeyTimeout}}{{end}}">
+              <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="i-obf-reject-after">{{.T "ifaces.obf.reject_after"}}</label>
+              <input class="input" id="i-obf-reject-after" name="obf_reject_after" dir="ltr" spellcheck="false"
+                     value="{{if $obfOn}}{{.Data.I.Obfuscation.RejectAfterTime}}{{end}}">
+              <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
+            </div>
+            <div class="field">
+              <label for="i-obf-keepalive">{{.T "ifaces.obf.keepalive"}}</label>
+              <input class="input" id="i-obf-keepalive" name="obf_keepalive" dir="ltr" spellcheck="false"
+                     value="{{if $obfOn}}{{.Data.I.Obfuscation.KeepaliveTimeout}}{{end}}">
+              <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="i-obf-max-handshake">{{.T "ifaces.obf.max_handshake"}}</label>
+            <input class="input" id="i-obf-max-handshake" name="obf_max_handshake" dir="ltr" spellcheck="false"
+                   value="{{if $obfOn}}{{.Data.I.Obfuscation.MaxHandshakeAttempts}}{{end}}">
+            <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
+          </div>
+          <div class="field">
+            <label class="check-label" for="i-obf-random-trailers">
+              <input class="checkbox" id="i-obf-random-trailers" type="checkbox" name="obf_random_trailers" value="1"
+                     {{if and $obfOn .Data.I.Obfuscation.RandomTrailers}}checked{{end}}>
+              <span>{{.T "ifaces.obf.random_trailers"}}</span>
+            </label>
+            <span class="hint">{{.T "ifaces.obf.random_trailers_hint"}}</span>
+          </div>
+          <div class="field">
+            <label class="check-label" for="i-obf-disable-cookies">
+              <input class="checkbox" id="i-obf-disable-cookies" type="checkbox" name="obf_disable_cookies" value="1"
+                     {{if and $obfOn .Data.I.Obfuscation.DisableCookies}}checked{{end}}>
+              <span>{{.T "ifaces.obf.disable_cookies"}}</span>
+            </label>
+            <span class="hint">{{.T "ifaces.obf.disable_cookies_hint"}}</span>
+          </div>
+        </div>
+      </details>
+
       {{if .Data.I}}
       <div class="auth-alert auth-alert--warn">
         {{.IconS "alert-triangle"}}<span>{{.T "ifaces.rotation_warning"}}</span>
@@ -127,7 +224,7 @@
     </div>
   </details>
 
-  <fieldset class="onboard-section">
+  <fieldset class="form-section">
     <legend>{{.T "users.form.section_advanced"}}</legend>
     <div class="field">
       <label for="i-endpoint">{{.T "ifaces.endpoint_override"}}</label>

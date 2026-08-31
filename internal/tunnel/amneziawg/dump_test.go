@@ -171,3 +171,50 @@ func TestParseDumpPlainInterface(t *testing.T) {
 		t.Fatal("all-zero obfuscation must parse as plain")
 	}
 }
+
+func TestParseDumpGatedFields(t *testing.T) {
+	// 29-field interface line with gated values (field order per amneziawg.md).
+	f := make([]string, 29)
+	for i := range f {
+		f[i] = "0"
+	}
+	f[0] = "(none)"
+	f[1] = "8N8eM9uMx9WcXWvOHbiu4B9kB8eSvbG3wfZugvwtCWU="
+	f[2] = "39001"
+	f[3] = "4"  // Jc
+	f[4] = "40" // Jmin
+	f[5] = "70" // Jmax
+	f[6] = "15" // S1
+	f[7] = "64" // S2
+	f[8] = "40" // S3
+	f[9] = "0"  // S4 unset
+	f[10], f[11], f[12], f[13] = "11", "22", "33", "44"
+	for i := 14; i <= 18; i++ {
+		f[i] = "(null)"
+	}
+	f[19] = "(none)"
+	f[20] = "10-20" // content padding
+	f[21] = "120-180"
+	f[25] = "5"
+	f[26] = "on"
+	f[27] = "off"
+	f[28] = "off"
+
+	st, err := parseDump("awg0", []byte(strings.Join(f, "\t")+"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := st.Obfuscation
+	if o.S3 != 40 || o.S4 != 0 {
+		t.Fatalf("S3/S4: %d %d", o.S3, o.S4)
+	}
+	if o.HeaderProtectionKey != "" {
+		t.Fatalf("hpk: %q", o.HeaderProtectionKey)
+	}
+	if o.ContentPaddingAddition != "10-20" || o.RekeyAfterTime != "120-180" || o.MaxHandshakeAttempts != "5" {
+		t.Fatalf("ranges: %q %q %q", o.ContentPaddingAddition, o.RekeyAfterTime, o.MaxHandshakeAttempts)
+	}
+	if !o.RandomTrailers || o.DisableCookies {
+		t.Fatalf("flags: %v %v", o.RandomTrailers, o.DisableCookies)
+	}
+}
