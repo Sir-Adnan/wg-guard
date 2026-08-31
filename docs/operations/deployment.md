@@ -34,6 +34,34 @@ Same binary as a hardened systemd service (`NoNewPrivileges`, `ProtectSystem=str
 `PrivateTmp`, ambient `NET_ADMIN`), same `/etc/wg-guard` + `/var/lib/wg-guard` layout.
 Spec compliance: Docker is never *required*.
 
+## Interactive installer
+
+`wg-guard install` walks a short wizard; **pressing Enter everywhere is a complete,
+sensible install** (Docker, no domain → loopback HTTP for a reverse proxy; with a domain →
+ACME on 443). `--yes` skips all prompting and uses flags + defaults only — an explicit
+`--tls` flag is never overridden by a prompt default.
+
+1. Mode (Docker default / native), domain, TLS mode, panel + ACME challenge ports.
+2. *Optional* — **VPN network defaults** (Enter keeps the recommended defaults):
+   AWG listen-port allocation range (`network.port_min/port_max`), the VPN pool offered to
+   the first interface (`network.default_pool`), client MTU (`network.mtu`), client DNS
+   resolvers (`network.dns_servers`).
+3. *Optional* — **Telegram backups** (skipping leaves the panel defaults): bot token
+   (input is hidden on terminals and travels via stdin — never argv, logs or state),
+   chat ID, and a daily UTC backup time that creates an enabled `installer-daily` schedule.
+4. Container image (Docker mode) and a final plan confirmation.
+
+Every choice lands in the Settings registry / backup schedules and stays editable in the
+panel afterwards; values equal to the registry defaults are not persisted.
+
+**When seeding happens matters**: the collected settings are applied through the installed
+CLI (`wg-guard settings set`, `wg-guard backup schedule-add`) **before the service first
+boots** — the registry caches values in memory, so post-boot CLI writes would stay invisible
+until a restart. The panel domain is also seeded as `node.endpoint`, so the first exported
+client config carries a working `Endpoint` line. In Docker mode this runs before the state
+file exists, so the shim executes host-direct against the bind-mounted data dir (same DB the
+container will use).
+
 ## Listening & TLS (built-in; no reverse proxy required)
 
 `wg-guard serve` loads boot config from `/etc/wg-guard/wg-guard.toml` (override with
@@ -81,10 +109,10 @@ the Phase 8 VPS matrix.
 |---|---|---|
 | Panel HTTP | 8080 | yes (boot config + Settings) |
 | Panel TLS | 443 (any port supported) | yes |
-| AWG listen port (per interface) | random 30000–50000; low ports prompt in installer | yes (per interface, hot-applied) |
-| MTU | 1420 | yes (global default + per interface) |
-| VPN pool | `10.8.0.0/16` carved per interface (`10.8.N.0/24`) | yes (per interface, validated) |
-| Client DNS (generated configs) | `1.1.1.1, 1.0.0.1` | yes (Settings) |
+| AWG listen ports | allocated randomly from `network.port_min`–`port_max` (30000–50000); the range is promptable at install | yes (Settings, hot-applied) |
+| MTU | 1420 (promptable at install) | yes (global default + per interface) |
+| VPN pool | first interface honors `network.default_pool` (promptable at install; empty = `10.8.0.0/24`), later interfaces continue the `10.8.N.0/24` ladder | yes (Settings + per interface, validated) |
+| Client DNS (generated configs) | `1.1.1.1, 1.0.0.1` (promptable at install) | yes (Settings) |
 | Max tunnel interfaces | 8 (`awg0…awg7`) | yes (Settings) |
 
 ## Updates

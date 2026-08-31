@@ -54,6 +54,17 @@ func Defaults() []Definition {
 				}
 				return nil
 			}},
+		// Pool offered to the first interface (awg0) when its subnet is left
+		// blank; later interfaces continue the 10.8.N.0/24 ladder. The
+		// installer seeds this so a conflicting 10.8.0.0/24 can be avoided at
+		// install time.
+		{Key: "network.default_pool", Kind: KindString, Default: "", Category: "networking", Persistent: true,
+			Validator: func(v any) error {
+				if s := v.(string); s != "" {
+					return ValidSubnet(s)
+				}
+				return nil
+			}},
 		{Key: "interfaces.max_count", Kind: KindInt, Default: 8, Min: 1, Max: 64,
 			Category: "interfaces", Persistent: true},
 

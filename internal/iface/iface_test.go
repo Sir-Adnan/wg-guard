@@ -74,6 +74,39 @@ func TestCreateDefaults(t *testing.T) {
 	}
 }
 
+// TestCreateDefaultPoolSetting: network.default_pool drives the subnet
+// offered to awg0 when its subnet is left blank (the installer seeds it);
+// later interfaces keep the 10.8.N.0/24 ladder.
+func TestCreateDefaultPoolSetting(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+	if err := svc.reg.Set(ctx, "network.default_pool", "10.77.0.0/24"); err != nil {
+		t.Fatalf("set pool: %v", err)
+	}
+	ifc, err := svc.Create(ctx, CreateInput{Name: "awg0", Obfuscation: balancedObfuscation()})
+	if err != nil {
+		t.Fatalf("create awg0: %v", err)
+	}
+	if ifc.Subnet != "10.77.0.0/24" {
+		t.Fatalf("awg0 subnet = %q, want the configured pool", ifc.Subnet)
+	}
+	next, err := svc.Create(ctx, CreateInput{Name: "awg1", Obfuscation: balancedObfuscation()})
+	if err != nil {
+		t.Fatalf("create awg1: %v", err)
+	}
+	if next.Subnet != "10.8.1.0/24" {
+		t.Fatalf("awg1 subnet = %q, want the ladder default", next.Subnet)
+	}
+	// An explicitly requested subnet always wins.
+	explicit, err := svc.Create(ctx, CreateInput{Name: "awg2", Subnet: "10.78.0.0/24", Obfuscation: balancedObfuscation()})
+	if err != nil {
+		t.Fatalf("create awg2: %v", err)
+	}
+	if explicit.Subnet != "10.78.0.0/24" {
+		t.Fatalf("awg2 subnet = %q", explicit.Subnet)
+	}
+}
+
 func TestCreateValidation(t *testing.T) {
 	svc := newService(t)
 	ctx := context.Background()

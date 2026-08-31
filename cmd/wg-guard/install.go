@@ -62,9 +62,13 @@ func runInstall(args []string) error {
 	}
 
 	plan := install.Defaults()
-	if *mode != "" {
+	switch {
+	case *mode != "":
 		plan.Mode = install.Mode(*mode)
-	}
+	case !*yes:
+		// Interactive: the wizard asks for the mode (Enter = Docker default).
+		plan.Mode = ""
+	} // --yes without --mode keeps the Docker default
 	plan.Domain = *domain
 	if *tlsMode != "" {
 		plan.TLSMode = config.TLSMode(*tlsMode)

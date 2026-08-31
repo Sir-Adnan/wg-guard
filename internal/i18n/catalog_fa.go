@@ -688,6 +688,8 @@ var catalogFA = map[string]string{
 	"settings.allowed_ips_hint":           "چه ترافیکی به تونل هدایت شود. ‏0.0.0.0/0 = همه.",
 	"settings.port_min":                   "بازهٔ پورت خودکار (کمینه)",
 	"settings.port_max":                   "بازهٔ پورت خودکار (بیشینه)",
+	"settings.default_pool":               "استخر پیش‌فرض VPN",
+	"settings.default_pool_hint":          "زیرشبکه‌ای که برای اولین اینترفیس (awg0) وقتی خالی گذاشته شود در نظر گرفته می‌شود؛ اینترفیس‌های بعدی دنبالهٔ 10.8.N.0/24 را ادامه می‌دهند.",
 	"settings.iface_max":                  "سقف اینترفیس",
 	"settings.drift_policy":               "سیاست همتای ناشناخته",
 	"settings.drift_hint":                 "report = فقط گزارش، adopt = تصاحب، remove = حذف. موتور همگام‌سازی اعمال می‌کند.",

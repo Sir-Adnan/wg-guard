@@ -120,7 +120,11 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		rep.PurgedPkgs = st.PackagesInstalled
 	}
 
-	fmt.Fprintf(out, "\nWG-Guard uninstalled. %s\n", dataFate(o.PurgeData, st.DataDir))
+	if o.PurgeData {
+		fmt.Fprintf(out, "\nWG-Guard uninstalled. Data purged (%s).\n", st.DataDir)
+	} else {
+		fmt.Fprintf(out, "\nWG-Guard uninstalled. Data kept at %s — delete manually when sure.\n", st.DataDir)
+	}
 	return rep, nil
 }
 

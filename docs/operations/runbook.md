@@ -13,9 +13,21 @@ wg-guard install --mode native --tls proxy --panel-port 8080 --yes
 
 The wizard asks for: mode (Docker default / native systemd), domain (blank = IP-only),
 TLS mode (ACME automatic with a domain; manual certs; proxy; dev), panel port, ACME challenge
-port (default 80), and the container image (Docker mode). `--yes` skips every prompt (flags +
-defaults; it never reads stdin). AWG ports, subnet and MTU are deliberately not collected —
-the panel's Settings own those defaults and per-interface values are hot-editable.
+port (default 80), and the container image (Docker mode). Two optional sections follow, both
+defaulting to skip — **pressing Enter everywhere is a complete install**:
+
+- *VPN network defaults*: AWG listen-port allocation range, the VPN pool offered to the
+  first interface (awg0), client MTU, client DNS resolvers. Per-interface values remain
+  hot-editable in the panel.
+- *Telegram backups*: bot token (hidden input on terminals, transported via stdin — never
+  argv or logs), chat ID and a daily UTC backup time (creates an enabled `installer-daily`
+  schedule).
+
+The panel domain is also seeded as the client-facing endpoint (`node.endpoint`), so the
+first exported config works without a Settings visit. All collected values are applied
+before the service first boots (the settings registry caches in memory) and remain editable
+in the panel: Settings → Backups/Networking. `--yes` skips every prompt (flags + defaults;
+it never reads stdin) and never overrides an explicit `--tls` flag.
 
 What it writes: `/etc/wg-guard/wg-guard.toml` (0600), `/var/lib/wg-guard/`, the compose
 project (`/etc/wg-guard/compose.yaml`) or the hardened systemd unit, the host CLI at
@@ -64,9 +76,10 @@ See [backup-restore.md](backup-restore.md) for the full procedure. Quick referen
 wg-guard backup create                          # manual archive to the local sink
 wg-guard backup create --password               # prompt for an archive password (age)
 wg-guard backup list                            # local archives + schedule status
+wg-guard backup schedule-add -kind daily -time 03:30 [-name N] [-retention N]
 wg-guard restore /path/to/archive.wgg           # verify + review; applies with the service
                                                 #   stopped, stages for boot otherwise
-wg-guard settings set backup.telegram_token …   # or: Settings → Backups in the panel
+echo SECRET | wg-guard settings set backup.telegram_token -stdin   # secret via stdin, not argv
 wg-guard settings set backup.telegram_chat 123456789
 wg-guard backup telegram-test                   # verify delivery
 wg-guard settings list | get KEY | set KEY VAL  # runtime settings (secrets never printed)

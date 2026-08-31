@@ -5,11 +5,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"golang.org/x/term"
 )
 
 // renderBootConfig serializes the plan's boot config as TOML bytes.
@@ -105,8 +110,12 @@ func (q *prompt) askChoice(label string, options []string, def int) (int, error)
 }
 
 // plan completes missing Plan fields interactively (no-op under --yes,
-// which uses flags + defaults).
+// which uses flags + defaults only — explicit flags must never be silently
+// overridden by prompt defaults).
 func (q *prompt) plan(p *Plan, h Host) error {
+	if q.yes {
+		return nil
+	}
 	if p.Mode == "" || !p.Mode.Valid() {
 		n, err := q.askChoice("Installation mode:", []string{
 			"Docker (recommended — declarative upgrades, isolated control plane)",
@@ -128,31 +137,35 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	}
 	p.Domain = domain
 
-	if p.Domain == "" {
-		n, err := q.askChoice("TLS mode (no domain):", []string{
-			"Behind a reverse proxy — plain HTTP on loopback, proxy terminates TLS",
-			"Development — plain HTTP on loopback only, NOT for production",
-		}, 1)
-		if err != nil {
-			return err
-		}
-		if n == 1 {
-			p.TLSMode = config.TLSModeProxy
+	// TLS mode: an explicit --tls value is kept; the dev sentinel means
+	// "not chosen yet" and is prompted (Resolve derives ACME from a domain).
+	if p.TLSMode == config.TLSModeDev {
+		if p.Domain == "" {
+			n, err := q.askChoice("TLS mode (no domain):", []string{
+				"Behind a reverse proxy — plain HTTP on loopback, proxy terminates TLS",
+				"Development — plain HTTP on loopback only, NOT for production",
+			}, 1)
+			if err != nil {
+				return err
+			}
+			if n == 1 {
+				p.TLSMode = config.TLSModeProxy
+			} else {
+				p.TLSMode = config.TLSModeDev
+			}
 		} else {
-			p.TLSMode = config.TLSModeDev
-		}
-	} else {
-		n, err := q.askChoice(fmt.Sprintf("TLS mode for %s:", p.Domain), []string{
-			"Automatic certificate (ACME/Let's Encrypt) — recommended; needs port 80 reachable",
-			"Manual certificates — provide cert/key file paths",
-		}, 1)
-		if err != nil {
-			return err
-		}
-		if n == 1 {
-			p.TLSMode = config.TLSModeACME
-		} else {
-			p.TLSMode = config.TLSModeManual
+			n, err := q.askChoice(fmt.Sprintf("TLS mode for %s:", p.Domain), []string{
+				"Automatic certificate (ACME/Let's Encrypt) — recommended; needs port 80 reachable",
+				"Manual certificates — provide cert/key file paths",
+			}, 1)
+			if err != nil {
+				return err
+			}
+			if n == 1 {
+				p.TLSMode = config.TLSModeACME
+			} else {
+				p.TLSMode = config.TLSModeManual
+			}
 		}
 	}
 
@@ -184,6 +197,13 @@ func (q *prompt) plan(p *Plan, h Host) error {
 		}
 	}
 
+	if err := q.planNetwork(p); err != nil {
+		return err
+	}
+	if err := q.planTelegram(p); err != nil {
+		return err
+	}
+
 	if p.Mode == ModeDocker {
 		if img, err := q.ask("Container image", p.Image); err != nil {
 			return err
@@ -192,6 +212,160 @@ func (q *prompt) plan(p *Plan, h Host) error {
 		}
 	}
 	return nil
+}
+
+// planNetwork offers the VPN networking defaults behind a y/N gate: Enter
+// everywhere keeps the recommended defaults, so a normal install stays
+// short. Customized values are seeded into the settings registry before the
+// service first boots.
+func (q *prompt) planNetwork(p *Plan) error {
+	yes, err := q.askYesNo("Customize VPN network defaults? (AWG port range, VPN subnet, MTU, client DNS — Enter keeps all defaults)", false)
+	if err != nil || !yes {
+		return err
+	}
+	if p.PortMin, err = q.askInt("AWG listen-port allocation range — start", 30000, 1024, 65535); err != nil {
+		return err
+	}
+	for {
+		if p.PortMax, err = q.askInt("AWG listen-port allocation range — end", 50000, 1024, 65535); err != nil {
+			return err
+		}
+		if p.PortMax >= p.PortMin {
+			break
+		}
+		fmt.Fprintf(q.out, "  end must be ≥ start (%d)\n", p.PortMin)
+	}
+	for {
+		if p.VPNSubnet, err = q.ask("VPN subnet pool for the first interface (awg0)", builtInPool); err != nil {
+			return err
+		}
+		if err := settings.ValidSubnet(p.VPNSubnet); err == nil {
+			break
+		}
+		fmt.Fprintln(q.out, "  enter a valid IPv4 CIDR, e.g. 10.8.0.0/24")
+	}
+	if p.VPNSubnet == builtInPool {
+		p.VPNSubnet = "" // the built-in ladder default needs no explicit setting
+	}
+	if p.MTU, err = q.askInt("Client MTU", 1420, 576, 65535); err != nil {
+		return err
+	}
+	for {
+		if p.ClientDNS, err = q.ask("Client DNS servers (comma-separated IPs)", "1.1.1.1, 1.0.0.1"); err != nil {
+			return err
+		}
+		if validIPList(p.ClientDNS) {
+			break
+		}
+		fmt.Fprintln(q.out, "  every entry must be an IP address")
+	}
+	return nil
+}
+
+// planTelegram offers Telegram backup delivery behind a y/N gate; skipping
+// keeps the panel defaults (the backup settings live in the panel under
+// Settings → Backups).
+func (q *prompt) planTelegram(p *Plan) error {
+	yes, err := q.askYesNo("Set up Telegram backups now? (bot token, chat ID, daily schedule — can be configured later in the panel)", false)
+	if err != nil || !yes {
+		return err
+	}
+	token, err := q.askSecret("Telegram bot token (from @BotFather; hidden on terminals)")
+	if err != nil {
+		return err
+	}
+	if token == "" {
+		fmt.Fprintln(q.out, "  no token entered — skipping (configure later in the panel)")
+		return nil
+	}
+	for {
+		if p.TelegramChat, err = q.ask("Telegram chat ID (numeric — message the bot once, then check it)", ""); err != nil {
+			return err
+		}
+		if isDigits(p.TelegramChat) {
+			break
+		}
+		fmt.Fprintln(q.out, "  chat ID must be numeric")
+	}
+	for {
+		if p.TelegramTime, err = q.ask("Daily backup time (UTC, HH:MM)", "03:30"); err != nil {
+			return err
+		}
+		if dailyTimeRe.MatchString(p.TelegramTime) {
+			break
+		}
+		fmt.Fprintln(q.out, "  enter the time as HH:MM (00:00–23:59)")
+	}
+	p.TelegramToken = token
+	return nil
+}
+
+// dailyTimeRe matches the HH:MM the backup scheduler accepts (UTC).
+var dailyTimeRe = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
+
+func validIPList(s string) bool {
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" || net.ParseIP(part) == nil {
+			return false
+		}
+	}
+	return true
+}
+
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// askYesNo reads a yes/no answer; empty input returns def (Enter = default).
+func (q *prompt) askYesNo(label string, def bool) (bool, error) {
+	choice := "n"
+	if def {
+		choice = "y"
+	}
+	raw, err := q.ask(label, choice)
+	if err != nil {
+		return false, err
+	}
+	switch strings.ToLower(raw) {
+	case "y", "yes":
+		return true, nil
+	case "n", "no":
+		return false, nil
+	}
+	return def, nil
+}
+
+// askSecret reads a secret: without echo when stdin is a terminal (x/term),
+// plain line read when piped (scripted installs, tests). The value travels
+// to the CLI via stdin — never argv, never output.
+func (q *prompt) askSecret(label string) (string, error) {
+	if q.yes {
+		return "", nil
+	}
+	fmt.Fprintf(q.out, "%s: ", label)
+	fd := int(os.Stdin.Fd())
+	if term.IsTerminal(fd) {
+		b, err := term.ReadPassword(fd)
+		fmt.Fprintln(q.out)
+		if err != nil {
+			return "", fmt.Errorf("read %s: %w", label, err)
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	line, err := q.reader.ReadString('\n')
+	if err != nil && line == "" {
+		return "", fmt.Errorf("read %s: %w", label, err)
+	}
+	return strings.TrimSpace(line), nil
 }
 
 // confirm prints the resolved plan and asks for confirmation (skipped under
@@ -213,6 +387,23 @@ func (q *prompt) confirm(p Plan) error {
 	fmt.Fprintln(q.out)
 	if p.Mode == ModeDocker {
 		fmt.Fprintf(q.out, "  image      %s\n", p.Image)
+	}
+	if p.PortMin != 0 || p.PortMax != 0 {
+		fmt.Fprintf(q.out, "  awg ports  %d–%d\n", p.PortMin, p.PortMax)
+	}
+	if p.VPNSubnet != "" {
+		fmt.Fprintf(q.out, "  vpn pool   %s (first interface)\n", p.VPNSubnet)
+	}
+	if p.MTU != 0 {
+		fmt.Fprintf(q.out, "  mtu        %d\n", p.MTU)
+	}
+	if p.ClientDNS != "" {
+		fmt.Fprintf(q.out, "  client dns %s\n", p.ClientDNS)
+	}
+	if p.TelegramToken != "" {
+		fmt.Fprintf(q.out, "  telegram   chat %s, daily %s UTC\n", p.TelegramChat, p.TelegramTime)
+	} else {
+		fmt.Fprintf(q.out, "  telegram   not configured (panel → Backups)\n")
 	}
 	fmt.Fprintf(q.out, "  config     %s\n", p.BootConfigPath())
 	fmt.Fprintf(q.out, "  data       %s\n", p.DataDir)

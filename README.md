@@ -51,6 +51,12 @@ sudo ./wg-guard install            # wizard: mode, domain, TLS, ports — every 
 sudo ./wg-guard install --mode docker --domain vpn.example.com --yes   # non-interactive
 ```
 
+The wizard also offers two optional sections (skipped with Enter): VPN network defaults —
+AWG port allocation range, first-interface VPN pool, client MTU and DNS — and Telegram
+backup delivery (bot token, chat ID, daily schedule). Everything stays editable later in
+the panel, and the panel domain is seeded as the client endpoint so the first exported
+config works immediately.
+
 The installer writes `/etc/wg-guard/wg-guard.toml` and the data directory, brings the service
 up (compose project or hardened systemd unit), health-checks it, and prints the panel URL —
 open it and finish the first-run owner wizard. Certificate issuance (ACME) happens

@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -18,6 +19,9 @@ type Host interface {
 	// A non-zero exit returns an error describing the failure (stderr is
 	// safe: installer commands never touch key material).
 	Run(ctx context.Context, argv []string, timeout time.Duration) error
+	// RunWithInput runs argv feeding stdin from r. Secrets (settings values,
+	// passphrases) travel this way — never via argv (security.md).
+	RunWithInput(ctx context.Context, argv []string, stdin io.Reader, timeout time.Duration) error
 	// Output runs argv and captures stdout (status formatting needs the
 	// command's value, not just its exit status).
 	Output(ctx context.Context, argv []string, timeout time.Duration) (string, error)
@@ -60,6 +64,20 @@ func (realHost) Run(ctx context.Context, argv []string, timeout time.Duration) e
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
+func (realHost) RunWithInput(ctx context.Context, argv []string, stdin io.Reader, timeout time.Duration) error {
+	runCtx := ctx
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) //nolint:gosec // explicit argv, installer-controlled
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = stdin
 	return cmd.Run()
 }
 
@@ -144,7 +162,8 @@ type memFile struct {
 }
 
 type memCmd struct {
-	argv []string
+	argv  []string
+	stdin []byte // RunWithInput payload (secrets land here, never in argv)
 }
 
 func newMemHost() *memHost {
@@ -159,6 +178,17 @@ func newMemHost() *memHost {
 
 func (m *memHost) Run(_ context.Context, argv []string, _ time.Duration) error {
 	m.commands = append(m.commands, memCmd{argv: argv})
+	if err := m.failCmd[argv[0]]; err != nil {
+		return err
+	}
+	return nil
+}
+
+// RunWithInput records the argv and the stdin payload separately, so tests
+// can assert a secret was transported via stdin and never via argv.
+func (m *memHost) RunWithInput(_ context.Context, argv []string, stdin io.Reader, _ time.Duration) error {
+	data, _ := io.ReadAll(stdin)
+	m.commands = append(m.commands, memCmd{argv: argv, stdin: data})
 	if err := m.failCmd[argv[0]]; err != nil {
 		return err
 	}

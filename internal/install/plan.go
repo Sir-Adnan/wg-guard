@@ -65,6 +65,21 @@ type Plan struct {
 	// Image is the container reference (docker mode).
 	Image string
 
+	// Runtime settings collected by the wizard (all optional; zero values
+	// keep the registry defaults — nothing here is seeded unless the
+	// administrator actually chose it). They are applied through the
+	// installed CLI BEFORE the service first boots: the settings registry
+	// caches values in memory, so post-boot writes would be invisible until
+	// a restart. TelegramToken is a secret: it is transported via stdin only
+	// and never appears in argv, output or the state file.
+	PortMin, PortMax int    // AWG listen-port allocation range
+	VPNSubnet        string // pool offered to the first interface (awg0)
+	MTU              int    // client + interface MTU
+	ClientDNS        string // comma-separated client DNS resolvers
+	TelegramToken    string
+	TelegramChat     string
+	TelegramTime     string // daily backup time "HH:MM" UTC; "" = no schedule
+
 	// EtcDir/DataDir are the fixed layout paths (fields for tests).
 	EtcDir  string
 	DataDir string

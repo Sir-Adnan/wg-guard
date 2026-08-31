@@ -42,6 +42,7 @@ type settingsData struct {
 	Keepalive    int
 	PortMin      int
 	PortMax      int
+	DefaultPool  string
 	IfaceMax     int
 	DriftPolicy  string
 	DriftOptions []string
@@ -110,6 +111,7 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 	d.Keepalive = getInt("network.client_keepalive_seconds")
 	d.PortMin = getInt("network.port_min")
 	d.PortMax = getInt("network.port_max")
+	d.DefaultPool = get("network.default_pool")
 	d.IfaceMax = getInt("interfaces.max_count")
 	d.DriftPolicy = get("drift.policy")
 
@@ -159,6 +161,7 @@ var settingSpecs = []setSpec{
 	{"network.client_keepalive_seconds", "keepalive", "int"},
 	{"network.port_min", "port_min", "int"},
 	{"network.port_max", "port_max", "int"},
+	{"network.default_pool", "default_pool", "str"},
 	{"interfaces.max_count", "iface_max", "int"},
 	{"drift.policy", "drift_policy", "str"},
 	{"accounting.interval_seconds", "acct_interval", "int"},
@@ -296,6 +299,8 @@ func (s *Server) submittedSettingsData(r *http.Request) settingsData {
 			d.PortMin = intOf(spec.form)
 		case "port_max":
 			d.PortMax = intOf(spec.form)
+		case "default_pool":
+			d.DefaultPool = str(spec.form)
 		case "iface_max":
 			d.IfaceMax = intOf(spec.form)
 		case "drift_policy":

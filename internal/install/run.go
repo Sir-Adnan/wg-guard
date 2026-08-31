@@ -169,6 +169,12 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 		fmt.Fprintf(out, "  (docs/operations/deployment.md → Host requirements)\n")
 	}
 
+	// Runtime settings (wizard choices) seed through the installed CLI while
+	// the state file still doesn't exist — see seedSettings for why.
+	if err := seedSettings(ctx, h, p, out); err != nil {
+		return err
+	}
+
 	step(out, "Starting container")
 	if err := h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "up", "-d"}, longTimeout); err != nil {
 		return fmt.Errorf("install: docker compose up: %w", err)
@@ -193,6 +199,12 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	}
 	st.BinPath = BinPath
 	fmt.Fprintf(out, "  %s → %s\n", self, BinPath)
+
+	// Runtime settings (wizard choices) seed through the just-installed
+	// binary before the service starts — see seedSettings for why.
+	if err := seedSettings(ctx, h, p, out); err != nil {
+		return err
+	}
 
 	step(out, "Systemd unit")
 	if err := h.WriteFile(UnitPath, []byte(RenderUnit(p)), 0o644); err != nil {
@@ -378,8 +390,11 @@ func printSummary(out io.Writer, p Plan, st *State) {
 	} else {
 		fmt.Fprintf(out, "  Service:      systemctl <status|restart|stop> wg-guard\n")
 	}
-	fmt.Fprintf(out, "  Diagnostics:  wg-guard doctor\n\n")
-	fmt.Fprintf(out, "  Next steps:\n")
+	fmt.Fprintf(out, "  Diagnostics:  wg-guard doctor\n")
+	if p.TelegramToken != "" {
+		fmt.Fprintf(out, "  Telegram:     daily %s UTC → chat %s (test: wg-guard backup telegram-test)\n", p.TelegramTime, p.TelegramChat)
+	}
+	fmt.Fprintf(out, "\n  Next steps:\n")
 	fmt.Fprintf(out, "   1. Open %s and create the owner account (first-run wizard).\n", p.PanelURL())
 	if p.TLSMode == "acme" {
 		fmt.Fprintf(out, "   2. The TLS certificate is issued on first browser visit (needs port %d reachable).\n", p.ACMEHTTPPort)

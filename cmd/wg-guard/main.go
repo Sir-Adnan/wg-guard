@@ -20,7 +20,8 @@ Commands:
   install     Interactive installer (Docker default, native systemd secondary;
               --yes for non-interactive installs)
               install [--mode docker|native] [--domain D] [--tls acme|manual|proxy|dev]
-                      [--panel-port N] [--image REF] [--yes]
+                      [--panel-port N] [--acme-http-port N] [--cert-file F --key-file F]
+                      [--image REF] [--skip-module] [--yes]
   update      Explicit update: pre-upgrade backup, swap, health-checked rollback
               update [--image REF] (docker) | update --binary PATH (native)
   uninstall   Remove WG-Guard (data kept unless --purge-data)
@@ -35,12 +36,14 @@ Commands:
               token list | token revoke ID | token scopes
   backup      Manage archives (docs/operations/backup-restore.md)
               backup create [-password] [-output DIR] [-reason TEXT] | backup list
+              backup schedule-add -kind daily -time 03:30 [-name N] [-retention N]
               backup telegram-test
   restore     Restore an archive (verifies, reviews, applies with the
               service stopped; staged otherwise)
               restore ARCHIVE [-password] [-yes]
   settings    Read/write runtime settings (secrets are never printed)
               settings list | settings get KEY | settings set KEY VALUE
+              echo SECRET | settings set KEY -stdin   (secret via stdin, not argv)
   doctor      Health checks + safe repairs
               doctor [-fix]
   secrets     Master-key rotation (service must be stopped)

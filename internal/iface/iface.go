@@ -291,7 +291,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 
 	subnet := in.Subnet
 	if subnet == "" {
-		subnet = fmt.Sprintf("10.8.%d.0/24", n) // recommended default per requirements.md
+		subnet = s.defaultPool(ctx, n)
 	}
 	if err := settings.ValidSubnet(subnet); err != nil {
 		return nil, domain.E(domain.CodeSubnetInvalid, "%v", err)
@@ -449,6 +449,19 @@ func validatePort(p int) error {
 		return domain.E(domain.CodeInvalidRequest, "listen port must be 1024–65535, got %d", p)
 	}
 	return nil
+}
+
+// defaultPool resolves the subnet for a new interface whose subnet was left
+// blank: awg0 honors the network.default_pool setting (seeded by the
+// installer or set in the panel to avoid a conflicting 10.8.0.0/24); later
+// interfaces continue the 10.8.N.0/24 ladder (requirements.md).
+func (s *Service) defaultPool(ctx context.Context, n int) string {
+	if n == 0 {
+		if pool, err := s.reg.GetString(ctx, "network.default_pool"); err == nil && pool != "" {
+			return pool
+		}
+	}
+	return fmt.Sprintf("10.8.%d.0/24", n)
 }
 
 // allocatePort picks a random free port from the configured window.

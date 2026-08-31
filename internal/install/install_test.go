@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -331,10 +332,14 @@ func TestUninstallDockerKeepsDataByDefault(t *testing.T) {
 	}
 
 	// Real uninstall (confirmed non-interactively).
+	var out strings.Builder
 	if _, err := Uninstall(context.Background(), h, UninstallOptions{
-		Yes: true, Stdin: strings.NewReader("uninstall\n"), Stdout: &strings.Builder{},
+		Yes: true, Stdin: strings.NewReader("uninstall\n"), Stdout: &out,
 	}); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Data kept at "+DataDir) {
+		t.Errorf("summary must state the kept data path, got: %s", out.String())
 	}
 	if !h.ran("docker", "compose", "-f", ComposePth, "down") {
 		t.Errorf("compose down not run: %v", h.ranCommands())
@@ -361,13 +366,17 @@ func TestUninstallPurgeData(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	var out strings.Builder
 	if _, err := Uninstall(context.Background(), h, UninstallOptions{
-		Yes: true, PurgeData: true, Stdin: strings.NewReader("uninstall\n"), Stdout: &strings.Builder{},
+		Yes: true, PurgeData: true, Stdin: strings.NewReader("uninstall\n"), Stdout: &out,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if h.dirs[DataDir] {
 		t.Error("data dir kept despite --purge-data")
+	}
+	if !strings.Contains(out.String(), "Data purged ("+DataDir+")") {
+		t.Errorf("summary must state the purge in past tense, got: %s", out.String())
 	}
 }
 
@@ -491,7 +500,7 @@ func TestUpdateNativeRequiresBinary(t *testing.T) {
 }
 
 // TestPromptWizardScripted: scripted stdin drives the full wizard to the
-// same plan flags would produce.
+// same plan flags would produce (the optional sections default to skip).
 func TestPromptWizardScripted(t *testing.T) {
 	h := newMemHost()
 	q := newPrompt(strings.NewReader(
@@ -500,6 +509,8 @@ func TestPromptWizardScripted(t *testing.T) {
 			"1\n"+ // tls: acme
 			"\n"+ // panel port: default 443
 			"\n"+ // acme port: default 80
+			"\n"+ // network defaults gate: skip
+			"\n"+ // telegram gate: skip
 			"\n"+ // image: default
 			"yes\n"), // confirm
 		&strings.Builder{}, false)
@@ -518,6 +529,83 @@ func TestPromptWizardScripted(t *testing.T) {
 	if res.TLSMode != config.TLSModeACME || res.Domain != "vpn.example.com" ||
 		res.PanelPort != 443 || res.Mode != ModeDocker {
 		t.Fatalf("resolved plan: %+v", res)
+	}
+	if res.PortMin != 0 || res.MTU != 0 || res.TelegramToken != "" {
+		t.Fatalf("skipped sections must leave the plan untouched: %+v", res)
+	}
+}
+
+// TestPromptWizardCustomSettings: the optional sections collect the VPN
+// network defaults and Telegram delivery; the token must never reach the
+// output (it travels via stdin only).
+func TestPromptWizardCustomSettings(t *testing.T) {
+	h := newMemHost()
+	var out strings.Builder
+	const token = "777000:AAE_test_token_not_real"
+	q := newPrompt(strings.NewReader(
+		"1\n"+ // mode: docker
+			"vpn.example.com\n"+ // domain
+			"1\n"+ // tls: acme
+			"\n"+ // panel port
+			"\n"+ // acme port
+			"y\n"+ // network gate
+			"40000\n"+ // port range start
+			"40500\n"+ // port range end
+			"10.77.0.0/24\n"+ // subnet
+			"1380\n"+ // MTU
+			"9.9.9.9, 149.112.112.112\n"+ // DNS
+			"y\n"+ // telegram gate
+			token+"\n"+ // bot token (piped stdin: plain read)
+			"123456789\n"+ // chat id
+			"04:15\n"+ // daily time
+			"\n"+ // image
+			"yes\n"), // confirm
+		&out, false)
+	p := Defaults()
+	p.Mode = ""
+	if err := q.plan(&p, h); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.confirm(p); err != nil {
+		t.Fatal(err)
+	}
+	if p.PortMin != 40000 || p.PortMax != 40500 || p.VPNSubnet != "10.77.0.0/24" ||
+		p.MTU != 1380 || p.ClientDNS != "9.9.9.9, 149.112.112.112" ||
+		p.TelegramChat != "123456789" || p.TelegramTime != "04:15" ||
+		p.TelegramToken != token {
+		t.Fatalf("plan: %+v", p)
+	}
+	if strings.Contains(out.String(), token) {
+		t.Fatal("token leaked to the wizard output")
+	}
+}
+
+// TestPromptWizardEmptyTokenSkips: choosing the Telegram gate but entering
+// no token skips the section instead of installing a broken sink.
+func TestPromptWizardEmptyTokenSkips(t *testing.T) {
+	h := newMemHost()
+	q := newPrompt(strings.NewReader(
+		"1\n"+ // mode
+			"vpn.example.com\n"+ // domain
+			"1\n"+ // tls: acme
+			"\n"+ // panel port
+			"\n"+ // acme port
+			"\n"+ // network gate: skip
+			"y\n"+ // telegram gate
+			"\n"+ // empty token → skip
+			"\n"+ // image
+			"yes\n"), // confirm
+		&strings.Builder{}, false)
+	p := Defaults()
+	p.Mode = ""
+	if err := q.plan(&p, h); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.confirm(p); err != nil {
+		t.Fatal(err)
+	}
+	if p.TelegramToken != "" || p.TelegramChat != "" || p.TelegramTime != "" {
+		t.Fatalf("empty token must skip the whole section: %+v", p)
 	}
 }
 
@@ -538,6 +626,47 @@ type poisonReader struct{}
 
 func (poisonReader) Read([]byte) (int, error) {
 	panic("stdin read under --yes")
+}
+
+// TestPromptYesKeepsExplicitTLS: --yes must never override an explicit --tls
+// with a prompt default (regression: the TLS askChoice under --yes flipped
+// domain+proxy installs to ACME).
+func TestPromptYesKeepsExplicitTLS(t *testing.T) {
+	h := newMemHost()
+	q := newPrompt(poisonReader{}, &strings.Builder{}, true)
+	p := Defaults()
+	p.TLSMode = config.TLSModeProxy
+	p.Domain = "vpn.example.com"
+	if err := q.plan(&p, h); err != nil {
+		t.Fatal(err)
+	}
+	if p.TLSMode != config.TLSModeProxy || p.Domain != "vpn.example.com" {
+		t.Fatalf("explicit tls/domain overridden: %+v", p)
+	}
+}
+
+// TestPromptExplicitTLSNotReasked: an explicit --tls manual is honored —
+// the wizard goes straight to the certificate prompts.
+func TestPromptExplicitTLSNotReasked(t *testing.T) {
+	h := newMemHost()
+	q := newPrompt(strings.NewReader(
+		"vpn.example.com\n"+ // domain
+			"\n"+ // panel port: default 443
+			"/etc/certs/fullchain.pem\n"+ // cert file
+			"/etc/certs/key.pem\n"+ // key file
+			"\n"+ // network gate: skip
+			"\n"+ // telegram gate: skip
+			"\n"), // image: default
+		&strings.Builder{}, false)
+	p := Defaults()
+	p.TLSMode = config.TLSModeManual
+	if err := q.plan(&p, h); err != nil {
+		t.Fatal(err)
+	}
+	if p.TLSMode != config.TLSModeManual || p.CertFile != "/etc/certs/fullchain.pem" ||
+		p.KeyFile != "/etc/certs/key.pem" || p.Domain != "vpn.example.com" {
+		t.Fatalf("explicit tls plan: %+v", p)
+	}
 }
 
 // TestUpdateDockerRollbackFlag: update --rollback re-deploys the state-
@@ -569,5 +698,156 @@ func TestUpdateDockerRollbackFlag(t *testing.T) {
 	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: &strings.Builder{}}); err == nil ||
 		!strings.Contains(err.Error(), "already references") {
 		t.Fatalf("second rollback: want refusal, got %v", err)
+	}
+}
+
+// TestPlanSeeds: the seed builder maps plan choices to CLI invocations,
+// skips values equal to the registry defaults, and transports the bot token
+// via stdin only.
+func TestPlanSeeds(t *testing.T) {
+	// Domain-only: just the endpoint.
+	got := planSeeds(Plan{Domain: "vpn.example.com"})
+	if len(got) != 1 || !reflect.DeepEqual(got[0].argv,
+		[]string{BinPath, "settings", "set", "node.endpoint", "vpn.example.com"}) {
+		t.Fatalf("domain-only seeds: %+v", got)
+	}
+
+	// Answers equal to the registry defaults seed nothing extra.
+	got = planSeeds(Plan{
+		Domain: "vpn.example.com", PortMin: 30000, PortMax: 50000,
+		VPNSubnet: "10.8.0.0/24", MTU: 1420, ClientDNS: "1.1.1.1, 1.0.0.1",
+	})
+	if len(got) != 1 {
+		t.Fatalf("default values must not seed: %+v", got)
+	}
+
+	// Full customization: every choice lands in order.
+	got = planSeeds(Plan{
+		Domain: "vpn.example.com", PortMin: 40000, PortMax: 40500,
+		VPNSubnet: "10.77.0.0/24", MTU: 1380, ClientDNS: "9.9.9.9",
+		TelegramToken: "tok", TelegramChat: "123", TelegramTime: "03:30",
+	})
+	want := [][]string{
+		{BinPath, "settings", "set", "node.endpoint", "vpn.example.com"},
+		{BinPath, "settings", "set", "network.port_min", "40000"},
+		{BinPath, "settings", "set", "network.port_max", "40500"},
+		{BinPath, "settings", "set", "network.default_pool", "10.77.0.0/24"},
+		{BinPath, "settings", "set", "network.mtu", "1380"},
+		{BinPath, "settings", "set", "network.dns_servers", "9.9.9.9"},
+		{BinPath, "settings", "set", "backup.telegram_token", "-stdin"},
+		{BinPath, "settings", "set", "backup.telegram_chat", "123"},
+		{BinPath, "backup", "schedule-add", "-name", "installer-daily", "-kind", "daily", "-time", "03:30"},
+	}
+	argvs := make([][]string, len(got))
+	for i, s := range got {
+		argvs[i] = s.argv
+	}
+	if !reflect.DeepEqual(argvs, want) {
+		t.Fatalf("seeds:\n got %v\nwant %v", argvs, want)
+	}
+	if string(got[6].stdin) != "tok" {
+		t.Fatalf("token stdin payload = %q", got[6].stdin)
+	}
+
+	// A schedule without a complete Telegram sink is not created.
+	got = planSeeds(Plan{TelegramChat: "123", TelegramTime: "03:30"})
+	for _, s := range got {
+		if s.argv[1] == "backup" {
+			t.Fatalf("schedule requires token+chat: %+v", got)
+		}
+	}
+}
+
+// TestInstallSeedsSettings: the full install applies the wizard's choices
+// through the installed CLI before the container starts, and the token
+// never appears in argv or output.
+func TestInstallSeedsSettings(t *testing.T) {
+	h := newMemHost()
+	port := healthServer(t, http.StatusOK)
+	p := Defaults()
+	p.Mode = ModeDocker
+	p.TLSMode = config.TLSModeProxy
+	p.PanelPort = port
+	p.Domain = "vpn.example.com"
+	p.MTU = 1380
+	const token = "777000:AAE_install_test_token"
+	p.TelegramToken = token
+	p.TelegramChat = "123456789"
+	p.TelegramTime = "03:30"
+
+	var out strings.Builder
+	if _, err := Install(context.Background(), h, InstallOptions{
+		Plan: p, Yes: true, Version: "test", Stdin: strings.NewReader(""),
+		Stdout: &out, Stderr: &strings.Builder{},
+	}); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	for _, want := range [][]string{
+		{BinPath, "settings", "set", "node.endpoint", "vpn.example.com"},
+		{BinPath, "settings", "set", "network.mtu", "1380"},
+		{BinPath, "settings", "set", "backup.telegram_token", "-stdin"},
+		{BinPath, "settings", "set", "backup.telegram_chat", "123456789"},
+		{BinPath, "backup", "schedule-add", "-name", "installer-daily", "-kind", "daily", "-time", "03:30"},
+	} {
+		if !h.ran(want...) {
+			t.Errorf("seed not run: %v (ran: %v)", want, h.ranCommands())
+		}
+	}
+
+	// Seeding happens BEFORE the service starts (registry caches in memory).
+	cmds := h.ranCommands()
+	find := func(match []string) int {
+		for i, argv := range cmds {
+			if reflect.DeepEqual(argv, match) {
+				return i
+			}
+		}
+		return -1
+	}
+	if seed, up := find([]string{BinPath, "settings", "set", "node.endpoint", "vpn.example.com"}),
+		find([]string{"docker", "compose", "-f", ComposePth, "up", "-d"}); seed < 0 || up < 0 || seed > up {
+		t.Fatalf("seeding must precede compose up (seed %d, up %d)", seed, up)
+	}
+
+	// Secret transport: token in the stdin payload, nowhere else.
+	for _, c := range h.commands {
+		joined := strings.Join(c.argv, " ")
+		if strings.Contains(joined, token) {
+			t.Fatal("token leaked into argv")
+		}
+		if strings.Contains(joined, "backup.telegram_token") && string(c.stdin) != token+"\n" {
+			t.Fatalf("token stdin payload = %q", c.stdin)
+		}
+	}
+	if strings.Contains(out.String(), token) {
+		t.Fatal("token leaked to the install output")
+	}
+}
+
+// TestInstallSeedFailureAborts: a failed seeding aborts before the service
+// starts and leaves no state file, so rerunning install stays possible.
+func TestInstallSeedFailureAborts(t *testing.T) {
+	h := newMemHost()
+	port := healthServer(t, http.StatusOK)
+	p := Defaults()
+	p.Mode = ModeDocker
+	p.TLSMode = config.TLSModeProxy
+	p.PanelPort = port
+	p.Domain = "vpn.example.com"
+	h.failCmd[BinPath] = fmt.Errorf("seed backend down")
+
+	_, err := Install(context.Background(), h, InstallOptions{
+		Plan: p, Yes: true, Version: "test", Stdin: strings.NewReader(""),
+		Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "apply public endpoint") {
+		t.Fatalf("want seed failure, got %v", err)
+	}
+	if _, ok := h.files[StatePath]; ok {
+		t.Fatal("state file must not be written after a failed seed")
+	}
+	if h.ran("docker", "compose", "-f", ComposePth, "up", "-d") {
+		t.Fatal("container must not start after a failed seed")
 	}
 }

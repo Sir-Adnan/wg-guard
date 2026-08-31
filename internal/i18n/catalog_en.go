@@ -688,6 +688,8 @@ var catalogEN = map[string]string{
 	"settings.allowed_ips_hint":           "What traffic clients route into the tunnel. 0.0.0.0/0 = everything.",
 	"settings.port_min":                   "Auto port range (min)",
 	"settings.port_max":                   "Auto port range (max)",
+	"settings.default_pool":               "Default VPN pool",
+	"settings.default_pool_hint":          "Subnet offered to the first interface (awg0) when its subnet is left blank; later interfaces continue 10.8.N.0/24.",
 	"settings.iface_max":                  "Interface limit",
 	"settings.drift_policy":               "Unknown-peer drift policy",
 	"settings.drift_hint":                 "report = flag only, adopt = take over, remove = delete. The reconciler applies this.",

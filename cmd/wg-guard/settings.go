@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
@@ -24,6 +26,7 @@ import (
 //	wg-guard settings list
 //	wg-guard settings get node.endpoint
 //	wg-guard settings set backup.telegram_chat 123456789
+//	echo SECRET | wg-guard settings set backup.telegram_token -stdin
 func runSettings(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: wg-guard settings <list|get|set> [args] [-config PATH]")
@@ -101,9 +104,18 @@ func runSettings(args []string) error {
 		return domain.E(domain.CodeSettingUnknown, "unknown setting %q", key)
 	case "set":
 		if len(rest) < 3 {
-			return fmt.Errorf("usage: wg-guard settings set KEY VALUE")
+			return fmt.Errorf("usage: wg-guard settings set KEY VALUE (or: echo SECRET | wg-guard settings set KEY -stdin)")
 		}
 		key, value := rest[1], rest[2]
+		if value == "-stdin" {
+			b, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("read value from stdin: %w", err)
+			}
+			// Strip exactly one trailing newline; the value itself is
+			// untouched (secrets must not pass through argv).
+			value = strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+		}
 		if err := env.Reg.SetRaw(ctx, key, value); err != nil {
 			return err
 		}

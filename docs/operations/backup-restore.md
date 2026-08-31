@@ -28,7 +28,9 @@ archives. No other crypto is invented anywhere in the product.
 - **Manual** — UI button or `wg-guard backup create [--password] [--output …]`.
 - **Scheduled** — stored schedules (`backup_schedules`): daily@HH:MM, every-N-hours,
   weekly-day@time; stored UTC, displayed in server-local time; run in-process by the central
-  scheduler (no cron dependency); per-schedule retention (default keep 14).
+  scheduler (no cron dependency); per-schedule retention (default keep 14). Created in the
+  panel (`/backups`) or with `wg-guard backup schedule-add -kind daily -time 03:30`; the
+  installer can create a daily Telegram schedule during setup.
 - **Automatic** — before risky migrations and every update.
 
 ## Delivery sinks

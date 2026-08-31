@@ -8,6 +8,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Installer initial settings** (post-review addendum to Phase 7): optional wizard sections
+  for the VPN network defaults (AWG listen-port allocation range, first-interface VPN pool
+  via the new `network.default_pool` registry key, client MTU, client DNS resolvers) and
+  Telegram backups (bot token, chat ID, daily schedule — skippable); values equal to the
+  registry defaults are never persisted, and the panel domain is seeded as `node.endpoint`
+  so the first exported client config carries a working `Endpoint` line. Seeds apply before
+  the service first boots through `settings set KEY -stdin` (secret via stdin, never argv)
+  and the new `wg-guard backup schedule-add` verb.
 - **Phase 7 — deployment & installer** (tracked in `docs/development/phase7.md`; drills on a
   real Ubuntu 24.04 VPS with a public domain):
   - Built-in ACME (`tls.mode=acme`): autocert issuance/renewal, HTTP-01 challenge sidecar on
@@ -251,6 +259,16 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **Installer: the interactive wizard never asked for the deployment mode** (the Docker
+  default was preset, making the mode question dead code) and **`--yes --domain X --tls
+  proxy|manual|dev` silently became an ACME install** (the wizard's TLS `askChoice` always
+  ran and `--yes` answered with prompt defaults). The mode question now fires (Enter =
+  Docker), `--yes` skips prompting entirely, and the TLS question only fires when the mode
+  is genuinely unset.
+- **Uninstall summary printed a garbled future-tense sentence** ("uninstalled. will be
+  purged") — it now states the outcome: "Data purged (…)" / "Data kept at …".
+- **Fresh installs produced client configs without an `Endpoint` line**: `node.endpoint`
+  is now seeded from the panel domain at install time.
 - **CI: three jobs red after the Phase 6 push** (vet, arm64 build, govulncheck — all the same
   root cause): the bare `wg-guard` pattern in `.gitignore` matched the `cmd/wg-guard/`
   DIRECTORY, so every file added there after the rule existed (`backup.go`, `settings.go`,

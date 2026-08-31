@@ -120,6 +120,13 @@
       </div>
     </div>
     <div class="field-row">
+      <div class="field {{if eq .Data.Field "default_pool"}}field--invalid{{end}}">
+        <label for="s-default-pool">{{.T "settings.default_pool"}}</label>
+        <input class="input ltr-data" id="s-default-pool" name="default_pool" dir="ltr" spellcheck="false" placeholder="10.8.0.0/24" value="{{.Data.DefaultPool}}">
+        <span class="hint">{{.T "settings.default_pool_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
       <div class="field {{if eq .Data.Field "iface_max"}}field--invalid{{end}}">
         <label for="s-iface-max">{{.T "settings.iface_max"}}</label>
         <input class="input unit-group--narrow" id="s-iface-max" name="iface_max" type="number" min="1" max="64" value="{{.Data.IfaceMax}}">

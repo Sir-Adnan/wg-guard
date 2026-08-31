@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -93,21 +94,97 @@ func readPassword(prompt string) (string, error) {
 //
 //	wg-guard backup create [-password] [-output DIR]
 //	wg-guard backup list
+//	wg-guard backup schedule-add -kind daily -time 03:30 [-name N] [-retention N]
 //	wg-guard backup telegram-test
 func runBackup(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: wg-guard backup <create|list|telegram-test> [flags]")
+		return fmt.Errorf("usage: wg-guard backup <create|list|schedule-add|telegram-test> [flags]")
 	}
 	switch args[0] {
 	case "create":
 		return backupCreate(args[1:])
 	case "list":
 		return backupList(args[1:])
+	case "schedule-add":
+		return backupScheduleAdd(args[1:])
 	case "telegram-test":
 		return backupTelegramTest(args[1:])
 	default:
 		return fmt.Errorf("unknown backup command %q", args[0])
 	}
+}
+
+// backupScheduleAdd creates one backup schedule row (the installer seeds the
+// daily Telegram schedule with it; operators can script schedules too).
+func backupScheduleAdd(args []string) error {
+	var (
+		name = "installer-daily"
+		kind = backup.KindDaily
+		tod  = "03:30"
+		// weekday/hours only matter for weekly/interval kinds.
+		weekday    int
+		hours      int
+		retention  int
+		configPath = "/etc/wg-guard/wg-guard.toml"
+	)
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-config", "--config":
+			i++
+			configPath = args[i]
+		case "-name", "--name":
+			i++
+			name = args[i]
+		case "-kind", "--kind":
+			i++
+			kind = args[i]
+		case "-time", "--time":
+			i++
+			tod = args[i]
+		case "-weekday", "--weekday":
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("weekday must be 0 (Sunday)–6 (Saturday)")
+			}
+			weekday = n
+		case "-hours", "--hours":
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("hours must be an integer 1–168")
+			}
+			hours = n
+		case "-retention", "--retention":
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("retention must be an integer 0–365 (0 = panel default)")
+			}
+			retention = n
+		default:
+			return fmt.Errorf("unknown flag %q", args[i])
+		}
+	}
+
+	env, err := loadCLIEnv(configPath)
+	if err != nil {
+		return err
+	}
+	defer env.Close()
+	ctx := context.Background()
+
+	sc := &backup.Schedule{
+		Name: name, Kind: kind, TimeOfDay: tod, Weekday: weekday,
+		IntervalHours: hours, Enabled: true, RetentionCount: retention,
+	}
+	created, err := env.newBackupService().CreateSchedule(ctx, sc)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("schedule %s created (%s, next run %s UTC)\n",
+		created.Name, created.Kind, created.NextRunAt.Format("2006-01-02 15:04"))
+	return nil
 }
 
 func backupCreate(args []string) error {

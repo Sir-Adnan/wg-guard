@@ -17,13 +17,13 @@ documented in [../operations/deployment.md](../operations/deployment.md) and
   custom-port deployments) and never bounces arbitrary Host headers.
 - **Interactive installer** (`wg-guard install`): mode (Docker default, native secondary),
   domain/TLS mode (ACME default when a domain is given), panel port, challenge port, image;
-  `--yes` for non-interactive installs (flags + defaults, never reads stdin). Preflight: root
-  check, completed-install refusal, busy port refusal, DNS warning, docker/systemd presence.
-  Artifacts: boot config (0600), compose project (docker) or hardened systemd unit (native),
-  host CLI at `/usr/local/bin/wg-guard`, install-state contract, module boot persistence.
-  AWG ports/subnet/MTU are deliberately NOT collected: the settings registry already owns
-  those defaults (`network.mtu`, `network.port_min/max`…) and per-interface values are
-  hot-editable in the panel; collecting values the installer cannot persist would be a lie.
+  `--yes` for non-interactive installs (flags + defaults, never reads stdin, never overrides
+  an explicit flag with a prompt default). Preflight: root check, completed-install refusal,
+  busy port refusal, DNS warning, docker/systemd presence. Artifacts: boot config (0600),
+  compose project (docker) or hardened systemd unit (native), host CLI at
+  `/usr/local/bin/wg-guard`, install-state contract, module boot persistence. The optional
+  initial-settings sections (network defaults, Telegram) were added in the
+  [post-review addendum](#post-review-addendum-2026-08-31-installer-initial-settings) below.
 - **Host shim**: in docker mode the SAME binary is the shim — mode-aware dispatch reads the
   install state and routes panel/data commands (`backup`, `restore`, `settings`, `token`,
   `secrets`, `reconcile`…) into the container via `docker exec -i`; host commands
@@ -84,6 +84,53 @@ dedicated Ubuntu 24.04 host (`panel.example.com`), recorded per item:
    in the state file, so `up -d` was a no-op and the health check crowned the OLD image;
    the compose file is now the source of truth, patched before pull/up, with an explicit
    "already on this image" error.
+7. **Prompt defaults overrode explicit flags** (found by the addendum's seed tests) —
+   `--yes --domain X --tls proxy` silently became an ACME install because the wizard's TLS
+   `askChoice` always ran and `--yes` answers prompts with their defaults; `--yes` now skips
+   prompting entirely and the TLS question only fires when the mode is genuinely unset.
+
+## Post-review addendum (2026-08-31): installer initial settings
+
+Review against the approved installation requirements surfaced a gap: the wizard collected
+no initial VPN/backup settings, and fresh installs additionally produced client configs
+without an `Endpoint` line (`node.endpoint` was panel-managed only). Added:
+
+- **Optional network-defaults section** (y/N gate, Enter keeps everything): AWG listen-port
+  allocation range (`network.port_min/port_max`), the VPN pool offered to the first
+  interface (new `network.default_pool` registry key, honored by the interface service for
+  `awg0`; later interfaces keep the `10.8.N.0/24` ladder; the built-in `10.8.0.0/24` is
+  never persisted), client MTU (`network.mtu`), client DNS (`network.dns_servers`). All
+  values equal to registry defaults are skipped, so a default install persists nothing.
+- **Optional Telegram-backups section** (y/N gate, empty token = skip): bot token (hidden
+  input on terminals via x/term — already a dependency), chat ID, daily UTC time. The token
+  is applied via `settings set KEY -stdin` (new flag; value from stdin, one trailing newline
+  stripped — secrets never travel via argv per security.md), the schedule via the new
+  `wg-guard backup schedule-add` verb (installer-daily, enabled, `NextRun` computed).
+- **`node.endpoint` seeding**: with a domain configured, it is seeded so the first exported
+  client config carries a working `Endpoint` line.
+- **Seeding happens before first boot** (`internal/install/seed.go` → `planSeeds`/
+  `seedSettings`): the settings registry caches values in memory, so post-boot CLI writes
+  would stay invisible until a restart. In docker mode this runs before the state file
+  exists, so the shim executes host-direct against the bind-mounted data dir (same DB the
+  container will use); seed failures abort the install before the service starts and leave
+  no state file, so rerunning stays safe. The settings screen gained the
+  `network.default_pool` field (labels in both locales).
+
+### Addendum verification (real VPS, 2026-08-31)
+
+Two more real-host findings surfaced during the drills and are fixed: the wizard's mode
+question was dead code (`runInstall` preset the Docker default, so interactive installs
+never asked — the mode question now fires, Enter = Docker), and the uninstall completion
+line printed a garbled future-tense sentence ("uninstalled. will be purged") — it now says
+"Data purged (…)" / "Data kept at …".
+
+| Drill | Result |
+|---|---|
+| Interactive install, fully customized | ✅ scripted wizard: Docker mode, real domain, ACME/443/80, port range 40000–40500, pool 10.77.0.0/24, MTU 1380, DNS 9.9.9.9/149.112.112.112, Telegram dummy token + chat + 03:30 daily; the plan confirmation lists every value but never the token; all seeds applied through the installed CLI **before** container start; `settings list` shows port range, pool, MTU, DNS, chat and `<set>` token; `backup list` shows the enabled `installer-daily` schedule (next run 2026-09-01 03:30 UTC); token absent from argv, output and container logs |
+| Seeded defaults drive the engine | ✅ Settings screen renders the values and the new pool field (fa locale verified live); interface `awg0` created with a **blank** subnet came up as `10.77.0.0/24` with port `40048` (inside the configured range) and MTU 1380 |
+| ACME cache reuse across reinstalls | ✅ the cert cache was restored after each `uninstall --purge-data`; every reinstall served HTTPS 200 with the cached Let's Encrypt certificate (no re-issuance) |
+| `--yes` defaults path | ✅ flag-only reinstall seeded exactly one setting (`node.endpoint`), everything else stayed at registry defaults, no Telegram sink and no schedule |
+| Final state | ✅ docker-mode install on the real domain (cached cert, healthy), fresh owner account through the onboarding wizard |
 
 ## Honest notes
 
