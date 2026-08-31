@@ -302,11 +302,14 @@
       obfBox?.querySelectorAll("input:not([data-obf-toggle])").forEach((inp) => {
         inp.disabled = !obfToggle.checked;
       });
-      // Recommended defaults on first enable (the "balanced" preset values;
-      // magic headers stay empty until randomized or typed).
+      // Recommended defaults on first enable (the "balanced" preset values);
+      // magic headers / S3/S4 / HPK stay empty until randomized or typed.
       if (obfToggle.checked && !obfBox.dataset.defaultsApplied) {
         obfBox.dataset.defaultsApplied = "1";
-        const defaults = { "obf_jc": 4, "obf_jmin": 40, "obf_jmax": 70, "obf_s1": 15, "obf_s2": 64 };
+        const defaults = {
+          "obf_jc": 4, "obf_jmin": 40, "obf_jmax": 70, "obf_s1": 15, "obf_s2": 64,
+          "obf_padding": "10-100",
+        };
         for (const [name, val] of Object.entries(defaults)) {
           const inp = obfBox.querySelector('input[name="' + name + '"]');
           if (inp && inp.value === "") inp.value = val;
@@ -317,22 +320,62 @@
     obfToggle.addEventListener("change", sync);
   }
 
-  /* randomize AWG magic headers: distinct non-zero u32 per input */
+  /* randomize ALL supported AmneziaWG parameters: magic headers (distinct
+   * non-zero u32), S3/S4, header-protection key (crypto.getRandomValues —
+   * base64 32 bytes), padding and timer ranges. Flag checkboxes are left to
+   * the operator (RandomTrailers defaults off upstream). */
+  function randInt(min, max) {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return min + (buf[0] % (max - min + 1));
+  }
   document.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-randomize-hs]");
+    const btn = e.target.closest("[data-randomize-obf]");
     if (!btn) return;
     e.preventDefault();
-    const inputs = btn.dataset.randomizeHs.split(",").map((s) => $(s)).filter(Boolean);
-    const used = new Set(inputs.map((i) => Number(i.value)).filter((v) => v > 0));
-    inputs.forEach((inp) => {
+    const box = $(btn.dataset.randomizeObf);
+    if (!box) return;
+    const val = (name, v) => {
+      const inp = box.querySelector('input[name="' + name + '"]');
+      if (inp && !inp.disabled) inp.value = v;
+    };
+    const rnd = (name, min, max) => val(name, String(randInt(min, max)));
+    // junk packets
+    rnd("obf_jc", 3, 9);
+    rnd("obf_jmin", 20, 60);
+    val("obf_jmax", String(randInt(80, 200)));
+    // init packets: keep S1 + 56 away from S2
+    rnd("obf_s1", 10, 140);
+    let s2 = randInt(60, 220);
+    if (s2 === (parseInt(box.querySelector('input[name="obf_s1"]')?.value, 10) || 0) + 56) s2 += 7;
+    val("obf_s2", String(s2));
+    rnd("obf_s3", 8, 64);
+    rnd("obf_s4", 8, 16);
+    // magic headers: pairwise distinct non-zero u32
+    const hs = ["obf_h1", "obf_h2", "obf_h3", "obf_h4"].map((n) =>
+      box.querySelector('input[name="' + n + '"]')).filter(Boolean);
+    const used = new Set();
+    hs.forEach((inp) => {
       if (inp.disabled) return;
       let v;
-      do {
-        v = Math.floor(Math.random() * 4294967295) + 1;
-      } while (used.has(v));
+      do { v = randInt(1, 4294967295); } while (used.has(v));
       used.add(v);
-      inp.value = v;
+      inp.value = String(v);
     });
+    // header protection key: 32 random bytes, base64 (requires S3/S4 — set above)
+    const hpk = box.querySelector('input[name="obf_hpk"]');
+    if (hpk && !hpk.disabled) {
+      const raw = new Uint8Array(32);
+      crypto.getRandomValues(raw);
+      hpk.value = btoa(String.fromCharCode.apply(null, raw));
+    }
+    // padding + timer ranges (upstream-verified N-M format)
+    val("obf_padding", randInt(10, 30) + "-" + randInt(40, 60));
+    val("obf_rekey_after", randInt(100, 110) + "-" + randInt(111, 125));
+    val("obf_rekey_timeout", randInt(3, 4) + "-" + randInt(5, 7));
+    val("obf_reject_after", randInt(150, 165) + "-" + randInt(166, 185));
+    val("obf_keepalive", randInt(5, 10) + "-" + randInt(11, 15));
+    val("obf_max_handshake", randInt(15, 18) + "-" + randInt(19, 25));
   });
 
   /* ---------- preset chips (quota / duration quick fill) ---------- */

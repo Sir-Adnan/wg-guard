@@ -261,9 +261,18 @@ func TestValidateObfuscationGated(t *testing.T) {
 		{"padding over u16", func(o *Obfuscation) { o.ContentPaddingAddition = "70000" }, true},
 		{"padding garbage", func(o *Obfuscation) { o.ContentPaddingAddition = "10;20" }, true},
 		{"rekey range ok", func(o *Obfuscation) { o.RekeyAfterTime = "120-180" }, false},
-		{"hpk valid", func(o *Obfuscation) {
+		{"hpk valid with S3/S4", func(o *Obfuscation) {
 			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
+			o.S3 = 24
+			o.S4 = 11
 		}, false},
+		{"hpk without S3/S4 rejected (kernel constraint)", func(o *Obfuscation) {
+			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
+		}, true},
+		{"hpk with S3 only rejected", func(o *Obfuscation) {
+			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
+			o.S3 = 24
+		}, true},
 		{"hpk wrong length", func(o *Obfuscation) {
 			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 16))
 		}, true},

@@ -120,7 +120,8 @@ func ValidateObfuscation(o Obfuscation) error {
 		return nil
 	}
 	// Capability-gated 2.0/3.x parameters (formats verified from the pinned
-	// tools source; runtime support pending Phase 8).
+	// tools source; kernel-module acceptance verified on a real VPS —
+	// docs/integrations/amneziawg.md).
 	if o.S3 < 0 || o.S3 > 65535 || o.S4 < 0 || o.S4 > 65535 {
 		return domain.E(domain.CodeParamConstraint, "S3/S4 must be 0–65535 (0 = unset)")
 	}
@@ -128,6 +129,12 @@ func ValidateObfuscation(o Obfuscation) error {
 		k, err := base64.StdEncoding.DecodeString(o.HeaderProtectionKey)
 		if err != nil || len(k) != 32 {
 			return domain.E(domain.CodeParamConstraint, "HeaderProtectionKey must be a base64-encoded 32-byte key")
+		}
+		// Kernel-enforced coupling (verified on VPS): HPK is rejected unless
+		// S3 AND S4 are non-zero in the same setconf message.
+		if o.S3 == 0 || o.S4 == 0 {
+			return domain.E(domain.CodeParamConstraint,
+				"HeaderProtectionKey requires S3 and S4 to be set (kernel constraint)")
 		}
 	}
 	for _, rv := range []struct{ name, val string }{
