@@ -13,8 +13,8 @@ requires real VPS verification). Full acceptance criteria per phase:
 | **3 — Limits & accounting** | Delta accounting, quota/expiry enforcement, first-connection activation, tc shaper, traffic samples/rollups | ✅ Complete |
 | **4 — REST API** | Full `/api/v1` management surface, idempotency, pagination, error envelope, rate limits, durable webhooks, OpenAPI + coverage test; node runtime (`serve`) + token CLI; independent up/down speed limits (egress HTB + IFB ingress) | ✅ Complete |
 | **5 — Web UI (design system + primary workflows)** | Design system/shell/themes, login, onboarding, dashboard, users/devices/bulk, plans, interfaces; fa/en + RTL | ✅ Complete |
-| **6 — Backup, settings UI, operations** | Backup engine (plain + optional password), schedules, Telegram sink, restore wizard + environment review, full Settings UI, admins/tokens/webhooks/audit screens, doctor | ⬜ Not started |
-| **7 — Deployment & installer** | Official multi-arch image, compose, interactive TUI installer (Docker default, native secondary), host shim, update/rollback, uninstall | ⬜ Not started |
+| **6 — Backup, settings UI, operations** | Backup engine (plain + optional password), schedules, Telegram sink, restore wizard + environment review, full Settings UI, admins/tokens/webhooks/audit screens, doctor | ✅ Complete |
+| **7 — Deployment & installer** | Official multi-arch image, compose, interactive installer (Docker default, native secondary), host shim, built-in ACME, update/rollback, uninstall | ⬜ In progress |
 | **8 — Hardening & release** | Security review, race/soak, benchmarks vs budgets, VPS matrix (Ubuntu 22.04/24.04, Debian 12; amd64/arm64), release pipeline with checksums | ⬜ Not started |
 
 ## Verification policy

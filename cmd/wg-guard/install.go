@@ -34,7 +34,7 @@ func routeDockerMode() {
 			"  docker compose -f %s <up -d|down|restart|logs>\n", cmd, install.ComposePth)
 		os.Exit(2)
 	}
-	argv := append([]string{"exec", "-i", install.Container, install.BinPath}, os.Args[1:]...)
+	argv := append([]string{"docker", "exec", "-i", install.Container, install.BinPath}, os.Args[1:]...)
 	host := install.NewRealHost()
 	if err := host.Run(context.Background(), argv, 10*time.Minute); err != nil {
 		fmt.Fprintln(os.Stderr, "wg-guard:", err)
@@ -158,10 +158,16 @@ func runStatus(args []string) error {
 	fmt.Print("service:     ")
 	switch st.Mode {
 	case install.ModeDocker:
-		if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "ps", "--quiet"}, 30*time.Second); err != nil {
-			fmt.Println("down (docker compose ps failed)")
+		// The container's own docker status line (e.g. "Up 2 minutes
+		// (healthy)") is what an operator wants here.
+		stat, err := h.Output(ctx, []string{"docker", "ps",
+			"--filter", "name=^/" + install.Container + "$", "--format", "{{.Status}}"}, 30*time.Second)
+		stat = strings.TrimSpace(stat)
+		if err != nil || stat == "" {
+			fmt.Println("down")
 			return nil
 		}
+		fmt.Println(stat)
 	default:
 		if err := h.Run(ctx, []string{"systemctl", "is-active", "--quiet", "wg-guard"}, 30*time.Second); err != nil {
 			fmt.Println("inactive")

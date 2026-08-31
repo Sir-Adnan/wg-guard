@@ -18,6 +18,9 @@ type Host interface {
 	// A non-zero exit returns an error describing the failure (stderr is
 	// safe: installer commands never touch key material).
 	Run(ctx context.Context, argv []string, timeout time.Duration) error
+	// Output runs argv and captures stdout (status formatting needs the
+	// command's value, not just its exit status).
+	Output(ctx context.Context, argv []string, timeout time.Duration) (string, error)
 	LookPath(name string) (string, error)
 
 	MkdirAll(path string, perm fs.FileMode) error
@@ -60,6 +63,18 @@ func (realHost) Run(ctx context.Context, argv []string, timeout time.Duration) e
 	return cmd.Run()
 }
 
+func (realHost) Output(ctx context.Context, argv []string, timeout time.Duration) (string, error) {
+	runCtx := ctx
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) //nolint:gosec // explicit argv, installer-controlled
+	out, err := cmd.Output()
+	return string(out), err
+}
+
 func (realHost) LookPath(name string) (string, error) { return exec.LookPath(name) }
 func (realHost) MkdirAll(path string, perm fs.FileMode) error {
 	return os.MkdirAll(path, perm)
@@ -74,11 +89,25 @@ func (realHost) RemoveAll(path string) error           { return os.RemoveAll(pat
 func (realHost) Rename(old, new string) error          { return os.Rename(old, new) }
 
 func (realHost) CopyFile(src, dst string, perm fs.FileMode) error {
+	if src == dst {
+		return nil // self-install: the binary already lives at the destination
+	}
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, perm)
+	// Write via a sibling temp file + rename: overwriting the CURRENTLY
+	// RUNNING binary in place fails with ETXTBSY on Linux, while rename
+	// over it is allowed.
+	tmp := dst + ".wg-install.tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 func (realHost) SelfExe() (string, error) { return os.Executable() }
@@ -103,7 +132,8 @@ type memHost struct {
 	files    map[string]memFile
 	dirs     map[string]bool
 	commands []memCmd
-	failCmd  map[string]error // first argv element → forced error
+	failCmd  map[string]error  // first argv element → forced error
+	output   map[string]string // first argv element → scripted stdout for Output
 	portFree func(string) bool
 	now      func() time.Time
 }
@@ -122,6 +152,7 @@ func newMemHost() *memHost {
 		files:   map[string]memFile{"/src/wg-guard": {data: []byte("/src/wg-guard"), perm: 0o755}},
 		dirs:    map[string]bool{},
 		failCmd: map[string]error{},
+		output:  map[string]string{},
 		now:     func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) },
 	}
 }
@@ -132,6 +163,14 @@ func (m *memHost) Run(_ context.Context, argv []string, _ time.Duration) error {
 		return err
 	}
 	return nil
+}
+
+func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Duration) (string, error) {
+	m.commands = append(m.commands, memCmd{argv: argv})
+	if err := m.failCmd[argv[0]]; err != nil {
+		return "", err
+	}
+	return m.output[argv[0]], nil
 }
 
 func (m *memHost) LookPath(name string) (string, error) {
