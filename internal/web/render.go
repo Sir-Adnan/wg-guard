@@ -177,13 +177,14 @@ func (s *Server) initTemplates() error {
 // View is the render context for every template execution. Locale-scoped
 // helpers are methods so templates stay i18n-aware without global state.
 type View struct {
-	Locale  i18n.Locale
-	Dir     string
-	Theme   string // "light" | "dark" | "system"
-	Path    string // request path, for nav highlighting
-	Admin   *auth.Admin
-	CSRF    string
-	Version string
+	Locale    i18n.Locale
+	Dir       string
+	Theme     string // "light" | "dark" | "system"
+	Path      string // request path, for nav highlighting
+	PageClass string // content width tier (" content--narrow" on form/settings routes)
+	Admin     *auth.Admin
+	CSRF      string
+	Version   string
 
 	// iconBase is the cache-busted sprite URL, resolved per server.
 	iconBase string
@@ -387,12 +388,13 @@ func (s *Server) partial(w http.ResponseWriter, r *http.Request, page, block str
 // newView builds the per-request render context from middleware state.
 func (s *Server) newView(r *http.Request) *View {
 	v := &View{
-		Dir:      "rtl",
-		Theme:    themeFrom(r),
-		Path:     r.URL.Path,
-		Version:  s.Version,
-		iconBase: s.assetURL("/img/icons.svg"),
-		assetFn:  s.assetURL,
+		Dir:       "rtl",
+		Theme:     themeFrom(r),
+		Path:      r.URL.Path,
+		PageClass: pageClass(r.URL.Path),
+		Version:   s.Version,
+		iconBase:  s.assetURL("/img/icons.svg"),
+		assetFn:   s.assetURL,
 	}
 	if a := adminFrom(r); a != nil {
 		v.Admin = a
@@ -410,6 +412,17 @@ func (s *Server) localeFor(r *http.Request) i18n.Locale {
 		return i18n.Normalize(a.Locale)
 	}
 	return i18n.Normalize(localeFrom(r))
+}
+
+// pageClass picks the content width tier for the route: settings and
+// create/edit forms read best on a centered narrow column, while tables and
+// dashboards keep the full fluid width (see .content--narrow in app.css).
+func pageClass(path string) string {
+	if strings.HasPrefix(path, "/settings") ||
+		strings.HasSuffix(path, "/new") || strings.HasSuffix(path, "/edit") {
+		return " content--narrow"
+	}
+	return ""
 }
 
 func themeFrom(r *http.Request) string {

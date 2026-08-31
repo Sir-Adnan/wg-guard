@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f2eb">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171512">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
 <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"historyCacheSize":0}'>
 {{if .CSRF}}<meta name="csrf-token" content="{{.CSRF}}">{{end}}
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
@@ -78,7 +78,7 @@
       <span class="spacer"></span>
       {{block "topbar" .}}{{end}}
     </header>
-    <main class="content" id="main">
+    <main class="content{{.PageClass}}" id="main">
       {{block "content" .}}{{end}}
     </main>
   </div>
