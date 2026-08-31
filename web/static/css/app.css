@@ -1467,6 +1467,38 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
   .shell { grid-template-columns: 1fr; }
 }
 
+/* ---------- dashboard: attention lists ---------- */
+
+.dash-attention h2 { font-size: var(--fs-lg); }
+.attention-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--sp-4) var(--sp-6);
+  margin-block-start: var(--sp-3);
+}
+.attention-col h3 {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  margin-block-end: var(--sp-2);
+}
+.attention-col--expiring h3 { color: var(--warn); }
+.attention-col--exceeded h3 { color: var(--warn); }
+.attention-col--expired h3 { color: var(--danger); }
+.attention-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: 6px 0;
+  border-block-end: 1px dashed var(--border);
+  font-size: var(--fs-sm);
+}
+.attention-row:last-child { border-block-end: 0; }
+.attention-when { color: var(--fg-muted); font-size: var(--fs-xs); white-space: nowrap; }
+
 /* ---------- dashboard: traffic chart ---------- */
 
 .chart-legend {

@@ -7,8 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 // dashLiveData is the auto-refreshed region: user counters + host metrics.
@@ -45,9 +47,68 @@ type hostView struct {
 type dashData struct {
 	Live         dashLiveData
 	Chart        dashChartData
+	Attention    attentionData
 	NodeID       string
 	ToolsVersion string
 	Endpoint     string
+}
+
+// attentionItem is one row of the dashboard "needs attention" lists.
+type attentionItem struct {
+	ID       string
+	Username string
+	When     *time.Time // expiry (expiring / expired groups)
+	Used     int64
+	Limit    *int64 // exceeded group
+}
+
+// attentionData groups the users an operator should look at first —
+// rendered only when non-empty; each list capped at 5 rows.
+type attentionData struct {
+	Expiring []attentionItem
+	Expired  []attentionItem
+	Exceeded []attentionItem
+	Any      bool
+}
+
+// loadAttention fetches the three action lists (best effort: a failure
+// yields an empty group, the dashboard stays up).
+func (s *Server) loadAttention(r *http.Request) attentionData {
+	ctx := r.Context()
+	limit := 5
+	d := attentionData{}
+
+	expiringSoon := time.Now().UTC().Add(7 * 24 * time.Hour)
+	active := domain.UserActive
+	expired := domain.UserExpired
+	exceeded := domain.UserTrafficExceeded
+
+	if page, err := s.Users.ListPage(ctx, user.ListQuery{
+		Limit: limit, Sort: user.SortExpiresAt,
+		Filter: user.ListFilter{Status: &active, ExpiresBefore: &expiringSoon},
+	}); err == nil {
+		for _, u := range page.Items {
+			d.Expiring = append(d.Expiring, attentionItem{ID: u.ID, Username: u.Username, When: u.ExpiresAt})
+		}
+	}
+	if page, err := s.Users.ListPage(ctx, user.ListQuery{
+		Limit: limit, Sort: user.SortExpiresAt, Desc: true,
+		Filter: user.ListFilter{Status: &expired},
+	}); err == nil {
+		for _, u := range page.Items {
+			d.Expired = append(d.Expired, attentionItem{ID: u.ID, Username: u.Username, When: u.ExpiresAt, Used: u.TrafficUsedRX + u.TrafficUsedTX, Limit: u.TrafficLimitBytes})
+		}
+	}
+	if page, err := s.Users.ListPage(ctx, user.ListQuery{
+		Limit: limit, Sort: user.SortUsed, Desc: true,
+		Filter: user.ListFilter{Status: &exceeded},
+	}); err == nil {
+		for _, u := range page.Items {
+			d.Exceeded = append(d.Exceeded, attentionItem{ID: u.ID, Username: u.Username, Used: u.TrafficUsedRX + u.TrafficUsedTX, Limit: u.TrafficLimitBytes})
+		}
+	}
+	d.Any = len(d.Expiring)+len(d.Expired)+len(d.Exceeded) > 0
+	return d
 }
 
 // chartRanges are the dashboard time ranges: bucket count, rollup
@@ -74,6 +135,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	d.Live = s.loadLive(r)
 	d.Endpoint, _ = s.Settings.GetString(r.Context(), "node.endpoint")
 	d.Chart = s.loadChart(r, chartRangeOf(r))
+	d.Attention = s.loadAttention(r)
 
 	if err := s.render(w, r, "dashboard", "app", d); err != nil {
 		s.logError(r, "dashboard render", err)

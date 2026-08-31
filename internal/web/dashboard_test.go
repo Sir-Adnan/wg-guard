@@ -118,3 +118,44 @@ func TestDashboardCounters(t *testing.T) {
 		}
 	}
 }
+
+func TestDashboardAttention(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+
+	// User whose expiry is imminent: created with an exact date inside the
+	// 7-day window → expiring list.
+	soon := time.Now().UTC().AddDate(0, 0, 2).Format("2006-01-02")
+	form := url.Values{
+		"_csrf":        {deriveCSRF(cookie.Value)},
+		"username":     {"soon-gone"},
+		"expires_on":   {soon},
+		"start_policy": {"immediate"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec2 := httptest.NewRecorder()
+	e.handler.ServeHTTP(rec2, req)
+	if rec2.Code != http.StatusSeeOther {
+		t.Fatalf("create soon-gone: %d %s", rec2.Code, rec2.Body.String())
+	}
+
+	// Quota-exhausted user via direct status flip.
+	uid := createUserViaForm(t, e, cookie, "overquota")
+	if _, err := e.db.Exec(`UPDATE users SET status = 'traffic_exceeded' WHERE id = ?`, uid); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := e.get("/dashboard", cookie)
+	if rec.Code != 200 {
+		t.Fatalf("dashboard: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"dash-attention", "soon-gone", "overquota", "attention-col--exceeded"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("attention card missing %q", want)
+		}
+	}
+}

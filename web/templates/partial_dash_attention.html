@@ -1,0 +1,45 @@
+{{define "dash_attention"}}
+{{$v := .}}
+{{with .Data.Attention}}
+{{if .Any}}
+<div class="card card--pad dash-attention">
+  <h2>{{$v.T "dash.attention"}}</h2>
+  <div class="attention-grid">
+    {{if .Expiring}}
+    <div class="attention-col attention-col--expiring">
+      <h3>{{$v.T "dash.attention_expiring"}}</h3>
+      {{range .Expiring}}
+      <div class="attention-row">
+        <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
+        <span class="attention-when ltr-data {{$v.ExpiryClass .When}}">{{$v.D .When}}{{$v.Rel .When}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{if .Exceeded}}
+    <div class="attention-col attention-col--exceeded">
+      <h3>{{$v.T "dash.attention_exceeded"}}</h3>
+      {{range .Exceeded}}
+      <div class="attention-row">
+        <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
+        <span class="attention-when ltr-data">{{$v.B .Used}}{{if .Limit}} / {{$v.BLim .Limit}}{{end}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{if .Expired}}
+    <div class="attention-col attention-col--expired">
+      <h3>{{$v.T "dash.attention_expired"}}</h3>
+      {{range .Expired}}
+      <div class="attention-row">
+        <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
+        <span class="attention-when ltr-data {{$v.ExpiryClass .When}}">{{$v.D .When}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}
+{{end}}

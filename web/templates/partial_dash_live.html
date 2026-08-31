@@ -16,6 +16,10 @@
       <span class="meta">{{.T "dash.online_window" .Data.Live.OnlineWindow}}</span>
     </div>
     <div class="metric">
+      <span class="label">{{.IconS "zap"}}{{.T "dash.traffic_total"}}</span>
+      <span class="value">{{.B .Data.Live.TrafficTotal}}</span>
+    </div>
+    <div class="metric">
       <span class="label">{{.IconS "timer"}}{{.T "dash.users_expiring"}}</span>
       <span class="value{{if gt .Data.Live.Expiring 0}} text-warn{{end}}">{{.N .Data.Live.Expiring}}</span>
     </div>
@@ -26,10 +30,6 @@
     <div class="metric">
       <span class="label">{{.IconS "gauge"}}{{.T "dash.users_exceeded"}}</span>
       <span class="value{{if gt .Data.Live.Exceeded 0}} text-danger{{end}}">{{.N .Data.Live.Exceeded}}</span>
-    </div>
-    <div class="metric">
-      <span class="label">{{.IconS "zap"}}{{.T "dash.traffic_total"}}</span>
-      <span class="value">{{.B .Data.Live.TrafficTotal}}</span>
     </div>
   </div>
 
