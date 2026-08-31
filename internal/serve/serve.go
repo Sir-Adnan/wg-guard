@@ -44,6 +44,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
+	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
@@ -211,6 +212,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	plans := plan.NewService(db)
 	ifaces := iface.NewService(db, n.reg, n.ring)
 	webhooksSvc := webhook.NewService(db, n.ring)
+	links := subscription.NewService(db, n.ring)
 
 	n.accounting = accounting.NewService(db, backend, auditSvc, shaperMgr, n.reg)
 	n.accounting.Reconciler = rec
@@ -253,6 +255,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Plans:        plans,
 		Ifaces:       ifaces,
 		Accounting:   n.accounting,
+		Links:        links,
 		Log:          log,
 		Reconciler:   rec,
 		Host:         hoststats.New(cfg.DataDir),

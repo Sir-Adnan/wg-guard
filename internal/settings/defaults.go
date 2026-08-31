@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"net/url"
 	"strings"
 )
 
@@ -79,6 +80,23 @@ func Defaults() []Definition {
 			Category: "security"},
 		{Key: "security.session_absolute_hours", Kind: KindInt, Default: 168, Min: 1, Max: 720,
 			Category: "security"},
+
+		// Subscription links: public base for /sub/{token} URLs (a dedicated
+		// short-domain host when set; empty = this panel's own origin). The
+		// settings screen binds to this key in Phase 6.
+		{Key: "subscription.base_url", Kind: KindString, Default: "", Category: "general",
+			Validator: func(v any) error {
+				s := v.(string)
+				if s == "" {
+					return nil
+				}
+				u, err := url.Parse(s)
+				if err != nil || (u.Scheme != "http" && u.Scheme != "https") ||
+					u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+					return fmt.Errorf("%q is not an absolute http(s) base URL", s)
+				}
+				return nil
+			}},
 
 		// Users (defaults applied at creation; per-user overrides exist).
 		{Key: "users.default_device_limit", Kind: KindInt, Default: 3, Min: 1, Max: 100,

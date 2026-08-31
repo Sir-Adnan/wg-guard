@@ -95,6 +95,50 @@
     </dl>
   </div>
 
+  <div class="card card--pad">
+    <h2>{{.T "sub.card.title"}}</h2>
+    <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p>
+    {{if not .Data.SubExists}}
+    <form method="post" action="/users/{{.Data.U.ID}}/sub/create">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button type="submit" class="btn">{{.IconS "link"}}<span>{{.T "sub.card.create"}}</span></button>
+    </form>
+    {{else if .Data.SubRevoked}}
+    <p class="mt-4"><span class="badge badge--danger"><span class="dot"></span>{{.T "sub.card.revoked"}}</span></p>
+    <div class="inline-actions mt-4">
+      <form method="post" action="/users/{{.Data.U.ID}}/sub/restore">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm">{{.IconS "rotate-ccw"}}<span>{{.T "sub.card.restore"}}</span></button>
+      </form>
+      <form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm btn--ghost">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button>
+      </form>
+    </div>
+    {{else}}
+    <div class="input-adj mt-4">
+      <input class="input ltr-data" id="sub-url" readonly value="{{.Data.SubURL}}" aria-label="{{.T "sub.card.title"}}">
+      <button type="button" class="icon-btn" data-copy="#sub-url" data-copied-msg="{{.T "common.copied"}}" aria-label="{{.T "common.copy"}}">{{.IconS "copy"}}</button>
+    </div>
+    <div class="inline-actions mt-4">
+      <form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate" data-confirm
+            data-confirm-title="{{.T "sub.card.regenerate"}}"
+            data-confirm-message="{{.T "sub.card.regenerate_confirm"}}"
+            data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.regenerate"}}">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button>
+      </form>
+      <form method="post" action="/users/{{.Data.U.ID}}/sub/revoke" data-confirm
+            data-confirm-title="{{.T "sub.card.revoke"}}"
+            data-confirm-message="{{.T "sub.card.revoke_confirm"}}"
+            data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.revoke"}}">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "link-off"}}<span>{{.T "sub.card.revoke"}}</span></button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+
   <div>
     <div class="card">
       <div class="card-head">

@@ -309,7 +309,13 @@ func (s *Server) auditLogin(r *http.Request, adminID, username string, meta map[
 
 func (s *Server) logError(r *http.Request, what string, err error) {
 	if s.Log != nil && !errors.Is(err, http.ErrAbortHandler) {
-		s.Log.Error("web: "+what, "err", err, "path", r.URL.Path)
+		// Subscription links carry a capability token in the path — the
+		// path is masked before it reaches any log sink.
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/sub/") {
+			path = "/sub/{token}"
+		}
+		s.Log.Error("web: "+what, "err", err, "path", path)
 	}
 }
 

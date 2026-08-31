@@ -21,6 +21,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -64,6 +65,7 @@ func newEnv(t *testing.T) *env {
 		Devices:    device.NewService(db, ring),
 		Plans:      plan.NewService(db),
 		Ifaces:     ifaces,
+		Links:      subscription.NewService(db, ring),
 		Accounting: accounting.NewService(db, nil, auditSvc, nil, reg),
 		Version:    "test", TLSMode: config.TLSModeDev, NodeID: "node-1", ToolsVersion: "fake",
 	})

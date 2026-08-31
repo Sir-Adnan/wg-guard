@@ -1,0 +1,22 @@
+{{define "sub"}}<!DOCTYPE html>
+<html lang="{{.Locale}}" dir="{{.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.T "sub.title"}} · {{.T "app.name"}}</title>
+<link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
+<link rel="stylesheet" href="{{.A "/css/app.css"}}">
+</head>
+<body class="sub-body">
+<main class="sub-shell">
+{{block "subcontent" .}}{{end}}
+<footer class="sub-foot">
+  <span>{{.T "app.name"}}</span>
+  <span class="spacer"></span>
+  {{$q := ""}}{{if eq .Data.Lang "en"}}{{$q = "?lang=fa"}}{{else}}{{$q = "?lang=en"}}{{end}}
+  <a class="sub-lang" href="{{$q}}" rel="nofollow">{{if eq .Data.Lang "en"}}فارسی{{else}}English{{end}}</a>
+</footer>
+</main>
+</body>
+</html>{{end}}

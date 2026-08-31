@@ -251,6 +251,26 @@ var catalogEN = map[string]string{
 	"users.traffic_reset.title":   "Reset traffic for %s",
 	"users.traffic_reset.confirm": "Used traffic restarts from zero and the account is re-enabled if it was blocked for traffic.",
 
+	// subscription links (admin + public page)
+	"sub.title":                   "Subscription",
+	"sub.devices":                 "Devices & configurations",
+	"sub.download":                "Download config",
+	"sub.scan_hint":               "Scan the QR with the AmneziaWG app, or download the .conf file.",
+	"sub.card.title":              "Subscription link",
+	"sub.card.desc":               "Public read-only page for this customer: traffic, expiry and per-device configs.",
+	"sub.card.copy":               "Copy subscription link",
+	"sub.card.create":             "Create link",
+	"sub.card.regenerate":         "Regenerate",
+	"sub.card.regenerate_confirm": "Replace this subscription link? The current URL stops working immediately.",
+	"sub.card.revoke":             "Revoke link",
+	"sub.card.revoke_confirm":     "Revoke this subscription link? The page and its configs become unreachable until restored.",
+	"sub.card.restore":            "Restore link",
+	"sub.card.revoked":            "Revoked",
+	"sub.toast.created":           "Subscription link created.",
+	"sub.toast.regenerated":       "Subscription link replaced.",
+	"sub.toast.revoked":           "Subscription link revoked.",
+	"sub.toast.restored":          "Subscription link restored.",
+
 	// bulk
 	"users.bulk.title":           "Bulk create users",
 	"users.bulk.prefix":          "Username prefix",

@@ -235,6 +235,11 @@ func newIPLimiter() *ipLimiter {
 	return &ipLimiter{m: make(map[string]*ipWindow), window: time.Minute, max: 8}
 }
 
+// newRateLimiter is the generic fixed-window limiter (public surfaces).
+func newRateLimiter(window time.Duration, max int) *ipLimiter {
+	return &ipLimiter{m: make(map[string]*ipWindow), window: window, max: max}
+}
+
 // blocked reports whether ip has exceeded the failure budget in the current
 // window; a failed attempt registers via fail().
 func (l *ipLimiter) blocked(ip string, now time.Time) bool {

@@ -13,6 +13,7 @@ package web
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
@@ -27,6 +28,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -52,6 +54,9 @@ type Deps struct {
 	// ClientConf renders client configs + QR (shared with the REST API).
 	ClientConf *clientconf.Renderer
 
+	// Links serves the per-user subscription links (public /sub/ surface).
+	Links *subscription.Service
+
 	// Host reads host metrics for the dashboard (nil on platforms without
 	// support — the card is hidden). Wired from serve.
 	Host *hoststats.Reader
@@ -68,11 +73,16 @@ type Server struct {
 	assets  assetSet
 	pages   map[string]*pageTemplate
 	loginRL *ipLimiter
+	subRL   *ipLimiter // public /sub/ surface: request-rate window per IP
 }
 
 // New builds the panel: parse templates once, hash assets once.
 func New(d Deps) (*Server, error) {
-	s := &Server{Deps: d, loginRL: newIPLimiter()}
+	s := &Server{
+		Deps:    d,
+		loginRL: newIPLimiter(),
+		subRL:   newRateLimiter(time.Minute, 60),
+	}
 	if s.ClientConf == nil {
 		s.ClientConf = &clientconf.Renderer{
 			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
@@ -103,6 +113,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /prefs/locale", s.requireAuth(s.handleLocaleSet))
 	mux.HandleFunc("POST /logout", s.requireAuth(s.handleLogout))
 
+	// --- public subscription pages (token-gated, rate-limited) ---
+	mux.HandleFunc("GET /sub/{token}", s.handleSubPage)
+	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/qr", s.handleSubDeviceQR)
+	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/config", s.handleSubDeviceConfig)
+
 	// --- app pages ---
 	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
@@ -125,6 +140,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /users/{id}/renew", s.requireAuth(s.handleUserRenew))
 	mux.HandleFunc("POST /users/{id}/traffic/add", s.requireAuth(s.handleUserTrafficAdd))
 	mux.HandleFunc("POST /users/{id}/traffic/reset", s.requireAuth(s.handleUserTrafficReset))
+	mux.HandleFunc("POST /users/{id}/sub/create", s.requireAuth(s.handleSubCreate))
+	mux.HandleFunc("POST /users/{id}/sub/regenerate", s.requireAuth(s.handleSubRegenerate))
+	mux.HandleFunc("POST /users/{id}/sub/revoke", s.requireAuth(s.handleSubRevoke))
+	mux.HandleFunc("POST /users/{id}/sub/restore", s.requireAuth(s.handleSubRestore))
 	mux.HandleFunc("POST /users/{id}/devices", s.requireAuth(s.handleDeviceCreate))
 
 	// --- devices ---

@@ -31,6 +31,7 @@ type userRow struct {
 	Used        int64 // RX+TX, precomputed for the meter
 	DeviceCount int
 	PlanName    string
+	SubURL      string // customer subscription URL ("" when no active link)
 }
 
 type planRef struct {
@@ -98,6 +99,17 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "users", "app", data)
 }
 
+// ensureSubLink provisions the subscription link for a freshly created user
+// (best effort — a missing link is recoverable from the detail page).
+func (s *Server) ensureSubLink(r *http.Request, userID string) {
+	if s.Links == nil {
+		return
+	}
+	if _, err := s.Links.Ensure(r.Context(), userID); err != nil {
+		s.logError(r, "sub link ensure", err)
+	}
+}
+
 // decorateUsers batch-loads the display fields for one page.
 func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, []*planRef) {
 	ctx := r.Context()
@@ -117,9 +129,22 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 			plans = append(plans, &planRef{ID: p.ID, Name: p.Name})
 		}
 	}
+	subURLs := map[string]string{}
+	if s.Links != nil {
+		if links, err := s.Links.ForUsers(ctx, ids); err == nil {
+			for id, l := range links {
+				if !l.Revoked() && l.Token != "" {
+					subURLs[id] = s.subURLFor(r, l.Token)
+				}
+			}
+		} else {
+			s.logError(r, "sub link batch", err)
+		}
+	}
 	rows := make([]userRow, len(items))
 	for i, u := range items {
-		rows[i] = userRow{U: u, Used: u.TrafficUsedRX + u.TrafficUsedTX, DeviceCount: counts[u.ID], PlanName: planNames[deref(u.PlanID)]}
+		rows[i] = userRow{U: u, Used: u.TrafficUsedRX + u.TrafficUsedTX, DeviceCount: counts[u.ID],
+			PlanName: planNames[deref(u.PlanID)], SubURL: subURLs[u.ID]}
 	}
 	return rows, plans
 }
@@ -202,6 +227,7 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "user.created", u.ID, map[string]any{"username": u.Username})
+	s.ensureSubLink(r, u.ID)
 	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.created")
 }
 
@@ -530,6 +556,9 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "user.bulk_created", "", map[string]any{"count": len(res.Users)})
+	for _, u := range res.Users {
+		s.ensureSubLink(r, u.ID)
+	}
 	s.redirectToast(w, r, "/users", "users.toast.bulk_created", strconv.Itoa(len(res.Users)))
 }
 

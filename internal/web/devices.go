@@ -26,6 +26,9 @@ type userDetailData struct {
 	PlanName     string
 	IfaceName    string
 	OnlineWindow int64
+	SubExists    bool   // a subscription link row exists
+	SubURL       string // public URL ("" when absent or revoked)
+	SubRevoked   bool
 }
 
 // userDetailUser wraps user.User with display helpers that templates cannot
@@ -68,6 +71,15 @@ func (s *Server) handleUserDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		s.logError(r, "device list", err)
+	}
+	if s.Links != nil {
+		if l, err := s.Links.ForUser(ctx, u.ID); err == nil && l != nil {
+			data.SubExists = true
+			data.SubRevoked = l.Revoked()
+			if !l.Revoked() && l.Token != "" {
+				data.SubURL = s.subURLFor(r, l.Token)
+			}
+		}
 	}
 	data.U = &userDetailUser{User: u, Used: u.TrafficUsedRX + u.TrafficUsedTX, HasLimit: u.TrafficLimitBytes != nil}
 	_ = s.render(w, r, "user_detail", "app", data)

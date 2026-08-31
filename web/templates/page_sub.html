@@ -1,0 +1,58 @@
+{{define "title"}}{{.T "sub.title"}}{{end}}
+{{define "subcontent"}}
+<header class="sub-head">
+  <span class="logo">{{.Icon "shield"}}</span>
+  <div>
+    <h1>{{if .Data.U.DisplayName}}{{.Data.U.DisplayName}}{{else}}<span class="ltr-data">{{.Data.U.Username}}</span>{{end}}</h1>
+    <p>
+      <span class="badge {{.StClass (printf "%v" .Data.U.Status)}}"><span class="dot"></span>{{.St (printf "%v" .Data.U.Status)}}</span>
+      {{if .Data.PlanName}}<span class="chip">{{.Data.PlanName}}</span>{{end}}
+    </p>
+  </div>
+</header>
+
+<section class="card card--pad sub-stats">
+  <dl class="detail-list">
+    <dt>{{.T "users.traffic"}}</dt>
+    <dd>
+      <div class="meter {{.MeterClass .Data.Used .Data.U.TrafficLimitBytes}}">
+        <span class="bar"><span></span></span>
+        <span class="num">↓ {{.B (i64u .Data.U.TrafficUsedRX)}} · ↑ {{.B (i64u .Data.U.TrafficUsedTX)}}{{if .Data.U.TrafficLimitBytes}} / {{.BLim .Data.U.TrafficLimitBytes}}{{end}}</span>
+      </div>
+    </dd>
+    <dt>{{.T "users.expires"}}</dt>
+    <dd class="ltr-data {{.ExpiryClass .Data.U.ExpiresAt}}">
+      {{.D .Data.U.ExpiresAt}}{{if .Data.U.ExpiresAt}} <span class="text-subtle">({{.Rel .Data.U.ExpiresAt}})</span>{{end}}
+    </dd>
+    <dt>{{.T "users.duration"}}</dt>
+    <dd>{{if .Data.U.DurationSeconds}}{{.Dur (i64u .Data.U.DurationSeconds)}}{{else}}<span class="text-subtle">—</span>{{end}}</dd>
+  </dl>
+</section>
+
+<section class="card card--pad">
+  <h2>{{.T "sub.devices"}}</h2>
+  {{if .Data.Devices}}
+  <div class="sub-devices">
+    {{range .Data.Devices}}
+    <details class="sub-device">
+      <summary>
+        <span class="cell-main">{{.D.Name}}</span>
+        <span class="badge {{if .Online}}badge--ok badge--pulse{{end}}"><span class="dot"></span>{{if .Online}}{{$.T "status.online"}}{{else}}{{$.T "status.offline"}}{{end}}</span>
+        <span class="sub-device-ip ltr-data">{{.D.IPv4}}</span>
+        {{$.IconS "chevron-down"}}
+      </summary>
+      <div class="sub-device-body">
+        <img class="sub-qr" src="{{$.Data.Base}}/devices/{{.D.ID}}/qr" alt="{{$.T "devices.qr"}}" width="240" height="240" loading="lazy">
+        <div class="sub-device-actions">
+          <a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config" download>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a>
+          <span class="hint">{{$.T "sub.scan_hint"}}</span>
+        </div>
+      </div>
+    </details>
+    {{end}}
+  </div>
+  {{else}}
+  <p class="text-muted">{{.T "devices.empty"}}</p>
+  {{end}}
+</section>
+{{end}}

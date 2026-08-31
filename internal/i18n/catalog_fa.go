@@ -251,6 +251,26 @@ var catalogFA = map[string]string{
 	"users.traffic_reset.title":   "بازنشانی حجم %s",
 	"users.traffic_reset.confirm": "مصرف از صفر شروع می‌شود و اگر حساب به‌خاطر اتمام حجم مسدود بود، دوباره فعال می‌شود.",
 
+	// subscription links (admin + public page)
+	"sub.title":                   "اشتراک",
+	"sub.devices":                 "دستگاه‌ها و کانفیگ‌ها",
+	"sub.download":                "دانلود کانفیگ",
+	"sub.scan_hint":               "کد QR را با اپلیکیشن AmneziaWG اسکن کنید یا فایل کانفیگ را دانلود کنید.",
+	"sub.card.title":              "لینک اشتراک",
+	"sub.card.desc":               "صفحه عمومی فقط-خواندنی برای این مشترک: حجم، انقضا و کانفیگ تک‌تک دستگاه‌ها.",
+	"sub.card.copy":               "کپی لینک اشتراک",
+	"sub.card.create":             "ساخت لینک",
+	"sub.card.regenerate":         "بازتولید",
+	"sub.card.regenerate_confirm": "لینک اشتراک جایگزین شود؟ آدرس فعلی بلافاصله از کار می‌افتد.",
+	"sub.card.revoke":             "لغو لینک",
+	"sub.card.revoke_confirm":     "لینک اشتراک لغو شود؟ صفحه و کانفیگ‌ها تا بازگردانی در دسترس نخواهند بود.",
+	"sub.card.restore":            "بازگردانی لینک",
+	"sub.card.revoked":            "لغو شده",
+	"sub.toast.created":           "لینک اشتراک ساخته شد.",
+	"sub.toast.regenerated":       "لینک اشتراک جایگزین شد.",
+	"sub.toast.revoked":           "لینک اشتراک لغو شد.",
+	"sub.toast.restored":          "لینک اشتراک بازگردانی شد.",
+
 	// bulk
 	"users.bulk.title":           "ایجاد گروهی کاربران",
 	"users.bulk.prefix":          "پیشوند نام کاربری",

@@ -145,7 +145,11 @@
   <td data-label="{{$v.T "users.devices"}}" class="ltr-data">{{$v.N (i64u $row.DeviceCount)}}</td>
   <td data-label="{{$v.T "users.last_activity"}}" class="text-subtle">{{$v.Rel $u.LastActivityAt}}</td>
   <td class="text-end">
-    <div class="menu-anchor">
+    <div class="inline-actions">
+      {{if $row.SubURL}}
+      <button type="button" class="icon-btn" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "link"}}</button>
+      {{end}}
+      <div class="menu-anchor">
       <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
       <div class="menu" role="menu">
         <a role="menuitem" href="/users/{{$u.ID}}">{{$v.IconS "eye"}}<span>{{$v.T "common.details"}}</span></a>
