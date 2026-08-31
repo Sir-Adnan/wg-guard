@@ -1,0 +1,306 @@
+{{define "title"}}{{.T "backups.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "backups.title"}}</h1>
+    <p class="page-sub">{{.T "backups.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn--primary" data-open-modal="dlg-backup-create">{{.IconS "plus"}}<span>{{.T "backups.create_now"}}</span></button>
+  </div>
+</div>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+{{if .Data.Review}}
+<div class="card card--pad mt-4">
+  <div class="card-head">
+    <h2>{{.T "backups.review_title"}}</h2>
+  </div>
+  <div class="detail-list">
+    <dt>{{.T "backups.review_archive"}}</dt><dd class="ltr-data">{{.Data.Review.Archive}}</dd>
+    <dt>{{.T "backups.review_created"}}</dt><dd>{{$r := .Data.Review}}{{if not $r.CreatedAt.IsZero}}{{$r.CreatedAt.Format "2006-01-02 15:04"}} ({{.T "common.utc"}}){{else}}—{{end}}</dd>
+    <dt>{{.T "backups.review_source"}}</dt><dd>{{.Data.Review.Hostname}} · {{.Data.Review.AppVersion}}</dd>
+    <dt>{{.T "backups.review_node"}}</dt><dd class="ltr-data">{{if .Data.Review.NodeID}}{{.Data.Review.NodeID}}{{else}}—{{end}}</dd>
+    <dt>{{.T "backups.review_endpoint"}}</dt><dd class="ltr-data">{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</dd>
+    {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd class="ltr-data">{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</dd>{{end}}
+    {{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd class="ltr-data">{{.Name}} :{{.Port}} {{.Subnet}}</dd>{{end}}
+    {{range .Data.Review.Warnings}}<dt>{{$.T "backups.review_warning"}}</dt><dd>{{.}}</dd>{{end}}
+  </div>
+  <div class="callout callout--warn mt-4">{{.IconS "alert-triangle"}}<span>{{.T "backups.review_note"}}</span></div>
+  <div class="inline-actions mt-4">
+    <form method="post" action="/backups/restore/confirm">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button type="submit" class="btn btn--primary">{{.T "backups.review_confirm"}}</button>
+    </form>
+    <form method="post" action="/backups/restore/cancel">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button type="submit" class="btn btn--ghost">{{.T "common.cancel"}}</button>
+    </form>
+  </div>
+</div>
+{{end}}
+
+{{if and .Data.Pending (not .Data.Review)}}
+<div class="callout callout--warn mt-4">
+  {{.IconS "alert-triangle"}}
+  <span>{{.T "backups.pending_banner_pre"}}<span class="ltr-data">{{.Data.Pending.Archive}}</span>{{.T "backups.pending_banner_post"}}</span>
+  <form method="post" action="/backups/restore/cancel" class="inline-actions">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="btn btn--sm btn--ghost">{{.T "backups.pending_discard"}}</button>
+  </form>
+</div>
+{{end}}
+
+<div class="card mt-4">
+  <div class="card-head">
+    <h2>{{.T "backups.archives_title"}}</h2>
+    <span class="text-subtle text-xs">{{.T "backups.retention_label"}} {{.Data.Retention}}</span>
+  </div>
+  {{if not .Data.Archives}}
+  <div class="empty">
+    {{.Icon "database"}}
+    <h3>{{.T "backups.empty_title"}}</h3>
+    <p>{{.T "backups.empty_body"}}</p>
+  </div>
+  {{else}}
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "backups.col_archive"}}</th>
+          <th>{{.T "backups.col_size"}}</th>
+          <th>{{.T "backups.col_created"}}</th>
+          <th>{{.T "backups.col_state"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Archives}}
+        <tr>
+          <td data-label="{{$.T "backups.col_archive"}}" class="card-title"><span class="cell-main ltr-data">{{.Name}}</span></td>
+          <td data-label="{{$.T "backups.col_size"}}"><span class="ltr-data">{{.KiB}} KiB</span></td>
+          <td data-label="{{$.T "backups.col_created"}}"><span class="ltr-data">{{.ModTime.Format "2006-01-02 15:04"}}</span></td>
+          <td data-label="{{$.T "backups.col_state"}}">
+            {{if .Encrypted}}<span class="badge badge--ok">{{$.IconS "shield-check"}}{{$.T "backups.encrypted"}}</span>
+            {{else}}<span class="badge">{{$.T "backups.plain"}}</span>{{end}}
+          </td>
+          <td class="card-hide">
+            <div class="row-actions">
+              <a class="icon-btn" href="/backups/{{.Name}}/download" download data-tip="{{$.T "backups.download"}}" aria-label="{{$.T "backups.download"}}">{{$.IconS "download"}}</a>
+              <form method="post" action="/backups/restore" class="inline-actions">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="name" value="{{.Name}}">
+                <button type="submit" class="icon-btn" data-tip="{{$.T "backups.restore"}}" aria-label="{{$.T "backups.restore"}}">{{$.IconS "upload"}}</button>
+              </form>
+              <form method="post" action="/backups/delete" class="inline-actions" data-confirm data-confirm-title="{{$.T "backups.delete_title"}}" data-confirm-message="{{.Name}}">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="name" value="{{.Name}}">
+                <button type="submit" class="icon-btn icon-btn--danger" data-tip="{{$.T "common.delete"}}" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+
+<div class="card mt-4">
+  <div class="card-head">
+    <h2>{{.T "backups.schedules_title"}}</h2>
+    <button type="button" class="btn btn--sm" data-open-modal="dlg-schedule">{{.IconS "plus"}}<span>{{.T "backups.schedule_add"}}</span></button>
+  </div>
+  {{if not .Data.Schedules}}
+  <div class="empty">
+    {{.Icon "clock"}}
+    <h3>{{.T "backups.schedules_empty_title"}}</h3>
+    <p>{{.T "backups.schedules_empty_body"}}</p>
+  </div>
+  {{else}}
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "backups.col_name"}}</th>
+          <th>{{.T "backups.col_kind"}}</th>
+          <th>{{.T "backups.col_retention"}}</th>
+          <th>{{.T "backups.col_last_run"}}</th>
+          <th>{{.T "backups.col_next_run"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Schedules}}
+        <tr>
+          <td data-label="{{$.T "backups.col_name"}}" class="card-title">
+            <span class="cell-main">{{.Name}}</span>
+            {{if .Enabled}}<span class="badge badge--ok">{{$.T "backups.enabled"}}</span>{{else}}<span class="badge">{{$.T "backups.disabled"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "backups.col_kind"}}">
+            {{if eq .Kind "interval"}}<span>{{$.T "backups.kind_every"}} <span class="ltr-data">{{.IntervalHours}}</span> {{$.T "duration.hours"}}</span>
+            {{else if eq .Kind "weekly"}}<span>{{$.T (printf "weekday.%d" .Weekday)}} <span class="ltr-data">{{.TimeOfDay}} UTC</span></span>
+            {{else}}<span class="ltr-data">{{.TimeOfDay}} UTC</span>{{end}}
+          </td>
+          <td data-label="{{$.T "backups.col_retention"}}">{{if .RetentionCount}}<span class="ltr-data">{{.RetentionCount}}</span>{{else}}<span class="text-subtle">{{$.T "backups.retention_default"}}</span>{{end}}</td>
+          <td data-label="{{$.T "backups.col_last_run"}}">
+            {{if .LastRunAt}}<span class="ltr-data">{{.LastRunAt.Format "2006-01-02 15:04"}}</span>
+              {{if eq .LastStatus "failed"}}<span class="badge badge--danger">{{$.T "backups.failed"}}</span>
+              {{else}}<span class="badge badge--ok">{{$.T "backups.ok"}}</span>{{end}}
+            {{else}}<span class="text-subtle">{{$.T "backups.never"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "backups.col_next_run"}}"><span class="ltr-data">{{.NextRunAt.Format "2006-01-02 15:04"}}</span></td>
+          <td class="card-hide">
+            <div class="row-actions">
+              <form method="post" action="/backups/schedules/{{.ID}}/toggle" class="inline-actions">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button type="submit" class="icon-btn" data-tip="{{if .Enabled}}{{$.T "backups.disable"}}{{else}}{{$.T "backups.enable"}}{{end}}" aria-label="{{if .Enabled}}{{$.T "backups.disable"}}{{else}}{{$.T "backups.enable"}}{{end}}">{{$.IconS "power"}}</button>
+              </form>
+              <button type="button" class="icon-btn" data-tip="{{$.T "common.edit"}}" aria-label="{{$.T "common.edit"}}"
+                      data-sched-edit="{{.ID}}" data-sched-name="{{.Name}}" data-sched-kind="{{.Kind}}"
+                      data-sched-time="{{.TimeOfDay}}" data-sched-weekday="{{.Weekday}}"
+                      data-sched-interval="{{.IntervalHours}}" data-sched-retention="{{.RetentionCount}}"
+                      data-sched-enabled="{{if .Enabled}}1{{else}}0{{end}}">{{$.IconS "pencil"}}</button>
+              <form method="post" action="/backups/schedules/{{.ID}}/delete" class="inline-actions" data-confirm data-confirm-title="{{$.T "backups.schedule_delete_title"}}" data-confirm-message="{{.Name}}">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button type="submit" class="icon-btn icon-btn--danger" data-tip="{{$.T "common.delete"}}" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+
+<div class="card mt-4">
+  <div class="card-head">
+    <h2>{{.T "backups.telegram_title"}}</h2>
+  </div>
+  <div class="card-body">
+    <div class="detail-list">
+      <dt>{{.T "backups.telegram_state"}}</dt>
+      <dd>{{if .Data.TelegramSet}}<span class="badge badge--ok">{{.T "backups.telegram_configured"}}</span>{{else}}<span class="badge">{{.T "backups.telegram_unset"}}</span>{{end}}</dd>
+      {{if .Data.TelegramSet}}<dt>{{.T "backups.telegram_chat"}}</dt><dd class="ltr-data">{{.Data.TelegramChat}}</dd>{{end}}
+    </div>
+    <p class="hint mt-4">{{.T "backups.telegram_hint"}}</p>
+    <div class="inline-actions mt-4">
+      <button type="button" class="btn" data-open-modal="dlg-telegram-test" {{if not .Data.TelegramSet}}disabled{{end}}>{{.IconS "upload"}}<span>{{.T "backups.telegram_test"}}</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout--info mt-4">
+  {{.IconS "info"}}
+  <span>{{.T "backups.cli_hint"}}</span>
+</div>
+
+<!-- create backup -->
+<dialog id="dlg-backup-create" class="modal" aria-labelledby="backup-create-title">
+  <div class="modal-head">
+    <h2 id="backup-create-title">{{.T "backups.create_now"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/backups/create">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <div class="field">
+        <label for="b-password">{{.T "backups.create_password"}}</label>
+        <input class="input ltr-data" id="b-password" name="password" type="password" autocomplete="new-password" placeholder="{{.T "backups.create_password_placeholder"}}">
+        <span class="hint">{{.T "backups.create_password_hint"}}</span>
+      </div>
+      {{if .Data.PasswordSet}}<p class="hint">{{.T "backups.create_stored_hint"}}</p>{{end}}
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "backups.create_now"}}</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- schedule create/edit -->
+<dialog id="dlg-schedule" class="modal" aria-labelledby="schedule-title">
+  <div class="modal-head">
+    <h2 id="schedule-title">{{.T "backups.schedule_add"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/backups/schedules" data-sched-form>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="enabled" value="1">
+    <div class="modal-body">
+      <div class="field">
+        <label for="sch-name">{{.T "backups.col_name"}}</label>
+        <input class="input" id="sch-name" name="name" required maxlength="64" value="{{.Data.SchedForm.Name}}">
+      </div>
+      <div class="field">
+        <span class="seg-group" role="group" aria-label="{{.T "backups.col_kind"}}">
+          <button type="button" class="seg" data-sched-kind-btn="daily">{{.T "backups.kind_daily"}}</button>
+          <button type="button" class="seg" data-sched-kind-btn="interval">{{.T "backups.kind_interval"}}</button>
+          <button type="button" class="seg" data-sched-kind-btn="weekly">{{.T "backups.kind_weekly"}}</button>
+        </span>
+        <input type="hidden" name="kind" value="{{if .Data.SchedForm.Kind}}{{.Data.SchedForm.Kind}}{{else}}daily{{end}}" data-sched-kind-input>
+      </div>
+      <div data-sched-panel="daily,weekly">
+        <div class="field-row">
+          <div class="field">
+            <label for="sch-time">{{.T "backups.time_utc"}}</label>
+            <input class="input ltr-data" id="sch-time" name="time_of_day" type="time" value="{{if .Data.SchedForm.TimeOfDay}}{{.Data.SchedForm.TimeOfDay}}{{else}}03:00{{end}}">
+          </div>
+          <div class="field" data-sched-weekday-row>
+            <label for="sch-weekday">{{.T "backups.weekday"}}</label>
+            <select class="select" id="sch-weekday" name="weekday">
+              <option value="0">{{.T "weekday.0"}}</option>
+              <option value="1">{{.T "weekday.1"}}</option>
+              <option value="2">{{.T "weekday.2"}}</option>
+              <option value="3">{{.T "weekday.3"}}</option>
+              <option value="4">{{.T "weekday.4"}}</option>
+              <option value="5">{{.T "weekday.5"}}</option>
+              <option value="6">{{.T "weekday.6"}}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div data-sched-panel="interval">
+        <div class="field">
+          <label for="sch-interval">{{.T "backups.interval_hours"}}</label>
+          <div class="unit-group unit-group--narrow">
+            <input class="input" id="sch-interval" name="interval_hours" type="number" min="1" max="168" step="1" value="{{if .Data.SchedForm.IntervalHours}}{{.Data.SchedForm.IntervalHours}}{{else}}24{{end}}">
+            <span class="unit-static">{{.T "duration.hours"}}</span>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="sch-retention">{{.T "backups.col_retention"}}</label>
+        <input class="input unit-group--narrow" id="sch-retention" name="retention" type="number" min="0" max="365" step="1" value="{{.Data.SchedForm.RetentionCount}}">
+        <span class="hint">{{.T "backups.retention_hint"}}</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- telegram test -->
+<dialog id="dlg-telegram-test" class="modal" aria-labelledby="tg-test-title">
+  <div class="modal-head">
+    <h2 id="tg-test-title">{{.T "backups.telegram_test"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/backups/telegram-test">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <p class="text-muted">{{.T "backups.telegram_test_body"}}</p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "backups.telegram_send"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

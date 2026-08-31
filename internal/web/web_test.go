@@ -14,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
@@ -55,6 +56,16 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	auditSvc := audit.NewService(db)
+	cfg := config.Defaults()
+	cfg.DataDir = t.TempDir()
+	cfg.DatabasePath = filepath.Join(t.TempDir(), "x.db")
+	cfg.MasterKeyFile = filepath.Join(t.TempDir(), "k.key")
+	cfg.Complete()
+	bak := &backup.Service{
+		DB: db, Reg: reg, Audit: auditSvc, Cfg: cfg,
+		ConfigPath: filepath.Join(t.TempDir(), "wg-guard.toml"),
+		Version:    "test",
+	}
 	sessions := auth.NewSessionStore(db, time.Hour, 24*time.Hour)
 	admins := admin.NewService(db, sessions)
 	ifaces := iface.NewService(db, reg, ring)
@@ -66,6 +77,7 @@ func newEnv(t *testing.T) *env {
 		Plans:      plan.NewService(db),
 		Ifaces:     ifaces,
 		Links:      subscription.NewService(db, ring),
+		Backup:     bak,
 		Accounting: accounting.NewService(db, nil, auditSvc, nil, reg),
 		Version:    "test", TLSMode: config.TLSModeDev, NodeID: "node-1", ToolsVersion: "fake",
 	})

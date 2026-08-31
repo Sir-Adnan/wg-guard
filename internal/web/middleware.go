@@ -106,6 +106,25 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// requirePermission gates a handler behind a scope check on the session
+// admin (owners always pass). The redirect target shows a denial toast —
+// the server enforces, the UI never pretends (security.md).
+func (s *Server) requirePermission(scope string, next http.HandlerFunc) http.HandlerFunc {
+	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		a := adminFrom(r)
+		if !auth.Authorized(a.Role, a.Permissions, scope) {
+			if isHX(r) {
+				w.Header().Set("X-WG-Error", "forbidden")
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			s.redirectToast(w, r, "/", "common.denied")
+			return
+		}
+		next(w, r)
+	})
+}
+
 // needsOnboarding reports whether the node has no owner yet (first run).
 // One indexed COUNT on a table with a handful of rows — cheap per request.
 func (s *Server) needsOnboarding(r *http.Request) bool {

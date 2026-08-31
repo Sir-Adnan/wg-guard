@@ -19,6 +19,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -56,6 +57,10 @@ type Deps struct {
 
 	// Links serves the per-user subscription links (public /sub/ surface).
 	Links *subscription.Service
+
+	// Backup is the archive engine (panel + CLI only — ADR-0007). Wired
+	// from serve; nil in tests that don't exercise the ops screens.
+	Backup *backup.Service
 
 	// Host reads host metrics for the dashboard (nil on platforms without
 	// support — the card is hidden). Wired from serve.
@@ -177,6 +182,20 @@ func (s *Server) Handler() http.Handler {
 	// --- settings (panel knobs; Phase 6 adds the ops screens) ---
 	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsPage))
 	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsSave))
+
+	// --- backups (backup.manage; ADR-0007: panel/CLI only) ---
+	mux.HandleFunc("GET /backups", s.requirePermission(auth.ScopeBackupManage, s.handleBackupsPage))
+	mux.HandleFunc("POST /backups/create", s.requirePermission(auth.ScopeBackupManage, s.handleBackupCreate))
+	mux.HandleFunc("POST /backups/delete", s.requirePermission(auth.ScopeBackupManage, s.handleBackupDelete))
+	mux.HandleFunc("GET /backups/{name}/download", s.requirePermission(auth.ScopeBackupManage, s.handleBackupDownload))
+	mux.HandleFunc("POST /backups/restore", s.requirePermission(auth.ScopeBackupManage, s.handleBackupRestore))
+	mux.HandleFunc("POST /backups/restore/confirm", s.requirePermission(auth.ScopeBackupManage, s.handleBackupRestoreConfirm))
+	mux.HandleFunc("POST /backups/restore/cancel", s.requirePermission(auth.ScopeBackupManage, s.handleBackupRestoreCancel))
+	mux.HandleFunc("POST /backups/schedules", s.requirePermission(auth.ScopeBackupManage, s.handleScheduleCreate))
+	mux.HandleFunc("POST /backups/schedules/{id}/update", s.requirePermission(auth.ScopeBackupManage, s.handleScheduleUpdate))
+	mux.HandleFunc("POST /backups/schedules/{id}/delete", s.requirePermission(auth.ScopeBackupManage, s.handleScheduleDelete))
+	mux.HandleFunc("POST /backups/schedules/{id}/toggle", s.requirePermission(auth.ScopeBackupManage, s.handleScheduleToggle))
+	mux.HandleFunc("POST /backups/telegram-test", s.requirePermission(auth.ScopeBackupManage, s.handleTelegramTest))
 
 	h := http.Handler(mux)
 	h = s.requireCSRF(h)

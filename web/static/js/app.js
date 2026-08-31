@@ -135,6 +135,50 @@
     }
   });
 
+  /* ---------- backup schedule dialog (kind segments + edit prefill) ---------- */
+  const schedForm = $("[data-sched-form]");
+  if (schedForm) {
+    const kindInput = $("[data-sched-kind-input]", schedForm);
+    const kindBtns = $$("[data-sched-kind-btn]", schedForm);
+    const setKind = (kind) => {
+      kindInput.value = kind;
+      kindBtns.forEach((b) => b.classList.toggle("is-on", b.dataset.schedKindBtn === kind));
+      $$("[data-sched-panel]", schedForm).forEach((panel) => {
+        const show = (panel.dataset.schedPanel || "").split(",").includes(kind);
+        panel.hidden = !show;
+        // Park hidden inputs so only the visible kind submits values.
+        $$("input,select", panel).forEach((el) => { el.disabled = !show; });
+      });
+      const wdRow = $("[data-sched-weekday-row]", schedForm);
+      if (wdRow) wdRow.hidden = kind !== "weekly";
+      $$("select", wdRow || schedForm).forEach((el) => {
+        if (el.name === "weekday") el.disabled = kind !== "weekly";
+      });
+    };
+    kindBtns.forEach((b) => b.addEventListener("click", () => setKind(b.dataset.schedKindBtn)));
+    setKind(kindInput.value || "daily");
+
+    document.addEventListener("click", (e) => {
+      const ed = e.target.closest("[data-sched-edit]");
+      if (!ed) return;
+      schedForm.action = "/backups/schedules/" + ed.dataset.schedEdit + "/update";
+      $("#sch-name", schedForm).value = ed.dataset.schedName || "";
+      $("#sch-time", schedForm).value = ed.dataset.schedTime || "03:00";
+      $("#sch-weekday", schedForm).value = ed.dataset.schedWeekday || "0";
+      $("#sch-interval", schedForm).value = ed.dataset.schedInterval || "24";
+      $("#sch-retention", schedForm).value = ed.dataset.schedRetention || "0";
+      setKind(ed.dataset.schedKind || "daily");
+      openModal("dlg-schedule");
+    });
+    // The "add" button resets to create mode.
+    const addBtn = $('[data-open-modal="dlg-schedule"]');
+    if (addBtn) addBtn.addEventListener("click", () => {
+      schedForm.action = "/backups/schedules";
+      schedForm.reset();
+      setKind("daily");
+    });
+  }
+
   /* ---------- bulk selection (users table) ---------- */
 
   document.addEventListener("change", (e) => {

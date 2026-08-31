@@ -183,12 +183,17 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 	if len(keyBytes) == 0 {
 		warn("master key missing from archive; device configs cannot be re-downloaded after restore (peers survive, devices must be re-enrolled)")
 	}
-	if err := s.writeArchive(tmpPath, password, []member{
-		{name: DBMember, path: snapPath},
-		{name: ConfigMember, data: configBytes},
-		{name: KeyMember, data: keyBytes},
-		{name: ManifestName, data: manifestJSON},
-	}); err != nil {
+	// Only members that exist go into the archive; a nil data member would
+	// fall through to the file-path branch with an empty path.
+	members := []member{{name: DBMember, path: snapPath}}
+	if len(configBytes) > 0 {
+		members = append(members, member{name: ConfigMember, data: configBytes})
+	}
+	if len(keyBytes) > 0 {
+		members = append(members, member{name: KeyMember, data: keyBytes})
+	}
+	members = append(members, member{name: ManifestName, data: manifestJSON})
+	if err := s.writeArchive(tmpPath, password, members); err != nil {
 		os.Remove(tmpPath)
 		return nil, err
 	}
@@ -413,6 +418,9 @@ type ArchiveInfo struct {
 	ModTime   time.Time
 	Encrypted bool
 }
+
+// KiB is the template-friendly size unit (archive sizes are small).
+func (a ArchiveInfo) KiB() int64 { return a.Size >> 10 }
 
 // List returns the local-sink archives, newest first.
 func (s *Service) List() ([]ArchiveInfo, error) {

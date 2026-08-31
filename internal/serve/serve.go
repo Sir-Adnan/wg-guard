@@ -293,6 +293,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Ifaces:       ifaces,
 		Accounting:   n.accounting,
 		Links:        links,
+		Backup:       n.backup,
 		Log:          log,
 		Reconciler:   rec,
 		Host:         hoststats.New(cfg.DataDir),
