@@ -1,0 +1,78 @@
+{{define "title"}}{{.T "settings.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "settings.title"}}</h1>
+    <p class="page-sub">{{.T "settings.subtitle"}}</p>
+  </div>
+</div>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+<form method="post" action="/settings" class="card card--pad form-card" novalidate>
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_users"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "quota_presets"}}field--invalid{{end}}">
+        <label for="s-quota-presets">{{.T "settings.quota_presets"}}</label>
+        <input class="input ltr-data" id="s-quota-presets" name="quota_presets" value="{{.Data.QuotaPresets}}">
+        <span class="hint">{{.T "settings.quota_presets_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "dur_presets"}}field--invalid{{end}}">
+        <label for="s-dur-presets">{{.T "settings.dur_presets"}}</label>
+        <input class="input ltr-data" id="s-dur-presets" name="dur_presets" value="{{.Data.DurPresets}}">
+        <span class="hint">{{.T "settings.dur_presets_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "default_quota_gb"}}field--invalid{{end}}">
+        <label for="s-def-quota">{{.T "settings.default_quota"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-def-quota" name="default_quota_gb" type="number" min="0" step="1" value="{{.Data.DefaultQuotaGB}}">
+          <span class="unit-static">GB</span>
+        </div>
+        <span class="hint">{{.T "settings.default_quota_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "default_dur_months"}}field--invalid{{end}}">
+        <label for="s-def-dur">{{.T "settings.default_dur"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-def-dur" name="default_dur_months" type="number" min="0" step="1" value="{{.Data.DefaultDurMonths}}">
+          <span class="unit-static">{{.T "duration.months"}}</span>
+        </div>
+        <span class="hint">{{.T "settings.default_dur_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "default_device_lim"}}field--invalid{{end}}">
+        <label for="s-def-dev">{{.T "settings.default_device"}}</label>
+        <input class="input unit-group--narrow" id="s-def-dev" name="default_device_lim" type="number" min="1" max="100" step="1" value="{{.Data.DefaultDeviceLim}}">
+        <span class="hint">{{.T "settings.default_device_hint"}}</span>
+      </div>
+      <div class="field">
+        <label for="s-def-iface">{{.T "settings.default_iface"}}</label>
+        <select class="select" id="s-def-iface" name="default_iface_id">
+          <option value="">{{.T "settings.default_iface_auto"}}</option>
+          {{range .Data.Ifaces}}<option value="{{.ID}}" {{if eq (printf "%v" .ID) (printf "%v" $.Data.DefaultIfaceID)}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+        <span class="hint">{{.T "settings.default_iface_hint"}}</span>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_sub"}}</legend>
+    <div class="field {{if eq .Data.Field "sub_base_url"}}field--invalid{{end}}">
+      <label for="s-sub-base">{{.T "settings.sub_base_url"}}</label>
+      <input class="input ltr-data" id="s-sub-base" name="sub_base_url" dir="ltr" autocomplete="off"
+             placeholder="https://sub.example.com" value="{{.Data.SubBaseURL}}">
+      <span class="hint">{{.T "settings.sub_base_url_hint"}}</span>
+    </div>
+  </fieldset>
+
+  <div class="inline-actions">
+    <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
+  </div>
+</form>
+{{end}}
