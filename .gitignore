@@ -7,3 +7,4 @@ bench-wgguard/
 # Root-anchored: a bare "wg-guard" would also ignore cmd/wg-guard/ entirely.
 /wg-guard
 /wg-guard.exe
+.vps/
