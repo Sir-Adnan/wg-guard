@@ -8,7 +8,42 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
-- **Phase 5 refinement — subscription links, create-user redesign, theme/shell overhaul,
+- **Phase 5 refinement round 2 — warm-sand design system, responsive shell, create-user
+  decluttering + defaults, settings screen, descriptive download filenames, dashboard
+  hierarchy, full AWG randomization, real-VPS kernel verification** (same verification
+  standard; tracked in `docs/development/phase5-refinement.md`):
+  - Warm-sand design system replacing the zinc/indigo one: warm neutral light palette with
+    ink primary and a petrol brand accent, lifted warm dark mode (no pure black), layered
+    surface + page-glow tokens, recolored charts, favicon, auth and public pages.
+  - Responsive shell: viewport-scaled content width (1400/1560 px), tablet default collapsed
+    rail, table→card at 800 px, small-phone density + safe areas, `theme-color` metas.
+  - Create-user redesign: segmented "packages / custom" traffic and "duration / exact date /
+    no expiry" (calendar and duration picker never visible together), live Jalali-aware
+    expiry preview, configs stepper, collapsed advanced section; fixed the drawer close
+    (`X`/Cancel were bound to modal dialogs only) and the calendar rendering *behind* the
+    dialog (now mounted inside the top layer).
+  - Create-form defaults from settings (`users.default_quota_gb`, `default_duration_months`,
+    `default_device_limit`, `default_iface_id` with first-enabled fallback): normal path is
+    fill-username → Create.
+  - Panel settings screen (`/settings`): traffic/duration package lists, create defaults,
+    default interface, subscription base URL, filename prefix/suffix — registry-validated
+    writes with error redisplay; Phase 6 ops screens remain out of scope.
+  - Config downloads named `[prefix]username-device[suffix].conf`
+    (`downloads.filename_prefix`/`_suffix` settings, sanitized by
+    `clientconf.ConfigFilename`) uniformly across web, API and the public sub page; QR
+    responses get matching inline names; OpenAPI updated.
+  - Dashboard: "needs attention" card (expiring ≤7 d / quota-exhausted / expired, capped
+    lists), traffic tile promoted, single page title, future-relative expiry hints
+    (`i18n.FormatRelativeUntil` — "in 3 days" / "۳ روز دیگر").
+  - Interfaces: "Randomize all parameters" (junk sizes, init packets, distinct magic headers,
+    header-protection key, padding + timer ranges via `crypto.getRandomValues`), richer
+    enable-prefill, and the kernel-verified HPK⇒S3/S4 constraint enforced in validation.
+  - Real-VPS verification: dedicated Ubuntu 24.04 KVM node with the pinned PPA kernel module;
+    runtime acceptance/round-trip matrix for the whole 2.0/3.x parameter set (H ranges, timer
+    ranges, HPK⇒S3/S4 same-message coupling, clearing semantics, headerless-setconf
+    rejection, backend constraint differences) — `docs/integrations/amneziawg.md` +
+    `fixtures/verify-vps-kernel-matrix.txt`.
+- **Phase 5 refinement round 1 — subscription links, create-user redesign, theme/shell overhaul,
   capability-gated AWG parameters** (same verification standard as Phase 5; tracked in
   `docs/development/phase5-refinement.md` with a verification record):
   - `internal/subscription` + migration 0004: per-user subscription links — 256-bit
@@ -169,6 +204,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- Expiry hints showed "just now"/"همین حالا" for future dates (the relative-time helper was
+  past-only and clamped skew); expiry columns now use a future-relative form ("in 3 days").
+- Create-user drawer: `X`/Cancel did nothing (close handlers were bound to `dialog.modal`
+  only, the drawer is `dialog.drawer`); the calendar popover appended to `<body>` rendered
+  *behind* the `<dialog>` top layer — both fixed at the root.
 - **CI: flaky token-forgery test** (`internal/token` `TestVerifyRejectsForgedAndRevoked`,
   failed ~1 in 16 runs): the forged token was built by overwriting the last plaintext
   character with a fixed symbol, which reproduces the original whenever the minted token

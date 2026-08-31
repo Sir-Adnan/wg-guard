@@ -5,12 +5,15 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 5 — Web UI (complete, 2026-08-31; refinement pass same day)
+## Phase 5 — Web UI (complete, 2026-08-31; two refinement passes same day)
 
-The refinement pass (subscription links, create-user redesign, users-page redesign, theme +
-shell redesign, panel-wide polish, capability-gated AWG 2.0/3.x parameters) is tracked in
-[phase5-refinement.md](phase5-refinement.md) with its own verification record; the asset
-budgets after the pass are JS 24.1/30 KiB gz, CSS 10.0/25 KiB gz, fonts 101.8/150 KiB gz.
+The two refinement passes (round 1: subscription links, create-user redesign, users-page
+redesign, theme + shell redesign, capability-gated AWG 2.0/3.x parameters; round 2: warm-sand
+design system, responsive shell, create-user decluttering + defaults, panel settings screen,
+descriptive download filenames, dashboard hierarchy, full AWG randomization, real-VPS kernel
+verification) are tracked in [phase5-refinement.md](phase5-refinement.md) with verification
+records; asset budgets after round 2 are JS 25.3/30 KiB gz, CSS 10.5/25 KiB gz, fonts
+101.8/150 KiB gz.
 
 All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
 WSL2 Ubuntu/Go 1.26; `go test -race ./...` green in WSL2 — Windows has no C toolchain for the
@@ -43,16 +46,36 @@ Refinement pass additions (same status rules as above):
 | Create-user drawer on the users page (shared partial with the `/users/new` fallback): username generator, settings-driven quota/duration preset chips (`users.quota_presets_gb`, `users.duration_presets_months`), auto device provisioning (count = device limit, cap 10, per-device transactional), Jalali (fa) / Gregorian (en) vanilla-JS calendar — leap-year algorithm exhaustively verified against server-side conversions | ✅ implemented + unit tested (auto-device flow, quota/duration exactness); calendar verified in browser |
 | Users page redesign: identity rows, quick-share menu (per-device QR/download + sub-link copy, batch device load), fixed-coordinate menu positioning (no clipping in overflow containers; close on scroll) | ✅ implemented + unit tested; browser-verified desktop + 390 px mobile |
 | Theme + shell refinement: zinc-neutral light palette, refined dark palette (`#09090b` base), 8/12 px radii, component polish (buttons, inputs, badges, tables, menus, dialogs, empty states, metric icon chips), desktop sidebar collapse to a persisted 68 px icon rail with tooltips, compact footer icon row | ✅ implemented; palettes/collapse verified live in browser |
-| Interfaces: capability-gated 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; gated drift is report-only (`Obfuscation.LegacyVerified`); magic headers crypto/rand generated at creation (presets no longer hardcode weak values); I1–I5 inputs with iOS warning | ✅ implemented + unit tested (validation, render, dump, gated-drift classification); runtime behavior of the gated set remains unverified until the Phase 8 VPS matrix |
+| Interfaces: capability-gated 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; gated drift is report-only (`Obfuscation.LegacyVerified`); magic headers crypto/rand generated at creation (presets no longer hardcode weak values); I1–I5 inputs with iOS warning | ✅ implemented + unit tested (validation, render, dump, gated-drift classification); **kernel-module acceptance + round-trip of the whole gated set verified on a real VPS** (see amneziawg.md verification log); client-app compatibility still varies |
+
+Round 2 refinement additions (same status rules as above):
+
+| Item | Status |
+|---|---|
+| Warm-sand design system: warm neutral light palette + ink primary + petrol brand accent, lifted warm dark mode (no pure black), layered surface/page-glow tokens, recolored charts/favicon/auth/public pages; shadcn-grade component language without copying it | ✅ implemented; verified live in browser (fa/en × light/dark) |
+| Responsive shell: content max-width grows with viewport (1400 px, 1560 px ≥1920), tablet default collapsed rail (≤1180 px, only without an explicit operator preference), table→card switch at 800 px, small-phone density + safe-area insets, `viewport-fit` + `theme-color` metas | ✅ implemented; verified at 1366 + 390 px, no horizontal overflow |
+| Create-user redesign: segmented "packages / custom" traffic, segmented "duration / exact date / no expiry" (picker and calendar never shown together), live Jalali-aware expiry preview (`RelIn` future-relative hints), compact configs stepper replacing checkbox+limit duplication, advanced options collapsed (plan/interface/policy/speeds/tags); drawer close fix (`dialog` binding) and calendar mounted inside the `<dialog>` top layer | ✅ implemented + unit tested; drawer flows verified live (generator → defaults → calendar pick → ISO write → create → auto-device) |
+| Create-form defaults from settings (`users.default_quota_gb`, `users.default_duration_months`, `users.default_device_limit`, `users.default_iface_id` with configured-id→first-enabled fallback): the normal path is fill-username → Create | ✅ implemented + unit tested; prefill verified live |
+| Panel settings screen (`/settings`, nav item added): traffic/duration package lists, create defaults, default interface, `subscription.base_url`, download filename prefix/suffix — non-secret registry keys only, every write through registry validators with submitted-value redisplay on error. Phase 6 screens (admins/tokens/webhooks/backups/audit) deliberately still absent | ✅ implemented + unit tested (save/redisplay/prefill round-trip); verified live |
+| Descriptive config download filenames: `[prefix]username-device[suffix].conf` (`downloads.filename_prefix`/`_suffix`), sanitized ASCII parts (`internal/clientconf.ConfigFilename`), applied uniformly to web, API and public sub-page downloads; QR responses get matching inline `.png` names; documented in OpenAPI | ✅ implemented + unit tested; Content-Disposition verified live with and without prefix |
+| Dashboard hierarchy: "needs attention" card (expiring ≤7 d / quota-exhausted / expired — status+expiry-indexed queries, capped at 5 rows each, rendered only when non-empty), traffic tile promoted, single page title (topbar shows the brand, pages own their `h1`), balanced metric grid | ✅ implemented + unit tested (attention lists incl. seeded statuses); verified live in fa/dark + en/light |
+| Interfaces form: "Randomize all parameters" (crypto.getRandomValues in-page: junk sizes, init packets, distinct magic headers, 32-byte base64 header-protection key, padding + timer ranges), richer enable-prefill (padding `10-100` added), HPK⇒S3/S4 kernel constraint enforced in validation + hinted in UI, gated-warning text updated to kernel-verified status | ✅ implemented + unit tested (validation cases); full-generation create verified live |
+| Real-VPS verification environment: dedicated disposable Ubuntu 24.04 KVM node; pinned PPA `amneziawg-tools` + DKMS kernel module; runtime parameter matrix (acceptance, round-trip, constraint enforcement, clearing semantics, setconf header requirement) executed against the kernel module | ✅ executed 2026-08-31 — evidence in `docs/integrations/fixtures/verify-vps-kernel-matrix.txt`; integration test suite run recorded in the phase 5 refinement doc |
 
 Deferred / honest notes within Phase 5 scope:
 
-- Phase 6 screens (settings UI, administrators, API tokens, webhooks, audit log, backup) are
-  deliberately absent from the navigation; the shell reserves their place in the design system.
+- Phase 6 screens (administrators, API tokens, webhooks, audit log, backup/restore) are
+  deliberately absent; the settings screen added in round 2 covers only the non-secret panel
+  knobs and is explicitly not the Phase 6 settings area.
 - Browser QA ran through in-app browser automation; the screenshot pipeline was intermittently
-  unavailable, so several mobile-layout checks were verified via DOM geometry (scroll widths,
-  computed grid/flex columns, overflow probes) instead of pixel inspection. A short human pass
-  on real phone hardware is still worthwhile before release.
+  unavailable, so a few mobile-layout checks were verified via DOM geometry (scroll widths,
+  overflow probes) instead of pixel inspection. A short human pass on real phone hardware is
+  still worthwhile before release.
+- Client-app compatibility for the 2.0/3.x obfuscation set (incl. timer/padding ranges) varies
+  per platform; the parameters stay capability-gated off-by-default with report-only drift.
+  AdvancedSecurity (peer-section key) remains deferred — per-device plumbing needed.
+- Aggregate "sing-box/clash subscription" format endpoints remain a candidate for a later
+  phase (needs an upstream-supported format decision — not assumed).
 - The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
   visual effect was observed manually, not soak-tested.
 - The capability-gated 2.0/3.x obfuscation parameters are parser-verified against the pinned
