@@ -250,6 +250,9 @@
   sidebar?.addEventListener("click", (e) => {
     if (e.target.closest(".nav a")) setDrawer(false);
   });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 960) setDrawer(false);
+  });
 
   /* ---------- desktop sidebar collapse (persisted) ---------- */
 
@@ -263,7 +266,12 @@
   $("#btn-collapse")?.addEventListener("click", () =>
     setCollapsed(!shell.hasAttribute("data-collapsed")));
   try {
-    if (localStorage.getItem("wg_sidebar") === "1") shell?.toggleAttribute("data-collapsed", true);
+    const stored = localStorage.getItem("wg_sidebar");
+    // No explicit operator preference yet: compact rail is the better default
+    // on tablets/small laptops where the expanded sidebar eats content width.
+    if (stored === "1" || (stored === null && window.innerWidth <= 1180)) {
+      shell?.toggleAttribute("data-collapsed", true);
+    }
   } catch { /* ignore */ }
 
   /* ---------- htmx integration ---------- */

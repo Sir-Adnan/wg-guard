@@ -42,7 +42,7 @@
   /* layout */
   --sidebar-w: 244px;
   --topbar-h: 56px;
-  --content-max: 1240px;
+  --content-max: 1400px;
   --z-drawer: 60; --z-modal: 70; --z-toast: 80; --z-menu: 75;
 
   /* light theme (default) — warm sand neutrals, ink primary, petrol brand */
@@ -1354,6 +1354,8 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
     translate: -100% 0;
     transition: translate var(--t-slow) var(--ease);
     box-shadow: var(--shadow-3);
+    padding-inline-start: max(var(--sp-3), env(safe-area-inset-left));
+    padding-bottom: env(safe-area-inset-bottom);
   }
   [dir="rtl"] .sidebar { translate: 100% 0; }
   .sidebar.is-open { translate: 0 0; }
@@ -1362,8 +1364,14 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
   .topbar { padding: var(--sp-2) var(--sp-4); }
 }
 
+/* large displays keep a centered composition instead of stretching */
+@media (min-width: 1920px) {
+  :root { --content-max: 1560px; }
+  .content { padding: var(--sp-6); }
+}
+
 /* table → card adaptation (one component, two shapes) */
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   table.table--cards, .table--cards thead, .table--cards tbody,
   .table--cards tr, .table--cards th, .table--cards td { display: block; }
   .table--cards thead { display: none; }
@@ -1615,6 +1623,12 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
 @media (max-width: 480px) {
   .sub-shell { padding-inline: var(--sp-3); }
   .sub-device-body { flex-direction: column; gap: var(--sp-3); }
+  .content { padding-inline: var(--sp-3); }
+  .topbar { padding-inline: var(--sp-3); padding-inline-end: max(var(--sp-3), env(safe-area-inset-right)); }
+  .topbar h1 { font-size: var(--fs-md); }
+  .topbar .subtitle { display: none; }
+  .page-head { margin-block-end: var(--sp-4); }
+  .page-head h1 { font-size: var(--fs-lg); }
 }
 
 .auth-alert--warn { background: var(--warn-soft); color: var(--warn); }
