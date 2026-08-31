@@ -64,59 +64,59 @@
         </label>
       </div>
       <p class="hint">{{.T "ifaces.obf.hint"}}</p>
-      {{$obfOn := false}}{{$obf := .Data.I.Obfuscation}}
+      {{$obfOn := false}}
       {{if and .Data.I .Data.I.Obfuscation.Enabled}}{{$obfOn = true}}{{end}}
       <div class="field-row">
         <div class="field">
           <label for="i-obf-jc">{{.T "ifaces.obf.jc"}}</label>
           <input class="input" id="i-obf-jc" name="obf_jc" type="number" dir="ltr" min="1" max="128"
-                 value="{{if $obfOn}}{{$obf.Jc}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.Jc}}{{end}}">
         </div>
         <div class="field">
           <label for="i-obf-jmin">{{.T "ifaces.obf.jmin"}}</label>
           <input class="input" id="i-obf-jmin" name="obf_jmin" type="number" dir="ltr" min="0" max="1280"
-                 value="{{if $obfOn}}{{$obf.Jmin}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.Jmin}}{{end}}">
         </div>
         <div class="field">
           <label for="i-obf-jmax">{{.T "ifaces.obf.jmax"}}</label>
           <input class="input" id="i-obf-jmax" name="obf_jmax" type="number" dir="ltr" min="0" max="1280"
-                 value="{{if $obfOn}}{{$obf.Jmax}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.Jmax}}{{end}}">
         </div>
       </div>
       <div class="field-row">
         <div class="field">
           <label for="i-obf-s1">{{.T "ifaces.obf.s1"}}</label>
           <input class="input" id="i-obf-s1" name="obf_s1" type="number" dir="ltr" min="0" max="1132"
-                 value="{{if $obfOn}}{{$obf.S1}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.S1}}{{end}}">
         </div>
         <div class="field">
           <label for="i-obf-s2">{{.T "ifaces.obf.s2"}}</label>
           <input class="input" id="i-obf-s2" name="obf_s2" type="number" dir="ltr" min="0" max="1188"
-                 value="{{if $obfOn}}{{$obf.S2}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.S2}}{{end}}">
         </div>
       </div>
       <div class="field-row">
         <div class="field">
           <label for="i-obf-h1">{{.T "ifaces.obf.h1"}}</label>
           <input class="input" id="i-obf-h1" name="obf_h1" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{$obf.H1}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H1}}{{end}}">
         </div>
         <div class="field">
           <label for="i-obf-h2">{{.T "ifaces.obf.h2"}}</label>
           <input class="input" id="i-obf-h2" name="obf_h2" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{$obf.H2}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H2}}{{end}}">
         </div>
       </div>
       <div class="field-row">
         <div class="field">
           <label for="i-obf-h3">{{.T "ifaces.obf.h3"}}</label>
           <input class="input" id="i-obf-h3" name="obf_h3" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{$obf.H3}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H3}}{{end}}">
         </div>
         <div class="field">
           <label for="i-obf-h4">{{.T "ifaces.obf.h4"}}</label>
           <input class="input" id="i-obf-h4" name="obf_h4" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{$obf.H4}}{{end}}">
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H4}}{{end}}">
         </div>
       </div>
       {{if .Data.I}}

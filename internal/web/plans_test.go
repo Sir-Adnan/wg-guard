@@ -87,6 +87,14 @@ func TestIfaceCrudFlow(t *testing.T) {
 	cookie := e.login("owner")
 	csrf := deriveCSRF(cookie.Value)
 
+	// Regression: the create pages must render with no interface/plan data
+	// (nil-pointer template guard).
+	for _, path := range []string{"/interfaces/new", "/plans/new", "/users/new"} {
+		if rec := e.get(path, cookie); rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: %d", path, rec.Code)
+		}
+	}
+
 	// Create: auto port and default subnet.
 	form := url.Values{"_csrf": {csrf}, "name": {"awg0"}, "listen_port": {""}, "subnet": {""}}
 	rec := e.post("/interfaces", form, cookie, csrf)

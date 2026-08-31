@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/color"
 	"image/png"
 	"strings"
 
@@ -121,6 +123,10 @@ func WithPort(endpoint string, port int) string {
 // impact, BSD license, no network or cgo). Client configs are small
 // (≤ ~2 KB) but hard-bounded here: oversized payloads are a client error,
 // not a panic in the encoder.
+//
+// The raster is drawn by hand: rsc.io/qr's code.Image() leaves the modules
+// unscaled in the corner of a Scale-multiplied canvas, which renders as a
+// speck in a white square.
 func QR(text string) ([]byte, error) {
 	const maxQRBytes = 2600 // QR version 40 byte-mode capacity is 2953
 	if len(text) > maxQRBytes {
@@ -130,7 +136,20 @@ func QR(text string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("qr encode: %w", err)
 	}
-	img := code.Image() // 6 px module border-included scale
+	const (
+		module = 6 // image pixels per QR module (crisp at the 280 px modal)
+		quiet  = 4 // quiet-zone modules, per the QR spec
+	)
+	d := (code.Size + 2*quiet) * module
+	img := image.NewGray(image.Rect(0, 0, d, d))
+	for y := 0; y < d; y++ {
+		qy := y/module - quiet
+		for x := 0; x < d; x++ {
+			if code.Black(x/module-quiet, qy) {
+				img.SetGray(x, y, color.Gray{Y: 0x00})
+			}
+		}
+	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, fmt.Errorf("qr png: %w", err)

@@ -201,11 +201,7 @@
     if (!input) return;
     const show = input.type === "password";
     input.type = show ? "text" : "password";
-    t.setAttribute("aria-pressed", String(show));
-    // exactly two icons: [eye, eye-off] — swap visibility
-    const icons = t.querySelectorAll("svg");
-    if (icons[0]) icons[0].classList.toggle("hidden", show);
-    if (icons[1]) icons[1].classList.toggle("hidden", !show);
+    t.setAttribute("aria-pressed", String(show)); // CSS swaps the two icons
   });
 
   /* ---------- mobile drawer ---------- */

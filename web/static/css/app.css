@@ -615,10 +615,11 @@ table.table {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  min-width: 140px;
+  min-width: 0;
 }
 .meter .bar {
-  flex: 1 1 60px;
+  flex: 1 1 40px;
+  min-width: 24px;
   height: 6px;
   border-radius: var(--r-full);
   background: var(--bg-subtle);
@@ -633,16 +634,22 @@ table.table {
 }
 .meter .bar > .is-warn { background: var(--warn); }
 .meter .bar > .is-danger { background: var(--danger); }
-.meter .num { font-size: var(--fs-xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.meter .num {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: none;
+}
 
 /* width steps for CSP-safe meters (server picks the nearest) */
-.w0 > span { width: 0%; }   .w5 > span { width: 5%; }    .w10 > span { width: 10%; }
-.w15 > span { width: 15%; } .w20 > span { width: 20%; }  .w25 > span { width: 25%; }
-.w30 > span { width: 30%; } .w35 > span { width: 35%; }  .w40 > span { width: 40%; }
-.w45 > span { width: 45%; } .w50 > span { width: 50%; }  .w55 > span { width: 55%; }
-.w60 > span { width: 60%; } .w65 > span { width: 65%; }  .w70 > span { width: 70%; }
-.w75 > span { width: 75%; } .w80 > span { width: 80%; }  .w85 > span { width: 85%; }
-.w90 > span { width: 90%; } .w95 > span { width: 95%; }  .w100 > span { width: 100%; }
+.w0 .bar > span { width: 0%; }   .w5 .bar > span { width: 5%; }    .w10 .bar > span { width: 10%; }
+.w15 .bar > span { width: 15%; } .w20 .bar > span { width: 20%; }  .w25 .bar > span { width: 25%; }
+.w30 .bar > span { width: 30%; } .w35 .bar > span { width: 35%; }  .w40 .bar > span { width: 40%; }
+.w45 .bar > span { width: 45%; } .w50 .bar > span { width: 50%; }  .w55 .bar > span { width: 55%; }
+.w60 .bar > span { width: 60%; } .w65 .bar > span { width: 65%; }  .w70 .bar > span { width: 70%; }
+.w75 .bar > span { width: 75%; } .w80 .bar > span { width: 80%; }  .w85 .bar > span { width: 85%; }
+.w90 .bar > span { width: 90%; } .w95 .bar > span { width: 95%; }  .w100 .bar > span { width: 100%; }
 
 /* ---------- dropdown menu ---------- */
 
@@ -665,6 +672,8 @@ table.table {
     visibility var(--t-fast);
 }
 .menu.is-open { opacity: 1; visibility: visible; translate: 0 0; }
+/* footer menus (theme, language) sit at the viewport bottom — open upward */
+.sidebar-foot .menu { top: auto; bottom: calc(100% + 6px); }
 .menu button, .menu a {
   display: flex;
   align-items: center;
@@ -1012,7 +1021,7 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
 
 .detail-list {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: minmax(max-content, 200px) minmax(0, 1fr);
   gap: 8px var(--sp-5);
   font-size: var(--fs-sm);
 }
@@ -1075,6 +1084,9 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
   width: 30px;
   height: 30px;
 }
+/* reveal state lives on aria-pressed so the initial render is correct too */
+[data-toggle-password][aria-pressed="false"] svg:nth-of-type(2) { display: none; }
+[data-toggle-password][aria-pressed="true"] svg:nth-of-type(1) { display: none; }
 
 /* two-column field rows (stack on small screens) */
 .field-row {
@@ -1092,11 +1104,11 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
 /* user detail: overview + devices side by side, stacked on mobile */
 .user-detail-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
   gap: var(--sp-4);
   align-items: start;
 }
-@media (max-width: 960px) {
+@media (max-width: 1400px) {
   .user-detail-grid { grid-template-columns: 1fr; }
 }
 .user-detail-grid .card + .card { margin-block-start: var(--sp-4); }
@@ -1204,6 +1216,10 @@ fieldset.onboard-section .field:last-child { margin-block-end: 0; }
   }
   .table--cards td.card-title::before { display: none; }
   .table--cards td.card-hide { display: none; }
+  /* stacked definition lists: label above value (the two-column track starves values) */
+  .detail-list { grid-template-columns: minmax(0, 1fr); }
+  .detail-list dt { margin-block-start: var(--sp-2); }
+  .detail-list dt:first-child { margin-block-start: 0; }
 }
 
 /* ---------- motion preferences ---------- */
