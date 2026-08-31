@@ -1,10 +1,13 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 )
 
 func TestSettingsPageAndSave(t *testing.T) {
@@ -75,5 +78,78 @@ func TestSettingsPageAndSave(t *testing.T) {
 	}, cookie, csrf)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("bad base url: %d", rec.Code)
+	}
+}
+
+func TestSettingsBackupSecretsAndGating(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	csrf := deriveCSRF(cookie.Value)
+
+	// Set the backup password + telegram token.
+	rec := e.post("/settings", url.Values{
+		"backup_password": {"strong-pass-1"},
+		"telegram_token":  {"12345:ABC"},
+		"telegram_chat":   {"999"},
+	}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("secret save: %d", rec.Code)
+	}
+	if pw, _ := e.reg.GetSecret(context.Background(), "backup.password"); pw != "strong-pass-1" {
+		t.Fatal("backup password not stored")
+	}
+	body := e.get("/settings", cookie).Body.String()
+	if !strings.Contains(body, "set</span>") {
+		t.Fatal("secret state badges missing")
+	}
+	if strings.Contains(body, "strong-pass-1") {
+		t.Fatal("secret value rendered back to the page")
+	}
+
+	// Empty fields keep the stored values.
+	rec = e.post("/settings", url.Values{"telegram_chat": {"888"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("partial save: %d", rec.Code)
+	}
+	if pw, _ := e.reg.GetSecret(context.Background(), "backup.password"); pw != "strong-pass-1" {
+		t.Fatal("empty field wiped the stored password")
+	}
+	if chat, _ := e.reg.GetString(context.Background(), "backup.telegram_chat"); chat != "888" {
+		t.Fatal("chat id not updated")
+	}
+
+	// Weak password rejected by the registry validator.
+	rec = e.post("/settings", url.Values{"backup_password": {"short"}}, cookie, csrf)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "8 characters") {
+		t.Fatalf("weak password: %d", rec.Code)
+	}
+
+	// Clear checkboxes remove the secrets.
+	rec = e.post("/settings", url.Values{
+		"backup_password_clear": {"1"}, "telegram_token_clear": {"1"},
+	}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("clear save: %d", rec.Code)
+	}
+	if pw, _ := e.reg.GetSecret(context.Background(), "backup.password"); pw != "" {
+		t.Fatal("password survived clear")
+	}
+	if tok, _ := e.reg.GetSecret(context.Background(), "backup.telegram_token"); tok != "" {
+		t.Fatal("token survived clear")
+	}
+
+	// A limited admin without node.settings cannot even read the page.
+	if _, err := e.admins.Create(context.Background(), "viewer2", testPassword,
+		auth.RoleAdmin, []string{auth.ScopeUsersRead}); err != nil {
+		t.Fatal(err)
+	}
+	viewer := e.loginEN("viewer2")
+	if rec := e.get("/settings", viewer); rec.Code != http.StatusSeeOther {
+		t.Fatalf("limited admin read /settings: %d", rec.Code)
+	}
+	if rec := e.post("/settings", url.Values{"retention": {"5"}}, viewer,
+		deriveCSRF(viewer.Value)); rec.Code != http.StatusSeeOther {
+		t.Fatalf("limited admin wrote /settings: %d", rec.Code)
 	}
 }

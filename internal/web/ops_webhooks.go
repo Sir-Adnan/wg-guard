@@ -12,11 +12,11 @@ import (
 // signing secret is generated server-side and shown exactly once, on create
 // or rotation.
 type webhooksData struct {
-	Error   string
-	Show    *webhook.Endpoint
-	List    []webhook.EndpointWithStats
+	Error    string
+	Show     *webhook.Endpoint
+	List     []webhook.EndpointWithStats
 	Delivery []webhook.Delivery
-	Catalog []string
+	Catalog  []string
 
 	Created struct {
 		URL    string

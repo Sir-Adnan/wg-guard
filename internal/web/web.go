@@ -186,9 +186,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /interfaces/{id}/disable", s.requireAuth(s.handleIfaceDisable))
 	mux.HandleFunc("POST /interfaces/{id}/delete", s.requireAuth(s.handleIfaceDelete))
 
-	// --- settings (panel knobs; Phase 6 adds the ops screens) ---
-	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsPage))
-	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsSave))
+	// --- settings (node.settings: the registry is operator territory) ---
+	mux.HandleFunc("GET /settings", s.requirePermission(auth.ScopeNodeSettings, s.handleSettingsPage))
+	mux.HandleFunc("POST /settings", s.requirePermission(auth.ScopeNodeSettings, s.handleSettingsSave))
 
 	// --- backups (backup.manage; ADR-0007: panel/CLI only) ---
 	mux.HandleFunc("GET /backups", s.requirePermission(auth.ScopeBackupManage, s.handleBackupsPage))

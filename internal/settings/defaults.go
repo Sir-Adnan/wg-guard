@@ -212,7 +212,13 @@ func Defaults() []Definition {
 
 		// Backup (encryption is optional; an empty password means plain
 		// archives — ADR-0008).
-		{Key: "backup.password", Kind: KindSecret, Default: "", Category: "backup", Secret: true},
+		{Key: "backup.password", Kind: KindSecret, Default: "", Category: "backup", Secret: true,
+			Validator: func(v any) error {
+				if s, _ := v.(string); s != "" && len(s) < 8 {
+					return fmt.Errorf("backup password must be at least 8 characters")
+				}
+				return nil
+			}},
 		{Key: "backup.telegram_token", Kind: KindSecret, Default: "", Category: "backup", Secret: true},
 		{Key: "backup.telegram_chat", Kind: KindString, Default: "", Category: "backup",
 			Validator: func(v any) error {

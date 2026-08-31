@@ -13,6 +13,27 @@
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
 
   <fieldset class="form-section">
+    <legend>{{.T "settings.section_identity"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "node_id"}}field--invalid{{end}}">
+        <label for="s-node-id">{{.T "settings.node_id"}}</label>
+        <input class="input ltr-data" id="s-node-id" name="node_id" value="{{.Data.NodeID}}">
+        <span class="hint">{{.T "settings.node_id_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "endpoint"}}field--invalid{{end}}">
+        <label for="s-endpoint">{{.T "settings.endpoint"}}</label>
+        <input class="input ltr-data" id="s-endpoint" name="endpoint" dir="ltr" autocomplete="off"
+               placeholder="vpn.example.com:51820" value="{{.Data.Endpoint}}">
+        <span class="hint">{{.T "settings.endpoint_hint"}}</span>
+      </div>
+    </div>
+    <div class="detail-list">
+      <dt>{{.T "settings.tls_mode"}}</dt><dd><span class="badge ltr-data">{{.Data.TLSMode}}</span></dd>
+      <dt>{{.T "settings.tools_ver"}}</dt><dd class="ltr-data">{{.Data.ToolsVer}}</dd>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-section">
     <legend>{{.T "settings.section_users"}}</legend>
     <div class="field-row">
       <div class="field {{if eq .Data.Field "quota_presets"}}field--invalid{{end}}">
@@ -50,13 +71,149 @@
         <input class="input unit-group--narrow" id="s-def-dev" name="default_device_lim" type="number" min="1" max="100" step="1" value="{{.Data.DefaultDeviceLim}}">
         <span class="hint">{{.T "settings.default_device_hint"}}</span>
       </div>
-      <div class="field">
+      <div class="field {{if eq .Data.Field "default_iface_id"}}field--invalid{{end}}">
         <label for="s-def-iface">{{.T "settings.default_iface"}}</label>
         <select class="select" id="s-def-iface" name="default_iface_id">
           <option value="">{{.T "settings.default_iface_auto"}}</option>
           {{range .Data.Ifaces}}<option value="{{.ID}}" {{if eq (printf "%v" .ID) (printf "%v" $.Data.DefaultIfaceID)}}selected{{end}}>{{.Name}}</option>{{end}}
         </select>
         <span class="hint">{{.T "settings.default_iface_hint"}}</span>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_networking"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "mtu"}}field--invalid{{end}}">
+        <label for="s-mtu">{{.T "settings.mtu"}}</label>
+        <input class="input unit-group--narrow" id="s-mtu" name="mtu" type="number" min="576" max="65535" step="1" value="{{.Data.MTU}}">
+      </div>
+      <div class="field {{if eq .Data.Field "keepalive"}}field--invalid{{end}}">
+        <label for="s-keepalive">{{.T "settings.keepalive"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-keepalive" name="keepalive" type="number" min="0" max="120" step="1" value="{{.Data.Keepalive}}">
+          <span class="unit-static">{{.T "duration.seconds_short"}}</span>
+        </div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "dns_servers"}}field--invalid{{end}}">
+        <label for="s-dns">{{.T "settings.dns"}}</label>
+        <input class="input ltr-data" id="s-dns" name="dns_servers" dir="ltr" value="{{.Data.DNSServers}}">
+        <span class="hint">{{.T "settings.dns_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "allowed_ips"}}field--invalid{{end}}">
+        <label for="s-allowed">{{.T "settings.allowed_ips"}}</label>
+        <input class="input ltr-data" id="s-allowed" name="allowed_ips" dir="ltr" value="{{.Data.AllowedIPs}}">
+        <span class="hint">{{.T "settings.allowed_ips_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "port_min"}}field--invalid{{end}}">
+        <label for="s-port-min">{{.T "settings.port_min"}}</label>
+        <input class="input" id="s-port-min" name="port_min" type="number" min="1024" max="65535" value="{{.Data.PortMin}}">
+      </div>
+      <div class="field {{if eq .Data.Field "port_max"}}field--invalid{{end}}">
+        <label for="s-port-max">{{.T "settings.port_max"}}</label>
+        <input class="input" id="s-port-max" name="port_max" type="number" min="1024" max="65535" value="{{.Data.PortMax}}">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "iface_max"}}field--invalid{{end}}">
+        <label for="s-iface-max">{{.T "settings.iface_max"}}</label>
+        <input class="input unit-group--narrow" id="s-iface-max" name="iface_max" type="number" min="1" max="64" value="{{.Data.IfaceMax}}">
+      </div>
+      <div class="field {{if eq .Data.Field "drift_policy"}}field--invalid{{end}}">
+        <label for="s-drift">{{.T "settings.drift_policy"}}</label>
+        <select class="select" id="s-drift" name="drift_policy">
+          {{range .Data.DriftOptions}}<option value="{{.}}" {{if eq . $.Data.DriftPolicy}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        <span class="hint">{{.T "settings.drift_hint"}}</span>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_accounting"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "acct_interval"}}field--invalid{{end}}">
+        <label for="s-acct">{{.T "settings.acct_interval"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-acct" name="acct_interval" type="number" min="15" max="600" value="{{.Data.AcctInterval}}">
+          <span class="unit-static">{{.T "duration.seconds_short"}}</span>
+        </div>
+      </div>
+      <div class="field {{if eq .Data.Field "online_window"}}field--invalid{{end}}">
+        <label for="s-online">{{.T "settings.online_window"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-online" name="online_window" type="number" min="30" max="3600" value="{{.Data.OnlineWindow}}">
+          <span class="unit-static">{{.T "duration.seconds_short"}}</span>
+        </div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "sample_flush"}}field--invalid{{end}}">
+        <label for="s-flush">{{.T "settings.sample_flush"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-flush" name="sample_flush" type="number" min="60" max="3600" value="{{.Data.SampleFlush}}">
+          <span class="unit-static">{{.T "duration.seconds_short"}}</span>
+        </div>
+      </div>
+      <div class="field {{if eq .Data.Field "sample_retention"}}field--invalid{{end}}">
+        <label for="s-sample-ret">{{.T "settings.sample_retention"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-sample-ret" name="sample_retention" type="number" min="24" max="48" value="{{.Data.SampleRetention}}">
+          <span class="unit-static">{{.T "duration.hours"}}</span>
+        </div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "rollup_hourly"}}field--invalid{{end}}">
+        <label for="s-roll-h">{{.T "settings.rollup_hourly"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-roll-h" name="rollup_hourly" type="number" min="7" max="90" value="{{.Data.RollupHourlyDays}}">
+          <span class="unit-static">{{.T "duration.days"}}</span>
+        </div>
+      </div>
+      <div class="field {{if eq .Data.Field "rollup_daily"}}field--invalid{{end}}">
+        <label for="s-roll-d">{{.T "settings.rollup_daily"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-roll-d" name="rollup_daily" type="number" min="30" max="730" value="{{.Data.RollupDailyDays}}">
+          <span class="unit-static">{{.T "duration.days"}}</span>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_api"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "rate_limit"}}field--invalid{{end}}">
+        <label for="s-rate">{{.T "settings.rate_limit"}}</label>
+        <input class="input unit-group--narrow" id="s-rate" name="rate_limit" type="number" min="0" max="100000" value="{{.Data.RateLimit}}">
+        <span class="hint">{{.T "settings.rate_limit_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "webhook_max"}}field--invalid{{end}}">
+        <label for="s-webhook-max">{{.T "settings.webhook_max"}}</label>
+        <input class="input unit-group--narrow" id="s-webhook-max" name="webhook_max" type="number" min="1" max="50" value="{{.Data.WebhookMax}}">
+        <span class="hint">{{.T "settings.webhook_max_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "session_idle"}}field--invalid{{end}}">
+        <label for="s-sess-idle">{{.T "settings.session_idle"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-sess-idle" name="session_idle" type="number" min="1" max="168" value="{{.Data.SessionIdle}}">
+          <span class="unit-static">{{.T "duration.hours"}}</span>
+        </div>
+      </div>
+      <div class="field {{if eq .Data.Field "session_abs"}}field--invalid{{end}}">
+        <label for="s-sess-abs">{{.T "settings.session_abs"}}</label>
+        <div class="unit-group unit-group--narrow">
+          <input class="input" id="s-sess-abs" name="session_abs" type="number" min="1" max="720" value="{{.Data.SessionAbs}}">
+          <span class="unit-static">{{.T "duration.hours"}}</span>
+        </div>
       </div>
     </div>
   </fieldset>
@@ -84,6 +241,45 @@
         <label for="s-fn-suffix">{{.T "settings.filename_suffix"}}</label>
         <input class="input ltr-data" id="s-fn-suffix" name="filename_suffix" dir="ltr" autocomplete="off"
                placeholder="v2" value="{{.Data.FilenameSuffix}}">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_backup"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "retention"}}field--invalid{{end}}">
+        <label for="s-retention">{{.T "settings.retention"}}</label>
+        <input class="input unit-group--narrow" id="s-retention" name="retention" type="number" min="1" max="365" value="{{.Data.Retention}}">
+        <span class="hint">{{.T "settings.retention_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "telegram_chat"}}field--invalid{{end}}">
+        <label for="s-tg-chat">{{.T "settings.telegram_chat"}}</label>
+        <input class="input ltr-data" id="s-tg-chat" name="telegram_chat" dir="ltr" inputmode="numeric"
+               value="{{.Data.TelegramChat}}">
+        <span class="hint">{{.T "settings.telegram_chat_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "backup_password"}}field--invalid{{end}}">
+        <label for="s-bk-password">
+          {{.T "settings.backup_password"}}
+          {{if .Data.PasswordSet}}<span class="badge badge--ok">{{.T "settings.secret_set"}}</span>{{else}}<span class="badge">{{.T "settings.secret_unset"}}</span>{{end}}
+        </label>
+        <input class="input ltr-data" id="s-bk-password" name="backup_password" type="password" autocomplete="new-password"
+               placeholder="{{.T "settings.secret_placeholder"}}">
+        <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="backup_password_clear" value="1"> {{.T "settings.secret_clear"}}</label>
+        <span class="hint">{{.T "settings.backup_password_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "telegram_token"}}field--invalid{{end}}">
+        <label for="s-tg-token">
+          {{.T "settings.telegram_token"}}
+          {{if .Data.TelegramSet}}<span class="badge badge--ok">{{.T "settings.secret_set"}}</span>{{else}}<span class="badge">{{.T "settings.secret_unset"}}</span>{{end}}
+        </label>
+        <input class="input ltr-data" id="s-tg-token" name="telegram_token" type="password" autocomplete="new-password"
+               placeholder="{{.T "settings.secret_placeholder"}}">
+        <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="telegram_token_clear" value="1"> {{.T "settings.secret_clear"}}</label>
+        <span class="hint">{{.T "settings.telegram_token_hint"}}</span>
       </div>
     </div>
   </fieldset>
