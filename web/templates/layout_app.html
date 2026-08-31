@@ -22,12 +22,17 @@
       <span class="brand-text">{{.T "app.name"}}<small>{{.T "app.tagline"}}</small></span>
     </a>
     <nav class="nav">
-      <div class="nav-label">{{.T "nav.section"}}</div>
+      <div class="nav-label">{{.T "nav.group.manage"}}</div>
       <a href="/dashboard" data-tip="{{.T "nav.dashboard"}}" {{if eq .Path "/dashboard"}}aria-current="page"{{end}}>{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
       <a href="/users" data-tip="{{.T "nav.users"}}" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
       <a href="/plans" data-tip="{{.T "nav.plans"}}" {{if .IsActive "/plans"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
       <a href="/interfaces" data-tip="{{.T "nav.interfaces"}}" {{if .IsActive "/interfaces"}}aria-current="page"{{end}}>{{.Icon "network"}}<span>{{.T "nav.interfaces"}}</span></a>
-      <a href="/backups" data-tip="{{.T "nav.backups"}}" {{if .IsActive "/backups"}}aria-current="page"{{end}}>{{.Icon "database"}}<span>{{.T "nav.backups"}}</span></a>
+      <div class="nav-label">{{.T "nav.group.system"}}</div>
+      {{if .Can "backup.manage"}}<a href="/backups" data-tip="{{.T "nav.backups"}}" {{if .IsActive "/backups"}}aria-current="page"{{end}}>{{.Icon "database"}}<span>{{.T "nav.backups"}}</span></a>{{end}}
+      {{if .Can "admins.manage"}}<a href="/admins" data-tip="{{.T "nav.admins"}}" {{if .IsActive "/admins"}}aria-current="page"{{end}}>{{.Icon "user-plus"}}<span>{{.T "nav.admins"}}</span></a>{{end}}
+      {{if .Can "api_tokens.manage"}}<a href="/tokens" data-tip="{{.T "nav.tokens"}}" {{if .IsActive "/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
+      {{if .Can "webhooks.read"}}<a href="/webhooks" data-tip="{{.T "nav.webhooks"}}" {{if .IsActive "/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}
+      {{if .Can "audit.view"}}<a href="/audit" data-tip="{{.T "nav.audit"}}" {{if .IsActive "/audit"}}aria-current="page"{{end}}>{{.Icon "inbox"}}<span>{{.T "nav.audit"}}</span></a>{{end}}
       <a href="/settings" data-tip="{{.T "nav.settings"}}" {{if .IsActive "/settings"}}aria-current="page"{{end}}>{{.Icon "settings-2"}}<span>{{.T "nav.settings"}}</span></a>
     </nav>
     <div class="sidebar-foot">

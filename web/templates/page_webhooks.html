@@ -1,0 +1,237 @@
+{{define "title"}}{{.T "hooks.title"}}{{end}}
+{{define "content"}}
+{{if .Data.Show}}
+<!-- endpoint detail -->
+<div class="page-head">
+  <div>
+    <h1>{{.T "hooks.detail_title"}}</h1>
+    <p class="page-sub ltr-data">{{.Data.Show.URL}}</p>
+  </div>
+  <div class="actions"><a class="btn btn--ghost" href="/webhooks">{{.IconS "arrow-left"}}<span>{{.T "common.back"}}</span></a></div>
+</div>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+{{if .Data.Created.Secret}}
+<div class="card card--pad mt-4">
+  <div class="card-head"><h2>{{.T "hooks.secret_title"}}</h2></div>
+  <div class="card-body">
+    <div class="callout callout--warn">{{.IconS "alert-triangle"}}<span>{{.T "hooks.secret_warning"}}</span></div>
+    <input class="input ltr-data mt-4" value="{{.Data.Created.Secret}}" readonly data-token-once aria-label="{{.T "hooks.secret_title"}}">
+    <p class="hint mt-4">{{.T "hooks.secret_hint"}}</p>
+  </div>
+</div>
+{{end}}
+
+<div class="card mt-4">
+  <div class="card-head">
+    <h2>{{.T "hooks.settings_title"}}</h2>
+    <div class="actions">
+      <button type="button" class="btn btn--sm" data-open-modal="dlg-hook-edit"
+              data-hook-edit="{{.Data.Show.ID}}" data-hook-url="{{.Data.Show.URL}}"
+              data-hook-enabled="{{if .Data.Show.Enabled}}1{{else}}0{{end}}"
+              data-hook-events="{{range $i, $e := .Data.Show.Events}}{{if $i}},{{end}}{{$e}}{{end}}">{{.IconS "pencil"}}<span>{{.T "common.edit"}}</span></button>
+      <form method="post" action="/webhooks/{{.Data.Show.ID}}/rotate" class="inline-actions">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm">{{.IconS "key"}}<span>{{.T "hooks.rotate"}}</span></button>
+      </form>
+      <form method="post" action="/webhooks/{{.Data.Show.ID}}/delete" class="inline-actions" data-confirm
+            data-confirm-title="{{$.T "hooks.delete_title"}}" data-confirm-message="{{.Data.Show.URL}}">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "trash-2"}}<span>{{.T "common.delete"}}</span></button>
+      </form>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="detail-list">
+      <dt>{{.T "hooks.col_status"}}</dt>
+      <dd>{{if .Data.Show.Enabled}}<span class="badge badge--ok">{{.T "hooks.enabled"}}</span>{{else}}<span class="badge badge--danger">{{.T "hooks.disabled"}}</span>{{end}}</dd>
+      <dt>{{.T "hooks.col_events"}}</dt>
+      <dd>{{range .Data.Show.Events}}<span class="chip ltr-data">{{.}}</span> {{end}}</dd>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-head"><h2>{{.T "hooks.deliveries_title"}}</h2></div>
+  {{if not .Data.Delivery}}
+  <div class="empty">
+    {{.Icon "inbox"}}
+    <h3>{{.T "hooks.deliveries_empty_title"}}</h3>
+    <p>{{.T "hooks.deliveries_empty_body"}}</p>
+  </div>
+  {{else}}
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "hooks.col_event"}}</th>
+          <th>{{.T "hooks.col_status"}}</th>
+          <th>{{.T "hooks.col_attempts"}}</th>
+          <th>{{.T "hooks.col_created"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Delivery}}
+        <tr>
+          <td data-label="{{$.T "hooks.col_event"}}" class="card-title"><span class="cell-main ltr-data">{{.EventType}}</span></td>
+          <td data-label="{{$.T "hooks.col_status"}}">
+            {{if eq .Status "delivered"}}<span class="badge badge--ok">{{$.T "hooks.status_delivered"}}</span>
+            {{else if eq .Status "dead"}}<span class="badge badge--danger">{{$.T "hooks.status_dead"}}</span>
+            {{else}}<span class="badge badge--warn">{{$.T "hooks.status_pending"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "hooks.col_attempts"}}"><span class="ltr-data">{{.Attempts}}</span></td>
+          <td data-label="{{$.T "hooks.col_created"}}"><span class="ltr-data">{{.CreatedAt.Format "2006-01-02 15:04"}}</span></td>
+          <td class="card-hide">
+            <div class="row-actions">
+              <form method="post" action="/webhooks/{{.EndpointID}}/redeliver" class="inline-actions">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="delivery_id" value="{{.ID}}">
+                <button type="submit" class="icon-btn" data-tip="{{$.T "hooks.redeliver"}}" aria-label="{{$.T "hooks.redeliver"}}">{{$.IconS "upload"}}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+
+{{else}}
+
+<!-- endpoint list -->
+<div class="page-head">
+  <div>
+    <h1>{{.T "hooks.title"}}</h1>
+    <p class="page-sub">{{.T "hooks.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn--primary" data-open-modal="dlg-hook-create">{{.IconS "plus"}}<span>{{.T "hooks.add"}}</span></button>
+  </div>
+</div>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+{{if .Data.Created.Secret}}
+<div class="card card--pad mt-4">
+  <div class="card-head"><h2>{{.T "hooks.secret_title"}}</h2></div>
+  <div class="card-body">
+    <div class="callout callout--warn">{{.IconS "alert-triangle"}}<span>{{.T "hooks.secret_warning"}}</span></div>
+    <p class="mt-4 text-sm">{{.T "hooks.created_for"}} <span class="ltr-data">{{.Data.Created.URL}}</span></p>
+    <input class="input ltr-data mt-4" value="{{.Data.Created.Secret}}" readonly data-token-once aria-label="{{.T "hooks.secret_title"}}">
+    <p class="hint mt-4">{{.T "hooks.secret_hint"}}</p>
+  </div>
+</div>
+{{end}}
+
+<div class="card mt-4">
+  {{if not .Data.List}}
+  <div class="empty">
+    {{.Icon "link"}}
+    <h3>{{.T "hooks.empty_title"}}</h3>
+    <p>{{.T "hooks.empty_body"}}</p>
+  </div>
+  {{else}}
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "hooks.col_url"}}</th>
+          <th>{{.T "hooks.col_events"}}</th>
+          <th>{{.T "hooks.col_stats"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.List}}
+        <tr>
+          <td data-label="{{$.T "hooks.col_url"}}" class="card-title">
+            <a class="cell-main ltr-data row-link" href="/webhooks/{{.ID}}">{{.URL}}</a>
+            {{if .Enabled}}<span class="badge badge--ok">{{$.T "hooks.enabled"}}</span>{{else}}<span class="badge badge--danger">{{$.T "hooks.disabled"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "hooks.col_events"}}"><span class="ltr-data text-xs">{{range $i, $e := .Events}}{{if $i}}, {{end}}{{$e}}{{end}}</span></td>
+          <td data-label="{{$.T "hooks.col_stats"}}">
+            <span class="badge badge--ok">{{$.T "hooks.stats_delivered"}} {{.Stats.Delivered}}</span>
+            {{if .Stats.Pending}}<span class="badge badge--warn">{{$.T "hooks.stats_pending"}} {{.Stats.Pending}}</span>{{end}}
+            {{if .Stats.Dead}}<span class="badge badge--danger">{{$.T "hooks.stats_dead"}} {{.Stats.Dead}}</span>{{end}}
+          </td>
+          <td class="card-hide">
+            <div class="row-actions">
+              <a class="icon-btn" href="/webhooks/{{.ID}}" data-tip="{{$.T "hooks.detail"}}" aria-label="{{$.T "hooks.detail"}}">{{$.IconS "chevron-right"}}</a>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+<!-- create endpoint -->
+<dialog id="dlg-hook-create" class="modal" aria-labelledby="hook-create-title">
+  <div class="modal-head">
+    <h2 id="hook-create-title">{{.T "hooks.add"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/webhooks/create">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <div class="field">
+        <label for="hook-url">{{.T "hooks.col_url"}}</label>
+        <input class="input ltr-data" id="hook-url" name="url" type="url" required dir="ltr" placeholder="https://bot.example.com/hooks/wg-guard">
+        <span class="hint">{{.T "hooks.url_hint"}}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">{{.T "hooks.col_events"}}</span>
+        <div class="perm-matrix perm-matrix--single">
+          {{range .Data.Catalog}}
+          <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="events" value="{{.}}"> <span class="ltr-data">{{.}}</span></label>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.create"}}</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- edit endpoint -->
+<dialog id="dlg-hook-edit" class="modal" aria-labelledby="hook-edit-title">
+  <div class="modal-head">
+    <h2 id="hook-edit-title">{{.T "common.edit"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/webhooks" data-hook-form>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="enabled" value="1" data-hook-enabled-input>
+    <div class="modal-body">
+      <div class="field">
+        <label for="hook-edit-url">{{.T "hooks.col_url"}}</label>
+        <input class="input ltr-data" id="hook-edit-url" name="url" type="url" required dir="ltr">
+      </div>
+      <div class="field">
+        <label class="check-label"><input type="checkbox" class="checkbox" name="enabled" value="1" data-hook-enabled-check> {{.T "hooks.enabled"}}</label>
+      </div>
+      <div class="field">
+        <span class="field-label">{{.T "hooks.col_events"}}</span>
+        <div class="perm-matrix perm-matrix--single">
+          {{range .Data.Catalog}}
+          <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="events" value="{{.}}" data-hook-event="{{.}}"> <span class="ltr-data">{{.}}</span></label>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

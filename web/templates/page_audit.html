@@ -1,0 +1,78 @@
+{{define "title"}}{{.T "audit.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "audit.title"}}</h1>
+    <p class="page-sub">{{.T "audit.subtitle"}}</p>
+  </div>
+</div>
+
+<form method="get" action="/audit" class="toolbar">
+  <div class="field">
+    <label class="sr-only" for="audit-action">{{.T "audit.filter_action"}}</label>
+    <input class="input ltr-data" id="audit-action" name="action" dir="ltr" placeholder="user. / admins. / backup."
+           value="{{.Data.Action}}">
+  </div>
+  <div class="field">
+    <label class="sr-only" for="audit-actor">{{.T "audit.filter_actor"}}</label>
+    <input class="input ltr-data" id="audit-actor" name="actor" dir="ltr" placeholder="{{.T "audit.filter_actor"}}" value="{{.Data.ActorID}}">
+  </div>
+  <button type="submit" class="btn">{{.IconS "filter"}}<span>{{.T "audit.apply"}}</span></button>
+</form>
+
+<div class="card mt-4">
+  {{if not .Data.Records}}
+  <div class="empty">
+    {{.Icon "inbox"}}
+    <h3>{{.T "audit.empty_title"}}</h3>
+    <p>{{.T "audit.empty_body"}}</p>
+  </div>
+  {{else}}
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "audit.col_time"}}</th>
+          <th>{{.T "audit.col_actor"}}</th>
+          <th>{{.T "audit.col_action"}}</th>
+          <th>{{.T "audit.col_target"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Records}}
+        <tr>
+          <td data-label="{{$.T "audit.col_time"}}" class="card-title">
+            <span class="ltr-data">{{.TS.Format "2006-01-02 15:04:05"}}</span>
+          </td>
+          <td data-label="{{$.T "audit.col_actor"}}">
+            <span class="badge">{{.ActorType}}</span> <span class="cell-sub ltr-data">{{.ActorID}}</span>
+            {{if .SourceIP}}<span class="cell-sub ltr-data"> · {{.SourceIP}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "audit.col_action"}}"><span class="cell-main ltr-data">{{.Action}}</span></td>
+          <td data-label="{{$.T "audit.col_target"}}"><span class="ltr-data cell-sub">{{.Target}}</span></td>
+          <td class="card-hide">
+            {{if and .Metadata (ne .Metadata "{}")}}
+            <details class="audit-meta">
+              <summary class="icon-btn" data-tip="{{$.T "audit.metadata"}}" aria-label="{{$.T "audit.metadata"}}">{{$.IconS "info"}}</summary>
+              <pre class="audit-json ltr-data">{{.Metadata}}</pre>
+            </details>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+
+<div class="pagination">
+  <span class="text-xs">{{.T "audit.page_hint"}}</span>
+  <div class="links">
+    {{if .Data.NextCursor}}
+    <a href="/audit?before={{.Data.NextCursor}}&action={{.Data.Action}}&actor={{.Data.ActorID}}">{{.T "audit.older"}}</a>
+    {{end}}
+  </div>
+</div>
+{{end}}

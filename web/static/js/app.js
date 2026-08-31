@@ -135,6 +135,56 @@
     }
   });
 
+  /* ---------- show-once secrets: select on focus ---------- */
+  document.addEventListener("focusin", (e) => {
+    if (e.target.matches("[data-token-once]")) e.target.select();
+  });
+
+  /* ---------- admins: password + permission modals ---------- */
+  document.addEventListener("click", (e) => {
+    const pw = e.target.closest("[data-admin-pw]");
+    if (pw) {
+      const form = $("[data-admin-pw-form]");
+      form.action = "/admins/" + pw.dataset.adminPw + "/password";
+      $("[data-admin-pw-name]", form).textContent = pw.dataset.adminName || "";
+      form.reset();
+      openModal("dlg-admin-password");
+      return;
+    }
+    const pe = e.target.closest("[data-admin-perms]");
+    if (pe) {
+      const form = $("[data-admin-perms-form]");
+      form.action = "/admins/" + pe.dataset.adminPerms + "/permissions";
+      $("[data-admin-perms-name]", form).textContent = pe.dataset.adminName || "";
+      const granted = new Set((pe.dataset.adminPermlist || "").split(/\s+/).filter(Boolean));
+      $$("input[name=permissions]", form).forEach((c) => { c.checked = granted.has(c.value); });
+      openModal("dlg-admin-perms");
+    }
+  });
+
+  /* ---------- webhooks: edit modal prefill ---------- */
+  document.addEventListener("click", (e) => {
+    const ed = e.target.closest("[data-hook-edit]");
+    if (!ed) return;
+    const form = $("[data-hook-form]");
+    form.action = "/webhooks/" + ed.dataset.hookEdit + "/update";
+    $("#hook-edit-url", form).value = ed.dataset.hookUrl || "";
+    const on = ed.dataset.hookEnabled === "1";
+    const check = $("[data-hook-enabled-check]", form);
+    check.checked = on;
+    $$("[data-hook-enabled-input]", form).forEach((el) => { el.disabled = on; });
+    $$("[data-hook-event]", form).forEach((c) => { c.checked = false; });
+    openModal("dlg-hook-edit");
+  });
+  // The endpoint list page opens the edit modal from its own buttons; event
+  // checkboxes are filled from the row's data via data-hook-events.
+  document.addEventListener("click", (e) => {
+    const ed = e.target.closest("[data-hook-edit]");
+    if (!ed || !ed.dataset.hookEvents) return;
+    const events = new Set(ed.dataset.hookEvents.split(","));
+    $$("[data-hook-event]").forEach((c) => { c.checked = events.has(c.dataset.hookEvent); });
+  });
+
   /* ---------- backup schedule dialog (kind segments + edit prefill) ---------- */
   const schedForm = $("[data-sched-form]");
   if (schedForm) {

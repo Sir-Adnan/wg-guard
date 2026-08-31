@@ -260,9 +260,10 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	admins := admin.NewService(db, n.sessions)
 
 	nodeID, _ := n.reg.GetString(ctx, "node.id")
+	tokens := token.NewService(db)
 	n.apiServer = api.New(api.Deps{
 		DB:           db,
-		Tokens:       token.NewService(db),
+		Tokens:       tokens,
 		Users:        users,
 		Devices:      devices,
 		Plans:        plans,
@@ -294,6 +295,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Accounting:   n.accounting,
 		Links:        links,
 		Backup:       n.backup,
+		Tokens:       tokens,
+		Webhooks:     webhooksSvc,
 		Log:          log,
 		Reconciler:   rec,
 		Host:         hoststats.New(cfg.DataDir),

@@ -1,0 +1,178 @@
+{{define "title"}}{{.T "admins.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "admins.title"}}</h1>
+    <p class="page-sub">{{.T "admins.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn--primary" data-open-modal="dlg-admin-create">{{.IconS "user-plus"}}<span>{{.T "admins.add"}}</span></button>
+  </div>
+</div>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+<div class="card mt-4">
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "admins.col_admin"}}</th>
+          <th>{{.T "admins.col_role"}}</th>
+          <th>{{.T "admins.col_permissions"}}</th>
+          <th>{{.T "admins.col_created"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Admins}}
+        <tr>
+          <td data-label="{{$.T "admins.col_admin"}}" class="card-title">
+            <span class="id-cell">
+              <span class="avatar" aria-hidden="true">{{slice .Username 0 1}}</span>
+              <span class="id-text">
+                <span class="cell-main">{{.Username}}</span>
+                {{if .Enabled}}<span class="badge badge--ok">{{$.T "admins.enabled"}}</span>{{else}}<span class="badge badge--danger">{{$.T "admins.disabled"}}</span>{{end}}
+              </span>
+            </span>
+          </td>
+          <td data-label="{{$.T "admins.col_role"}}">
+            {{if eq (printf "%v" .Role) "owner"}}<span class="badge badge--accent">{{$.T "role.owner"}}</span>{{else}}<span class="badge">{{$.T "role.admin"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "admins.col_permissions"}}">
+            {{if eq (printf "%v" .Role) "owner"}}<span class="text-subtle">{{$.T "admins.all_permissions"}}</span>
+            {{else if .Permissions}}<span class="ltr-data text-xs">{{len .Permissions}}</span>
+            {{else}}<span class="text-subtle">{{$.T "admins.no_permissions"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "admins.col_created"}}"><span class="ltr-data">{{.CreatedAt.Format "2006-01-02"}}</span></td>
+          <td class="card-hide">
+            <div class="row-actions">
+              <button type="button" class="icon-btn" data-tip="{{$.T "admins.reset_password"}}" aria-label="{{$.T "admins.reset_password"}}"
+                      data-admin-pw="{{.ID}}" data-admin-name="{{.Username}}">{{$.IconS "key"}}</button>
+              {{if ne (printf "%v" .Role) "owner"}}
+              <button type="button" class="icon-btn" data-tip="{{$.T "admins.edit_permissions"}}" aria-label="{{$.T "admins.edit_permissions"}}"
+                      data-admin-perms="{{.ID}}" data-admin-name="{{.Username}}"
+                      data-admin-permlist="{{range .Permissions}}{{.}} {{end}}">{{$.IconS "pencil"}}</button>
+              <form method="post" action="/admins/{{.ID}}/enable" class="inline-actions">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="enable" value="{{if .Enabled}}0{{else}}1{{end}}">
+                <button type="submit" class="icon-btn" data-tip="{{if .Enabled}}{{$.T "admins.disable"}}{{else}}{{$.T "admins.enable"}}{{end}}" aria-label="{{if .Enabled}}{{$.T "admins.disable"}}{{else}}{{$.T "admins.enable"}}{{end}}">{{$.IconS "power"}}</button>
+              </form>
+              <form method="post" action="/admins/{{.ID}}/delete" class="inline-actions" data-confirm
+                    data-confirm-title="{{$.T "admins.delete_title"}}" data-confirm-message="{{.Username}}">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button type="submit" class="icon-btn icon-btn--danger" data-tip="{{$.T "common.delete"}}" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button>
+              </form>
+              {{end}}
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- create admin -->
+<dialog id="dlg-admin-create" class="modal" aria-labelledby="admin-create-title">
+  <div class="modal-head">
+    <h2 id="admin-create-title">{{.T "admins.add"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/admins/create">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field {{if eq .Data.Field "username"}}field--invalid{{end}}">
+          <label for="adm-name">{{.T "admins.col_admin"}}</label>
+          <input class="input ltr-data" id="adm-name" name="username" required maxlength="64"
+                 dir="ltr" autocomplete="off" value="{{.Data.Form.Username}}">
+        </div>
+        <div class="field">
+          <label for="adm-role">{{.T "admins.col_role"}}</label>
+          <select class="select" id="adm-role" name="role">
+            <option value="admin">{{.T "role.admin"}}</option>
+            <option value="owner">{{.T "role.owner"}}</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="adm-password">{{.T "admins.password"}}</label>
+        <input class="input ltr-data" id="adm-password" name="password" type="password" required
+               minlength="10" dir="ltr" autocomplete="new-password">
+        <span class="hint">{{.T "admins.password_hint"}}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">{{.T "admins.col_permissions"}}</span>
+        <span class="hint">{{.T "admins.permissions_hint"}}</span>
+        <div class="perm-matrix">
+          {{range .Data.ScopeSet}}
+          <div class="perm-family">
+            <span class="perm-family-name ltr-data">{{.Family}}</span>
+            {{range .Scopes}}
+            <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="permissions" value="{{.}}" class="ltr-data"> <span class="ltr-data">{{.}}</span></label>
+            {{end}}
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.create"}}</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- reset password -->
+<dialog id="dlg-admin-password" class="modal" aria-labelledby="admin-pw-title">
+  <div class="modal-head">
+    <h2 id="admin-pw-title">{{.T "admins.reset_password"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/admins" data-admin-pw-form>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <p class="text-muted" data-admin-pw-name></p>
+      <div class="field">
+        <label for="adm-new-password">{{.T "admins.password"}}</label>
+        <input class="input ltr-data" id="adm-new-password" name="password" type="password" required
+               minlength="10" dir="ltr" autocomplete="new-password">
+        <span class="hint">{{.T "admins.password_reset_hint"}}</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- edit permissions -->
+<dialog id="dlg-admin-perms" class="modal" aria-labelledby="admin-perms-title">
+  <div class="modal-head">
+    <h2 id="admin-perms-title">{{.T "admins.edit_permissions"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/admins" data-admin-perms-form>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <p class="text-muted" data-admin-perms-name></p>
+      <div class="perm-matrix">
+        {{range .Data.ScopeSet}}
+        <div class="perm-family">
+          <span class="perm-family-name ltr-data">{{.Family}}</span>
+          {{range .Scopes}}
+          <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="permissions" value="{{.}}"> <span class="ltr-data">{{.}}</span></label>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

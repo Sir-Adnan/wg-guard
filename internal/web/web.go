@@ -30,7 +30,9 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
+	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
+	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
 // Deps wires the services the panel renders. The same instances the REST
@@ -61,6 +63,11 @@ type Deps struct {
 	// Backup is the archive engine (panel + CLI only — ADR-0007). Wired
 	// from serve; nil in tests that don't exercise the ops screens.
 	Backup *backup.Service
+
+	// Tokens and Webhooks are the same instances the REST API uses — one
+	// business layer, two surfaces.
+	Tokens   *token.Service
+	Webhooks *webhook.Service
 
 	// Host reads host metrics for the dashboard (nil on platforms without
 	// support — the card is hidden). Wired from serve.
@@ -196,6 +203,31 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /backups/schedules/{id}/delete", s.requirePermission(auth.ScopeBackupManage, s.handleScheduleDelete))
 	mux.HandleFunc("POST /backups/schedules/{id}/toggle", s.requirePermission(auth.ScopeBackupManage, s.handleScheduleToggle))
 	mux.HandleFunc("POST /backups/telegram-test", s.requirePermission(auth.ScopeBackupManage, s.handleTelegramTest))
+
+	// --- administrators (admins.manage) ---
+	mux.HandleFunc("GET /admins", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminsPage))
+	mux.HandleFunc("POST /admins/create", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminCreate))
+	mux.HandleFunc("POST /admins/{id}/password", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminPassword))
+	mux.HandleFunc("POST /admins/{id}/permissions", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminPermissions))
+	mux.HandleFunc("POST /admins/{id}/enable", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminEnable))
+	mux.HandleFunc("POST /admins/{id}/delete", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminDelete))
+
+	// --- API tokens (api_tokens.manage) ---
+	mux.HandleFunc("GET /tokens", s.requirePermission(auth.ScopeAPITokensManage, s.handleTokensPage))
+	mux.HandleFunc("POST /tokens/create", s.requirePermission(auth.ScopeAPITokensManage, s.handleTokenCreate))
+	mux.HandleFunc("POST /tokens/{id}/revoke", s.requirePermission(auth.ScopeAPITokensManage, s.handleTokenRevoke))
+
+	// --- webhooks (webhooks.read / webhooks.write) ---
+	mux.HandleFunc("GET /webhooks", s.requirePermission(auth.ScopeWebhooksRead, s.handleWebhooksPage))
+	mux.HandleFunc("POST /webhooks/create", s.requirePermission(auth.ScopeWebhooksWrite, s.handleWebhookCreate))
+	mux.HandleFunc("GET /webhooks/{id}", s.requirePermission(auth.ScopeWebhooksRead, s.handleWebhookShow))
+	mux.HandleFunc("POST /webhooks/{id}/update", s.requirePermission(auth.ScopeWebhooksWrite, s.handleWebhookUpdate))
+	mux.HandleFunc("POST /webhooks/{id}/rotate", s.requirePermission(auth.ScopeWebhooksWrite, s.handleWebhookRotate))
+	mux.HandleFunc("POST /webhooks/{id}/delete", s.requirePermission(auth.ScopeWebhooksWrite, s.handleWebhookDelete))
+	mux.HandleFunc("POST /webhooks/{id}/redeliver", s.requirePermission(auth.ScopeWebhooksWrite, s.handleWebhookRedeliver))
+
+	// --- audit (audit.view) ---
+	mux.HandleFunc("GET /audit", s.requirePermission(auth.ScopeAuditView, s.handleAuditPage))
 
 	h := http.Handler(mux)
 	h = s.requireCSRF(h)

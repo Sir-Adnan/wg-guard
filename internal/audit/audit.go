@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -109,4 +110,55 @@ func (s *Service) Prune(ctx context.Context, before time.Time) (int64, error) {
 	}
 	n, _ := res.RowsAffected()
 	return n, nil
+}
+
+// QueryOpts filters the audit screen listing. AfterID is the keyset cursor
+// (older page); empty filters mean all.
+type QueryOpts struct {
+	AfterID int64  // 0 = newest
+	Action  string // exact action prefix match ("user." matches user.*)
+	ActorID string
+	Limit   int
+}
+
+// Query returns audit entries newest-first with keyset pagination and the
+// screen's filters (panel /audit; Recent stays for the CLI and tests).
+func (s *Service) Query(ctx context.Context, o QueryOpts) ([]Record, error) {
+	if o.Limit <= 0 || o.Limit > 200 {
+		o.Limit = 50
+	}
+	where := []string{"1=1"}
+	var args []any
+	if o.AfterID > 0 {
+		where = append(where, "id < ?")
+		args = append(args, o.AfterID)
+	}
+	if o.Action != "" {
+		where = append(where, "action LIKE ?")
+		args = append(args, o.Action+"%")
+	}
+	if o.ActorID != "" {
+		where = append(where, "actor_id = ?")
+		args = append(args, o.ActorID)
+	}
+	args = append(args, o.Limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, ts, actor_type, actor_id, action,
+		target, source_ip, request_id, metadata FROM audit_log
+		WHERE `+strings.Join(where, " AND ")+` ORDER BY id DESC LIMIT ?`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("audit: query: %w", err)
+	}
+	defer rows.Close()
+	var out []Record
+	for rows.Next() {
+		var r Record
+		var ts string
+		if err := rows.Scan(&r.ID, &ts, &r.ActorType, &r.ActorID, &r.Action,
+			&r.Target, &r.SourceIP, &r.RequestID, &r.Metadata); err != nil {
+			return nil, fmt.Errorf("audit: scan: %w", err)
+		}
+		r.TS, _ = time.Parse(time.RFC3339Nano, ts)
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

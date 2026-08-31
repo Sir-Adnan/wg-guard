@@ -23,7 +23,9 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
+	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
+	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
 // env is the panel test environment: temp DB, services, HTTP handler.
@@ -66,6 +68,8 @@ func newEnv(t *testing.T) *env {
 		ConfigPath: filepath.Join(t.TempDir(), "wg-guard.toml"),
 		Version:    "test",
 	}
+	tokens := token.NewService(db)
+	webhooksSvc := webhook.NewService(db, ring)
 	sessions := auth.NewSessionStore(db, time.Hour, 24*time.Hour)
 	admins := admin.NewService(db, sessions)
 	ifaces := iface.NewService(db, reg, ring)
@@ -78,6 +82,8 @@ func newEnv(t *testing.T) *env {
 		Ifaces:     ifaces,
 		Links:      subscription.NewService(db, ring),
 		Backup:     bak,
+		Tokens:     tokens,
+		Webhooks:   webhooksSvc,
 		Accounting: accounting.NewService(db, nil, auditSvc, nil, reg),
 		Version:    "test", TLSMode: config.TLSModeDev, NodeID: "node-1", ToolsVersion: "fake",
 	})

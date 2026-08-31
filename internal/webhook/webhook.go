@@ -461,3 +461,45 @@ func boolInt(b bool) int {
 }
 
 type rowScanner interface{ Scan(dest ...any) error }
+
+// Delivery is one delivery row as shown in the panel (no payload bodies —
+// they can embed user identifiers; the panel links to the source records).
+type Delivery struct {
+	ID         string
+	EndpointID string
+	EventType  string
+	Status     string
+	Attempts   int
+	LastError  string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// Deliveries lists the most recent deliveries of one endpoint, newest first
+// (panel screen; the REST API intentionally stays out of delivery browsing).
+func (s *Service) Deliveries(ctx context.Context, endpointID string, limit int) ([]Delivery, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT id, endpoint_id, event_type, status,
+		attempts, last_error, created_at, updated_at
+		FROM webhook_deliveries WHERE endpoint_id = ?
+		ORDER BY created_at DESC, id DESC LIMIT ?`, endpointID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("webhook: deliveries: %w", err)
+	}
+	defer rows.Close()
+	var out []Delivery
+	for rows.Next() {
+		var d Delivery
+		var created, updated string
+		if err := rows.Scan(&d.ID, &d.EndpointID, &d.EventType, &d.Status,
+			&d.Attempts, &d.LastError, &created, &updated); err != nil {
+			return nil, fmt.Errorf("webhook: deliveries scan: %w", err)
+		}
+		d.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
+		d.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}

@@ -1,0 +1,130 @@
+{{define "title"}}{{.T "tokens.title"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{.T "tokens.title"}}</h1>
+    <p class="page-sub">{{.T "tokens.subtitle"}}</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn--primary" data-open-modal="dlg-token-create">{{.IconS "plus"}}<span>{{.T "tokens.add"}}</span></button>
+  </div>
+</div>
+
+{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+
+{{if .Data.Created.Secret}}
+<div class="card card--pad mt-4">
+  <div class="card-head">
+    <h2>{{.T "tokens.created_title"}}</h2>
+  </div>
+  <div class="card-body">
+    <div class="callout callout--warn">{{.IconS "alert-triangle"}}<span>{{.T "tokens.created_warning"}}</span></div>
+    <p class="mt-4 text-sm">{{.T "tokens.created_for"}} <strong>{{.Data.Created.Name}}</strong></p>
+    <input class="input ltr-data mt-4" id="token-once" value="{{.Data.Created.Secret}}" readonly
+           aria-label="{{.T "tokens.created_title"}}" data-token-once>
+    <p class="hint mt-4">{{.T "tokens.created_hint"}}</p>
+  </div>
+</div>
+{{end}}
+
+<div class="card mt-4">
+  {{if not .Data.Tokens}}
+  <div class="empty">
+    {{.Icon "key"}}
+    <h3>{{.T "tokens.empty_title"}}</h3>
+    <p>{{.T "tokens.empty_body"}}</p>
+  </div>
+  {{else}}
+  <div class="table-wrap table-wrap--flush">
+    <table class="table table--cards">
+      <thead>
+        <tr>
+          <th>{{.T "tokens.col_name"}}</th>
+          <th>{{.T "tokens.col_scopes"}}</th>
+          <th>{{.T "tokens.col_expiry"}}</th>
+          <th>{{.T "tokens.col_last_used"}}</th>
+          <th class="card-hide"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Tokens}}
+        <tr>
+          <td data-label="{{$.T "tokens.col_name"}}" class="card-title">
+            <span class="cell-main">{{.Name}}</span>
+            {{if .Enabled}}<span class="badge badge--ok">{{$.T "tokens.active"}}</span>{{else}}<span class="badge badge--danger">{{$.T "tokens.revoked"}}</span>{{end}}
+            <span class="cell-sub ltr-data">{{.Prefix}}…</span>
+          </td>
+          <td data-label="{{$.T "tokens.col_scopes"}}"><span class="ltr-data text-xs">{{range $i, $s := .Scopes}}{{if $i}}, {{end}}{{$s}}{{end}}</span></td>
+          <td data-label="{{$.T "tokens.col_expiry"}}">
+            {{if .ExpiresAt}}<span class="ltr-data">{{.ExpiresAt.Format "2006-01-02"}}</span>{{else}}<span class="text-subtle">{{$.T "common.never"}}</span>{{end}}
+          </td>
+          <td data-label="{{$.T "tokens.col_last_used"}}">{{$v := .LastUsed}}{{if $v}}<span class="ltr-data">{{$v.Format "2006-01-02 15:04"}}</span>{{else}}<span class="text-subtle">{{$.T "backups.never"}}</span>{{end}}</td>
+          <td class="card-hide">
+            <div class="row-actions">
+              {{if .Enabled}}
+              <form method="post" action="/tokens/{{.ID}}/revoke" class="inline-actions" data-confirm
+                    data-confirm-title="{{$.T "tokens.revoke_title"}}" data-confirm-message="{{.Name}}">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button type="submit" class="icon-btn icon-btn--danger" data-tip="{{$.T "tokens.revoke"}}" aria-label="{{$.T "tokens.revoke"}}">{{$.IconS "ban"}}</button>
+              </form>
+              {{end}}
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+
+<!-- create token -->
+<dialog id="dlg-token-create" class="modal" aria-labelledby="token-create-title">
+  <div class="modal-head">
+    <h2 id="token-create-title">{{.T "tokens.add"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/tokens/create">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field {{if eq .Data.Field "name"}}field--invalid{{end}}">
+          <label for="tok-name">{{.T "tokens.col_name"}}</label>
+          <input class="input" id="tok-name" name="name" required maxlength="64">
+        </div>
+        <div class="field">
+          <label for="tok-expiry">{{.T "tokens.col_expiry"}}</label>
+          <div class="unit-group unit-group--narrow">
+            <input class="input" id="tok-expiry" name="expires_days" type="number" min="0" max="3650" step="1" value="0">
+            <span class="unit-static">{{.T "duration.days"}}</span>
+          </div>
+          <span class="hint">{{.T "tokens.expiry_hint"}}</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="tok-cidr">{{.T "tokens.cidr"}}</label>
+        <input class="input ltr-data" id="tok-cidr" name="cidr" dir="ltr" autocomplete="off" placeholder="10.0.0.0/8, 203.0.113.4/32">
+        <span class="hint">{{.T "tokens.cidr_hint"}}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">{{.T "tokens.col_scopes"}}</span>
+        <span class="hint">{{.T "tokens.scopes_hint"}}</span>
+        <div class="perm-matrix">
+          {{range .Data.ScopeSet}}
+          <div class="perm-family">
+            <span class="perm-family-name ltr-data">{{.Family}}</span>
+            {{range .Scopes}}
+            <label class="check-label text-xs"><input type="checkbox" class="checkbox" name="scopes" value="{{.}}"> <span class="ltr-data">{{.}}</span></label>
+            {{end}}
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.create"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

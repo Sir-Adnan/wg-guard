@@ -210,6 +210,17 @@ func (v *View) IsActive(section string) bool {
 	return v.Path == section || strings.HasPrefix(v.Path, section+"/")
 }
 
+// Can reports whether the signed-in admin may use a scope-gated surface
+// (owners always pass). The nav renders accordingly; the server enforces
+// regardless (security.md: the UI never hides what the server doesn't
+// enforce — this is the polite direction, not the security one).
+func (v *View) Can(scope string) bool {
+	if v.Admin == nil {
+		return false
+	}
+	return auth.Authorized(v.Admin.Role, v.Admin.Permissions, scope)
+}
+
 // T translates key with the request's locale.
 func (v *View) T(key string, args ...any) string {
 	return i18n.T(v.Locale, key, args...)
@@ -359,8 +370,13 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page, layout str
 	return nil
 }
 
-// applyFlash resolves the ?toast= PRG flash into a localized message.
+// applyFlash resolves the ?toast= PRG flash into a localized message; the
+// ?rawmsg= variant carries an already-rendered safe string.
 func (s *Server) applyFlash(r *http.Request, v *View) {
+	if raw := r.URL.Query().Get("rawmsg"); raw != "" {
+		v.ToastMsg = raw
+		return
+	}
 	key := r.URL.Query().Get("toast")
 	if key == "" {
 		return
