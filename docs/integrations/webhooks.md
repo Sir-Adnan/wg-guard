@@ -34,3 +34,10 @@ user.first_connected, device.created, device.deleted, node.started`
 
 Payload: event id, type, timestamp, node id, and a typed `data` object per event; documented in
 OpenAPI. Subscribing endpoints select which events they receive.
+
+## Delivery browsing (panel)
+
+The REST API exposes endpoint CRUD and redeliver only; the delivery *list*
+(per-endpoint recent deliveries with status/attempts/last error) is a panel
+screen (`/webhooks/{id}`, `webhooks.read`) — delivery payloads can embed user
+identifiers and are intentionally not part of the token-authenticated surface.

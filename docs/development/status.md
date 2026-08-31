@@ -256,13 +256,50 @@ Deferred within Phase 1 scope (honest notes):
 | DKMS module build | ✅ build verified; ⚠️ module load + netlink dump **requires real VPS** |
 | PPA on Ubuntu 26.04 | ✅ verified with noble-suite pin (workaround documented) |
 
-## Phases 6–8 — not started
+## Phase 6 — Backup / ops (complete, 2026-08-31)
+
+All items below are **implemented + unit tested** (`go test ./...` green on Windows/Go 1.27 and
+WSL2; the suite including this phase is 0 failures across all packages). Real-VPS verification
+of the operational drills is recorded per line and in
+[phase6.md](phase6.md). The phase also rebased the visual system on the shadcn-style neutral
+direction (white light / near-black dark, zinc scale, ink primary — [product/ui-ux.md](../product/ui-ux.md))
+and added content-width tiers so forms/settings render centered on a narrow column while
+tables/dashboards keep the fluid width.
+
+| Item | Status |
+|---|---|
+| `internal/backup` archive engine: `.wgg` = tar.gz {manifest.json with per-file SHA-256, `VACUUM INTO` snapshot, boot config (source file or synthesized), master key}; optional age encryption with the single backup password (ADR-0008, `filippo.io/age` — the phase's only new dependency); retention pruning; atomic publish (0600) | ✅ implemented + unit tested (plain + encrypted round-trips, corrupt/truncated rejection, retention, wrong-password) |
+| Scheduled backups: `backup_schedules` table (migration 0006 replaces the Phase 1 placeholder), daily/interval/weekly kinds stored UTC, once-per-minute due scan on the central scheduler, missed window runs exactly once, per-schedule retention | ✅ implemented + unit tested (fake clock due/advance/no-refire); real-host firing verified in the phase record |
+| Delivery sinks: local (default, `<data>/backups` 0700/0600) + Telegram `sendDocument` (credentials encrypted at rest, 50 MB limit guard, unencrypted-delivery warning); `BackupSink` interface open for future sinks | ✅ implemented + unit tested (httpest stub verifies multipart shape + no-token-in-errors); real Bot-API delivery **requires a live bot — not verified** |
+| Restore engine: Stage (decrypt → untar with member allowlist → checksums incl. container CRC drain → schema gate vs embedded migrations → out-of-place migrate → integrity check) → environment report; ApplyStaged swaps with `*.pre-restore` safety copies and never touches the live boot config (staged as `*.restored`) | ✅ implemented + unit tested; real-host round-trip recorded in the phase record |
+| Boot consumption: `serve` consumes `restore.pending` BEFORE opening the database (audit-logged); failures never abort boot. Automatic pre-migration backups land in `backups-auto` (plain, retention 5) | ✅ implemented + unit tested; real-host behavior recorded in the phase record |
+| CLI: `backup create|list|telegram-test`, `restore` (service-running guard; stages when up), `settings list|get|set` (secrets masked, writes audit-logged), `doctor [--fix]`, `secrets rotate` | ✅ implemented + unit tested (doctor) + CLI smoke; real-host drills recorded in the phase record |
+| `doctor`: platform/privileges/paths/perms/tools/module/DB integrity/interface drift + peer counts/nft/sysctl/tc/disk/endpoint DNS/TLS cert expiry/NTP (timedatectl)/backup posture; honest `skip` per platform; `--fix` reuses the boot orchestration and refuses while the service runs | ✅ implemented + unit tested; the real-host run is recorded in phase6.md |
+| Master-key rotation trigger: `secrets.Rotate` wired with all three carriers — device keys, **interface private keys (carrier added in this phase; rotation previously would have orphaned them)**, encrypted settings; crash-safe dual-key window | ✅ implemented + unit tested; rotation round-trip recorded in the phase record |
+| Panel `/backups` (backup.manage): archive table (badges, download/restore/delete), create-now modal (optional password), restore wizard (stage → environment review → confirm stages for restart / discard), schedule CRUD with segmented kind picker, telegram status + probe, pending-restore banner | ✅ implemented + unit tested (handler-level: lifecycle, validation redisplay, gating); browser-verified fa/en × light/dark |
+| Panel ops screens: `/admins` (roles + permission matrix, password reset, owner protection surfaced), `/tokens` (show-once plaintext with select-on-focus, CIDR, expiry), `/webhooks` (CRUD, generated secret shown once, rotation, per-endpoint delivery list + redeliver — panel-only by design), `/audit` (keyset pages, action-prefix/actor filters, expandable metadata) | ✅ implemented + unit tested incl. permission gating (limited admins redirected; webhooks.read can view but not mutate) |
+| Full settings UI (node.settings scope): identity, users defaults/presets, networking (MTU/DNS/AllowedIPs/ports/interface cap/drift policy), accounting + retention, API rate limit + webhook attempts + session TTLs, subscription/downloads, backups (retention, telegram chat, write-only age password + bot token with set/clear semantics; registry enforces ≥8 chars) | ✅ implemented + unit tested (save/redisplay/secret set-clear round-trip/gating) |
+| Settings are no longer any-signed-in-admin territory: GET+POST `/settings` require `node.settings`; ops screens require their panel scopes (`backup.manage`, `admins.manage`, `api_tokens.manage`, `webhooks.read/write`, `audit.view`); nav System group renders per permissions | ✅ implemented + unit tested |
+| Visual rebase: shadcn-style zinc token system (see preamble), favicon/theme-color updates, per-page content width tiers | ✅ implemented; browser-verified both themes |
+
+Honest notes within Phase 6 scope:
+
+- Telegram delivery against the real Bot API is unverified (no test bot token was available);
+  the sink's HTTP shape, size guard, and error paths are stub-verified.
+- Restore's environment review is report + endpoint/node-id guidance; full pre-apply editing of
+  every setting lives in the normal Settings flow after apply (documented in
+  [../operations/backup-restore.md](../operations/backup-restore.md)).
+- `doctor` peer-count and tc checks are heuristic warnings; the reconciler remains the
+  authority for interface/peer state.
+- The panel restore wizard intentionally does not upload archives (CLI owns file-path restore);
+  the panel restores from the node's local sink.
+- Aggregate "sing-box/clash subscription" endpoints remain a later-phase candidate.
+
+## Phases 7–8 — not started
 
 Everything below is `designed` (architecture approved) until implemented:
 
-- Phase 6 Backup/ops: archives (plain + optional password), schedules, Telegram, restore wizard,
-  settings UI, admins/tokens/audit screens, doctor, rotation trigger
-- Phase 7 Deployment: image, installer (Docker default), shim, update/uninstall
+- Phase 7 Deployment: image, installer (Docker default), shim, update/uninstall, ACME
 - Phase 8 Hardening: security review, benchmarks vs budgets, VPS matrix (incl. IFB-based upload
   shaping design + 1000-shaped-peer tc benchmark)
 

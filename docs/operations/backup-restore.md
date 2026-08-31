@@ -42,16 +42,29 @@ The `BackupSink` interface leaves room for future sinks (e.g. S3) without redesi
 
 ## Restore (panel wizard and CLI share one engine)
 
-1. **Decrypt + verify** — age password if encrypted; manifest checksums; schema-version
-   compatibility check.
-2. **Preflight** — disk space; refuse to overwrite an existing installation without explicit
-   confirmation.
-3. **Stage + migrate** — DB staged out-of-place, forward-migrated if the archive is older.
-4. **Environment review** (the migration-critical step) — hostname, detected interfaces, public
-   endpoint/domain, TLS mode, panel ports, AWG ports, VPN-subnet collisions, kernel-module
-   presence — each shown with a suggested safe value; administrator confirms or edits.
-5. **Apply + reconcile** — write reviewed settings, bring up interfaces, rebuild nftables and
-   shaping, run reconciliation, then `doctor`; finish with a summary.
+Restore is **stage-then-swap — never a live swap** (open WAL handles make in-place replacement
+unsafe):
+
+1. **Decrypt + verify** — age password if the archive is encrypted; manifest checksums; the
+   gzip/age container CRCs; schema gate (an archive written by a newer build is refused).
+2. **Stage + migrate** — the verified members land in `<data_dir>/restore.pending/`; the staged
+   database is forward-migrated there and passes `PRAGMA integrity_check`.
+3. **Environment review** — the report shows the archive's provenance (source host, app
+   version), the staged node id, endpoint, TLS mode/listen from the archived boot config, and
+   the interface list, with explicit warnings (missing master key, missing config). The
+   operator can edit `node.endpoint`/`node.id` after apply through Settings — client configs
+   are generated on demand, so a corrected endpoint is enough for clients to reconnect.
+4. **Apply** — one of:
+   - **CLI** (`wg-guard restore ARCHIVE`): refuses to run while the service answers on its
+     listen address; with the service stopped the swap is immediate. Replaced files are kept as
+     `*.pre-restore`; the archived boot config is never applied — it is staged as
+     `<config>.restored` for review.
+   - **Panel wizard**: stages and, on explicit confirmation, applies **at the next service
+     restart** — `serve` consumes a pending restore before the database is opened, snapshots
+     the replaced state, and audit-logs the event. A staging dir that fails re-verification at
+     boot never aborts boot; the operator decides.
+5. **Reconcile** — the normal boot bring-up recreates tunnels, peers, nftables and shaping
+   from the restored database; `wg-guard doctor` confirms.
 
 ## Server migration & disaster recovery
 

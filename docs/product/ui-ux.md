@@ -13,7 +13,12 @@ effects. (Original requirements: archived spec §53, §57, §58.)
   semantic colors, borders, shadows, motion, z-index, breakpoints. No arbitrary values in
   templates.
 - **Themes: light (default) / dark / system** from one stylesheet via `data-theme` +
-  `prefers-color-scheme`; both themes meet WCAG-AA contrast.
+  `prefers-color-scheme`; both themes meet WCAG-AA contrast. The palette follows the
+  shadcn/ui neutral direction: white surfaces / near-black `#09090b` dark base, zinc-scale
+  borders and text, ink primary, semantic status tones as the only color, monochrome data-viz.
+- **Content width tiers**: settings and create/edit forms render on a centered narrow column;
+  tables and dashboards use the full fluid width with a generous max (1400 px, 1560 px on
+  very large displays) so nothing sticks to one side or stretches unbounded.
 - **Icon system**: Lucide subset compiled to one embedded SVG sprite (~10–15 KB), consistent
   1.5 px stroke; icons support recognition, never decoration. No emoji/raster/icon fonts.
 
@@ -32,9 +37,10 @@ effects. (Original requirements: archived spec §53, §57, §58.)
 
 ## Layout
 
-- **Desktop**: compact sidebar (Dashboard, Users, Plans, Interfaces, Administrators, API
-  Tokens, Webhooks, Node, Audit Logs, Backup, Settings), header with page context and status,
-  dense data tables with bulk selection. Designed for administrators managing many accounts —
+- **Desktop**: compact sidebar in two groups — Manage (Dashboard, Users, Plans, Interfaces)
+  and System (Backups, Administrators, API Tokens, Webhooks, Audit log, Settings); System
+  entries render per the signed-in admin's permissions (the server enforces regardless),
+  header with page context and status, dense data tables with bulk selection. Designed for administrators managing many accounts —
   not a stretched mobile layout.
 - **Mobile (intentionally designed, not shrunk)**: drawer navigation, table→card adaptation at
   one breakpoint (traffic bar, expiry, device count, overflow menu per user), bottom sheets for

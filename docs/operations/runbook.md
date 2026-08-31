@@ -35,21 +35,33 @@ See [backup-restore.md](backup-restore.md) for the full procedure. Quick referen
 wg-guard backup create                          # manual archive to the local sink
 wg-guard backup create --password               # prompt for an archive password (age)
 wg-guard backup list                            # local archives + schedule status
-wg-guard restore /path/to/archive.wgg           # guided; reviews environment on a new host
-wg-guard settings set backup.telegram_token …   # or: Settings → Backup in the panel
+wg-guard restore /path/to/archive.wgg           # verify + review; applies with the service
+                                                #   stopped, stages for boot otherwise
+wg-guard settings set backup.telegram_token …   # or: Settings → Backups in the panel
 wg-guard settings set backup.telegram_chat 123456789
 wg-guard backup telegram-test                   # verify delivery
+wg-guard settings list | get KEY | set KEY VAL  # runtime settings (secrets never printed)
+wg-guard secrets rotate                         # master-key rotation (service stopped)
 ```
+
+The panel mirrors all of it: `/backups` (create, schedules, telegram test, restore wizard) and
+Settings → Backups for the credentials. The REST API intentionally has no backup endpoints
+(ADR-0007).
 
 ## Doctor
 
-`wg-guard doctor` checks: OS/arch support, root/permissions, data-dir permissions, pinned AWG
-tool version vs supported range, kernel module presence (or userspace fallback), interface
-state vs DB (drift), peer sets, nftables table presence + rule drift, sysctl values, tc state,
-disk space, endpoint DNS resolution, TLS cert expiry, DB integrity (`PRAGMA integrity_check`),
-clock skew (NTP), update channel reachability. `wg-guard doctor --fix` applies safe repairs
-(recreate interfaces, re-apply configs, rebuild nft/tc, restore sysctls) and reports anything
-requiring human judgment.
+`wg-guard doctor` (implemented) checks: platform, privileges, data-dir/master-key permissions,
+AWG tool version, kernel-module presence, DB integrity (`PRAGMA integrity_check`), interface
+state vs DB (missing links, port drift, peer-count mismatch), nftables table presence, the
+`ip_forward` sysctl, tc state when speed limits exist, disk free space, endpoint DNS
+resolution, TLS certificate expiry (manual mode), NTP synchronization (timedatectl), and the
+backups posture (no schedules + no archives is a warning; stale newest archive too). Checks
+that cannot run on a platform report `skip` honestly.
+
+`wg-guard doctor --fix` re-runs the boot repairs (recreate interfaces, re-apply configs and
+peers, rebuild nft/tc, enable forwarding) through the same orchestration as `serve`, then
+re-checks the affected areas. It **refuses to run while the service is up** — it would race
+the serialized reconciler for the AWG subprocess. Read-only doctor is safe anytime.
 
 ## Incident playbook (first responses)
 
@@ -65,6 +77,7 @@ requiring human judgment.
 
 ## Verification status
 
-Procedures above are **designed**; they become "implemented / integration tested / production
-verified" per [../development/status.md](../development/status.md) as phases land, and
-kernel/firewall behavior on real hardware is confirmed in the Phase 8 VPS matrix.
+Phase 6 procedures (backup/restore/doctor/settings/rotation) are **implemented + unit tested**;
+their real-host verification record lives in [../development/status.md](../development/status.md)
+and [../development/phase6.md](../development/phase6.md). Installer-era procedures (update/
+uninstall) remain Phase 7.

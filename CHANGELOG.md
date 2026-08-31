@@ -8,6 +8,37 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 6 — backup / ops** (tracked in `docs/development/phase6.md`; verification matrix in
+  `docs/development/status.md`):
+  - `internal/backup` archive engine: `.wgg` archives (manifest + `VACUUM INTO` snapshot +
+    boot config + master key, per-file SHA-256), optional age encryption with the single
+    backup password (ADR-0008), retention pruning, local + Telegram delivery sinks.
+  - Scheduled backups: daily / every-N-hours / weekly schedules run in-process by the central
+    scheduler (once-per-minute due scan; a missed window runs exactly once); automatic
+    pre-migration backups.
+  - Restore: stage-then-swap engine — decrypt, checksum (incl. container CRCs), schema gate,
+    out-of-place migrate, integrity check, environment review; CLI applies with the service
+    stopped, the panel stages and the swap happens at the next boot with `*.pre-restore`
+    safety copies. The archived boot config is never applied automatically.
+  - Panel ops screens: `/backups` (archives, create-now, restore wizard, schedules, Telegram
+    test), `/admins` (roles + permission matrix, password resets), `/tokens` (show-once
+    plaintext, scopes/CIDR/expiry), `/webhooks` (CRUD, secret rotation, delivery list +
+    redeliver), `/audit` (paged, filtered, expandable metadata) — each behind its panel
+    scope, with a permission-aware System nav group.
+  - Full settings UI (now `node.settings`-gated): identity, networking, accounting/retention,
+    API rate limit + session TTLs, backups (write-only age password + bot token with
+    set/clear semantics; ≥8-char password enforced by the registry).
+  - CLI: `backup create|list|telegram-test`, `restore`, `settings list|get|set`,
+    `doctor [--fix]`, `secrets rotate` — the master-key rotation trigger, including the
+    missing interface-key carrier (rotation previously would have orphaned interface keys).
+  - `wg-guard doctor`: platform, permissions, tool pin, kernel module, DB integrity,
+    interface/peer drift, nftables, sysctl, tc, disk, endpoint DNS, TLS cert expiry, NTP,
+    backup posture; `--fix` reuses the boot orchestration and refuses while the service runs.
+  - Visual rebase: shadcn-style neutral theme (white light / near-black dark, zinc scale, ink
+    primary, semantic tones only, monochrome charts) replacing the warm-sand palette, and
+    per-page content-width tiers (centered narrow forms/settings; fluid tables/dashboards).
+  - New dependency: `filippo.io/age` (ADR-0008) and `golang.org/x/term` (no-echo passphrase
+    prompts).
 - **Phase 5 refinement round 2 — warm-sand design system, responsive shell, create-user
   decluttering + defaults, settings screen, descriptive download filenames, dashboard
   hierarchy, full AWG randomization, real-VPS kernel verification** (same verification
