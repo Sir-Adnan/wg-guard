@@ -38,7 +38,7 @@ make tidy         # go mod tidy
 - Build matrix: `CGO_ENABLED=0` for linux/amd64 and linux/arm64.
 - `govulncheck` (tool version pinned in the workflow) scans all packages for reachable
   vulnerabilities in dependencies.
-- Release pipeline (Phase 8): checksummed binaries + provenance notes; no signing secrets in
+- Release pipeline (Phase 12): checksummed binaries + provenance notes; no signing secrets in
   the repository.
 
 ## Frontend assets

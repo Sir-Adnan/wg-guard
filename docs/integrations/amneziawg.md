@@ -19,7 +19,7 @@ it as unverified and gate accordingly.
 Package note: the PPA builds for `noble` (24.04). On Ubuntu 26.04 (`resolute`) the PPA has no
 Release file — workaround used here (and by the installer if it ever meets this case): add the
 PPA and pin its suite to `noble`. On the supported matrix (22.04/24.04/Debian 12) the PPA works
-natively (24.04 verified here; 22.04/Debian 12 verification belongs to the Phase 8 VPS matrix).
+natively (24.04 verified here; 22.04/Debian 12 verification belongs to the Phase 11 matrix).
 
 Install: `apt install amneziawg-tools amneziawg-dkms` (avoid the `amneziawg` meta-package;
 it is a dependency-only package, and the tools+dkms pair is what we need). DKMS builds require
@@ -143,8 +143,9 @@ reveal:
 Consequence (implemented): a profile cannot move between plain and obfuscated states in place.
 The all-plain state exists only at link creation, so obfuscation-mode transitions recreate the
 link (remove + create + peer re-sync) — owned by the reconcile engine. Same-mode value changes
-apply cleanly via `setconf`. Kernel-backend parity of these two facts remains a Phase 8 matrix
-item.
+apply cleanly via `setconf`. Kernel behavior was subsequently verified in the matrix below;
+Phase 8 re-audits lossless client/config parity rather than assuming runtime acceptance is client
+compatibility.
 
 ## Kernel-module runtime matrix (real VPS, 2026-08-31)
 
@@ -202,7 +203,7 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | **2.0/3.x generation runtime behavior (kernel)** | VPS acceptance/round-trip matrix | S3/S4, H ranges, timers, flags, I1–I5, HPK (⇒S3/S4 same-message), peer keepalive ranges, peer AdvancedSecurity — all accepted | ✅ **verified (VPS kernel)**; client compatibility still varies — params stay gated |
 | **setconf headerless config on kernel** | VPS: conf without `[Interface]` | rejected (`Line unrecognized`) — explicit headers required | ✅ **verified (VPS kernel)** |
 | **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
-| PPA on Ubuntu 22.04 / Debian 12 | requires real VPS matrix | — | ⚠️ Phase 8 |
+| PPA on Ubuntu 22.04 / Debian 12 | requires real VPS matrix | — | ⚠️ Phase 11 |
 
 Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
 [`fixtures/verify-wsl2-runtime.sh`](fixtures/verify-wsl2-runtime.sh).
@@ -210,7 +211,7 @@ Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
 ## Known upstream issues respected by design
 
 - arm64 userspace H4 corruption (amneziawg-go #110) — userspace fallback is not the default;
-  arm64 verification is part of the Phase 8 matrix.
+  arm64 verification is part of the Phase 11 matrix.
 - iOS rejects I1–I5 configs at startup (#115) — I1–I5 is opt-in per profile with client warnings.
 - `RandomTrailers` panic history (#178) — default `off` (verified default in `showconf` fixture).
 - IPv6-disabled hosts resetting the listen port (#148) — WG-Guard always sets an explicit

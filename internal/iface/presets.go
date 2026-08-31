@@ -3,8 +3,8 @@ package iface
 // Presets are named obfuscation parameter sets applied at profile creation.
 // Every value is a *recommended default* (configurable per profile after
 // creation); they are starting points chosen from the AmneziaWG community's
-// commonly used ranges, not verified optima — final guidance follows the
-// Phase 8 VPS matrix (docs/product/requirements.md).
+// commonly used ranges, not verified optima — Phase 8 verifies config/client
+// correctness and Phase 11 certifies production guidance (docs/product/requirements.md).
 
 // Preset is a named starting point for a profile's obfuscation parameters.
 type Preset struct {

@@ -5,8 +5,8 @@ package accounting
 // Smoke-proofs the accounting cycle against the real pinned userspace
 // runtime: a real 29-field dump flows through the delta pipeline and writes
 // only empty/no-op state for a peer that has not handshaken. Real-traffic
-// accounting (non-zero counters) requires a data-plane peer — the Phase 8
-// VPS matrix (see docs/development/status.md).
+// accounting (non-zero counters) requires a data-plane peer — the Phase 11
+// production matrix (see docs/development/status.md).
 
 import (
 	"context"

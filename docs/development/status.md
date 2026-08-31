@@ -78,9 +78,9 @@ Deferred / honest notes within Phase 5 scope:
   phase (needs an upstream-supported format decision — not assumed).
 - The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
   visual effect was observed manually, not soak-tested.
-- The capability-gated 2.0/3.x obfuscation parameters are parser-verified against the pinned
-  tools source but their runtime behavior is unverified until the Phase 8 VPS matrix; they are
-  off by default and flagged as such in the UI. Gated-parameter drift is report-only so an
+- The capability-gated 2.0/3.x obfuscation parameters are parser- and Ubuntu 24.04 kernel-
+  verified, but client-app compatibility remains platform-dependent. Phase 8 audits the full
+  client/config path; the fields stay off by default and gated drift remains report-only so an
   unsupported runtime cannot trigger link-recreate loops.
 - The subscription page exposes per-device configs to whoever holds the (unguessable) link;
   the link is treated as a capability credential — rotate or revoke it to cut access.
@@ -126,7 +126,7 @@ Deferred within Phase 4 scope (honest notes):
   real replay windows) **requires real VPS** — the HTTP receiver used in tests verifies
   signatures and backoff semantics locally.
 - **Real-traffic shaping measurement** (1000-shaped-peer tc benchmark, production degradation
-  policy) remains Phase 8 per the pinned plan; correctness of both directions is integration
+  policy) remains Phase 11; correctness of both directions is integration
   tested.
 - **Regenerate-key revocation of a stale peer is best-effort by IP match**: the old peer dies
   on the next reconcile pass because the device IP is re-applied under the new key; if the
@@ -158,10 +158,10 @@ real pinned userspace runtime in WSL2 (`go test -tags integration`, root).
 
 Deferred within Phase 3 scope (honest notes):
 
-- **Upload (ingress) shaping is deferred by design** — docs/architecture/networking.md pinned
+- **Upload (ingress) shaping was deferred in Phase 3** — docs/architecture/networking.md pinned
   "tc (HTB) per device IP on the interface egress" and "separate upload/download designed for
-  later"; Phase 3 limits are egress (server→client) only. Ingress shaping needs an IFB-based
-  design and belongs with the Phase 8 benchmarking pass.
+  later". Independent IFB ingress shaping was subsequently implemented in Phase 4; its
+  production-scale benchmark belongs to Phase 11.
 - **Per-user speed limits apply to tunnel egress only** and require `tc` (iproute2) on the host;
   a missing tc is surfaced as a boot finding, never silently ignored when limits are configured.
 - **Scheduler composition into a long-running service lands with `serve` (Phase 4)** — the
@@ -196,9 +196,9 @@ amneziawg-go v3.1.20260828, and real nftables).
 
 Deferred within Phase 2 scope (honest notes):
 
-- **Kernel link path (`ip link add type amneziawg`) is unit-tested only** — the WSL2 kernel
-  cannot load the amneziawg module; module load + netlink dump format + kernel-backend parity
-  of the new setconf facts are the Phase 8 VPS matrix.
+- The Phase 2 kernel link path was initially unit-tested only because WSL2 cannot load the
+  module. It was subsequently verified on the Ubuntu 24.04 VPS, including netlink dump and
+  advanced setconf behavior; the broader OS/architecture matrix belongs to Phase 11.
 - **Userspace daemon supervision** (spawn/monitor `amneziawg-go`, PID files, restart) is a
   deployment concern and lands with serve/installer (Phase 4/7); the backend's config/dump
   paths are already backend-transparent (verified: identical CLI operations against the
@@ -319,34 +319,49 @@ plus the interrupted-update recovery command.
 | `wg-guard update`: pre-upgrade backup in the owning environment (version-tolerant retry for images predating `-reason`), compose-as-source-of-truth image switch + pull (best-effort for local images) + recreate, or staged binary swap with `<bin>.pre-update` kept; health-checked **automatic rollback**; `--rollback` re-deploys the state-recorded artifact after an interrupted update | ✅ implemented + unit tested (update/rollback flows incl. unhealthy rollback paths); **verified live**: docker update recreated the container on the new tag; a broken image triggered automatic rollback; a deliberately killed update was recovered with `--rollback`; native `--binary` swap healthy |
 | `wg-guard uninstall`: `--dry-run` plan, stops the node, removes only state-recorded artifacts (compose/unit/host CLI/modules-load entry/config/state); data + installer-installed packages kept unless `--purge-data`/`--purge-packages` | ✅ implemented + unit tested (dry-run non-mutation, kept/purged data); **verified in both modes on the real VPS** |
 | `wg-guard status`: install state, image, container/unit status line (via new capturing `Host.Output`), mode-aware health probe | ✅ implemented + unit tested; **verified on the real VPS** (docker + native) |
-| Docker image + reference compose: multi-stage CGO_ENABLED=0 build onto ubuntu:24.04 + pinned amneziawg-tools (ppa:amnezia/ppa) + nftables + iproute2; `deploy/compose.yaml` reference; installer-generated compose adds a TLS-mode-aware healthcheck | ✅ built and run on the real VPS (amd64); **registry publication of versioned multi-arch tags is the Phase 8 release pipeline** — `--image` override is the documented path until then |
+| Docker image + reference compose: multi-stage CGO_ENABLED=0 build onto ubuntu:24.04 + pinned amneziawg-tools (ppa:amnezia/ppa) + nftables + iproute2; `deploy/compose.yaml` reference; installer-generated compose adds a TLS-mode-aware healthcheck | ✅ built and run on the real VPS (amd64); **registry publication of versioned multi-arch tags is the Phase 12 release pipeline** — `--image` override is the documented path until then |
 | Kernel module lifecycle: `/etc/modules-load.d/wg-guard.conf` boot persistence; DKMS recovery ladder when the module is registered for a different kernel series (headers for the running kernel → `dkms autoinstall` → `depmod -a` → modprobe) | ✅ implemented + unit tested; **the reboot + kernel-upgrade scenario verified live** (module auto-loaded at boot after the rebuild) |
 | i18n raw-key leak class eliminated: template-vs-catalog audit tests walk every embedded template (constant `.T` keys must resolve in BOTH locales) + lifecycle status labels pinned | ✅ implemented + unit tested (the audit test fails CI on any future leak); all 9 leaked keys fixed in fa+en |
 
 Honest notes within Phase 7 scope:
 
-- The official `wgguard/wg-guard` registry image is not published yet (Phase 8 release
+- The official `wgguard/wg-guard` registry image is not published yet (Phase 12 release
   pipeline); all image drills used locally-built tags through the documented `--image` flag.
 - ACME renewal is automatic (autocert) but only initial issuance was observed on the drill
   window; renewal exercises the same cache + challenge path.
 - The ACME redirect fallback intentionally redirects to the configured domain (not the request
   Host) — plain-HTTP probes with forged Host headers cannot be bounced to third-party origins.
 - Debian 12 has no AmneziaWG PPA build; the installer's module step warns and the userspace
-  fallback applies (untested — Phase 8 VPS matrix).
+  fallback applies (untested — Phase 11 matrix).
 - Browser QA ran through the live ACME deployment (onboarding → dashboard → settings → ops
   screens; fa/en × light/dark × 390/1440/2560): zero horizontal overflow, no raw i18n keys on
   any route. At 2560 px the screenshot pipeline returned stale composited frames, so ultrawide
   correctness was verified via DOM geometry (symmetric auto margins, max-width tier, no
   overflow) — same documented pipeline limitation as Phase 5.
 
-## Phases 8 — not started
+## Phase 8 — Audit & configuration integrity (active, 2026-08-31)
 
-## Requires real VPS (carried forward)
+Approved and started. No Phase 8 implementation is yet claimed. Current release blockers are
+QR decode/display correctness, canonical client-configuration correctness, lossless H1–H4 range
+semantics, and complete pinned-version parameter/client compatibility classification. Execution
+and evidence: [phase8.md](phase8.md); cross-phase status:
+[release-readiness.md](release-readiness.md).
 
-- nftables + NAT behavior with real traffic and firewall coexistence (ufw/firewalld) on a
-  production host (installer drills covered table creation on a clean host; heavy-traffic NAT
-  remains)
-- PPA on Ubuntu 22.04 / Debian 12; arm64 end-to-end
-- ACME certificate RENEWAL (60-day cycle; issuance verified, renewal shares the code path)
-- Phase 8 matrix: Ubuntu 22.04/24.04, Debian 12, amd64/arm64; 1000-shaped-peer tc benchmark;
-  registry image publication + checksummed release pipeline
+## Phases 9–12 — planned
+
+| Phase | State | Scope |
+|---|---|---|
+| 9 — Operational observability | planned; not implemented | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
+| 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |
+| 12 — Release candidate | planned; not implemented | Checksummed/multi-arch artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
+
+## Requires real VPS or client verification (carried forward)
+
+- Phase 8: default and randomized configs, QR decode equality, real client handshake and traffic,
+  kernel/userspace config parity.
+- Phase 9: Docker/native operational logs, retention, live metrics under real traffic.
+- Phase 11: nftables/NAT/firewall coexistence, 1000-shaped-peer tc, Ubuntu 22.04/24.04,
+  Debian 12, amd64/arm64, kernel/userspace, Docker/native, recovery and TLS drills.
+- Phase 12: installation and upgrade from the exact release-candidate artifacts. Public release
+  and registry publication remain owner-approval gated.

@@ -17,8 +17,8 @@ panel port (no reverse proxy required), the mode-aware host CLI (one binary for 
 restore, update/rollback and uninstall in both modes), update with pre-upgrade backups and
 health-checked rollback, and uninstall with a dry-run plan — all verified end-to-end on a real
 Ubuntu 24.04 VPS, including ACME issuance for a public domain, reboot persistence, kernel-module
-self-heal after OS upgrades, and both install modes. The checksummed release pipeline and the
-full OS/version matrix are Phase 8. See [ROADMAP.md](ROADMAP.md) and
+self-heal after OS upgrades, and both install modes. The full OS/version matrix is Phase 11 and
+the checksummed release pipeline is Phase 12. See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 
 ## Features
@@ -62,7 +62,7 @@ up (compose project or hardened systemd unit), health-checks it, and prints the 
 open it and finish the first-run owner wizard. Certificate issuance (ACME) happens
 automatically on the first visit; port 80 must stay reachable. For Docker mode the container
 image is built from [Dockerfile](Dockerfile) (`docker build -t wgguard/wg-guard:<tag> .`) and
-selected with `--image`; the registry publication of versioned images is part of the Phase 8
+selected with `--image`; the registry publication of versioned images is part of the Phase 12
 release pipeline. Day-2 operations: `wg-guard status · update · uninstall · doctor · backup`,
 all documented in [docs/operations/runbook.md](docs/operations/runbook.md).
 

@@ -15,7 +15,7 @@ self-inflicted outage).
   available), IPv4 pool (recommended default `10.8.N.0/24`, validated: RFC1918, no overlap with
   host routes or other interfaces, minimum size warnings), MTU (recommended default 1420 —
   Phase 0 pinned the upstream constraints; transport-level overhead on real hardware is
-  confirmed in the Phase 8 VPS matrix before any guidance change), endpoint override
+  confirmed in the Phase 11 production matrix before any guidance change), endpoint override
   (host[:port]) for generated client configs.
 - Bulk peer changes use `awg syncconf` (diff-apply without resetting active sessions);
   single-peer ops use `awg set`. One `awg show awgN dump` per interface per accounting cycle
@@ -92,7 +92,7 @@ X type ifb` works; `tc qdisc add dev X handle ffff: ingress` + `mirred egress re
 work; HTB on ifb works; `tc qdisc del dev X ingress` exits 0 even when absent (tolerated in the
 rebuild). Thousands of tc classes cost CPU — the per-user class design keeps the class count at
 users-with-limits, not devices. The 1000-shaped-peer tc benchmark and production degradation
-policy remain the Phase 8 pass.
+policy remain the Phase 11 certification pass.
 
 ## Addressing
 

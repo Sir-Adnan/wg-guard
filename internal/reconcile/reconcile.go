@@ -216,8 +216,8 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 		default:
 			if gatedDrift {
 				// Only capability-gated 2.0/3.x parameters differ: report so
-				// the mismatch is visible, but never recreate — the runtime
-				// may simply not support them yet (Phase 8 verifies).
+				// the mismatch is visible, but never recreate — the selected
+				// runtime/client contract may not support them (Phase 8 classifies it).
 				rep.Drift = append(rep.Drift, DriftItem{
 					Interface: ifc.Name, Kind: "gated_param_drift",
 					Detail: "capability-gated obfuscation parameters differ from the backend (runtime may not support them)",

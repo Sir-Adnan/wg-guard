@@ -40,7 +40,7 @@ const (
 	Container  = "wg-guard"
 )
 
-// DefaultImage is the official image reference. The Phase 8 release pipeline
+// DefaultImage is the official image reference. The Phase 12 release pipeline
 // publishes versioned tags; until then :latest tracks releases and the
 // installer accepts --image for local/registry overrides.
 const DefaultImage = "wgguard/wg-guard:latest"

@@ -42,8 +42,9 @@ current product contract.
   IPv4 subnet pool (recommended default `10.8.N.0/24` for `awgN`), MTU (recommended default
   1420), endpoint override. Ports, MTU, subnet pools, client DNS, and the interface count are
   **recommended configurable defaults** chosen from upstream constraints — not verified optima;
-  final guidance follows the Phase 8 VPS matrix. One profile per interface is an upstream
-  constraint (obfuscation params live in `[Interface]` and are shared by all peers). Changing a
+  final guidance follows the Phase 8 configuration work and Phase 11 production matrix. One
+  profile per interface is an upstream constraint (obfuscation params live in `[Interface]` and
+  are shared by all peers). Changing a
   profile's params is a guided **rotation** workflow.
 
 ## Lifecycle

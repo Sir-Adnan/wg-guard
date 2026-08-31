@@ -17,7 +17,7 @@ capped page cache, short transactions.
 - Static cross-compilation for amd64/arm64 from any host, no C toolchain for WG-Guard itself,
   smaller container build story — decisive for install simplicity (a core product goal).
 - Trade-off: lower peak throughput than CGO. Irrelevant here: the control plane writes one
-  small transaction per accounting cycle plus admin actions; verified by benchmarks in Phase 8.
+  small transaction per accounting cycle plus admin actions; production load is certified in Phase 11.
 
 ## Alternatives rejected
 

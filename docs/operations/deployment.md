@@ -9,7 +9,7 @@ data paths, so backups and mode-switching are layout-independent.
 - **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + pinned `amneziawg-tools` from
   `ppa:amnezia/ppa` + nftables + ca-certificates + the WG-Guard binary
   ([Dockerfile](../../Dockerfile), amd64/arm64). The registry publication of versioned
-  multi-arch tags is part of the Phase 8 release pipeline; until then build locally
+  multi-arch tags is part of the Phase 12 release pipeline; until then build locally
   (`docker build -t wgguard/wg-guard:<tag> .`) and pass `--image` to the installer, which is
   also what `wg-guard update` consumes.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
@@ -103,7 +103,7 @@ operator's decision, ideally not on a public listener.
 
 All values below are **recommended defaults** (sensible starting points chosen from upstream
 constraints), fully editable after install — not verified optima; guidance is revisited after
-the Phase 8 VPS matrix.
+the Phase 11 production matrix.
 
 | Setting | Recommended default | Editable later |
 |---|---|---|

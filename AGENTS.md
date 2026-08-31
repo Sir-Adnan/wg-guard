@@ -9,11 +9,13 @@ guessing, and update them in the same change when behavior changes.
 1. [docs/README.md](docs/README.md) — documentation map.
 2. [docs/development/status.md](docs/development/status.md) — what is designed / implemented /
    tested. Never claim more than this matrix says.
-3. [docs/development/workflow.md](docs/development/workflow.md) — build/test/lint/CI rules.
-4. [docs/architecture/overview.md](docs/architecture/overview.md) and
+3. [docs/development/release-readiness.md](docs/development/release-readiness.md) — active phase,
+   release blockers, audit findings, and future-phase ownership.
+4. [docs/development/workflow.md](docs/development/workflow.md) — build/test/lint/CI rules.
+5. [docs/architecture/overview.md](docs/architecture/overview.md) and
    [docs/architecture/project-structure.md](docs/architecture/project-structure.md) before
    writing any code.
-5. [docs/integrations/amneziawg.md](docs/integrations/amneziawg.md) before touching anything
+6. [docs/integrations/amneziawg.md](docs/integrations/amneziawg.md) before touching anything
    AmneziaWG-related — upstream behavior is pinned there, not assumed from memory.
 
 ## Hard rules

@@ -33,8 +33,8 @@ func validHostname(s string) bool {
 
 // Defaults is the Phase 1 catalog. Every value here is a *recommended
 // default* chosen from upstream constraints (docs/operations/deployment.md) —
-// administrators may change any of it; final guidance follows the Phase 8 VPS
-// matrix. Phases add keys; keys are never renamed (Settings/API contract).
+// administrators may change any of it; final guidance follows the Phase 11
+// production matrix. Phases add keys; keys are never renamed (Settings/API contract).
 func Defaults() []Definition {
 	return []Definition{
 		// Networking (recommended configurable defaults).

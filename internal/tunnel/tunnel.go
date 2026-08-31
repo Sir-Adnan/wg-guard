@@ -24,9 +24,9 @@ var ErrInterfaceNotFound = errors.New("tunnel: interface not found")
 // anything reaches a backend.
 //
 // The 2.0/3.x-generation fields below are capability-gated: the pinned tools
-// parser accepts them (formats verified against src/config.c) but their
-// runtime behavior is unverified until the Phase 8 VPS matrix. They render
-// only when set, and a runtime that silently ignores them surfaces through
+// parser and Ubuntu 24.04 kernel accept them, but client compatibility varies.
+// Phase 8 classifies the full runtime/client contract. They render only when
+// set, and a runtime that silently ignores them surfaces through
 // verify-after-apply.
 type Obfuscation struct {
 	Enabled            bool

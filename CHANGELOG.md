@@ -8,6 +8,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Release-readiness roadmap:** the former monolithic hardening phase is now an independently
+  gated Phase 8–12 program: configuration/QR integrity, operational observability, complete
+  UI/UX redesign, production certification, and release-candidate engineering. The active
+  checklist, cross-phase blockers, audit findings, and compatibility state are tracked under
+  `docs/development/` without claiming future work as implemented.
 - **Installer initial settings** (post-review addendum to Phase 7): optional wizard sections
   for the VPN network defaults (AWG listen-port allocation range, first-interface VPN pool
   via the new `network.default_pool` registry key, client MTU, client DNS resolvers) and
@@ -317,7 +322,7 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   interface address at bring-up; the phase-1 draft omitted it.
 - Terminology consistency: "management/REST API" (never "public API"); backup password
   documented as strictly optional; ports/MTU/DNS/interface cap framed as recommended
-  configurable defaults pending the Phase 8 VPS matrix.
+  configurable defaults pending the Phase 11 production matrix.
 - `tunnel_interfaces` contract gains `public_key` + `private_key_encrypted`; `users` gains
   `deleted_at` (soft delete); package `internal/iface` (renamed from planned
   `internal/interface`, a Go keyword).

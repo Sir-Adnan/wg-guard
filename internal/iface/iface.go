@@ -47,8 +47,8 @@ type Interface struct {
 
 // Obfuscation mirrors the pinned parameter set: legacy 1.0 (Jc/Jmin/Jmax/
 // S1/S2/H1–H4 + optional I1–I5, verified end-to-end) plus the capability-gated
-// 2.0/3.x fields (formats verified against the pinned tools src/config.c;
-// runtime verification pending the Phase 8 VPS matrix — amneziawg.md).
+// 2.0/3.x fields (formats and Ubuntu 24.04 kernel acceptance verified;
+// Phase 8 classifies full client/config compatibility — amneziawg.md).
 // Zero-value with Enabled=false is the "plain WG" profile.
 type Obfuscation struct {
 	Enabled            bool

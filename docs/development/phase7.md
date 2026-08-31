@@ -135,12 +135,12 @@ line printed a garbled future-tense sentence ("uninstalled. will be purged") —
 ## Honest notes
 
 - The official registry image (`wgguard/wg-guard`) is NOT published yet — publishing versioned
-  multi-arch images is the Phase 8 release pipeline. The drills used a locally-built image and
+  multi-arch images is the Phase 12 release pipeline. The drills used a locally-built image and
   the documented `--image` override; `update` treats a failed pull as a warning for exactly
   this case.
 - ACME renewal is automatic (autocert) but the 60-day renewal itself was not observed — only
   initial issuance; the cache + challenge path is identical code.
 - Native systemd mode is unit-tested and was exercised on the VPS in a shorter drill (see
-  below); the full Phase 8 VPS matrix (Ubuntu 22.04, Debian 12, arm64) remains open.
+  below); the full Phase 11 matrix (Ubuntu 22.04, Debian 12, arm64) remains open.
 - Debian 12 has no AmneziaWG PPA build; the installer's module step warns and the userspace
-  fallback applies there (untested — Phase 8 matrix).
+  fallback applies there (untested — Phase 11 matrix).

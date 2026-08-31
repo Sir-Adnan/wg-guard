@@ -18,7 +18,7 @@ import (
 // setconf/syncconf/dump round-trip, including the verify-after-apply gate and
 // the upstream constraint rejection. Runs as root in WSL2/CI with the daemon
 // on PATH; skips otherwise. Kernel link operations (ip link add type
-// amneziawg) need the kernel module and stay in the VPS matrix (Phase 8).
+// amneziawg) need the kernel module and stay in the Phase 11 production matrix.
 //
 //	go test -tags integration ./internal/tunnel/amneziawg/ -run Integration -v
 func TestIntegrationUserspaceBackend(t *testing.T) {
