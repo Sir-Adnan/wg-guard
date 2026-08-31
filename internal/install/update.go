@@ -70,8 +70,11 @@ func updateDocker(ctx context.Context, h Host, st *State, o UpdateOptions, out i
 	}
 
 	step(out, "Pulling image")
+	// Best-effort pull: a locally-built image (no registry) cannot be pulled;
+	// `up -d` below still resolves it. A real registry failure surfaces at
+	// up -d and the health check/rollback handles it.
 	if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "pull"}, longTimeout); err != nil {
-		return fmt.Errorf("update: compose pull: %w", err)
+		fmt.Fprintf(out, "  WARNING: pull failed (%v) — continuing with the locally available image\n", err)
 	}
 
 	step(out, "Recreating container")

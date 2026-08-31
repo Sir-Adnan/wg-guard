@@ -119,7 +119,7 @@ type memCmd struct {
 
 func newMemHost() *memHost {
 	return &memHost{
-		files:   map[string]memFile{},
+		files:   map[string]memFile{"/src/wg-guard": {data: []byte("/src/wg-guard"), perm: 0o755}},
 		dirs:    map[string]bool{},
 		failCmd: map[string]error{},
 		now:     func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) },

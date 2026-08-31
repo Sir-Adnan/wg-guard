@@ -139,6 +139,17 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 		return fmt.Errorf("install: docker compose plugin missing (%v) — install docker-compose-plugin", err)
 	}
 
+	step(out, "Host CLI (shim)")
+	self, err := h.SelfExe()
+	if err != nil {
+		return fmt.Errorf("install: locate running binary: %w", err)
+	}
+	if err := h.CopyFile(self, BinPath, 0o755); err != nil {
+		return fmt.Errorf("install: install host CLI to %s: %w", BinPath, err)
+	}
+	st.BinPath = BinPath
+	fmt.Fprintf(out, "  %s → %s (mode-aware: panel commands exec into the container)\n", self, BinPath)
+
 	step(out, "Compose project")
 	compose := RenderCompose(p)
 	if err := h.WriteFile(ComposePth, []byte(compose), 0o644); err != nil {
@@ -146,7 +157,6 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	}
 	st.ComposePath = ComposePth
 	st.Image = p.Image
-	st.BinPath = BinPath // the host binary IS the shim (mode-aware dispatch)
 	fmt.Fprintf(out, "  wrote %s (image %s)\n", ComposePth, p.Image)
 
 	// Host kernel module: the data plane (ADR-0006). Best effort with a loud
@@ -199,18 +209,20 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 }
 
 // ensureKernelModule verifies the AmneziaWG kernel module is loadable and, if
-// not, attempts the pinned PPA install (Ubuntu path). The returned error is a
-// warning for the caller — module absence is not fatal (ADR-0003 userspace
-// fallback), but the operator must see it.
+// not, attempts the pinned PPA install (Ubuntu path). When the module loads,
+// an /etc/modules-load.d entry makes it boot-persistent — a rebooted node
+// must be able to recreate its tunnels without manual steps. The returned
+// error is a warning for the caller — module absence is not fatal (ADR-0003
+// userspace fallback), but the operator must see it.
 func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) error {
 	// Loaded, or loadable right now?
 	if data, err := h.ReadFile("/proc/modules"); err == nil && strings.Contains(string(data), "amneziawg") {
 		fmt.Fprintln(out, "  kernel module amneziawg: loaded")
-		return nil
+		return markModuleBootPersistence(h, st, out)
 	}
 	if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err == nil {
 		fmt.Fprintln(out, "  kernel module amneziawg: loaded via modprobe")
-		return nil
+		return markModuleBootPersistence(h, st, out)
 	}
 	// Attempt the package path (Ubuntu + PPA per docs/integrations/amneziawg.md).
 	fmt.Fprintln(out, "  kernel module not present — attempting amneziawg-dkms install (may take minutes)…")
@@ -230,9 +242,22 @@ func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) e
 	if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err == nil {
 		st.PackagesInstalled = append(st.PackagesInstalled, "amneziawg-dkms", "software-properties-common")
 		fmt.Fprintln(out, "  kernel module installed and loaded")
-		return nil
+		return markModuleBootPersistence(h, st, out)
 	}
 	return fmt.Errorf("kernel module could not be installed automatically")
+}
+
+// ModuleAutoLoadPath is the systemd-modules-load entry the installer writes
+// so the AmneziaWG module survives reboots (uninstall removes it).
+const ModuleAutoLoadPath = "/etc/modules-load.d/wg-guard.conf"
+
+func markModuleBootPersistence(h Host, st *State, out io.Writer) error {
+	if err := h.WriteFile(ModuleAutoLoadPath, []byte("# Written by wg-guard install: load the AmneziaWG module at boot\namneziawg\n"), 0o644); err != nil {
+		fmt.Fprintf(out, "  WARNING: boot persistence not written: %v\n", err)
+		return nil
+	}
+	st.ExtraFiles = append(st.ExtraFiles, ModuleAutoLoadPath)
+	return nil
 }
 
 // preflight fails on a busy panel/challenge port (difficult to misuse) and

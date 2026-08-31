@@ -207,6 +207,7 @@ type State struct {
 	ComposePath       string   `json:"compose_path,omitempty"`
 	BinPath           string   `json:"binary_path,omitempty"`
 	UnitPath          string   `json:"unit_path,omitempty"`
+	ExtraFiles        []string `json:"extra_files,omitempty"`
 	PackagesInstalled []string `json:"packages_installed,omitempty"`
 }
 

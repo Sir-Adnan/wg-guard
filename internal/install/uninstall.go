@@ -55,6 +55,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	if st.BinPath != "" {
 		artifacts = append(artifacts, st.BinPath)
 	}
+	artifacts = append(artifacts, st.ExtraFiles...)
 	artifacts = append(artifacts, st.ConfigPath, StatePath)
 	rep.Artifacts = artifacts
 
