@@ -34,7 +34,7 @@ func TestMigrateFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"0001_init.sql", "0002_speed_limits.sql", "0003_admin_locale.sql",
-		"0004_sub_links.sql", "0005_iface_advanced.sql"}
+		"0004_sub_links.sql", "0005_iface_advanced.sql", "0006_backup_schedules.sql"}
 	if len(versions) != len(want) {
 		t.Fatalf("unexpected applied versions: %v", versions)
 	}

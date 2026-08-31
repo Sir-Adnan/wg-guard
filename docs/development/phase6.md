@@ -14,8 +14,8 @@ done only when its tests are green and the record below says exactly what was ve
 
 | # | Stage | Contents | Status |
 |---|---|---|---|
-| 1 | Theme rebase | shadcn-style zinc token system (white `#ffffff` light surfaces, `#09090b` dark base, ink primary, semantic status tones only), monochrome data-viz, favicon, centering/max-width pass (forms vs tables vs dashboards) | planned |
-| 2 | Backup engine | `internal/backup`: `.wgg` archive (manifest + db via `VACUUM INTO` + config + master key), per-file SHA-256, optional age encryption (ADR-0008), retention pruning, restore engine (verify → preflight → stage → migrate → environment report), `BackupSink` (local + telegram), schedule store (migration 0006) + due computation | planned |
+| 1 | Theme rebase | shadcn-style zinc token system (white `#ffffff` light surfaces, `#09090b` dark base, ink primary, semantic status tones only), monochrome data-viz, favicon, centering/max-width pass (forms vs tables vs dashboards) | done |
+| 2 | Backup engine | `internal/backup`: `.wgg` archive (manifest + db via `VACUUM INTO` + config + master key), per-file SHA-256, optional age encryption (ADR-0008), retention pruning, restore engine (verify → preflight → stage → migrate → environment report), `BackupSink` (local + telegram), schedule store (migration 0006) + due computation | done |
 | 3 | Serve wiring | `backups` scheduler job (minute due-scan), automatic pre-migration backup, pending-restore staging consumed at boot (crash-safe swap + safety snapshot) | planned |
 | 4 | CLI | `wg-guard backup create/list/telegram-test`, `wg-guard restore` (service-stopped guard), `wg-guard doctor [--fix]`, `wg-guard settings get/set/list` | planned |
 | 5 | Rotation trigger | `iface.Service` carrier added (rotation gap found during planning), `secrets.Rotate` wired: `wg-guard secrets rotate` + panel security action, service-stopped guard | planned |
