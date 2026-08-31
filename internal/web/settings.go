@@ -22,6 +22,8 @@ type settingsData struct {
 	DefaultDeviceLim int
 	DefaultIfaceID   string
 	SubBaseURL       string
+	FilenamePrefix   string
+	FilenameSuffix   string
 
 	Ifaces []*ifaceRef
 }
@@ -46,6 +48,8 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 	d.DefaultDeviceLim, _ = s.Settings.GetInt(ctx, "users.default_device_limit")
 	d.DefaultIfaceID, _ = s.Settings.GetString(ctx, "users.default_iface_id")
 	d.SubBaseURL, _ = s.Settings.GetString(ctx, "subscription.base_url")
+	d.FilenamePrefix, _ = s.Settings.GetString(ctx, "downloads.filename_prefix")
+	d.FilenameSuffix, _ = s.Settings.GetString(ctx, "downloads.filename_suffix")
 	return d
 }
 
@@ -115,6 +119,16 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		s.settingsSaveError(w, r, "sub_base_url", err)
 		return
 	}
+	fnPrefix := strings.TrimSpace(r.PostFormValue("filename_prefix"))
+	if err := s.Settings.Set(r.Context(), "downloads.filename_prefix", fnPrefix); err != nil {
+		s.settingsSaveError(w, r, "filename_prefix", err)
+		return
+	}
+	fnSuffix := strings.TrimSpace(r.PostFormValue("filename_suffix"))
+	if err := s.Settings.Set(r.Context(), "downloads.filename_suffix", fnSuffix); err != nil {
+		s.settingsSaveError(w, r, "filename_suffix", err)
+		return
+	}
 	s.audit(r, "settings.updated", "", nil)
 	s.redirectToast(w, r, "/settings", "settings.toast.saved")
 }
@@ -143,5 +157,7 @@ func (s *Server) submittedSettingsData(r *http.Request) settingsData {
 	d.DefaultDeviceLim, _ = strconv.Atoi(strings.TrimSpace(r.PostFormValue("default_device_lim")))
 	d.DefaultIfaceID = strings.TrimSpace(r.PostFormValue("default_iface_id"))
 	d.SubBaseURL = strings.TrimSpace(r.PostFormValue("sub_base_url"))
+	d.FilenamePrefix = strings.TrimSpace(r.PostFormValue("filename_prefix"))
+	d.FilenameSuffix = strings.TrimSpace(r.PostFormValue("filename_suffix"))
 	return d
 }

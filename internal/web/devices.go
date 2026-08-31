@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
@@ -175,20 +176,43 @@ func (s *Server) handleDeviceDelete(w http.ResponseWriter, r *http.Request) {
 
 // handleDeviceConfig streams the client .conf (no-store — key material).
 func (s *Server) handleDeviceConfig(w http.ResponseWriter, r *http.Request) {
-	text, err := s.ClientConf.Render(r.Context(), r.PathValue("id"))
+	d, err := s.Devices.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	text, err := s.ClientConf.Render(r.Context(), d.ID)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="wg-guard.conf"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+s.configFilename(r, d)+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(text))
 }
 
+// configFilename builds the download filename for a device config:
+// [prefix]username-device[suffix].conf (downloads.filename_* settings).
+func (s *Server) configFilename(r *http.Request, d *device.Device) string {
+	ctx := r.Context()
+	prefix, _ := s.Settings.GetString(ctx, "downloads.filename_prefix")
+	suffix, _ := s.Settings.GetString(ctx, "downloads.filename_suffix")
+	username := ""
+	if u, err := s.Users.Get(ctx, d.UserID); err == nil {
+		username = u.Username
+	}
+	return clientconf.ConfigFilename(prefix, username, d.Name, suffix)
+}
+
 // handleDeviceQR streams the client config as a PNG (no-store).
 func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
-	text, err := s.ClientConf.Render(r.Context(), r.PathValue("id"))
+	d, err := s.Devices.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	text, err := s.ClientConf.Render(r.Context(), d.ID)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -199,6 +223,8 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Disposition", `inline; filename="`+
+		strings.TrimSuffix(s.configFilename(r, d), ".conf")+`.png"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(png)
 }

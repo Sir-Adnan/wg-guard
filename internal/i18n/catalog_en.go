@@ -115,6 +115,10 @@ var catalogEN = map[string]string{
 	"settings.sub_base_url":        "Public base URL",
 	"settings.sub_base_url_hint":   "Dedicated short-domain host for /sub/{token} links; empty uses this panel’s own origin.",
 	"settings.toast.saved":         "Settings saved.",
+	"settings.section_downloads":   "Config downloads",
+	"settings.filename_prefix":     "Filename prefix",
+	"settings.filename_suffix":     "Filename suffix",
+	"settings.filename_hint":       "Downloads are named [prefix]username-device[suffix].conf.",
 	"nav.collapse":                 "Collapse menu",
 	"nav.section":                  "Manage",
 

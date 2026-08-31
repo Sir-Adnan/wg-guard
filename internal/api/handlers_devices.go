@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
@@ -166,13 +167,18 @@ func (s *Server) handleDeviceRegenerate(w http.ResponseWriter, r *http.Request) 
 // handleDeviceConfig renders the client configuration (text/plain,
 // no-store — private key material).
 func (s *Server) handleDeviceConfig(w http.ResponseWriter, r *http.Request) {
-	text, err := s.renderClientConfig(r, pathID(r, "id"))
+	d, err := s.Devices.Get(r.Context(), pathID(r, "id"))
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	text, err := s.renderClientConfig(r, d.ID)
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="wg-guard.conf"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+s.configFilename(r, d)+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(text))
@@ -181,7 +187,12 @@ func (s *Server) handleDeviceConfig(w http.ResponseWriter, r *http.Request) {
 // handleDeviceQR renders the client configuration as a PNG QR code
 // (no-store).
 func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
-	text, err := s.renderClientConfig(r, pathID(r, "id"))
+	d, err := s.Devices.Get(r.Context(), pathID(r, "id"))
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	text, err := s.renderClientConfig(r, d.ID)
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
@@ -192,9 +203,25 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Disposition", `inline; filename="`+
+		strings.TrimSuffix(s.configFilename(r, d), ".conf")+`.png"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(img)
+}
+
+// configFilename builds the download filename for a device config:
+// [prefix]username-device[suffix].conf (downloads.filename_* settings) —
+// the same rule the admin panel and public subscription page apply.
+func (s *Server) configFilename(r *http.Request, d *device.Device) string {
+	ctx := r.Context()
+	prefix, _ := s.Settings.GetString(ctx, "downloads.filename_prefix")
+	suffix, _ := s.Settings.GetString(ctx, "downloads.filename_suffix")
+	username := ""
+	if u, err := s.Users.Get(ctx, d.UserID); err == nil {
+		username = u.Username
+	}
+	return clientconf.ConfigFilename(prefix, username, d.Name, suffix)
 }
 
 // renderClientConfig delegates to the shared renderer (internal/clientconf)

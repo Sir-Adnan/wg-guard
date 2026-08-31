@@ -115,6 +115,10 @@ var catalogFA = map[string]string{
 	"settings.sub_base_url":        "نشانی پایه عمومی",
 	"settings.sub_base_url_hint":   "دامنه اختصاصی برای لینک‌های /sub/{token}؛ خالی یعنی نشانی همین پنل.",
 	"settings.toast.saved":         "تنظیمات ذخیره شد.",
+	"settings.section_downloads":   "دانلود کانفیگ",
+	"settings.filename_prefix":     "پیشوند نام فایل",
+	"settings.filename_suffix":     "پسوند نام فایل",
+	"settings.filename_hint":       "نام فایل‌ها به شکل [پیشوند]نام‌کاربر-دستگاه[پسوند].conf است.",
 	"nav.collapse":                 "جمع کردن منو",
 	"nav.section":                  "مدیریت",
 

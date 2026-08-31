@@ -117,6 +117,25 @@ func Defaults() []Definition {
 			Category: "general"},
 		{Key: "users.default_duration_months", Kind: KindInt, Default: 1, Min: 0, Max: 120,
 			Category: "general"},
+
+		// Config download filenames: [prefix]username-device[suffix].conf
+		// (sanitized to [A-Za-z0-9._-]; empty disables the part).
+		{Key: "downloads.filename_prefix", Kind: KindString, Default: "", Category: "general",
+			Validator: func(v any) error {
+				s := v.(string)
+				if len(s) > 24 {
+					return fmt.Errorf("filename prefix must be at most 24 characters")
+				}
+				return nil
+			}},
+		{Key: "downloads.filename_suffix", Kind: KindString, Default: "", Category: "general",
+			Validator: func(v any) error {
+				s := v.(string)
+				if len(s) > 24 {
+					return fmt.Errorf("filename suffix must be at most 24 characters")
+				}
+				return nil
+			}},
 		{Key: "users.quota_presets_gb", Kind: KindStringList, Default: []string{
 			"20", "50", "70", "100", "150", "200", "300", "500", "700", "1000"},
 			Category: "general",

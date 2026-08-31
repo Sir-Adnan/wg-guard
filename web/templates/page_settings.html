@@ -71,6 +71,23 @@
     </div>
   </fieldset>
 
+  <fieldset class="form-section">
+    <legend>{{.T "settings.section_downloads"}}</legend>
+    <div class="field-row">
+      <div class="field {{if eq .Data.Field "filename_prefix"}}field--invalid{{end}}">
+        <label for="s-fn-prefix">{{.T "settings.filename_prefix"}}</label>
+        <input class="input ltr-data" id="s-fn-prefix" name="filename_prefix" dir="ltr" autocomplete="off"
+               placeholder="wg-" value="{{.Data.FilenamePrefix}}">
+        <span class="hint">{{.T "settings.filename_hint"}}</span>
+      </div>
+      <div class="field {{if eq .Data.Field "filename_suffix"}}field--invalid{{end}}">
+        <label for="s-fn-suffix">{{.T "settings.filename_suffix"}}</label>
+        <input class="input ltr-data" id="s-fn-suffix" name="filename_suffix" dir="ltr" autocomplete="off"
+               placeholder="v2" value="{{.Data.FilenameSuffix}}">
+      </div>
+    </div>
+  </fieldset>
+
   <div class="inline-actions">
     <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
   </div>

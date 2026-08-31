@@ -153,6 +153,8 @@ func (s *Server) handleSubDeviceQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Disposition", `inline; filename="`+
+		strings.TrimSuffix(s.configFilename(r, d), ".conf")+`.png"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(png)
 }
@@ -172,7 +174,7 @@ func (s *Server) handleSubDeviceConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+d.Name+`.conf"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+s.configFilename(r, d)+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(text))
 }
