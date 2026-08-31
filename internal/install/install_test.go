@@ -539,3 +539,35 @@ type poisonReader struct{}
 func (poisonReader) Read([]byte) (int, error) {
 	panic("stdin read under --yes")
 }
+
+// TestUpdateDockerRollbackFlag: update --rollback re-deploys the state-
+// recorded image when compose points at something else (interrupted update).
+func TestUpdateDockerRollbackFlag(t *testing.T) {
+	h := newMemHost()
+	port := healthServer(t, http.StatusOK)
+	p := Defaults()
+	p.TLSMode = config.TLSModeProxy
+	p.PanelPort = port
+	if _, err := Install(context.Background(), h, InstallOptions{
+		Plan: p, Yes: true, Version: "test", Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate an interrupted update: compose drifted to a broken image while
+	// the state still records the good one.
+	bad := strings.Replace(string(h.files[ComposePth].data), "image: "+DefaultImage, "image: wgguard/wg-guard:broken", 1)
+	if err := h.WriteFile(ComposePth, []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: &strings.Builder{}}); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	if got := imageFromCompose(string(h.files[ComposePth].data)); got != DefaultImage {
+		t.Fatalf("compose image after rollback = %s, want %s", got, DefaultImage)
+	}
+	// Already on the recorded image: refuse, not rewrite.
+	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: &strings.Builder{}}); err == nil ||
+		!strings.Contains(err.Error(), "already references") {
+		t.Fatalf("second rollback: want refusal, got %v", err)
+	}
+}

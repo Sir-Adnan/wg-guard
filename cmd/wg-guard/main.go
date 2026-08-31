@@ -34,7 +34,7 @@ Commands:
               token create -name NAME -scopes a,b [-expires-in 720h] [-cidr LIST]
               token list | token revoke ID | token scopes
   backup      Manage archives (docs/operations/backup-restore.md)
-              backup create [-password] [-output DIR] | backup list
+              backup create [-password] [-output DIR] [-reason TEXT] | backup list
               backup telegram-test
   restore     Restore an archive (verifies, reviews, applies with the
               service stopped; staged otherwise)

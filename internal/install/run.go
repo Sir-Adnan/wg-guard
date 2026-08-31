@@ -36,6 +36,7 @@ type UpdateOptions struct {
 	Image          string // docker: new image reference (default: keep compose value)
 	BinaryPath     string // native: staged binary to install
 	SkipBackup     bool
+	Rollback       bool // re-deploy the state-recorded last-known-good artifact
 	Stdout, Stderr io.Writer
 }
 
@@ -208,12 +209,14 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	return nil
 }
 
-// ensureKernelModule verifies the AmneziaWG kernel module is loadable and, if
-// not, attempts the pinned PPA install (Ubuntu path). When the module loads,
-// an /etc/modules-load.d entry makes it boot-persistent — a rebooted node
-// must be able to recreate its tunnels without manual steps. The returned
-// error is a warning for the caller — module absence is not fatal (ADR-0003
-// userspace fallback), but the operator must see it.
+// ensureKernelModule verifies the AmneziaWG kernel module is loadable and,
+// if not, walks a recovery ladder before warning: modprobe → DKMS rebuild
+// for the RUNNING kernel (an apt kernel upgrade leaves a DKMS module built
+// for the old series — the rebuild needs the matching headers) → fresh PPA
+// install. When the module loads, an /etc/modules-load.d entry makes it
+// boot-persistent. The returned error is a warning for the caller — module
+// absence is not fatal (ADR-0003 userspace fallback), but the operator must
+// see it.
 func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) error {
 	// Loaded, or loadable right now?
 	if data, err := h.ReadFile("/proc/modules"); err == nil && strings.Contains(string(data), "amneziawg") {
@@ -224,7 +227,15 @@ func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) e
 		fmt.Fprintln(out, "  kernel module amneziawg: loaded via modprobe")
 		return markModuleBootPersistence(h, st, out)
 	}
-	// Attempt the package path (Ubuntu + PPA per docs/integrations/amneziawg.md).
+	// DKMS rebuild path: the package is installed but built for a different
+	// kernel series (typical after an unattended kernel upgrade).
+	if rebuilt := rebuildDKMSModule(ctx, h, out); rebuilt {
+		if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err == nil {
+			fmt.Fprintln(out, "  kernel module rebuilt for the running kernel and loaded")
+			return markModuleBootPersistence(h, st, out)
+		}
+	}
+	// Fresh-install path (Ubuntu + PPA per docs/integrations/amneziawg.md).
 	fmt.Fprintln(out, "  kernel module not present — attempting amneziawg-dkms install (may take minutes)…")
 	apt := func(argv ...string) error { return h.Run(ctx, argv, longTimeout) }
 	if err := apt("apt-get", "update"); err == nil {
@@ -236,6 +247,10 @@ func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) e
 			err = apt("apt-get", "update")
 		}
 		if err == nil {
+			// Headers for the RUNNING kernel are what DKMS builds against.
+			if kr, e := h.Output(ctx, []string{"uname", "-r"}, 10*time.Second); e == nil {
+				_ = apt("apt-get", "install", "-y", "linux-headers-"+strings.TrimSpace(kr))
+			}
 			err = apt("apt-get", "install", "-y", "amneziawg-dkms")
 		}
 	}
@@ -247,6 +262,49 @@ func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) e
 	return fmt.Errorf("kernel module could not be installed automatically")
 }
 
+// rebuildDKMSModule rebuilds an already-registered DKMS module for the
+// running kernel: install matching headers, run dkms autoinstall, refresh
+// module dependencies. Reports whether every step succeeded.
+func rebuildDKMSModule(ctx context.Context, h Host, out io.Writer) bool {
+	dkmsStatus, err := h.Output(ctx, []string{"dkms", "status"}, 30*time.Second)
+	if err != nil || !strings.Contains(dkmsStatus, "amneziawg") {
+		return false
+	}
+	kr, err := h.Output(ctx, []string{"uname", "-r"}, 10*time.Second)
+	if err != nil {
+		return false
+	}
+	kr = strings.TrimSpace(kr)
+	if strings.Contains(dkmsStatus, kr) {
+		// Registered (and likely built) for the running kernel already; a
+		// plain modprobe failure means something else — skip to the warning.
+		return false
+	}
+	fmt.Fprintf(out, "  DKMS module registered for another kernel (running %s) — rebuilding…\n", kr)
+	apt := func(argv ...string) error { return h.Run(ctx, argv, longTimeout) }
+	if err := apt("apt-get", "update"); err != nil {
+		return false
+	}
+	if err := apt("apt-get", "install", "-y", "linux-headers-"+kr); err != nil {
+		fmt.Fprintf(out, "  WARNING: headers for %s could not be installed: %v\n", kr, err)
+		return false
+	}
+	if err := h.Run(ctx, []string{"dkms", "autoinstall"}, longTimeout); err != nil {
+		fmt.Fprintf(out, "  WARNING: dkms autoinstall failed: %v\n", err)
+		return false
+	}
+	return h.Run(ctx, []string{"depmod", "-a"}, 5*time.Minute) == nil
+}
+
+func addUnique(list []string, v string) []string {
+	for _, x := range list {
+		if x == v {
+			return list
+		}
+	}
+	return append(list, v)
+}
+
 // ModuleAutoLoadPath is the systemd-modules-load entry the installer writes
 // so the AmneziaWG module survives reboots (uninstall removes it).
 const ModuleAutoLoadPath = "/etc/modules-load.d/wg-guard.conf"
@@ -256,7 +314,7 @@ func markModuleBootPersistence(h Host, st *State, out io.Writer) error {
 		fmt.Fprintf(out, "  WARNING: boot persistence not written: %v\n", err)
 		return nil
 	}
-	st.ExtraFiles = append(st.ExtraFiles, ModuleAutoLoadPath)
+	st.ExtraFiles = addUnique(st.ExtraFiles, ModuleAutoLoadPath)
 	return nil
 }
 

@@ -118,6 +118,7 @@ func runUpdate(args []string) error {
 		image      = fs.String("image", "", "new image reference (docker mode)")
 		binaryPath = fs.String("binary", "", "staged new binary path (native mode)")
 		skipBackup = fs.Bool("skip-backup", false, "skip the pre-upgrade backup (not recommended)")
+		rollback   = fs.Bool("rollback", false, "re-deploy the last healthy image/binary recorded in the install state (recovery after a failed or interrupted update)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -126,6 +127,7 @@ func runUpdate(args []string) error {
 		Image:      *image,
 		BinaryPath: *binaryPath,
 		SkipBackup: *skipBackup,
+		Rollback:   *rollback,
 		Stdout:     os.Stdout,
 		Stderr:     os.Stderr,
 	})

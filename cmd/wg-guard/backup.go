@@ -114,6 +114,7 @@ func backupCreate(args []string) error {
 	var (
 		password   string
 		output     string
+		reason     string
 		configPath = "/etc/wg-guard/wg-guard.toml"
 	)
 	for i := 0; i < len(args); i++ {
@@ -130,9 +131,18 @@ func backupCreate(args []string) error {
 		case "-output", "--output":
 			i++
 			output = args[i]
+		case "-reason", "--reason":
+			i++
+			reason = args[i]
 		default:
 			return fmt.Errorf("unknown flag %q", args[i])
 		}
+	}
+	if reason == "" {
+		reason = "manual"
+	} else if len(reason) > 64 {
+		// Reasons land in the archive manifest and audit metadata.
+		return fmt.Errorf("reason must be at most 64 characters")
 	}
 
 	env, err := loadCLIEnv(configPath)
@@ -143,7 +153,7 @@ func backupCreate(args []string) error {
 
 	res, err := env.newBackupService().Create(context.Background(), backup.CreateOpts{
 		Password: password,
-		Reason:   "manual",
+		Reason:   reason,
 		Deliver:  true,
 		Dir:      output,
 	})
