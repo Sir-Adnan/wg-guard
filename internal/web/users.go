@@ -29,6 +29,11 @@ type usersData struct {
 	// Create-drawer preset chips (settings-driven).
 	QuotaPresets    []string
 	DurationPresets []string
+	// Create-form defaults (settings-driven; see createDefaults).
+	DefaultQuotaGB   int
+	DefaultDurMonths int
+	DefaultDeviceLim int
+	DefaultIfaceID   string
 	// FieldErr is always empty here; the create-fields partial is shared
 	// with the user form, which uses it for error redisplay.
 	FieldErr string
@@ -109,6 +114,7 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 		QuotaPresets:    s.settingList(r, "users.quota_presets_gb"),
 		DurationPresets: s.settingList(r, "users.duration_presets_months"),
 	}
+	data.DefaultQuotaGB, data.DefaultDurMonths, data.DefaultDeviceLim, data.DefaultIfaceID = s.createDefaults(r)
 	_ = s.render(w, r, "users", "app", data)
 }
 
@@ -212,14 +218,20 @@ type userFormData struct {
 	// User.DurationSeconds via the view helpers).
 	DurationValue string
 	DurationUnit  string
-	// Quick-preset chips (settings-driven; Phase 6 manages the values).
+	// Quick-preset chips (settings-driven; the settings screen manages values).
 	QuotaPresets    []string
 	DurationPresets []string
+	// Create-form defaults (settings-driven; see createDefaults).
+	DefaultQuotaGB   int
+	DefaultDurMonths int
+	DefaultDeviceLim int
+	DefaultIfaceID   string
 }
 
 type ifaceRef struct {
-	ID   string
-	Name string
+	ID      string
+	Name    string
+	Enabled bool
 }
 
 func (s *Server) ifacesForForm(r *http.Request) []*ifaceRef {
@@ -229,17 +241,51 @@ func (s *Server) ifacesForForm(r *http.Request) []*ifaceRef {
 	}
 	out := make([]*ifaceRef, 0, len(list))
 	for _, f := range list {
-		out = append(out, &ifaceRef{ID: f.ID, Name: f.Name})
+		out = append(out, &ifaceRef{ID: f.ID, Name: f.Name, Enabled: f.Enabled})
 	}
 	return out
+}
+
+// createDefaults resolves the create-form prefill: configured default quota
+// (GB; 0 = none), default duration (months; 0 = no-expiry), default device
+// limit and default interface (configured id when it still exists, otherwise
+// the first enabled interface). Best effort — registry failures yield zeros.
+func (s *Server) createDefaults(r *http.Request) (quotaGB, durMonths, devLimit int, ifaceID string) {
+	ctx := r.Context()
+	quotaGB, _ = s.Settings.GetInt(ctx, "users.default_quota_gb")
+	durMonths, _ = s.Settings.GetInt(ctx, "users.default_duration_months")
+	devLimit, _ = s.Settings.GetInt(ctx, "users.default_device_limit")
+	if devLimit <= 0 {
+		devLimit = 1
+	}
+	ifaceID, _ = s.Settings.GetString(ctx, "users.default_iface_id")
+	ifaces := s.ifacesForForm(r)
+	found := false
+	for _, f := range ifaces {
+		if f.ID == ifaceID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		ifaceID = ""
+		for _, f := range ifaces {
+			if f.Enabled {
+				ifaceID = f.ID
+				break
+			}
+		}
+	}
+	return quotaGB, durMonths, devLimit, ifaceID
 }
 
 func (s *Server) handleUserNew(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "user_form", "app", s.newUserFormData(r))
 }
 
-// newUserFormData assembles the create-form data: plans, interfaces and the
-// quick-preset lists (quota GB, duration months) from the settings registry.
+// newUserFormData assembles the create-form data: plans, interfaces, the
+// quick-preset lists (quota GB, duration months) and the create defaults
+// from the settings registry.
 func (s *Server) newUserFormData(r *http.Request) userFormData {
 	data := userFormData{
 		Plans:  s.plansForForm(r),
@@ -247,6 +293,7 @@ func (s *Server) newUserFormData(r *http.Request) userFormData {
 	}
 	data.QuotaPresets = s.settingList(r, "users.quota_presets_gb")
 	data.DurationPresets = s.settingList(r, "users.duration_presets_months")
+	data.DefaultQuotaGB, data.DefaultDurMonths, data.DefaultDeviceLim, data.DefaultIfaceID = s.createDefaults(r)
 	return data
 }
 
@@ -284,12 +331,13 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	u, err := s.Users.Create(r.Context(), in)
 	if err != nil {
 		if domain.CodeOf(err) == domain.CodeInvalidRequest || domain.CodeOf(err) == domain.CodeUsernameExists {
-			_ = s.render(w, r, "user_form", "app", userFormData{
-				Plans: s.plansForForm(r), Ifaces: s.ifacesForForm(r),
-				Error:    s.humanizeDomainError(r, err),
-				FieldErr: "username", StartNow: r.PostFormValue("start_policy") != "first_connection",
-				DurationValue: formDurationValue(r), DurationUnit: r.PostFormValue("duration_unit"),
-			})
+			d := s.newUserFormData(r)
+			d.Error = s.humanizeDomainError(r, err)
+			d.FieldErr = "username"
+			d.StartNow = r.PostFormValue("start_policy") != "first_connection"
+			d.DurationValue = formDurationValue(r)
+			d.DurationUnit = r.PostFormValue("duration_unit")
+			_ = s.render(w, r, "user_form", "app", d)
 			return
 		}
 		s.logError(r, "user create", err)

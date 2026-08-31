@@ -221,6 +221,18 @@ var catalogFA = map[string]string{
 	"users.form.expiry_date":        "تاریخ دقیق انقضا",
 	"users.form.expiry_date_hint":   "در صورت تعیین، بر مدت اشتراک اولویت دارد.",
 	"users.form.duration_hint":      "با «بلافاصله» اشتراک همین حالا شروع می‌شود؛ با «اولین اتصال»، شمارش از اولین دست‌دادن آغاز می‌شود.",
+	"users.form.packages":           "بسته‌های آماده",
+	"users.form.custom":             "دلخواه",
+	"users.form.configs":            "تعداد کانفیگ",
+	"users.form.configs_hint":       "به همین تعداد کانفیگ بلافاصله ساخته می‌شود و سقف دستگاه کاربر تعیین می‌گردد (ساخت هر بار حداکثر ۱۰).",
+	"users.form.expiry":             "انقضا",
+	"users.form.mode_duration":      "مدت",
+	"users.form.mode_date":          "تاریخ دقیق",
+	"users.form.mode_never":         "بدون انقضا",
+	"users.form.advanced":           "تنظیمات پیشرفته",
+	"users.form.preview_expires":    "انقضا: {date}",
+	"users.form.preview_never":      "این حساب منقضی نمی‌شود.",
+	"users.form.preview_days":       "حدود {n} روز",
 
 	// users actions & toasts
 	"users.action.enable":        "فعال‌سازی",

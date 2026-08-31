@@ -1,5 +1,11 @@
 {{define "user_create_fields"}}
 {{$v := .v}}{{$d := .d}}
+
+{{$quotaMatch := false}}
+{{range $d.QuotaPresets}}{{if eq (printf "%d" $d.DefaultQuotaGB) .}}{{$quotaMatch = true}}{{end}}{{end}}
+{{$durMatch := false}}
+{{range $d.DurationPresets}}{{if eq (printf "%d" $d.DefaultDurMonths) .}}{{$durMatch = true}}{{end}}{{end}}
+
 <fieldset class="form-section">
   <legend>{{$v.T "users.form.section_account"}}</legend>
   <div class="field {{if eq $d.FieldErr "username"}}field--invalid{{end}}">
@@ -12,81 +18,131 @@
     </div>
     <span class="hint">{{$v.T "onboard.username_hint"}}</span>
   </div>
-  <div class="field-row">
-    <div class="field">
-      <label for="u-display">{{$v.T "users.display_name"}} <span class="text-subtle text-xs">({{$v.T "common.optional"}})</span></label>
-      <input class="input" id="u-display" name="display_name">
-    </div>
-    <div class="field">
-      <label for="u-tags">{{$v.T "users.form.tags"}}</label>
-      <input class="input" id="u-tags" name="tags">
-      <span class="hint">{{$v.T "users.tags_hint"}}</span>
-    </div>
-  </div>
   <div class="field">
-    <label class="check-label" for="u-auto">
-      <input class="checkbox" id="u-auto" type="checkbox" name="auto_devices" value="1" checked>
-      <span>{{$v.T "users.form.auto_devices"}}</span>
-    </label>
-    <span class="hint">{{$v.T "users.form.auto_devices_hint"}}</span>
+    <label for="u-display">{{$v.T "users.display_name"}} <span class="text-subtle text-xs">({{$v.T "common.optional"}})</span></label>
+    <input class="input" id="u-display" name="display_name">
   </div>
 </fieldset>
 
 <fieldset class="form-section">
   <legend>{{$v.T "users.form.section_limits"}}</legend>
-  {{template "form_limits" dict "v" $v "pfx" "u" "qv" "" "qu" "gb" "dev" "" "down" "" "up" ""
-      "devlabel" ($v.T "users.form.device_limit") "qchips" $d.QuotaPresets}}
-</fieldset>
 
-<fieldset class="form-section">
-  <legend>{{$v.T "users.form.section_timing"}}</legend>
-  <div class="field-row">
-    <div class="field">
-      <label for="u-policy">{{$v.T "users.start_policy"}}</label>
-      <select class="select" id="u-policy" name="start_policy">
-        <option value="immediate" selected>{{$v.T "users.start_policy.immediate"}}</option>
-        <option value="first_connection">{{$v.T "users.start_policy.first_connection"}}</option>
-      </select>
+  <div class="field">
+    <label>{{$v.T "users.form.traffic_limit"}}</label>
+    <div class="seg-group" role="group" aria-label="{{$v.T "users.form.traffic_limit"}}">
+      <button type="button" class="seg{{if $quotaMatch}} is-on{{end}}" data-mode-group="quota" data-mode="quota:pkgs">{{$v.T "users.form.packages"}}</button>
+      <button type="button" class="seg{{if not $quotaMatch}} is-on{{end}}" data-mode-group="quota" data-mode="quota:custom">{{$v.T "users.form.custom"}}</button>
     </div>
-    <div class="field">
-      <label for="u-duration">{{$v.T "users.form.duration"}}</label>
+    <div data-panel="quota:pkgs" {{if not $quotaMatch}}hidden{{end}}>
+      <div class="chips chips-row" role="group" aria-label="{{$v.T "users.form.presets"}}">
+        {{range $d.QuotaPresets}}<button type="button" class="chip-btn{{if eq (printf "%s" .) (printf "%d" $d.DefaultQuotaGB)}} is-active{{end}}"
+            data-fill-value="{{.}}" data-fill-unit="gb">{{.}} GB</button>{{end}}
+      </div>
+    </div>
+    <div data-panel="quota:custom" {{if $quotaMatch}}hidden{{end}}>
       <div class="unit-group">
-        <input class="input" id="u-duration" name="duration_value" type="number" min="0.1" step="any">
-        <select class="select" name="duration_unit" aria-label="{{$v.T "users.form.duration"}}">
-          <option value="days" selected>{{$v.T "duration.days"}}</option>
-          <option value="hours">{{$v.T "duration.hours"}}</option>
-          <option value="months">{{$v.T "duration.months"}}</option>
+        <input class="input" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal"
+               value="{{if gt $d.DefaultQuotaGB 0}}{{$d.DefaultQuotaGB}}{{end}}">
+        <select class="select" name="traffic_limit_unit" aria-label="{{$v.T "users.form.traffic_limit"}}">
+          <option value="gb" selected>GB</option>
+          <option value="mb">MB</option>
         </select>
       </div>
-      {{with $d.DurationPresets}}{{template "preset_chips" dict "v" $v "months" .}}{{end}}
     </div>
+    <span class="hint">{{$v.T "users.form.traffic_limit_hint"}}</span>
   </div>
+
+  <div class="field field--inline">
+    <label for="u-devices">{{$v.T "users.form.configs"}}</label>
+    <div class="unit-group unit-group--narrow">
+      <input class="input" id="u-devices" name="device_limit" type="number" min="1" max="100" step="1"
+             value="{{$d.DefaultDeviceLim}}">
+    </div>
+    <input type="hidden" name="auto_devices" value="1">
+    <span class="hint">{{$v.T "users.form.configs_hint"}}</span>
+  </div>
+
   <div class="field">
-    <label for="u-expires">{{$v.T "users.form.expiry_date"}}</label>
-    <div class="input-adj">
-      <input class="input" id="u-expires" name="expires_on" type="text" inputmode="none" dir="ltr"
-             placeholder="YYYY-MM-DD" data-calendar-input>
-      <button type="button" class="icon-btn" data-calendar="#u-expires" aria-label="{{$v.T "cal.open"}}"
-              data-cal-prev="{{$v.T "cal.prev"}}" data-cal-next="{{$v.T "cal.next"}}" data-cal-clear="{{$v.T "cal.clear"}}">{{$v.IconS "calendar"}}</button>
+    <label>{{$v.T "users.form.expiry"}}</label>
+    <div class="seg-group" role="group" aria-label="{{$v.T "users.form.expiry"}}">
+      <button type="button" class="seg{{if gt $d.DefaultDurMonths 0}} is-on{{end}}" data-mode-group="exp" data-mode="exp:dur">{{$v.T "users.form.mode_duration"}}</button>
+      <button type="button" class="seg" data-mode-group="exp" data-mode="exp:date">{{$v.T "users.form.mode_date"}}</button>
+      <button type="button" class="seg{{if eq $d.DefaultDurMonths 0}} is-on{{end}}" data-mode-group="exp" data-mode="exp:never">{{$v.T "users.form.mode_never"}}</button>
     </div>
-    <span class="hint">{{$v.T "users.form.expiry_date_hint"}}</span>
-  </div>
-  <div class="field-row">
-    <div class="field">
-      <label for="u-plan">{{$v.T "users.plan"}}</label>
-      <select class="select" id="u-plan" name="plan">
-        <option value="">{{$v.T "users.no_plan"}}</option>
-        {{range $d.Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-      </select>
+    <div data-panel="exp:dur" data-disable="1" {{if eq $d.DefaultDurMonths 0}}hidden{{end}}>
+      <div class="chips chips-row" role="group" aria-label="{{$v.T "users.form.presets"}}">
+        {{range $d.DurationPresets}}<button type="button" class="chip-btn{{if eq (printf "%s" .) (printf "%d" $d.DefaultDurMonths)}} is-active{{end}}"
+            data-fill-value="{{.}}" data-fill-unit="months">{{.}} {{$v.T "duration.months"}}</button>{{end}}
+      </div>
+      <div class="unit-group">
+        <input class="input" name="duration_value" type="number" min="0.1" step="any"
+               value="{{if gt $d.DefaultDurMonths 0}}{{$d.DefaultDurMonths}}{{end}}">
+        <select class="select" name="duration_unit" aria-label="{{$v.T "users.form.expiry"}}">
+          <option value="months" selected>{{$v.T "duration.months"}}</option>
+          <option value="days">{{$v.T "duration.days"}}</option>
+          <option value="hours">{{$v.T "duration.hours"}}</option>
+        </select>
+      </div>
     </div>
-    <div class="field">
-      <label for="u-iface">{{$v.T "users.interface"}}</label>
-      <select class="select" id="u-iface" name="interface">
-        <option value="">{{$v.T "common.none"}}</option>
-        {{range $d.Ifaces}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-      </select>
-      <span class="hint">{{$v.T "users.form.interface_hint"}}</span>
+    <div data-panel="exp:date" data-disable="1" hidden>
+      <div class="input-adj">
+        <input class="input" id="u-expires" name="expires_on" type="text" inputmode="none" dir="ltr"
+               placeholder="YYYY-MM-DD" data-calendar-input disabled>
+        <button type="button" class="icon-btn" data-calendar="#u-expires" aria-label="{{$v.T "cal.open"}}"
+                data-cal-prev="{{$v.T "cal.prev"}}" data-cal-next="{{$v.T "cal.next"}}" data-cal-clear="{{$v.T "cal.clear"}}" disabled>{{$v.IconS "calendar"}}</button>
+      </div>
     </div>
+    <span class="hint" id="expiry-preview" aria-live="polite"
+          data-tpl="{{$v.T "users.form.preview_expires"}}" data-tpl-never="{{$v.T "users.form.preview_never"}}"
+          data-tpl-days="{{$v.T "users.form.preview_days"}}"></span>
   </div>
 </fieldset>
+
+<details class="collapse form-advanced">
+  <summary>{{$v.IconS "chevron-right"}}<span>{{$v.T "users.form.advanced"}}</span></summary>
+  <div class="collapse-body">
+    <div class="field-row">
+      <div class="field">
+        <label for="u-plan">{{$v.T "users.plan"}}</label>
+        <select class="select" id="u-plan" name="plan">
+          <option value="">{{$v.T "users.no_plan"}}</option>
+          {{range $d.Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="u-iface">{{$v.T "users.interface"}}</label>
+        <select class="select" id="u-iface" name="interface">
+          <option value="">{{$v.T "common.none"}}</option>
+          {{range $d.Ifaces}}<option value="{{.ID}}" {{if eq (printf "%v" .ID) (printf "%v" $d.DefaultIfaceID)}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+        <span class="hint">{{$v.T "users.form.interface_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="u-policy">{{$v.T "users.start_policy"}}</label>
+        <select class="select" id="u-policy" name="start_policy">
+          <option value="immediate" selected>{{$v.T "users.start_policy.immediate"}}</option>
+          <option value="first_connection">{{$v.T "users.start_policy.first_connection"}}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="u-tags">{{$v.T "users.form.tags"}}</label>
+        <input class="input" id="u-tags" name="tags">
+        <span class="hint">{{$v.T "users.tags_hint"}}</span>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="u-speed-down">{{$v.T "users.form.speed_down"}}</label>
+        <input class="input" id="u-speed-down" name="speed_down" type="number" min="1">
+        <span class="hint">{{$v.T "users.form.speed_hint"}}</span>
+      </div>
+      <div class="field">
+        <label for="u-speed-up">{{$v.T "users.form.speed_up"}}</label>
+        <input class="input" id="u-speed-up" name="speed_up" type="number" min="1">
+      </div>
+    </div>
+  </div>
+</details>
 {{end}}

@@ -221,6 +221,18 @@ var catalogEN = map[string]string{
 	"users.form.expiry_date":        "Exact expiry date",
 	"users.form.expiry_date_hint":   "Overrides the duration when set.",
 	"users.form.duration_hint":      "With “immediate”, the subscription starts now; with “first connection”, the clock starts on the first handshake.",
+	"users.form.packages":           "Packages",
+	"users.form.custom":             "Custom",
+	"users.form.configs":            "Configs to create",
+	"users.form.configs_hint":       "This many configs are created immediately and set the device limit (creation is capped at 10).",
+	"users.form.expiry":             "Expiry",
+	"users.form.mode_duration":      "Duration",
+	"users.form.mode_date":          "Exact date",
+	"users.form.mode_never":         "No expiry",
+	"users.form.advanced":           "Advanced options",
+	"users.form.preview_expires":    "Expires {date}",
+	"users.form.preview_never":      "The account never expires.",
+	"users.form.preview_days":       "~{n} days",
 
 	// users actions & toasts
 	"users.action.enable":        "Enable",

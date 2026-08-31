@@ -100,9 +100,22 @@ func Defaults() []Definition {
 			}},
 
 		// Users (defaults applied at creation; per-user overrides exist).
-		// The preset lists feed the create-user quick chips; the Phase 6
-		// settings screen manages their values.
+		// The preset lists feed the create-user quick chips; the settings
+		// screen manages their values. default_quota_gb = 0 means "no traffic
+		// preset preselected"; default_duration_months = 0 means the create
+		// form defaults to no-expiry.
 		{Key: "users.default_device_limit", Kind: KindInt, Default: 3, Min: 1, Max: 100,
+			Category: "general"},
+		{Key: "users.default_iface_id", Kind: KindString, Default: "", Category: "general",
+			Validator: func(v any) error {
+				if s := v.(string); len(s) > 64 {
+					return fmt.Errorf("interface id must be at most 64 characters")
+				}
+				return nil
+			}},
+		{Key: "users.default_quota_gb", Kind: KindInt, Default: 100, Min: 0, Max: 1000000,
+			Category: "general"},
+		{Key: "users.default_duration_months", Kind: KindInt, Default: 1, Min: 0, Max: 120,
 			Category: "general"},
 		{Key: "users.quota_presets_gb", Kind: KindStringList, Default: []string{
 			"20", "50", "70", "100", "150", "200", "300", "500", "700", "1000"},

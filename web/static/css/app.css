@@ -1189,6 +1189,38 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
     border-color var(--t-fast) var(--ease);
 }
 .chip-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip-btn.is-active {
+  background: var(--brand);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* segmented mode panels (create-user form): the visible mode's controls */
+[data-panel] { margin-block-start: var(--sp-2); }
+[data-panel] .unit-group { margin-block-start: var(--sp-2); }
+.seg-group + [data-panel] { margin-block-start: var(--sp-3); }
+.unit-group--narrow { max-width: 148px; }
+
+/* advanced collapse inside forms */
+details.form-advanced { margin-block-start: calc(-1 * var(--sp-2)); }
+details.form-advanced > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+details.form-advanced > summary::-webkit-details-marker { display: none; }
+details.form-advanced > summary:hover { background: var(--bg-hover); color: var(--fg); }
+details.form-advanced[open] > summary { border-style: solid; color: var(--fg); }
+details.form-advanced .collapse-body { padding: var(--sp-4) 0 0; }
 
 /* form sections (create/edit pages + drawer) */
 fieldset.form-section {

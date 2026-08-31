@@ -113,8 +113,8 @@
 
   /* ---------- dialogs ---------- */
 
-  $$("dialog.modal").forEach((dlg) => {
-    // close icon buttons inside modals
+  $$("dialog").forEach((dlg) => {
+    // close icon buttons inside any dialog (modals + drawers)
     dlg.addEventListener("click", (e) => {
       if (e.target.closest("[data-close-modal]")) dlg.close();
     });
@@ -349,7 +349,79 @@
       input.dispatchEvent(new Event("input", { bubbles: true }));
     }
     if (unit && chip.dataset.fillUnit) unit.value = chip.dataset.fillUnit;
+    const group = chip.closest(".chips");
+    if (group) {
+      $$("[data-fill-value]", group).forEach((c) =>
+        c.classList.toggle("is-active", c === chip));
+    }
   });
+
+  /* ---------- segmented mode panels (packages/custom, duration/date/never) ---------- */
+
+  document.addEventListener("click", (e) => {
+    const seg = e.target.closest(".seg[data-mode]");
+    if (!seg) return;
+    e.preventDefault();
+    const group = seg.dataset.modeGroup;
+    $$('.seg[data-mode-group="' + group + '"]').forEach((b) =>
+      b.classList.toggle("is-on", b === seg));
+    $$('[data-panel^="' + group + ':"]').forEach((p) => {
+      const on = p.dataset.panel === seg.dataset.mode;
+      p.hidden = !on;
+      // panels flagged data-disable park their inputs while hidden so the
+      // submit only carries the visible mode's values
+      if (p.hasAttribute("data-disable")) {
+        p.querySelectorAll("input,select,button").forEach((el) => { el.disabled = !on; });
+      }
+    });
+    updateExpiryPreview();
+  });
+
+  /* live expiry preview (Jalali-aware for fa) */
+  function calFmt(g) {
+    if (isFa()) {
+      const j = calD2J(calG2D(g.getFullYear(), g.getMonth() + 1, g.getDate()));
+      return j.jd + " " + FA_MONTHS[j.jm - 1] + " " + j.jy;
+    }
+    return EN_MONTHS[g.getMonth()] + " " + g.getDate() + ", " + g.getFullYear();
+  }
+  function updateExpiryPreview() {
+    const el = $("#expiry-preview");
+    if (!el) return;
+    const on = $('.seg[data-mode-group="exp"].is-on');
+    const mode = on ? on.dataset.mode : "exp:dur";
+    if (mode === "exp:never") { el.textContent = el.dataset.tplNever || ""; return; }
+    let target = null;
+    if (mode === "exp:date") {
+      const inp = $("#u-expires");
+      if (inp && /^\d{4}-\d{2}-\d{2}$/.test(inp.value)) {
+        const [y, m, d] = inp.value.split("-").map(Number);
+        target = new Date(y, m - 1, d);
+      }
+    } else {
+      const raw = $('input[name="duration_value"]')?.value;
+      const unit = $('select[name="duration_unit"]')?.value;
+      const val = parseFloat(raw);
+      if (val > 0 && unit) {
+        target = new Date();
+        if (unit === "months") target.setMonth(target.getMonth() + val);
+        else if (unit === "days") target.setDate(target.getDate() + val);
+        else target.setHours(target.getHours() + val);
+      }
+    }
+    if (!target) { el.textContent = ""; return; }
+    const days = Math.round((target - new Date()) / 86400000);
+    const dpart = (el.dataset.tplDays || "~{n} days").replace("{n}", String(Math.max(days, 1)));
+    el.textContent = (el.dataset.tpl || "Expires {date}").replace("{date}", calFmt(target)) +
+      " · " + dpart;
+  }
+  document.addEventListener("input", (e) => {
+    if (e.target.matches('input[name="duration_value"], #u-expires')) updateExpiryPreview();
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches('select[name="duration_unit"]')) updateExpiryPreview();
+  });
+  updateExpiryPreview();
 
   /* ---------- username generator ---------- */
 
@@ -468,7 +540,10 @@
     if (!calEl) {
       calEl = document.createElement("div");
       calEl.className = "calendar";
-      document.body.appendChild(calEl);
+      // A <dialog> renders in the top layer: anything appended to <body>
+      // paints BELOW it. Mount the popover inside the dialog when the
+      // trigger lives in one (create-user drawer), otherwise on <body>.
+      (trigger.closest("dialog") || document.body).appendChild(calEl);
       calEl.addEventListener("click", (e) => {
         const day = e.target.closest("[data-cal-day]");
         if (day && !day.disabled) { calPick(Number(day.dataset.calDay)); return; }
