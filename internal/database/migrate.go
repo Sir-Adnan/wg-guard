@@ -12,6 +12,26 @@ import (
 	"github.com/Sir-Adnan/wg-guard/migrations"
 )
 
+// PendingCount reports how many embedded migrations are not applied yet —
+// the pre-migration automatic backup gate (serve). Forward-only migrations
+// mean the applied row count is always a subset of the embedded list.
+func (db *DB) PendingCount(ctx context.Context) (int, error) {
+	entries, err := fs.Glob(migrations.FS, "*.sql")
+	if err != nil {
+		return 0, fmt.Errorf("database: list migrations: %w", err)
+	}
+	var applied int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations`).Scan(&applied); err != nil {
+		// No migrations table yet: everything is pending.
+		return len(entries), nil
+	}
+	pending := len(entries) - applied
+	if pending < 0 {
+		pending = 0
+	}
+	return pending, nil
+}
+
 // Migrate applies pending embedded migrations, each inside its own
 // transaction. Forward-only; applied versions are recorded in `migrations`
 // (docs/architecture/database.md).

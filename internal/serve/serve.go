@@ -29,6 +29,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/api"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/boot"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -67,15 +68,18 @@ const (
 	// that matter are dead-lettered and redeliverable within the window
 	// (docs/integrations/webhooks.md: "payloads are pruned per retention").
 	webhookRetention = 7 * 24 * time.Hour
+	// preMigrationRetention caps the automatic backups-auto pool.
+	preMigrationRetention = 5
 )
 
 // Options configures one node. Config is required; Backend substitutes the
 // real AmneziaWG backend (dev/benchmark mode: no host networking is touched
 // and boot bring-up is skipped).
 type Options struct {
-	Config  *config.Config
-	Backend tunnel.Backend // nil = real AmneziaWG CLI backend
-	Log     *slog.Logger   // nil = slog.Default()
+	Config     *config.Config
+	ConfigPath string         // source boot config path (archived by backups)
+	Backend    tunnel.Backend // nil = real AmneziaWG CLI backend
+	Log        *slog.Logger   // nil = slog.Default()
 }
 
 // Node is one running WG-Guard instance: services, HTTP server, scheduler.
@@ -90,6 +94,7 @@ type Node struct {
 	listener      net.Listener
 	metrics       *metrics.Collector
 	accounting    *accounting.Service
+	backup        *backup.Service
 	apiServer     *api.Server
 	webServer     *web.Server
 	webhookWorker *webhook.Worker
@@ -139,16 +144,40 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		return nil, fmt.Errorf("serve: key dir: %w", err)
 	}
 
+	// A staged restore (panel wizard) is consumed BEFORE the database is
+	// opened — never against a live WAL handle. Failures never abort boot.
+	n := &Node{cfg: cfg, log: log}
+	n.backup = &backup.Service{
+		Cfg: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: log,
+	}
+	pendingRestoreArchive := n.backup.ConsumePendingRestore()
+
 	db, err := database.Open(cfg.DatabasePath, database.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("serve: open database: %w", err)
 	}
-	n := &Node{cfg: cfg, log: log, db: db}
+	n.db = db
 	// Any failure from here on tears the node back down.
 	fail := func(err error) (*Node, error) {
 		_ = db.Close()
 		return nil, err
 	}
+
+	// Automatic pre-migration backup (backup-restore.md §Sources): plain
+	// archives, on-box only, separate retention pool.
+	if pending, err := db.PendingCount(ctx); err == nil && pending > 0 {
+		if res, err := n.backup.Create(ctx, backup.CreateOpts{
+			Reason:    "pre-migration",
+			Dir:       filepath.Join(cfg.DataDir, "backups-auto"),
+			Deliver:   false,
+			Retention: preMigrationRetention,
+		}); err != nil {
+			log.Warn("pre-migration backup failed; migrating anyway", "err", err)
+		} else {
+			log.Info("pre-migration backup created", "archive", res.Name)
+		}
+	}
+
 	if err := db.Migrate(ctx, log); err != nil {
 		return fail(fmt.Errorf("serve: migrate: %w", err))
 	}
@@ -163,6 +192,14 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	}
 
 	auditSvc := audit.NewService(db)
+	n.backup.DB, n.backup.Reg, n.backup.Audit = db, n.reg, auditSvc
+	if pendingRestoreArchive != "" {
+		_ = auditSvc.Record(ctx, audit.Entry{
+			ActorType: audit.ActorSystem, Action: "backup.restored",
+			Target:   pendingRestoreArchive,
+			Metadata: map[string]any{"applied_at": "boot"},
+		})
+	}
 	n.metrics = metrics.New()
 	n.metrics.SetReady(n.ready)
 
@@ -306,6 +343,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.sched.Every("samples", n.sampleFlushInterval(ctx), n.jobSamples)
 	n.sched.Every("webhooks", webhookPassInterval, n.jobWebhooks)
 	n.sched.Every("housekeeping", housekeepingEvery, n.jobHousekeeping)
+	n.sched.Every("backups", time.Minute, n.jobBackups)
 	n.sched.Start(ctx)
 
 	serveErr := make(chan error, 1)
@@ -514,6 +552,14 @@ func (n *Node) jobWebhooks(ctx context.Context) error {
 			"failed", rep.Failed, "dead", rep.Dead)
 	}
 	return nil
+}
+
+// jobBackups runs the once-per-minute due scan over backup schedules; each
+// fired schedule creates its archive with its own retention (the scan is an
+// indexed query over a tiny table — restart-safe, catch-up-once).
+func (n *Node) jobBackups(ctx context.Context) error {
+	_, err := n.backup.RunDue(ctx)
+	return err
 }
 
 // jobHousekeeping prunes expired idempotency keys, dead sessions, old

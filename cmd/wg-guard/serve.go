@@ -62,7 +62,7 @@ func runServe(args []string) error {
 		return err
 	}
 
-	opts := serve.Options{Config: cfg, Log: log}
+	opts := serve.Options{Config: cfg, ConfigPath: configPath, Log: log}
 	if devBackend {
 		opts.Backend = fake.New()
 	}

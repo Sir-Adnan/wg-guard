@@ -445,22 +445,23 @@ func (s *Service) ApplyStaged(ctx context.Context) (*RestoreReport, error) {
 }
 
 // ConsumePendingRestore is the boot path: if a staged restore is waiting,
-// apply it before the database is opened. Failures never abort boot — the
+// apply it before the database is opened. It returns the applied archive
+// name (” when nothing was pending). Failures never abort boot — the
 // operator decides what to do with a broken staging dir.
-func (s *Service) ConsumePendingRestore() {
+func (s *Service) ConsumePendingRestore() string {
 	pending, err := s.Pending()
 	if err != nil || pending == nil {
 		if err != nil && s.Log != nil {
 			s.Log.Warn("restore staging unreadable; leaving it in place", "err", err)
 		}
-		return
+		return ""
 	}
 	report, err := s.ApplyStaged(context.Background())
 	if err != nil {
 		if s.Log != nil {
 			s.Log.Error("pending restore FAILED verification; boot continues with the existing database", "err", err)
 		}
-		return
+		return ""
 	}
 	if s.Log != nil {
 		s.Log.Info("staged restore applied at boot",
@@ -469,6 +470,7 @@ func (s *Service) ConsumePendingRestore() {
 			s.Log.Warn("restore note", "detail", w)
 		}
 	}
+	return pending.Archive
 }
 
 // setAside renames path to path.pre-restore (best effort on ENOENT).
