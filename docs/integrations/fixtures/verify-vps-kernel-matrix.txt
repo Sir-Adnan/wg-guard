@@ -1,0 +1,86 @@
+AmneziaWG runtime parameter verification matrix — REAL VPS kernel module
+========================================================================
+
+Environment (2026-08-31):
+  Ubuntu 24.04 LTS (noble), KVM guest, kernel 6.8.0-137-generic, x86_64
+  amneziawg-tools v3.1.20260812 + amneziawg-dkms 1.0.0 (PPA ppa:amnezia/ppa, native noble build)
+  Kernel module "amneziawg" (module name is amneziawg, NOT awg: `modprobe amneziawg`)
+  Link creation: `ip link add awg0 type amneziawg`
+  Keys below are single-use throwaway test keys (redacted where irrelevant).
+
+Setconf format requirement
+--------------------------
+  `awg setconf` REJECTS headerless configs ("Line unrecognized: `PrivateKey=…`") —
+  stock wg tolerates lines before any [Interface]/[Peer] header, tools v3.1 does not.
+  WG-Guard's renderer always emits explicit section headers (unaffected).
+  `awg-quick strip` uses shell/awk text processing, not the C parser, so it still
+  accepts headerless input — not a counterexample.
+
+Acceptance + round-trip matrix (kernel module, via netlink; dump = `awg show awg0 dump`)
+----------------------------------------------------------------------------------------
+  CASE legacy (Jc=4/Jmin=40/Jmax=70/S1=15/S2=64, H1..H4=5,7,9,11)
+       rc=0, dump echoes jc=4 s1=15 s2=64 h1=5 h2=7 h3=9 h4=11
+  CASE S3=39/S4=12 (with legacy block)
+       rc=0, dump s3=39 s4=12                        [2.0-gen params work on kernel]
+  CASE H1..H4 as u32 ranges (14600319-413859944, 1014464576-1029127646,
+       1310124568-1349706902, 1843326379-1998145220)
+       rc=0, dump echoes the EXACT range strings      [ranges work server-side]
+  CASE timer ranges (ContentPaddingAddition=10-100, RekeyAfterTime=100-120,
+       RekeyTimeout=3-7, RejectAfterTime=150-180, KeepaliveTimeout=5-15,
+       MaxHandshakeAttempts=15-20)
+       rc=0, dump echoes all six range strings verbatim
+  CASE timer plain N (ContentPaddingAddition=18, RekeyAfterTime=110)
+       rc=0, dump echoes plain values
+  CASE RandomTrailers=on / DisableCookies=on
+       rc=0, dump rt=on dc=on
+  CASE I1 = <r 105> (template literal)
+       rc=0, dump i1=<r 105>                          [template macros survive kernel]
+  CASE I1 = f13f0000ffff / I2 = f13f0000fffe (hex blobs)
+       rc=0, dump echoes hex
+  CASE full combo (all of the above + HeaderProtectionKey + [Peer] keepalive=25)
+       rc=0; 29-field dump; showconf round-trips every value including HPK + ranges
+  CASE [Peer] PersistentKeepalive = 25-35 (u16 range)
+       rc=0, dump peer field 8 = "25-35"              [kernel accepts keepalive ranges]
+  CASE [Peer] AdvancedSecurity = on
+       rc=0 (peer-section key; still feature-deferred in WG-Guard)
+
+HeaderProtectionKey coupling (kernel-enforced)
+----------------------------------------------
+  hpk + S3/S4 (plain H)                    rc=0, hpk round-trips
+  hpk WITHOUT S3/S4 (plain H / H ranges / + RandomTrailers)  rc=1 Invalid argument
+  hpk written incrementally AFTER S3/S4 persist from a prior setconf
+                                           rc=1 Invalid argument  (must be SAME setconf)
+  hpk rotation (new key) with S3/S4 in the same conf        rc=0
+  => RULE: HeaderProtectionKey requires S3 AND S4 non-zero IN THE SAME setconf
+     message. WG-Guard render.go must always emit S3/S4 when it emits HPK;
+     iface validation must reject HPK without S3/S4.
+  hpk clearing ("(none)") is parser-rejected; setconf cannot unset HPK (omitted
+  keys persist) — removing it requires link recreate.
+
+Clearing / partial-set semantics (kernel)
+-----------------------------------------
+  S3=0/S4=0 clear attempt with HPK set ..... rc=1 (violates HPK⇒S3/S4), values persist
+  H1..H4=0 clear attempt .................. rc=1, ranges persist
+  Jc=0 alone .............................. rc=0 (jc=0 legal; junk disabled), Jmin/Jmax kept
+  omitted keys persist across setconf ..... rc=0 verified on kernel
+     (port 51820→51821 while S3/H-ranges/padding/flags all kept)
+  fresh interface dump defaults ........... H1..H4 = 1,2,3,4 (stock header values),
+     everything else 0/off/(null)/(none)
+
+Constraint enforcement — KERNEL vs USERSPACE (both tools v3.1)
+--------------------------------------------------------------
+  duplicate H1=H2 ............ REJECTED (Invalid argument) — both backends
+  all-zero obfuscation block . REJECTED (Invalid argument) — both backends
+  Jmin > Jmax ................ kernel ACCEPTS (userspace rejects) — WG-Guard
+                               validates locally regardless
+  S1 + 56 == S2 .............. kernel ACCEPTS (userspace rejects) — same
+
+WG-Guard consequences (implemented in this pass)
+------------------------------------------------
+  - render.go: S3/S4 are always emitted together with HeaderProtectionKey.
+  - iface validation: HPK non-empty requires S3 and S4 non-empty.
+  - Capability gating stays OFF-by-default + report-only drift for the 2.0/3.x
+    set (userspace/arm64/client support varies); kernel-module acceptance is now
+    verified upstream evidence, client compatibility still varies per app.
+  - Clearing HPK/S3/S4 on a live interface is not appliable via setconf —
+    documented as requiring interface recreate; gated drift remains report-only.

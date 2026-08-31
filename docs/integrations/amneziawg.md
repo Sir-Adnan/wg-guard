@@ -13,7 +13,8 @@ it as unverified and gate accordingly.
 | amneziawg-tools (`awg`, `awg-quick`) | **v3.1.20260812** (commit `ee0f0a9`, tag `v3.1.20260812`; Debian package `1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
 | amneziawg-dkms (kernel module source) | **1.0.0** (`0~202608282205+3c38e16~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
 | amneziawg-go (userspace daemon, fallback backend) | **v3.1.20260828** (tag; binary `amneziawg-go`) | built from github.com/amnezia-vpn/amneziawg-go |
-| Verification environment | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
+| Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
+| Verification environment (kernel) | dedicated VPS, Ubuntu **24.04 LTS** (noble), KVM, kernel `6.8.0-137-generic`, x86_64; PPA packages natively | 2026-08-31 |
 
 Package note: the PPA builds for `noble` (24.04). On Ubuntu 26.04 (`resolute`) the PPA has no
 Release file — workaround used here (and by the installer if it ever meets this case): add the
@@ -95,7 +96,9 @@ RejectAfterTime, RekeyAfterTime, RekeyTimeout, MaxHandshakeAttempts`.
 
 The parser accepts the 2.0/3.x-generation keys (S3/S4, header protection, timers, flags) —
 **parser acceptance ≠ runtime support**. Legacy 1.0 params are the only set verified end-to-end
-this phase; 2.0/3.x remain capability-gated and off by default.
+this phase; 2.0/3.x remain capability-gated and off by default. Kernel-module runtime
+acceptance of the 2.0/3.x set is now verified (see the kernel matrix below); client-app
+compatibility still varies, which is why they stay off by default.
 
 Value formats verified from the pinned `src/config.c` (2026-08-31):
 
@@ -123,6 +126,12 @@ Two facts verified against the pinned userspace daemon (2026-08-29, exercised by
 `internal/tunnel/amneziawg` integration tests) that the parser/kernel-README alone do not
 reveal:
 
+0. **`awg setconf` requires explicit section headers (tools v3.1, verified on kernel VPS).**
+   A headerless config (interface lines before any `[Interface]` header — tolerated by stock
+   wg) is rejected with `Line unrecognized: `PrivateKey=…``. `awg-quick strip` is shell/awk and
+   still accepts it — not a counterexample. WG-Guard's renderer always emits explicit
+   headers.
+
 1. **Explicit zeros are rejected.** `setconf` with an all-zero obfuscation block
    (`Jc = 0 … H4 = 0`) fails with `Unable to modify interface: Invalid argument` — the runtime
    enforces the constraint set on the *written* values, so the all-plain state is not directly
@@ -136,6 +145,35 @@ The all-plain state exists only at link creation, so obfuscation-mode transition
 link (remove + create + peer re-sync) — owned by the reconcile engine. Same-mode value changes
 apply cleanly via `setconf`. Kernel-backend parity of these two facts remains a Phase 8 matrix
 item.
+
+## Kernel-module runtime matrix (real VPS, 2026-08-31)
+
+Full evidence: [`fixtures/verify-vps-kernel-matrix.txt`](fixtures/verify-vps-kernel-matrix.txt).
+Environment: dedicated Ubuntu 24.04 KVM VPS, kernel 6.8.0-137, `amneziawg` module 3.1.20260812
+from the PPA (module name is **amneziawg** — `modprobe amneziawg`; links are
+`ip link add … type amneziawg`). Every claim below was executed against that module.
+
+- **Accepted + round-tripped through the kernel**: S3/S4; **H1–H4 as u32 ranges** (dump echoes
+  `14600319-413859944` verbatim); all six timer/padding `N`/`N-M` params; RandomTrailers /
+  DisableCookies; I1–I5 both template literals (`<r 105>`) and hex blobs; peer
+  PersistentKeepalive **ranges** (`25-35`); peer-section `AdvancedSecurity = on`.
+- **HeaderProtectionKey is kernel-coupled to S3/S4**: writing HPK fails with
+  `Invalid argument` unless S3 AND S4 are non-zero **in the same setconf message** — even when
+  S3/S4 already persist from a previous setconf. HPK rotation works (new key + S3/S4 in one
+  message); HPK cannot be cleared (`(none)` is parser-rejected, omission persists).
+- **Clearing semantics**: `S3 = 0`/`S4 = 0` and `H1..H4 = 0` are rejected while HPK is set;
+  `Jc = 0` alone is accepted (junk disabled). Omitted keys persist (re-verified on kernel).
+  A fresh interface dumps `H1..H4 = 1,2,3,4` (stock header values), everything else
+  0 / off / `(null)` / `(none)`.
+- **Constraint enforcement differs by backend**: duplicate `H1=H2` and the all-zero block are
+  rejected on both backends; `Jmin > Jmax` and `S1 + 56 == S2` are **accepted by the kernel
+  module** (userspace daemon rejects them). WG-Guard validates the full set locally regardless.
+
+WG-Guard implementation consequences: `render.go` always emits S3/S4 together with
+HeaderProtectionKey; interface validation rejects HPK without S3/S4; the 2.0/3.x set stays
+capability-gated off-by-default with report-only drift (kernel acceptance ≠ client support);
+clearing HPK/S3/S4 on a live interface is not appliable via setconf (recreate required —
+documented in the UI).
 
 ## Interface naming
 
@@ -159,9 +197,11 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | genkey/genpsk/pubkey | direct invocation | work as wireguard-tools | ✅ verified |
 | Userspace daemon on WSL2 | built + ran `amneziawg-go awg0` | works (TUN, setconf, dump) | ✅ verified |
 | DKMS module build | `apt install amneziawg-dkms` | module compiled (for host kernel series) | ✅ verified (build only) |
-| **Kernel-module load + netlink dump** | requires real KVM VPS | — | ⚠️ **requires real VPS (Phase 2/8)** |
-| **Dump format emitted against kernel module** | requires real KVM VPS (fields may default-fill) | — | ⚠️ **requires real VPS** |
-| 2.0/3.x generation runtime behavior | requires real VPS + compatible clients | — | ⚠️ deferred (capability-gated) |
+| **Kernel-module load + netlink dump** | VPS: `modprobe amneziawg` + `ip link add … type amneziawg` + `awg show dump` | module loads (name `amneziawg`), 29-field dump | ✅ **verified (VPS kernel, 2026-08-31)** |
+| **Dump format emitted against kernel module** | VPS: full-combo setconf + dump | same 29-field format; H1–H4 echo ranges verbatim; fresh iface defaults H=1..4 | ✅ **verified (VPS kernel)** |
+| **2.0/3.x generation runtime behavior (kernel)** | VPS acceptance/round-trip matrix | S3/S4, H ranges, timers, flags, I1–I5, HPK (⇒S3/S4 same-message), peer keepalive ranges, peer AdvancedSecurity — all accepted | ✅ **verified (VPS kernel)**; client compatibility still varies — params stay gated |
+| **setconf headerless config on kernel** | VPS: conf without `[Interface]` | rejected (`Line unrecognized`) — explicit headers required | ✅ **verified (VPS kernel)** |
+| **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
 | PPA on Ubuntu 22.04 / Debian 12 | requires real VPS matrix | — | ⚠️ Phase 8 |
 
 Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
