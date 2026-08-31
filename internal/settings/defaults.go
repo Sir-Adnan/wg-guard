@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -99,8 +100,33 @@ func Defaults() []Definition {
 			}},
 
 		// Users (defaults applied at creation; per-user overrides exist).
+		// The preset lists feed the create-user quick chips; the Phase 6
+		// settings screen manages their values.
 		{Key: "users.default_device_limit", Kind: KindInt, Default: 3, Min: 1, Max: 100,
 			Category: "general"},
+		{Key: "users.quota_presets_gb", Kind: KindStringList, Default: []string{
+			"20", "50", "70", "100", "150", "200", "300", "500", "700", "1000"},
+			Category: "general",
+			Validator: func(v any) error {
+				for _, s := range v.([]string) {
+					n, err := strconv.Atoi(s)
+					if err != nil || n <= 0 || n > 1000000 {
+						return fmt.Errorf("quota presets must be positive GB integers, got %q", s)
+					}
+				}
+				return nil
+			}},
+		{Key: "users.duration_presets_months", Kind: KindStringList, Default: []string{"1", "3", "6", "12"},
+			Category: "general",
+			Validator: func(v any) error {
+				for _, s := range v.([]string) {
+					n, err := strconv.Atoi(s)
+					if err != nil || n <= 0 || n > 120 {
+						return fmt.Errorf("duration presets must be positive month integers, got %q", s)
+					}
+				}
+				return nil
+			}},
 
 		// Node identity (client-config Endpoint and webhook envelopes).
 		// node.id is filled with the hostname on first serve when empty.

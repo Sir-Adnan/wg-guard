@@ -212,6 +212,11 @@ var catalogFA = map[string]string{
 	"users.form.tags":               "برچسب‌ها",
 	"users.form.interface_hint":     "پروفایل تونلی که دستگاه‌های این کاربر از آن عبور می‌کنند.",
 	"users.form.duration":           "مدت",
+	"users.form.presets":            "انتخاب سریع",
+	"users.form.generate":           "ساخت خودکار نام کاربری",
+	"users.form.auto_devices":       "ساخت خودکار دستگاه‌ها",
+	"users.form.auto_devices_hint":  "به تعداد سقف دستگاه، کانفیگ آماده تحویل ساخته می‌شود.",
+	"users.form.section_timing":     "زمان‌بندی اشتراک",
 	"users.form.expiry_date":        "تاریخ دقیق انقضا",
 	"users.form.expiry_date_hint":   "در صورت تعیین، بر مدت اشتراک اولویت دارد.",
 	"users.form.duration_hint":      "با «بلافاصله» اشتراک همین حالا شروع می‌شود؛ با «اولین اتصال»، شمارش از اولین دست‌دادن آغاز می‌شود.",
@@ -243,6 +248,12 @@ var catalogFA = map[string]string{
 	"users.renew.date":               "تاریخ (YYYY-MM-DD)",
 	"users.traffic_add.title":        "افزودن حجم به %s",
 	"users.traffic_add.amount":       "مقدار برای افزودن",
+
+	// calendar
+	"cal.open":  "انتخاب تاریخ",
+	"cal.prev":  "ماه قبل",
+	"cal.next":  "ماه بعد",
+	"cal.clear": "پاک کردن",
 
 	// duration units (shared)
 	"duration.days":               "روز",

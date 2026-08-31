@@ -256,6 +256,276 @@
     obfToggle.addEventListener("change", sync);
   }
 
+  /* ---------- preset chips (quota / duration quick fill) ---------- */
+
+  document.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-fill-value]");
+    if (!chip) return;
+    e.preventDefault();
+    const field = chip.closest(".field");
+    const input = field?.querySelector(".unit-group .input");
+    const unit = field?.querySelector(".unit-group .select");
+    if (input) {
+      input.value = chip.dataset.fillValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if (unit && chip.dataset.fillUnit) unit.value = chip.dataset.fillUnit;
+  });
+
+  /* ---------- username generator ---------- */
+
+  const WORDS = ("amber,azure,brave,calm,coral,cosmo,crimson,dawn,delta,dune,eager,echo,ember," +
+    "falcon,fjord,garnet,golden,harbor,iris,ivory,jade,lagoon,lunar,maple,meadow,nebula," +
+    "nimbus,noble,ocean,onyx,opal,orbit,pearl,polar,quartz,quiet,raven,river,sage,solar," +
+    "sprite,storm,tidal,topaz,umber,velvet,zephyr,zenith").split(",");
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-generate]");
+    if (!btn) return;
+    e.preventDefault();
+    const input = document.querySelector(btn.dataset.generate);
+    if (!input || input.disabled) return;
+    input.value = pick(WORDS) + "-" + pick(WORDS) + "-" + Math.floor(Math.random() * 90 + 10);
+    input.focus();
+  });
+
+  /* ---------- calendar date picker (fa: Jalali · en: Gregorian) ----------
+   * Vanilla, CSP-safe. Opens from [data-calendar] triggers, writes an ISO
+   * YYYY-MM-DD value into the bound input. Past days are disabled. */
+
+  const CAL_DIV = (a, b) => ~~(a / b);
+  const CAL_MOD = (a, b) => a - ~~(a / b) * b;
+  function calG2D(gy, gm, gd) {
+    let d = CAL_DIV((gy + CAL_DIV(gm - 8, 6) + 100100) * 1461, 4)
+      + CAL_DIV(153 * CAL_MOD(gm + 9, 12) + 2, 5) + gd - 34840408;
+    d = d - CAL_DIV(CAL_DIV(gy + 100100 + CAL_DIV(gm - 8, 6), 100) * 3, 4) + 752;
+    return d;
+  }
+  function calD2G(jdn) {
+    let j = 4 * jdn + 139361631;
+    j = j + CAL_DIV(CAL_DIV(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908;
+    const i = CAL_DIV(CAL_MOD(j, 1461), 4) * 5 + 308;
+    return {
+      gd: CAL_DIV(CAL_MOD(i, 153), 5) + 1,
+      gm: CAL_MOD(CAL_DIV(i, 153), 12) + 1,
+      gy: CAL_DIV(j, 1461) - 100100 + CAL_DIV(8 - (CAL_MOD(CAL_DIV(i, 153), 12) + 1), 6),
+    };
+  }
+  function calJalCal(jy) {
+    const breaks = [-61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210, 1635, 2060, 2097,
+      2192, 2262, 2324, 2394, 2456, 3178];
+    const gy = jy + 621;
+    let leapJ = -14, jp = breaks[0], jm, jump = 0, n, i;
+    for (i = 1; i < breaks.length; i++) {
+      jm = breaks[i];
+      jump = jm - jp;
+      if (jy < jm) break;
+      leapJ = leapJ + CAL_DIV(jump, 33) * 8 + CAL_DIV(CAL_MOD(jump, 33), 4);
+      jp = jm;
+    }
+    n = jy - jp;
+    leapJ = leapJ + CAL_DIV(n, 33) * 8 + CAL_DIV(CAL_MOD(n, 33) + 3, 4);
+    if (CAL_MOD(jump, 33) === 4 && jump - n === 4) leapJ += 1;
+    const leapG = CAL_DIV(gy, 4) - CAL_DIV((CAL_DIV(gy, 100) + 1) * 3, 4) - 150;
+    const march = 20 + leapJ - leapG;
+    if (jump - n < 6) n = n - jump + CAL_DIV(jump + 4, 33) * 33;
+    let leap = CAL_MOD(CAL_MOD(n + 1, 33) - 1, 4);
+    if (leap === -1) leap = 4;
+    return { leap, gy, march };
+  }
+  function calD2J(jdn) {
+    const gy = calD2G(jdn).gy;
+    let jy = gy - 621;
+    const r = calJalCal(jy);
+    let k = jdn - calG2D(gy, 3, r.march);
+    if (k >= 0) {
+      if (k <= 185) return { jy, jm: 1 + CAL_DIV(k, 31), jd: CAL_MOD(k, 31) + 1 };
+      k -= 186;
+    } else {
+      jy -= 1;
+      k += 179;
+      if (r.leap === 1) k += 1;
+    }
+    return { jy, jm: 7 + CAL_DIV(k, 30), jd: CAL_MOD(k, 30) + 1 };
+  }
+  function calJ2D(jy, jm, jd) {
+    const r = calJalCal(jy);
+    return calG2D(r.gy, 3, r.march) + (jm - 1) * 31 - CAL_DIV(jm, 7) * (jm - 7) + jd - 1;
+  }
+  function calJalMonthLen(jy, jm) {
+    // leapValue 0 marks the Kabiseh (leap) year — Esfand gets 30 days
+    return jm <= 6 ? 31 : jm <= 11 ? 30 : calJalCal(jy).leap === 0 ? 30 : 29;
+  }
+
+  const FA_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+  const EN_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+    "August", "September", "October", "November", "December"];
+  const FA_WEEK = ["ش", "ی", "د", "س", "چ", "پ", "ج"]; // Saturday-first
+  const EN_WEEK = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]; // Monday-first
+
+  const isFa = () => (document.documentElement.lang || "fa").startsWith("fa");
+  const pad = (n) => String(n).padStart(2, "0");
+  const isoOf = (dt) => dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate());
+
+  let calEl = null;
+  let cal = null; // {input, labels, jy, jm, view: "j"|"g", selected: Date|null, today}
+
+  function calFromISO(iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    if (isFa()) {
+      const jdn = calG2D(y, m, d);
+      const j = calD2J(jdn);
+      return { view: "j", jy: j.jy, jm: j.jm, jd: j.jd, g: new Date(y, m - 1, d) };
+    }
+    return { view: "g", jy: y, jm: m, jd: d, g: new Date(y, m - 1, d) };
+  }
+
+  function calOpen(trigger) {
+    const input = document.querySelector(trigger.dataset.calendar);
+    if (!input || input.disabled) return;
+    if (!calEl) {
+      calEl = document.createElement("div");
+      calEl.className = "calendar";
+      document.body.appendChild(calEl);
+      calEl.addEventListener("click", (e) => {
+        const day = e.target.closest("[data-cal-day]");
+        if (day && !day.disabled) { calPick(Number(day.dataset.calDay)); return; }
+        if (e.target.closest("[data-cal-prev]")) { calMove(-1); return; }
+        if (e.target.closest("[data-cal-next]")) { calMove(1); return; }
+        if (e.target.closest("[data-cal-clear]")) {
+          cal.input.value = "";
+          calClose();
+        }
+      });
+    }
+    const existing = calFromISO(input.value);
+    const t = new Date();
+    cal = {
+      input, trigger,
+      labels: trigger.dataset,
+      today: t,
+      view: existing ? existing.view : (isFa() ? "j" : "g"),
+      jy: existing ? existing.jy : (isFa() ? calD2J(calG2D(t.getFullYear(), t.getMonth() + 1, t.getDate())).jy : t.getFullYear()),
+      jm: existing ? existing.jm : (isFa() ? calD2J(calG2D(t.getFullYear(), t.getMonth() + 1, t.getDate())).jm : t.getMonth() + 1),
+      selected: existing ? existing.g : null,
+    };
+    calRender();
+    calEl.classList.add("is-open");
+    calPosition();
+  }
+
+  function calClose() { calEl?.classList.remove("is-open"); }
+
+  function calMove(dir) {
+    if (cal.view === "j") {
+      let m = cal.jm + dir, y = cal.jy;
+      if (m > 12) { m = 1; y++; }
+      if (m < 1) { m = 12; y--; }
+      cal.jy = y; cal.jm = m;
+    } else {
+      let m = cal.jm - 1 + dir, y = cal.jy;
+      if (m > 11) { m = 0; y++; }
+      if (m < 0) { m = 11; y--; }
+      cal.jy = y; cal.jm = m + 1;
+    }
+    calRender();
+  }
+
+  function calPick(day) {
+    let y, m, d;
+    if (cal.view === "j") {
+      const jdn = calJ2D(cal.jy, cal.jm, day);
+      const g = calD2G(jdn);
+      y = g.gy; m = g.gm; d = g.gd;
+    } else {
+      y = cal.jy; m = cal.jm; d = day;
+    }
+    cal.input.value = y + "-" + pad(m) + "-" + pad(d);
+    cal.input.dispatchEvent(new Event("change", { bubbles: true }));
+    calClose();
+  }
+
+  function calRender() {
+    const fa = cal.view === "j";
+    const title = fa
+      ? FA_MONTHS[cal.jm - 1] + " " + cal.jy
+      : EN_MONTHS[cal.jm - 1] + " " + cal.jy;
+    const week = fa ? FA_WEEK : EN_WEEK;
+    // first weekday index (0 = week start) and month length
+    let first, len, firstG;
+    if (fa) {
+      const g1 = calD2G(calJ2D(cal.jy, cal.jm, 1));
+      firstG = new Date(g1.gy, g1.gm - 1, g1.gd);
+      len = calJalMonthLen(cal.jy, cal.jm);
+      // Persian week starts Saturday → getDay(): Sat=6 → 0
+      first = (firstG.getDay() + 1) % 7;
+    } else {
+      firstG = new Date(cal.jy, cal.jm - 1, 1);
+      len = new Date(cal.jy, cal.jm, 0).getDate();
+      // Gregorian week starts Monday → Mon=1 → 0
+      first = (firstG.getDay() + 6) % 7;
+    }
+    const todayISO = isoOf(cal.today);
+    let cells = "";
+    for (let i = 0; i < first; i++) cells += "<span></span>";
+    for (let d = 1; d <= len; d++) {
+      let gy, gm, gd;
+      if (fa) {
+        const g = calD2G(calJ2D(cal.jy, cal.jm, d));
+        gy = g.gy; gm = g.gm; gd = g.gd;
+      } else {
+        gy = cal.jy; gm = cal.jm; gd = d;
+      }
+      const iso = gy + "-" + pad(gm) + "-" + pad(gd);
+      const past = new Date(gy, gm - 1, gd) < new Date(cal.today.getFullYear(), cal.today.getMonth(), cal.today.getDate());
+      const cls = (iso === todayISO ? " is-today" : "") + (cal.selected && iso === isoOf(cal.selected) ? " is-selected" : "");
+      cells += '<button type="button" class="cal-day' + cls + '" data-cal-day="' + d + '"' +
+        (past ? " disabled" : "") + ">" + d + "</button>";
+    }
+    calEl.innerHTML =
+      '<div class="cal-head">' +
+      '<button type="button" class="icon-btn" data-cal-prev aria-label="' + (cal.labels.calPrev || "") + '">‹</button>' +
+      '<span class="cal-title" aria-live="polite">' + title + "</span>" +
+      '<button type="button" class="icon-btn" data-cal-next aria-label="' + (cal.labels.calNext || "") + '">›</button>' +
+      "</div>" +
+      '<div class="cal-grid">' + week.map((w) => '<span class="cal-wd">' + w + "</span>").join("") + cells + "</div>" +
+      '<div class="cal-foot"><button type="button" class="btn btn--sm btn--ghost" data-cal-clear>' +
+      (cal.labels.calClear || "") + "</button></div>";
+  }
+
+  function calPosition() {
+    const r = cal.trigger.getBoundingClientRect();
+    const w = Math.min(296, window.innerWidth - 16);
+    calEl.style.width = w + "px";
+    let x = r.left + r.width / 2 - w / 2;
+    x = Math.max(8, Math.min(x, window.innerWidth - w - 8));
+    let y = r.bottom + 6;
+    calEl.style.insetInlineStart = "";
+    calEl.style.left = x + "px";
+    calEl.style.top = y + "px";
+    // flip above if clipped at the bottom
+    const h = calEl.offsetHeight;
+    if (y + h > window.innerHeight - 8) calEl.style.top = Math.max(8, r.top - h - 6) + "px";
+  }
+
+  document.addEventListener("click", (e) => {
+    const trigger = e.target.closest("[data-calendar]");
+    if (trigger) {
+      e.preventDefault();
+      if (calEl?.classList.contains("is-open") && cal?.trigger === trigger) calClose();
+      else calOpen(trigger);
+      return;
+    }
+    if (calEl?.classList.contains("is-open") && !e.target.closest(".calendar")) calClose();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") calClose();
+  });
+  window.addEventListener("resize", () => { if (calEl?.classList.contains("is-open")) calPosition(); });
+
   /* ---------- boot ---------- */
 
   $$("[data-theme-choice]").forEach((b) =>

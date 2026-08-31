@@ -16,25 +16,25 @@ Phase 6 settings UI can bind to).
 
 ## Stages
 
-### Stage 1 — Input correctness (quota/duration precision) — planned
-- [ ] Exact decimal quota parsing (no float64 rounding): `0.2 GB` → 200000000 bytes.
-- [ ] Unit-aware quota input (GB / MB) server-verified; small values first-class
+### Stage 1 — Input correctness (quota/duration precision) — **done 2026-08-31**
+- [x] Exact decimal quota parsing (no float64 rounding): `0.2 GB` → 200000000 bytes.
+- [x] Unit-aware quota input (GB / MB) server-verified; small values first-class
       (100 MB, 6-hour accounts).
-- [ ] Fix `View.GB` display rounding (edit forms showed `0` for 0.2 GB).
-- [ ] Duration input model: value + unit (hours / days / months) instead of fractional days.
-- [ ] Exact expiry date on create (server-stored, not a derived duration).
+- [x] Fix `View.GB` display rounding (edit forms showed `0` for 0.2 GB).
+- [x] Duration input model: value + unit (hours / days / months) instead of fractional days.
+- [x] Exact expiry date on create (server-stored, not a derived duration).
 
-### Stage 2 — Subscription links — planned
-- [ ] Per-user subscription token: 256-bit crypto/rand, SHA-256-hashed at rest.
-- [ ] Public unauthenticated page `/sub/{token}`: traffic used/limit, status, expiry,
+### Stage 2 — Subscription links — **done 2026-08-31**
+- [x] Per-user subscription token: 256-bit crypto/rand, SHA-256-hashed at rest.
+- [x] Public unauthenticated page `/sub/{token}`: traffic used/limit, status, expiry,
       duration, devices with per-device QR + config download + copy.
-- [ ] Token lifecycle: create on user creation, regenerate (old dies), revoke/restore;
+- [x] Token lifecycle: create on user creation, regenerate (old dies), revoke/restore;
       public page honors all three states.
-- [ ] Rate-limited public surface (same limiter family as login); tokens never logged.
-- [ ] Admin UI: subscription card on user detail (copy / regenerate / revoke) + quick-copy
+- [x] Rate-limited public surface (same limiter family as login); tokens never logged.
+- [x] Admin UI: subscription card on user detail (copy / regenerate / revoke) + quick-copy
       on the users list; `subscription.base_url` setting (Phase 6 settings UI binds to it).
 
-### Stage 3 — Create-user experience — planned
+- [ ]- [x] — Create-user experience — planned
 - [ ] Slide-over drawer form (no separate page for create; edit stays on its page).
 - [ ] Username generator (pronounceable `word-word-nn`), manual entry still first-class.
 - [ ] Display name optional; defaults to the username when empty.

@@ -7,7 +7,7 @@
   </div>
   <div class="actions">
     <button type="button" class="btn" data-open-modal="bulk-modal">{{.IconS "user-plus"}}<span>{{.T "users.bulk_create"}}</span></button>
-    <a class="btn btn--primary" href="/users/new">{{.IconS "plus"}}<span>{{.T "users.new"}}</span></a>
+    <button type="button" class="btn btn--primary" data-open-modal="create-drawer">{{.IconS "plus"}}<span>{{.T "users.new"}}</span></button>
   </div>
 </div>
 
@@ -86,6 +86,23 @@
 {{end}}
 
 {{template "users_bulk_modal" .}}
+
+<dialog id="create-drawer" class="drawer" aria-labelledby="create-drawer-title">
+  <div class="modal-head">
+    <h2 id="create-drawer-title">{{.T "users.form.new_title"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form method="post" action="/users" class="drawer-form" novalidate>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="drawer-body">
+      {{template "user_create_fields" dict "v" . "d" .Data}}
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+      <button type="submit" class="btn btn--primary">{{.T "common.create"}}</button>
+    </div>
+  </form>
+</dialog>
 {{end}}
 
 {{define "users_bulkbar"}}

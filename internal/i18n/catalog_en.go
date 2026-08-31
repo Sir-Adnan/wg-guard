@@ -212,6 +212,11 @@ var catalogEN = map[string]string{
 	"users.form.tags":               "Tags",
 	"users.form.interface_hint":     "The tunnel profile this user's devices connect through.",
 	"users.form.duration":           "Duration",
+	"users.form.presets":            "Quick presets",
+	"users.form.generate":           "Generate username",
+	"users.form.auto_devices":       "Create devices automatically",
+	"users.form.auto_devices_hint":  "Provisions one ready-to-share config per device slot.",
+	"users.form.section_timing":     "Subscription timing",
 	"users.form.expiry_date":        "Exact expiry date",
 	"users.form.expiry_date_hint":   "Overrides the duration when set.",
 	"users.form.duration_hint":      "With “immediate”, the subscription starts now; with “first connection”, the clock starts on the first handshake.",
@@ -243,6 +248,12 @@ var catalogEN = map[string]string{
 	"users.renew.date":               "Date (YYYY-MM-DD)",
 	"users.traffic_add.title":        "Add traffic to %s",
 	"users.traffic_add.amount":       "Amount to add",
+
+	// calendar
+	"cal.open":  "Pick a date",
+	"cal.prev":  "Previous month",
+	"cal.next":  "Next month",
+	"cal.clear": "Clear",
 
 	// duration units (shared)
 	"duration.days":               "Days",

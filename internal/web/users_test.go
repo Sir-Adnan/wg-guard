@@ -2,11 +2,13 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // create a user through the real form flow, return its id.
@@ -229,5 +231,69 @@ func TestUserEditTriState(t *testing.T) {
 	}
 	if u.SpeedLimitDownKbps == nil || *u.SpeedLimitDownKbps != 1024 {
 		t.Fatalf("speed limit must be preserved by untouched fields")
+	}
+}
+
+func TestUserCreateAutoDevices(t *testing.T) {
+	e := newEnv(t)
+	e.seedIface()
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+
+	// Device limit 2 + auto-create → exactly two devices + a sub link.
+	rec := e.post("/users", url.Values{
+		"username":            {"autopilot"},
+		"device_limit":        {"2"},
+		"auto_devices":        {"1"},
+		"traffic_limit_value": {"0.2"},
+		"traffic_limit_unit":  {"gb"},
+		"duration_value":      {"6"},
+		"duration_unit":       {"hours"},
+	}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create: %d", rec.Code)
+	}
+	u, err := e.srv.Users.GetByUsername(context.Background(), "autopilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	devs, err := e.srv.Devices.ListForUser(context.Background(), u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(devs) != 2 {
+		t.Fatalf("want 2 auto devices, got %d", len(devs))
+	}
+	for i, d := range devs {
+		if want := fmt.Sprintf("device-%d", i+1); d.Name != want {
+			t.Fatalf("device %d named %q, want %q", i, d.Name, want)
+		}
+	}
+	// 0.2 GB quota stored exactly (regression: small test accounts).
+	if u.TrafficLimitBytes == nil || *u.TrafficLimitBytes != 200000000 {
+		t.Fatalf("quota: %v", u.TrafficLimitBytes)
+	}
+	// 6-hour duration stored exactly.
+	if u.DurationSeconds == nil || *u.DurationSeconds != 21600 {
+		t.Fatalf("duration: %v", u.DurationSeconds)
+	}
+	if u.ExpiresAt == nil || time.Until(*u.ExpiresAt) > 6*time.Hour {
+		t.Fatalf("expiry: %v", u.ExpiresAt)
+	}
+	// Subscription link ensured at creation.
+	link, err := e.srv.Links.ForUser(context.Background(), u.ID)
+	if err != nil || link == nil || link.Token == "" {
+		t.Fatalf("sub link: %v %v", link, err)
+	}
+
+	// Unlimited device limit → one device.
+	rec = e.post("/users", url.Values{"username": {"lonely"}, "auto_devices": {"1"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create lonely: %d", rec.Code)
+	}
+	u2, _ := e.srv.Users.GetByUsername(context.Background(), "lonely")
+	if devs, _ := e.srv.Devices.ListForUser(context.Background(), u2.ID); len(devs) != 1 {
+		t.Fatalf("unlimited + auto → 1 device, got %d", len(devs))
 	}
 }

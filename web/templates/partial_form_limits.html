@@ -1,0 +1,41 @@
+{{define "form_limits"}}
+{{$v := .v}}{{$p := .pfx}}
+<div class="field-row">
+  <div class="field">
+    <label for="{{$p}}-traffic">{{$v.T "users.form.traffic_limit"}}</label>
+    <div class="unit-group">
+      <input class="input" id="{{$p}}-traffic" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal"
+             value="{{.qv}}">
+      <select class="select" name="traffic_limit_unit" aria-label="{{$v.T "users.form.traffic_limit"}}">
+        <option value="gb" {{if ne .qu "mb"}}selected{{end}}>GB</option>
+        <option value="mb" {{if eq .qu "mb"}}selected{{end}}>MB</option>
+      </select>
+    </div>
+    <span class="hint">{{$v.T "users.form.traffic_limit_hint"}}</span>
+    {{with .qchips}}{{template "preset_chips" dict "v" $v "quota" .}}{{end}}
+  </div>
+  <div class="field">
+    <label for="{{$p}}-device-limit">{{.devlabel}}</label>
+    <input class="input" id="{{$p}}-device-limit" name="device_limit" type="number" min="1" max="100" value="{{.dev}}">
+  </div>
+</div>
+<div class="field-row">
+  <div class="field">
+    <label for="{{$p}}-speed-down">{{$v.T "users.form.speed_down"}}</label>
+    <input class="input" id="{{$p}}-speed-down" name="speed_down" type="number" min="1" value="{{.down}}">
+    <span class="hint">{{$v.T "users.form.speed_hint"}}</span>
+  </div>
+  <div class="field">
+    <label for="{{$p}}-speed-up">{{$v.T "users.form.speed_up"}}</label>
+    <input class="input" id="{{$p}}-speed-up" name="speed_up" type="number" min="1" value="{{.up}}">
+  </div>
+</div>
+{{end}}
+
+{{define "preset_chips"}}
+{{$v := .v}}
+<div class="chips chips-row" role="group" aria-label="{{$v.T "users.form.presets"}}">
+  {{range .quota}}<button type="button" class="chip-btn" data-fill-value="{{.}}" data-fill-unit="gb">{{.}} GB</button>{{end}}
+  {{range .months}}<button type="button" class="chip-btn" data-fill-value="{{.}}" data-fill-unit="months">{{.}} {{$v.T "duration.months"}}</button>{{end}}
+</div>
+{{end}}

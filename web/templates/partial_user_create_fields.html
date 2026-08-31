@@ -1,0 +1,92 @@
+{{define "user_create_fields"}}
+{{$v := .v}}{{$d := .d}}
+<fieldset class="form-section">
+  <legend>{{$v.T "users.form.section_account"}}</legend>
+  <div class="field {{if eq $d.FieldErr "username"}}field--invalid{{end}}">
+    <label for="u-username">{{$v.T "users.username"}}</label>
+    <div class="unit-group">
+      <input class="input" id="u-username" name="username" dir="ltr" spellcheck="false" autocomplete="off"
+             required pattern="[A-Za-z0-9_-]{3,32}" maxlength="32">
+      <button type="button" class="btn gen-btn" data-generate="#u-username"
+              aria-label="{{$v.T "users.form.generate"}}" data-tip="{{$v.T "users.form.generate"}}">{{$v.IconS "wand"}}</button>
+    </div>
+    <span class="hint">{{$v.T "onboard.username_hint"}}</span>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label for="u-display">{{$v.T "users.display_name"}} <span class="text-subtle text-xs">({{$v.T "common.optional"}})</span></label>
+      <input class="input" id="u-display" name="display_name">
+    </div>
+    <div class="field">
+      <label for="u-tags">{{$v.T "users.form.tags"}}</label>
+      <input class="input" id="u-tags" name="tags">
+      <span class="hint">{{$v.T "users.tags_hint"}}</span>
+    </div>
+  </div>
+  <div class="field">
+    <label class="check-label" for="u-auto">
+      <input class="checkbox" id="u-auto" type="checkbox" name="auto_devices" value="1" checked>
+      <span>{{$v.T "users.form.auto_devices"}}</span>
+    </label>
+    <span class="hint">{{$v.T "users.form.auto_devices_hint"}}</span>
+  </div>
+</fieldset>
+
+<fieldset class="form-section">
+  <legend>{{$v.T "users.form.section_limits"}}</legend>
+  {{template "form_limits" dict "v" $v "pfx" "u" "qv" "" "qu" "gb" "dev" "" "down" "" "up" ""
+      "devlabel" ($v.T "users.form.device_limit") "qchips" $d.QuotaPresets}}
+</fieldset>
+
+<fieldset class="form-section">
+  <legend>{{$v.T "users.form.section_timing"}}</legend>
+  <div class="field-row">
+    <div class="field">
+      <label for="u-policy">{{$v.T "users.start_policy"}}</label>
+      <select class="select" id="u-policy" name="start_policy">
+        <option value="immediate" selected>{{$v.T "users.start_policy.immediate"}}</option>
+        <option value="first_connection">{{$v.T "users.start_policy.first_connection"}}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="u-duration">{{$v.T "users.form.duration"}}</label>
+      <div class="unit-group">
+        <input class="input" id="u-duration" name="duration_value" type="number" min="0.1" step="any">
+        <select class="select" name="duration_unit" aria-label="{{$v.T "users.form.duration"}}">
+          <option value="days" selected>{{$v.T "duration.days"}}</option>
+          <option value="hours">{{$v.T "duration.hours"}}</option>
+          <option value="months">{{$v.T "duration.months"}}</option>
+        </select>
+      </div>
+      {{with $d.DurationPresets}}{{template "preset_chips" dict "v" $v "months" .}}{{end}}
+    </div>
+  </div>
+  <div class="field">
+    <label for="u-expires">{{$v.T "users.form.expiry_date"}}</label>
+    <div class="input-adj">
+      <input class="input" id="u-expires" name="expires_on" type="text" inputmode="none" dir="ltr"
+             placeholder="YYYY-MM-DD" data-calendar-input>
+      <button type="button" class="icon-btn" data-calendar="#u-expires" aria-label="{{$v.T "cal.open"}}"
+              data-cal-prev="{{$v.T "cal.prev"}}" data-cal-next="{{$v.T "cal.next"}}" data-cal-clear="{{$v.T "cal.clear"}}">{{$v.IconS "calendar"}}</button>
+    </div>
+    <span class="hint">{{$v.T "users.form.expiry_date_hint"}}</span>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label for="u-plan">{{$v.T "users.plan"}}</label>
+      <select class="select" id="u-plan" name="plan">
+        <option value="">{{$v.T "users.no_plan"}}</option>
+        {{range $d.Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <div class="field">
+      <label for="u-iface">{{$v.T "users.interface"}}</label>
+      <select class="select" id="u-iface" name="interface">
+        <option value="">{{$v.T "common.none"}}</option>
+        {{range $d.Ifaces}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+      <span class="hint">{{$v.T "users.form.interface_hint"}}</span>
+    </div>
+  </div>
+</fieldset>
+{{end}}

@@ -10,108 +10,54 @@
 
 {{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
 
-<form method="post" action="{{if .Data.IsEdit}}/users/{{.Data.User.ID}}/edit{{else}}/users{{end}}" class="card card--pad form-card" novalidate>
+{{if not .Data.IsEdit}}
+<form method="post" action="/users" class="card card--pad form-card" novalidate>
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  {{template "user_create_fields" dict "v" . "d" .Data}}
+  <div class="inline-actions">
+    <button type="submit" class="btn btn--primary">{{.T "common.create"}}</button>
+    <a class="btn btn--ghost" href="/users">{{.T "common.cancel"}}</a>
+  </div>
+</form>
+{{else}}
+<form method="post" action="/users/{{.Data.User.ID}}/edit" class="card card--pad form-card" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
 
-  <fieldset class="onboard-section">
+  <fieldset class="form-section">
     <legend>{{.T "users.form.section_account"}}</legend>
-    <div class="field {{if and (not .Data.IsEdit) (eq .Data.FieldErr "username")}}field--invalid{{end}}">
-      <label for="u-username">{{.T "users.username"}}</label>
-      <input class="input" id="u-username" name="username" dir="ltr" spellcheck="false"
-             value="{{if .Data.IsEdit}}{{.Data.User.Username}}{{end}}"
-             {{if .Data.IsEdit}}disabled{{else}}required pattern="[A-Za-z0-9_-]{3,32}"{{end}}>
-      {{if not .Data.IsEdit}}<span class="hint">{{.T "onboard.username_hint"}}</span>{{end}}
+    <div class="field-row">
+      <div class="field">
+        <label for="u-username">{{.T "users.username"}}</label>
+        <input class="input ltr-data" id="u-username" value="{{.Data.User.Username}}" disabled>
+      </div>
+      <div class="field">
+        <label for="u-display">{{.T "users.display_name"}} <span class="text-subtle text-xs">({{.T "common.optional"}})</span></label>
+        <input class="input" id="u-display" name="display_name" value="{{.Data.User.DisplayName}}">
+      </div>
     </div>
-    <div class="field">
-      <label for="u-display">{{.T "users.display_name"}}</label>
-      <input class="input" id="u-display" name="display_name" value="{{if .Data.IsEdit}}{{.Data.User.DisplayName}}{{end}}">
-    </div>
-    <div class="field">
-      <label for="u-note">{{.T "users.note"}}</label>
-      <input class="input" id="u-note" name="note" value="{{if .Data.IsEdit}}{{.Data.User.Note}}{{end}}">
-    </div>
-    <div class="field">
-      <label for="u-tags">{{.T "users.form.tags"}}</label>
-      <input class="input" id="u-tags" name="tags" value="{{$tags := ""}}{{if .Data.IsEdit}}{{range $i, $t := .Data.User.Tags}}{{if $i}}, {{end}}{{$t}}{{end}}{{end}}">
-      <span class="hint">{{.T "users.tags_hint"}}</span>
+    <div class="field-row">
+      <div class="field">
+        <label for="u-note">{{.T "users.note"}}</label>
+        <input class="input" id="u-note" name="note" value="{{.Data.User.Note}}">
+      </div>
+      <div class="field">
+        <label for="u-tags">{{.T "users.form.tags"}}</label>
+        <input class="input" id="u-tags" name="tags" value="{{$tags := ""}}{{range $i, $t := .Data.User.Tags}}{{if $i}}, {{end}}{{$t}}{{end}}">
+        <span class="hint">{{.T "users.tags_hint"}}</span>
+      </div>
     </div>
   </fieldset>
 
-  <fieldset class="onboard-section">
+  <fieldset class="form-section">
     <legend>{{.T "users.form.section_limits"}}</legend>
-    <div class="field-row">
-      <div class="field">
-        <label for="u-traffic">{{.T "users.form.traffic_limit"}}</label>
-        <div class="unit-group">
-          {{if .Data.IsEdit}}
-          <input class="input" id="u-traffic" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal"
-                 value="{{.QuotaVal .Data.User.TrafficLimitBytes}}">
-          <select class="select" name="traffic_limit_unit" aria-label="{{.T "users.form.traffic_limit"}}">
-            <option value="gb" {{if eq (.QuotaUnit .Data.User.TrafficLimitBytes) "gb"}}selected{{end}}>GB</option>
-            <option value="mb" {{if eq (.QuotaUnit .Data.User.TrafficLimitBytes) "mb"}}selected{{end}}>MB</option>
-          </select>
-          {{else}}
-          <input class="input" id="u-traffic" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal">
-          <select class="select" name="traffic_limit_unit" aria-label="{{.T "users.form.traffic_limit"}}">
-            <option value="gb">GB</option>
-            <option value="mb">MB</option>
-          </select>
-          {{end}}
-        </div>
-        <span class="hint">{{.T "users.form.traffic_limit_hint"}}</span>
-      </div>
-      <div class="field">
-        <label for="u-device-limit">{{.T "users.form.device_limit"}}</label>
-        <input class="input" id="u-device-limit" name="device_limit" type="number" min="1" max="100"
-               value="{{if .Data.IsEdit}}{{.KD .Data.User.DeviceLimit}}{{end}}">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="u-speed-down">{{.T "users.form.speed_down"}}</label>
-        <input class="input" id="u-speed-down" name="speed_down" type="number" min="1"
-               value="{{if .Data.IsEdit}}{{.KD .Data.User.SpeedLimitDownKbps}}{{end}}">
-        <span class="hint">{{.T "users.form.speed_hint"}}</span>
-      </div>
-      <div class="field">
-        <label for="u-speed-up">{{.T "users.form.speed_up"}}</label>
-        <input class="input" id="u-speed-up" name="speed_up" type="number" min="1"
-               value="{{if .Data.IsEdit}}{{.KD .Data.User.SpeedLimitUpKbps}}{{end}}">
-      </div>
-    </div>
+    {{template "form_limits" dict "v" . "pfx" "u"
+        "qv" (.QuotaVal .Data.User.TrafficLimitBytes) "qu" (.QuotaUnit .Data.User.TrafficLimitBytes)
+        "dev" (.KD .Data.User.DeviceLimit) "down" (.KD .Data.User.SpeedLimitDownKbps) "up" (.KD .Data.User.SpeedLimitUpKbps)
+        "devlabel" (.T "users.form.device_limit")}}
   </fieldset>
 
-  <fieldset class="onboard-section">
-    <legend>{{.T "users.form.section_advanced"}}</legend>
-    {{if not .Data.IsEdit}}
-    <div class="field-row">
-      <div class="field">
-        <label for="u-policy">{{.T "users.start_policy"}}</label>
-        <select class="select" id="u-policy" name="start_policy">
-          <option value="immediate" selected>{{.T "users.start_policy.immediate"}}</option>
-          <option value="first_connection">{{.T "users.start_policy.first_connection"}}</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="u-duration">{{.T "users.form.duration"}}</label>
-        <div class="unit-group">
-          <input class="input" id="u-duration" name="duration_value" type="number" min="0.1" step="any"
-                 value="{{.Data.DurationValue}}">
-          <select class="select" name="duration_unit" aria-label="{{.T "users.form.duration"}}">
-            <option value="days" {{if ne .Data.DurationUnit "hours"}}selected{{end}}>{{.T "duration.days"}}</option>
-            <option value="hours" {{if eq .Data.DurationUnit "hours"}}selected{{end}}>{{.T "duration.hours"}}</option>
-            <option value="months">{{.T "duration.months"}}</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="field">
-      <label for="u-expires">{{.T "users.form.expiry_date"}}</label>
-      <input class="input" id="u-expires" name="expires_on" type="date" dir="ltr">
-      <span class="hint">{{.T "users.form.expiry_date_hint"}}</span>
-    </div>
-    <p class="hint">{{.T "users.form.duration_hint"}}</p>
-    {{else}}
+  <fieldset class="form-section">
+    <legend>{{.T "users.form.section_timing"}}</legend>
     <div class="field-row">
       <div class="field">
         <label for="u-duration">{{.T "users.form.duration"}}</label>
@@ -124,29 +70,27 @@
             <option value="months" {{if eq (.DurUnit .Data.User.DurationSeconds) "months"}}selected{{end}}>{{.T "duration.months"}}</option>
           </select>
         </div>
-      </div>
-    </div>
-    {{end}}
-    <div class="field-row">
-      <div class="field">
-        <label for="u-plan">{{.T "users.plan"}}</label>
-        <select class="select" id="u-plan" name="plan">
-          <option value="">{{.T "users.no_plan"}}</option>
-          {{range .Data.Plans}}
-          <option value="{{.ID}}" {{if and $.Data.IsEdit $.Data.User.PlanID (eq (printf "%v" $.Data.User.PlanID) (printf "%v" .ID))}}selected{{end}}>{{.Name}}</option>
-          {{end}}
-        </select>
+        <span class="hint">{{.T "users.form.duration_hint"}}</span>
       </div>
       <div class="field">
         <label for="u-iface">{{.T "users.interface"}}</label>
         <select class="select" id="u-iface" name="interface">
           <option value="">{{.T "common.none"}}</option>
           {{range .Data.Ifaces}}
-          <option value="{{.ID}}" {{if and $.Data.IsEdit $.Data.User.InterfaceID (eq (printf "%v" $.Data.User.InterfaceID) (printf "%v" .ID))}}selected{{end}}>{{.Name}}</option>
+          <option value="{{.ID}}" {{if and $.Data.User.InterfaceID (eq (printf "%v" $.Data.User.InterfaceID) (printf "%v" .ID))}}selected{{end}}>{{.Name}}</option>
           {{end}}
         </select>
         <span class="hint">{{.T "users.form.interface_hint"}}</span>
       </div>
+    </div>
+    <div class="field">
+      <label for="u-plan">{{.T "users.plan"}}</label>
+      <select class="select" id="u-plan" name="plan">
+        <option value="">{{.T "users.no_plan"}}</option>
+        {{range .Data.Plans}}
+        <option value="{{.ID}}" {{if and $.Data.User.PlanID (eq (printf "%v" $.Data.User.PlanID) (printf "%v" .ID))}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
     </div>
   </fieldset>
 
@@ -155,4 +99,5 @@
     <a class="btn btn--ghost" href="/users">{{.T "common.cancel"}}</a>
   </div>
 </form>
+{{end}}
 {{end}}

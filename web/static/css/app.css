@@ -1103,6 +1103,113 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
 .unit-group .input { flex: 1 1 auto; min-width: 0; }
 .unit-group .select { width: 104px; flex: none; }
 
+/* generate username button sits inside the unit-group row */
+.gen-btn { flex: none; padding: 8px 10px; }
+
+/* preset quick-fill chips */
+.chips-row { margin-block-start: 2px; }
+.chip-btn {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.chip-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+/* form sections (create/edit pages + drawer) */
+fieldset.form-section {
+  border: 0;
+  border-block-start: 1px solid var(--border);
+  padding: var(--sp-4) 0 0;
+  margin: 0 0 var(--sp-5);
+}
+fieldset.form-section legend {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+  padding: 0;
+  margin-block-end: var(--sp-3);
+}
+fieldset.form-section .field:last-child { margin-block-end: 0; }
+
+/* slide-over drawer (create-user sheet) */
+dialog.drawer {
+  width: min(560px, calc(100vw - 16px));
+  height: min(100dvh - 24px, 860px);
+  max-height: none;
+  margin: 12px auto;
+  margin-inline-end: max(12px, calc((100vw - 560px) / 2));
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-elev);
+  color: var(--fg);
+  box-shadow: var(--shadow-3);
+  padding: 0;
+}
+dialog.drawer::backdrop {
+  background: rgba(9, 12, 18, 0.55);
+  backdrop-filter: blur(2px);
+}
+dialog.drawer[open] { animation: drawer-in var(--t-slow) var(--ease); }
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.99); }
+  to   { opacity: 1; transform: none; }
+}
+.drawer-form { display: flex; flex-direction: column; max-height: inherit; height: 100%; }
+.drawer-body { padding: var(--sp-5); overflow-y: auto; flex: 1 1 auto; }
+/* rtl drawers anchor to the same side (end = left in rtl via margin trick) */
+[dir="rtl"] dialog.drawer { margin-inline-end: auto; margin-inline-start: max(12px, calc((100vw - 560px) / 2)); }
+
+/* calendar popover */
+.calendar {
+  position: fixed;
+  z-index: calc(var(--z-menu) + 5);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  padding: var(--sp-2);
+  display: none;
+  user-select: none;
+}
+.calendar.is-open { display: block; animation: modal-in var(--t-fast) var(--ease); }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 2px 4px var(--sp-2); }
+.cal-title { font-size: var(--fs-sm); font-weight: 600; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-wd {
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--fg-subtle);
+  padding: 2px 0;
+}
+.cal-day {
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-sm);
+  min-height: 32px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  color: var(--fg);
+  transition: background var(--t-fast) var(--ease);
+}
+.cal-day:hover:not(:disabled) { background: var(--bg-hover); }
+.cal-day:disabled { opacity: 0.35; cursor: not-allowed; }
+.cal-day.is-today { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.cal-day.is-selected { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.cal-foot { display: flex; justify-content: flex-end; padding: var(--sp-1) 2px 0; border-block-start: 1px solid var(--border); margin-block-start: var(--sp-2); }
+
 /* forms on dedicated pages */
 .form-card { max-width: 760px; }
 

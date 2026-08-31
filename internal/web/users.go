@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -23,6 +24,10 @@ type usersData struct {
 	Sort       string
 	HasFilters bool
 	Plans      []*planRef
+	Ifaces     []*ifaceRef
+	// Create-drawer preset chips (settings-driven).
+	QuotaPresets    []string
+	DurationPresets []string
 }
 
 // userRow is one list row: the user plus panel-computed display fields.
@@ -88,13 +93,16 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 
 	rows, plans := s.decorateUsers(r, page.Items)
 	data := usersData{
-		Items:      rows,
-		NextCursor: page.NextCursor,
-		Search:     search,
-		Status:     status,
-		Sort:       sort,
-		HasFilters: search != "" || (status != "" && status != "all"),
-		Plans:      plans,
+		Items:           rows,
+		NextCursor:      page.NextCursor,
+		Search:          search,
+		Status:          status,
+		Sort:            sort,
+		HasFilters:      search != "" || (status != "" && status != "all"),
+		Plans:           plans,
+		Ifaces:          s.ifacesForForm(r),
+		QuotaPresets:    s.settingList(r, "users.quota_presets_gb"),
+		DurationPresets: s.settingList(r, "users.duration_presets_months"),
 	}
 	_ = s.render(w, r, "users", "app", data)
 }
@@ -107,6 +115,37 @@ func (s *Server) ensureSubLink(r *http.Request, userID string) {
 	}
 	if _, err := s.Links.Ensure(r.Context(), userID); err != nil {
 		s.logError(r, "sub link ensure", err)
+	}
+}
+
+// createAutoDevices provisions up to 10 devices for a fresh user so the
+// configs are ready to deliver immediately (QR/share on the detail page).
+// Device creation is per-device transactional; a failure logs and stops —
+// the admin sees what exists and can add the rest by hand.
+func (s *Server) createAutoDevices(r *http.Request, userID string, n int) {
+	if n < 1 {
+		n = 1
+	}
+	if n > 10 {
+		n = 10
+	}
+	created := 0
+	for i := 1; i <= n; i++ {
+		keys, err := s.generateKeys(r, false)
+		if err != nil {
+			s.logError(r, "auto device keys", err)
+			break
+		}
+		name := fmt.Sprintf("device-%d", i)
+		if _, err := s.Devices.Create(r.Context(), userID, name, *keys, ""); err != nil {
+			s.logError(r, "auto device create", err)
+			break
+		}
+		created++
+	}
+	if created > 0 {
+		s.audit(r, "user.devices_auto_created", userID, map[string]any{"count": created})
+		s.runReconcile(r)
 	}
 }
 
@@ -163,6 +202,9 @@ type userFormData struct {
 	// User.DurationSeconds via the view helpers).
 	DurationValue string
 	DurationUnit  string
+	// Quick-preset chips (settings-driven; Phase 6 manages the values).
+	QuotaPresets    []string
+	DurationPresets []string
 }
 
 type ifaceRef struct {
@@ -183,10 +225,28 @@ func (s *Server) ifacesForForm(r *http.Request) []*ifaceRef {
 }
 
 func (s *Server) handleUserNew(w http.ResponseWriter, r *http.Request) {
-	_ = s.render(w, r, "user_form", "app", userFormData{
+	_ = s.render(w, r, "user_form", "app", s.newUserFormData(r))
+}
+
+// newUserFormData assembles the create-form data: plans, interfaces and the
+// quick-preset lists (quota GB, duration months) from the settings registry.
+func (s *Server) newUserFormData(r *http.Request) userFormData {
+	data := userFormData{
 		Plans:  s.plansForForm(r),
 		Ifaces: s.ifacesForForm(r),
-	})
+	}
+	data.QuotaPresets = s.settingList(r, "users.quota_presets_gb")
+	data.DurationPresets = s.settingList(r, "users.duration_presets_months")
+	return data
+}
+
+// settingList reads a string-list setting (best effort — missing key or
+// registry failure renders without presets).
+func (s *Server) settingList(r *http.Request, key string) []string {
+	if v, err := s.Settings.GetStringList(r.Context(), key); err == nil {
+		return v
+	}
+	return nil
 }
 
 func (s *Server) plansForForm(r *http.Request) []*planRef {
@@ -228,6 +288,13 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "user.created", u.ID, map[string]any{"username": u.Username})
 	s.ensureSubLink(r, u.ID)
+	if r.PostFormValue("auto_devices") == "1" {
+		n := 1 // unlimited device limit still provisions one ready config
+		if u.DeviceLimit != nil {
+			n = *u.DeviceLimit
+		}
+		s.createAutoDevices(r, u.ID, n)
+	}
 	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.created")
 }
 
