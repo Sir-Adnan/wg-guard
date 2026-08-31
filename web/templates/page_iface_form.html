@@ -68,7 +68,7 @@
       {{if and .Data.I .Data.I.Obfuscation.Enabled}}{{$obfOn = true}}{{end}}
 
       <div class="inline-actions">
-        <button type="button" class="btn btn--sm" data-randomize-obf="#obf-fields">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize_all"}}</span></button>
+        <button type="button" class="btn btn--sm" data-randomize-obf="#obf-fields">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize"}}</span></button>
         <span class="hint">{{.T "ifaces.obf.randomize_all_hint"}}</span>
       </div>
 
@@ -117,7 +117,6 @@
           <input class="input" id="i-obf-h4" name="obf_h4" type="number" dir="ltr" min="1" max="4294967295"
                  value="{{if $obfOn}}{{.Data.I.Obfuscation.H4}}{{end}}" placeholder="H4">
         </div>
-        <button type="button" class="btn btn--sm" data-randomize-obf="#obf-fields">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize"}}</span></button>
       </div>
 
       <div class="field">
