@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -53,6 +54,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 	"github.com/Sir-Adnan/wg-guard/internal/web"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 // Runtime cadences that are implementation constants rather than operator
@@ -92,6 +94,8 @@ type Node struct {
 	sched         *scheduler.Scheduler
 	httpServer    *http.Server
 	listener      net.Listener
+	acmeServer    *http.Server // ACME HTTP-01 sidecar (tls.mode=acme only)
+	acmeListener  net.Listener
 	metrics       *metrics.Collector
 	accounting    *accounting.Service
 	backup        *backup.Service
@@ -377,9 +381,11 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	return n, nil
 }
 
-// listen opens the listener for the configured TLS mode (ADR-0011). ACME is
-// designed but deferred to the installer phase (it brings golang.org/x/crypto
-// and port-80 lifecycle management that belong with deployment).
+// listen opens the listener for the configured TLS mode (ADR-0011). In ACME
+// mode the TLS listener uses autocert (HTTP-01 via a dedicated plain-HTTP
+// sidecar on tls.acme_http_port, certificates cached under <data_dir>/acme);
+// the sidecar is bound synchronously so an occupied challenge port fails boot
+// loudly instead of quietly breaking renewal.
 func (n *Node) listen() (net.Listener, error) {
 	switch n.cfg.TLS.Mode {
 	case config.TLSModeDev, config.TLSModeProxy:
@@ -394,11 +400,57 @@ func (n *Node) listen() (net.Listener, error) {
 			Certificates: []tls.Certificate{cert},
 		})
 	case config.TLSModeACME:
-		return nil, domain.E(domain.CodeConfigInvalid,
-			"tls.mode=acme is designed (ADR-0011) but lands with the installer (Phase 7); "+
-				"use tls.mode=manual or tls.mode=proxy today")
+		manager := &autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(n.cfg.TLS.Domain),
+			Cache:      autocert.DirCache(filepath.Join(n.cfg.DataDir, "acme")),
+		}
+		challengeLn, err := net.Listen("tcp", fmt.Sprintf(":%d", n.cfg.TLS.ACMEHTTPPort))
+		if err != nil {
+			return nil, fmt.Errorf("serve: acme challenge listener :%d (keep it reachable for issuance/renewal): %w",
+				n.cfg.TLS.ACMEHTTPPort, err)
+		}
+		n.acmeListener = challengeLn
+		n.acmeServer = &http.Server{
+			Handler:           manager.HTTPHandler(n.acmeRedirectFallback()),
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+			ErrorLog:          slog.NewLogLogger(n.log.Handler(), slog.LevelWarn),
+		}
+		go func() { _ = n.acmeServer.Serve(challengeLn) }()
+		n.log.Info("acme enabled",
+			"domain", n.cfg.TLS.Domain,
+			"challenge_port", n.cfg.TLS.ACMEHTTPPort,
+			"cache_dir", filepath.Join(n.cfg.DataDir, "acme"))
+		// NextProtos stays http/1.1: the raw tls.Listener is served by
+		// http.Server.Serve, which does not register an HTTP/2 handler —
+		// advertising h2 would break browsers that negotiate it.
+		return tls.Listen("tcp", n.cfg.HTTPListen, &tls.Config{
+			MinVersion:     tls.VersionTLS12,
+			NextProtos:     []string{"http/1.1"},
+			GetCertificate: manager.GetCertificate,
+		})
 	}
 	return nil, domain.E(domain.CodeConfigInvalid, "unknown tls mode %q", n.cfg.TLS.Mode)
+}
+
+// acmeRedirectFallback redirects plain-HTTP visitors to the real TLS
+// listener: always the configured domain, with the port only when it is not
+// the default 443. autocert's built-in fallback hardcodes :443 and would
+// strand deployments on custom panel ports; redirecting to the configured
+// domain (never the request Host) also keeps the sidecar from bouncing
+// arbitrary Host headers to attacker-controlled origins.
+func (n *Node) acmeRedirectFallback() http.Handler {
+	domain := strings.ToLower(strings.TrimSpace(n.cfg.TLS.Domain))
+	port := ""
+	if _, p, err := net.SplitHostPort(n.cfg.HTTPListen); err == nil && p != "" && p != "443" {
+		port = ":" + p
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://"+domain+port+r.URL.RequestURI(), http.StatusFound)
+	})
 }
 
 // ensureNodeID fills node.id with the hostname on first serve (settings
@@ -476,14 +528,23 @@ func (n *Node) Addr() string {
 	return n.listener.Addr().String()
 }
 
-// Shutdown drains HTTP, lets the current scheduler job finish, and closes
-// the database. It is safe to call more than once.
+// Shutdown drains HTTP (both the TLS listener and, in ACME mode, the port-80
+// challenge sidecar), lets the current scheduler job finish, and closes the
+// database. It is safe to call more than once.
 func (n *Node) Shutdown(ctx context.Context) error {
 	var errs []error
 	if n.httpServer != nil {
 		if err := n.httpServer.Shutdown(ctx); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if n.acmeServer != nil {
+		if err := n.acmeServer.Shutdown(ctx); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if n.acmeListener != nil {
+		_ = n.acmeListener.Close()
 	}
 	if n.sched != nil {
 		n.sched.Stop()

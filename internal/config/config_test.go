@@ -91,6 +91,19 @@ func TestValidateSecurityPosture(t *testing.T) {
 			c.TLS.Mode = TLSModeACME
 			c.TLS.Domain = ""
 		}, "tls.domain"},
+		{"acme domain with port", func(c *Config) {
+			c.TLS.Mode = TLSModeACME
+			c.TLS.Domain = "panel.example.com:443"
+		}, "bare hostname"},
+		{"acme domain with scheme", func(c *Config) {
+			c.TLS.Mode = TLSModeACME
+			c.TLS.Domain = "https://panel.example.com"
+		}, "bare hostname"},
+		{"acme challenge port out of range", func(c *Config) {
+			c.TLS.Mode = TLSModeACME
+			c.TLS.Domain = "panel.example.com"
+			c.TLS.ACMEHTTPPort = 70000
+		}, "acme_http_port"},
 		{"manual without cert", func(c *Config) {
 			c.TLS.Mode = TLSModeManual
 		}, "cert_file"},
@@ -148,5 +161,31 @@ func TestSaveRoundTrip(t *testing.T) {
 	}
 	if got.TLS.Domain != "panel.example.org" || got.TLS.Mode != TLSModeACME {
 		t.Fatalf("round trip mismatch: %+v", got.TLS)
+	}
+}
+
+func TestACMEHTTPPortDefaultAndOverride(t *testing.T) {
+	// Unset port in acme mode completes to 80 (the HTTP-01 requirement).
+	cfg := Defaults()
+	cfg.TLS = TLSConfig{Mode: TLSModeACME, Domain: "panel.example.org"}
+	cfg.Complete()
+	if cfg.TLS.ACMEHTTPPort != 80 {
+		t.Fatalf("default acme_http_port = %d, want 80", cfg.TLS.ACMEHTTPPort)
+	}
+	// An explicit port survives; env overrides win.
+	cfg.TLS.ACMEHTTPPort = 8080
+	path := filepath.Join(t.TempDir(), "wg-guard.toml")
+	if err := cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WGG_TLS_ACME_HTTP_PORT", "81")
+	t.Setenv("WGG_TLS_DOMAIN", "override.example.org")
+	t.Setenv("WGG_TLS_MODE", "acme")
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TLS.ACMEHTTPPort != 81 {
+		t.Fatalf("env override = %d, want 81", got.TLS.ACMEHTTPPort)
 	}
 }

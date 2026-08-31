@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -172,13 +174,103 @@ func TestServeManualTLS(t *testing.T) {
 	}
 }
 
-func TestServeACMEDeferred(t *testing.T) {
+// TestServeACMEWiring brings a node up in ACME mode on an ephemeral loopback
+// TLS listener and a free challenge port, then verifies the port-80 sidecar
+// wiring: challenge paths are host-policy-gated and everything else redirects
+// to the configured domain with the real TLS port. No ACME traffic reaches
+// the network: the TLS assertion uses an SNI outside the whitelist, which
+// HostWhitelist rejects before any directory lookup.
+func TestServeACMEWiring(t *testing.T) {
+	// A free high port for the challenge sidecar (unprivileged test run).
+	freePort := func() int {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+		return l.Addr().(*net.TCPAddr).Port
+	}
+	challengePort := freePort()
+	// The TLS listener port must be concrete: the sidecar redirect embeds the
+	// configured port, and an ephemeral :0 cannot be redirected to.
+	tlsPort := freePort()
+
+	cfg := testConfig(t, fmt.Sprintf("127.0.0.1:%d", tlsPort))
+	cfg.TLS.Mode = config.TLSModeACME
+	cfg.TLS.Domain = "panel.example.com"
+	cfg.TLS.ACMEHTTPPort = challengePort
+
+	n := startNode(t, cfg)
+
+	// A client that does NOT follow the redirect — we assert the Location.
+	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+
+	// The sidecar redirects plain-HTTP visitors to the configured domain,
+	// keeping the actual TLS port (not autocert's hardcoded :443).
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/users?x=1", challengePort), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := noFollow.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("sidecar redirect: %d, want 302", resp.StatusCode)
+	}
+	loc := resp.Header.Get("Location")
+	if want := "https://panel.example.com:" + strconv.Itoa(tlsPort) + "/users?x=1"; loc != want {
+		t.Fatalf("redirect = %q, want %q", loc, want)
+	}
+
+	// Challenge paths on a non-whitelisted Host are refused (403), not
+	// echoed: the sidecar is public, the whitelist is the gate.
+	resp2 := get(t, fmt.Sprintf("http://127.0.0.1:%d/.well-known/acme-challenge/tok", challengePort))
+	if resp2.StatusCode != http.StatusForbidden {
+		t.Fatalf("challenge on foreign host: %d, want 403", resp2.StatusCode)
+	}
+
+	// TLS listener: an SNI outside the whitelist fails fast with the
+	// host-policy error before any ACME network contact.
+	d := &tls.Dialer{Config: &tls.Config{ServerName: "other.example.com", InsecureSkipVerify: true}} //nolint:gosec // wiring probe
+	if _, err := d.DialContext(context.Background(), "tcp", n.Addr()); err == nil {
+		t.Fatal("TLS handshake for non-whitelisted SNI succeeded; want host-policy refusal")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := n.Shutdown(ctx); err != nil {
+		t.Fatalf("shutdown: %v", err)
+	}
+	// The challenge sidecar is closed with the node.
+	if c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", challengePort)); err == nil {
+		_ = c.Close()
+		t.Fatal("challenge sidecar still accepting after shutdown")
+	}
+}
+
+// TestServeACMEChallengePortBusy fails boot loudly when the challenge port is
+// taken — a silent port-80 failure would only surface as inexplicable
+// issuance errors days later.
+func TestServeACMEChallengePortBusy(t *testing.T) {
+	// Bind the SAME wildcard shape the node will request: on Windows a
+	// loopback-only bind does not conflict with a wildcard bind.
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
 	cfg := testConfig(t, "127.0.0.1:0")
 	cfg.TLS.Mode = config.TLSModeACME
 	cfg.TLS.Domain = "panel.example.com"
-	_, err := Start(context.Background(), Options{Config: cfg, Backend: fake.New(), Log: quietLogger()})
-	if err == nil || !strings.Contains(err.Error(), "installer") {
-		t.Fatalf("acme: want clear deferral error, got %v", err)
+	cfg.TLS.ACMEHTTPPort = port
+	_, err = Start(context.Background(), Options{Config: cfg, Backend: fake.New(), Log: quietLogger()})
+	if err == nil || !strings.Contains(err.Error(), "challenge listener") {
+		t.Fatalf("busy challenge port: want clear boot error, got %v", err)
 	}
 }
 

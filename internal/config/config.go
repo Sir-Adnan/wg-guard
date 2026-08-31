@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -58,6 +59,11 @@ type TLSConfig struct {
 	Domain   string  `toml:"domain"`    // required for acme
 	CertFile string  `toml:"cert_file"` // required for manual
 	KeyFile  string  `toml:"key_file"`  // required for manual
+
+	// ACMEHTTPPort is the dedicated plain-HTTP listener that serves the ACME
+	// HTTP-01 challenge and redirects visitors to the TLS listener (ADR-0011:
+	// port 80 must stay reachable for issuance/renewal). 0 = 80.
+	ACMEHTTPPort int `toml:"acme_http_port"`
 }
 
 type LogConfig struct {
@@ -84,7 +90,13 @@ func (c *Config) Complete() {
 	if c.MasterKeyFile == "" {
 		c.MasterKeyFile = filepath.Join(c.DataDir, "master.key")
 	}
+	if c.TLS.ACMEHTTPPort == 0 && c.TLS.Mode == TLSModeACME {
+		c.TLS.ACMEHTTPPort = defaultACMEHTTPPort
+	}
 }
+
+// defaultACMEHTTPPort is the ACME HTTP-01 challenge port (ADR-0011).
+const defaultACMEHTTPPort = 80
 
 // Load reads and validates boot config from file (optional) with environment
 // overrides. Env vars win: WGG_DATA_DIR, WGG_DATABASE_PATH, WGG_MASTER_KEY_FILE,
@@ -118,6 +130,11 @@ func applyEnv(cfg *Config, get func(string) string) {
 	setString(&cfg.TLS.Domain, get("WGG_TLS_DOMAIN"))
 	setString(&cfg.TLS.CertFile, get("WGG_TLS_CERT_FILE"))
 	setString(&cfg.TLS.KeyFile, get("WGG_TLS_KEY_FILE"))
+	if v := get("WGG_TLS_ACME_HTTP_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.TLS.ACMEHTTPPort = p
+		}
+	}
 	setString(&cfg.Log.Level, get("WGG_LOG_LEVEL"))
 	if v := get("WGG_METRICS_ENABLED"); v != "" {
 		switch strings.ToLower(v) {
@@ -152,8 +169,17 @@ func (c *Config) Validate() error {
 	}
 	switch c.TLS.Mode {
 	case TLSModeACME:
-		if strings.TrimSpace(c.TLS.Domain) == "" {
+		d := strings.TrimSpace(c.TLS.Domain)
+		if d == "" {
 			return domain.E(domain.CodeConfigInvalid, "tls.domain is required for tls.mode=acme")
+		}
+		// tls.domain is a bare hostname: a scheme/port/path would end up in
+		// certificate requests and redirect URLs.
+		if strings.ContainsAny(d, "/:") {
+			return domain.E(domain.CodeConfigInvalid, "tls.domain %q must be a bare hostname (no scheme, port or path)", c.TLS.Domain)
+		}
+		if c.TLS.ACMEHTTPPort < 0 || c.TLS.ACMEHTTPPort > 65535 {
+			return domain.E(domain.CodeConfigInvalid, "tls.acme_http_port %d is out of range 1-65535", c.TLS.ACMEHTTPPort)
 		}
 	case TLSModeManual:
 		if c.TLS.CertFile == "" || c.TLS.KeyFile == "" {
