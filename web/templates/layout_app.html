@@ -13,46 +13,46 @@
 </head>
 <body>
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
-<div class="shell">
+<div class="shell" id="shell">
   <aside class="sidebar" id="sidebar" aria-label="{{.T "nav.section"}}">
     <a class="brand" href="/">
       <span class="logo">{{.Icon "shield"}}</span>
-      <span>{{.T "app.name"}}<small>{{.T "app.tagline"}}</small></span>
+      <span class="brand-text">{{.T "app.name"}}<small>{{.T "app.tagline"}}</small></span>
     </a>
     <nav class="nav">
       <div class="nav-label">{{.T "nav.section"}}</div>
-      <a href="/dashboard" {{if eq .Path "/dashboard"}}aria-current="page"{{end}}>{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
-      <a href="/users" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
-      <a href="/plans" {{if .IsActive "/plans"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
-      <a href="/interfaces" {{if .IsActive "/interfaces"}}aria-current="page"{{end}}>{{.Icon "network"}}<span>{{.T "nav.interfaces"}}</span></a>
+      <a href="/dashboard" data-tip="{{.T "nav.dashboard"}}" {{if eq .Path "/dashboard"}}aria-current="page"{{end}}>{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
+      <a href="/users" data-tip="{{.T "nav.users"}}" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
+      <a href="/plans" data-tip="{{.T "nav.plans"}}" {{if .IsActive "/plans"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
+      <a href="/interfaces" data-tip="{{.T "nav.interfaces"}}" {{if .IsActive "/interfaces"}}aria-current="page"{{end}}>{{.Icon "network"}}<span>{{.T "nav.interfaces"}}</span></a>
     </nav>
     <div class="sidebar-foot">
-      <div class="menu-anchor">
-        <button type="button" class="btn btn--ghost btn--sm btn--block" aria-haspopup="menu" aria-expanded="false">
-          {{.Icon "sun"}}<span>{{.T "common.theme"}}</span>{{.IconS "chevron-down"}}
-        </button>
-        <div class="menu" role="menu">
-          <button type="button" role="menuitem" data-theme-choice="light">{{.IconS "sun"}}<span>{{.T "theme.light"}}</span></button>
-          <button type="button" role="menuitem" data-theme-choice="dark">{{.IconS "moon"}}<span>{{.T "theme.dark"}}</span></button>
-          <button type="button" role="menuitem" data-theme-choice="system">{{.IconS "monitor"}}<span>{{.T "theme.system"}}</span></button>
+      <div class="foot-row">
+        <div class="menu-anchor">
+          <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{.T "common.theme"}}" aria-label="{{.T "common.theme"}}">{{.Icon "sun"}}</button>
+          <div class="menu" role="menu">
+            <button type="button" role="menuitem" data-theme-choice="light">{{.IconS "sun"}}<span>{{.T "theme.light"}}</span></button>
+            <button type="button" role="menuitem" data-theme-choice="dark">{{.IconS "moon"}}<span>{{.T "theme.dark"}}</span></button>
+            <button type="button" role="menuitem" data-theme-choice="system">{{.IconS "monitor"}}<span>{{.T "theme.system"}}</span></button>
+          </div>
         </div>
-      </div>
-      <div class="menu-anchor">
-        <button type="button" class="btn btn--ghost btn--sm btn--block" aria-haspopup="menu" aria-expanded="false">
-          {{.Icon "globe"}}<span>{{.T "common.language"}}</span>{{.IconS "chevron-down"}}
-        </button>
-        <div class="menu" role="menu">
-          <form method="post" action="/prefs/locale">
-            <input type="hidden" name="_csrf" value="{{.CSRF}}">
-            <input type="hidden" name="next" value="{{.Path}}">
-            <button type="submit" name="locale" value="fa" role="menuitem">فارسی</button>
-          </form>
-          <form method="post" action="/prefs/locale">
-            <input type="hidden" name="_csrf" value="{{.CSRF}}">
-            <input type="hidden" name="next" value="{{.Path}}">
-            <button type="submit" name="locale" value="en" role="menuitem">English</button>
-          </form>
+        <div class="menu-anchor">
+          <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{.T "common.language"}}" aria-label="{{.T "common.language"}}">{{.Icon "globe"}}</button>
+          <div class="menu" role="menu">
+            <form method="post" action="/prefs/locale">
+              <input type="hidden" name="_csrf" value="{{.CSRF}}">
+              <input type="hidden" name="next" value="{{.Path}}">
+              <button type="submit" name="locale" value="fa" role="menuitem">فارسی</button>
+            </form>
+            <form method="post" action="/prefs/locale">
+              <input type="hidden" name="_csrf" value="{{.CSRF}}">
+              <input type="hidden" name="next" value="{{.Path}}">
+              <button type="submit" name="locale" value="en" role="menuitem">English</button>
+            </form>
+          </div>
         </div>
+        <span class="spacer"></span>
+        <button type="button" class="icon-btn" id="btn-collapse" data-tip="{{.T "nav.collapse"}}" aria-label="{{.T "nav.collapse"}}" aria-expanded="true">{{.Icon "panel-left"}}</button>
       </div>
       <div class="user-row">
         <span class="avatar" aria-hidden="true">{{slice .Admin.Username 0 1}}</span>
