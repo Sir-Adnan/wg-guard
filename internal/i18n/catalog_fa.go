@@ -203,7 +203,7 @@ var catalogFA = map[string]string{
 	"users.form.section_account":    "حساب",
 	"users.form.section_limits":     "محدودیت‌ها",
 	"users.form.section_advanced":   "پیشرفته",
-	"users.form.traffic_limit":      "حجم ترافیک (گیگابایت)",
+	"users.form.traffic_limit":      "حجم ترافیک",
 	"users.form.traffic_limit_hint": "برای نامحدود خالی بگذارید.",
 	"users.form.speed_down":         "محدودیت دانلود (کیلوبیت/ثانیه)",
 	"users.form.speed_up":           "محدودیت آپلود (کیلوبیت/ثانیه)",
@@ -211,7 +211,9 @@ var catalogFA = map[string]string{
 	"users.form.device_limit":       "سقف دستگاه",
 	"users.form.tags":               "برچسب‌ها",
 	"users.form.interface_hint":     "پروفایل تونلی که دستگاه‌های این کاربر از آن عبور می‌کنند.",
-	"users.form.duration_days":      "مدت (روز)",
+	"users.form.duration":           "مدت",
+	"users.form.expiry_date":        "تاریخ دقیق انقضا",
+	"users.form.expiry_date_hint":   "در صورت تعیین، بر مدت اشتراک اولویت دارد.",
 	"users.form.duration_hint":      "با «بلافاصله» اشتراک همین حالا شروع می‌شود؛ با «اولین اتصال»، شمارش از اولین دست‌دادن آغاز می‌شود.",
 
 	// users actions & toasts
@@ -237,12 +239,17 @@ var catalogFA = map[string]string{
 	"users.renew.extend_from_expiry": "تمدید از انقضای فعلی",
 	"users.renew.extend_from_now":    "تمدید از اکنون",
 	"users.renew.exact":              "تعیین تاریخ دقیق",
-	"users.renew.days":               "روز",
+	"users.renew.days":               "مدت",
 	"users.renew.date":               "تاریخ (YYYY-MM-DD)",
 	"users.traffic_add.title":        "افزودن حجم به %s",
-	"users.traffic_add.gb":           "گیگابایت برای افزودن",
-	"users.traffic_reset.title":      "بازنشانی حجم %s",
-	"users.traffic_reset.confirm":    "مصرف از صفر شروع می‌شود و اگر حساب به‌خاطر اتمام حجم مسدود بود، دوباره فعال می‌شود.",
+	"users.traffic_add.amount":       "مقدار برای افزودن",
+
+	// duration units (shared)
+	"duration.days":               "روز",
+	"duration.hours":              "ساعت",
+	"duration.months":             "ماه",
+	"users.traffic_reset.title":   "بازنشانی حجم %s",
+	"users.traffic_reset.confirm": "مصرف از صفر شروع می‌شود و اگر حساب به‌خاطر اتمام حجم مسدود بود، دوباره فعال می‌شود.",
 
 	// bulk
 	"users.bulk.title":           "ایجاد گروهی کاربران",

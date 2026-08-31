@@ -32,8 +32,14 @@
     <div class="field-row">
       <div class="field">
         <label for="p-traffic">{{.T "users.form.traffic_limit"}}</label>
-        <input class="input" id="p-traffic" name="traffic_limit_gb" type="number" min="1" step="any" inputmode="decimal"
-               value="{{if .Data.P}}{{.GB .Data.P.TrafficLimitBytes}}{{end}}">
+        <div class="unit-group">
+          <input class="input" id="p-traffic" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal"
+                 value="{{if .Data.P}}{{.QuotaVal .Data.P.TrafficLimitBytes}}{{end}}">
+          <select class="select" name="traffic_limit_unit" aria-label="{{.T "users.form.traffic_limit"}}">
+            <option value="gb" {{if and .Data.P (eq (.QuotaUnit .Data.P.TrafficLimitBytes) "gb")}}selected{{end}}>GB</option>
+            <option value="mb" {{if and .Data.P (eq (.QuotaUnit .Data.P.TrafficLimitBytes) "mb")}}selected{{end}}>MB</option>
+          </select>
+        </div>
         <span class="hint">{{.T "users.form.traffic_limit_hint"}}</span>
       </div>
       <div class="field">
@@ -58,8 +64,15 @@
     <div class="field-row">
       <div class="field">
         <label for="p-duration">{{.T "plans.duration"}}</label>
-        <input class="input" id="p-duration" name="duration_days" type="number" min="1" max="3650"
-               value="{{if .Data.P}}{{.Data.Days}}{{end}}">
+        <div class="unit-group">
+          <input class="input" id="p-duration" name="duration_value" type="number" min="0.1" step="any"
+                 value="{{if .Data.P}}{{.DurVal .Data.P.DurationSeconds}}{{end}}">
+          <select class="select" name="duration_unit" aria-label="{{.T "plans.duration"}}">
+            <option value="days" {{if and .Data.P (eq (.DurUnit .Data.P.DurationSeconds) "days")}}selected{{end}}>{{.T "duration.days"}}</option>
+            <option value="hours" {{if and .Data.P (eq (.DurUnit .Data.P.DurationSeconds) "hours")}}selected{{end}}>{{.T "duration.hours"}}</option>
+            <option value="months" {{if and .Data.P (eq (.DurUnit .Data.P.DurationSeconds) "months")}}selected{{end}}>{{.T "duration.months"}}</option>
+          </select>
+        </div>
         <span class="hint">{{.T "users.form.duration_hint"}}</span>
       </div>
       <div class="field">

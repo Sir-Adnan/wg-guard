@@ -281,14 +281,6 @@ func (v *View) StClass(status string) string {
 	}
 }
 
-// GB renders a byte limit as gigabytes for form inputs ("" when nil).
-func (v *View) GB(b *int64) string {
-	if b == nil {
-		return ""
-	}
-	return strings.TrimSuffix(fmt.Sprintf("%.0f", float64(*b)/1e9), ".0")
-}
-
 // KD renders a kbps limit for form inputs ("" when nil).
 func (v *View) KD(n *int) string {
 	if n == nil {

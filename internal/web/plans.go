@@ -2,7 +2,6 @@ package web
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
@@ -51,11 +50,10 @@ func (s *Server) handlePlanList(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "plans", "app", plansData{Rows: rows})
 }
 
-// planFormData backs the new/edit page. P is nil on create; Days is the
-// raw duration-day number for the input (humanized format hides precision).
+// planFormData backs the new/edit page. P is nil on create; the duration
+// prefills from P.DurationSeconds via the view helpers (value + unit).
 type planFormData struct {
 	P      *plan.Plan
-	Days   string
 	Ifaces []ifaceRef
 }
 
@@ -91,7 +89,7 @@ func (s *Server) handlePlanEditPage(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	_ = s.render(w, r, "plan_form", "app", planFormData{P: p, Days: durationDays(p.DurationSeconds), Ifaces: refs})
+	_ = s.render(w, r, "plan_form", "app", planFormData{P: p, Ifaces: refs})
 }
 
 // planInputFromForm parses the plan form. Forms submit every field, so
@@ -100,11 +98,11 @@ func (s *Server) handlePlanEditPage(w http.ResponseWriter, r *http.Request) {
 func planInputFromForm(r *http.Request, isEdit bool) (plan.Input, error) {
 	in := plan.Input{Name: strings.TrimSpace(r.PostFormValue("name"))}
 
-	gb, err := parseGB(r.PostFormValue("traffic_limit_gb"))
+	quota, err := quotaFromForm(r)
 	if err != nil {
 		return in, errInvalid
 	}
-	in.TrafficLimitBytes = limitOpt64(gb, isEdit)
+	in.TrafficLimitBytes = limitOpt64(quota, isEdit)
 	down, err := parseKbps(r.PostFormValue("speed_down"))
 	if err != nil {
 		return in, errInvalid
@@ -127,13 +125,12 @@ func planInputFromForm(r *http.Request, isEdit bool) (plan.Input, error) {
 		in.InterfaceID = domain.OptString{Set: true, Value: v}
 	}
 
-	if v := r.PostFormValue("duration_days"); v != "" {
-		days, err := strconv.ParseFloat(v, 64)
-		if err != nil || days <= 0 || days > 3650 {
+	if v := r.PostFormValue("duration_value"); v != "" || r.PostFormValue("duration_days") != "" {
+		secs, err := durationFromForm(r)
+		if err != nil {
 			return in, errInvalid
 		}
-		secs := int64(days*86400 + 0.5)
-		in.DurationSeconds = &secs
+		in.DurationSeconds = secs
 	}
 
 	switch r.PostFormValue("start_policy") {

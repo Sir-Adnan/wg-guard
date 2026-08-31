@@ -205,3 +205,31 @@ func TestSoftDeleteRestore(t *testing.T) {
 func strPtr(s string) *string { return &s }
 func i64Ptr(v int64) *int64   { return &v }
 func intPtr(v int) *int       { return &v }
+
+func TestCreateExactExpiry(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+
+	// Immediate + exact calendar date: active now, expiring on the picked day.
+	expires := time.Now().UTC().Add(45 * 24 * time.Hour).Add(12 * time.Hour)
+	u, err := svc.Create(ctx, Input{Username: "dated", ExpiresAt: &expires})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if u.Status != domain.UserActive || u.ExpiresAt == nil || !u.ExpiresAt.Equal(expires) {
+		t.Fatalf("exact expiry lost: status=%s expires=%v", u.Status, u.ExpiresAt)
+	}
+	got, err := svc.Get(ctx, u.ID)
+	if err != nil || got.ExpiresAt == nil || !got.ExpiresAt.Equal(expires) {
+		t.Fatalf("expiry not persisted: %v %v", got, err)
+	}
+
+	// First_connection + exact date: waiting, but the deadline is stored.
+	w, err := svc.Create(ctx, Input{Username: "waiter", StartPolicy: domain.StartFirstConnection, ExpiresAt: &expires})
+	if err != nil {
+		t.Fatalf("create waiting: %v", err)
+	}
+	if w.Status != domain.UserWaitingFirstConnection || w.ExpiresAt == nil || !w.ExpiresAt.Equal(expires) {
+		t.Fatalf("waiting + exact date wrong: status=%s expires=%v", w.Status, w.ExpiresAt)
+	}
+}

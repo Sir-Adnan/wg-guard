@@ -63,6 +63,8 @@ var prefixRe = regexp.MustCompile(`^[a-zA-Z0-9_-]*$`)
 
 // Input is a create/update request. Limits are domain.Opt values so PATCH
 // can distinguish "absent" (keep) from "null" (clear to unlimited).
+// ExpiresAt is create-only: an exact expiry (calendar pick) instead of a
+// derived duration; Renew keeps its own mode-based signature.
 type Input struct {
 	Username           string
 	DisplayName        *string
@@ -76,6 +78,7 @@ type Input struct {
 	InterfaceID        domain.OptString
 	StartPolicy        domain.StartPolicy
 	DurationSeconds    *int64
+	ExpiresAt          *time.Time
 	Enabled            *bool
 	Metadata           map[string]any
 }
@@ -167,16 +170,23 @@ func (s *Service) buildCreate(in Input) *User {
 
 	now := s.now().UTC()
 	switch {
-	case u.StartPolicy == domain.StartImmediate && u.DurationSeconds != nil:
+	case u.StartPolicy == domain.StartFirstConnection:
+		// Waiting for the first handshake; an exact expiry (calendar pick)
+		// still caps the subscription date-independently.
+		u.Status = domain.UserWaitingFirstConnection
+		u.ExpiresAt = in.ExpiresAt
+	case in.ExpiresAt != nil:
+		u.Status = domain.UserActive
+		u.ActivatedAt = &now
+		u.ExpiresAt = in.ExpiresAt
+	case u.DurationSeconds != nil:
 		u.Status = domain.UserActive
 		u.ActivatedAt = &now
 		exp := now.Add(time.Duration(*u.DurationSeconds) * time.Second)
 		u.ExpiresAt = &exp
-	case u.StartPolicy == domain.StartImmediate:
+	default:
 		u.Status = domain.UserActive
 		u.ActivatedAt = &now
-	default:
-		u.Status = domain.UserWaitingFirstConnection
 	}
 	return u
 }

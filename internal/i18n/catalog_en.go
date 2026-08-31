@@ -203,7 +203,7 @@ var catalogEN = map[string]string{
 	"users.form.section_account":    "Account",
 	"users.form.section_limits":     "Limits",
 	"users.form.section_advanced":   "Advanced",
-	"users.form.traffic_limit":      "Traffic limit (GB)",
+	"users.form.traffic_limit":      "Traffic limit",
 	"users.form.traffic_limit_hint": "Leave empty for unlimited.",
 	"users.form.speed_down":         "Download limit (Kbps)",
 	"users.form.speed_up":           "Upload limit (Kbps)",
@@ -211,7 +211,9 @@ var catalogEN = map[string]string{
 	"users.form.device_limit":       "Device limit",
 	"users.form.tags":               "Tags",
 	"users.form.interface_hint":     "The tunnel profile this user's devices connect through.",
-	"users.form.duration_days":      "Duration (days)",
+	"users.form.duration":           "Duration",
+	"users.form.expiry_date":        "Exact expiry date",
+	"users.form.expiry_date_hint":   "Overrides the duration when set.",
 	"users.form.duration_hint":      "With “immediate”, the subscription starts now; with “first connection”, the clock starts on the first handshake.",
 
 	// users actions & toasts
@@ -237,12 +239,17 @@ var catalogEN = map[string]string{
 	"users.renew.extend_from_expiry": "Extend from current expiry",
 	"users.renew.extend_from_now":    "Extend from now",
 	"users.renew.exact":              "Set exact date",
-	"users.renew.days":               "Days",
+	"users.renew.days":               "Duration",
 	"users.renew.date":               "Date (YYYY-MM-DD)",
 	"users.traffic_add.title":        "Add traffic to %s",
-	"users.traffic_add.gb":           "Gigabytes to add",
-	"users.traffic_reset.title":      "Reset traffic for %s",
-	"users.traffic_reset.confirm":    "Used traffic restarts from zero and the account is re-enabled if it was blocked for traffic.",
+	"users.traffic_add.amount":       "Amount to add",
+
+	// duration units (shared)
+	"duration.days":               "Days",
+	"duration.hours":              "Hours",
+	"duration.months":             "Months",
+	"users.traffic_reset.title":   "Reset traffic for %s",
+	"users.traffic_reset.confirm": "Used traffic restarts from zero and the account is re-enabled if it was blocked for traffic.",
 
 	// bulk
 	"users.bulk.title":           "Bulk create users",

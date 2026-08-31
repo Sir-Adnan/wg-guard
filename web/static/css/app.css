@@ -1098,6 +1098,11 @@ dialog.modal[open] { animation: modal-in var(--t-med) var(--ease); }
   .field-row { grid-template-columns: 1fr; }
 }
 
+/* value + unit inputs (quota, duration) */
+.unit-group { display: flex; gap: var(--sp-2); }
+.unit-group .input { flex: 1 1 auto; min-width: 0; }
+.unit-group .select { width: 104px; flex: none; }
+
 /* forms on dedicated pages */
 .form-card { max-width: 760px; }
 

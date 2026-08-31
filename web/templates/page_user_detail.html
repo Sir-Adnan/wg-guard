@@ -222,8 +222,15 @@
         </select>
       </div>
       <div class="field">
-        <label for="r-days">{{.T "users.renew.days"}}</label>
-        <input class="input" id="r-days" name="days" type="number" min="1" max="3650" value="30">
+        <label for="r-duration">{{.T "users.renew.days"}}</label>
+        <div class="unit-group">
+          <input class="input" id="r-duration" name="duration_value" type="number" min="0.1" step="any" value="1">
+          <select class="select" name="duration_unit" aria-label="{{.T "users.renew.days"}}">
+            <option value="months">{{.T "duration.months"}}</option>
+            <option value="days" selected>{{.T "duration.days"}}</option>
+            <option value="hours">{{.T "duration.hours"}}</option>
+          </select>
+        </div>
       </div>
       <div class="field">
         <label for="r-date">{{.T "users.renew.date"}}</label>
@@ -246,8 +253,14 @@
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div class="modal-body">
       <div class="field">
-        <label for="t-gb">{{.T "users.traffic_add.gb"}}</label>
-        <input class="input" id="t-gb" name="gb" type="number" min="1" step="any" value="10" required>
+        <label for="t-traffic">{{.T "users.traffic_add.amount"}}</label>
+        <div class="unit-group">
+          <input class="input" id="t-traffic" name="traffic_value" type="number" min="0.001" step="any" value="10" required>
+          <select class="select" name="traffic_unit" aria-label="{{.T "users.action.add_traffic"}}">
+            <option value="gb">GB</option>
+            <option value="mb">MB</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-foot">

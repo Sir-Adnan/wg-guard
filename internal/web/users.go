@@ -134,7 +134,10 @@ type userFormData struct {
 	Error    string // localized message
 	FieldErr string // field name that failed (best effort)
 	StartNow bool
-	Days     string
+	// Raw submitted duration (error redisplay on create; edit prefills from
+	// User.DurationSeconds via the view helpers).
+	DurationValue string
+	DurationUnit  string
 }
 
 type ifaceRef struct {
@@ -190,7 +193,7 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 				Plans: s.plansForForm(r), Ifaces: s.ifacesForForm(r),
 				Error:    s.humanizeDomainError(r, err),
 				FieldErr: "username", StartNow: r.PostFormValue("start_policy") != "first_connection",
-				Days: r.PostFormValue("duration_days"),
+				DurationValue: formDurationValue(r), DurationUnit: r.PostFormValue("duration_unit"),
 			})
 			return
 		}
@@ -210,7 +213,6 @@ func (s *Server) handleUserEditPage(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "user_form", "app", userFormData{
 		IsEdit: true, User: u,
 		Plans: s.plansForForm(r), Ifaces: s.ifacesForForm(r),
-		Days: durationDays(u.DurationSeconds),
 	})
 }
 
@@ -234,7 +236,7 @@ func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 			_ = s.render(w, r, "user_form", "app", userFormData{
 				IsEdit: true, User: u,
 				Plans: s.plansForForm(r), Ifaces: s.ifacesForForm(r),
-				Error: s.humanizeDomainError(r, err), Days: r.PostFormValue("duration_days"),
+				Error: s.humanizeDomainError(r, err),
 			})
 			return
 		}
@@ -246,6 +248,35 @@ func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 	s.redirectToast(w, r, "/users/"+updated.ID, "users.toast.updated")
 }
 
+// quotaFromForm parses the traffic limit as value+unit (exact decimal bytes).
+// The legacy value-only `traffic_limit_gb` field is still accepted so older
+// API form posts keep working.
+func quotaFromForm(r *http.Request) (*int64, error) {
+	value := r.PostFormValue("traffic_limit_value")
+	unit := r.PostFormValue("traffic_limit_unit")
+	if value == "" {
+		value = r.PostFormValue("traffic_limit_gb")
+		unit = "gb"
+	}
+	return parseQuotaBytes(value, unit)
+}
+
+// durationFromForm parses the duration as value+unit (hours/days/months).
+// Legacy value-only fields are still accepted: `duration_days` (create,
+// bulk, plans) and `days` (renew).
+func durationFromForm(r *http.Request) (*int64, error) {
+	value := r.PostFormValue("duration_value")
+	unit := r.PostFormValue("duration_unit")
+	if value == "" {
+		value = r.PostFormValue("duration_days")
+		if value == "" {
+			value = r.PostFormValue("days")
+		}
+		unit = "days"
+	}
+	return parseDurationSeconds(value, unit)
+}
+
 // userInputFromForm maps the shared fields. Empty limit fields mean
 // "unlimited": create sends absent options, edit sends explicit nulls
 // (tri-state PATCH semantics, api.md).
@@ -255,11 +286,11 @@ func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, er
 	in.Note = strPtr(r.PostFormValue("note"))
 	in.Tags = parseTags(r.PostFormValue("tags"))
 
-	gb, err := parseGB(r.PostFormValue("traffic_limit_gb"))
+	quota, err := quotaFromForm(r)
 	if err != nil {
 		return in, errInvalid
 	}
-	in.TrafficLimitBytes = limitOpt64(gb, isEdit)
+	in.TrafficLimitBytes = limitOpt64(quota, isEdit)
 	down, err := parseKbps(r.PostFormValue("speed_down"))
 	if err != nil {
 		return in, errInvalid
@@ -296,15 +327,26 @@ func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, er
 			in.StartPolicy = domain.StartImmediate
 		}
 	}
-	if v := r.PostFormValue("duration_days"); v != "" {
-		days, err := strconv.ParseFloat(v, 64)
-		if err != nil || days <= 0 || days > 3650 {
+	if v := r.PostFormValue("duration_value"); v != "" || r.PostFormValue("duration_days") != "" {
+		secs, err := durationFromForm(r)
+		if err != nil {
 			return in, errInvalid
 		}
-		secs := int64(days*86400 + 0.5)
-		in.DurationSeconds = &secs
+		in.DurationSeconds = secs
 	} else if !isEdit {
 		in.DurationSeconds = nil // immediate without duration = no expiry
+	}
+	// Exact expiry date (calendar pick). An already-past date is rejected at
+	// the edge — the service stores what it is given (renew parity).
+	if !isEdit {
+		expires, err := parseDateOnly(r.PostFormValue("expires_on"))
+		if err != nil {
+			return in, errInvalid
+		}
+		if expires != nil && expires.Before(time.Now()) {
+			return in, errInvalid
+		}
+		in.ExpiresAt = expires
 	}
 	return in, nil
 }
@@ -388,21 +430,19 @@ func (s *Server) handleUserRenew(w http.ResponseWriter, r *http.Request) {
 	)
 	switch mode {
 	case "from_expiration", "from_now":
-		days, err := strconv.ParseFloat(r.PostFormValue("days"), 64)
-		if err != nil || days <= 0 || days > 3650 {
-			s.badRequest(w, r, "days")
+		secs, err := durationFromForm(r)
+		if err != nil || secs == nil {
+			s.badRequest(w, r, "duration")
 			return
 		}
-		secs := int64(days*86400 + 0.5)
-		duration = &secs
+		duration = secs
 	case "exact":
-		d, err := time.Parse("2006-01-02", r.PostFormValue("date"))
-		if err != nil {
+		d, err := parseDateOnly(r.PostFormValue("date"))
+		if err != nil || d == nil {
 			s.badRequest(w, r, "date")
 			return
 		}
-		d = d.UTC().Add(12 * time.Hour) // noon UTC: date survives display TZ math
-		exact = &d
+		exact = d
 	default:
 		s.badRequest(w, r, "mode")
 		return
@@ -416,23 +456,29 @@ func (s *Server) handleUserRenew(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleUserTrafficAdd adds quota bytes (charged-counter correction).
+// Value+unit parsing keeps small corrections (0.2 GB) exact.
 func (s *Server) handleUserTrafficAdd(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.loadUser(w, r)
 	if !ok {
 		return
 	}
-	gb, err := strconv.ParseFloat(r.PostFormValue("gb"), 64)
-	if err != nil || gb <= 0 || gb > 1e6 {
-		s.badRequest(w, r, "gb")
+	value := r.PostFormValue("traffic_value")
+	unit := r.PostFormValue("traffic_unit")
+	if value == "" {
+		value = r.PostFormValue("gb")
+		unit = "gb"
+	}
+	quota, err := parseQuotaBytes(value, unit)
+	if err != nil || quota == nil {
+		s.badRequest(w, r, "traffic")
 		return
 	}
-	bytes := int64(gb*1e9 + 0.5)
 	a := s.actorFrom(r)
-	if err := s.Accounting.AddTraffic(r.Context(), u.ID, bytes, 0, a); err != nil {
+	if err := s.Accounting.AddTraffic(r.Context(), u.ID, *quota, 0, a); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.audit(r, "user.traffic_added", u.ID, map[string]any{"bytes": bytes})
+	s.audit(r, "user.traffic_added", u.ID, map[string]any{"bytes": *quota})
 	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.traffic_added", u.Username)
 }
 
@@ -604,20 +650,7 @@ func parseIDs(raw []string) []string {
 	return out
 }
 
-var errInvalid = domain.E(domain.CodeInvalidRequest, "invalid limit")
-
-// parseGB parses a gigabyte limit into bytes; "" = unset.
-func parseGB(raw string) (*int64, error) {
-	if strings.TrimSpace(raw) == "" {
-		return nil, nil
-	}
-	v, err := strconv.ParseFloat(raw, 64)
-	if err != nil || v <= 0 || v > 1e6 {
-		return nil, err
-	}
-	b := int64(v*1e9 + 0.5)
-	return &b, nil
-}
+func strPtr(s string) *string { return &s }
 
 // parseKbps parses a speed limit; "" = unset.
 func parseKbps(raw string) (*int, error) {
@@ -665,21 +698,11 @@ func clearOpt(isEdit bool) domain.OptString {
 	return domain.OptString{}
 }
 
-func strPtr(s string) *string { return &s }
-
 func deref(s *string) string {
 	if s == nil {
 		return ""
 	}
 	return *s
-}
-
-func durationDays(secs *int64) string {
-	if secs == nil {
-		return ""
-	}
-	d := float64(*secs) / 86400
-	return strconv.FormatFloat(d, 'f', -1, 64)
 }
 
 // humanizeDomainError maps known validation codes onto catalog messages.

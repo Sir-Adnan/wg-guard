@@ -200,12 +200,25 @@
       <div class="field-row">
         <div class="field">
           <label for="b-traffic">{{.T "users.form.traffic_limit"}}</label>
-          <input class="input" id="b-traffic" name="traffic_limit_gb" type="number" min="1" step="any" inputmode="decimal">
+          <div class="unit-group">
+            <input class="input" id="b-traffic" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal">
+            <select class="select" name="traffic_limit_unit" aria-label="{{.T "users.form.traffic_limit"}}">
+              <option value="gb">GB</option>
+              <option value="mb">MB</option>
+            </select>
+          </div>
           <span class="hint">{{.T "users.form.traffic_limit_hint"}}</span>
         </div>
         <div class="field">
-          <label for="b-duration">{{.T "users.form.duration_days"}}</label>
-          <input class="input" id="b-duration" name="duration_days" type="number" min="1" max="3650">
+          <label for="b-duration">{{.T "users.form.duration"}}</label>
+          <div class="unit-group">
+            <input class="input" id="b-duration" name="duration_value" type="number" min="0.1" step="any">
+            <select class="select" name="duration_unit" aria-label="{{.T "users.form.duration"}}">
+              <option value="days">{{.T "duration.days"}}</option>
+              <option value="hours">{{.T "duration.hours"}}</option>
+              <option value="months">{{.T "duration.months"}}</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="field-row">
