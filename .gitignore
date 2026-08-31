@@ -4,5 +4,6 @@ dist/
 *.wgg
 coverage.out
 bench-wgguard/
-wg-guard
-wg-guard.exe
+# Root-anchored: a bare "wg-guard" would also ignore cmd/wg-guard/ entirely.
+/wg-guard
+/wg-guard.exe
