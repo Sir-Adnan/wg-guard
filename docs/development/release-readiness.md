@@ -4,7 +4,7 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the active phase document.
 
-Last updated: 2026-08-31. Active phase: **8 — Audit & configuration integrity**.
+Last updated: 2026-09-01. Active phase: **8 — Audit & configuration integrity**.
 
 ## Program status
 
@@ -74,8 +74,16 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | planned |
 | AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | planned |
 | AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | planned |
-| AUD-008 | low | `project-structure.md` says Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | in progress |
+| AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
+| AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | open |
+| AUD-010 | high | Interface form numeric parse errors can silently become valid zero values | Phase 8 | open |
+| AUD-011 | medium | API JSON decoding accepts unknown fields and trailing values, hiding configuration typos | Phase 8 | open |
+| AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 11 | planned |
+| AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 11 | planned |
+| AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 11 | planned |
+| AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 12 | planned |
 
+Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
 
 ## Compatibility certification

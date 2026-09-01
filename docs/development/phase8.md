@@ -32,10 +32,10 @@ Deferred:
 
 ## Stage 8.0 — Baseline audit and reproduction
 
-- [ ] Record clean Git, toolchain, test, race, vet, integration, and asset-budget baselines.
-- [ ] Audit backend, web, CLI, installer, networking, database, security-sensitive paths, API,
+- [x] Record clean Git, toolchain, test, race, vet, integration, and asset-budget baselines.
+- [x] Audit backend, web, CLI, installer, networking, database, security-sensitive paths, API,
       OpenAPI, backup/restore, deployment, settings, tests, and living documentation.
-- [ ] Add material findings to `release-readiness.md` with severity and owning phase.
+- [x] Add material findings to `release-readiness.md` with severity and owning phase.
 - [ ] Reproduce QR failures at encoder, HTTP, browser, and public/admin surface boundaries.
 - [ ] Capture configurations from DB intent, runtime dump, download, QR decode, and subscription
       without persisting private material in fixtures or logs.
@@ -126,3 +126,5 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | Date | Stage | Environment | Result | Evidence |
 |---|---|---|---|---|
 | 2026-08-31 | Planning | Windows workspace | Phase structure approved; no implementation verification yet | `ROADMAP.md`, release-readiness tracker |
+| 2026-09-01 | Detailed plan | Windows workspace | Twelve dependency-ordered tasks committed; baseline CI green | implementation plan, CI run 33469154880 |
+| 2026-09-01 | 8.0 baseline | Windows + WSL2 Ubuntu | Unit/vet/format/race/assets/module/vulnerability checks green; privileged integration unavailable locally (EPERM, no non-interactive sudo) | `phase8-audit.md` |
