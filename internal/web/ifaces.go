@@ -77,41 +77,50 @@ func obfuscationFromForm(r *http.Request) (iface.Obfuscation, error) {
 	}
 	trim := func(key string) string { return strings.TrimSpace(r.PostFormValue(key)) }
 	var err error
-	for key, dst := range map[string]*int{
-		"obf_jc": &o.Jc, "obf_jmin": &o.Jmin, "obf_jmax": &o.Jmax,
-		"obf_s1": &o.S1, "obf_s2": &o.S2, "obf_s3": &o.S3, "obf_s4": &o.S4,
+	for _, field := range []struct {
+		key string
+		dst *int
+	}{
+		{"obf_jc", &o.Jc}, {"obf_jmin", &o.Jmin}, {"obf_jmax", &o.Jmax},
+		{"obf_s1", &o.S1}, {"obf_s2", &o.S2}, {"obf_s3", &o.S3}, {"obf_s4", &o.S4},
 	} {
-		if *dst, err = atoi(key); err != nil {
+		if *field.dst, err = atoi(field.key); err != nil {
 			return iface.Obfuscation{}, err
 		}
 	}
-	for key, dst := range map[string]*awgparam.U32Range{
-		"obf_h1": &o.H1, "obf_h2": &o.H2, "obf_h3": &o.H3, "obf_h4": &o.H4,
+	for _, field := range []struct {
+		key string
+		dst *awgparam.U32Range
+	}{
+		{"obf_h1", &o.H1}, {"obf_h2", &o.H2}, {"obf_h3", &o.H3}, {"obf_h4", &o.H4},
 	} {
-		text := trim(key)
+		text := trim(field.key)
 		if text == "" {
 			continue
 		}
-		if *dst, err = awgparam.ParseU32Range(text); err != nil {
-			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u32 bounds", key)
+		if *field.dst, err = awgparam.ParseU32Range(text); err != nil {
+			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u32 bounds", field.key)
 		}
 	}
-	// Capability-gated 2.0/3.x parameters (amneziawg.md).
+	// Explicit advanced 2.0/3.x parameters (amneziawg.md).
 	o.HeaderProtectionKey = trim("obf_hpk")
-	for key, dst := range map[string]*awgparam.U16Range{
-		"obf_padding":       &o.ContentPaddingAddition,
-		"obf_rekey_after":   &o.RekeyAfterTime,
-		"obf_rekey_timeout": &o.RekeyTimeout,
-		"obf_reject_after":  &o.RejectAfterTime,
-		"obf_keepalive":     &o.KeepaliveTimeout,
-		"obf_max_handshake": &o.MaxHandshakeAttempts,
+	for _, field := range []struct {
+		key string
+		dst *awgparam.U16Range
+	}{
+		{"obf_padding", &o.ContentPaddingAddition},
+		{"obf_rekey_after", &o.RekeyAfterTime},
+		{"obf_rekey_timeout", &o.RekeyTimeout},
+		{"obf_reject_after", &o.RejectAfterTime},
+		{"obf_keepalive", &o.KeepaliveTimeout},
+		{"obf_max_handshake", &o.MaxHandshakeAttempts},
 	} {
-		text := trim(key)
+		text := trim(field.key)
 		if text == "" {
 			continue
 		}
-		if *dst, err = awgparam.ParseU16Range(text); err != nil {
-			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u16 bounds", key)
+		if *field.dst, err = awgparam.ParseU16Range(text); err != nil {
+			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u16 bounds", field.key)
 		}
 	}
 	o.RandomTrailers = r.PostFormValue("obf_random_trailers") == "1"

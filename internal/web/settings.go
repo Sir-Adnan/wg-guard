@@ -39,7 +39,7 @@ type settingsData struct {
 	MTU          int
 	DNSServers   string
 	AllowedIPs   string
-	Keepalive    int
+	Keepalive    string
 	PortMin      int
 	PortMax      int
 	DefaultPool  string
@@ -108,7 +108,7 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 	d.MTU = getInt("network.mtu")
 	d.DNSServers = getList("network.dns_servers")
 	d.AllowedIPs = get("network.client_allowed_ips")
-	d.Keepalive = getInt("network.client_keepalive_seconds")
+	d.Keepalive = get("network.client_persistent_keepalive")
 	d.PortMin = getInt("network.port_min")
 	d.PortMax = getInt("network.port_max")
 	d.DefaultPool = get("network.default_pool")
@@ -158,7 +158,7 @@ var settingSpecs = []setSpec{
 	{"network.mtu", "mtu", "int"},
 	{"network.dns_servers", "dns_servers", "list"},
 	{"network.client_allowed_ips", "allowed_ips", "str"},
-	{"network.client_keepalive_seconds", "keepalive", "int"},
+	{"network.client_persistent_keepalive", "keepalive", "str"},
 	{"network.port_min", "port_min", "int"},
 	{"network.port_max", "port_max", "int"},
 	{"network.default_pool", "default_pool", "str"},
@@ -294,7 +294,7 @@ func (s *Server) submittedSettingsData(r *http.Request) settingsData {
 		case "allowed_ips":
 			d.AllowedIPs = str(spec.form)
 		case "keepalive":
-			d.Keepalive = intOf(spec.form)
+			d.Keepalive = str(spec.form)
 		case "port_min":
 			d.PortMin = intOf(spec.form)
 		case "port_max":

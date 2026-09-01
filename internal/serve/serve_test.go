@@ -312,7 +312,7 @@ func TestServeDevBackendServesAPI(t *testing.T) {
 	}
 
 	resp, body := req("POST", "/api/v1/users",
-		`{"username":"alice","expires_in_days":30,"speed_limit_down_kbps":5000,"speed_limit_up_kbps":1000}`)
+		`{"username":"alice","duration_seconds":2592000,"speed_limit_down_kbps":5000,"speed_limit_up_kbps":1000}`)
 	if resp.StatusCode != 201 && resp.StatusCode != 200 {
 		t.Fatalf("create user: %d %s", resp.StatusCode, body)
 	}

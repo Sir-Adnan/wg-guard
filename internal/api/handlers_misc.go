@@ -225,14 +225,14 @@ func (s *Server) handleIfaceList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name             string             `json:"name"`
-		ListenPort       int                `json:"listen_port"`
-		Subnet           string             `json:"ipv4_subnet"`
-		MTU              int                `json:"mtu"`
-		Obfuscation      *iface.Obfuscation `json:"obfuscation"`
-		Preset           string             `json:"preset"`
-		BackendMode      string             `json:"backend_mode"`
-		EndpointOverride string             `json:"endpoint_override"`
+		Name             string          `json:"name"`
+		ListenPort       int             `json:"listen_port"`
+		Subnet           string          `json:"ipv4_subnet"`
+		MTU              int             `json:"mtu"`
+		Obfuscation      *obfuscationReq `json:"obfuscation"`
+		Preset           string          `json:"preset"`
+		BackendMode      string          `json:"backend_mode"`
+		EndpointOverride string          `json:"endpoint_override"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -243,7 +243,7 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 		EndpointOverride: req.EndpointOverride,
 	}
 	if req.Obfuscation != nil {
-		in.Obfuscation = *req.Obfuscation
+		in.Obfuscation = req.Obfuscation.toIface(nil)
 	}
 	ifc, err := s.Ifaces.Create(r.Context(), in)
 	if err != nil {
@@ -267,17 +267,27 @@ func (s *Server) handleIfaceGet(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r, "id")
 	var req struct {
-		MTU              *int               `json:"mtu"`
-		Enabled          *bool              `json:"enabled"`
-		EndpointOverride *string            `json:"endpoint_override"`
-		Obfuscation      *iface.Obfuscation `json:"obfuscation"`
+		MTU              *int            `json:"mtu"`
+		Enabled          *bool           `json:"enabled"`
+		EndpointOverride *string         `json:"endpoint_override"`
+		Obfuscation      *obfuscationReq `json:"obfuscation"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	var obfuscation *iface.Obfuscation
+	if req.Obfuscation != nil {
+		current, err := s.Ifaces.Get(r.Context(), id)
+		if err != nil {
+			writeServiceErr(w, r, err)
+			return
+		}
+		mapped := req.Obfuscation.toIface(&current.Obfuscation)
+		obfuscation = &mapped
+	}
 	ifc, err := s.Ifaces.Update(r.Context(), id, iface.UpdateInput{
 		MTU: req.MTU, Enabled: req.Enabled,
-		EndpointOverride: req.EndpointOverride, Obfuscation: req.Obfuscation,
+		EndpointOverride: req.EndpointOverride, Obfuscation: obfuscation,
 	})
 	if err != nil {
 		writeServiceErr(w, r, err)

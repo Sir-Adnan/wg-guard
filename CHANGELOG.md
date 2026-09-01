@@ -189,7 +189,7 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
     accounting-cycle gauges; `internal/api` route table doubles as the OpenAPI coverage input
     (test-enforced, both directions).
   - Settings: `node.id`, `node.endpoint`, `network.client_allowed_ips`,
-    `network.client_keepalive_seconds`, `webhooks.max_attempts`, `api.rate_limit_per_minute`.
+    `network.client_persistent_keepalive`, `webhooks.max_attempts`, `api.rate_limit_per_minute`.
   - Dependency: `rsc.io/qr` v0.2.0 (BSD-3-Clause, zero transitive deps) for QR rendering.
 - **Phase 3 — limits & accounting** (all unit tested, `-race` clean; tc and real-runtime paths
   integration tested in WSL2):
@@ -269,6 +269,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **Phase 8 AWG range/API integrity:** H1–H4 and every u16 timer/keepalive range now preserve
+  both endpoints through migration 0007, storage, setconf/dump, drift correction, forms, and
+  client rendering. The management API uses explicit lower-snake-case DTOs with scalar-number /
+  range-string compatibility, complete OpenAPI coverage, write-only HPK handling, and strict
+  rejection of unknown or trailing JSON fields. The client PersistentKeepalive setting now
+  accepts `0`, `N`, or `N-M` through one range-aware key while retaining rollback data.
 - **Installer: the interactive wizard never asked for the deployment mode** (the Docker
   default was preset, making the mode question dead code) and **`--yes --domain X --tls
   proxy|manual|dev` silently became an ACME install** (the wizard's TLS `askChoice` always

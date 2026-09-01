@@ -59,13 +59,13 @@ lists unsupported/unverified behavior explicitly.
 
 ## Stage 8.2 — Lossless model and migration
 
-- [ ] Introduce validated value types for scalar-or-range u32/u16 values.
+- [x] Introduce validated value types for scalar-or-range u32/u16 values.
 - [ ] Migrate existing scalar H1–H4 values losslessly to the new representation; preserve backup
       and restore compatibility with pre-migration databases.
-- [ ] Carry the types through interface/device models, repositories, tunnel contracts, fake and
+- [x] Carry the types through interface/device models, repositories, tunnel contracts, fake and
       real backends, drift comparison, reconciliation, API DTOs, and OpenAPI.
-- [ ] Update web form parsing/rendering only where needed to expose the correct values.
-- [ ] Add migration, round-trip, JSON, validation, dump, render, and drift regression tests.
+- [x] Update web form parsing/rendering only where needed to expose the correct values.
+- [x] Add migration, round-trip, JSON, validation, dump, render, and drift regression tests.
 
 Exit: no supported range can be truncated, coerced, or compared lossy anywhere in the pipeline.
 
@@ -129,3 +129,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-01 | Detailed plan | Windows workspace | Twelve dependency-ordered tasks committed; baseline CI green | implementation plan, CI run 33469154880 |
 | 2026-09-01 | 8.0 baseline | Windows + WSL2 Ubuntu | Unit/vet/format/race/assets/module/vulnerability checks green; privileged integration unavailable locally (EPERM, no non-interactive sudo) | `phase8-audit.md` |
 | 2026-09-01 | 8.1 source contract | Exact pinned tools/kernel/userspace revisions + prior VPS evidence | Full field matrix frozen; H intervals and u16 ranges classified; `AdvancedSecurity` corrected to parser-only/unsupported | `../integrations/amneziawg.md`, `../integrations/fixtures/phase8-upstream-contract.txt` |
+| 2026-09-01 | 8.2 core + contracts | Windows/Go unit and vet suites | Migration 0007 plus exact storage/apply/dump/drift, strict fa/en forms, range-aware keepalive, explicit lower-snake-case API DTOs, write-only HPK, strict JSON, and OpenAPI parity implemented; backup/restore and real-host equality still pending | package tests under `internal/{awgparam,database,iface,tunnel,reconcile,settings,api,web}` |

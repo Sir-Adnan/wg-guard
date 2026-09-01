@@ -16,6 +16,10 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `NODE_UNAVAILABLE`, `INTERNAL_ERROR`, …). No stack
   traces. The `X-Request-Id` response header carries the correlation id (client-supplied ids are
   honored when they are ≤ 64 printable-ASCII bytes).
+- **Strict request bodies**: JSON object requests reject unknown properties and any second/trailing
+  JSON value. This prevents misspelled configuration fields from being accepted as no-ops.
+  Malformed AWG scalar/range values use `PARAM_CONSTRAINT`; malformed JSON uses
+  `INVALID_REQUEST`.
 - **Pagination**: keyset cursor — `limit` ≤ 500, opaque `cursor` (base64url JSON), items ordered
   by the chosen sort; stable ordering even for rows written in the same microsecond (id
   tiebreak). Filters per the archived spec §22 (status, expires_before/after, traffic_exceeded,
@@ -53,6 +57,23 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 
 **Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
 [ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)).
+
+## AmneziaWG interface profile contract
+
+The interface API uses explicit request and response DTOs; repository structs never reach the
+wire. Property names are lower snake case. H1–H4 accept a JSON integer for a scalar or a string
+`"N-M"` for a true inclusive u32 interval. The six padding/timing values use the same shape with
+u16 bounds. Responses preserve that compatibility shape: scalars remain numbers and true ranges
+remain strings. Enabled H intervals must be non-zero and pairwise non-overlapping.
+
+Supported advanced fields are S3/S4, I1–I5, HeaderProtectionKey, ContentPaddingAddition,
+RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts,
+RandomTrailers, and DisableCookies, subject to the gates in
+[the pinned AWG contract](../integrations/amneziawg.md). `AdvancedSecurity` is unsupported and is
+not accepted or advertised. HeaderProtectionKey is write-only: responses expose only
+`header_protection_key_set`. Omitting the key while PATCHing an obfuscation block preserves it;
+an explicit empty string clears it and causes reconciliation to recreate the link because the
+pinned runtime cannot clear it in place.
 
 ## Webhooks
 

@@ -72,6 +72,10 @@ client rendering, and OpenAPI are scalar too.
 Required correction: one typed representation through migration, storage, apply/dump, drift,
 API/forms, config, backup/restore, and QR.
 
+State 2026-09-01: in progress. Typed values and migration 0007 now preserve both endpoints
+through storage, apply/dump, reconciliation, API/OpenAPI, settings, and forms with unit tests.
+Backup/restore, QR, and real-host equality gates remain.
+
 ### P8-003 — Interface API runtime shape disagrees with OpenAPI
 
 Severity: high. Owner: Phase 8. Tracker: AUD-003 / RB-002.
@@ -81,6 +85,10 @@ uses exported Go field names while OpenAPI documents lower-snake-case names. Ope
 2.0/3.x fields that the runtime model accepts and models H as integer-only.
 
 Required correction: explicit request/response DTO mapping plus schema/behavior parity tests.
+
+State 2026-09-01: verified. Explicit lower-snake-case DTOs cover every supported field,
+scalar/range compatibility is schema-tested, HPK is write-only with a presence indicator, and
+unsupported `AdvancedSecurity` is absent.
 
 ### P8-004 — Configuration generation has multiple authorities
 
@@ -126,6 +134,9 @@ yet unintended profile.
 Required correction: error-returning parsing for every AWG numeric/range field and handler tests
 proving invalid text never mutates state.
 
+State 2026-09-01: verified. Ordered strict parsing plus fa/en handler regressions prove exact
+range persistence and no mutation after malformed numeric or overlapping interval input.
+
 ### P8-008 — API JSON decoding permits silent configuration typos
 
 Severity: medium. Owner: Phase 8.
@@ -136,6 +147,9 @@ second value that is ignored. For a configuration API, silent omission is a corr
 
 Required correction: reject unknown fields and trailing values, with compatibility tests for
 documented request bodies.
+
+State 2026-09-01: verified. The shared decoder now rejects unknown fields and any second JSON
+value; range syntax failures retain the stable `PARAM_CONSTRAINT` code.
 
 ### P8-009 — AdvancedSecurity is not generally supportable at the pins
 

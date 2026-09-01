@@ -91,10 +91,9 @@
       </div>
       <div class="field {{if eq .Data.Field "keepalive"}}field--invalid{{end}}">
         <label for="s-keepalive">{{.T "settings.keepalive"}}</label>
-        <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-keepalive" name="keepalive" type="number" min="0" max="120" step="1" value="{{.Data.Keepalive}}">
-          <span class="unit-static">{{.T "duration.seconds_short"}}</span>
-        </div>
+        <input class="input ltr-data" id="s-keepalive" name="keepalive" type="text" dir="ltr"
+               inputmode="numeric" spellcheck="false" placeholder="25 / 25-35" value="{{.Data.Keepalive}}">
+        <span class="hint">{{.T "settings.keepalive_hint"}}</span>
       </div>
     </div>
     <div class="field-row">

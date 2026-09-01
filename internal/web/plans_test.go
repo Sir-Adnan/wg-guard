@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/Sir-Adnan/wg-guard/internal/iface"
 )
 
 func TestPlanCrudFlow(t *testing.T) {
@@ -154,4 +156,87 @@ func TestIfaceCrudFlow(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "غیرفعال") {
 		t.Fatal("disabled badge missing")
 	}
+}
+
+func TestInterfaceObfuscationRangeForm(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner") // owner locale starts in Persian/RTL
+	csrf := deriveCSRF(cookie.Value)
+	created, err := e.ifaces.Create(context.Background(), iface.CreateInput{Name: "awg0", ListenPort: 39001})
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{
+		"_csrf": {csrf}, "mtu": {"1420"}, "enabled": {"1"}, "endpoint_override": {""},
+		"obf_enabled": {"1"}, "obf_jc": {"5"}, "obf_jmin": {"40"}, "obf_jmax": {"70"},
+		"obf_s1": {"86"}, "obf_s2": {"61"}, "obf_s3": {"40"}, "obf_s4": {"48"},
+		"obf_h1": {"100-110"}, "obf_h2": {"200"}, "obf_h3": {"300-310"}, "obf_h4": {"400"},
+		"obf_padding": {"10-20"}, "obf_rekey_after": {"120-180"},
+		"obf_rekey_timeout": {"15-25"}, "obf_reject_after": {"90"},
+		"obf_keepalive": {"30-45"}, "obf_max_handshake": {"4-8"},
+	}
+	rec := e.post("/interfaces/"+created.ID+"/edit", form, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("ranged form update: %d %s", rec.Code, rec.Body.String())
+	}
+	stored, err := e.ifaces.Get(context.Background(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Obfuscation.H1.String() != "100-110" || stored.Obfuscation.H3.String() != "300-310" ||
+		stored.Obfuscation.ContentPaddingAddition.String() != "10-20" ||
+		stored.Obfuscation.MaxHandshakeAttempts.String() != "4-8" {
+		t.Fatalf("form ranges not preserved: %+v", stored.Obfuscation)
+	}
+
+	// Technical values stay LTR inside the Persian page and render the exact
+	// interval. The page direction changes to English without changing the
+	// input direction or value.
+	editPath := "/interfaces/" + created.ID + "/edit"
+	body := e.get(editPath, cookie).Body.String()
+	for _, want := range []string{`<html lang="fa" dir="rtl">`, `name="obf_h1" type="text" dir="ltr"`, `value="100-110"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Persian range form missing %q", want)
+		}
+	}
+	if rec = e.post("/prefs/locale", url.Values{"locale": {"en"}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("set English locale: %d", rec.Code)
+	}
+	body = e.get(editPath, cookie).Body.String()
+	for _, want := range []string{`<html lang="en" dir="ltr">`, `name="obf_h1" type="text" dir="ltr"`, `value="100-110"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("English range form missing %q", want)
+		}
+	}
+
+	// Parser and relationship failures must not mutate the stored profile.
+	badNumber := cloneValues(form)
+	badNumber.Set("obf_jc", "five")
+	rec = e.post(editPath, badNumber, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("malformed number response: %d", rec.Code)
+	}
+	after, _ := e.ifaces.Get(context.Background(), created.ID)
+	if after.Obfuscation != stored.Obfuscation {
+		t.Fatal("malformed numeric input mutated the interface")
+	}
+	badOverlap := cloneValues(form)
+	badOverlap.Set("obf_h2", "105-120")
+	rec = e.post(editPath, badOverlap, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("overlap response: %d", rec.Code)
+	}
+	after, _ = e.ifaces.Get(context.Background(), created.ID)
+	if after.Obfuscation != stored.Obfuscation {
+		t.Fatal("overlapping H ranges mutated the interface")
+	}
+}
+
+func cloneValues(in url.Values) url.Values {
+	out := make(url.Values, len(in))
+	for key, values := range in {
+		out[key] = append([]string(nil), values...)
+	}
+	return out
 }

@@ -108,15 +108,16 @@
       <div class="field">
         <label>{{.T "ifaces.obf.h1"}}</label>
         <div class="field-row">
-          <input class="input" id="i-obf-h1" name="obf_h1" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H1}}{{end}}" placeholder="H1">
-          <input class="input" id="i-obf-h2" name="obf_h2" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H2}}{{end}}" placeholder="H2">
-          <input class="input" id="i-obf-h3" name="obf_h3" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H3}}{{end}}" placeholder="H3">
-          <input class="input" id="i-obf-h4" name="obf_h4" type="number" dir="ltr" min="1" max="4294967295"
-                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H4}}{{end}}" placeholder="H4">
+          <input class="input ltr-data" id="i-obf-h1" name="obf_h1" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H1}}{{end}}" placeholder="H1: 100 / 100-110">
+          <input class="input ltr-data" id="i-obf-h2" name="obf_h2" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H2}}{{end}}" placeholder="H2: 200 / 200-210">
+          <input class="input ltr-data" id="i-obf-h3" name="obf_h3" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H3}}{{end}}" placeholder="H3: 300 / 300-310">
+          <input class="input ltr-data" id="i-obf-h4" name="obf_h4" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                 value="{{if $obfOn}}{{.Data.I.Obfuscation.H4}}{{end}}" placeholder="H4: 400 / 400-410">
         </div>
+        <span class="hint">{{.T "ifaces.obf.header_range_hint"}}</span>
       </div>
 
       <div class="field">
@@ -164,20 +165,20 @@
           </div>
           <div class="field">
             <label for="i-obf-padding">{{.T "ifaces.obf.padding"}}</label>
-            <input class="input" id="i-obf-padding" name="obf_padding" dir="ltr" spellcheck="false" placeholder="10 / 10-20"
+            <input class="input ltr-data" id="i-obf-padding" name="obf_padding" type="text" dir="ltr" inputmode="numeric" spellcheck="false" placeholder="10 / 10-20"
                    value="{{if $obfOn}}{{.Data.I.Obfuscation.ContentPaddingAddition}}{{end}}">
             <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
           </div>
           <div class="field-row">
             <div class="field">
               <label for="i-obf-rekey-after">{{.T "ifaces.obf.rekey_after"}}</label>
-              <input class="input" id="i-obf-rekey-after" name="obf_rekey_after" dir="ltr" spellcheck="false"
+              <input class="input ltr-data" id="i-obf-rekey-after" name="obf_rekey_after" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
                      value="{{if $obfOn}}{{.Data.I.Obfuscation.RekeyAfterTime}}{{end}}">
               <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
             </div>
             <div class="field">
               <label for="i-obf-rekey-timeout">{{.T "ifaces.obf.rekey_timeout"}}</label>
-              <input class="input" id="i-obf-rekey-timeout" name="obf_rekey_timeout" dir="ltr" spellcheck="false"
+              <input class="input ltr-data" id="i-obf-rekey-timeout" name="obf_rekey_timeout" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
                      value="{{if $obfOn}}{{.Data.I.Obfuscation.RekeyTimeout}}{{end}}">
               <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
             </div>
@@ -185,20 +186,20 @@
           <div class="field-row">
             <div class="field">
               <label for="i-obf-reject-after">{{.T "ifaces.obf.reject_after"}}</label>
-              <input class="input" id="i-obf-reject-after" name="obf_reject_after" dir="ltr" spellcheck="false"
+              <input class="input ltr-data" id="i-obf-reject-after" name="obf_reject_after" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
                      value="{{if $obfOn}}{{.Data.I.Obfuscation.RejectAfterTime}}{{end}}">
               <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
             </div>
             <div class="field">
               <label for="i-obf-keepalive">{{.T "ifaces.obf.keepalive"}}</label>
-              <input class="input" id="i-obf-keepalive" name="obf_keepalive" dir="ltr" spellcheck="false"
+              <input class="input ltr-data" id="i-obf-keepalive" name="obf_keepalive" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
                      value="{{if $obfOn}}{{.Data.I.Obfuscation.KeepaliveTimeout}}{{end}}">
               <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
             </div>
           </div>
           <div class="field">
             <label for="i-obf-max-handshake">{{.T "ifaces.obf.max_handshake"}}</label>
-            <input class="input" id="i-obf-max-handshake" name="obf_max_handshake" dir="ltr" spellcheck="false"
+            <input class="input ltr-data" id="i-obf-max-handshake" name="obf_max_handshake" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
                    value="{{if $obfOn}}{{.Data.I.Obfuscation.MaxHandshakeAttempts}}{{end}}">
             <span class="hint">{{.T "ifaces.obf.range_hint"}}</span>
           </div>

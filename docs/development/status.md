@@ -33,7 +33,7 @@ enforced by `scripts/check-assets.sh`: JS 19.5/30 KiB gz, CSS 8.4/25 KiB gz, fon
 | Devices: add (name + optional IP hint), enable/disable, key regeneration with revocation of the old peer, config download + QR modal, delete with confirm; per-user device limit enforced; config/QR endpoints are session-gated and never log key material | ✅ implemented + unit tested; browser-verified |
 | Dashboard: user metric cards (total/active/waiting/online/expiring/expired/exceeded/total traffic), host card (CPU/RAM/disk/load/uptime read from `/proc` on demand — `internal/hoststats`, no background polling; graceful "unavailable" state off Linux), CSP-safe server-rendered SVG traffic chart (24 h/7 d/30 d ranges, zero-filled buckets, nice-axis scaling, SI-suffixed axis labels), live fragment refresh every 30 s with `data-pause-hidden` (Page Visibility hook in app.js), no-JS fallback links | ✅ implemented + unit tested (chart buckets/escaping/geometry, hoststats fixtures incl. degradation, live fragment) |
 | Plans: CRUD + enable/disable with per-plan live user counts and interface references; tri-state limit fields (traffic GB, duration days, up/down kbps) | ✅ implemented + unit tested (CRUD flow) |
-| Interfaces: CRUD + enable/disable, AWG obfuscation parameter section (jc/jmin/jmax/s1/s2/h1–h4 with the kernel-README ranges), plain↔obfuscated edit warns that clients must re-import profiles, delete guarded while devices exist, auto port + subnet defaults, immutable name/port/subnet on edit | ✅ implemented + unit tested (CRUD flow incl. rotation toast + nil-create regression) |
+| Interfaces: CRUD + enable/disable, AWG obfuscation parameter section (jc/jmin/jmax/s1/s2 and lossless scalar/range H1–H4), strict numeric/range parsing in both directions, plain↔obfuscated edit warns that clients must re-import profiles, delete guarded while devices exist, auto port + subnet defaults, immutable name/port/subnet on edit | ✅ implemented + unit tested (CRUD, exact range form round trip in fa/en, malformed/overlap no-mutation regressions) |
 | `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); QR raster drawn manually — rsc.io/qr's `code.Image()` leaves modules unscaled in the canvas corner (regression test asserts a filled canvas) | ✅ implemented + unit tested |
 | API correctness fixes surfaced by web work: `/api/v1` traffic series used nonexistent `rx_delta`/`tx_delta` columns for rollups and mixed granularities — now correct per-granularity sums (regression test over the API) | ✅ implemented + unit tested |
 
@@ -46,7 +46,7 @@ Refinement pass additions (same status rules as above):
 | Create-user drawer on the users page (shared partial with the `/users/new` fallback): username generator, settings-driven quota/duration preset chips (`users.quota_presets_gb`, `users.duration_presets_months`), auto device provisioning (count = device limit, cap 10, per-device transactional), Jalali (fa) / Gregorian (en) vanilla-JS calendar — leap-year algorithm exhaustively verified against server-side conversions | ✅ implemented + unit tested (auto-device flow, quota/duration exactness); calendar verified in browser |
 | Users page redesign: identity rows, quick-share menu (per-device QR/download + sub-link copy, batch device load), fixed-coordinate menu positioning (no clipping in overflow containers; close on scroll) | ✅ implemented + unit tested; browser-verified desktop + 390 px mobile |
 | Theme + shell refinement: zinc-neutral light palette, refined dark palette (`#09090b` base), 8/12 px radii, component polish (buttons, inputs, badges, tables, menus, dialogs, empty states, metric icon chips), desktop sidebar collapse to a persisted 68 px icon rail with tooltips, compact footer icon row | ✅ implemented; palettes/collapse verified live in browser |
-| Interfaces: capability-gated 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; gated drift is report-only (`Obfuscation.LegacyVerified`); magic headers crypto/rand generated at creation (presets no longer hardcode weak values); I1–I5 inputs with iOS warning | ✅ implemented + unit tested (validation, render, dump, gated-drift classification); **kernel-module acceptance + round-trip of the whole gated set verified on a real VPS** (see amneziawg.md verification log); client-app compatibility still varies |
+| Interfaces: explicit advanced 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005 plus lossless range migration 0007, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; every dump-observable field is compared and corrected exactly, while HPK removal recreates the link; I1–I5 inputs retain the client warning | ✅ implemented + unit tested (validation, exact render/dump/drift and HPK-clear recreation); **kernel-module acceptance + round-trip of the whole advanced set verified on a real VPS** (see amneziawg.md verification log); real client-app compatibility remains a Phase 8 gate |
 
 Round 2 refinement additions (same status rules as above):
 
@@ -79,10 +79,9 @@ Deferred / honest notes within Phase 5 scope:
   phase (needs an upstream-supported format decision — not assumed).
 - The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
   visual effect was observed manually, not soak-tested.
-- The capability-gated 2.0/3.x obfuscation parameters are parser- and Ubuntu 24.04 kernel-
-  verified, but client-app compatibility remains platform-dependent. Phase 8 audits the full
-  client/config path; the fields stay off by default and gated drift remains report-only so an
-  unsupported runtime cannot trigger link-recreate loops.
+- The advanced 2.0/3.x obfuscation parameters are parser-, kernel-, and userspace-observable at
+  the pinned revisions, so Phase 8 now corrects their drift exactly. They remain off by default
+  because client-app compatibility is platform-dependent and still needs real-client evidence.
 - The subscription page exposes per-device configs to whoever holds the (unguessable) link;
   the link is treated as a capability credential — rotate or revoke it to cut access.
 
@@ -96,7 +95,7 @@ HTB and the IFB ingress path) and the real pinned userspace runtime in WSL2
 
 | Item | Status |
 |---|---|
-| Full `/api/v1` management surface: users (CRUD, enable/disable, renew, traffic add/set/reset, traffic series), bulk create + bulk actions (enable, disable, delete, renew, reset_traffic, add_traffic, update), devices (CRUD, enable/disable, key regeneration with old-key revocation, config + QR download), plans, interfaces (incl. obfuscation parameter validation), settings (secrets redacted as `value: null` + `secret_set`; PATCH validates per registry), webhooks (CRUD, redeliver), user/device/node stats, public `node/health` | ✅ implemented + unit tested (handler-level over the full middleware chain) |
+| Full `/api/v1` management surface: users (CRUD, enable/disable, renew, traffic add/set/reset, traffic series), bulk create + bulk actions (enable, disable, delete, renew, reset_traffic, add_traffic, update), devices (CRUD, enable/disable, key regeneration with old-key revocation, config + QR download), plans, interfaces (explicit lossless AWG DTOs; write-only HPK), settings (secrets redacted as `value: null` + `secret_set`; PATCH validates per registry), webhooks (CRUD, redeliver), user/device/node stats, public `node/health` | ✅ implemented + unit tested (handler-level over the full middleware chain; unknown/trailing JSON rejection and OpenAPI/DTO range parity) |
 | Route table as single source of truth: one `routeDef` table drives the mux, the OpenAPI document AND the coverage test (every route documented with correct scope/pagination/idempotency; reverse check: every documented operation is registered; mux smoke: anonymous requests never receive a bare route-miss 404 envelope) | ✅ implemented + unit tested (both directions + smoke) |
 | Middleware chain: request-id (client-supplied validated), panic-recover, security headers, CORS (API only), 1 MiB body cap, structured request logging (method/path/status/duration/request_id — never bodies, query strings or auth headers), authn/authz (any token verification failure = 401; scope gap = 403) | ✅ implemented + unit tested |
 | Error envelope `{"error":{code,message,request_id}}` with stable machine codes; every domain error maps to exactly one HTTP status family; `X-Request-Id` echoed/set on every response | ✅ implemented + unit tested |
@@ -114,7 +113,7 @@ HTB and the IFB ingress path) and the real pinned userspace runtime in WSL2
 | Metrics & health: `/healthz` (liveness) + `/readyz` (bring-up done + DB ping) public; `/metrics` Prometheus-text endpoint **config-gated off by default** (uptime, request classes, accounting cycle stats, goroutines, heap) | ✅ implemented + unit tested |
 | `wg-guard token create/list/revoke/scopes` CLI: mints/inspects tokens without boot (migrations included, works on a fresh node); plaintext printed once, never stored/logged; least-privilege scopes required at create | ✅ implemented + unit tested via binary smoke test |
 | OpenAPI 3.0.3 + no-JS `/docs` reference: hand-authored, coverage-tested (see route table above) | ✅ implemented + unit tested |
-| Settings added: `node.id`, `node.endpoint`, `network.client_allowed_ips`, `network.client_keepalive_seconds`, `webhooks.max_attempts`, `api.rate_limit_per_minute` | ✅ implemented + unit tested (registry validation) |
+| Settings added: `node.id`, `node.endpoint`, `network.client_allowed_ips`, range-aware `network.client_persistent_keepalive`, `webhooks.max_attempts`, `api.rate_limit_per_minute` | ✅ implemented + unit tested (registry and bilingual form validation; migration 0007 preserves the legacy scalar value) |
 | Behavior correction: `SetStatus` now keeps the `enabled` flag consistent with lifecycle status (disabled/suspended/expired/traffic_exceeded ⇒ disabled; active/waiting ⇒ enabled) — Phase 1's set-status left `enabled=true` on disabled accounts, which also gated device creation | ✅ implemented + unit tested (documented here as a deliberate fix) |
 | Benchmarks — API (Go bench over `httptest`, rate limiter off): 20-row user list @1000 users **2.4 ms** (WSL2/Go 1.26; **1.0 ms** on Windows/Go 1.27); LIKE search @1000 **2.4 ms**; full 1000-row cursor walk (50 pages) **83 ms**; bulk create 100 **3.7 ms**; device config render incl. AES-GCM key decrypt **65 µs**. Idle RSS/CPU via `scripts/bench-idle.sh` (`-backend fake`, WSL2 Ubuntu, 10-min windows): @100 users+devices **18 MB / 0.01 % CPU** (budget 50 MB / 0.5 %); @1000 users+devices **21 MB / 0.02 % CPU** (budget 80 MB / 0.5 %) — both §8 stress points met with ≥ 3.8× memory and 25× CPU headroom. Stripped linux/amd64 binary 13.8 MB (budget ≤ 30 MB) | ✅ measured |
 
@@ -342,12 +341,12 @@ Honest notes within Phase 7 scope:
 
 ## Phase 8 — Audit & configuration integrity (active, 2026-08-31)
 
-Approved and started. The whole-project baseline audit and the exact pinned-source AWG parameter
-contract are documented and verified; no Phase 8 product correction is yet claimed. The source
-review classifies H1–H4 as inclusive non-overlapping u32 ranges, all timing/padding/peer keepalive
-ranges at the tools boundary as u16, and `AdvancedSecurity` as unsupported (kernel no-op,
-userspace rejection, no dump observability). Current product blockers remain QR decode/display
-correctness, canonical client-configuration correctness, and lossless full-chain range semantics.
+Approved and active. The baseline audit and exact pinned-source contract are documented. The
+lossless scalar/range primitives, migration 0007, repository/tunnel/dump/reconcile path, strict
+bilingual forms, range-aware keepalive setting, explicit REST DTOs, and OpenAPI parity are
+implemented and unit tested. `AdvancedSecurity` remains unsupported. Backup/restore, canonical
+profile/config delivery, QR decoding, and real VPS/client traffic evidence are not yet complete,
+so the Phase 8 release blockers remain open/in progress.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 

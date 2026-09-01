@@ -81,6 +81,38 @@ func TestSettingsPageAndSave(t *testing.T) {
 	}
 }
 
+func TestSettingsPersistentKeepaliveRange(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	csrf := deriveCSRF(cookie.Value)
+
+	body := e.get("/settings", cookie).Body.String()
+	for _, want := range []string{`name="keepalive" type="text"`, `dir="ltr"`, `value="25"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("keepalive field missing %q", want)
+		}
+	}
+	rec := e.post("/settings", url.Values{"keepalive": {"25-35"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("save ranged keepalive: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, err := e.reg.GetString(context.Background(), "network.client_persistent_keepalive"); err != nil || got != "25-35" {
+		t.Fatalf("stored keepalive = %q, %v", got, err)
+	}
+	if body = e.get("/settings", cookie).Body.String(); !strings.Contains(body, `value="25-35"`) {
+		t.Fatal("ranged keepalive did not render back exactly")
+	}
+
+	rec = e.post("/settings", url.Values{"keepalive": {"35-25"}}, cookie, csrf)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `value="35-25"`) {
+		t.Fatalf("invalid keepalive must redisplay exact input: %d", rec.Code)
+	}
+	if got, _ := e.reg.GetString(context.Background(), "network.client_persistent_keepalive"); got != "25-35" {
+		t.Fatalf("invalid keepalive mutated setting: %q", got)
+	}
+}
+
 func TestSettingsBackupSecretsAndGating(t *testing.T) {
 	e := newEnv(t)
 	e.seedOwner()

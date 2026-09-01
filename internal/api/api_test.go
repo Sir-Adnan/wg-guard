@@ -281,3 +281,68 @@ func TestRouteCoverageAndMuxSync(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenAPIObfuscationRangeContract(t *testing.T) {
+	var doc map[string]any
+	if err := json.Unmarshal(openapiJSON, &doc); err != nil {
+		t.Fatal(err)
+	}
+	components := doc["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	obfuscation := schemas["Obfuscation"].(map[string]any)
+	properties := obfuscation["properties"].(map[string]any)
+
+	for _, key := range []string{
+		"enabled", "jc", "jmin", "jmax", "s1", "s2", "s3", "s4",
+		"h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5",
+		"header_protection_key", "header_protection_key_set", "content_padding_addition",
+		"rekey_after_time", "rekey_timeout", "reject_after_time", "keepalive_timeout",
+		"max_handshake_attempts", "random_trailers", "disable_cookies",
+	} {
+		if _, exists := properties[key]; !exists {
+			t.Errorf("OpenAPI Obfuscation missing %q", key)
+		}
+	}
+	if _, exists := properties["advanced_security"]; exists {
+		t.Fatal("unsupported AdvancedSecurity must not be advertised")
+	}
+	assertRange := func(key string, max float64) {
+		t.Helper()
+		raw, exists := properties[key]
+		if !exists {
+			return
+		}
+		property, ok := raw.(map[string]any)
+		if !ok {
+			t.Errorf("%s property has unexpected shape: %T", key, raw)
+			return
+		}
+		oneOf, ok := property["oneOf"].([]any)
+		if !ok || len(oneOf) != 2 {
+			t.Errorf("%s must be an integer-or-string union: %v", key, property)
+			return
+		}
+		integer := oneOf[0].(map[string]any)
+		text := oneOf[1].(map[string]any)
+		if integer["type"] != "integer" || integer["minimum"] != float64(0) || integer["maximum"] != max {
+			t.Errorf("%s integer bounds wrong: %v", key, integer)
+		}
+		if text["type"] != "string" || text["pattern"] == nil {
+			t.Errorf("%s range string contract wrong: %v", key, text)
+		}
+		if property["description"] == nil || property["example"] == nil {
+			t.Errorf("%s needs description and example: %v", key, property)
+		}
+	}
+	for _, key := range []string{"h1", "h2", "h3", "h4"} {
+		assertRange(key, float64(4294967295))
+	}
+	for _, key := range []string{"content_padding_addition", "rekey_after_time", "rekey_timeout", "reject_after_time", "keepalive_timeout", "max_handshake_attempts"} {
+		assertRange(key, float64(65535))
+	}
+	hpk, hpkOK := properties["header_protection_key"].(map[string]any)
+	hpkSet, hpkSetOK := properties["header_protection_key_set"].(map[string]any)
+	if !hpkOK || !hpkSetOK || hpk["writeOnly"] != true || hpkSet["readOnly"] != true {
+		t.Fatal("HPK must be write-only with a read-only presence indicator")
+	}
+}

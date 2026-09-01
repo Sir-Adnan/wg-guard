@@ -458,6 +458,100 @@ func TestPlansAndInterfacesViaAPI(t *testing.T) {
 	}
 }
 
+func TestInterfaceObfuscationRangeContract(t *testing.T) {
+	e := newEnv(t)
+	body := `{
+		"name":"awg7",
+		"listen_port":39007,
+		"obfuscation":{
+			"enabled":true,"jc":5,"jmin":40,"jmax":70,
+			"s1":86,"s2":61,"s3":40,"s4":48,
+			"h1":100,"h2":"200-210","h3":300,"h4":"400-410",
+			"i1":"aabbccdd","i2":"","i3":"","i4":"","i5":"",
+			"header_protection_key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+			"content_padding_addition":"10-20","rekey_after_time":120,
+			"rekey_timeout":"15-25","reject_after_time":90,
+			"keepalive_timeout":"30-45","max_handshake_attempts":"4-8",
+			"random_trailers":false,"disable_cookies":false
+		}
+	}`
+	rec := e.do("POST", "/api/v1/interfaces", body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create ranged interface: %d %s", rec.Code, rec.Body.String())
+	}
+	got := decodeBody(t, rec)
+	obf, ok := got["obfuscation"].(map[string]any)
+	if !ok {
+		t.Fatalf("obfuscation response shape: %T %v", got["obfuscation"], got["obfuscation"])
+	}
+	for _, key := range []string{
+		"enabled", "jc", "jmin", "jmax", "s1", "s2", "s3", "s4",
+		"h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5",
+		"header_protection_key_set", "content_padding_addition", "rekey_after_time",
+		"rekey_timeout", "reject_after_time", "keepalive_timeout", "max_handshake_attempts",
+		"random_trailers", "disable_cookies",
+	} {
+		if _, exists := obf[key]; !exists {
+			t.Errorf("response missing obfuscation.%s: %v", key, obf)
+		}
+	}
+	if obf["h1"] != float64(100) || obf["h2"] != "200-210" ||
+		obf["content_padding_addition"] != "10-20" || obf["rekey_after_time"] != float64(120) {
+		t.Fatalf("scalar/range JSON compatibility lost: %v", obf)
+	}
+	if obf["header_protection_key_set"] != true {
+		t.Fatalf("HPK presence not reported: %v", obf)
+	}
+	for _, forbidden := range []string{
+		"H1", "ContentPaddingAddition", "HeaderProtectionKey", "header_protection_key",
+		"PrivKeyEnc", "private_key", "private_key_encrypted", "advanced_security",
+	} {
+		if _, exists := obf[forbidden]; exists {
+			t.Errorf("response exposed forbidden/non-contract field %q", forbidden)
+		}
+	}
+
+	id := got["id"].(string)
+	preserveHPK := `{"obfuscation":{"enabled":true,"jc":6,"jmin":40,"jmax":70,"s1":86,"s2":61,"s3":40,"s4":48,"h1":100,"h2":"200-210","h3":300,"h4":"400-410"}}`
+	rec = e.do("PATCH", "/api/v1/interfaces/"+id, preserveHPK)
+	if rec.Code != http.StatusOK || decodeBody(t, rec)["obfuscation"].(map[string]any)["header_protection_key_set"] != true {
+		t.Fatalf("omitted HPK must be preserved: %d %s", rec.Code, rec.Body.String())
+	}
+	clearHPK := `{"obfuscation":{"enabled":true,"jc":6,"jmin":40,"jmax":70,"s1":86,"s2":61,"s3":40,"s4":48,"h1":100,"h2":"200-210","h3":300,"h4":"400-410","header_protection_key":""}}`
+	rec = e.do("PATCH", "/api/v1/interfaces/"+id, clearHPK)
+	if rec.Code != http.StatusOK || decodeBody(t, rec)["obfuscation"].(map[string]any)["header_protection_key_set"] != false {
+		t.Fatalf("explicit empty HPK must clear it: %d %s", rec.Code, rec.Body.String())
+	}
+	badOverlap := `{"obfuscation":{"enabled":true,"jc":5,"jmin":40,"jmax":70,"s1":86,"s2":61,"h1":"100-200","h2":"150-250","h3":300,"h4":400}}`
+	rec = e.do("PATCH", "/api/v1/interfaces/"+id, badOverlap)
+	if rec.Code != http.StatusBadRequest || errCode(t, rec) != "PARAM_CONSTRAINT" {
+		t.Fatalf("overlap must be PARAM_CONSTRAINT: %d %s", rec.Code, rec.Body.String())
+	}
+	badSyntax := `{"obfuscation":{"enabled":true,"jc":5,"jmin":40,"jmax":70,"s1":86,"s2":61,"h1":"100--200","h2":250,"h3":300,"h4":400}}`
+	rec = e.do("PATCH", "/api/v1/interfaces/"+id, badSyntax)
+	if rec.Code != http.StatusBadRequest || errCode(t, rec) != "PARAM_CONSTRAINT" {
+		t.Fatalf("malformed range must be PARAM_CONSTRAINT: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestJSONRequestsRejectUnknownAndTrailingFields(t *testing.T) {
+	e := newEnv(t)
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"unknown", `{"name":"awg8","typo_port":39008}`},
+		{"trailing", `{"name":"awg8"} {"name":"awg9"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := e.do("POST", "/api/v1/interfaces", tc.body)
+			if rec.Code != http.StatusBadRequest || errCode(t, rec) != "INVALID_REQUEST" {
+				t.Fatalf("strict JSON contract: %d %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestSettingsViaAPI(t *testing.T) {
 	e := newEnv(t)
 	rec := e.do("GET", "/api/v1/settings", "")

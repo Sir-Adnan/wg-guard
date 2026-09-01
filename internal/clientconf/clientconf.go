@@ -83,8 +83,10 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 	if endpoint != "" {
 		w("Endpoint = %s\n", WithPort(endpoint, ifc.ListenPort))
 	}
-	if ka, err := r.Settings.GetInt(ctx, "network.client_keepalive_seconds"); err == nil && ka > 0 {
-		w("PersistentKeepalive = %d\n", ka)
+	if text, err := r.Settings.GetString(ctx, "network.client_persistent_keepalive"); err == nil {
+		if ka, parseErr := awgparam.ParseU16Range(text); parseErr == nil && !ka.IsZero() {
+			w("PersistentKeepalive = %s\n", ka)
+		}
 	}
 	o := ifc.Obfuscation
 	if o.Enabled {

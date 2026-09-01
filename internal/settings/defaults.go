@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 )
 
 // validHostname is the syntactic hostname check used by node.endpoint
@@ -208,8 +210,14 @@ func Defaults() []Definition {
 				}
 				return nil
 			}},
-		{Key: "network.client_keepalive_seconds", Kind: KindInt, Default: 25, Min: 0, Max: 120,
-			Category: "networking"},
+		{Key: "network.client_persistent_keepalive", Kind: KindString, Default: "25",
+			Category: "networking",
+			Validator: func(v any) error {
+				if _, err := awgparam.ParseU16Range(v.(string)); err != nil {
+					return fmt.Errorf("persistent keepalive must be 0, N, or N-M within 0-65535")
+				}
+				return nil
+			}},
 
 		// Webhook delivery (internal/webhook): exponential backoff caps here;
 		// a dead delivery is visible in the API and manually redeliverable.

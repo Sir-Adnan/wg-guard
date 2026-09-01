@@ -94,6 +94,30 @@ func TestSetRawValidation(t *testing.T) {
 	}
 }
 
+func TestClientPersistentKeepaliveRangeSetting(t *testing.T) {
+	reg, _ := newRegistry(t)
+	ctx := context.Background()
+	if got, err := reg.GetString(ctx, "network.client_persistent_keepalive"); err != nil || got != "25" {
+		t.Fatalf("default persistent keepalive = %q, %v", got, err)
+	}
+	for _, valid := range []string{"0", "25", "25-35", "65535"} {
+		if err := reg.Set(ctx, "network.client_persistent_keepalive", valid); err != nil {
+			t.Errorf("valid value %q rejected: %v", valid, err)
+		}
+	}
+	for _, invalid := range []string{"", "-1", "35-25", "25--35", "65536", " 25 ", "25.5"} {
+		if err := reg.Set(ctx, "network.client_persistent_keepalive", invalid); domain.CodeOf(err) != domain.CodeSettingInvalid {
+			t.Errorf("invalid value %q: want SETTING_INVALID, got %v", invalid, err)
+		}
+	}
+	if got, _ := reg.GetString(ctx, "network.client_persistent_keepalive"); got != "65535" {
+		t.Fatalf("invalid writes changed effective value: %q", got)
+	}
+	if _, err := reg.Get(ctx, "network.client_keepalive_seconds"); domain.CodeOf(err) != domain.CodeSettingUnknown {
+		t.Fatalf("legacy key must not remain in the runtime catalog: %v", err)
+	}
+}
+
 func TestSecretsEncryptedAtRestAndRedacted(t *testing.T) {
 	reg, db := newRegistry(t)
 	ctx := context.Background()
