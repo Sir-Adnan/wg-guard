@@ -8,6 +8,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Canonical AWG profile policies:** one injectable server-side generator now owns plain,
+  recommended, and randomized profiles for the service, REST API, and admin panel. Recommended
+  profiles keep client-risk fields off and receive unique per-profile headers; randomized
+  profiles generate relationship-safe J/S values, four non-overlapping H ranges, a coupled
+  S1–S4/header-protection-key set, and bounded timer ranges using `crypto/rand`. Property tests
+  validate 10,000 generated profiles, entropy failures never return partial values, API presets
+  are applied with documented mutual-exclusion rules, and the authenticated CSRF panel preview
+  replaces browser-side protocol randomness. Stored header-protection keys are write-only on edit.
 - **Phase 8 audit and pinned AWG contract:** reproducible Windows/WSL/CI baselines, a material
   findings ledger, exact tools/kernel/userspace source revisions, and a field-by-field capability
   matrix covering placement, range widths, backend observability, clearing, parity, and gating.

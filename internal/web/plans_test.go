@@ -172,6 +172,7 @@ func TestInterfaceObfuscationRangeForm(t *testing.T) {
 		"obf_enabled": {"1"}, "obf_jc": {"5"}, "obf_jmin": {"40"}, "obf_jmax": {"70"},
 		"obf_s1": {"86"}, "obf_s2": {"61"}, "obf_s3": {"40"}, "obf_s4": {"48"},
 		"obf_h1": {"100-110"}, "obf_h2": {"200"}, "obf_h3": {"300-310"}, "obf_h4": {"400"},
+		"obf_i1": {"<r 90>"}, "obf_i2": {"aabb"}, "obf_i3": {""}, "obf_i4": {"ccdd"}, "obf_i5": {""},
 		"obf_padding": {"10-20"}, "obf_rekey_after": {"120-180"},
 		"obf_rekey_timeout": {"15-25"}, "obf_reject_after": {"90"},
 		"obf_keepalive": {"30-45"}, "obf_max_handshake": {"4-8"},
@@ -186,7 +187,8 @@ func TestInterfaceObfuscationRangeForm(t *testing.T) {
 	}
 	if stored.Obfuscation.H1.String() != "100-110" || stored.Obfuscation.H3.String() != "300-310" ||
 		stored.Obfuscation.ContentPaddingAddition.String() != "10-20" ||
-		stored.Obfuscation.MaxHandshakeAttempts.String() != "4-8" {
+		stored.Obfuscation.MaxHandshakeAttempts.String() != "4-8" ||
+		stored.Obfuscation.I1 != "<r 90>" || stored.Obfuscation.I2 != "aabb" || stored.Obfuscation.I4 != "ccdd" {
 		t.Fatalf("form ranges not preserved: %+v", stored.Obfuscation)
 	}
 

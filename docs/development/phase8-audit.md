@@ -102,6 +102,12 @@ produce different profile shapes.
 Required correction: server-side policy generation with an injectable entropy boundary,
 relationship/property tests, and thin UI/API consumers.
 
+State 2026-09-01: verified. `iface.ProfileGenerator` is the single policy authority, generation
+uses injectable `crypto/rand` entropy and returns no partial result on failure, REST creation
+applies rather than merely stores preset names, and the authenticated/CSRF panel endpoint only
+returns server-generated form values. Static-asset regression coverage forbids browser-owned AWG
+randomness; 10,000 generated randomized profiles pass the general and policy validators.
+
 ### P8-005 — Balanced/strong presets retain fixed protocol headers
 
 Severity: high. Owner: Phase 8. Tracker: RB-002 / RB-004.
@@ -113,6 +119,11 @@ status claim that presets no longer hard-code weak values.
 
 Required correction: generated per-profile headers; recommended policy separated from the
 broader randomized/gated policy.
+
+State 2026-09-01: verified. Recommended profiles use safe fixed J/S product defaults with one
+fresh scalar header from each of four disjoint upstream-recommended bands. Randomized profiles
+use true non-overlapping H ranges and generate HPK/S1–S4/timers coherently. Unsafe flags and
+client-specific I values remain off in both generated policies.
 
 ### P8-006 — H validation does not understand interval overlap
 

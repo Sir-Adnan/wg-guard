@@ -447,6 +447,9 @@ func TestPlansAndInterfacesViaAPI(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("obfuscation patch: %d %s", rec.Code, rec.Body.String())
 	}
+	if got := decodeBody(t, rec)["preset"]; got != "custom" {
+		t.Fatalf("explicit obfuscation patch preset = %v", got)
+	}
 	// Invalid obfuscation (duplicate H) rejected with the constraint code.
 	rec = e.do("PATCH", "/api/v1/interfaces/"+ifc.ID, `{"obfuscation": {"enabled": true, "jc": 4, "jmin": 40, "jmax": 70, "s1": 15, "s2": 16, "h1": 1, "h2": 1, "h3": 3, "h4": 4}}`)
 	if rec.Code != 400 || errCode(t, rec) != "PARAM_CONSTRAINT" {
@@ -531,6 +534,59 @@ func TestInterfaceObfuscationRangeContract(t *testing.T) {
 	rec = e.do("PATCH", "/api/v1/interfaces/"+id, badSyntax)
 	if rec.Code != http.StatusBadRequest || errCode(t, rec) != "PARAM_CONSTRAINT" {
 		t.Fatalf("malformed range must be PARAM_CONSTRAINT: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestInterfaceGeneratedProfileAPI(t *testing.T) {
+	e := newEnv(t)
+
+	recommended := e.do("POST", "/api/v1/interfaces", `{"name":"awg0","listen_port":39100,"preset":"recommended"}`)
+	if recommended.Code != http.StatusCreated {
+		t.Fatalf("create recommended: %d %s", recommended.Code, recommended.Body.String())
+	}
+	recommendedBody := decodeBody(t, recommended)
+	if recommendedBody["preset"] != "recommended" {
+		t.Fatalf("recommended preset response: %v", recommendedBody)
+	}
+	recommendedObf := recommendedBody["obfuscation"].(map[string]any)
+	if recommendedObf["enabled"] != true || recommendedObf["header_protection_key_set"] != false {
+		t.Fatalf("recommended shape: %v", recommendedObf)
+	}
+	for _, key := range []string{"h1", "h2", "h3", "h4"} {
+		value, ok := recommendedObf[key].(float64)
+		if !ok || value < float64(iface.RecommendedHeaderMin) || value > float64(iface.RecommendedHeaderMax) {
+			t.Fatalf("recommended %s = %v", key, recommendedObf[key])
+		}
+	}
+
+	randomized := e.do("POST", "/api/v1/interfaces", `{"name":"awg1","listen_port":39101,"preset":"randomized"}`)
+	if randomized.Code != http.StatusCreated {
+		t.Fatalf("create randomized: %d %s", randomized.Code, randomized.Body.String())
+	}
+	randomizedBody := decodeBody(t, randomized)
+	if randomizedBody["preset"] != "randomized" {
+		t.Fatalf("randomized preset response: %v", randomizedBody)
+	}
+	randomizedObf := randomizedBody["obfuscation"].(map[string]any)
+	if randomizedObf["header_protection_key_set"] != true || randomizedObf["random_trailers"] != false || randomizedObf["disable_cookies"] != false {
+		t.Fatalf("randomized safety shape: %v", randomizedObf)
+	}
+	if _, ok := randomizedObf["h1"].(string); !ok {
+		t.Fatalf("randomized H1 must be a range string: %v", randomizedObf["h1"])
+	}
+	if _, leaked := randomizedObf["header_protection_key"]; leaked {
+		t.Fatalf("generated HPK leaked in response: %v", randomizedObf)
+	}
+
+	for _, body := range []string{
+		`{"name":"awg2","preset":"recommended","obfuscation":{"enabled":false}}`,
+		`{"name":"awg2","preset":"randomized","obfuscation":{"enabled":false}}`,
+		`{"name":"awg2","preset":"unknown"}`,
+	} {
+		rec := e.do("POST", "/api/v1/interfaces", body)
+		if rec.Code != http.StatusBadRequest || errCode(t, rec) != "PARAM_CONSTRAINT" {
+			t.Errorf("profile conflict %s: %d %s", body, rec.Code, rec.Body.String())
+		}
 	}
 }
 

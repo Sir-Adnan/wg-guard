@@ -388,89 +388,88 @@
     toast(msg || (e.detail?.headers && e.detail.headers["X-WG-Error"]) || "Error", "err");
   });
 
-  /* obfuscation section: disable its inputs while the toggle is off */
+  /* Obfuscation profiles are generated and validated on the server. The
+   * browser only requests a policy and populates the returned form values. */
   const obfToggle = $("[data-obf-toggle]");
   if (obfToggle) {
     const obfBox = obfToggle.closest(".collapse-body");
+    const profilePolicy = $("[data-profile-policy]");
+    let applyingProfile = false;
+    let generatingProfile = false;
     const sync = () => {
       obfBox?.querySelectorAll("input:not([data-obf-toggle])").forEach((inp) => {
         inp.disabled = !obfToggle.checked;
       });
-      // Recommended defaults on first enable (the "balanced" preset values);
-      // magic headers / S3/S4 / HPK stay empty until randomized or typed.
-      if (obfToggle.checked && !obfBox.dataset.defaultsApplied) {
-        obfBox.dataset.defaultsApplied = "1";
-        const defaults = {
-          "obf_jc": 4, "obf_jmin": 40, "obf_jmax": 70, "obf_s1": 15, "obf_s2": 64,
-          "obf_padding": "10-100",
-        };
-        for (const [name, val] of Object.entries(defaults)) {
-          const inp = obfBox.querySelector('input[name="' + name + '"]');
-          if (inp && inp.value === "") inp.value = val;
+    };
+
+    const generate = async (policy, source) => {
+      if (generatingProfile) return;
+      const csrf = $('meta[name="csrf-token"]')?.content;
+      if (!csrf) {
+        toast(source?.dataset.generationError || "Error", "err");
+        return;
+      }
+      generatingProfile = true;
+      const buttons = $$('[data-generate-obf]', obfBox);
+      buttons.forEach((button) => { button.disabled = true; });
+      try {
+        const response = await fetch("/interfaces/profile-preview", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRF-Token": csrf,
+          },
+          body: new URLSearchParams({ policy }),
+        });
+        if (!response.ok) throw new Error("profile generation failed");
+        const payload = await response.json();
+        if (!payload?.fields || payload.policy !== policy) throw new Error("invalid profile response");
+
+        applyingProfile = true;
+        obfToggle.checked = true;
+        sync();
+        for (const [name, value] of Object.entries(payload.fields)) {
+          const input = obfBox.querySelector('input[name="' + name + '"]');
+          if (!input) continue;
+          if (input.type === "checkbox") input.checked = value === "1";
+          else input.value = value;
         }
+        if (profilePolicy) profilePolicy.value = payload.policy;
+      } catch {
+        toast(source?.dataset.generationError || "Error", "err");
+      } finally {
+        applyingProfile = false;
+        generatingProfile = false;
+        buttons.forEach((button) => { button.disabled = false; });
       }
     };
-    sync();
-    obfToggle.addEventListener("change", sync);
-  }
 
-  /* randomize ALL supported AmneziaWG parameters: magic headers (distinct
-   * non-zero u32), S3/S4, header-protection key (crypto.getRandomValues —
-   * base64 32 bytes), padding and timer ranges. Flag checkboxes are left to
-   * the operator (RandomTrailers defaults off upstream). */
-  function randInt(min, max) {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    return min + (buf[0] % (max - min + 1));
-  }
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-randomize-obf]");
-    if (!btn) return;
-    e.preventDefault();
-    const box = $(btn.dataset.randomizeObf);
-    if (!box) return;
-    const val = (name, v) => {
-      const inp = box.querySelector('input[name="' + name + '"]');
-      if (inp && !inp.disabled) inp.value = v;
-    };
-    const rnd = (name, min, max) => val(name, String(randInt(min, max)));
-    // junk packets
-    rnd("obf_jc", 3, 9);
-    rnd("obf_jmin", 20, 60);
-    val("obf_jmax", String(randInt(80, 200)));
-    // init packets: keep S1 + 56 away from S2
-    rnd("obf_s1", 10, 140);
-    let s2 = randInt(60, 220);
-    if (s2 === (parseInt(box.querySelector('input[name="obf_s1"]')?.value, 10) || 0) + 56) s2 += 7;
-    val("obf_s2", String(s2));
-    rnd("obf_s3", 8, 64);
-    rnd("obf_s4", 8, 16);
-    // magic headers: pairwise distinct non-zero u32
-    const hs = ["obf_h1", "obf_h2", "obf_h3", "obf_h4"].map((n) =>
-      box.querySelector('input[name="' + n + '"]')).filter(Boolean);
-    const used = new Set();
-    hs.forEach((inp) => {
-      if (inp.disabled) return;
-      let v;
-      do { v = randInt(1, 4294967295); } while (used.has(v));
-      used.add(v);
-      inp.value = String(v);
+    sync();
+    obfToggle.addEventListener("change", () => {
+      sync();
+      if (applyingProfile) return;
+      if (!obfToggle.checked) {
+        if (profilePolicy) profilePolicy.value = "plain";
+        return;
+      }
+      if (profilePolicy) profilePolicy.value = "custom";
+      const recommended = obfBox.querySelector('[data-generate-obf="recommended"]');
+      generate("recommended", recommended);
     });
-    // header protection key: 32 random bytes, base64 (requires S3/S4 — set above)
-    const hpk = box.querySelector('input[name="obf_hpk"]');
-    if (hpk && !hpk.disabled) {
-      const raw = new Uint8Array(32);
-      crypto.getRandomValues(raw);
-      hpk.value = btoa(String.fromCharCode.apply(null, raw));
-    }
-    // padding + timer ranges (upstream-verified N-M format)
-    val("obf_padding", randInt(10, 30) + "-" + randInt(40, 60));
-    val("obf_rekey_after", randInt(100, 110) + "-" + randInt(111, 125));
-    val("obf_rekey_timeout", randInt(3, 4) + "-" + randInt(5, 7));
-    val("obf_reject_after", randInt(150, 165) + "-" + randInt(166, 185));
-    val("obf_keepalive", randInt(5, 10) + "-" + randInt(11, 15));
-    val("obf_max_handshake", randInt(15, 18) + "-" + randInt(19, 25));
-  });
+
+    const markCustom = (event) => {
+      if (applyingProfile || event.target === obfToggle || !obfToggle.checked) return;
+      if (profilePolicy) profilePolicy.value = "custom";
+    };
+    obfBox.addEventListener("input", markCustom);
+    obfBox.addEventListener("change", markCustom);
+    obfBox.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-generate-obf]");
+      if (!button) return;
+      event.preventDefault();
+      generate(button.dataset.generateObf, button);
+    });
+  }
 
   /* ---------- preset chips (quota / duration quick fill) ---------- */
 

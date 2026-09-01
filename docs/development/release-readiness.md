@@ -48,7 +48,7 @@ implementation does not cross the active phase boundary.
 | ID | Blocker | Owner | State | Evidence required to close |
 |---|---|---|---|---|
 | RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | open | Automated decode equality + browser/mobile scan evidence |
-| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | in progress | Typed API/settings/runtime paths are implemented; canonical delivery and real default/randomized tunnel traffic remain |
+| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | in progress | Typed API/settings/runtime paths and canonical server profile policies are implemented; canonical config delivery and real default/randomized tunnel traffic remain |
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | in progress | Storage/apply/dump/drift/API/forms are lossless and unit tested; backup/QR/VPS equality remains |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | in progress | Source/runtime/client capability matrix is frozen; close after real-client profile evidence confirms the supported subset |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
@@ -70,12 +70,12 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-001 | critical | QR raster path has no decode/content-equivalence test; current regression can pass an unusable image | Phase 8 | open |
 | AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | in progress |
 | AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
-| AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | open |
+| AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
 | AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | planned |
 | AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | planned |
 | AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | planned |
 | AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
-| AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | open |
+| AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |
 | AUD-010 | high | Interface form numeric parse errors can silently become valid zero values | Phase 8 | verified |
 | AUD-011 | medium | API JSON decoding accepts unknown fields and trailing values, hiding configuration typos | Phase 8 | verified |
 | AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 11 | planned |

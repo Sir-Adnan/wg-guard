@@ -346,3 +346,30 @@ func TestOpenAPIObfuscationRangeContract(t *testing.T) {
 		t.Fatal("HPK must be write-only with a read-only presence indicator")
 	}
 }
+
+func TestOpenAPIProfilePolicyContract(t *testing.T) {
+	var doc map[string]any
+	if err := json.Unmarshal(openapiJSON, &doc); err != nil {
+		t.Fatal(err)
+	}
+	paths := doc["paths"].(map[string]any)
+	create := paths["/api/v1/interfaces"].(map[string]any)["post"].(map[string]any)
+	requestBody := create["requestBody"].(map[string]any)
+	content := requestBody["content"].(map[string]any)
+	schema := content["application/json"].(map[string]any)["schema"].(map[string]any)
+	preset := schema["properties"].(map[string]any)["preset"].(map[string]any)
+	enum, ok := preset["enum"].([]any)
+	if !ok || len(enum) != 3 || enum[0] != "plain" || enum[1] != "recommended" || enum[2] != "randomized" {
+		t.Fatalf("profile policy enum = %v", preset)
+	}
+	if preset["description"] == nil {
+		t.Fatalf("profile policy conflict behavior is undocumented: %v", preset)
+	}
+	components := doc["components"].(map[string]any)
+	interfaceSchema := components["schemas"].(map[string]any)["Interface"].(map[string]any)
+	responsePreset := interfaceSchema["properties"].(map[string]any)["preset"].(map[string]any)
+	responseEnum, ok := responsePreset["enum"].([]any)
+	if !ok || len(responseEnum) != 4 || responseEnum[3] != "custom" {
+		t.Fatalf("persisted profile classification enum = %v", responsePreset)
+	}
+}

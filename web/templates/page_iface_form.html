@@ -10,6 +10,7 @@
 
 <form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="card card--pad form-card" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <input type="hidden" name="profile_policy" value="{{if .Data.I}}{{.Data.I.Preset}}{{else}}plain{{end}}" data-profile-policy>
 
   <fieldset class="form-section">
     <legend>{{.T "ifaces.form.section_profile"}}</legend>
@@ -68,7 +69,8 @@
       {{if and .Data.I .Data.I.Obfuscation.Enabled}}{{$obfOn = true}}{{end}}
 
       <div class="inline-actions">
-        <button type="button" class="btn btn--sm" data-randomize-obf="#obf-fields">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize"}}</span></button>
+        <button type="button" class="btn btn--sm" data-generate-obf="recommended" data-generation-error="{{.T "ifaces.obf.generation_error"}}">{{.IconS "shield"}}<span>{{.T "ifaces.obf.fill_defaults"}}</span></button>
+        <button type="button" class="btn btn--sm" data-generate-obf="randomized" data-generation-error="{{.T "ifaces.obf.generation_error"}}">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize"}}</span></button>
         <span class="hint">{{.T "ifaces.obf.randomize_all_hint"}}</span>
       </div>
 
@@ -160,8 +162,14 @@
           <div class="field">
             <label for="i-obf-hpk">{{.T "ifaces.obf.hpk"}}</label>
             <input class="input" id="i-obf-hpk" name="obf_hpk" dir="ltr" spellcheck="false" maxlength="44"
-                   value="{{if $obfOn}}{{.Data.I.Obfuscation.HeaderProtectionKey}}{{end}}">
+                   value="" autocomplete="off">
             <span class="hint">{{.T "ifaces.obf.hpk_hint"}}</span>
+            {{if and .Data.I .Data.I.Obfuscation.HeaderProtectionKey}}
+            <label class="check-label" for="i-obf-hpk-clear">
+              <input class="checkbox" id="i-obf-hpk-clear" type="checkbox" name="obf_hpk_clear" value="1">
+              <span>{{.T "ifaces.obf.hpk_clear"}}</span>
+            </label>
+            {{end}}
           </div>
           <div class="field">
             <label for="i-obf-padding">{{.T "ifaces.obf.padding"}}</label>

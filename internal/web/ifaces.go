@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -59,10 +60,92 @@ func (s *Server) handleIfaceEditPage(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "iface_form", "app", ifaceFormData{I: i})
 }
 
+func (s *Server) handleProfilePreview(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	policy := iface.ProfilePolicy(strings.TrimSpace(r.PostFormValue("policy")))
+	if policy != iface.ProfileRecommended && policy != iface.ProfileRandomized {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_profile_policy"})
+		return
+	}
+	if s.ProfileGenerator == nil {
+		s.logError(r, "profile preview generator unavailable", nil)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "profile_generation_failed"})
+		return
+	}
+	profile, err := s.ProfileGenerator(policy)
+	if err != nil {
+		s.logError(r, "profile preview generation", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "profile_generation_failed"})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(profilePreviewResponse{
+		Policy: string(policy),
+		Fields: profileFormFields(profile),
+	})
+}
+
+type profilePreviewResponse struct {
+	Policy string            `json:"policy"`
+	Fields map[string]string `json:"fields"`
+}
+
+func profileFormFields(profile iface.Obfuscation) map[string]string {
+	integer := func(value int) string {
+		if value == 0 {
+			return ""
+		}
+		return strconv.Itoa(value)
+	}
+	u16Range := func(value awgparam.U16Range) string {
+		if value.IsZero() {
+			return ""
+		}
+		return value.String()
+	}
+	checked := func(value bool) string {
+		if value {
+			return "1"
+		}
+		return ""
+	}
+	return map[string]string{
+		"obf_enabled":         checked(profile.Enabled),
+		"obf_jc":              integer(profile.Jc),
+		"obf_jmin":            integer(profile.Jmin),
+		"obf_jmax":            integer(profile.Jmax),
+		"obf_s1":              integer(profile.S1),
+		"obf_s2":              integer(profile.S2),
+		"obf_s3":              integer(profile.S3),
+		"obf_s4":              integer(profile.S4),
+		"obf_h1":              profile.H1.String(),
+		"obf_h2":              profile.H2.String(),
+		"obf_h3":              profile.H3.String(),
+		"obf_h4":              profile.H4.String(),
+		"obf_i1":              profile.I1,
+		"obf_i2":              profile.I2,
+		"obf_i3":              profile.I3,
+		"obf_i4":              profile.I4,
+		"obf_i5":              profile.I5,
+		"obf_hpk":             profile.HeaderProtectionKey,
+		"obf_padding":         u16Range(profile.ContentPaddingAddition),
+		"obf_rekey_after":     u16Range(profile.RekeyAfterTime),
+		"obf_rekey_timeout":   u16Range(profile.RekeyTimeout),
+		"obf_reject_after":    u16Range(profile.RejectAfterTime),
+		"obf_keepalive":       u16Range(profile.KeepaliveTimeout),
+		"obf_max_handshake":   u16Range(profile.MaxHandshakeAttempts),
+		"obf_random_trailers": checked(profile.RandomTrailers),
+		"obf_disable_cookies": checked(profile.DisableCookies),
+	}
+}
+
 // obfuscationFromForm parses the obfuscation section without coercing invalid
 // values to zero. Empty fields map to zero so the enabled toggle stays clean;
 // relationship validation remains in the interface service.
-func obfuscationFromForm(r *http.Request) (iface.Obfuscation, error) {
+func obfuscationFromForm(r *http.Request, existing *iface.Obfuscation) (iface.Obfuscation, error) {
 	o := iface.Obfuscation{Enabled: r.PostFormValue("obf_enabled") == "1"}
 	atoi := func(key string) (int, error) {
 		text := strings.TrimSpace(r.PostFormValue(key))
@@ -102,8 +185,23 @@ func obfuscationFromForm(r *http.Request) (iface.Obfuscation, error) {
 			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u32 bounds", field.key)
 		}
 	}
-	// Explicit advanced 2.0/3.x parameters (amneziawg.md).
-	o.HeaderProtectionKey = trim("obf_hpk")
+	for _, field := range []struct {
+		key string
+		dst *string
+	}{
+		{"obf_i1", &o.I1}, {"obf_i2", &o.I2}, {"obf_i3", &o.I3},
+		{"obf_i4", &o.I4}, {"obf_i5", &o.I5},
+	} {
+		*field.dst = trim(field.key)
+	}
+	// HeaderProtectionKey is write-only in rendered edit pages. An empty field
+	// preserves the stored key; the explicit clear checkbox removes it.
+	if o.Enabled {
+		o.HeaderProtectionKey = trim("obf_hpk")
+		if o.HeaderProtectionKey == "" && existing != nil && r.PostFormValue("obf_hpk_clear") != "1" {
+			o.HeaderProtectionKey = existing.HeaderProtectionKey
+		}
+	}
 	for _, field := range []struct {
 		key string
 		dst *awgparam.U16Range
@@ -139,7 +237,12 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	obfuscation, err := obfuscationFromForm(r)
+	obfuscation, err := obfuscationFromForm(r, nil)
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	policy, generated, err := generatedPolicyFromForm(r)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
@@ -150,6 +253,8 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 		Subnet:           strings.TrimSpace(r.PostFormValue("subnet")),
 		MTU:              mtu,
 		Obfuscation:      obfuscation,
+		Preset:           policy,
+		GeneratedProfile: generated,
 		BackendMode:      domain.BackendKernel,
 		EndpointOverride: strings.TrimSpace(r.PostFormValue("endpoint_override")),
 	}
@@ -165,13 +270,27 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	obfuscation, err := obfuscationFromForm(r)
+	prev, err := s.Ifaces.Get(r.Context(), id)
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	obfuscation, err := obfuscationFromForm(r, &prev.Obfuscation)
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	policy, generated, err := generatedPolicyFromForm(r)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
 	in := iface.UpdateInput{
-		Obfuscation: ptrOf(obfuscation),
+		Obfuscation:      ptrOf(obfuscation),
+		GeneratedProfile: generated,
+	}
+	if generated {
+		in.Preset = &policy
 	}
 	if v := r.PostFormValue("mtu"); v != "" {
 		mtu, err := optionalFormInt(r, "mtu")
@@ -192,11 +311,6 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	// Rotation awareness: changing the obfuscation profile recreates the
 	// tunnel (setconf cannot switch modes in place) and every client config
 	// with the old parameters must be re-exported. The toast says so.
-	prev, err := s.Ifaces.Get(r.Context(), id)
-	if err != nil {
-		s.actionFailed(w, r, err)
-		return
-	}
 	i, err := s.Ifaces.Update(r.Context(), id, in)
 	if err != nil {
 		s.actionFailed(w, r, err)
@@ -209,6 +323,19 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.redirectToast(w, r, "/interfaces", "ifaces.toast.updated")
+}
+
+func generatedPolicyFromForm(r *http.Request) (string, bool, error) {
+	policy := strings.TrimSpace(r.PostFormValue("profile_policy"))
+	switch iface.ProfilePolicy(policy) {
+	case iface.ProfileRecommended, iface.ProfileRandomized:
+		return policy, true, nil
+	default:
+		// Empty/plain/custom and legacy labels are inferred from the submitted
+		// values. This keeps pre-Phase-8 rows editable while only current
+		// server-generated policies receive the trusted classification path.
+		return "", false, nil
+	}
 }
 
 func optionalFormInt(r *http.Request, key string) (int, error) {

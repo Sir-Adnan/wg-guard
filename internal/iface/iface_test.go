@@ -13,7 +13,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 )
 
-func newService(t *testing.T) *Service {
+func newService(t *testing.T, options ...ServiceOption) *Service {
 	t.Helper()
 	db, err := database.Open(filepath.Join(t.TempDir(), "i.db"), database.Options{})
 	if err != nil {
@@ -31,7 +31,7 @@ func newService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewService(db, reg, ring)
+	return NewService(db, reg, ring, options...)
 }
 
 func mustU32Range(t *testing.T, text string) awgparam.U32Range {
@@ -135,7 +135,7 @@ func balancedObfuscation() Obfuscation {
 func TestCreateDefaults(t *testing.T) {
 	svc := newService(t)
 	ctx := context.Background()
-	ifc, err := svc.Create(ctx, CreateInput{Name: "awg0", Obfuscation: balancedObfuscation(), Preset: "balanced"})
+	ifc, err := svc.Create(ctx, CreateInput{Name: "awg0", Obfuscation: balancedObfuscation(), Preset: "custom"})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -162,6 +162,120 @@ func TestCreateDefaults(t *testing.T) {
 	}
 	if got.Obfuscation.I1 != "" {
 		t.Fatalf("I1 should be unset: %q", got.Obfuscation.I1)
+	}
+}
+
+func TestCreateGeneratedProfilePolicies(t *testing.T) {
+	svc := newService(t, WithProfileEntropy(deterministicProfileEntropy()))
+	ctx := context.Background()
+
+	recommended, err := svc.Create(ctx, CreateInput{Name: "awg0", Preset: string(ProfileRecommended)})
+	if err != nil {
+		t.Fatalf("create recommended: %v", err)
+	}
+	if recommended.Preset != string(ProfileRecommended) {
+		t.Fatalf("recommended preset = %q", recommended.Preset)
+	}
+	if err := ValidateGeneratedProfile(ProfileRecommended, recommended.Obfuscation); err != nil {
+		t.Fatalf("recommended profile: %v", err)
+	}
+
+	randomized, err := svc.Create(ctx, CreateInput{Name: "awg1", Preset: string(ProfileRandomized)})
+	if err != nil {
+		t.Fatalf("create randomized: %v", err)
+	}
+	if randomized.Preset != string(ProfileRandomized) {
+		t.Fatalf("randomized preset = %q", randomized.Preset)
+	}
+	if err := ValidateGeneratedProfile(ProfileRandomized, randomized.Obfuscation); err != nil {
+		t.Fatalf("randomized profile: %v", err)
+	}
+
+	plain, err := svc.Create(ctx, CreateInput{Name: "awg2"})
+	if err != nil {
+		t.Fatalf("create plain: %v", err)
+	}
+	if plain.Preset != string(ProfilePlain) || plain.Obfuscation != (Obfuscation{}) {
+		t.Fatalf("implicit plain profile = %q %+v", plain.Preset, plain.Obfuscation)
+	}
+
+	custom, err := svc.Create(ctx, CreateInput{Name: "awg3", Obfuscation: balancedObfuscation()})
+	if err != nil {
+		t.Fatalf("create custom: %v", err)
+	}
+	if custom.Preset != string(ProfileCustom) {
+		t.Fatalf("implicit custom preset = %q", custom.Preset)
+	}
+}
+
+func TestCreateProfilePolicyRejectsConflictsAndEntropyFailure(t *testing.T) {
+	ctx := context.Background()
+	svc := newService(t, WithProfileEntropy(errorReader{}))
+	cases := []CreateInput{
+		{Name: "awg0", Preset: string(ProfileRecommended), Obfuscation: balancedObfuscation()},
+		{Name: "awg0", Preset: string(ProfileRandomized), Obfuscation: balancedObfuscation()},
+		{Name: "awg0", Preset: string(ProfilePlain), Obfuscation: balancedObfuscation()},
+		{Name: "awg0", Preset: "legacy-balanced"},
+	}
+	for _, input := range cases {
+		if _, err := svc.Create(ctx, input); domain.CodeOf(err) != domain.CodeParamConstraint {
+			t.Errorf("preset %q conflict: want PARAM_CONSTRAINT, got %v", input.Preset, err)
+		}
+	}
+	if _, err := svc.Create(ctx, CreateInput{Name: "awg0", Preset: string(ProfileRecommended)}); err == nil {
+		t.Fatal("recommended generation accepted failed entropy")
+	}
+	var count int
+	if err := svc.db.QueryRow(`SELECT COUNT(*) FROM tunnel_interfaces`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("failed profile generation persisted %d interfaces", count)
+	}
+}
+
+func TestUpdateProfileClassification(t *testing.T) {
+	svc := newService(t, WithProfileEntropy(deterministicProfileEntropy()))
+	ctx := context.Background()
+	created, err := svc.Create(ctx, CreateInput{Name: "awg0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	custom := balancedObfuscation()
+	updated, err := svc.Update(ctx, created.ID, UpdateInput{Obfuscation: &custom})
+	if err != nil {
+		t.Fatalf("update custom: %v", err)
+	}
+	if updated.Preset != string(ProfileCustom) {
+		t.Fatalf("custom update preset = %q", updated.Preset)
+	}
+
+	plain := Obfuscation{}
+	updated, err = svc.Update(ctx, created.ID, UpdateInput{Obfuscation: &plain})
+	if err != nil {
+		t.Fatalf("update plain: %v", err)
+	}
+	if updated.Preset != string(ProfilePlain) {
+		t.Fatalf("plain update preset = %q", updated.Preset)
+	}
+
+	recommended, err := svc.GenerateProfile(ProfileRecommended)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := string(ProfileRecommended)
+	updated, err = svc.Update(ctx, created.ID, UpdateInput{
+		Obfuscation: &recommended, Preset: &policy, GeneratedProfile: true,
+	})
+	if err != nil {
+		t.Fatalf("update trusted recommended: %v", err)
+	}
+	if updated.Preset != policy {
+		t.Fatalf("trusted update preset = %q", updated.Preset)
+	}
+	if _, err := svc.Update(ctx, created.ID, UpdateInput{Obfuscation: &recommended, Preset: &policy}); domain.CodeOf(err) != domain.CodeParamConstraint {
+		t.Fatalf("untrusted recommended classification accepted: %v", err)
 	}
 }
 
@@ -339,12 +453,12 @@ func TestDeleteProtectionAndLifecycle(t *testing.T) {
 
 func TestPresets(t *testing.T) {
 	for _, p := range Presets() {
-		if err := ValidateObfuscation(p.Obfuscation); err != nil {
-			t.Errorf("preset %s violates constraints: %v", p.Name, err)
+		if _, err := NewProfileGenerator(deterministicProfileEntropy()).Generate(p.Name); err != nil {
+			t.Errorf("preset %s cannot be generated: %v", p.Name, err)
 		}
 	}
-	if p, ok := PresetByName("balanced"); !ok || p.Obfuscation.Jc != 4 {
-		t.Fatal("balanced preset not found or wrong")
+	if p, ok := PresetByName(ProfileRecommended); !ok || p.Name != ProfileRecommended {
+		t.Fatal("recommended preset not found or wrong")
 	}
 	if _, ok := PresetByName("turbo"); ok {
 		t.Fatal("unknown preset found")
@@ -422,31 +536,5 @@ func TestValidateObfuscationGated(t *testing.T) {
 		if !tc.wantErr && err != nil {
 			t.Errorf("%s: %v", tc.name, err)
 		}
-	}
-}
-
-func TestRandomizeHeaders(t *testing.T) {
-	// Zero headers get filled with distinct non-zero values.
-	o := Obfuscation{Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, H1: awgparam.ScalarU32(5)}
-	randomizeHeaders(&o)
-	hs := [4]awgparam.U32Range{o.H1, o.H2, o.H3, o.H4}
-	seen := map[awgparam.U32Range]bool{}
-	for i, h := range hs {
-		if h.IsZero() {
-			t.Fatalf("H%d not randomized", i+1)
-		}
-		if seen[h] {
-			t.Fatalf("duplicate header value %s", h)
-		}
-		seen[h] = true
-	}
-	if o.H1 != awgparam.ScalarU32(5) {
-		t.Fatalf("pre-set header H1 overwritten: %s", o.H1)
-	}
-	// Disabled profiles are untouched.
-	p := Obfuscation{}
-	randomizeHeaders(&p)
-	if p != (Obfuscation{}) {
-		t.Fatal("plain profile mutated")
 	}
 }

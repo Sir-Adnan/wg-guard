@@ -1,56 +1,35 @@
 package iface
 
-import "github.com/Sir-Adnan/wg-guard/internal/awgparam"
-
-// Presets are named obfuscation parameter sets applied at profile creation.
-// Every value is a *recommended default* (configurable per profile after
-// creation); they are starting points chosen from the AmneziaWG community's
-// commonly used ranges, not verified optima — Phase 8 verifies config/client
-// correctness and Phase 11 certifies production guidance (docs/product/requirements.md).
+// Presets are the product-visible generation policies. Values are generated
+// by ProfileGenerator; this metadata intentionally contains no reusable magic
+// headers or browser-owned randomness.
 
 // Preset is a named starting point for a profile's obfuscation parameters.
 type Preset struct {
-	Name        string
-	Obfuscation Obfuscation
+	Name        ProfilePolicy
 	Description string
 }
 
-// Presets available in installer/panel pickers. "plain" produces a stock
-// WireGuard-compatible configuration (all params omitted upstream).
+// Presets returns the policies available in API/panel pickers.
 func Presets() []Preset {
 	return []Preset{
 		{
-			Name:        "plain",
+			Name:        ProfilePlain,
 			Description: "No obfuscation — stock WireGuard clients connect",
-			Obfuscation: Obfuscation{Enabled: false},
 		},
 		{
-			Name:        "balanced",
-			Description: "Recommended default obfuscation for most ISPs",
-			Obfuscation: Obfuscation{
-				Enabled: true,
-				Jc:      4, Jmin: 40, Jmax: 70,
-				S1: 15, S2: 64,
-				H1: awgparam.ScalarU32(1), H2: awgparam.ScalarU32(2),
-				H3: awgparam.ScalarU32(3), H4: awgparam.ScalarU32(4),
-			},
+			Name:        ProfileRecommended,
+			Description: "Safe product defaults with unique per-profile headers",
 		},
 		{
-			Name:        "strong",
-			Description: "Heavier junk traffic and distinct client ports",
-			Obfuscation: Obfuscation{
-				Enabled: true,
-				Jc:      12, Jmin: 50, Jmax: 1000,
-				S1: 100, S2: 200,
-				H1: awgparam.ScalarU32(1234567), H2: awgparam.ScalarU32(7654321),
-				H3: awgparam.ScalarU32(11223344), H4: awgparam.ScalarU32(55667788),
-			},
+			Name:        ProfileRandomized,
+			Description: "Relationship-aware generated ranges and header protection",
 		},
 	}
 }
 
 // PresetByName returns the named preset (ok=false when unknown).
-func PresetByName(name string) (Preset, bool) {
+func PresetByName(name ProfilePolicy) (Preset, bool) {
 	for _, p := range Presets() {
 		if p.Name == name {
 			return p, true

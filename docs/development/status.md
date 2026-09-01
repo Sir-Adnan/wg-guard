@@ -344,9 +344,13 @@ Honest notes within Phase 7 scope:
 Approved and active. The baseline audit and exact pinned-source contract are documented. The
 lossless scalar/range primitives, migration 0007, repository/tunnel/dump/reconcile path, strict
 bilingual forms, range-aware keepalive setting, explicit REST DTOs, and OpenAPI parity are
-implemented and unit tested. `AdvancedSecurity` remains unsupported. Backup/restore, canonical
-profile/config delivery, QR decoding, and real VPS/client traffic evidence are not yet complete,
-so the Phase 8 release blockers remain open/in progress.
+implemented and unit tested. A single injectable server generator now owns recommended and
+randomized policies; profile relationships have a 10,000-case property test, REST preset names
+apply the policy, and the authenticated CSRF panel flow only populates server-generated values.
+Fixed headers and browser-side protocol generation are removed, unsafe/client-specific options
+stay off, and stored HPKs are not rendered into edit HTML. `AdvancedSecurity` remains
+unsupported. Backup/restore, canonical config delivery, QR decoding, and real VPS/client traffic
+evidence are not yet complete, so the Phase 8 release blockers remain open/in progress.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 

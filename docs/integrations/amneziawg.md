@@ -144,6 +144,31 @@ parity statement, while the pinned userspace README identifies J/I, timing, keep
 padding as side-local controls. WG-Guard follows the field-specific pinned userspace guidance and
 requires exact parity only for packet compatibility values (`S1`–`S4`, `H1`–`H4`, and HPK).
 
+## Generated profile policies
+
+WG-Guard has one server-side generator for service, REST, and panel flows. These are product
+policies inside the verified upstream constraints, not claims that one parameter set is optimal
+on every network. Real compatible-client traffic remains the Phase 8 promotion gate.
+
+- **Plain:** no AWG parameters.
+- **Recommended:** `Jc=4`, `Jmin=40`, `Jmax=70`, `S1=15`, and `S2=64`. H1–H4 are fresh scalars,
+  one drawn from each of four disjoint bands covering `5..2147483647`; they are therefore
+  non-zero, distinct, non-overlapping, and not a shared installation fingerprint. S3/S4, HPK,
+  I1–I5, timers/padding, RandomTrailers, and DisableCookies remain unset/off.
+- **Randomized:** `Jc=4..12`, `Jmin=20..60`, `Jmax=80..240`; S1/S2 are `12..256` with
+  `S1+56 != S2`; S3/S4 are `12..64` and accompany a fresh 32-byte HPK. H1–H4 are true ranges,
+  each constructed inside its own disjoint header band with a positive span no larger than
+  100,000,000. Padding/timer intervals are generated within the bounded policy validated in
+  `internal/iface/profile.go`, with RejectAfterTime starting after RekeyAfterTime. I1–I5,
+  RandomTrailers, and DisableCookies remain unset/off because they are client-specific or unsafe.
+
+All selections use `crypto/rand` with unbiased bounded sampling; dependent values are constructed
+together and the completed profile must pass both the general runtime validator and the narrower
+policy validator. Entropy failure returns no partial profile. The browser never generates protocol
+values: its authenticated, CSRF-protected, `no-store` preview request only populates values returned
+by the canonical generator. REST creation rejects `preset` plus explicit `obfuscation`. Stored HPKs
+are never returned by REST or embedded into edit-page HTML.
+
 ## setconf semantics for obfuscation params (verified Phase 2, WSL2)
 
 Two facts verified against the pinned userspace daemon (2026-08-29, exercised by the

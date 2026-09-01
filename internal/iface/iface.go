@@ -8,12 +8,11 @@ package iface
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"regexp"
 	"strconv"
@@ -148,41 +147,6 @@ func ValidateObfuscation(o Obfuscation) error {
 	return nil
 }
 
-// randomizeHeaders fills unset H1-H4 with crypto/rand values - pairwise
-// distinct and non-zero (the runtime rejects duplicates/zero at setconf).
-// Strong magic headers are per-profile secrets; the shipped presets no longer
-// hardcode them. Set headers are left untouched.
-func randomizeHeaders(o *Obfuscation) {
-	if !o.Enabled {
-		return
-	}
-	hs := [4]*awgparam.U32Range{&o.H1, &o.H2, &o.H3, &o.H4}
-	used := map[awgparam.U32Range]bool{}
-	for _, h := range hs {
-		if !h.IsZero() {
-			used[*h] = true
-		}
-	}
-	for _, h := range hs {
-		if !h.IsZero() {
-			continue
-		}
-		var b [4]byte
-		for {
-			if _, err := rand.Read(b[:]); err != nil {
-				return // keep any remaining zeros; Create validates the result
-			}
-			v := binary.LittleEndian.Uint32(b[:]) & 0x7fffffff
-			candidate := awgparam.ScalarU32(v)
-			if v >= 5 && !used[candidate] {
-				*h = candidate
-				used[candidate] = true
-				break
-			}
-		}
-	}
-}
-
 // ValidatePortRange enforces the registry-driven random allocation window.
 func ValidatePortRange(min, max int) error {
 	if min < 1024 || min > 65535 || max < 1024 || max > 65535 {
@@ -197,24 +161,51 @@ func ValidatePortRange(min, max int) error {
 // Service wires the interface service to its dependencies. The key ring
 // encrypts the interface private key at rest (never stored plaintext).
 type Service struct {
-	db   *database.DB
-	reg  *settings.Registry
-	ring *secrets.KeyRing
-	now  func() time.Time
+	db       *database.DB
+	reg      *settings.Registry
+	ring     *secrets.KeyRing
+	profiles *ProfileGenerator
+	now      func() time.Time
 }
 
-func NewService(db *database.DB, reg *settings.Registry, ring *secrets.KeyRing) *Service {
-	return &Service{db: db, reg: reg, ring: ring, now: time.Now}
+// ServiceOption configures an interface service dependency.
+type ServiceOption func(*Service)
+
+// WithProfileEntropy replaces the profile generator's entropy source. It is
+// intended for deterministic and failure-path tests; production uses
+// crypto/rand.Reader through NewProfileGenerator.
+func WithProfileEntropy(entropy io.Reader) ServiceOption {
+	return func(service *Service) {
+		service.profiles = NewProfileGenerator(entropy)
+	}
+}
+
+func NewService(db *database.DB, reg *settings.Registry, ring *secrets.KeyRing, options ...ServiceOption) *Service {
+	service := &Service{db: db, reg: reg, ring: ring, profiles: NewProfileGenerator(nil), now: time.Now}
+	for _, option := range options {
+		option(service)
+	}
+	return service
+}
+
+// GenerateProfile exposes the same centralized policy used during Create for
+// authenticated preview surfaces. The returned profile is not persisted.
+func (s *Service) GenerateProfile(policy ProfilePolicy) (Obfuscation, error) {
+	return s.profiles.Generate(policy)
 }
 
 // CreateInput is a validated-at-the-edge request; all rules run here.
 type CreateInput struct {
-	Name             string
-	ListenPort       int    // 0 → allocate randomly from network.port_min..port_max
-	Subnet           string // CIDR; "" → default pool for the name (10.8.N.0/24)
-	MTU              int    // 0 → network.mtu setting
-	Obfuscation      Obfuscation
-	Preset           string
+	Name        string
+	ListenPort  int    // 0 → allocate randomly from network.port_min..port_max
+	Subnet      string // CIDR; "" → default pool for the name (10.8.N.0/24)
+	MTU         int    // 0 → network.mtu setting
+	Obfuscation Obfuscation
+	Preset      string
+	// GeneratedProfile is set only by a trusted server-side preview flow. It
+	// permits persistence of the exact generated values shown to the admin;
+	// the narrower policy is revalidated before storage.
+	GeneratedProfile bool
 	BackendMode      domain.BackendMode
 	EndpointOverride string
 }
@@ -277,8 +268,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 		return nil, domain.E(domain.CodeInvalidRequest, "MTU must be 576–65535, got %d", mtu)
 	}
 
-	randomizeHeaders(&in.Obfuscation)
-	if err := ValidateObfuscation(in.Obfuscation); err != nil {
+	if err := s.resolveCreateProfile(&in); err != nil {
 		return nil, err
 	}
 
@@ -317,6 +307,54 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 		return nil, err
 	}
 	return ifc, nil
+}
+
+func (s *Service) resolveCreateProfile(in *CreateInput) error {
+	policy := ProfilePolicy(strings.TrimSpace(in.Preset))
+	if policy == "" {
+		if in.Obfuscation == (Obfuscation{}) {
+			policy = ProfilePlain
+		} else {
+			policy = ProfileCustom
+		}
+	}
+
+	switch policy {
+	case ProfilePlain:
+		if in.Obfuscation != (Obfuscation{}) {
+			return domain.E(domain.CodeParamConstraint, "plain profile cannot include explicit AWG parameters")
+		}
+	case ProfileRecommended, ProfileRandomized:
+		if in.GeneratedProfile {
+			if err := ValidateGeneratedProfile(policy, in.Obfuscation); err != nil {
+				return err
+			}
+		} else {
+			if in.Obfuscation != (Obfuscation{}) {
+				return domain.E(domain.CodeParamConstraint, "%s profile cannot be combined with explicit AWG parameters", policy)
+			}
+			generated, err := s.GenerateProfile(policy)
+			if err != nil {
+				return fmt.Errorf("iface: generate %s profile: %w", policy, err)
+			}
+			in.Obfuscation = generated
+		}
+	case ProfileCustom:
+		if in.GeneratedProfile {
+			return domain.E(domain.CodeParamConstraint, "custom profile cannot be marked as server-generated")
+		}
+		if in.Obfuscation == (Obfuscation{}) {
+			return domain.E(domain.CodeParamConstraint, "custom profile requires explicit AWG parameters")
+		}
+		if err := ValidateObfuscation(in.Obfuscation); err != nil {
+			return err
+		}
+	default:
+		return domain.E(domain.CodeParamConstraint, "unknown profile policy %q", policy)
+	}
+
+	in.Preset = string(policy)
+	return ValidateObfuscation(in.Obfuscation)
 }
 
 // insertWithChecks performs the uniqueness/overlap checks and insert inside
@@ -678,6 +716,8 @@ type UpdateInput struct {
 	Enabled          *bool
 	EndpointOverride *string
 	Obfuscation      *Obfuscation
+	Preset           *string
+	GeneratedProfile bool
 }
 
 // Update applies a partial profile change and returns the updated row.
@@ -699,10 +739,14 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		ifc.EndpointOverride = strings.TrimSpace(*in.EndpointOverride)
 	}
 	if in.Obfuscation != nil {
-		if err := ValidateObfuscation(*in.Obfuscation); err != nil {
+		preset, err := classifySubmittedProfile(*in.Obfuscation, in.Preset, in.GeneratedProfile)
+		if err != nil {
 			return nil, err
 		}
 		ifc.Obfuscation = *in.Obfuscation
+		ifc.Preset = preset
+	} else if in.Preset != nil || in.GeneratedProfile {
+		return nil, domain.E(domain.CodeParamConstraint, "profile classification requires obfuscation values")
 	}
 	ifc.UpdatedAt = s.now().UTC()
 	_, err = s.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET
@@ -735,6 +779,46 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		return nil, fmt.Errorf("iface: update: %w", err)
 	}
 	return ifc, nil
+}
+
+func classifySubmittedProfile(profile Obfuscation, requested *string, generated bool) (string, error) {
+	if requested == nil {
+		if generated {
+			return "", domain.E(domain.CodeParamConstraint, "generated profile classification is missing")
+		}
+		if err := ValidateObfuscation(profile); err != nil {
+			return "", err
+		}
+		if profile == (Obfuscation{}) {
+			return string(ProfilePlain), nil
+		}
+		return string(ProfileCustom), nil
+	}
+
+	policy := ProfilePolicy(strings.TrimSpace(*requested))
+	switch policy {
+	case ProfilePlain:
+		if generated || profile != (Obfuscation{}) {
+			return "", domain.E(domain.CodeParamConstraint, "plain profile cannot include generated or explicit AWG parameters")
+		}
+	case ProfileRecommended, ProfileRandomized:
+		if !generated {
+			return "", domain.E(domain.CodeParamConstraint, "%s classification requires a server-generated profile", policy)
+		}
+		if err := ValidateGeneratedProfile(policy, profile); err != nil {
+			return "", err
+		}
+	case ProfileCustom:
+		if generated || profile == (Obfuscation{}) {
+			return "", domain.E(domain.CodeParamConstraint, "custom profile requires explicit AWG parameters")
+		}
+		if err := ValidateObfuscation(profile); err != nil {
+			return "", err
+		}
+	default:
+		return "", domain.E(domain.CodeParamConstraint, "unknown profile policy %q", policy)
+	}
+	return string(policy), nil
 }
 
 // Delete removes an interface row. Refused while devices still reference it

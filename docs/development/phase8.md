@@ -60,8 +60,10 @@ lists unsupported/unverified behavior explicitly.
 ## Stage 8.2 — Lossless model and migration
 
 - [x] Introduce validated value types for scalar-or-range u32/u16 values.
-- [ ] Migrate existing scalar H1–H4 values losslessly to the new representation; preserve backup
-      and restore compatibility with pre-migration databases.
+- [x] Migrate existing scalar H1–H4 values losslessly to the new representation while retaining
+      rollback-readable low-bound mirrors.
+- [ ] Verify backup and restore compatibility with both pre-0007 scalar databases and post-0007
+      true-range databases.
 - [x] Carry the types through interface/device models, repositories, tunnel contracts, fake and
       real backends, drift comparison, reconciliation, API DTOs, and OpenAPI.
 - [x] Update web form parsing/rendering only where needed to expose the correct values.
@@ -71,8 +73,8 @@ Exit: no supported range can be truncated, coerced, or compared lossy anywhere i
 
 ## Stage 8.3 — Canonical profiles and client configuration
 
-- [ ] Define verified recommended defaults separately from randomized generation policy.
-- [ ] Generate profiles server-side with `crypto/rand`; validate dependent fields as a coherent
+- [x] Define verified recommended defaults separately from randomized generation policy.
+- [x] Generate profiles server-side with `crypto/rand`; validate dependent fields as a coherent
       set and keep unsafe/client-specific options explicitly gated.
 - [ ] Render one canonical client-config byte sequence for API, admin panel, and subscription
       surfaces.
@@ -130,3 +132,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-01 | 8.0 baseline | Windows + WSL2 Ubuntu | Unit/vet/format/race/assets/module/vulnerability checks green; privileged integration unavailable locally (EPERM, no non-interactive sudo) | `phase8-audit.md` |
 | 2026-09-01 | 8.1 source contract | Exact pinned tools/kernel/userspace revisions + prior VPS evidence | Full field matrix frozen; H intervals and u16 ranges classified; `AdvancedSecurity` corrected to parser-only/unsupported | `../integrations/amneziawg.md`, `../integrations/fixtures/phase8-upstream-contract.txt` |
 | 2026-09-01 | 8.2 core + contracts | Windows/Go unit and vet suites | Migration 0007 plus exact storage/apply/dump/drift, strict fa/en forms, range-aware keepalive, explicit lower-snake-case API DTOs, write-only HPK, strict JSON, and OpenAPI parity implemented; backup/restore and real-host equality still pending | package tests under `internal/{awgparam,database,iface,tunnel,reconcile,settings,api,web}` |
+| 2026-09-01 | 8.3 profile policies | Windows/Go unit, HTTP, and asset suites | One injectable server generator now owns plain/recommended/randomized policies; 10,000 randomized profiles satisfy relationship/property checks; API preset application and conflict semantics are schema-tested; the authenticated CSRF panel endpoint only populates fields; browser generation was removed; stored HPK values are no longer rendered into edit HTML | `internal/iface/profile_test.go`, `internal/api/*_test.go`, `internal/web/ifaces_profile_test.go` |

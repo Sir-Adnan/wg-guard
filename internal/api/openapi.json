@@ -283,7 +283,7 @@
       },
       "post": {
         "tags": ["interfaces"], "summary": "Create a profile (server keypair generated)", "security": [{ "BearerAuth": ["interfaces.write"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer" }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24" }, "mtu": { "type": "integer" }, "preset": { "type": "string" }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer" }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24" }, "mtu": { "type": "integer" }, "preset": { "type": "string", "enum": ["plain", "recommended", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "409": { "$ref": "#/components/responses/Conflict" } }
       }
     },
@@ -575,7 +575,7 @@
           "mtu": { "type": "integer" },
           "public_key": { "type": "string" },
           "obfuscation": { "$ref": "#/components/schemas/Obfuscation" },
-          "preset": { "type": "string" },
+          "preset": { "type": "string", "enum": ["plain", "recommended", "randomized", "custom"], "description": "Persisted profile classification; custom is inferred when explicit parameters are supplied." },
           "enabled": { "type": "boolean" },
           "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] },
           "endpoint_override": { "type": "string" },

@@ -237,6 +237,11 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	if req.Obfuscation != nil && strings.TrimSpace(req.Preset) != "" {
+		writeServiceErr(w, r, domain.E(domain.CodeParamConstraint,
+			"preset and explicit obfuscation are mutually exclusive"))
+		return
+	}
 	in := iface.CreateInput{
 		Name: req.Name, ListenPort: req.ListenPort, Subnet: req.Subnet, MTU: req.MTU,
 		Preset: req.Preset, BackendMode: domain.BackendMode(req.BackendMode),

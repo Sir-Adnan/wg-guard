@@ -38,18 +38,22 @@ import (
 // Deps wires the services the panel renders. The same instances the REST
 // API uses are passed in — one business layer, two surfaces.
 type Deps struct {
-	DB         *database.DB
-	Sessions   *auth.SessionStore
-	Admins     *admin.Service
-	Settings   *settings.Registry
-	Ring       *secrets.KeyRing
-	Audit      *audit.Service
-	Users      *user.Service
-	Devices    *device.Service
-	Plans      *plan.Service
-	Ifaces     *iface.Service
-	Accounting *accounting.Service
-	Log        *slog.Logger
+	DB       *database.DB
+	Sessions *auth.SessionStore
+	Admins   *admin.Service
+	Settings *settings.Registry
+	Ring     *secrets.KeyRing
+	Audit    *audit.Service
+	Users    *user.Service
+	Devices  *device.Service
+	Plans    *plan.Service
+	Ifaces   *iface.Service
+	// ProfileGenerator is the canonical server-side profile preview seam.
+	// It defaults to Ifaces.GenerateProfile; tests may replace it to exercise
+	// entropy failures without weakening the production generator.
+	ProfileGenerator func(iface.ProfilePolicy) (iface.Obfuscation, error)
+	Accounting       *accounting.Service
+	Log              *slog.Logger
 
 	// Reconciler runs after structural mutations (see api.Server).
 	Reconciler accounting.Reconciler
@@ -99,6 +103,9 @@ func New(d Deps) (*Server, error) {
 		s.ClientConf = &clientconf.Renderer{
 			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
 		}
+	}
+	if s.ProfileGenerator == nil && d.Ifaces != nil {
+		s.ProfileGenerator = d.Ifaces.GenerateProfile
 	}
 	if err := s.initAssets(); err != nil {
 		return nil, err
@@ -180,6 +187,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /interfaces", s.requireAuth(s.handleIfaceList))
 	mux.HandleFunc("GET /interfaces/new", s.requireAuth(s.handleIfaceNew))
 	mux.HandleFunc("POST /interfaces", s.requireAuth(s.handleIfaceCreate))
+	mux.HandleFunc("POST /interfaces/profile-preview", s.requireAuth(s.handleProfilePreview))
 	mux.HandleFunc("GET /interfaces/{id}/edit", s.requireAuth(s.handleIfaceEditPage))
 	mux.HandleFunc("POST /interfaces/{id}/edit", s.requireAuth(s.handleIfaceUpdate))
 	mux.HandleFunc("POST /interfaces/{id}/enable", s.requireAuth(s.handleIfaceEnable))
