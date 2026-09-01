@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
@@ -133,7 +134,7 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 		// so the verify-after-apply gate and drift comparison compare the
 		// applied plain profile against an equivalent observation (captured
 		// on the VPS kernel, 2026-08-31; docs/integrations/amneziawg.md).
-		o.H1, o.H2, o.H3, o.H4 = 0, 0, 0, 0
+		o.H1, o.H2, o.H3, o.H4 = awgparam.U32Range{}, awgparam.U32Range{}, awgparam.U32Range{}, awgparam.U32Range{}
 	}
 	// I1–I5: hex blob or literal "(null)".
 	is := [5]*string{&o.I1, &o.I2, &o.I3, &o.I4, &o.I5}
@@ -155,30 +156,32 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 	if v := f[19]; v != "(none)" {
 		o.HeaderProtectionKey = v
 	}
-	for i, dst := range []*string{&o.ContentPaddingAddition, &o.RekeyAfterTime,
-		&o.RekeyTimeout, &o.RejectAfterTime, &o.KeepaliveTimeout, &o.MaxHandshakeAttempts} {
-		if v := f[20+i]; v != "0" {
-			*dst = v
+	ranges := []struct {
+		name string
+		dst  *awgparam.U16Range
+	}{
+		{"ContentPaddingAddition", &o.ContentPaddingAddition},
+		{"RekeyAfterTime", &o.RekeyAfterTime},
+		{"RekeyTimeout", &o.RekeyTimeout},
+		{"RejectAfterTime", &o.RejectAfterTime},
+		{"KeepaliveTimeout", &o.KeepaliveTimeout},
+		{"MaxHandshakeAttempts", &o.MaxHandshakeAttempts},
+	}
+	for i, item := range ranges {
+		value, err := awgparam.ParseU16Range(f[20+i])
+		if err != nil {
+			return invalid(item.name, f[20+i], err)
 		}
+		*item.dst = value
 	}
 	o.RandomTrailers = f[26] == "on"
 	o.DisableCookies = f[27] == "on"
 	return o, nil
 }
 
-// parseHeaderField accepts a plain number (verified against the pinned
-// upstream) and tolerates the u32-range form "N-M" (low bound kept — a range
-// can only come from a foreign configuration and reconciles back to a plain
-// value).
-func parseHeaderField(s string) (uint32, error) {
-	if i := strings.IndexByte(s, '-'); i >= 0 {
-		s = s[:i]
-	}
-	v, err := strconv.ParseUint(s, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(v), nil
+// parseHeaderField preserves the pinned inclusive u32 scalar-or-range form.
+func parseHeaderField(s string) (awgparam.U32Range, error) {
+	return awgparam.ParseU32Range(s)
 }
 
 func parsePeerLine(name, line string) (tunnel.PeerState, error) {
@@ -214,11 +217,11 @@ func parsePeerLine(name, line string) (tunnel.PeerState, error) {
 		return invalid("tx_bytes", f[6], err)
 	}
 	if f[7] != "off" {
-		ka, err := strconv.Atoi(f[7])
+		ka, err := awgparam.ParseU16Range(f[7])
 		if err != nil {
 			return invalid("persistent_keepalive", f[7], err)
 		}
-		p.KeepaliveSeconds = ka
+		p.PersistentKeepalive = ka
 	}
 	return p, nil
 }

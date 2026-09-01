@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
@@ -78,10 +79,10 @@ func writeObfuscation(sb *strings.Builder, o tunnel.Obfuscation) {
 	sb.WriteString("Jmax = " + strconv.Itoa(o.Jmax) + "\n")
 	sb.WriteString("S1 = " + strconv.Itoa(o.S1) + "\n")
 	sb.WriteString("S2 = " + strconv.Itoa(o.S2) + "\n")
-	sb.WriteString("H1 = " + strconv.FormatUint(uint64(o.H1), 10) + "\n")
-	sb.WriteString("H2 = " + strconv.FormatUint(uint64(o.H2), 10) + "\n")
-	sb.WriteString("H3 = " + strconv.FormatUint(uint64(o.H3), 10) + "\n")
-	sb.WriteString("H4 = " + strconv.FormatUint(uint64(o.H4), 10) + "\n")
+	sb.WriteString("H1 = " + o.H1.String() + "\n")
+	sb.WriteString("H2 = " + o.H2.String() + "\n")
+	sb.WriteString("H3 = " + o.H3.String() + "\n")
+	sb.WriteString("H4 = " + o.H4.String() + "\n")
 	// I1–I5 are opt-in (iOS clients reject configs carrying them — upstream
 	// issue #115); written only when the profile sets them.
 	for i, v := range []string{o.I1, o.I2, o.I3, o.I4, o.I5} {
@@ -100,7 +101,10 @@ func writeObfuscation(sb *strings.Builder, o tunnel.Obfuscation) {
 	if o.HeaderProtectionKey != "" {
 		sb.WriteString("HeaderProtectionKey = " + o.HeaderProtectionKey + "\n")
 	}
-	for _, kv := range []struct{ key, val string }{
+	for _, kv := range []struct {
+		key string
+		val awgparam.U16Range
+	}{
 		{"ContentPaddingAddition", o.ContentPaddingAddition},
 		{"RekeyAfterTime", o.RekeyAfterTime},
 		{"RekeyTimeout", o.RekeyTimeout},
@@ -108,8 +112,8 @@ func writeObfuscation(sb *strings.Builder, o tunnel.Obfuscation) {
 		{"KeepaliveTimeout", o.KeepaliveTimeout},
 		{"MaxHandshakeAttempts", o.MaxHandshakeAttempts},
 	} {
-		if kv.val != "" {
-			sb.WriteString(kv.key + " = " + kv.val + "\n")
+		if !kv.val.IsZero() {
+			sb.WriteString(kv.key + " = " + kv.val.String() + "\n")
 		}
 	}
 	if o.RandomTrailers {
@@ -132,7 +136,7 @@ func writePeer(sb *strings.Builder, p tunnel.PeerConfig) {
 	if p.Endpoint != "" {
 		sb.WriteString("Endpoint = " + p.Endpoint + "\n")
 	}
-	if p.KeepaliveSeconds > 0 {
-		sb.WriteString("PersistentKeepalive = " + strconv.Itoa(p.KeepaliveSeconds) + "\n")
+	if !p.PersistentKeepalive.IsZero() {
+		sb.WriteString("PersistentKeepalive = " + p.PersistentKeepalive.String() + "\n")
 	}
 }

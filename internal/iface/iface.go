@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -55,17 +56,17 @@ type Obfuscation struct {
 	Jc                 int
 	Jmin, Jmax         int
 	S1, S2             int
-	H1, H2, H3, H4     uint32
+	H1, H2, H3, H4     awgparam.U32Range
 	I1, I2, I3, I4, I5 string
 
-	S3, S4                 int    // plain u16 when set
-	HeaderProtectionKey    string // base64 32-byte key, "" = disabled
-	ContentPaddingAddition string // "N" or "N-M" (u16 bounds), "" = disabled
-	RekeyAfterTime         string // seconds, "N" or "N-M", "" = upstream default
-	RekeyTimeout           string
-	RejectAfterTime        string
-	KeepaliveTimeout       string
-	MaxHandshakeAttempts   string
+	S3, S4                 int               // plain u16 when set
+	HeaderProtectionKey    string            // base64 32-byte key, "" = disabled
+	ContentPaddingAddition awgparam.U16Range // zero = disabled
+	RekeyAfterTime         awgparam.U16Range // zero = upstream default
+	RekeyTimeout           awgparam.U16Range
+	RejectAfterTime        awgparam.U16Range
+	KeepaliveTimeout       awgparam.U16Range
+	MaxHandshakeAttempts   awgparam.U16Range
 	RandomTrailers         bool
 	DisableCookies         bool
 }
@@ -81,39 +82,16 @@ const (
 
 var nameRe = regexp.MustCompile(`^awg([0-9]{1,3})$`)
 
-// rangeRe matches the u16-range form the pinned tools parser accepts
-// ("N" or "N-M", verified: u16_range_from_string in src/config.c).
-var rangeRe = regexp.MustCompile(`^([0-9]{1,5})(-([0-9]{1,5}))?$`)
-
-// validateRange checks an "N" or "N-M" string within u16 bounds.
-func validateRange(field, v string) error {
-	m := rangeRe.FindStringSubmatch(v)
-	if m == nil {
-		return domain.E(domain.CodeParamConstraint, `%s must be "N" or "low-high" (u16), got %q`, field, v)
-	}
-	lo, _ := strconv.Atoi(m[1])
-	if lo > 65535 {
-		return domain.E(domain.CodeParamConstraint, "%s exceeds the u16 bound (65535)", field)
-	}
-	if m[3] != "" {
-		hi, _ := strconv.Atoi(m[3])
-		if hi > 65535 || hi < lo {
-			return domain.E(domain.CodeParamConstraint, `%s range %q is invalid (low <= high <= 65535)`, field, v)
-		}
-	}
-	return nil
-}
-
 // ValidateObfuscation enforces the constraint set. A zero params struct with
 // Enabled=false is the plain-WG profile; Enabled=true requires a complete,
 // constraint-clean parameter set (no partial profiles).
 func ValidateObfuscation(o Obfuscation) error {
 	if !o.Enabled {
 		if o.Jc != 0 || o.Jmin != 0 || o.Jmax != 0 || o.S1 != 0 || o.S2 != 0 ||
-			o.H1 != 0 || o.H2 != 0 || o.H3 != 0 || o.H4 != 0 ||
+			!o.H1.IsZero() || !o.H2.IsZero() || !o.H3.IsZero() || !o.H4.IsZero() ||
 			o.S3 != 0 || o.S4 != 0 || o.HeaderProtectionKey != "" ||
-			o.ContentPaddingAddition != "" || o.RekeyAfterTime != "" || o.RekeyTimeout != "" ||
-			o.RejectAfterTime != "" || o.KeepaliveTimeout != "" || o.MaxHandshakeAttempts != "" ||
+			!o.ContentPaddingAddition.IsZero() || !o.RekeyAfterTime.IsZero() || !o.RekeyTimeout.IsZero() ||
+			!o.RejectAfterTime.IsZero() || !o.KeepaliveTimeout.IsZero() || !o.MaxHandshakeAttempts.IsZero() ||
 			o.RandomTrailers || o.DisableCookies {
 			return domain.E(domain.CodeParamConstraint, "obfuscation disabled but parameters are set")
 		}
@@ -130,26 +108,12 @@ func ValidateObfuscation(o Obfuscation) error {
 		if err != nil || len(k) != 32 {
 			return domain.E(domain.CodeParamConstraint, "HeaderProtectionKey must be a base64-encoded 32-byte key")
 		}
-		// Kernel-enforced coupling (verified on VPS): HPK is rejected unless
-		// S3 AND S4 are non-zero in the same setconf message.
-		if o.S3 == 0 || o.S4 == 0 {
+		// Both pinned backends require each S value to cover the 12-byte
+		// header-protection nonce. The kernel path also requires S3/S4 in
+		// the same setconf message as HPK.
+		if o.S1 < 12 || o.S2 < 12 || o.S3 < 12 || o.S4 < 12 {
 			return domain.E(domain.CodeParamConstraint,
-				"HeaderProtectionKey requires S3 and S4 to be set (kernel constraint)")
-		}
-	}
-	for _, rv := range []struct{ name, val string }{
-		{"ContentPaddingAddition", o.ContentPaddingAddition},
-		{"RekeyAfterTime", o.RekeyAfterTime},
-		{"RekeyTimeout", o.RekeyTimeout},
-		{"RejectAfterTime", o.RejectAfterTime},
-		{"KeepaliveTimeout", o.KeepaliveTimeout},
-		{"MaxHandshakeAttempts", o.MaxHandshakeAttempts},
-	} {
-		if rv.val == "" {
-			continue
-		}
-		if err := validateRange(rv.name, rv.val); err != nil {
-			return err
+				"HeaderProtectionKey requires S1–S4 to each be at least 12")
 		}
 	}
 	if o.Jc < 1 || o.Jc > JcMax {
@@ -170,14 +134,14 @@ func ValidateObfuscation(o Obfuscation) error {
 	if o.S1+56 == o.S2 {
 		return domain.E(domain.CodeParamConstraint, "S1+56 must not equal S2 (%d+56=%d)", o.S1, o.S2)
 	}
-	hs := [4]uint32{o.H1, o.H2, o.H3, o.H4}
+	hs := [4]awgparam.U32Range{o.H1, o.H2, o.H3, o.H4}
 	for i := 0; i < 4; i++ {
-		if hs[i] == 0 {
+		if hs[i].IsZero() {
 			return domain.E(domain.CodeParamConstraint, "H1–H4 must all be set (non-zero) when obfuscation is enabled")
 		}
 		for j := i + 1; j < 4; j++ {
-			if hs[i] == hs[j] {
-				return domain.E(domain.CodeParamConstraint, "H1–H4 must be pairwise distinct (H%d == H%d)", i+1, j+1)
+			if hs[i].Overlaps(hs[j]) {
+				return domain.E(domain.CodeParamConstraint, "H1–H4 ranges must not overlap (H%d and H%d)", i+1, j+1)
 			}
 		}
 	}
@@ -192,15 +156,15 @@ func randomizeHeaders(o *Obfuscation) {
 	if !o.Enabled {
 		return
 	}
-	hs := [4]*uint32{&o.H1, &o.H2, &o.H3, &o.H4}
-	used := map[uint32]bool{}
+	hs := [4]*awgparam.U32Range{&o.H1, &o.H2, &o.H3, &o.H4}
+	used := map[awgparam.U32Range]bool{}
 	for _, h := range hs {
-		if *h != 0 {
+		if !h.IsZero() {
 			used[*h] = true
 		}
 	}
 	for _, h := range hs {
-		if *h != 0 {
+		if !h.IsZero() {
 			continue
 		}
 		var b [4]byte
@@ -208,10 +172,11 @@ func randomizeHeaders(o *Obfuscation) {
 			if _, err := rand.Read(b[:]); err != nil {
 				return // keep any remaining zeros; Create validates the result
 			}
-			v := binary.LittleEndian.Uint32(b[:])
-			if v != 0 && !used[v] {
-				*h = v
-				used[v] = true
+			v := binary.LittleEndian.Uint32(b[:]) & 0x7fffffff
+			candidate := awgparam.ScalarU32(v)
+			if v >= 5 && !used[candidate] {
+				*h = candidate
+				used[candidate] = true
 				break
 			}
 		}
@@ -378,19 +343,20 @@ func (s *Service) insertWithChecks(ctx context.Context, tx *sql.Tx, ifc *Interfa
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO tunnel_interfaces
 		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
-		 jc, jmin, jmax, s1, s2, h1, h2, h3, h4,
+		 jc, jmin, jmax, s1, s2, h1, h2, h3, h4, h1_range, h2_range, h3_range, h4_range,
 		 i1, i2, i3, i4, i5, preset_name, enabled, backend_mode, endpoint_override, created_at, updated_at,
 		 s3, s4, header_protection_key, content_padding_addition, rekey_after_time,
 		 rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
 		 random_trailers, disable_cookies)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		ifc.ID, ifc.Name, ifc.ListenPort, ifc.Subnet, ifc.MTU, ifc.PublicKey, ifc.PrivKeyEnc,
 		nullInt(ifc.Obfuscation.Jc, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.Jmin, ifc.Obfuscation.Enabled),
 		nullInt(ifc.Obfuscation.Jmax, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.S1, ifc.Obfuscation.Enabled),
 		nullInt(ifc.Obfuscation.S2, ifc.Obfuscation.Enabled),
 		nullU32(ifc.Obfuscation.H1, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H2, ifc.Obfuscation.Enabled),
 		nullU32(ifc.Obfuscation.H3, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H4, ifc.Obfuscation.Enabled),
+		ifc.Obfuscation.H1, ifc.Obfuscation.H2, ifc.Obfuscation.H3, ifc.Obfuscation.H4,
 		nullText(ifc.Obfuscation.I1), nullText(ifc.Obfuscation.I2), nullText(ifc.Obfuscation.I3),
 		nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
 		ifc.Preset, boolInt(ifc.Enabled), string(ifc.BackendMode),
@@ -585,7 +551,7 @@ func (s *Service) PrivateKey(ifc *Interface) (string, error) {
 
 const ifaceColumns = `id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
 	jc, jmin, jmax, s1, s2,
-	h1, h2, h3, h4, i1, i2, i3, i4, i5, preset_name, enabled, backend_mode,
+	h1_range, h2_range, h3_range, h4_range, i1, i2, i3, i4, i5, preset_name, enabled, backend_mode,
 	endpoint_override, created_at, updated_at,
 	s3, s4, header_protection_key, content_padding_addition,
 	rekey_after_time, rekey_timeout, reject_after_time, keepalive_timeout,
@@ -602,17 +568,17 @@ func scanIface(row rowScanner) (*Interface, error) {
 		createdStr             string
 		updatedStr             string
 		jc, jmin, jmax, s1, s2 sql.NullInt64
-		h1, h2, h3, h4         sql.NullInt64
+		h1, h2, h3, h4         awgparam.U32Range
 		i1, i2, i3, i4, i5     sql.NullString
 		endpoint               sql.NullString
 		s3, s4                 sql.NullInt64
 		hpk                    sql.NullString
-		padding                sql.NullString
-		rekeyAfter             sql.NullString
-		rekeyTimeout           sql.NullString
-		rejectAfter            sql.NullString
-		keepaliveTimeout       sql.NullString
-		maxHandshake           sql.NullString
+		padding                awgparam.U16Range
+		rekeyAfter             awgparam.U16Range
+		rekeyTimeout           awgparam.U16Range
+		rejectAfter            awgparam.U16Range
+		keepaliveTimeout       awgparam.U16Range
+		maxHandshake           awgparam.U16Range
 		randomTrailers         sql.NullInt64
 		disableCookies         sql.NullInt64
 	)
@@ -630,16 +596,16 @@ func scanIface(row rowScanner) (*Interface, error) {
 		Enabled: jc.Valid,
 		Jc:      int(jc.Int64), Jmin: int(jmin.Int64), Jmax: int(jmax.Int64),
 		S1: int(s1.Int64), S2: int(s2.Int64),
-		H1: uint32(h1.Int64), H2: uint32(h2.Int64), H3: uint32(h3.Int64), H4: uint32(h4.Int64),
+		H1: h1, H2: h2, H3: h3, H4: h4,
 		I1: i1.String, I2: i2.String, I3: i3.String, I4: i4.String, I5: i5.String,
 		S3: int(s3.Int64), S4: int(s4.Int64),
 		HeaderProtectionKey:    hpk.String,
-		ContentPaddingAddition: padding.String,
-		RekeyAfterTime:         rekeyAfter.String,
-		RekeyTimeout:           rekeyTimeout.String,
-		RejectAfterTime:        rejectAfter.String,
-		KeepaliveTimeout:       keepaliveTimeout.String,
-		MaxHandshakeAttempts:   maxHandshake.String,
+		ContentPaddingAddition: padding,
+		RekeyAfterTime:         rekeyAfter,
+		RekeyTimeout:           rekeyTimeout,
+		RejectAfterTime:        rejectAfter,
+		KeepaliveTimeout:       keepaliveTimeout,
+		MaxHandshakeAttempts:   maxHandshake,
 		RandomTrailers:         randomTrailers.Int64 == 1,
 		DisableCookies:         disableCookies.Int64 == 1,
 	}
@@ -742,6 +708,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 	_, err = s.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET
 		mtu = ?, enabled = ?, endpoint_override = ?,
 		jc = ?, jmin = ?, jmax = ?, s1 = ?, s2 = ?, h1 = ?, h2 = ?, h3 = ?, h4 = ?,
+		h1_range = ?, h2_range = ?, h3_range = ?, h4_range = ?,
 		i1 = ?, i2 = ?, i3 = ?, i4 = ?, i5 = ?, preset_name = ?, updated_at = ?,
 		s3 = ?, s4 = ?, header_protection_key = ?, content_padding_addition = ?,
 		rekey_after_time = ?, rekey_timeout = ?, reject_after_time = ?, keepalive_timeout = ?,
@@ -753,6 +720,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		nullInt(ifc.Obfuscation.S2, ifc.Obfuscation.Enabled),
 		nullU32(ifc.Obfuscation.H1, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H2, ifc.Obfuscation.Enabled),
 		nullU32(ifc.Obfuscation.H3, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H4, ifc.Obfuscation.Enabled),
+		ifc.Obfuscation.H1, ifc.Obfuscation.H2, ifc.Obfuscation.H3, ifc.Obfuscation.H4,
 		nullText(ifc.Obfuscation.I1), nullText(ifc.Obfuscation.I2), nullText(ifc.Obfuscation.I3),
 		nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
 		ifc.Preset, ifc.UpdatedAt.Format(time.RFC3339Nano),
@@ -796,11 +764,11 @@ func nullInt(v int, set bool) any {
 	return v
 }
 
-func nullU32(v uint32, set bool) any {
+func nullU32(v awgparam.U32Range, set bool) any {
 	if !set {
 		return nil
 	}
-	return v
+	return v.Low()
 }
 
 func nullText(s string) any {

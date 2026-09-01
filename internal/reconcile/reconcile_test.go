@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -22,6 +23,24 @@ type harness struct {
 	engine    *Engine
 	ifaceSvc  *iface.Service
 	deviceSeq int
+}
+
+func mustU32Range(t *testing.T, value string) awgparam.U32Range {
+	t.Helper()
+	r, err := awgparam.ParseU32Range(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func mustU16Range(t *testing.T, value string) awgparam.U16Range {
+	t.Helper()
+	r, err := awgparam.ParseU16Range(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 
 func newHarness(t *testing.T, policy Policy) *harness {
@@ -286,6 +305,107 @@ func TestReconcileParamDriftCorrected(t *testing.T) {
 	}
 }
 
+func TestReconcileObservableRangeDriftCorrected(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	want := iface.Obfuscation{
+		Enabled: true,
+		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
+		H1: mustU32Range(t, "100-110"), H2: mustU32Range(t, "200-210"),
+		H3: mustU32Range(t, "300-310"), H4: mustU32Range(t, "400-410"),
+		ContentPaddingAddition: mustU16Range(t, "10-20"),
+		RekeyAfterTime:         mustU16Range(t, "120-180"),
+	}
+	if _, err := h.ifaceSvc.Create(ctx, iface.CreateInput{Name: "awg0", Obfuscation: want}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.engine.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	state, err := h.backend.Dump(ctx, "awg0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Obfuscation.ContentPaddingAddition != want.ContentPaddingAddition ||
+		state.Obfuscation.H1 != want.H1 {
+		t.Fatalf("DB intent lost before apply: %+v", state.Obfuscation)
+	}
+
+	// Change only the upper endpoint of an observable 2.0/3.x range. This
+	// must be corrected exactly; reporting it as capability-gated drift would
+	// leave the running tunnel different from the database indefinitely.
+	drifted := state.Obfuscation
+	drifted.ContentPaddingAddition = mustU16Range(t, "10-19")
+	if err := h.backend.SetObfuscation("awg0", drifted); err != nil {
+		t.Fatal(err)
+	}
+	h.backend.ResetOps()
+	rep, err := h.engine.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.InterfacesUpdated != 1 {
+		t.Fatalf("observable range drift not corrected: %+v", rep)
+	}
+	state, err = h.backend.Dump(ctx, "awg0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Obfuscation.ContentPaddingAddition != want.ContentPaddingAddition {
+		t.Fatalf("range drift remains: got %s want %s",
+			state.Obfuscation.ContentPaddingAddition, want.ContentPaddingAddition)
+	}
+}
+
+func TestReconcileHeaderProtectionKeyRemovalRecreates(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	withHPK := iface.Obfuscation{
+		Enabled: true,
+		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61, S3: 40, S4: 48,
+		H1: awgparam.ScalarU32(100), H2: awgparam.ScalarU32(200),
+		H3: awgparam.ScalarU32(300), H4: awgparam.ScalarU32(400),
+		HeaderProtectionKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+	}
+	stored, err := h.ifaceSvc.Create(ctx, iface.CreateInput{Name: "awg0", Obfuscation: withHPK})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.engine.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	withoutHPK := withHPK
+	withoutHPK.HeaderProtectionKey = ""
+	if _, err := h.ifaceSvc.Update(ctx, stored.ID, iface.UpdateInput{Obfuscation: &withoutHPK}); err != nil {
+		t.Fatal(err)
+	}
+	h.backend.ResetOps()
+	rep, err := h.engine.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.InterfacesUpdated != 1 {
+		t.Fatalf("HPK removal did not recreate interface: %+v", rep)
+	}
+	found := false
+	for _, item := range rep.Drift {
+		if item.Kind == "hpk_removal" && item.Action == "recreated" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("HPK recreation evidence missing: %+v", rep.Drift)
+	}
+	state, err := h.backend.Dump(ctx, "awg0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Obfuscation.HeaderProtectionKey != "" {
+		t.Fatal("HPK remained after recreation")
+	}
+}
+
 func TestReconcileDisabledInterfaceRemoved(t *testing.T) {
 	h := newHarness(t, PolicyReport)
 	ctx := context.Background()
@@ -430,7 +550,8 @@ func TestReconcileModeTransitionRecreates(t *testing.T) {
 	// Foreign drift: someone obfuscated the interface out-of-band.
 	if err := h.backend.SetObfuscation("awg0", tunnel.Obfuscation{
 		Enabled: true, Jc: 8, Jmin: 40, Jmax: 70, S1: 15, S2: 64,
-		H1: 1, H2: 2, H3: 3, H4: 4,
+		H1: awgparam.ScalarU32(1), H2: awgparam.ScalarU32(2),
+		H3: awgparam.ScalarU32(3), H4: awgparam.ScalarU32(4),
 	}); err != nil {
 		t.Fatal(err)
 	}

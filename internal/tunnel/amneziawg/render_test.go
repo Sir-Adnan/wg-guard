@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
@@ -16,8 +17,27 @@ func obf() tunnel.Obfuscation {
 	return tunnel.Obfuscation{
 		Enabled: true,
 		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
-		H1: 1234567, H2: 2345678, H3: 3456789, H4: 4567890,
+		H1: awgparam.ScalarU32(1234567), H2: awgparam.ScalarU32(2345678),
+		H3: awgparam.ScalarU32(3456789), H4: awgparam.ScalarU32(4567890),
 	}
+}
+
+func testU32Range(t *testing.T, text string) awgparam.U32Range {
+	t.Helper()
+	value, err := awgparam.ParseU32Range(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func testU16Range(t *testing.T, text string) awgparam.U16Range {
+	t.Helper()
+	value, err := awgparam.ParseU16Range(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
 }
 
 func TestRenderSetconfObfuscated(t *testing.T) {
@@ -86,11 +106,11 @@ func TestRenderSetconfPeers(t *testing.T) {
 		ListenPort: 39411,
 		Peers: []tunnel.PeerConfig{
 			{
-				PublicKey:        testPub,
-				PresharedKey:     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-				AllowedIPs:       []string{"10.8.0.2/32", "10.8.0.3/32"},
-				Endpoint:         "203.0.113.7:51820",
-				KeepaliveSeconds: 25,
+				PublicKey:           testPub,
+				PresharedKey:        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+				AllowedIPs:          []string{"10.8.0.2/32", "10.8.0.3/32"},
+				Endpoint:            "203.0.113.7:51820",
+				PersistentKeepalive: testU16Range(t, "25-35"),
 			},
 			{PublicKey: testPub, AllowedIPs: []string{"10.8.0.4/32"}},
 		},
@@ -102,7 +122,7 @@ func TestRenderSetconfPeers(t *testing.T) {
 		t.Fatalf("allowed ips missing:\n%s", out)
 	}
 	if !strings.Contains(out, "Endpoint = 203.0.113.7:51820\n") ||
-		!strings.Contains(out, "PersistentKeepalive = 25\n") {
+		!strings.Contains(out, "PersistentKeepalive = 25-35\n") {
 		t.Fatalf("endpoint/keepalive missing:\n%s", out)
 	}
 	// Second peer omits optional fields entirely (syncconf keeps stored values).
@@ -136,30 +156,32 @@ func TestRenderSetconfGatedParams(t *testing.T) {
 		Obfuscation: tunnel.Obfuscation{
 			Enabled: true,
 			Jc:      4, Jmin: 40, Jmax: 70, S1: 15, S2: 64,
-			H1: 11, H2: 22, H3: 33, H4: 44,
+			H1: testU32Range(t, "11-20"), H2: awgparam.ScalarU32(22),
+			H3: awgparam.ScalarU32(33), H4: awgparam.ScalarU32(44),
 			S3:                     40,
+			S4:                     48,
 			HeaderProtectionKey:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-			ContentPaddingAddition: "10-20",
-			RekeyAfterTime:         "120-180",
-			RejectAfterTime:        "90",
+			ContentPaddingAddition: testU16Range(t, "10-20"),
+			RekeyAfterTime:         testU16Range(t, "120-180"),
+			RekeyTimeout:           testU16Range(t, "15-25"),
+			RejectAfterTime:        awgparam.ScalarU16(90),
+			KeepaliveTimeout:       testU16Range(t, "30-45"),
+			MaxHandshakeAttempts:   testU16Range(t, "4-8"),
 			RandomTrailers:         true,
 			DisableCookies:         true,
 		},
 	}
 	out := string(renderSetconf(cfg))
 	for _, want := range []string{
-		"S3 = 40\n", "HeaderProtectionKey = AAAAAAAA", "ContentPaddingAddition = 10-20\n",
-		"RekeyAfterTime = 120-180\n", "RejectAfterTime = 90\n",
+		"H1 = 11-20\n", "S3 = 40\n", "S4 = 48\n", "HeaderProtectionKey = AAAAAAAA", "ContentPaddingAddition = 10-20\n",
+		"RekeyAfterTime = 120-180\n", "RekeyTimeout = 15-25\n", "RejectAfterTime = 90\n",
+		"KeepaliveTimeout = 30-45\n", "MaxHandshakeAttempts = 4-8\n",
 		"RandomTrailers = on\n", "DisableCookies = on\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered config missing %q", want)
 		}
 	}
-	if strings.Contains(out, "S4 = ") {
-		t.Error("unset S4 must not render")
-	}
-
 	// Plain profiles omit the gated block entirely (explicit zeros are
 	// rejected by the runtime).
 	plain := string(renderSetconf(tunnel.InterfaceConfig{

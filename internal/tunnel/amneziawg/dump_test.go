@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
@@ -40,7 +41,8 @@ func TestParseDumpFixture(t *testing.T) {
 	want := tunnel.Obfuscation{
 		Enabled: true,
 		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
-		H1: 1234567, H2: 2345678, H3: 3456789, H4: 4567890,
+		H1: awgparam.ScalarU32(1234567), H2: awgparam.ScalarU32(2345678),
+		H3: awgparam.ScalarU32(3456789), H4: awgparam.ScalarU32(4567890),
 	}
 	if st.Obfuscation != want {
 		t.Fatalf("obfuscation = %+v, want %+v", st.Obfuscation, want)
@@ -61,8 +63,8 @@ func TestParseDumpFixture(t *testing.T) {
 	if !p.LastHandshake.IsZero() {
 		t.Fatalf("handshake = %v, want zero", p.LastHandshake)
 	}
-	if p.RXBytes != 0 || p.TXBytes != 0 || p.KeepaliveSeconds != 0 {
-		t.Fatalf("counters = %d/%d ka=%d", p.RXBytes, p.TXBytes, p.KeepaliveSeconds)
+	if p.RXBytes != 0 || p.TXBytes != 0 || !p.PersistentKeepalive.IsZero() {
+		t.Fatalf("counters = %d/%d ka=%s", p.RXBytes, p.TXBytes, p.PersistentKeepalive)
 	}
 }
 
@@ -76,7 +78,7 @@ func TestParseDumpActivePeerFields(t *testing.T) {
 		"0", // replaced below
 		"1234",
 		"5678",
-		"25",
+		"25-35",
 	}, "\t")
 	// Replace the handshake field with real unix seconds.
 	f := strings.Split(line, "\t")
@@ -105,12 +107,12 @@ func TestParseDumpActivePeerFields(t *testing.T) {
 	if !p.LastHandshake.Equal(hs) {
 		t.Fatalf("handshake = %v want %v", p.LastHandshake, hs)
 	}
-	if p.RXBytes != 1234 || p.TXBytes != 5678 || p.KeepaliveSeconds != 25 {
-		t.Fatalf("counters = %d/%d ka=%d", p.RXBytes, p.TXBytes, p.KeepaliveSeconds)
+	if p.RXBytes != 1234 || p.TXBytes != 5678 || p.PersistentKeepalive != testU16Range(t, "25-35") {
+		t.Fatalf("counters = %d/%d ka=%s", p.RXBytes, p.TXBytes, p.PersistentKeepalive)
 	}
 }
 
-func TestParseDumpHeaderRangeTolerated(t *testing.T) {
+func TestParseDumpHeaderRangePreserved(t *testing.T) {
 	ifLine := strings.Join([]string{
 		"priv", "pub", "39411", "5", "40", "70", "86", "61", "0", "0",
 		"1234567-7654321", "2345678", "3456789", "4567890",
@@ -121,8 +123,43 @@ func TestParseDumpHeaderRangeTolerated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if st.Obfuscation.H1 != 1234567 {
-		t.Fatalf("H1 = %d, want low bound of range", st.Obfuscation.H1)
+	if st.Obfuscation.H1 != testU32Range(t, "1234567-7654321") {
+		t.Fatalf("H1 = %s, want exact range", st.Obfuscation.H1)
+	}
+}
+
+func TestParseDumpRejectsMalformedRangesAtWireBoundary(t *testing.T) {
+	base := []string{
+		"priv", "pub", "39411", "5", "40", "70", "86", "61", "0", "0",
+		"100-110", "200-210", "300-310", "400-410",
+		"(null)", "(null)", "(null)", "(null)", "(null)", "(none)",
+		"0", "0", "0", "0", "0", "0", "off", "off", "off",
+	}
+	for _, tc := range []struct {
+		name      string
+		field     int
+		value     string
+		wantError string
+	}{
+		{"inverted header", 10, "110-100", "field H1"},
+		{"overflow header", 13, "4294967296", "field H4"},
+		{"inverted timer", 20, "20-10", "field ContentPaddingAddition"},
+		{"overflow timer", 25, "65536", "field MaxHandshakeAttempts"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fields := append([]string(nil), base...)
+			fields[tc.field] = tc.value
+			_, err := parseDump("awg0", []byte(strings.Join(fields, "\t")+"\n"))
+			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("want %q error, got %v", tc.wantError, err)
+			}
+		})
+	}
+
+	peer := "pub\t(none)\t(none)\t10.8.0.2/32\t0\t0\t0\t25-65536"
+	_, err := parseDump("awg0", []byte(strings.Join(base, "\t")+"\n"+peer+"\n"))
+	if err == nil || !strings.Contains(err.Error(), "field persistent_keepalive") {
+		t.Fatalf("want peer keepalive error, got %v", err)
 	}
 }
 
@@ -211,8 +248,10 @@ func TestParseDumpGatedFields(t *testing.T) {
 	if o.HeaderProtectionKey != "" {
 		t.Fatalf("hpk: %q", o.HeaderProtectionKey)
 	}
-	if o.ContentPaddingAddition != "10-20" || o.RekeyAfterTime != "120-180" || o.MaxHandshakeAttempts != "5" {
-		t.Fatalf("ranges: %q %q %q", o.ContentPaddingAddition, o.RekeyAfterTime, o.MaxHandshakeAttempts)
+	if o.ContentPaddingAddition != testU16Range(t, "10-20") ||
+		o.RekeyAfterTime != testU16Range(t, "120-180") ||
+		o.MaxHandshakeAttempts != awgparam.ScalarU16(5) {
+		t.Fatalf("ranges: %s %s %s", o.ContentPaddingAddition, o.RekeyAfterTime, o.MaxHandshakeAttempts)
 	}
 	if !o.RandomTrailers || o.DisableCookies {
 		t.Fatalf("flags: %v %v", o.RandomTrailers, o.DisableCookies)
@@ -233,7 +272,8 @@ func TestParseDumpKernelPlainBaseline(t *testing.T) {
 	if st.Obfuscation.Enabled {
 		t.Fatal("plain profile parsed as enabled")
 	}
-	if st.Obfuscation.H1 != 0 || st.Obfuscation.H2 != 0 || st.Obfuscation.H3 != 0 || st.Obfuscation.H4 != 0 {
+	if !st.Obfuscation.H1.IsZero() || !st.Obfuscation.H2.IsZero() ||
+		!st.Obfuscation.H3.IsZero() || !st.Obfuscation.H4.IsZero() {
 		t.Fatalf("kernel plain baseline not normalized: %+v", st.Obfuscation)
 	}
 	// With junk packets configured the kernel values are real and must stay.
@@ -242,7 +282,8 @@ func TestParseDumpKernelPlainBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !st2.Obfuscation.Enabled || st2.Obfuscation.H1 != 1 || st2.Obfuscation.H4 != 4 {
+	if !st2.Obfuscation.Enabled || st2.Obfuscation.H1 != awgparam.ScalarU32(1) ||
+		st2.Obfuscation.H4 != awgparam.ScalarU32(4) {
 		t.Fatalf("enabled profile headers must be preserved: %+v", st2.Obfuscation)
 	}
 }

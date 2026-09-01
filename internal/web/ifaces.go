@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 )
@@ -58,48 +59,88 @@ func (s *Server) handleIfaceEditPage(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "iface_form", "app", ifaceFormData{I: i})
 }
 
-// obfuscationFromForm parses the obfuscation section. Empty fields map to
-// zero so "enabled" toggles cleanly; validation happens in the service.
-func obfuscationFromForm(r *http.Request) iface.Obfuscation {
+// obfuscationFromForm parses the obfuscation section without coercing invalid
+// values to zero. Empty fields map to zero so the enabled toggle stays clean;
+// relationship validation remains in the interface service.
+func obfuscationFromForm(r *http.Request) (iface.Obfuscation, error) {
 	o := iface.Obfuscation{Enabled: r.PostFormValue("obf_enabled") == "1"}
-	atoi := func(key string) int {
-		n, _ := strconv.Atoi(strings.TrimSpace(r.PostFormValue(key)))
-		return n
+	atoi := func(key string) (int, error) {
+		text := strings.TrimSpace(r.PostFormValue(key))
+		if text == "" {
+			return 0, nil
+		}
+		n, err := strconv.Atoi(text)
+		if err != nil {
+			return 0, domain.E(domain.CodeParamConstraint, "%s must be an integer", key)
+		}
+		return n, nil
 	}
 	trim := func(key string) string { return strings.TrimSpace(r.PostFormValue(key)) }
-	o.Jc = atoi("obf_jc")
-	o.Jmin = atoi("obf_jmin")
-	o.Jmax = atoi("obf_jmax")
-	o.S1 = atoi("obf_s1")
-	o.S2 = atoi("obf_s2")
-	o.H1 = uint32(atoi("obf_h1"))
-	o.H2 = uint32(atoi("obf_h2"))
-	o.H3 = uint32(atoi("obf_h3"))
-	o.H4 = uint32(atoi("obf_h4"))
+	var err error
+	for key, dst := range map[string]*int{
+		"obf_jc": &o.Jc, "obf_jmin": &o.Jmin, "obf_jmax": &o.Jmax,
+		"obf_s1": &o.S1, "obf_s2": &o.S2, "obf_s3": &o.S3, "obf_s4": &o.S4,
+	} {
+		if *dst, err = atoi(key); err != nil {
+			return iface.Obfuscation{}, err
+		}
+	}
+	for key, dst := range map[string]*awgparam.U32Range{
+		"obf_h1": &o.H1, "obf_h2": &o.H2, "obf_h3": &o.H3, "obf_h4": &o.H4,
+	} {
+		text := trim(key)
+		if text == "" {
+			continue
+		}
+		if *dst, err = awgparam.ParseU32Range(text); err != nil {
+			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u32 bounds", key)
+		}
+	}
 	// Capability-gated 2.0/3.x parameters (amneziawg.md).
-	o.S3 = atoi("obf_s3")
-	o.S4 = atoi("obf_s4")
 	o.HeaderProtectionKey = trim("obf_hpk")
-	o.ContentPaddingAddition = trim("obf_padding")
-	o.RekeyAfterTime = trim("obf_rekey_after")
-	o.RekeyTimeout = trim("obf_rekey_timeout")
-	o.RejectAfterTime = trim("obf_reject_after")
-	o.KeepaliveTimeout = trim("obf_keepalive")
-	o.MaxHandshakeAttempts = trim("obf_max_handshake")
+	for key, dst := range map[string]*awgparam.U16Range{
+		"obf_padding":       &o.ContentPaddingAddition,
+		"obf_rekey_after":   &o.RekeyAfterTime,
+		"obf_rekey_timeout": &o.RekeyTimeout,
+		"obf_reject_after":  &o.RejectAfterTime,
+		"obf_keepalive":     &o.KeepaliveTimeout,
+		"obf_max_handshake": &o.MaxHandshakeAttempts,
+	} {
+		text := trim(key)
+		if text == "" {
+			continue
+		}
+		if *dst, err = awgparam.ParseU16Range(text); err != nil {
+			return iface.Obfuscation{}, domain.E(domain.CodeParamConstraint, "%s must be N or low-high within u16 bounds", key)
+		}
+	}
 	o.RandomTrailers = r.PostFormValue("obf_random_trailers") == "1"
 	o.DisableCookies = r.PostFormValue("obf_disable_cookies") == "1"
-	return o
+	return o, nil
 }
 
 func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
-	port, _ := strconv.Atoi(strings.TrimSpace(r.PostFormValue("listen_port")))
-	mtu, _ := strconv.Atoi(strings.TrimSpace(r.PostFormValue("mtu")))
+	port, err := optionalFormInt(r, "listen_port")
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	mtu, err := optionalFormInt(r, "mtu")
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	obfuscation, err := obfuscationFromForm(r)
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
 	in := iface.CreateInput{
 		Name:             strings.TrimSpace(r.PostFormValue("name")),
 		ListenPort:       port,
 		Subnet:           strings.TrimSpace(r.PostFormValue("subnet")),
 		MTU:              mtu,
-		Obfuscation:      obfuscationFromForm(r),
+		Obfuscation:      obfuscation,
 		BackendMode:      domain.BackendKernel,
 		EndpointOverride: strings.TrimSpace(r.PostFormValue("endpoint_override")),
 	}
@@ -115,13 +156,21 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	obfuscation, err := obfuscationFromForm(r)
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
 	in := iface.UpdateInput{
-		Obfuscation: ptrOf(obfuscationFromForm(r)),
+		Obfuscation: ptrOf(obfuscation),
 	}
 	if v := r.PostFormValue("mtu"); v != "" {
-		if mtu, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			in.MTU = &mtu
+		mtu, err := optionalFormInt(r, "mtu")
+		if err != nil {
+			s.actionFailed(w, r, err)
+			return
 		}
+		in.MTU = &mtu
 	}
 	if v := r.PostFormValue("endpoint_override"); v != "" {
 		in.EndpointOverride = strPtr(strings.TrimSpace(v))
@@ -151,6 +200,18 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.redirectToast(w, r, "/interfaces", "ifaces.toast.updated")
+}
+
+func optionalFormInt(r *http.Request, key string) (int, error) {
+	text := strings.TrimSpace(r.PostFormValue(key))
+	if text == "" {
+		return 0, nil
+	}
+	value, err := strconv.Atoi(text)
+	if err != nil {
+		return 0, domain.E(domain.CodeInvalidRequest, "%s must be an integer", key)
+	}
+	return value, nil
 }
 
 func (s *Server) handleIfaceEnable(w http.ResponseWriter, r *http.Request) {

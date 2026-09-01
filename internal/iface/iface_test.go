@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -33,11 +34,101 @@ func newService(t *testing.T) *Service {
 	return NewService(db, reg, ring)
 }
 
+func mustU32Range(t *testing.T, text string) awgparam.U32Range {
+	t.Helper()
+	value, err := awgparam.ParseU32Range(text)
+	if err != nil {
+		t.Fatalf("parse u32 range %q: %v", text, err)
+	}
+	return value
+}
+
+func mustU16Range(t *testing.T, text string) awgparam.U16Range {
+	t.Helper()
+	value, err := awgparam.ParseU16Range(text)
+	if err != nil {
+		t.Fatalf("parse u16 range %q: %v", text, err)
+	}
+	return value
+}
+
+func TestObfuscationRangeRoundTrip(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+	obf := balancedObfuscation()
+	obf.H1 = mustU32Range(t, "100-199")
+	obf.H2 = mustU32Range(t, "200-299")
+	obf.H3 = mustU32Range(t, "300-399")
+	obf.H4 = mustU32Range(t, "400-499")
+	obf.ContentPaddingAddition = mustU16Range(t, "10-20")
+	obf.RekeyAfterTime = mustU16Range(t, "120-180")
+	obf.RekeyTimeout = mustU16Range(t, "5-10")
+	obf.RejectAfterTime = mustU16Range(t, "180-240")
+	obf.KeepaliveTimeout = mustU16Range(t, "15-25")
+	obf.MaxHandshakeAttempts = mustU16Range(t, "5-8")
+
+	created, err := svc.Create(ctx, CreateInput{Name: "awg0", Obfuscation: obf})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := svc.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Obfuscation != obf {
+		t.Fatalf("round trip changed ranges:\n got: %+v\nwant: %+v", got.Obfuscation, obf)
+	}
+	listed, err := svc.List(ctx)
+	if err != nil || len(listed) != 1 || listed[0].Obfuscation != obf {
+		t.Fatalf("list round trip = %+v, %v", listed, err)
+	}
+
+	var legacy [4]int64
+	var canonical [4]string
+	err = svc.db.QueryRow(`SELECT h1, h2, h3, h4, h1_range, h2_range, h3_range, h4_range
+		FROM tunnel_interfaces WHERE id = ?`, created.ID).Scan(
+		&legacy[0], &legacy[1], &legacy[2], &legacy[3],
+		&canonical[0], &canonical[1], &canonical[2], &canonical[3])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy != [4]int64{100, 200, 300, 400} {
+		t.Fatalf("legacy low-bound mirror = %#v", legacy)
+	}
+	if canonical != [4]string{"100-199", "200-299", "300-399", "400-499"} {
+		t.Fatalf("canonical ranges = %#v", canonical)
+	}
+
+	updated := obf
+	updated.H1 = mustU32Range(t, "500-599")
+	updated.H2 = mustU32Range(t, "600-699")
+	updated.H3 = mustU32Range(t, "700-799")
+	updated.H4 = mustU32Range(t, "800-899")
+	got, err = svc.Update(ctx, created.ID, UpdateInput{Obfuscation: &updated})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got.Obfuscation != updated {
+		t.Fatalf("update changed ranges: %+v", got.Obfuscation)
+	}
+
+	overlap := updated
+	overlap.H2 = mustU32Range(t, "550-650")
+	if err := ValidateObfuscation(overlap); err == nil {
+		t.Fatal("overlapping H intervals accepted")
+	}
+	disabled := Obfuscation{H1: mustU32Range(t, "5-9")}
+	if err := ValidateObfuscation(disabled); err == nil {
+		t.Fatal("disabled profile with a range accepted")
+	}
+}
+
 func balancedObfuscation() Obfuscation {
 	return Obfuscation{
 		Enabled: true,
 		Jc:      4, Jmin: 40, Jmax: 70, S1: 15, S2: 64,
-		H1: 1, H2: 2, H3: 3, H4: 4,
+		H1: awgparam.ScalarU32(1), H2: awgparam.ScalarU32(2),
+		H3: awgparam.ScalarU32(3), H4: awgparam.ScalarU32(4),
 	}
 }
 
@@ -66,7 +157,7 @@ func TestCreateDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Obfuscation.Enabled || got.Obfuscation.Jc != 4 || got.Obfuscation.H4 != 4 {
+	if !got.Obfuscation.Enabled || got.Obfuscation.Jc != 4 || got.Obfuscation.H4 != awgparam.ScalarU32(4) {
 		t.Fatalf("obfuscation round trip broken: %+v", got.Obfuscation)
 	}
 	if got.Obfuscation.I1 != "" {
@@ -152,8 +243,8 @@ func TestObfuscationConstraintMatrix(t *testing.T) {
 		{"s2 over max", func() Obfuscation { o := balancedObfuscation(); o.S2 = 1189; return o }(), false},
 		{"s1+56 == s2", func() Obfuscation { o := balancedObfuscation(); o.S1 = 8; o.S2 = 64; return o }(), false},
 		{"s1+56 != s2", func() Obfuscation { o := balancedObfuscation(); o.S1 = 9; o.S2 = 64; return o }(), true},
-		{"duplicate H", func() Obfuscation { o := balancedObfuscation(); o.H2 = 1; return o }(), false},
-		{"zero H", func() Obfuscation { o := balancedObfuscation(); o.H4 = 0; return o }(), false},
+		{"duplicate H", func() Obfuscation { o := balancedObfuscation(); o.H2 = awgparam.ScalarU32(1); return o }(), false},
+		{"zero H", func() Obfuscation { o := balancedObfuscation(); o.H4 = awgparam.U32Range{}; return o }(), false},
 		{"distinct H", balancedObfuscation(), true},
 		{"partial params with disabled flag", func() Obfuscation { o := balancedObfuscation(); o.Enabled = false; return o }(), false},
 	}
@@ -279,7 +370,7 @@ func TestInterfaceCountCapFromSettings(t *testing.T) {
 }
 
 func TestValidateObfuscationGated(t *testing.T) {
-	base := Obfuscation{Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, S1: 15, S2: 64, H1: 1, H2: 2, H3: 3, H4: 4}
+	base := balancedObfuscation()
 	cases := []struct {
 		name    string
 		mutate  func(*Obfuscation)
@@ -288,16 +379,13 @@ func TestValidateObfuscationGated(t *testing.T) {
 		{"plain defaults ok", func(o *Obfuscation) {}, false},
 		{"S3/S4 in range", func(o *Obfuscation) { o.S3 = 40; o.S4 = 100 }, false},
 		{"S3 over u16", func(o *Obfuscation) { o.S3 = 70000 }, true},
-		{"padding single value", func(o *Obfuscation) { o.ContentPaddingAddition = "10" }, false},
-		{"padding range", func(o *Obfuscation) { o.ContentPaddingAddition = "10-20" }, false},
-		{"padding inverted range", func(o *Obfuscation) { o.ContentPaddingAddition = "20-10" }, true},
-		{"padding over u16", func(o *Obfuscation) { o.ContentPaddingAddition = "70000" }, true},
-		{"padding garbage", func(o *Obfuscation) { o.ContentPaddingAddition = "10;20" }, true},
-		{"rekey range ok", func(o *Obfuscation) { o.RekeyAfterTime = "120-180" }, false},
+		{"padding single value", func(o *Obfuscation) { o.ContentPaddingAddition = awgparam.ScalarU16(10) }, false},
+		{"padding range", func(o *Obfuscation) { o.ContentPaddingAddition = mustU16Range(t, "10-20") }, false},
+		{"rekey range ok", func(o *Obfuscation) { o.RekeyAfterTime = mustU16Range(t, "120-180") }, false},
 		{"hpk valid with S3/S4", func(o *Obfuscation) {
 			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
 			o.S3 = 24
-			o.S4 = 11
+			o.S4 = 24
 		}, false},
 		{"hpk without S3/S4 rejected (kernel constraint)", func(o *Obfuscation) {
 			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
@@ -306,16 +394,22 @@ func TestValidateObfuscationGated(t *testing.T) {
 			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
 			o.S3 = 24
 		}, true},
+		{"hpk with S1 below nonce rejected", func(o *Obfuscation) {
+			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 32))
+			o.S1 = 11
+			o.S3 = 24
+			o.S4 = 24
+		}, true},
 		{"hpk wrong length", func(o *Obfuscation) {
 			o.HeaderProtectionKey = base64.StdEncoding.EncodeToString(make([]byte, 16))
 		}, true},
 		{"hpk not base64", func(o *Obfuscation) { o.HeaderProtectionKey = "not-base64!!" }, true},
 		{"timers set", func(o *Obfuscation) {
-			o.RekeyAfterTime = "120"
-			o.RekeyTimeout = "5-10"
-			o.RejectAfterTime = "90"
-			o.KeepaliveTimeout = "25"
-			o.MaxHandshakeAttempts = "5"
+			o.RekeyAfterTime = awgparam.ScalarU16(120)
+			o.RekeyTimeout = mustU16Range(t, "5-10")
+			o.RejectAfterTime = awgparam.ScalarU16(90)
+			o.KeepaliveTimeout = awgparam.ScalarU16(25)
+			o.MaxHandshakeAttempts = awgparam.ScalarU16(5)
 		}, false},
 	}
 	for _, tc := range cases {
@@ -333,21 +427,21 @@ func TestValidateObfuscationGated(t *testing.T) {
 
 func TestRandomizeHeaders(t *testing.T) {
 	// Zero headers get filled with distinct non-zero values.
-	o := Obfuscation{Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, H1: 5}
+	o := Obfuscation{Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, H1: awgparam.ScalarU32(5)}
 	randomizeHeaders(&o)
-	hs := [4]uint32{o.H1, o.H2, o.H3, o.H4}
-	seen := map[uint32]bool{}
+	hs := [4]awgparam.U32Range{o.H1, o.H2, o.H3, o.H4}
+	seen := map[awgparam.U32Range]bool{}
 	for i, h := range hs {
-		if h == 0 {
+		if h.IsZero() {
 			t.Fatalf("H%d not randomized", i+1)
 		}
 		if seen[h] {
-			t.Fatalf("duplicate header value %d", h)
+			t.Fatalf("duplicate header value %s", h)
 		}
 		seen[h] = true
 	}
-	if o.H1 != 5 {
-		t.Fatalf("pre-set header H1 overwritten: %d", o.H1)
+	if o.H1 != awgparam.ScalarU32(5) {
+		t.Fatalf("pre-set header H1 overwritten: %s", o.H1)
 	}
 	// Disabled profiles are untouched.
 	p := Obfuscation{}

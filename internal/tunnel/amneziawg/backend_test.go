@@ -92,7 +92,6 @@ func (f *fakeRunner) confFile(t *testing.T, op, iface string) string {
 // config, matching the pinned 29-field format.
 func dumpResponse(pub string, port int, o tunnel.Obfuscation, peers ...string) string {
 	num := func(i int) string { return strconv.Itoa(i) }
-	h := func(v uint32) string { return strconv.FormatUint(uint64(v), 10) }
 	iVal := func(s string) string {
 		if s == "" {
 			return "(null)"
@@ -102,7 +101,7 @@ func dumpResponse(pub string, port int, o tunnel.Obfuscation, peers ...string) s
 	fields := []string{
 		"cHJpdmF0ZWtleWJhc2U2NGR1bW15ZGF0YQ==", pub, num(port),
 		num(o.Jc), num(o.Jmin), num(o.Jmax), num(o.S1), num(o.S2), "0", "0",
-		h(o.H1), h(o.H2), h(o.H3), h(o.H4),
+		o.H1.String(), o.H2.String(), o.H3.String(), o.H4.String(),
 		iVal(o.I1), iVal(o.I2), iVal(o.I3), iVal(o.I4), iVal(o.I5), "(none)",
 		"0", "0", "0", "0", "0", "0", "off", "off", "off",
 	}

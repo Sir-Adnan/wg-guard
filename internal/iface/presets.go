@@ -1,5 +1,7 @@
 package iface
 
+import "github.com/Sir-Adnan/wg-guard/internal/awgparam"
+
 // Presets are named obfuscation parameter sets applied at profile creation.
 // Every value is a *recommended default* (configurable per profile after
 // creation); they are starting points chosen from the AmneziaWG community's
@@ -29,7 +31,8 @@ func Presets() []Preset {
 				Enabled: true,
 				Jc:      4, Jmin: 40, Jmax: 70,
 				S1: 15, S2: 64,
-				H1: 1, H2: 2, H3: 3, H4: 4,
+				H1: awgparam.ScalarU32(1), H2: awgparam.ScalarU32(2),
+				H3: awgparam.ScalarU32(3), H4: awgparam.ScalarU32(4),
 			},
 		},
 		{
@@ -39,7 +42,8 @@ func Presets() []Preset {
 				Enabled: true,
 				Jc:      12, Jmin: 50, Jmax: 1000,
 				S1: 100, S2: 200,
-				H1: 1234567, H2: 7654321, H3: 11223344, H4: 55667788,
+				H1: awgparam.ScalarU32(1234567), H2: awgparam.ScalarU32(7654321),
+				H3: awgparam.ScalarU32(11223344), H4: awgparam.ScalarU32(55667788),
 			},
 		},
 	}

@@ -130,7 +130,7 @@ func TestIfaceCrudFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !i.Obfuscation.Enabled || i.Obfuscation.Jc != 4 || i.Obfuscation.H4 != 444 {
+	if !i.Obfuscation.Enabled || i.Obfuscation.Jc != 4 || i.Obfuscation.H4.String() != "444" {
 		t.Fatalf("obfuscation not applied: %+v", i.Obfuscation)
 	}
 

@@ -10,6 +10,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 )
 
 // ErrInterfaceNotFound is returned when the named interface does not exist
@@ -23,44 +25,28 @@ var ErrInterfaceNotFound = errors.New("tunnel: interface not found")
 // the kernel-README constraint set happens in the interface service before
 // anything reaches a backend.
 //
-// The 2.0/3.x-generation fields below are capability-gated: the pinned tools
-// parser and Ubuntu 24.04 kernel accept them, but client compatibility varies.
-// Phase 8 classifies the full runtime/client contract. They render only when
-// set, and a runtime that silently ignores them surfaces through
-// verify-after-apply.
+// The 2.0/3.x-generation fields below are explicit advanced options: the
+// pinned tools, kernel, and userspace runtimes apply and dump them, while
+// client compatibility still varies by option. They render only when set,
+// and a runtime that silently ignores them surfaces through verify-after-apply.
 type Obfuscation struct {
 	Enabled            bool
 	Jc                 int
 	Jmin, Jmax         int
 	S1, S2             int
-	H1, H2, H3, H4     uint32
+	H1, H2, H3, H4     awgparam.U32Range
 	I1, I2, I3, I4, I5 string // hex blobs, "" = unset (client-side only params)
 
-	S3, S4                 int    // plain u16 when set
-	HeaderProtectionKey    string // base64 32-byte key, "" = disabled
-	ContentPaddingAddition string // "N" or "N-M" (u16 bounds), "" = disabled
-	RekeyAfterTime         string // seconds, "N" or "N-M", "" = upstream default
-	RekeyTimeout           string
-	RejectAfterTime        string
-	KeepaliveTimeout       string
-	MaxHandshakeAttempts   string
+	S3, S4                 int               // plain u16 when set
+	HeaderProtectionKey    string            // base64 32-byte key, "" = disabled
+	ContentPaddingAddition awgparam.U16Range // zero = disabled
+	RekeyAfterTime         awgparam.U16Range // zero = upstream default
+	RekeyTimeout           awgparam.U16Range
+	RejectAfterTime        awgparam.U16Range
+	KeepaliveTimeout       awgparam.U16Range
+	MaxHandshakeAttempts   awgparam.U16Range
 	RandomTrailers         bool // rendered as "on" (upstream panic history — default off)
 	DisableCookies         bool // rendered as "on" (security implications — default off)
-}
-
-// legacyVerified returns the subset of fields whose runtime behavior is
-// verified end-to-end (the legacy 1.0 parameter set). Drift classification
-// recreates links only on verified-set mismatches; capability-gated 2.0/3.x
-// parameters are report-only so an unverified runtime can never thrash the
-// tunnel with recreate loops (amneziawg.md).
-func (o Obfuscation) LegacyVerified() Obfuscation {
-	return Obfuscation{
-		Enabled: o.Enabled,
-		Jc:      o.Jc, Jmin: o.Jmin, Jmax: o.Jmax,
-		S1: o.S1, S2: o.S2,
-		H1: o.H1, H2: o.H2, H3: o.H3, H4: o.H4,
-		I1: o.I1, I2: o.I2, I3: o.I3, I4: o.I4, I5: o.I5,
-	}
 }
 
 // InterfaceSpec is the identity-level configuration of a backend interface.
@@ -79,11 +65,11 @@ type InterfaceSpec struct {
 
 // PeerConfig is the desired state of one peer.
 type PeerConfig struct {
-	PublicKey        string // base64
-	PresharedKey     string // base64, "" = none
-	AllowedIPs       []string
-	Endpoint         string // host:port, "" = none (server side: usually unset)
-	KeepaliveSeconds int    // 0 = off
+	PublicKey           string // base64
+	PresharedKey        string // base64, "" = none
+	AllowedIPs          []string
+	Endpoint            string            // host:port, "" = none (server side: usually unset)
+	PersistentKeepalive awgparam.U16Range // zero = off
 }
 
 // InterfaceConfig is a full interface configuration: setconf semantics
@@ -98,14 +84,14 @@ type InterfaceConfig struct {
 
 // PeerState is one peer as observed from the backend.
 type PeerState struct {
-	PublicKey        string
-	PresharedKeySet  bool
-	Endpoint         string
-	AllowedIPs       []string
-	LastHandshake    time.Time // zero = never
-	RXBytes          uint64
-	TXBytes          uint64
-	KeepaliveSeconds int
+	PublicKey           string
+	PresharedKeySet     bool
+	Endpoint            string
+	AllowedIPs          []string
+	LastHandshake       time.Time // zero = never
+	RXBytes             uint64
+	TXBytes             uint64
+	PersistentKeepalive awgparam.U16Range
 }
 
 // InterfaceState is the observed state of one interface (dump semantics).

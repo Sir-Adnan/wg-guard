@@ -55,7 +55,8 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 	obf := tunnel.Obfuscation{
 		Enabled: true,
 		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
-		H1: 1234567, H2: 2345678, H3: 3456789, H4: 4567890,
+		H1: testU32Range(t, "1234567-1234667"), H2: testU32Range(t, "2345678-2345778"),
+		H3: testU32Range(t, "3456789-3456889"), H4: testU32Range(t, "4567890-4567990"),
 	}
 	cfg := tunnel.InterfaceConfig{
 		PrivateKey:  kp.Private,

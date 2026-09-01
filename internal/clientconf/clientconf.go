@@ -16,6 +16,7 @@ import (
 
 	"rsc.io/qr"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
@@ -89,7 +90,7 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 	if o.Enabled {
 		w("Jc = %d\nJmin = %d\nJmax = %d\n", o.Jc, o.Jmin, o.Jmax)
 		w("S1 = %d\nS2 = %d\n", o.S1, o.S2)
-		w("H1 = %d\nH2 = %d\nH3 = %d\nH4 = %d\n", o.H1, o.H2, o.H3, o.H4)
+		w("H1 = %s\nH2 = %s\nH3 = %s\nH4 = %s\n", o.H1, o.H2, o.H3, o.H4)
 		for i, v := range []string{o.I1, o.I2, o.I3, o.I4, o.I5} {
 			if v != "" {
 				w("I%d = %s\n", i+1, v)
@@ -107,7 +108,10 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 		if o.HeaderProtectionKey != "" {
 			w("HeaderProtectionKey = %s\n", o.HeaderProtectionKey)
 		}
-		for _, kv := range []struct{ key, val string }{
+		for _, kv := range []struct {
+			key string
+			val awgparam.U16Range
+		}{
 			{"ContentPaddingAddition", o.ContentPaddingAddition},
 			{"RekeyAfterTime", o.RekeyAfterTime},
 			{"RekeyTimeout", o.RekeyTimeout},
@@ -115,7 +119,7 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 			{"KeepaliveTimeout", o.KeepaliveTimeout},
 			{"MaxHandshakeAttempts", o.MaxHandshakeAttempts},
 		} {
-			if kv.val != "" {
+			if !kv.val.IsZero() {
 				w("%s = %s\n", kv.key, kv.val)
 			}
 		}

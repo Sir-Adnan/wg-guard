@@ -208,11 +208,11 @@ func containsPeer(peers []tunnel.PeerConfig, key string) bool {
 
 func peerState(p tunnel.PeerConfig) tunnel.PeerState {
 	return tunnel.PeerState{
-		PublicKey:        p.PublicKey,
-		PresharedKeySet:  p.PresharedKey != "",
-		Endpoint:         p.Endpoint,
-		AllowedIPs:       append([]string(nil), p.AllowedIPs...),
-		KeepaliveSeconds: p.KeepaliveSeconds,
+		PublicKey:           p.PublicKey,
+		PresharedKeySet:     p.PresharedKey != "",
+		Endpoint:            p.Endpoint,
+		AllowedIPs:          append([]string(nil), p.AllowedIPs...),
+		PersistentKeepalive: p.PersistentKeepalive,
 	}
 }
 

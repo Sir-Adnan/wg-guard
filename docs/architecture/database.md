@@ -7,7 +7,7 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 
 | Table | Purpose / key columns |
 |---|---|
-| `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1, S2, H1–H4, optional I1–I5 blob, preset name), enabled, backend mode, endpoint override |
+| `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1–S4, canonical H1–H4 scalar/range text, optional I1–I5/HPK/timer/flag fields, preset name), enabled, backend mode, endpoint override |
 | `users` | id (UUIDv7), username UNIQUE, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
@@ -50,3 +50,16 @@ transaction with conflict retry; IPs released on permanent device delete.
 Forward-only, numbered, embedded; each applied in a transaction. Automatic pre-migration
 backup on risky upgrades and on every update. Migration tests cover fresh installs and
 upgrade-from-backup paths.
+
+Migration `0007_awg_ranges.sql` adds `h1_range` through `h4_range` as canonical, non-null text
+columns. Values use strict inclusive `N` or `N-M` syntax. Existing scalar values are copied as
+decimal text; unset legacy values become empty text. The original integer `h1` through `h4`
+columns remain populated with each canonical interval's low endpoint so a rollback binary can
+still read the database without a schema downgrade. Such a rollback is intentionally lossy for
+true ranges: it sees the low endpoint while the canonical columns remain intact for a later
+forward upgrade.
+
+The same migration copies `network.client_keepalive_seconds` to the range-aware
+`network.client_persistent_keepalive` setting only when the new key does not already exist. It
+retains the old row for rollback compatibility. Backup/restore regressions cover both pre-0007
+scalar archives and post-0007 true ranges before Phase 8 can close.

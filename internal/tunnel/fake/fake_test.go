@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
@@ -28,14 +29,15 @@ func TestCreateApplySyncDump(t *testing.T) {
 		PrivateKey: "priv-awg0",
 		ListenPort: 51820,
 		Peers: []tunnel.PeerConfig{
-			{PublicKey: "pkA", AllowedIPs: []string{"10.8.0.2/32"}, PresharedKey: "psk"},
+			{PublicKey: "pkA", AllowedIPs: []string{"10.8.0.2/32"}, PresharedKey: "psk",
+				PersistentKeepalive: mustU16Range(t, "25-35")},
 		},
 	}
 	if err := b.ApplyInterfaceConfig(ctx, "awg0", cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := b.SyncPeers(ctx, "awg0", []tunnel.PeerConfig{
-		{PublicKey: "pkA", AllowedIPs: []string{"10.8.0.2/32"}},
+		{PublicKey: "pkA", AllowedIPs: []string{"10.8.0.2/32"}, PersistentKeepalive: mustU16Range(t, "25-35")},
 		{PublicKey: "pkB", AllowedIPs: []string{"10.8.0.3/32"}},
 	}); err != nil {
 		t.Fatal(err)
@@ -46,6 +48,11 @@ func TestCreateApplySyncDump(t *testing.T) {
 	}
 	if len(st.Peers) != 2 {
 		t.Fatalf("want 2 peers, got %d", len(st.Peers))
+	}
+	for _, peer := range st.Peers {
+		if peer.PublicKey == "pkA" && peer.PersistentKeepalive != mustU16Range(t, "25-35") {
+			t.Fatalf("keepalive range lost: %s", peer.PersistentKeepalive)
+		}
 	}
 
 	// syncconf removes unknown peers, keeps known ones' state.
@@ -80,6 +87,15 @@ func TestCreateApplySyncDump(t *testing.T) {
 	if len(names) != 0 {
 		t.Fatalf("interface not removed: %v", names)
 	}
+}
+
+func mustU16Range(t *testing.T, text string) awgparam.U16Range {
+	t.Helper()
+	value, err := awgparam.ParseU16Range(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
 }
 
 func TestFailureInjection(t *testing.T) {

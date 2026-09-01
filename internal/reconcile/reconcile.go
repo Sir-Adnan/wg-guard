@@ -17,6 +17,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
@@ -42,7 +43,7 @@ type Engine struct {
 // DriftItem describes one observed difference and the action taken.
 type DriftItem struct {
 	Interface string
-	Kind      string // missing_interface|mode_transition|param_drift|missing_peer|unknown_peer|foreign_interface|unwanted_interface
+	Kind      string // missing_interface|mode_transition|hpk_removal|param_drift|missing_peer|unknown_peer|foreign_interface|unwanted_interface
 	Detail    string
 	Action    string // created|applied|added|removed|adopt|reported|recreated|none
 }
@@ -181,13 +182,13 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 		return fmt.Errorf("dump: %w", err)
 	default:
 		modeChanged := state.Obfuscation.Enabled != spec.Obfuscation.Enabled
-		legacyDrift := state.Obfuscation.LegacyVerified() != spec.Obfuscation.LegacyVerified()
-		gatedDrift := state.Obfuscation != spec.Obfuscation
-		paramDrift := state.ListenPort != ifc.ListenPort || legacyDrift
+		hpkRemoved := state.Obfuscation.HeaderProtectionKey != "" && spec.Obfuscation.HeaderProtectionKey == ""
+		paramDrift := state.ListenPort != ifc.ListenPort || state.Obfuscation != spec.Obfuscation
 		switch {
-		case modeChanged:
+		case modeChanged || hpkRemoved:
 			// Recreate: setconf cannot move between plain and obfuscated
-			// states (see above). Peers are wiped and re-synced below.
+			// states or clear an HPK at the pinned revisions. Peers are wiped
+			// and re-synced below.
 			if err := e.Backend.RemoveInterface(ctx, ifc.Name); err != nil {
 				return fmt.Errorf("recreate remove: %w", err)
 			}
@@ -196,10 +197,14 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 			}
 			rep.InterfacesUpdated++
 			created = true
+			kind := "mode_transition"
+			if !modeChanged && hpkRemoved {
+				kind = "hpk_removal"
+			}
 			rep.Drift = append(rep.Drift, DriftItem{
-				Interface: ifc.Name, Kind: "mode_transition",
-				Detail: fmt.Sprintf("obfuscation mode changed (backend plain=%v, DB plain=%v); link recreated, peers re-synced",
-					!state.Obfuscation.Enabled, !spec.Obfuscation.Enabled),
+				Interface: ifc.Name, Kind: kind,
+				Detail: fmt.Sprintf("configuration required link recreation (mode changed=%v, HPK removed=%v); peers re-synced",
+					modeChanged, hpkRemoved),
 				Action: "recreated",
 			})
 		case paramDrift:
@@ -213,17 +218,6 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 					state.ListenPort, ifc.ListenPort),
 				Action: "applied",
 			})
-		default:
-			if gatedDrift {
-				// Only capability-gated 2.0/3.x parameters differ: report so
-				// the mismatch is visible, but never recreate — the selected
-				// runtime/client contract may not support them (Phase 8 classifies it).
-				rep.Drift = append(rep.Drift, DriftItem{
-					Interface: ifc.Name, Kind: "gated_param_drift",
-					Detail: "capability-gated obfuscation parameters differ from the backend (runtime may not support them)",
-					Action: "reported",
-				})
-			}
 		}
 	}
 
@@ -305,9 +299,9 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 				})
 			case PolicyAdopt:
 				sync = append(sync, tunnel.PeerConfig{
-					PublicKey:        key,
-					AllowedIPs:       st.AllowedIPs,
-					KeepaliveSeconds: st.KeepaliveSeconds,
+					PublicKey:           key,
+					AllowedIPs:          st.AllowedIPs,
+					PersistentKeepalive: st.PersistentKeepalive,
 				})
 				rep.Drift = append(rep.Drift, DriftItem{
 					Interface: ifc.Name, Kind: "unknown_peer",
@@ -316,9 +310,9 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 				})
 			default: // report
 				sync = append(sync, tunnel.PeerConfig{
-					PublicKey:        key,
-					AllowedIPs:       st.AllowedIPs,
-					KeepaliveSeconds: st.KeepaliveSeconds,
+					PublicKey:           key,
+					AllowedIPs:          st.AllowedIPs,
+					PersistentKeepalive: st.PersistentKeepalive,
 				})
 				rep.Drift = append(rep.Drift, DriftItem{
 					Interface: ifc.Name, Kind: "unknown_peer",
@@ -389,15 +383,15 @@ type obfuscation struct {
 	Jc                     int
 	Jmin, Jmax             int
 	S1, S2                 int
-	H1, H2, H3, H4         uint32
+	H1, H2, H3, H4         awgparam.U32Range
 	S3, S4                 int
 	HeaderProtectionKey    string
-	ContentPaddingAddition string
-	RekeyAfterTime         string
-	RekeyTimeout           string
-	RejectAfterTime        string
-	KeepaliveTimeout       string
-	MaxHandshakeAttempts   string
+	ContentPaddingAddition awgparam.U16Range
+	RekeyAfterTime         awgparam.U16Range
+	RekeyTimeout           awgparam.U16Range
+	RejectAfterTime        awgparam.U16Range
+	KeepaliveTimeout       awgparam.U16Range
+	MaxHandshakeAttempts   awgparam.U16Range
 	RandomTrailers         bool
 	DisableCookies         bool
 }
@@ -431,7 +425,8 @@ type peerDesire struct {
 
 func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 	rows, err := e.DB.QueryContext(ctx, `SELECT id, name, listen_port, ipv4_subnet, mtu, public_key,
-		private_key_encrypted, jc, jmin, jmax, s1, s2, h1, h2, h3, h4, enabled,
+		private_key_encrypted, jc, jmin, jmax, s1, s2,
+		h1_range, h2_range, h3_range, h4_range, enabled,
 		s3, s4, header_protection_key, content_padding_addition, rekey_after_time,
 		rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
 		random_trailers, disable_cookies
@@ -447,15 +442,15 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			pubkey               string
 			privEnc              []byte
 			jc, jmin, jm, s1, s2 sql.NullInt64
-			h1, h2, h3, h4       sql.NullInt64
+			h1, h2, h3, h4       awgparam.U32Range
 			s3, s4               sql.NullInt64
 			hpk                  sql.NullString
-			padding              sql.NullString
-			rekeyAfter           sql.NullString
-			rekeyTimeout         sql.NullString
-			rejectAfter          sql.NullString
-			keepaliveTimeout     sql.NullString
-			maxHandshake         sql.NullString
+			padding              awgparam.U16Range
+			rekeyAfter           awgparam.U16Range
+			rekeyTimeout         awgparam.U16Range
+			rejectAfter          awgparam.U16Range
+			keepaliveTimeout     awgparam.U16Range
+			maxHandshake         awgparam.U16Range
 			randomTrailers       sql.NullInt64
 			disableCookies       sql.NullInt64
 		)
@@ -470,15 +465,15 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			Enabled: jc.Valid,
 			Jc:      int(jc.Int64), Jmin: int(jmin.Int64), Jmax: int(jm.Int64),
 			S1: int(s1.Int64), S2: int(s2.Int64),
-			H1: uint32(h1.Int64), H2: uint32(h2.Int64), H3: uint32(h3.Int64), H4: uint32(h4.Int64),
+			H1: h1, H2: h2, H3: h3, H4: h4,
 			S3: int(s3.Int64), S4: int(s4.Int64),
 			HeaderProtectionKey:    hpk.String,
-			ContentPaddingAddition: padding.String,
-			RekeyAfterTime:         rekeyAfter.String,
-			RekeyTimeout:           rekeyTimeout.String,
-			RejectAfterTime:        rejectAfter.String,
-			KeepaliveTimeout:       keepaliveTimeout.String,
-			MaxHandshakeAttempts:   maxHandshake.String,
+			ContentPaddingAddition: padding,
+			RekeyAfterTime:         rekeyAfter,
+			RekeyTimeout:           rekeyTimeout,
+			RejectAfterTime:        rejectAfter,
+			KeepaliveTimeout:       keepaliveTimeout,
+			MaxHandshakeAttempts:   maxHandshake,
 			RandomTrailers:         randomTrailers.Int64 == 1,
 			DisableCookies:         disableCookies.Int64 == 1,
 		}
