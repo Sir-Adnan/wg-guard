@@ -142,12 +142,14 @@ documented request bodies.
 Severity: high compatibility risk. Owner: Phase 8. Tracker: RB-004.
 
 The pinned tools parser accepts AdvancedSecurity in a peer section, but the ordinary eight-field
-peer dump never emits it. The pinned userspace UAPI has no matching setting. Kernel source
-defines an advanced-security attribute, but source acceptance does not prove configured peer
-semantics or interoperability.
+peer dump never emits it. The pinned userspace tools transport explicitly returns `EINVAL` when
+the setting is requested. Kernel source defines the attribute and accepts its netlink shape, but
+`set_peer` never consumes or stores it; the apparent successful kernel `setconf` is therefore an
+unobservable no-op, not feature verification.
 
-Required correction: classify it parser-only/unobservable unless behavioral real-client evidence
-proves a safe kernel-only contract. Do not advertise assumed parity.
+Correction: classify it parser-only/unobservable and unsupported. Do not model or advertise it
+unless a future pinned upstream stores and exposes the value and real client traffic proves the
+behavior. Recorded as AUD-016 in the release tracker and corrected in the Phase 8 contract.
 
 ## Findings assigned to later phases
 

@@ -1,0 +1,98 @@
+Phase 8 pinned AmneziaWG source contract
+=========================================
+
+Audit date: 2026-09-01
+
+Exact revisions
+---------------
+  amneziawg-tools
+    repository: https://github.com/amnezia-vpn/amneziawg-tools.git
+    revision:   ee0f0a9aa34ff0a0da4b3433b9512781cfe02843
+    release:    v3.1.20260812
+
+  amneziawg-linux-kernel-module
+    repository: https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git
+    revision:   3c38e168beb7c60dec41dfe423d41555205a3dac
+    release:    v3.1.20260828 source / PPA DKMS package 1.0.0
+
+  amneziawg-go
+    repository: https://github.com/amnezia-vpn/amneziawg-go.git
+    revision:   b5928efb6ca19f0153958460c3d141f04abc5c2e
+    release:    v3.1.20260828
+
+Reproduction
+------------
+Clone each repository into a temporary directory, detach at the revision above, then verify it:
+
+  git clone --filter=blob:none <repository> <temporary-directory>
+  git -C <temporary-directory> checkout --detach <revision>
+  git -C <temporary-directory> rev-parse HEAD
+
+The following source paths are sufficient to reproduce the contract without relying on this
+summary:
+
+  tools/src/config.c
+    Section placement, accepted keys, scalar parsers, range parsers, and bool parsers.
+
+  tools/src/type.c and tools/src/type.h
+    u32 ranges are packed as hi<<32|lo; u16 ranges as hi<<16|lo. Text is N or N-M and high must
+    be greater than or equal to low. The u16 text parser checks UINT32_MAX before packing into
+    uint16 halves, so values above 65535 can truncate; WG-Guard intentionally rejects them.
+
+  tools/src/show.c (dump_print)
+    The interface dump is 29 fields and preserves all range strings. The peer dump is 8 fields
+    and preserves ranged PersistentKeepalive. AdvancedSecurity is not emitted.
+
+  tools/src/ipc-linux.h
+    Kernel netlink transports H ranges as u64 and u16 ranges as packed u32. AdvancedSecurity is
+    sent as a flag when requested.
+
+  tools/src/ipc-uapi.h
+    The userspace transport explicitly returns EINVAL when WGPEER_HAS_AWG is present.
+
+  kernel/src/type.h and kernel/src/netlink.c
+    H ranges are overlap-checked as inclusive intervals. The six u16 ranges and peer keepalive
+    are packed u32 values. All four S values must be at least the 12-byte nonce size while header
+    protection is enabled. The AdvancedSecurity policy exists, but set_peer does not consume the
+    attribute; get_peer always advertises the HAS flag without returning a stored value. The
+    only emitted AdvancedSecurity flag is on the unknown-peer multicast path.
+
+  kernel/README.md
+    Jc is 1..128 (recommended 4..12), Jmin/Jmax are ordered and bounded by 1280 for the documented
+    MTU assumption, S1/S2 bounds and collision rule are documented, H values are recommended in
+    5..2147483647, and the legacy parity statement is recorded.
+
+  userspace/device/noise-types.go and userspace/device/uapi.go
+    H and timing/keepalive ranges are parsed losslessly, H intervals must not overlap, all modeled
+    fields are serialized back to UAPI, and AdvancedSecurity is absent.
+
+  userspace/README.md
+    Current placement guidance: J and I fields are sender/client-local; content padding and timing
+    controls are client-side; S/H and HeaderProtectionKey participate in packet compatibility.
+
+Sanitized runtime evidence
+--------------------------
+  docs/integrations/fixtures/verify-vps-kernel-matrix.txt
+    Real Ubuntu 24.04 kernel-module acceptance and dump checks.
+
+  docs/integrations/fixtures/verify-wsl2-runtime.sh
+    Pinned userspace backend setconf/dump integration reproduction.
+
+  docs/integrations/fixtures/dump-awg0-userspace.txt
+  docs/integrations/fixtures/showconf-awg0-userspace.txt
+    Sanitized 29-field dump and showconf shapes.
+
+Contract conclusions
+--------------------
+  * H1-H4 are inclusive u32 scalar-or-range values and their intervals must be pairwise
+    non-overlapping. Equality-only validation is insufficient.
+  * ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout,
+    MaxHandshakeAttempts, and PersistentKeepalive are inclusive u16 scalar-or-range values at the
+    tools/kernel boundary. WG-Guard caps both ends at 65535 despite the tools parser bug.
+  * HeaderProtectionKey requires all S1-S4 values to be at least 12. It cannot be safely cleared
+    in place in the pinned kernel path; WG-Guard must recreate when removal is required.
+  * AdvancedSecurity is parser-visible but is not a supported feature: kernel configuration is a
+    no-op/unobservable at this revision, userspace rejects it, ordinary dumps omit it, and no real
+    compatible-client behavior has been demonstrated.
+  * Parser or kernel acceptance alone is never promoted to WG-Guard client compatibility. Gated
+    fields remain opt-in until real client traffic evidence exists.

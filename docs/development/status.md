@@ -73,7 +73,8 @@ Deferred / honest notes within Phase 5 scope:
   still worthwhile before release.
 - Client-app compatibility for the 2.0/3.x obfuscation set (incl. timer/padding ranges) varies
   per platform; the parameters stay capability-gated off-by-default with report-only drift.
-  AdvancedSecurity (peer-section key) remains deferred — per-device plumbing needed.
+  Phase 8 source review corrected `AdvancedSecurity` from "deferred" to **unsupported** at the
+  pins: the kernel setter ignores it, userspace rejects it, and ordinary dumps omit it.
 - Aggregate "sing-box/clash subscription" format endpoints remain a candidate for a later
   phase (needs an upstream-supported format decision — not assumed).
 - The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
@@ -341,10 +342,13 @@ Honest notes within Phase 7 scope:
 
 ## Phase 8 — Audit & configuration integrity (active, 2026-08-31)
 
-Approved and started. No Phase 8 implementation is yet claimed. Current release blockers are
-QR decode/display correctness, canonical client-configuration correctness, lossless H1–H4 range
-semantics, and complete pinned-version parameter/client compatibility classification. Execution
-and evidence: [phase8.md](phase8.md); cross-phase status:
+Approved and started. The whole-project baseline audit and the exact pinned-source AWG parameter
+contract are documented and verified; no Phase 8 product correction is yet claimed. The source
+review classifies H1–H4 as inclusive non-overlapping u32 ranges, all timing/padding/peer keepalive
+ranges at the tools boundary as u16, and `AdvancedSecurity` as unsupported (kernel no-op,
+userspace rejection, no dump observability). Current product blockers remain QR decode/display
+correctness, canonical client-configuration correctness, and lossless full-chain range semantics.
+Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 
 ## Phases 9–12 — planned

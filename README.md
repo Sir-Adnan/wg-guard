@@ -11,7 +11,7 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–7 complete.** Phase 7 delivered production deployment: the
+**In active development — Phases 0–7 complete; Phase 8 is active.** Phase 7 delivered production deployment: the
 interactive installer (Docker default, native systemd secondary), built-in ACME TLS on any
 panel port (no reverse proxy required), the mode-aware host CLI (one binary for panel, backup,
 restore, update/rollback and uninstall in both modes), update with pre-upgrade backups and

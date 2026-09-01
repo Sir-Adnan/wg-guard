@@ -3,16 +3,17 @@
 WG-Guard's tunnel integration is executed against **pinned upstream versions**. Nothing in this
 document is assumed from memory; every runtime claim is backed by a check recorded in the
 [verification log](#verification-log) with a reproduction script under
-[`fixtures/`](fixtures/). If a behavior is not listed here as verified, WG-Guard code must treat
-it as unverified and gate accordingly.
+[`fixtures/`](fixtures/). The Phase 8 source audit, exact revisions, and reproduction paths are
+captured in [`fixtures/phase8-upstream-contract.txt`](fixtures/phase8-upstream-contract.txt). If a
+behavior is not listed here as verified, WG-Guard code must treat it as unverified and gate it.
 
-## Pinned versions (Phase 0, 2026-08-29)
+## Pinned versions (re-audited in Phase 8, 2026-09-01)
 
 | Component | Pinned version | Source |
 |---|---|---|
-| amneziawg-tools (`awg`, `awg-quick`) | **v3.1.20260812** (commit `ee0f0a9`, tag `v3.1.20260812`; Debian package `1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
-| amneziawg-dkms (kernel module source) | **1.0.0** (`0~202608282205+3c38e16~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
-| amneziawg-go (userspace daemon, fallback backend) | **v3.1.20260828** (tag; binary `amneziawg-go`) | built from github.com/amnezia-vpn/amneziawg-go |
+| amneziawg-tools (`awg`, `awg-quick`) | **v3.1.20260812** (commit `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843`; Debian package `1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
+| amneziawg-dkms (kernel module source) | source **v3.1.20260828**, commit `3c38e168beb7c60dec41dfe423d41555205a3dac`; package **1.0.0** (`0~202608282205+3c38e16~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
+| amneziawg-go (userspace daemon, fallback backend) | **v3.1.20260828**, commit `b5928efb6ca19f0153958460c3d141f04abc5c2e`; binary `amneziawg-go` | built from github.com/amnezia-vpn/amneziawg-go |
 | Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
 | Verification environment (kernel) | dedicated VPS, Ubuntu **24.04 LTS** (noble), KVM, kernel `6.8.0-137-generic`, x86_64; PPA packages natively | 2026-08-31 |
 
@@ -61,7 +62,7 @@ Interface line, tab-separated, in order (source: `amneziawg-tools/src/show.c`, `
 | 8 | S2 | uint |
 | 9 | S3 | uint (2.0 gen) |
 | 10 | S4 | uint (2.0 gen) |
-| 11–14 | H1–H4 | u32-range string — plain `N` verified; tolerate `N-M` |
+| 11–14 | H1–H4 | inclusive u32 range string, canonical `N` or `N-M` |
 | 15–19 | I1–I5 | hex blob or literal `(null)` |
 | 20 | header_protection_key | base64 or `(none)` |
 | 21–26 | content_padding_addition, rekey_after_time, rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts | u16-range strings (`0` when unset) |
@@ -86,39 +87,62 @@ Live fixture: [`fixtures/dump-awg0-userspace.txt`](fixtures/dump-awg0-userspace.
 `showconf`: [`fixtures/showconf-awg0-userspace.txt`](fixtures/showconf-awg0-userspace.txt).
 `awg show <iface>` with no interfaces exits 0 with empty output (do not treat as an error).
 
-## Configuration keys (parser-level, tools v3.1 `src/config.c`)
+## Supported parameter contract
 
-Full accepted list (see [`fixtures/configc-keys.txt`](fixtures/configc-keys.txt)):
-`PrivateKey, PublicKey, PresharedKey, ListenPort, FwMark, PersistentKeepalive (alias
-KeepaliveTimeout), AllowedIPs, Endpoint, Jc, Jmin, Jmax, S1, S2, S3, S4, H1–H4, I1–I5,
-HeaderProtectionKey, AdvancedSecurity, ContentPaddingAddition, DisableCookies, RandomTrailers,
-RejectAfterTime, RekeyAfterTime, RekeyTimeout, MaxHandshakeAttempts`.
+The tools parser accepts the complete key list in
+[`fixtures/configc-keys.txt`](fixtures/configc-keys.txt), but parser acceptance is only the first
+capability level. WG-Guard distinguishes:
 
-The parser accepts the 2.0/3.x-generation keys (S3/S4, header protection, timers, flags) —
-**parser acceptance ≠ runtime support**. Legacy 1.0 params are the only set verified end-to-end
-this phase; 2.0/3.x remain capability-gated and off by default. Kernel-module runtime
-acceptance of the 2.0/3.x set is now verified (see the kernel matrix below); client-app
-compatibility still varies, which is why they stay off by default.
+1. **parsed** by `amneziawg-tools`;
+2. **transported and observable** through the kernel and/or userspace backend;
+3. **compatible** with an actual client and real traffic;
+4. **supported** by WG-Guard across validation, persistence, apply/dump, drift, API, client config,
+   backup, and restore.
 
-Value formats verified from the pinned `src/config.c` (2026-08-31):
+A lower level never implies a higher one. The Phase 8 source fixture records the exact paths and
+revisions used for this matrix.
 
-| Key | Parser | Value format |
-|---|---|---|
-| S3, S4 | `parse_uint16` | plain integer 0–65535 |
-| H1–H4 | `u32_range_from_string` | `N` or `N-M` (u32 range; WG-Guard writes plain `N`) |
-| HeaderProtectionKey | `parse_key` | base64-encoded 32-byte key (44 chars) |
-| ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts | `u16_range_from_string` | `N` or `N-M` (u16 bounds) |
-| RandomTrailers, DisableCookies | `parse_bool` | `on` / `off` (case-insensitive) |
-| AdvancedSecurity | `parse_bool` on `ctx->last_peer` | **peer-section key** — it is rejected in `[Interface]`; WG-Guard defers it (per-device plumbing needed) |
+| Field | Parser and section | Runtime representation / backends | Placement and parity | Dump / clearing | WG-Guard contract |
+|---|---|---|---|---|---|
+| `Jc` | u16 scalar, `[Interface]` | Kernel + userspace | Sender-local; may differ by side. `1..128` when obfuscation is enabled; upstream recommends `4..12`. | Dumped. `Jc=0` disables junk and is accepted on kernel. | Supported. Recommended/randomized profiles generate it independently and validate relationships. |
+| `Jmin`, `Jmax` | u16 scalar, `[Interface]` | Kernel + userspace | Sender-local; may differ by side. Require `Jmin < Jmax ≤ 1280` under the documented MTU assumption. | Dumped; omitted values persist. | Supported with local validation even though the pinned kernel accepts invalid ordering. |
+| `S1`, `S2` | u16 scalar, `[Interface]` | Kernel + userspace | Packet compatibility values. Require `S1 ≤ 1132`, `S2 ≤ 1188`, and `S1 + 56 ≠ S2`. | Dumped; omitted values persist. | Supported. Both must be at least 12 when HPK is enabled. |
+| `S3`, `S4` | u16 scalar, `[Interface]` | Kernel + userspace | Packet compatibility values for cookie and transport messages. | Dumped; zero/removal may require recreation when HPK is active. | Supported but absent from the safe recommended profile unless client compatibility is proven; both must be at least 12 with HPK. |
+| `H1`–`H4` | `u32_range_from_string`, `[Interface]`; inclusive `N` or `N-M`, each bound `0..4294967295`, `low ≤ high` | Packed u64; kernel + userspace preserve the full interval | Packet compatibility values. Enabled profiles use nonzero values; upstream recommends each selected value in `5..2147483647`. | All four are dumped canonically. Omission persists; zero clearing is runtime-constrained and mode transitions recreate. | Supported losslessly. The four inclusive intervals must be pairwise **non-overlapping**, not merely unequal. |
+| `I1`–`I5` | string, `[Interface]`; backend parses signature tags/bytes | Kernel + userspace | Sender/client-local custom packets; parity is not required. | Dumped as text/hex; omission persists. | Supported as explicit advanced opt-in only. Not generated by the safe recommended profile; client warnings remain because known clients differ. |
+| `HeaderProtectionKey` | 32-byte key, `[Interface]` | Kernel + userspace | Packet compatibility secret; both sides require the same key. All `S1`–`S4` values must be at least 12. | Dumped as a key. Omission persists; the pinned kernel cannot clear it through normal `setconf`. | Supported as explicit advanced opt-in. Never logged or returned by status APIs; removal recreates the interface. |
+| `ContentPaddingAddition` | `u16_range_from_string`, `[Interface]`; inclusive `N` or `N-M` | Packed u32; kernel + userspace | Sender/client-side padding control. Upstream recommends setting compatible behavior on both sides but does not require equality. | Dumped; omission persists. | Supported as explicit advanced opt-in. Both bounds are capped at 65535 despite the pinned tools parser's wider pre-pack check. |
+| `RekeyAfterTime` | same u16 range format, `[Interface]` | Kernel + userspace | Sender/client-side timing control in seconds. | Dumped; omission persists. | Supported as explicit advanced opt-in; zero means backend default. |
+| `RekeyTimeout` | same u16 range format, `[Interface]` | Kernel + userspace | Sender/client-side timing control in seconds. | Dumped; omission persists. | Supported as explicit advanced opt-in; zero means backend default. |
+| `RejectAfterTime` | same u16 range format, `[Interface]` | Kernel + userspace | Sender/client-side timing control in seconds. | Dumped; omission persists. | Supported as explicit advanced opt-in; zero means backend default. |
+| `KeepaliveTimeout` | same u16 range format, `[Interface]` | Kernel + userspace | Sender/client-side timing control in seconds; distinct from peer `PersistentKeepalive`. | Dumped; omission persists. | Supported as explicit advanced opt-in; zero means backend default. |
+| `MaxHandshakeAttempts` | same u16 range format, `[Interface]` | Kernel + userspace | Sender/client-side attempt-count control. | Dumped; omission persists. | Supported as explicit advanced opt-in; zero means backend default. |
+| `RandomTrailers` | boolean `on/off`, `[Interface]` | Kernel + userspace | Packet-shape behavior must only be enabled for clients verified to tolerate it. | Dumped; omission persists. | Supported as explicit unsafe/client-specific opt-in; always off in generated profiles. |
+| `DisableCookies` | boolean `on/off`, `[Interface]` | Kernel + userspace | Disables the under-load cookie path and weakens DoS protection. | Dumped; omission persists. | Supported as explicit unsafe opt-in only; always off in generated profiles. |
+| `PersistentKeepalive` | `u16_range_from_string`, `[Peer]`; inclusive `N` or `N-M` | Packed u32; kernel + userspace | Peer/client-side interval in seconds. | Peer dump field 8 preserves the range; `0`/`off` disables it. | Supported losslessly through the global client setting and rendered peer config. Bounds are capped at 65535. |
+| `AdvancedSecurity` | boolean `on/off`, **`[Peer]` only** | Kernel tools send a flag, but pinned kernel `set_peer` does not consume/store it; pinned userspace transport returns `EINVAL` | No verified client/server behavioral contract. | Ordinary 8-field peer dump omits it, so set state cannot be observed or reconciled. | **Unsupported and not exposed.** Parser-only/no-op acceptance must not be advertised as capability. Revisit only after upstream storage semantics and real compatible-client traffic are proven. |
 
-## Constraint enforcement lives at runtime, not in the parser
+### Range representation
 
-Verified: the tools parser accepts `Jmin > Jmax`, duplicate `H1 = H2`, and `S1 + 56 == S2` —
-the userspace **daemon rejects them at `setconf` time** (`Unable to modify interface: Invalid
-argument` for duplicate H). WG-Guard must therefore validate the full kernel-README constraint
-set itself before ever invoking `awg`: `Jc` 1–128 (recommended 4–12), `Jmin < Jmax ≤ 1280`,
-`S1 ≤ 1132`, `S2 ≤ 1188`, `S1 + 56 ≠ S2`, `H1–H4` pairwise distinct. Client↔server parity rule:
-all params must match except `Jc/Jmin/Jmax` and `I1–I5` (client-side).
+Pinned tools pack u32 ranges as `high << 32 | low` and u16 ranges as
+`high << 16 | low`. They print a scalar when the bounds are equal and `low-high` otherwise. The
+tools u16 parser checks `UINT32_MAX` before narrowing into 16-bit halves; values above `65535`
+therefore truncate rather than remain lossless. WG-Guard deliberately applies the real packed
+width and rejects either u16 bound above `65535`.
+
+### Constraint enforcement lives at runtime, not in the parser
+
+The tools parser accepts `Jmin > Jmax`, overlapping H intervals, and `S1 + 56 == S2`. The
+userspace daemon rejects all three at `setconf`; the pinned kernel rejects overlapping H ranges
+but accepts the other two. WG-Guard validates the strict union before invoking `awg`:
+`Jc` 1–128 when enabled, `Jmin < Jmax ≤ 1280`, `S1 ≤ 1132`, `S2 ≤ 1188`,
+`S1 + 56 ≠ S2`, and H1–H4 pairwise non-overlapping. HPK additionally requires every one of
+`S1`–`S4` to be at least the 12-byte nonce size.
+
+Placement guidance changed between upstream generations: the kernel README gives a broad legacy
+parity statement, while the pinned userspace README identifies J/I, timing, keepalive, and content
+padding as side-local controls. WG-Guard follows the field-specific pinned userspace guidance and
+requires exact parity only for packet compatibility values (`S1`–`S4`, `H1`–`H4`, and HPK).
 
 ## setconf semantics for obfuscation params (verified Phase 2, WSL2)
 
@@ -157,11 +181,14 @@ from the PPA (module name is **amneziawg** — `modprobe amneziawg`; links are
 - **Accepted + round-tripped through the kernel**: S3/S4; **H1–H4 as u32 ranges** (dump echoes
   `14600319-413859944` verbatim); all six timer/padding `N`/`N-M` params; RandomTrailers /
   DisableCookies; I1–I5 both template literals (`<r 105>`) and hex blobs; peer
-  PersistentKeepalive **ranges** (`25-35`); peer-section `AdvancedSecurity = on`.
-- **HeaderProtectionKey is kernel-coupled to S3/S4**: writing HPK fails with
-  `Invalid argument` unless S3 AND S4 are non-zero **in the same setconf message** — even when
-  S3/S4 already persist from a previous setconf. HPK rotation works (new key + S3/S4 in one
-  message); HPK cannot be cleared (`(none)` is parser-rejected, omission persists).
+  PersistentKeepalive **ranges** (`25-35`).
+- **HeaderProtectionKey is coupled to all four S values**: pinned source requires each of
+  S1–S4 to be at least 12. VPS testing also found that S3/S4 must accompany an HPK write in the
+  same `setconf` message even when they appear to persist. HPK rotation works when the coherent
+  padding block is present; HPK cannot be cleared (`(none)` is parser-rejected, omission persists).
+- **AdvancedSecurity is not a kernel capability at this pin.** `setconf` returns success because
+  the tools send a recognized netlink attribute, but `set_peer` never consumes or stores it and
+  ordinary dump output has no field for it. The userspace tools path rejects it with `EINVAL`.
 - **Clearing semantics**: `S3 = 0`/`S4 = 0` and `H1..H4 = 0` are rejected while HPK is set;
   `Jc = 0` alone is accepted (junk disabled). Omitted keys persist (re-verified on kernel).
   A fresh interface dumps `H1..H4 = 1,2,3,4` (stock header values), everything else
@@ -170,11 +197,11 @@ from the PPA (module name is **amneziawg** — `modprobe amneziawg`; links are
   rejected on both backends; `Jmin > Jmax` and `S1 + 56 == S2` are **accepted by the kernel
   module** (userspace daemon rejects them). WG-Guard validates the full set locally regardless.
 
-WG-Guard implementation consequences: `render.go` always emits S3/S4 together with
-HeaderProtectionKey; interface validation rejects HPK without S3/S4; the 2.0/3.x set stays
-capability-gated off-by-default with report-only drift (kernel acceptance ≠ client support);
-clearing HPK/S3/S4 on a live interface is not appliable via setconf (recreate required —
-documented in the UI).
+WG-Guard implementation consequences: `render.go` emits a coherent S1–S4 block with
+HeaderProtectionKey; interface validation rejects HPK unless all four paddings meet the nonce
+minimum; the 2.0/3.x set stays capability-gated off by default where client support varies;
+clearing HPK/S3/S4 on a live interface requires recreation. `AdvancedSecurity` is not modeled,
+rendered, or advertised.
 
 ## Interface naming
 
@@ -200,7 +227,8 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | DKMS module build | `apt install amneziawg-dkms` | module compiled (for host kernel series) | ✅ verified (build only) |
 | **Kernel-module load + netlink dump** | VPS: `modprobe amneziawg` + `ip link add … type amneziawg` + `awg show dump` | module loads (name `amneziawg`), 29-field dump | ✅ **verified (VPS kernel, 2026-08-31)** |
 | **Dump format emitted against kernel module** | VPS: full-combo setconf + dump | same 29-field format; H1–H4 echo ranges verbatim; fresh iface defaults H=1..4 | ✅ **verified (VPS kernel)** |
-| **2.0/3.x generation runtime behavior (kernel)** | VPS acceptance/round-trip matrix | S3/S4, H ranges, timers, flags, I1–I5, HPK (⇒S3/S4 same-message), peer keepalive ranges, peer AdvancedSecurity — all accepted | ✅ **verified (VPS kernel)**; client compatibility still varies — params stay gated |
+| **2.0/3.x generation runtime behavior (kernel)** | VPS acceptance/round-trip matrix | S3/S4, H ranges, timers, flags, I1–I5, HPK (⇒coherent S block), and peer keepalive ranges round-trip | ✅ **verified (VPS kernel)**; client compatibility still varies — params stay gated |
+| `AdvancedSecurity` behavior | Pinned tools/kernel/userspace source plus VPS `setconf` | parser accepts; kernel setter ignores/unobservably succeeds; userspace transport rejects; dump omits | ⛔ unsupported/gated |
 | **setconf headerless config on kernel** | VPS: conf without `[Interface]` | rejected (`Line unrecognized`) — explicit headers required | ✅ **verified (VPS kernel)** |
 | **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
 | PPA on Ubuntu 22.04 / Debian 12 | requires real VPS matrix | — | ⚠️ Phase 11 |

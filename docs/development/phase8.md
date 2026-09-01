@@ -45,13 +45,13 @@ failing regression tests.
 
 ## Stage 8.1 — Pinned AmneziaWG contract
 
-- [ ] Re-read the exact pinned `amneziawg-tools`, kernel, and userspace sources; update the
+- [x] Re-read the exact pinned `amneziawg-tools`, kernel, and userspace sources; update the
       accepted-key/value-format/constraint evidence.
-- [ ] Classify every relevant field: parser, kernel, userspace, server/client placement, client
+- [x] Classify every relevant field: parser, kernel, userspace, server/client placement, client
       compatibility, defaults, clearing semantics, and gating.
-- [ ] Verify H1–H4 `N` and `N-M`, all u16 range fields, ranged `PersistentKeepalive`, I1–I5,
+- [x] Verify H1–H4 `N` and `N-M`, all u16 range fields, ranged `PersistentKeepalive`, I1–I5,
       `HeaderProtectionKey`, flags, and peer `AdvancedSecurity` semantics.
-- [ ] Decide and document the supported compatibility contract; never expose parser-only fields
+- [x] Decide and document the supported compatibility contract; never expose parser-only fields
       as generally supported.
 
 Exit: `docs/integrations/amneziawg.md` contains reproducible evidence for every modeled field and
@@ -128,3 +128,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-08-31 | Planning | Windows workspace | Phase structure approved; no implementation verification yet | `ROADMAP.md`, release-readiness tracker |
 | 2026-09-01 | Detailed plan | Windows workspace | Twelve dependency-ordered tasks committed; baseline CI green | implementation plan, CI run 33469154880 |
 | 2026-09-01 | 8.0 baseline | Windows + WSL2 Ubuntu | Unit/vet/format/race/assets/module/vulnerability checks green; privileged integration unavailable locally (EPERM, no non-interactive sudo) | `phase8-audit.md` |
+| 2026-09-01 | 8.1 source contract | Exact pinned tools/kernel/userspace revisions + prior VPS evidence | Full field matrix frozen; H intervals and u16 ranges classified; `AdvancedSecurity` corrected to parser-only/unsupported | `../integrations/amneziawg.md`, `../integrations/fixtures/phase8-upstream-contract.txt` |

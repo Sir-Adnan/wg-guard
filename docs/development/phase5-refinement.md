@@ -17,16 +17,20 @@ on a real VPS before interface defaults/generation were built on it.
       docs/logs/source).
 - [x] Runtime acceptance + round-trip matrix on the **kernel module**: S3/S4, H1–H4 plain
       and `N-M` ranges, HeaderProtectionKey, ContentPaddingAddition, all five timer ranges,
-      RandomTrailers/DisableCookies, I1 template + hex, peer PersistentKeepalive range,
-      peer-section AdvancedSecurity — all accepted and echoed verbatim by the 29-field dump.
-- [x] Constraint semantics pinned down: HPK requires S3 AND S4 non-zero **in the same
-      setconf message** (kernel-enforced); duplicate H and the all-zero block rejected;
+      RandomTrailers/DisableCookies, I1 template + hex, and peer PersistentKeepalive range
+      were accepted and echoed by the 29-field/8-field dump. `AdvancedSecurity` returned success
+      but had no dump field; Phase 8 source review proved that result was an ignored kernel
+      attribute, not a round trip.
+- [x] Constraint semantics pinned down: HPK requires a coherent S1–S4 block with every value at
+      least 12; VPS evidence additionally requires S3/S4 in the same setconf message. Duplicate H
+      intervals and the all-zero block are rejected;
       `Jmin > Jmax` and `S1+56==S2` accepted by the kernel (userspace rejects them —
       WG-Guard validates locally regardless); explicit zeros cannot clear set params;
       `awg setconf` requires explicit `[Interface]` headers; module/link name is
       `amneziawg`. Evidence: `docs/integrations/fixtures/verify-vps-kernel-matrix.txt`.
 - [x] Findings recorded in docs/integrations/amneziawg.md (verification log) and turned
-      into code: validation rule (HPK ⇒ S3/S4), UI hint, gated-drift stays report-only.
+      into code. Phase 8 re-audits and tightens the earlier HPK and range validation rules;
+      gated drift stays report-only until the supported contract is complete.
 
 ### Stage 2 — Design system rework (palette, no purple) — **done**
 - [x] Warm sand/cream light palette with ink (near-black) primary; layered surface tokens;

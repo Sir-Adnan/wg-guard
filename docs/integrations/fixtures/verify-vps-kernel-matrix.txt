@@ -42,18 +42,20 @@ Acceptance + round-trip matrix (kernel module, via netlink; dump = `awg show awg
   CASE [Peer] PersistentKeepalive = 25-35 (u16 range)
        rc=0, dump peer field 8 = "25-35"              [kernel accepts keepalive ranges]
   CASE [Peer] AdvancedSecurity = on
-       rc=0 (peer-section key; still feature-deferred in WG-Guard)
+       rc=0, but ordinary dump has no corresponding field. Phase 8 pinned-source review found
+       that kernel set_peer does not consume/store the attribute; this is parser/no-op
+       acceptance, NOT runtime feature verification. The userspace tools path rejects it.
 
 HeaderProtectionKey coupling (kernel-enforced)
 ----------------------------------------------
-  hpk + S3/S4 (plain H)                    rc=0, hpk round-trips
+  hpk + coherent S1/S2/S3/S4 (plain H)     rc=0, hpk round-trips
   hpk WITHOUT S3/S4 (plain H / H ranges / + RandomTrailers)  rc=1 Invalid argument
   hpk written incrementally AFTER S3/S4 persist from a prior setconf
                                            rc=1 Invalid argument  (must be SAME setconf)
   hpk rotation (new key) with S3/S4 in the same conf        rc=0
-  => RULE: HeaderProtectionKey requires S3 AND S4 non-zero IN THE SAME setconf
-     message. WG-Guard render.go must always emit S3/S4 when it emits HPK;
-     iface validation must reject HPK without S3/S4.
+  => SOURCE RULE: HeaderProtectionKey requires ALL S1-S4 to be >= 12. This runtime matrix also
+     demonstrates that S3/S4 must be present in the same setconf message in the tested path.
+     WG-Guard must render and validate one coherent S1-S4 + HPK block.
   hpk clearing ("(none)") is parser-rejected; setconf cannot unset HPK (omitted
   keys persist) — removing it requires link recreate.
 
@@ -77,10 +79,12 @@ Constraint enforcement — KERNEL vs USERSPACE (both tools v3.1)
 
 WG-Guard consequences (implemented in this pass)
 ------------------------------------------------
-  - render.go: S3/S4 are always emitted together with HeaderProtectionKey.
-  - iface validation: HPK non-empty requires S3 and S4 non-empty.
+  - render.go: a coherent S1-S4 block is emitted with HeaderProtectionKey.
+  - iface validation: HPK non-empty requires every S1-S4 value to be >= 12.
   - Capability gating stays OFF-by-default + report-only drift for the 2.0/3.x
     set (userspace/arm64/client support varies); kernel-module acceptance is now
     verified upstream evidence, client compatibility still varies per app.
+  - AdvancedSecurity remains unsupported: the rc=0 result above is unobservable kernel no-op
+    acceptance at the pinned source revision, not a stored or active feature.
   - Clearing HPK/S3/S4 on a live interface is not appliable via setconf —
     documented as requiring interface recreate; gated drift remains report-only.

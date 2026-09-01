@@ -8,6 +8,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Phase 8 audit and pinned AWG contract:** reproducible Windows/WSL/CI baselines, a material
+  findings ledger, exact tools/kernel/userspace source revisions, and a field-by-field capability
+  matrix covering placement, range widths, backend observability, clearing, parity, and gating.
+  `AdvancedSecurity` is explicitly unsupported at the pins because the kernel setter ignores it,
+  userspace rejects it, and ordinary dumps cannot observe it.
 - **Release-readiness roadmap:** the former monolithic hardening phase is now an independently
   gated Phase 8–12 program: configuration/QR integrity, operational observability, complete
   UI/UX redesign, production certification, and release-candidate engineering. The active

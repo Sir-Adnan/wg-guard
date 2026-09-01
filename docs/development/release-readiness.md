@@ -50,7 +50,7 @@ implementation does not cross the active phase boundary.
 | RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | open | Automated decode equality + browser/mobile scan evidence |
 | RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | open | Canonical pipeline and real default/randomized tunnel traffic |
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | open | Lossless full-chain round trip and migration evidence |
-| RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | open | Source/runtime/client capability matrix with gated unsupported fields |
+| RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | in progress | Source/runtime/client capability matrix is frozen; close after real-client profile evidence confirms the supported subset |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
@@ -82,6 +82,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 11 | planned |
 | AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 11 | planned |
 | AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 12 | planned |
+| AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, and dump cannot observe it | Phase 8 | verified |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
