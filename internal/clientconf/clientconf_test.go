@@ -29,7 +29,7 @@ type fullConfigFixture struct {
 	deviceID string
 }
 
-func newFullConfigFixture(t *testing.T) fullConfigFixture {
+func newFullConfigFixture(t testing.TB) fullConfigFixture {
 	t.Helper()
 	ctx := context.Background()
 	db, err := database.Open(filepath.Join(t.TempDir(), "clientconf.db"), database.Options{})
@@ -123,6 +123,41 @@ func newFullConfigFixture(t *testing.T) fullConfigFixture {
 	return fullConfigFixture{
 		db: db, deviceID: d.ID,
 		renderer: &Renderer{Devices: devices, Ifaces: ifaces, Settings: registry},
+	}
+}
+
+func BenchmarkConfigRender(b *testing.B) {
+	fixture := newFullConfigFixture(b)
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		config, err := fixture.renderer.Render(ctx, fixture.deviceID)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(config) == 0 {
+			b.Fatal("empty config")
+		}
+	}
+}
+
+func BenchmarkQRFullConfig(b *testing.B) {
+	fixture := newFullConfigFixture(b)
+	config, err := fixture.renderer.Render(context.Background(), fixture.deviceID)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		png, err := QR(config)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(png) == 0 {
+			b.Fatal("empty QR")
+		}
 	}
 }
 

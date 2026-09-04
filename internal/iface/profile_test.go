@@ -8,6 +8,24 @@ import (
 	"testing"
 )
 
+func BenchmarkInterfaceProfileGeneration(b *testing.B) {
+	for _, policy := range []ProfilePolicy{ProfileRecommended, ProfileRandomized} {
+		b.Run(string(policy), func(b *testing.B) {
+			generator := NewProfileGenerator(nil)
+			b.ReportAllocs()
+			for range b.N {
+				profile, err := generator.Generate(policy)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if !profile.Enabled {
+					b.Fatal("generated profile is disabled")
+				}
+			}
+		})
+	}
+}
+
 func deterministicProfileEntropy() io.Reader {
 	pattern := make([]byte, 251)
 	for i := range pattern {
