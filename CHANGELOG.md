@@ -289,6 +289,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **Multi-interface runtime discovery:** `awg show interfaces` returns names separated by spaces
+  on one line, but the backend split only on newlines. With two live interfaces it reported one
+  combined foreign name. Parsing now follows the pinned whitespace contract; a reproducing unit
+  test and the complete concurrent privileged integration suite pass.
 - **Phase 8 migration/restore integrity:** real pre-0007 archives now prove forward migration of
   scalar H values and legacy keepalive while current archives prove exact true-range preservation
   through stage/apply and boot-time consumption, including rollback mirrors and unrelated foreign

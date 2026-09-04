@@ -85,7 +85,8 @@ Peer line, tab-separated (8 fields, superset-compatible with stock wg):
 
 Live fixture: [`fixtures/dump-awg0-userspace.txt`](fixtures/dump-awg0-userspace.txt);
 `showconf`: [`fixtures/showconf-awg0-userspace.txt`](fixtures/showconf-awg0-userspace.txt).
-`awg show <iface>` with no interfaces exits 0 with empty output (do not treat as an error).
+`awg show interfaces` emits interface names separated by ASCII spaces on one line; with no
+interfaces it exits 0 with empty output. Consumers must split on whitespace, not only newlines.
 
 ## Supported parameter contract
 

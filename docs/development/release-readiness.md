@@ -86,6 +86,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
 | AUD-018 | medium | Restore environment review queried a nonexistent `interfaces` table, silently omitting every staged tunnel interface from the operator report | Phase 8 | verified |
 | AUD-019 | high | `backend_mode="userspace"` is stored/reported but boot and reconciliation ignore it; no userspace daemon lifecycle implements the advertised fallback | Phase 11 | planned |
+| AUD-020 | medium | `awg show interfaces` space-separated multiple names were parsed as one combined name, producing false runtime/reconciliation state | Phase 8 | verified |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

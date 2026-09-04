@@ -268,7 +268,10 @@ func TestDumpNotFoundMapped(t *testing.T) {
 func TestListInterfaces(t *testing.T) {
 	f := &fakeRunner{}
 	b := NewWithBinary(f, "awg")
-	f.step("awg0\nawg1\n")
+	// Pinned `awg show interfaces` prints all names on one space-separated
+	// line. Newline-only parsing silently turns multiple interfaces into one
+	// unknown name and can make reconciliation remove/recreate the wrong state.
+	f.step("awg0 awg1\n")
 	names, err := b.ListInterfaces(context.Background())
 	if err != nil {
 		t.Fatal(err)

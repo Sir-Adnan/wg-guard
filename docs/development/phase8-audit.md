@@ -214,6 +214,19 @@ archive tests assert the interface summary as well as exact AWG ranges, rollback
 keepalive, settings, and foreign-key data through stage/apply; a serve test proves the staged
 snapshot is consumed and audit-logged at next boot.
 
+### P8-012 — Multi-interface runtime listing was parsed with the wrong delimiter
+
+Severity: medium. Owner: Phase 8. Tracker: AUD-020.
+
+The pinned `awg show interfaces` command emits all names separated by spaces on one line, while
+`ListInterfaces` split only at newlines. A single interface masked the defect; the fresh full
+integration run overlapped the accounting and backend userspace fixtures and returned two names,
+which were treated as one nonexistent combined interface and produced false reconciliation state.
+
+State 2026-09-05: verified. The unit fixture now reproduces the pinned multi-name output and the
+backend uses whitespace-field parsing. The focused real-userspace test and the complete privileged
+integration-tag suite both pass with simultaneous interfaces.
+
 ## Findings assigned to later phases
 
 ### P11-001 — Restore can allocate multi-gigabyte archive members

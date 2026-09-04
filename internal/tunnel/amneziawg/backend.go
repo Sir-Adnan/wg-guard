@@ -62,13 +62,9 @@ func (b *Backend) ListInterfaces(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("amneziawg: list interfaces: %w", err)
 	}
-	var out []string
-	for _, ln := range strings.Split(string(res.Stdout), "\n") {
-		if ln = strings.TrimSpace(ln); ln != "" {
-			out = append(out, ln)
-		}
-	}
-	return out, nil
+	// Pinned tools print a space-separated line, not one name per line.
+	// Fields also tolerates the trailing newline and empty no-interface result.
+	return strings.Fields(string(res.Stdout)), nil
 }
 
 // CreateInterface brings up a link, applies the crypto config, verifies it,
