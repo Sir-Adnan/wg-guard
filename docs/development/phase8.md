@@ -76,11 +76,11 @@ Exit: no supported range can be truncated, coerced, or compared lossy anywhere i
 - [x] Define verified recommended defaults separately from randomized generation policy.
 - [x] Generate profiles server-side with `crypto/rand`; validate dependent fields as a coherent
       set and keep unsafe/client-specific options explicitly gated.
-- [ ] Render one canonical client-config byte sequence for API, admin panel, and subscription
+- [x] Render one canonical client-config byte sequence for API, admin panel, and subscription
       surfaces.
-- [ ] Verify private/server/preshared keys, address, DNS, MTU, endpoint, AllowedIPs, keepalive,
+- [x] Verify private/server/preshared keys, address, DNS, MTU, endpoint, AllowedIPs, keepalive,
       every enabled obfuscation field, filename, and final newline/serialization behavior.
-- [ ] Synchronize REST API, OpenAPI, UI fields, and documentation for any visible model changes.
+- [x] Synchronize REST API, OpenAPI, UI fields, and documentation for any visible model changes.
 
 Exit: default and randomized configurations are deterministic in shape, valid by construction,
 and identical across every delivery surface.
@@ -133,3 +133,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-01 | 8.1 source contract | Exact pinned tools/kernel/userspace revisions + prior VPS evidence | Full field matrix frozen; H intervals and u16 ranges classified; `AdvancedSecurity` corrected to parser-only/unsupported | `../integrations/amneziawg.md`, `../integrations/fixtures/phase8-upstream-contract.txt` |
 | 2026-09-01 | 8.2 core + contracts | Windows/Go unit and vet suites | Migration 0007 plus exact storage/apply/dump/drift, strict fa/en forms, range-aware keepalive, explicit lower-snake-case API DTOs, write-only HPK, strict JSON, and OpenAPI parity implemented; backup/restore and real-host equality still pending | package tests under `internal/{awgparam,database,iface,tunnel,reconcile,settings,api,web}` |
 | 2026-09-01 | 8.3 profile policies | Windows/Go unit, HTTP, and asset suites | One injectable server generator now owns plain/recommended/randomized policies; 10,000 randomized profiles satisfy relationship/property checks; API preset application and conflict semantics are schema-tested; the authenticated CSRF panel endpoint only populates fields; browser generation was removed; stored HPK values are no longer rendered into edit HTML | `internal/iface/profile_test.go`, `internal/api/*_test.go`, `internal/web/ifaces_profile_test.go` |
+| 2026-09-05 | 8.3 canonical delivery | Windows/Go unit + HTTP suites | A literal full-field golden fixes the one canonical byte contract; AWG fields now precede `[Peer]`, the selected interface MTU is honored, corrupt stored keepalive fails before key decryption, and direct/REST/admin/subscription downloads are byte-identical with exact secret-safe headers and filenames | `internal/clientconf/clientconf_test.go`, `internal/api/handlers_test.go`, `internal/web/config_surfaces_test.go` |

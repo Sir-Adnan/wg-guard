@@ -47,6 +47,20 @@ current product contract.
   are shared by all peers). Changing a
   profile's params is a guided **rotation** workflow.
 
+## Client configuration integrity
+
+`internal/clientconf.Renderer` is the sole authority for client-configuration bytes. Interface-
+local values (private key, address, DNS, per-interface MTU, and every enabled supported AWG
+parameter) belong in `[Interface]`; server-peer values (server public key, optional preshared
+key, AllowedIPs, endpoint, and PersistentKeepalive) belong in `[Peer]`. Stored ranges are emitted
+losslessly, comma-separated lists use canonical spacing, and the document ends with exactly one
+newline. Invalid stored configuration must fail explicitly instead of silently omitting a value.
+
+The direct renderer, authenticated REST API, admin panel, and public subscription download must
+serve the exact same byte sequence and sanitized filename with `Cache-Control: no-store`. QR
+images must independently decode to that same sequence. Tests and diagnostics may report only
+lengths, digests, or offsets for mismatches; they must never print raw configurations or keys.
+
 ## Lifecycle
 
 Statuses: `active`, `disabled`, `suspended`, `expired`, `traffic_exceeded`,

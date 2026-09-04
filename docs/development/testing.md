@@ -23,6 +23,10 @@ and without a real VPN interface.
 - Idempotency: replayed `Idempotency-Key` returns the original response, no side effects.
 - Webhooks: signature scheme, replay window, restart-safe delivery (kill mid-flight), backoff.
 - Drift: unknown peer / missing interface / changed port → reconcile per policy.
+- Client configuration: one literal full-field golden covers exact section placement, ordering,
+  range preservation, spacing, and final newline; REST/admin/subscription bytes and headers are
+  compared against the direct renderer. Failures report only length/digest/offset metadata and
+  never configuration contents or key material.
 
 ## Benchmarks (measured, not guessed)
 

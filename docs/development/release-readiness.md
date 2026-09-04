@@ -4,7 +4,7 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the active phase document.
 
-Last updated: 2026-09-01. Active phase: **8 — Audit & configuration integrity**.
+Last updated: 2026-09-05. Active phase: **8 — Audit & configuration integrity**.
 
 ## Program status
 
@@ -48,7 +48,7 @@ implementation does not cross the active phase boundary.
 | ID | Blocker | Owner | State | Evidence required to close |
 |---|---|---|---|---|
 | RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | open | Automated decode equality + browser/mobile scan evidence |
-| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | in progress | Typed API/settings/runtime paths and canonical server profile policies are implemented; canonical config delivery and real default/randomized tunnel traffic remain |
+| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | in progress | Typed API/settings/runtime paths, server profile policies, and byte-identical full-field config delivery are unit tested; QR equality plus real default/randomized tunnel traffic remain |
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | in progress | Storage/apply/dump/drift/API/forms are lossless and unit tested; backup/QR/VPS equality remains |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | in progress | Source/runtime/client capability matrix is frozen; close after real-client profile evidence confirms the supported subset |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
@@ -83,6 +83,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 11 | planned |
 | AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 12 | planned |
 | AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, and dump cannot observe it | Phase 8 | verified |
+| AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

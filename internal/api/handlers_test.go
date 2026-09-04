@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -347,19 +348,37 @@ func TestDeviceLifecycleAndConfig(t *testing.T) {
 		t.Fatalf("device limit: %d %s", rec3.Code, rec3.Body.String())
 	}
 
-	// Config download: contains the client shape; no-store.
+	// Config download: exact bytes from the canonical renderer, with
+	// attachment and no-store headers. Never print the config: it contains
+	// private key material.
 	rec = e.do("GET", "/api/v1/devices/"+did+"/config", "")
 	if rec.Code != 200 {
-		t.Fatalf("config: %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("config status: %d", rec.Code)
 	}
 	cfg := rec.Body.String()
+	canonical, err := e.srv.ClientConf.Render(context.Background(), did)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg != canonical {
+		gotSum, wantSum := sha256.Sum256([]byte(cfg)), sha256.Sum256([]byte(canonical))
+		t.Fatalf("REST config differs from canonical renderer: got len=%d sha256=%x, want len=%d sha256=%x",
+			len(cfg), gotSum[:8], len(canonical), wantSum[:8])
+	}
 	for _, want := range []string{"[Interface]", "PrivateKey = ", "Address = 10.77.0.", "[Peer]", "PublicKey = ", "Endpoint = vpn.example.com:39001", "PresharedKey = ", "PersistentKeepalive = 25", "AllowedIPs = 0.0.0.0/0"} {
 		if !strings.Contains(cfg, want) {
-			t.Fatalf("config missing %q:\n%s", want, cfg)
+			t.Fatalf("config missing %q (len=%d)", want, len(cfg))
 		}
 	}
-	if rec.Header().Get("Cache-Control") != "no-store" {
-		t.Fatal("config must be no-store")
+	for header, want := range map[string]string{
+		"Content-Type":           "text/plain; charset=utf-8",
+		"Content-Disposition":    `attachment; filename="dev-user-phone.conf"`,
+		"Cache-Control":          "no-store",
+		"X-Content-Type-Options": "nosniff",
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("config %s = %q, want %q", header, got, want)
+		}
 	}
 
 	// QR: valid PNG.

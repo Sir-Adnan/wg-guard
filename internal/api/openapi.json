@@ -215,7 +215,7 @@
     },
     "/api/v1/devices/{id}/config": {
       "get": {
-        "tags": ["config"], "summary": "Download the client configuration (text)", "description": "Requires configs.read; `Cache-Control: no-store`; contains the private key — treat as a secret. The `Content-Disposition` filename is `[prefix]username-device[suffix].conf` (downloads.filename_prefix/suffix settings; prefix/suffix empty by default).", "security": [{ "BearerAuth": ["configs.read"] }],
+        "tags": ["config"], "summary": "Download the client configuration (text)", "description": "Requires configs.read; contains the private key — treat as a secret. Returns the canonical full-field configuration bytes shared by the admin and subscription downloads, ending in exactly one newline. Response headers include `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`; the `Content-Disposition` filename is `[prefix]username-device[suffix].conf` (downloads.filename_prefix/suffix settings; prefix/suffix empty by default).", "security": [{ "BearerAuth": ["configs.read"] }],
         "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
         "responses": { "200": { "description": "AWG client configuration", "content": { "text/plain": { "schema": { "type": "string" } } } } }
       }

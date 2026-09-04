@@ -277,6 +277,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **Canonical client configuration delivery:** the renderer now places every AWG client/interface
+  field before `[Peer]`, honors the selected tunnel interface's MTU, preserves every supported
+  scalar/range field, canonicalizes AllowedIPs, and rejects corrupt stored DNS/AllowedIPs/
+  PersistentKeepalive before decrypting keys. A literal full-field golden and cross-surface test
+  prove direct, REST, admin, and subscription downloads have identical bytes, filenames, secret-
+  safe headers, and exactly one final newline; config mismatches no longer dump keys into CI logs.
 - **Phase 8 AWG range/API integrity:** H1–H4 and every u16 timer/keepalive range now preserve
   both endpoints through migration 0007, storage, setconf/dump, drift correction, forms, and
   client rendering. The management API uses explicit lower-snake-case DTOs with scalar-number /

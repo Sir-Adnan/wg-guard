@@ -83,6 +83,16 @@ no parameters is `plain`. API responses may therefore report `plain`, `recommend
 `randomized`, or `custom`. Generated HPKs remain write-only and are represented only by
 `header_protection_key_set` in REST responses.
 
+## Client configuration delivery
+
+`GET /api/v1/devices/{id}/config`, the authenticated panel download, and the public subscription
+download delegate to the same `internal/clientconf.Renderer`; no HTTP surface assembles or
+rewrites configuration text. The canonical serialization puts all client/interface keys before
+`[Peer]`, uses the selected tunnel interface's MTU, preserves scalar/range values, validates
+stored DNS/AllowedIPs/PersistentKeepalive before decrypting keys, and ends with exactly one
+newline. Every response is `text/plain; charset=utf-8`, an attachment with the shared sanitized
+filename, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
+
 ## Webhooks
 
 Durable and restart-safe (delivery state in SQLite; the event row commits in the SAME

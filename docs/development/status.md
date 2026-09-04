@@ -349,8 +349,11 @@ randomized policies; profile relationships have a 10,000-case property test, RES
 apply the policy, and the authenticated CSRF panel flow only populates server-generated values.
 Fixed headers and browser-side protocol generation are removed, unsafe/client-specific options
 stay off, and stored HPKs are not rendered into edit HTML. `AdvancedSecurity` remains
-unsupported. Backup/restore, canonical config delivery, QR decoding, and real VPS/client traffic
-evidence are not yet complete, so the Phase 8 release blockers remain open/in progress.
+unsupported. Canonical client delivery is now exact and unit tested: one full-field golden covers
+section placement, every supported field, per-interface MTU, ranges, spacing, and final newline;
+direct, REST, admin, and subscription downloads are byte-identical with shared safe headers and
+filenames. Backup/restore, QR decoding, and real VPS/client traffic evidence are not yet complete,
+so the Phase 8 release blockers remain open/in progress.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 

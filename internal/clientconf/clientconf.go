@@ -12,6 +12,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"net"
 	"strings"
 
 	"rsc.io/qr"
@@ -35,10 +36,10 @@ type Renderer struct {
 //
 // The private key is decrypted for the response only and never logged.
 //
-// Obfuscation parameters follow the pinned client↔server parity rule
-// (docs/integrations/amneziawg.md): S1/S2/H1–H4 must match the server;
-// Jc/Jmin/Jmax and I1–I5 are client-side (the server's values are offered as
-// defaults; I1–I5 only when configured — iOS rejects I1–I5 configs, #115).
+// Packet-compatibility fields follow the pinned client↔server parity rule
+// (docs/integrations/amneziawg.md): S1–S4, H1–H4, and HPK match the server.
+// Sender-local J/I/padding/timer values use the profile's values as product
+// defaults; I1–I5 render only when configured (iOS rejects them, #115).
 func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) {
 	d, err := r.Devices.Get(ctx, deviceID)
 	if err != nil {
@@ -48,6 +49,41 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	endpoint := ifc.EndpointOverride
+	if endpoint == "" {
+		endpoint, err = r.Settings.GetString(ctx, "node.endpoint")
+		if err != nil {
+			return "", fmt.Errorf("clientconf: load endpoint: %w", err)
+		}
+	}
+	dns, err := r.Settings.GetStringList(ctx, "network.dns_servers")
+	if err != nil {
+		return "", fmt.Errorf("clientconf: load DNS servers: %w", err)
+	}
+	for _, address := range dns {
+		if net.ParseIP(address) == nil {
+			return "", fmt.Errorf("clientconf: stored DNS server is invalid")
+		}
+	}
+	allowedText, err := r.Settings.GetString(ctx, "network.client_allowed_ips")
+	if err != nil {
+		return "", fmt.Errorf("clientconf: load allowed IPs: %w", err)
+	}
+	allowed, err := canonicalAllowedIPs(allowedText)
+	if err != nil {
+		return "", err
+	}
+	keepaliveText, err := r.Settings.GetString(ctx, "network.client_persistent_keepalive")
+	if err != nil {
+		return "", fmt.Errorf("clientconf: load persistent keepalive: %w", err)
+	}
+	keepalive, err := awgparam.ParseU16Range(keepaliveText)
+	if err != nil {
+		return "", fmt.Errorf("clientconf: stored persistent keepalive is invalid: %w", err)
+	}
+
+	// Decrypt key material only after every non-secret dependency has been
+	// loaded and validated, minimizing its plaintext lifetime on failures.
 	priv, err := r.Devices.PrivateKey(ctx, d)
 	if err != nil {
 		return "", err
@@ -56,57 +92,36 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-
-	endpoint := ifc.EndpointOverride
-	if endpoint == "" {
-		endpoint, _ = r.Settings.GetString(ctx, "node.endpoint")
-	}
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format, args...) }
 
 	w("[Interface]\nPrivateKey = %s\n", priv)
 	w("Address = %s\n", d.IPv4)
-	if dns, err := r.Settings.GetStringList(ctx, "network.dns_servers"); err == nil && len(dns) > 0 {
+	if len(dns) > 0 {
 		w("DNS = %s\n", strings.Join(dns, ", "))
 	}
-	if mtu, err := r.Settings.GetInt(ctx, "network.mtu"); err == nil && mtu > 0 {
-		w("MTU = %d\n", mtu)
-	}
-	b.WriteString("\n[Peer]\n")
-	w("PublicKey = %s\n", ifc.PublicKey)
-	if psk != "" {
-		w("PresharedKey = %s\n", psk)
-	}
-	if allowed, err := r.Settings.GetString(ctx, "network.client_allowed_ips"); err == nil && allowed != "" {
-		w("AllowedIPs = %s\n", strings.ReplaceAll(allowed, ",", ", "))
-	}
-	if endpoint != "" {
-		w("Endpoint = %s\n", WithPort(endpoint, ifc.ListenPort))
-	}
-	if text, err := r.Settings.GetString(ctx, "network.client_persistent_keepalive"); err == nil {
-		if ka, parseErr := awgparam.ParseU16Range(text); parseErr == nil && !ka.IsZero() {
-			w("PersistentKeepalive = %s\n", ka)
-		}
+	if ifc.MTU > 0 {
+		w("MTU = %d\n", ifc.MTU)
 	}
 	o := ifc.Obfuscation
 	if o.Enabled {
 		w("Jc = %d\nJmin = %d\nJmax = %d\n", o.Jc, o.Jmin, o.Jmax)
 		w("S1 = %d\nS2 = %d\n", o.S1, o.S2)
-		w("H1 = %s\nH2 = %s\nH3 = %s\nH4 = %s\n", o.H1, o.H2, o.H3, o.H4)
-		for i, v := range []string{o.I1, o.I2, o.I3, o.I4, o.I5} {
-			if v != "" {
-				w("I%d = %s\n", i+1, v)
-			}
-		}
-		// Capability-gated 2.0/3.x parameters (amneziawg.md): the
-		// client↔server parity rule requires S3/S4, header protection,
-		// padding and timers to match the server; rendered only when set.
 		if o.S3 != 0 {
 			w("S3 = %d\n", o.S3)
 		}
 		if o.S4 != 0 {
 			w("S4 = %d\n", o.S4)
 		}
+		w("H1 = %s\nH2 = %s\nH3 = %s\nH4 = %s\n", o.H1, o.H2, o.H3, o.H4)
+		for i, v := range []string{o.I1, o.I2, o.I3, o.I4, o.I5} {
+			if v != "" {
+				w("I%d = %s\n", i+1, v)
+			}
+		}
+		// Capability-gated 2.0/3.x parameters (amneziawg.md): S3/S4
+		// and header protection require parity; sender-local padding and
+		// timer values are product defaults. All render only when set.
 		if o.HeaderProtectionKey != "" {
 			w("HeaderProtectionKey = %s\n", o.HeaderProtectionKey)
 		}
@@ -132,7 +147,36 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 			w("DisableCookies = on\n")
 		}
 	}
+	b.WriteString("\n[Peer]\n")
+	w("PublicKey = %s\n", ifc.PublicKey)
+	if psk != "" {
+		w("PresharedKey = %s\n", psk)
+	}
+	if allowed != "" {
+		w("AllowedIPs = %s\n", allowed)
+	}
+	if endpoint != "" {
+		w("Endpoint = %s\n", WithPort(endpoint, ifc.ListenPort))
+	}
+	if !keepalive.IsZero() {
+		w("PersistentKeepalive = %s\n", keepalive)
+	}
 	return b.String(), nil
+}
+
+func canonicalAllowedIPs(text string) (string, error) {
+	parts := make([]string, 0, strings.Count(text, ",")+1)
+	for _, part := range strings.Split(text, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(part); err != nil {
+			return "", fmt.Errorf("clientconf: stored allowed IP is invalid")
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, ", "), nil
 }
 
 // WithPort appends the interface listen port unless the endpoint already

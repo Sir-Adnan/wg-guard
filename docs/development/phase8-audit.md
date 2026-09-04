@@ -176,6 +176,22 @@ Correction: classify it parser-only/unobservable and unsupported. Do not model o
 unless a future pinned upstream stores and exposes the value and real client traffic proves the
 behavior. Recorded as AUD-016 in the release tracker and corrected in the Phase 8 contract.
 
+### P8-010 — Canonical client serialization was structurally unsafe
+
+Severity: high. Owner: Phase 8. Tracker: AUD-017 / RB-002.
+
+The shared renderer wrote AWG interface-only keys after the `[Peer]` marker, used the global MTU
+instead of the device's selected interface MTU, and silently omitted a malformed persisted
+PersistentKeepalive. Its REST lifecycle test could also print the complete private-key-bearing
+configuration on failure. These paths had no literal full-field golden or cross-surface byte
+identity check.
+
+State 2026-09-05: verified. One literal golden now fixes section placement, ordering, all
+supported gated fields and ranges, per-interface MTU, spacing, and final newline. Stored DNS,
+AllowedIPs, and keepalive are validated before keys are decrypted. Direct rendering plus REST,
+admin, and subscription downloads are byte-identical; mismatch output is limited to lengths,
+digests, and first-difference offsets.
+
 ## Findings assigned to later phases
 
 ### P11-001 — Restore can allocate multi-gigabyte archive members
