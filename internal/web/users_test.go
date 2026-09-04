@@ -113,6 +113,9 @@ func TestUserCreateListDetail(t *testing.T) {
 	if rec := e.get("/devices/"+devID+"/config", nil); rec.Code != http.StatusSeeOther {
 		t.Fatalf("anonymous config fetch: %d", rec.Code)
 	}
+	if rec := e.get("/devices/"+devID+"/qr", nil); rec.Code != http.StatusSeeOther {
+		t.Fatalf("anonymous QR fetch: %d", rec.Code)
+	}
 }
 
 func TestUserLifecycleAndSearch(t *testing.T) {

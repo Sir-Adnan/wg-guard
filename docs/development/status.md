@@ -34,7 +34,7 @@ enforced by `scripts/check-assets.sh`: JS 19.5/30 KiB gz, CSS 8.4/25 KiB gz, fon
 | Dashboard: user metric cards (total/active/waiting/online/expiring/expired/exceeded/total traffic), host card (CPU/RAM/disk/load/uptime read from `/proc` on demand — `internal/hoststats`, no background polling; graceful "unavailable" state off Linux), CSP-safe server-rendered SVG traffic chart (24 h/7 d/30 d ranges, zero-filled buckets, nice-axis scaling, SI-suffixed axis labels), live fragment refresh every 30 s with `data-pause-hidden` (Page Visibility hook in app.js), no-JS fallback links | ✅ implemented + unit tested (chart buckets/escaping/geometry, hoststats fixtures incl. degradation, live fragment) |
 | Plans: CRUD + enable/disable with per-plan live user counts and interface references; tri-state limit fields (traffic GB, duration days, up/down kbps) | ✅ implemented + unit tested (CRUD flow) |
 | Interfaces: CRUD + enable/disable, AWG obfuscation parameter section (jc/jmin/jmax/s1/s2 and lossless scalar/range H1–H4), strict numeric/range parsing in both directions, plain↔obfuscated edit warns that clients must re-import profiles, delete guarded while devices exist, auto port + subnet defaults, immutable name/port/subnet on edit | ✅ implemented + unit tested (CRUD, exact range form round trip in fa/en, malformed/overlap no-mutation regressions) |
-| `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); QR raster drawn manually — rsc.io/qr's `code.Image()` leaves modules unscaled in the canvas corner (regression test asserts a filled canvas) | ✅ implemented + unit tested |
+| `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); the manually scaled raster is initialized white with a four-module quiet zone, and an independent test-only decoder proves exact config equality on direct/REST/admin/subscription paths | ✅ implemented + unit tested; real browser/camera/client scan remains a Phase 8 gate |
 | API correctness fixes surfaced by web work: `/api/v1` traffic series used nonexistent `rx_delta`/`tx_delta` columns for rollups and mixed granularities — now correct per-granularity sums (regression test over the API) | ✅ implemented + unit tested |
 
 Refinement pass additions (same status rules as above):
@@ -352,8 +352,10 @@ stay off, and stored HPKs are not rendered into edit HTML. `AdvancedSecurity` re
 unsupported. Canonical client delivery is now exact and unit tested: one full-field golden covers
 section placement, every supported field, per-interface MTU, ranges, spacing, and final newline;
 direct, REST, admin, and subscription downloads are byte-identical with shared safe headers and
-filenames. Backup/restore, QR decoding, and real VPS/client traffic evidence are not yet complete,
-so the Phase 8 release blockers remain open/in progress.
+filenames. The QR raster defect is fixed and independent decoding proves exact config equality
+for direct, REST, admin, and subscription paths, including UTF-8/full/near-capacity payloads and
+oversized failure. Backup/restore and real browser/VPS/client traffic evidence are not yet
+complete, so the Phase 8 release blockers remain open/in progress.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 

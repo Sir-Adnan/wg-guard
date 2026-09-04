@@ -60,6 +60,12 @@ encoder or an HTTP surface.
 Required correction: white initialization, independent decode equality, quiet-zone/module
 assertions, HTTP-surface byte comparison, and real browser/client verification.
 
+State 2026-09-05: implementation verified. The pre-fix independent decoder reproduced a
+`NotFoundException`; the raster now starts white and retains integer modules plus a four-module
+quiet zone. Independent decoding covers direct and all HTTP surfaces, UTF-8/full/near-capacity
+payloads, deterministic output, safe headers, authorization, and oversized failure. Real
+browser/camera/client evidence remains an RB-001 gate rather than an inferred unit-test result.
+
 ### P8-002 — H ranges are deliberately truncated by the dump parser
 
 Severity: critical. Owner: Phase 8. Tracker: AUD-002 / RB-003.

@@ -8,6 +8,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Added
+- **Independent QR verification:** test-only `gozxing` v0.1.1 decoding now verifies direct,
+  REST, admin, and public-subscription PNGs against the canonical private-key-bearing config
+  without printing it. Coverage includes empty and Persian/English UTF-8 data, complete configs,
+  2.3 KB near-capacity payloads, deterministic PNG output, headers, authorization isolation, and
+  oversized input; the decoder and its transitive module are absent from production binaries.
 - **Canonical AWG profile policies:** one injectable server-side generator now owns plain,
   recommended, and randomized profiles for the service, REST API, and admin panel. Recommended
   profiles keep client-risk fields off and receive unique per-profile headers; randomized
@@ -277,6 +282,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **QR rasterization:** the grayscale canvas is now explicitly initialized white before black
+  modules are painted, restoring a valid four-module quiet zone and scannable contrast. The
+  previously all-black PNG now fails pre-fix and passes an independent decoder after the fix;
+  oversized admin and subscription QR requests return a no-store client error rather than 404.
 - **Canonical client configuration delivery:** the renderer now places every AWG client/interface
   field before `[Peer]`, honors the selected tunnel interface's MTU, preserves every supported
   scalar/range field, canonicalizes AllowedIPs, and rejects corrupt stored DNS/AllowedIPs/

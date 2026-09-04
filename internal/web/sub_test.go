@@ -95,6 +95,10 @@ func TestSubscriptionPageLifecycle(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("cross-user config leaked: %d", rec.Code)
 	}
+	rec = e.get(subURL+"/devices/"+d2.ID+"/qr", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("cross-user QR leaked: %d", rec.Code)
+	}
 
 	// Unknown token = plain 404.
 	rec = e.get("/sub/definitely-not-a-token", nil)

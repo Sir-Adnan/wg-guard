@@ -23,6 +23,8 @@ from the official PPA, whose source availability satisfies the license.
 | golang.org/x/crypto | v0.55.0 | BSD-3-Clause | argon2id password hashing |
 | BurntSushi/toml | v1.6.0 | MIT | Boot configuration file |
 | rsc.io/qr | v0.2.0 | BSD-3-Clause | Server-side QR generation for device configs (chosen over skip2/go-qrcode: zero transitive dependencies, maintained encoding; the planned skip2 entry is superseded) |
+| github.com/makiuchi-d/gozxing | v0.1.1 | MIT AND Apache-2.0 (upstream ZXing portions; both notices are in the module LICENSE) | Independent QR decoding in `internal/testutil/qrdecode` only; not imported or linked by the production binary |
+| golang.org/x/xerrors | v0.0.0-20200804184101-5ec99f83aff1 | BSD-3-Clause | Test-only transitive dependency of gozxing; not linked by the production binary |
 
 ## Planned Go dependencies (SPDX to be confirmed at pin time)
 

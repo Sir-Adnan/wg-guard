@@ -27,6 +27,9 @@ and without a real VPN interface.
   range preservation, spacing, and final newline; REST/admin/subscription bytes and headers are
   compared against the direct renderer. Failures report only length/digest/offset metadata and
   never configuration contents or key material.
+- QR delivery: PNGs are decoded with an independent test-only implementation and compared with
+  the canonical config for direct, REST, admin, and public-subscription paths. Geometry/color,
+  empty, UTF-8, full, near-capacity, oversized, and deterministic-output cases are covered.
 
 ## Benchmarks (measured, not guessed)
 

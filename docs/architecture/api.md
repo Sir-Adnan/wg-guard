@@ -93,6 +93,11 @@ stored DNS/AllowedIPs/PersistentKeepalive before decrypting keys, and ends with 
 newline. Every response is `text/plain; charset=utf-8`, an attachment with the shared sanitized
 filename, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
 
+The matching QR endpoints pass those same bytes to the single bounded QR encoder. Its PNG has a
+four-module white quiet zone, integer module scaling, and medium error correction; independent
+test decoding proves content equality. Oversized configurations fail with a typed client error
+and no partial image. The test-only decoder is not linked into the production binary.
+
 ## Webhooks
 
 Durable and restart-safe (delivery state in SQLite; the event row commits in the SAME

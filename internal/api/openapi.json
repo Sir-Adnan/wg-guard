@@ -222,9 +222,9 @@
     },
     "/api/v1/devices/{id}/qr": {
       "get": {
-        "tags": ["config"], "summary": "Client configuration as a PNG QR code", "security": [{ "BearerAuth": ["configs.read"] }],
+        "tags": ["config"], "summary": "Client configuration as a PNG QR code", "description": "Encodes the exact canonical configuration returned by the text endpoint. Returns `image/png`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and an inline `[prefix]username-device[suffix].png` filename. An oversized configuration returns `INVALID_REQUEST` instead of partial image data.", "security": [{ "BearerAuth": ["configs.read"] }],
         "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
-        "responses": { "200": { "description": "PNG image", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } } } }
+        "responses": { "200": { "description": "PNG image", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } } }, "400": { "$ref": "#/components/responses/Invalid" } }
       }
     },
     "/api/v1/stats": {

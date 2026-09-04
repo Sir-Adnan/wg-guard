@@ -87,12 +87,15 @@ and identical across every delivery surface.
 
 ## Stage 8.4 — QR correctness
 
-- [ ] Add a decoder-based failing test using a representative full client configuration.
-- [ ] Correct raster colors, quiet zone, scaling, error correction, response headers, and browser
-      presentation at the root cause rather than adding surface-specific workarounds.
-- [ ] Decode QR responses from admin device/user flows and public subscription flows and compare
+- [x] Add a decoder-based failing test using a representative full client configuration.
+- [x] Correct raster colors, quiet zone, scaling, error correction, response headers, and
+      oversized-input handling at the root cause rather than adding surface-specific workarounds.
+- [x] Decode QR responses from REST, admin device/user flows, and public subscription flows; compare
       exact bytes to their `.conf` downloads.
-- [ ] Verify mobile/desktop, fa/en, light/dark, cache/security headers, and oversized-config errors.
+- [x] Verify cache/security/filename headers, deterministic output, empty/multilingual/full/near-
+      capacity payloads, oversized-config errors, and auth/cross-user isolation automatically.
+- [ ] Verify presentation and scanning on mobile/desktop, fa/en, and light/dark against the real
+      deployment.
 
 Exit: automated decode equality passes and real camera/client scanning works on all product
 surfaces without third-party QR services.
@@ -134,3 +137,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-01 | 8.2 core + contracts | Windows/Go unit and vet suites | Migration 0007 plus exact storage/apply/dump/drift, strict fa/en forms, range-aware keepalive, explicit lower-snake-case API DTOs, write-only HPK, strict JSON, and OpenAPI parity implemented; backup/restore and real-host equality still pending | package tests under `internal/{awgparam,database,iface,tunnel,reconcile,settings,api,web}` |
 | 2026-09-01 | 8.3 profile policies | Windows/Go unit, HTTP, and asset suites | One injectable server generator now owns plain/recommended/randomized policies; 10,000 randomized profiles satisfy relationship/property checks; API preset application and conflict semantics are schema-tested; the authenticated CSRF panel endpoint only populates fields; browser generation was removed; stored HPK values are no longer rendered into edit HTML | `internal/iface/profile_test.go`, `internal/api/*_test.go`, `internal/web/ifaces_profile_test.go` |
 | 2026-09-05 | 8.3 canonical delivery | Windows/Go unit + HTTP suites | A literal full-field golden fixes the one canonical byte contract; AWG fields now precede `[Peer]`, the selected interface MTU is honored, corrupt stored keepalive fails before key decryption, and direct/REST/admin/subscription downloads are byte-identical with exact secret-safe headers and filenames | `internal/clientconf/clientconf_test.go`, `internal/api/handlers_test.go`, `internal/web/config_surfaces_test.go` |
+| 2026-09-05 | 8.4 automated QR | Windows/Go unit + HTTP suites; CGO-free production build | The all-black raster failed the independent decoder before the white-background fix. Empty, UTF-8, full-field, and 2.3 KB payloads now decode exactly; every HTTP QR equals its matching config and fails closed when oversized. Test decoder absent from the 26,234,880-byte production binary. Real browser/camera verification remains. | `internal/testutil/qrdecode`, `internal/clientconf/qr_test.go`, `internal/web/config_surfaces_test.go` |

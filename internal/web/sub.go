@@ -135,6 +135,7 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 // handleSubDeviceQR streams one device's client config as a PNG, gated by
 // the subscription token (device must belong to the link's user).
 func (s *Server) handleSubDeviceQR(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	if s.subRateLimited(w, r) {
 		return
 	}
@@ -149,7 +150,7 @@ func (s *Server) handleSubDeviceQR(w http.ResponseWriter, r *http.Request) {
 	}
 	png, err := clientconf.QR(text)
 	if err != nil {
-		http.NotFound(w, r)
+		s.writeQRError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
@@ -161,6 +162,7 @@ func (s *Server) handleSubDeviceQR(w http.ResponseWriter, r *http.Request) {
 
 // handleSubDeviceConfig streams one device's client .conf, same gating.
 func (s *Server) handleSubDeviceConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	if s.subRateLimited(w, r) {
 		return
 	}

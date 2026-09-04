@@ -208,13 +208,17 @@ func WithPort(endpoint string, port int) string {
 // unscaled in the corner of a Scale-multiplied canvas, which renders as a
 // speck in a white square.
 func QR(text string) ([]byte, error) {
-	const maxQRBytes = 2600 // QR version 40 byte-mode capacity is 2953
+	// Keep a cheap outer application bound even though medium error
+	// correction's effective byte-mode capacity is lower. The encoder owns
+	// the exact capacity calculation for each payload mode; either limit is a
+	// client error, never an internal failure or partial image.
+	const maxQRBytes = 2600
 	if len(text) > maxQRBytes {
 		return nil, domain.E(domain.CodeInvalidRequest, "device configuration too large for a QR code")
 	}
 	code, err := qr.Encode(text, qr.M)
 	if err != nil {
-		return nil, fmt.Errorf("qr encode: %w", err)
+		return nil, domain.E(domain.CodeInvalidRequest, "device configuration too large for a QR code")
 	}
 	const (
 		module = 6 // image pixels per QR module (crisp at the 280 px modal)
@@ -222,6 +226,9 @@ func QR(text string) ([]byte, error) {
 	)
 	d := (code.Size + 2*quiet) * module
 	img := image.NewGray(image.Rect(0, 0, d, d))
+	for i := range img.Pix {
+		img.Pix[i] = 0xff
+	}
 	for y := 0; y < d; y++ {
 		qy := y/module - quiet
 		for x := 0; x < d; x++ {

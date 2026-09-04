@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	filippo.io/age v1.2.1
 	github.com/BurntSushi/toml v1.6.0
+	github.com/makiuchi-d/gozxing v0.1.1 // test-only: internal/testutil/qrdecode
 	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0
@@ -20,6 +21,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

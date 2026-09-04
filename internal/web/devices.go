@@ -176,6 +176,7 @@ func (s *Server) handleDeviceDelete(w http.ResponseWriter, r *http.Request) {
 
 // handleDeviceConfig streams the client .conf (no-store — key material).
 func (s *Server) handleDeviceConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	d, err := s.Devices.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		s.actionFailed(w, r, err)
@@ -207,6 +208,7 @@ func (s *Server) configFilename(r *http.Request, d *device.Device) string {
 
 // handleDeviceQR streams the client config as a PNG (no-store).
 func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	d, err := s.Devices.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		http.NotFound(w, r)
@@ -219,7 +221,7 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 	}
 	png, err := clientconf.QR(text)
 	if err != nil {
-		http.NotFound(w, r)
+		s.writeQRError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
@@ -227,6 +229,14 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 		strings.TrimSuffix(s.configFilename(r, d), ".conf")+`.png"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(png)
+}
+
+func (s *Server) writeQRError(w http.ResponseWriter, r *http.Request, err error) {
+	if domain.CodeOf(err) == domain.CodeInvalidRequest {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	http.NotFound(w, r)
 }
 
 // loadDevice fetches the path device or writes the error response.

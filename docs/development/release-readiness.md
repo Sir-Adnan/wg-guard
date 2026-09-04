@@ -47,9 +47,9 @@ implementation does not cross the active phase boundary.
 
 | ID | Blocker | Owner | State | Evidence required to close |
 |---|---|---|---|---|
-| RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | open | Automated decode equality + browser/mobile scan evidence |
+| RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | in progress | Independent direct/REST/admin/subscription decode equality is green; real browser/mobile presentation and available camera/client scan evidence remain |
 | RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | in progress | Typed API/settings/runtime paths, server profile policies, and byte-identical full-field config delivery are unit tested; QR equality plus real default/randomized tunnel traffic remain |
-| RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | in progress | Storage/apply/dump/drift/API/forms are lossless and unit tested; backup/QR/VPS equality remains |
+| RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | in progress | Storage/apply/dump/drift/API/forms/config/decoded-QR paths are lossless and unit tested; backup and VPS equality remain |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | in progress | Source/runtime/client capability matrix is frozen; close after real-client profile evidence confirms the supported subset |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
@@ -67,7 +67,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 
 | ID | Severity | Finding | Owner | State |
 |---|---|---|---|---|
-| AUD-001 | critical | QR raster path has no decode/content-equivalence test; current regression can pass an unusable image | Phase 8 | open |
+| AUD-001 | critical | QR raster path has no decode/content-equivalence test; current regression can pass an unusable image | Phase 8 | verified |
 | AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | in progress |
 | AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |

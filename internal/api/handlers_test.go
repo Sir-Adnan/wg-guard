@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/testutil/qrdecode"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
@@ -381,14 +382,37 @@ func TestDeviceLifecycleAndConfig(t *testing.T) {
 		}
 	}
 
-	// QR: valid PNG.
+	// QR: independently decodes to the exact canonical configuration.
 	rec = e.do("GET", "/api/v1/devices/"+did+"/qr", "")
 	if rec.Code != 200 || rec.Header().Get("Content-Type") != "image/png" {
 		t.Fatalf("qr: %d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
 	png, _ := io.ReadAll(rec.Body)
-	if len(png) < 8 || png[0] != 0x89 || string(png[1:4]) != "PNG" {
-		t.Fatal("qr is not a PNG")
+	decoded, err := qrdecode.PNG(png)
+	if err != nil {
+		t.Fatalf("independent QR decode failed (PNG len=%d): %v", len(png), err)
+	}
+	if decoded != canonical {
+		gotSum, wantSum := sha256.Sum256([]byte(decoded)), sha256.Sum256([]byte(canonical))
+		t.Fatalf("REST QR differs from canonical config: got len=%d sha256=%x, want len=%d sha256=%x",
+			len(decoded), gotSum[:8], len(canonical), wantSum[:8])
+	}
+	for header, want := range map[string]string{
+		"Content-Disposition":    `inline; filename="dev-user-phone.png"`,
+		"Cache-Control":          "no-store",
+		"X-Content-Type-Options": "nosniff",
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("QR %s = %q, want %q", header, got, want)
+		}
+	}
+	if _, err := e.db.ExecContext(context.Background(), `UPDATE tunnel_interfaces SET jc = 4, i1 = ?
+		WHERE id = (SELECT interface_id FROM devices WHERE id = ?)`, strings.Repeat("x", 2601), did); err != nil {
+		t.Fatal(err)
+	}
+	rec = e.do("GET", "/api/v1/devices/"+did+"/qr", "")
+	if rec.Code != http.StatusBadRequest || errCode(t, rec) != "INVALID_REQUEST" {
+		t.Fatalf("oversized QR: status=%d code=%s", rec.Code, errCode(t, rec))
 	}
 
 	// Rename.
