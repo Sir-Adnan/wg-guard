@@ -81,6 +81,21 @@ func TestDoctorReportOverTempNode(t *testing.T) {
 	}
 }
 
+func TestKernelModuleWarningDoesNotPromiseUnimplementedFallback(t *testing.T) {
+	d := &doctor{}
+	d.checkKernelModule()
+	got := statusOf(&d.report, "kernel-module")
+	if got.Status != StatusWarn {
+		t.Fatalf("kernel module status = %s", got.Status)
+	}
+	if strings.Contains(got.Remedy, "will use") {
+		t.Fatalf("remedy promises an unimplemented automatic fallback: %q", got.Remedy)
+	}
+	if !strings.Contains(got.Remedy, "not automatic") {
+		t.Fatalf("remedy does not disclose the fallback limitation: %q", got.Remedy)
+	}
+}
+
 func TestDoctorFixRefusesWhileServiceUp(t *testing.T) {
 	deps, _ := newDoctorEnv(t)
 	deps.Fix = true

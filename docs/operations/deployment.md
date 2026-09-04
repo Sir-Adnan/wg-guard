@@ -131,6 +131,9 @@ WG-Guard-owned artifacts; data/backups and installer-installed packages are pres
 
 ## Host requirements
 
-Ubuntu 22.04/24.04 or Debian 12 (amd64/arm64); root; for kernel-module mode: DKMS build
-prerequisites (`build-essential`, kernel headers). Userspace fallback exists when DKMS is
-unavailable ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).
+Compatibility targets are Ubuntu 22.04/24.04 and Debian 12 on amd64/arm64; only Ubuntu 24.04
+amd64 has completed the current real-host drills. Root is required. Kernel mode needs DKMS build
+prerequisites (`build-essential`, matching kernel headers). The userspace fallback architecture
+is accepted, and its config/runtime adapter is integration-tested, but WG-Guard does not yet
+supervise the daemon automatically. Until Phase 11 closes AUD-019, managed production tunnels
+require the kernel module ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).

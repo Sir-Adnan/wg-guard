@@ -258,7 +258,7 @@ func (d *doctor) checkKernelModule() {
 		return
 	}
 	d.add("kernel-module", StatusWarn, detail,
-		"tunnels will use the userspace daemon; for the kernel module install amneziawg-dkms (docs/integrations/amneziawg.md)")
+		"install amneziawg-dkms (docs/integrations/amneziawg.md); userspace fallback is not automatic yet, so a missing module prevents managed tunnels")
 }
 
 func (d *doctor) checkDatabase(ctx context.Context) {

@@ -85,6 +85,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, and dump cannot observe it | Phase 8 | verified |
 | AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
 | AUD-018 | medium | Restore environment review queried a nonexistent `interfaces` table, silently omitting every staged tunnel interface from the operator report | Phase 8 | verified |
+| AUD-019 | high | `backend_mode="userspace"` is stored/reported but boot and reconciliation ignore it; no userspace daemon lifecycle implements the advertised fallback | Phase 11 | planned |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
@@ -95,7 +96,7 @@ The Phase 11 matrix starts from the honest state below. “Planned” is not sup
 
 | OS | Arch | Docker | Native | Kernel backend | Userspace fallback | State |
 |---|---|---|---|---|---|---|
-| Ubuntu 24.04 | amd64 | drill verified | drill verified | drill verified | range round-trip integration verified | partial |
+| Ubuntu 24.04 | amd64 | drill verified | drill verified | drill verified | manual-daemon range round-trip verified; product lifecycle planned | partial |
 | Ubuntu 24.04 | arm64 | planned | planned | planned | planned | unverified |
 | Ubuntu 22.04 | amd64 | planned | planned | planned | planned | unverified |
 | Ubuntu 22.04 | arm64 | planned | planned | planned | planned | unverified |

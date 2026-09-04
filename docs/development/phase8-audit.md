@@ -243,6 +243,21 @@ The panel sets CSP, nosniff, frame denial, and a referrer policy, but no
 Strict-Transport-Security header is emitted for direct TLS modes. Proxy mode needs an explicit
 ownership statement because the proxy may own HSTS.
 
+### P11-004 — Configured userspace backend mode is not orchestrated
+
+Severity: high. Owner: Phase 11.
+
+`backend_mode="userspace"` is accepted, persisted, and echoed by the API, but neither boot nor
+reconciliation reads it. The only production backend always creates `type amneziawg` kernel
+links; no component starts, adopts, supervises, or stops an `amneziawg-go` daemon. Node status
+therefore reports database intent rather than an observed backend, and installer/deployment
+claims of automatic fallback are stronger than the implementation.
+
+Required correction: either implement a bounded, restart-safe per-interface userspace lifecycle
+with observed-mode reporting and Docker/native failure drills, or gate the mode from product
+configuration until that lifecycle exists. Phase 8 manual-daemon tests establish protocol/config
+compatibility only; they must not be represented as automatic fallback evidence.
+
 ### P12-001 — Third-party inventory has stale lifecycle labels
 
 Severity: low. Owner: Phase 12, with touched dependency rows corrected earlier.

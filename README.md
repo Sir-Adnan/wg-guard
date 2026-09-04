@@ -36,7 +36,8 @@ the checksummed release pipeline is Phase 12. See [ROADMAP.md](ROADMAP.md) and
 - **Backups** — manual, scheduled, Telegram delivery, optional password protection; restore with
   server-migration support
 - **Safe Linux integration** — namespaced nftables table (never touches foreign firewall rules),
-  kernel-module AmneziaWG with userspace fallback, drift reconciliation, `doctor` diagnostics
+  kernel-module AmneziaWG, drift reconciliation, and `doctor` diagnostics; pinned userspace
+  runtime compatibility is tested, while automatic fallback lifecycle remains a Phase 11 gate
 - **Clean deployment** — Docker by default (official image + compose), native systemd supported;
   built-in TLS/ACME, no reverse proxy required
 

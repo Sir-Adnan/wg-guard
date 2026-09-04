@@ -7,6 +7,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ## [Unreleased]
 
+### Changed
+- **Honest userspace-backend status:** the Phase 8 audit found that `backend_mode="userspace"`
+  is stored and reported but never consumed by boot/reconciliation, and no component supervises
+  `amneziawg-go`. Doctor and deployment documentation no longer promise automatic fallback;
+  Phase 11 owns the bounded lifecycle and observed-mode certification (AUD-019). Manually started
+  userspace integration remains valid protocol/config compatibility evidence.
+
 ### Added
 - **Independent QR verification:** test-only `gozxing` v0.1.1 decoding now verifies direct,
   REST, admin, and public-subscription PNGs against the canonical private-key-bearing config

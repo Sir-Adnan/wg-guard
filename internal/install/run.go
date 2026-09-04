@@ -161,8 +161,8 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	fmt.Fprintf(out, "  wrote %s (image %s)\n", ComposePth, p.Image)
 
 	// Host kernel module: the data plane (ADR-0006). Best effort with a loud
-	// warning — userspace fallback exists and the panel reports tooling drift
-	// at boot.
+	// warning. A manually operated userspace daemon is backend-compatible, but
+	// automatic fallback lifecycle remains AUD-019.
 	if err := ensureKernelModule(ctx, h, st, out); err != nil {
 		fmt.Fprintf(out, "  WARNING: %v\n", err)
 		fmt.Fprintf(out, "  the panel will still run; tunnels need the module or the userspace daemon\n")
@@ -227,8 +227,8 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 // for the old series — the rebuild needs the matching headers) → fresh PPA
 // install. When the module loads, an /etc/modules-load.d entry makes it
 // boot-persistent. The returned error is a warning for the caller — module
-// absence is not fatal (ADR-0003 userspace fallback), but the operator must
-// see it.
+// absence is not fatal to panel installation, but it prevents managed tunnels
+// unless the operator supplies a userspace daemon manually (AUD-019).
 func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) error {
 	// Loaded, or loadable right now?
 	if data, err := h.ReadFile("/proc/modules"); err == nil && strings.Contains(string(data), "amneziawg") {

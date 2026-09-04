@@ -199,10 +199,11 @@ Deferred within Phase 2 scope (honest notes):
 - The Phase 2 kernel link path was initially unit-tested only because WSL2 cannot load the
   module. It was subsequently verified on the Ubuntu 24.04 VPS, including netlink dump and
   advanced setconf behavior; the broader OS/architecture matrix belongs to Phase 11.
-- **Userspace daemon supervision** (spawn/monitor `amneziawg-go`, PID files, restart) is a
-  deployment concern and lands with serve/installer (Phase 4/7); the backend's config/dump
-  paths are already backend-transparent (verified: identical CLI operations against the
-  userspace daemon).
+- **Userspace daemon supervision** (spawn/adopt/monitor/stop `amneziawg-go`, restart behavior)
+  did not land with serve/installer. The Phase 8 audit confirmed that `backend_mode` is currently
+  metadata: boot/reconciliation always use the kernel-link path and node status echoes intent,
+  not observation. Config/dump paths are backend-transparent against a manually started daemon;
+  automatic fallback and honest observed-mode reporting are Phase 11 AUD-019 gates.
 - **RSS/idle-CPU measurement** remains a Phase 3/8 deliverable once the server runs; static
   budgets hold (stripped linux/amd64 binary 8.1 MB, ≤30 MB budget).
 - `ufw status verbose` routed-policy parsing is based on documented upstream output formats;
@@ -331,8 +332,9 @@ Honest notes within Phase 7 scope:
   window; renewal exercises the same cache + challenge path.
 - The ACME redirect fallback intentionally redirects to the configured domain (not the request
   Host) — plain-HTTP probes with forged Host headers cannot be bounced to third-party origins.
-- Debian 12 has no AmneziaWG PPA build; the installer's module step warns and the userspace
-  fallback applies (untested — Phase 11 matrix).
+- Debian 12 has no AmneziaWG PPA build. The installer warns, but automatic userspace lifecycle
+  is not implemented; Debian support therefore remains unverified and blocked on Phase 11
+  AUD-019 rather than silently falling back.
 - Browser QA ran through the live ACME deployment (onboarding → dashboard → settings → ops
   screens; fa/en × light/dark × 390/1440/2560): zero horizontal overflow, no raw i18n keys on
   any route. At 2560 px the screenshot pipeline returned stale composited frames, so ultrawide
@@ -360,7 +362,9 @@ restore-review query that had silently omitted tunnel interfaces. The pinned WSL
 runtime preserves all supported range-bearing interface fields and peer keepalive across
 apply/dump/reapply, and the full privileged integration-tag suite passes. Real browser/camera,
 VPS kernel/client equality, and recommended/randomized traffic evidence are not yet complete, so
-the Phase 8 release blockers remain open/in progress.
+the Phase 8 release blockers remain open/in progress. The continuing audit also found that the
+persisted userspace backend mode has no daemon lifecycle; doctor and deployment claims now state
+that limitation explicitly, with implementation and certification assigned to Phase 11 AUD-019.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 
