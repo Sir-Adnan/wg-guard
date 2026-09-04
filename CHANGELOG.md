@@ -282,6 +282,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **Phase 8 migration/restore integrity:** real pre-0007 archives now prove forward migration of
+  scalar H values and legacy keepalive while current archives prove exact true-range preservation
+  through stage/apply and boot-time consumption, including rollback mirrors and unrelated foreign
+  keys. The restore environment review queried a nonexistent table and therefore hid every
+  staged tunnel interface; it now reports `tunnel_interfaces`. A privileged pinned-userspace
+  integration test also applies, dumps, and reapplies every supported range-bearing field and a
+  peer keepalive interval without drift.
 - **QR rasterization:** the grayscale canvas is now explicitly initialized white before black
   modules are painted, restoring a valid four-module quiet zone and scannable contrast. The
   previously all-black PNG now fails pre-fix and passes an independent decoder after the fix;

@@ -68,6 +68,20 @@ unsafe):
 5. **Reconcile** — the normal boot bring-up recreates tunnels, peers, nftables and shaping
    from the restored database; `wg-guard doctor` confirms.
 
+### Configuration-integrity guarantees
+
+Restore regression tests build and archive an actual schema-0006 database, then stage it through
+the current migrator and apply it. They also archive a current database containing true AWG
+intervals. Both paths must preserve exact H1–H4 and PersistentKeepalive values, advanced AWG
+range fields, the legacy low-bound/keepalive mirrors needed by a rollback binary, settings, and
+unrelated foreign-key data. The environment review reads its interface inventory from
+`tunnel_interfaces`; a missing optional summary may never disguise a schema/query mismatch.
+
+The panel restart path has separate coverage proving that `restore.pending` is consumed before
+the database is opened, the staged values replace later live mutations, and exactly one
+`backup.restored` audit event is written. These automated guarantees do not replace the broader
+real-host disaster-recovery drills in Phase 11.
+
 ## Server migration & disaster recovery
 
 Migrating = fresh install on the new server + restore + environment review. Because client

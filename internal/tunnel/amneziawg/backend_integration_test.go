@@ -57,6 +57,12 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
 		H1: testU32Range(t, "1234567-1234667"), H2: testU32Range(t, "2345678-2345778"),
 		H3: testU32Range(t, "3456789-3456889"), H4: testU32Range(t, "4567890-4567990"),
+		ContentPaddingAddition: testU16Range(t, "10-20"),
+		RekeyAfterTime:         testU16Range(t, "120-180"),
+		RekeyTimeout:           testU16Range(t, "5-10"),
+		RejectAfterTime:        testU16Range(t, "300-360"),
+		KeepaliveTimeout:       testU16Range(t, "20-30"),
+		MaxHandshakeAttempts:   testU16Range(t, "3-5"),
 	}
 	cfg := tunnel.InterfaceConfig{
 		PrivateKey:  kp.Private,
@@ -91,9 +97,10 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 	peers := []tunnel.PeerConfig{{
-		PublicKey:    peerKP.Public,
-		PresharedKey: psk,
-		AllowedIPs:   []string{"10.8.99.2/32"},
+		PublicKey:           peerKP.Public,
+		PresharedKey:        psk,
+		AllowedIPs:          []string{"10.8.99.2/32"},
+		PersistentKeepalive: testU16Range(t, "25-35"),
 	}}
 	if err := b.SyncPeers(ctx, name, peers); err != nil {
 		t.Fatalf("sync add: %v", err)
@@ -104,6 +111,27 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 	}
 	if len(st.Peers[0].AllowedIPs) != 1 || st.Peers[0].AllowedIPs[0] != "10.8.99.2/32" {
 		t.Fatalf("allowed IPs = %v", st.Peers[0].AllowedIPs)
+	}
+	if st.Peers[0].PersistentKeepalive != peers[0].PersistentKeepalive {
+		t.Fatalf("persistent keepalive = %s, want %s", st.Peers[0].PersistentKeepalive, peers[0].PersistentKeepalive)
+	}
+
+	// Reapplying the exact desired state must preserve every interval. This
+	// catches lossy dump/render conversions that otherwise appear as perpetual
+	// reconciliation drift. The capability matrix has no modeled range field
+	// that is kernel-only at this pin, so all range-bearing fields are covered
+	// here; kernel link lifecycle, addressing, and MTU remain in the VPS matrix.
+	cfg.Peers = peers
+	if err := b.ApplyInterfaceConfig(ctx, name, cfg); err != nil {
+		t.Fatalf("reapply exact config: %v", err)
+	}
+	st, err = b.Dump(ctx, name)
+	if err != nil {
+		t.Fatalf("dump after reapply: %v", err)
+	}
+	if st.Obfuscation != obf || len(st.Peers) != 1 ||
+		st.Peers[0].PersistentKeepalive != peers[0].PersistentKeepalive {
+		t.Fatalf("range state changed after reapply: obfuscation=%+v peers=%+v", st.Obfuscation, st.Peers)
 	}
 	if err := b.SyncPeers(ctx, name, nil); err != nil {
 		t.Fatalf("sync remove: %v", err)

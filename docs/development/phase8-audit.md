@@ -78,9 +78,11 @@ client rendering, and OpenAPI are scalar too.
 Required correction: one typed representation through migration, storage, apply/dump, drift,
 API/forms, config, backup/restore, and QR.
 
-State 2026-09-01: in progress. Typed values and migration 0007 now preserve both endpoints
-through storage, apply/dump, reconciliation, API/OpenAPI, settings, and forms with unit tests.
-Backup/restore, QR, and real-host equality gates remain.
+State 2026-09-05: in progress. Typed values and migration 0007 preserve both endpoints through
+storage, apply/dump, reconciliation, API/OpenAPI, settings, forms, client config, decoded QR,
+and both pre/post-0007 backup/restore paths. The pinned userspace daemon also preserves every
+supported range-bearing field across apply/dump/reapply. Kernel/client equality and real traffic
+remain release gates.
 
 ### P8-003 — Interface API runtime shape disagrees with OpenAPI
 
@@ -197,6 +199,20 @@ supported gated fields and ranges, per-interface MTU, spacing, and final newline
 AllowedIPs, and keepalive are validated before keys are decrypted. Direct rendering plus REST,
 admin, and subscription downloads are byte-identical; mismatch output is limited to lengths,
 digests, and first-difference offsets.
+
+### P8-011 — Restore review silently omitted tunnel interfaces
+
+Severity: medium. Owner: Phase 8. Tracker: AUD-018.
+
+The staged-restore environment report queried `interfaces`, but the schema's authoritative table
+is `tunnel_interfaces`. Query failure was deliberately treated as an empty optional summary, so
+every otherwise-valid archive showed no interfaces and gave an operator incomplete migration
+information.
+
+State 2026-09-05: verified. The query now uses `tunnel_interfaces`. Pre-0007 and post-0007 real
+archive tests assert the interface summary as well as exact AWG ranges, rollback mirrors,
+keepalive, settings, and foreign-key data through stage/apply; a serve test proves the staged
+snapshot is consumed and audit-logged at next boot.
 
 ## Findings assigned to later phases
 

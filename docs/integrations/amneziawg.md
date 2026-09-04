@@ -246,7 +246,7 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | Runtime constraint rejection | `awg setconf` with duplicate H | rejected (`Invalid argument`) | ✅ verified (userspace) |
 | setconf explicit-zero obfuscation block | `awg setconf` with `Jc=0…H4=0` | rejected (`Invalid argument`) | ✅ verified (userspace, Phase 2 integration test) |
 | setconf omitted obfuscation keys persist | apply obf config, then plain config without block | old params kept (verify detects) | ✅ verified (userspace, Phase 2 integration test) |
-| setconf/syncconf/dump round-trip via WG-Guard backend | `go test -tags integration ./internal/tunnel/amneziawg` (WSL2, root) | pass | ✅ verified (userspace) |
+| setconf/syncconf/dump/reapply via WG-Guard backend | `go test -tags integration ./internal/tunnel/amneziawg` (WSL2 Ubuntu 26.04, root; 2026-09-05) | H1–H4, all six u16 interface ranges, and peer PersistentKeepalive retain exact intervals across reapply; full suite passes with tools v3.1.20260812 + daemon v3.1.20260828 (`b5928ef`) | ✅ verified (userspace) |
 | genkey/genpsk/pubkey | direct invocation | work as wireguard-tools | ✅ verified |
 | Userspace daemon on WSL2 | built + ran `amneziawg-go awg0` | works (TUN, setconf, dump) | ✅ verified |
 | DKMS module build | `apt install amneziawg-dkms` | module compiled (for host kernel series) | ✅ verified (build only) |

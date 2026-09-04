@@ -30,6 +30,14 @@ and without a real VPN interface.
 - QR delivery: PNGs are decoded with an independent test-only implementation and compared with
   the canonical config for direct, REST, admin, and public-subscription paths. Geometry/color,
   empty, UTF-8, full, near-capacity, oversized, and deterministic-output cases are covered.
+- Upgrade/restore: real archives from schema 0006 and the current schema are staged, migrated,
+  applied, reopened, and compared for exact H/keepalive ranges, rollback mirrors, settings,
+  interface review data, and unrelated foreign-key relationships. A separate boot test consumes
+  the pending snapshot before database open and verifies the restore audit event.
+- Pinned userspace runtime: the `integration` suite applies, dumps, and reapplies all supported
+  H/u16 interval fields plus peer PersistentKeepalive and requires exact equality, preventing a
+  lossy conversion from appearing as perpetual drift. This is a privileged WSL2/CI test; it does
+  not substitute for the real kernel/client traffic gate.
 
 ## Benchmarks (measured, not guessed)
 

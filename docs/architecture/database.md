@@ -61,5 +61,6 @@ forward upgrade.
 
 The same migration copies `network.client_keepalive_seconds` to the range-aware
 `network.client_persistent_keepalive` setting only when the new key does not already exist. It
-retains the old row for rollback compatibility. Backup/restore regressions cover both pre-0007
-scalar archives and post-0007 true ranges before Phase 8 can close.
+retains the old row for rollback compatibility. Backup/restore regressions now cover both a real
+pre-0007 scalar archive (including forward migration) and a post-0007 true-range archive through
+stage, apply, reopen, and boot-time pending-restore consumption.

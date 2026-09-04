@@ -62,7 +62,7 @@ lists unsupported/unverified behavior explicitly.
 - [x] Introduce validated value types for scalar-or-range u32/u16 values.
 - [x] Migrate existing scalar H1–H4 values losslessly to the new representation while retaining
       rollback-readable low-bound mirrors.
-- [ ] Verify backup and restore compatibility with both pre-0007 scalar databases and post-0007
+- [x] Verify backup and restore compatibility with both pre-0007 scalar databases and post-0007
       true-range databases.
 - [x] Carry the types through interface/device models, repositories, tunnel contracts, fake and
       real backends, drift comparison, reconciliation, API DTOs, and OpenAPI.
@@ -108,7 +108,7 @@ surfaces without third-party QR services.
       against DB and runtime state.
 - [ ] Import both configurations into a compatible client or isolated real AWG client endpoint;
       establish handshakes and exchange bidirectional traffic.
-- [ ] Repeat the parameter round trip through the userspace fallback where supported.
+- [x] Repeat the parameter round trip through the userspace fallback where supported.
 - [ ] Record sanitized commands/results and compatibility limitations without credentials,
       private keys, raw configs, or subscription tokens.
 
@@ -138,3 +138,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-01 | 8.3 profile policies | Windows/Go unit, HTTP, and asset suites | One injectable server generator now owns plain/recommended/randomized policies; 10,000 randomized profiles satisfy relationship/property checks; API preset application and conflict semantics are schema-tested; the authenticated CSRF panel endpoint only populates fields; browser generation was removed; stored HPK values are no longer rendered into edit HTML | `internal/iface/profile_test.go`, `internal/api/*_test.go`, `internal/web/ifaces_profile_test.go` |
 | 2026-09-05 | 8.3 canonical delivery | Windows/Go unit + HTTP suites | A literal full-field golden fixes the one canonical byte contract; AWG fields now precede `[Peer]`, the selected interface MTU is honored, corrupt stored keepalive fails before key decryption, and direct/REST/admin/subscription downloads are byte-identical with exact secret-safe headers and filenames | `internal/clientconf/clientconf_test.go`, `internal/api/handlers_test.go`, `internal/web/config_surfaces_test.go` |
 | 2026-09-05 | 8.4 automated QR | Windows/Go unit + HTTP suites; CGO-free production build | The all-black raster failed the independent decoder before the white-background fix. Empty, UTF-8, full-field, and 2.3 KB payloads now decode exactly; every HTTP QR equals its matching config and fails closed when oversized. Test decoder absent from the 26,234,880-byte production binary. Real browser/camera verification remains. | `internal/testutil/qrdecode`, `internal/clientconf/qr_test.go`, `internal/web/config_surfaces_test.go` |
+| 2026-09-05 | 8.2 restore + 8.5 userspace ranges | Windows/Go unit; WSL2 Ubuntu 26.04 root integration | Real pre-0007 archives forward-migrate scalar H/legacy keepalive and post-0007 archives preserve true H/keepalive/padding ranges, rollback mirrors, settings, and foreign keys through stage/apply and boot consumption. The restore review's broken interface query was reproduced and fixed. Pinned tools v3.1.20260812 and userspace v3.1.20260828 apply/dump/reapply every supported range-bearing field exactly; full `integration` suite passed. `sudo -n` remains unavailable locally, so the successful run used `wsl -u root`. Kernel/client traffic evidence remains. | `internal/backup/awg_ranges_test.go`, `internal/serve/serve_test.go`, `internal/tunnel/amneziawg/backend_integration_test.go` |

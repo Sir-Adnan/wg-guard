@@ -23,7 +23,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
@@ -135,6 +138,91 @@ func TestServeRestart(t *testing.T) {
 	defer cancel2()
 	if err := n2.Shutdown(ctx2); err != nil {
 		t.Fatalf("restart shutdown: %v", err)
+	}
+}
+
+func TestServeConsumesPendingAWGRangeRestore(t *testing.T) {
+	ctx := context.Background()
+	cfg := testConfig(t, "127.0.0.1:0")
+	n := startNode(t, cfg)
+	parseH := func(text string) awgparam.U32Range {
+		value, err := awgparam.ParseU32Range(text)
+		if err != nil {
+			t.Fatalf("parse H range %q: %v", text, err)
+		}
+		return value
+	}
+	ifaces := iface.NewService(n.db, n.reg, n.ring)
+	created, err := ifaces.Create(ctx, iface.CreateInput{
+		Name: "awg0", ListenPort: 39001, Subnet: "10.77.0.0/24",
+		Obfuscation: iface.Obfuscation{
+			Enabled: true, Jc: 4, Jmin: 40, Jmax: 70, S1: 15, S2: 64,
+			H1: parseH("100-110"), H2: parseH("200-220"),
+			H3: parseH("300-330"), H4: parseH("400-440"),
+		},
+		Preset: "custom",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := n.reg.Set(ctx, "network.client_persistent_keepalive", "40-50"); err != nil {
+		t.Fatal(err)
+	}
+	archive, err := n.backup.Create(ctx, backup.CreateOpts{Reason: "phase8-boot-restore"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := n.backup.Stage(ctx, archive.Path, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	// Prove the next boot swaps in the staged snapshot rather than retaining
+	// subsequent live mutations.
+	if _, err := n.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET h1 = 999, h1_range = '999' WHERE id = ?`, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.db.ExecContext(ctx, `UPDATE settings SET value = '99' WHERE key = 'network.client_persistent_keepalive'`); err != nil {
+		t.Fatal(err)
+	}
+	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := n.Shutdown(shutdownCtx); err != nil {
+		t.Fatal(err)
+	}
+
+	n2, err := Start(ctx, Options{Config: cfg, Backend: fake.New(), Log: quietLogger()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stop()
+		_ = n2.Shutdown(stopCtx)
+	})
+	var h1Range string
+	var legacyH1 int64
+	if err := n2.db.QueryRowContext(ctx, `SELECT h1_range, h1 FROM tunnel_interfaces WHERE id = ?`, created.ID).
+		Scan(&h1Range, &legacyH1); err != nil {
+		t.Fatal(err)
+	}
+	if h1Range != "100-110" || legacyH1 != 100 {
+		t.Fatalf("boot-restored H1 = %q / %d", h1Range, legacyH1)
+	}
+	var keepalive string
+	if err := n2.db.QueryRowContext(ctx,
+		`SELECT value FROM settings WHERE key='network.client_persistent_keepalive'`).Scan(&keepalive); err != nil {
+		t.Fatal(err)
+	}
+	if keepalive != "40-50" {
+		t.Fatalf("boot-restored keepalive = %q", keepalive)
+	}
+	var restoredEvents int
+	if err := n2.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM audit_log WHERE action='backup.restored'`).Scan(&restoredEvents); err != nil {
+		t.Fatal(err)
+	}
+	if restoredEvents != 1 {
+		t.Fatalf("backup.restored audit events = %d, want 1", restoredEvents)
 	}
 }
 

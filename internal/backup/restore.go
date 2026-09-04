@@ -272,7 +272,10 @@ func (s *Service) prepareStagedDB(ctx context.Context, dir string, report *Resto
 	defer cancel()
 	report.NodeID = stagedSetting(ctx2, db, "node.id")
 	report.Endpoint = stagedSetting(ctx2, db, "node.endpoint")
-	report.Interfaces = stagedInterfaces(ctx2, db)
+	report.Interfaces, err = stagedInterfaces(ctx2, db)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -317,22 +320,26 @@ func stagedSetting(ctx context.Context, db *database.DB, key string) string {
 	return v
 }
 
-func stagedInterfaces(ctx context.Context, db *database.DB) []IfaceSummary {
-	rows, err := db.QueryContext(ctx, `SELECT name, listen_port, ipv4_subnet FROM interfaces ORDER BY name`)
+func stagedInterfaces(ctx context.Context, db *database.DB) ([]IfaceSummary, error) {
+	rows, err := db.QueryContext(ctx, `SELECT name, listen_port, ipv4_subnet FROM tunnel_interfaces ORDER BY name`)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("backup: read staged interfaces: %w", err)
 	}
 	defer rows.Close()
 	var out []IfaceSummary
 	for rows.Next() {
 		var f IfaceSummary
 		var subnet sql.NullString
-		if err := rows.Scan(&f.Name, &f.Port, &subnet); err == nil {
-			f.Subnet = subnet.String
-			out = append(out, f)
+		if err := rows.Scan(&f.Name, &f.Port, &subnet); err != nil {
+			return nil, fmt.Errorf("backup: read staged interface row: %w", err)
 		}
+		f.Subnet = subnet.String
+		out = append(out, f)
 	}
-	return out
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("backup: read staged interfaces: %w", err)
+	}
+	return out, nil
 }
 
 // parseConfigHead extracts tls mode + listen from the archived boot config

@@ -354,8 +354,13 @@ section placement, every supported field, per-interface MTU, ranges, spacing, an
 direct, REST, admin, and subscription downloads are byte-identical with shared safe headers and
 filenames. The QR raster defect is fixed and independent decoding proves exact config equality
 for direct, REST, admin, and subscription paths, including UTF-8/full/near-capacity payloads and
-oversized failure. Backup/restore and real browser/VPS/client traffic evidence are not yet
-complete, so the Phase 8 release blockers remain open/in progress.
+oversized failure. Pre-0007 scalar and post-0007 true-range archives now preserve canonical and
+rollback representations through stage/apply and boot consumption; this work also fixed a
+restore-review query that had silently omitted tunnel interfaces. The pinned WSL2 userspace
+runtime preserves all supported range-bearing interface fields and peer keepalive across
+apply/dump/reapply, and the full privileged integration-tag suite passes. Real browser/camera,
+VPS kernel/client equality, and recommended/randomized traffic evidence are not yet complete, so
+the Phase 8 release blockers remain open/in progress.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
 [release-readiness.md](release-readiness.md).
 
