@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1 reviewed, M2 implemented and under review**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M2 reviewed, M3 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -50,8 +50,10 @@ invented or silently substituted with development code.
    are not guessed or injected into Debian. Unsupported automatic setup fails with an actionable
    manual-prerequisite route. Only evidence-backed OS/architecture cells are advertised verified.
    A clean supported host may need repository tooling and the documented PPA prepared first;
-   both exact AWG package versions must then be available before core/deployment mutation.
-   Failed availability is an incomplete prerequisite preparation, never a successful installation.
+   when core packages need installation, both exact AWG versions must then be available before
+   core-package/deployment mutation. An already installed, validated exact bundle satisfies this
+   gate without forced repository refresh. Failed required availability is incomplete prerequisite
+   preparation, never a successful installation.
 7. AWG is a compatibility bundle: tools, kernel source/package and optional userspace daemon are
    separate versions. Recommended means the pinned verified contract. Latest means latest
    compatible catalog entry, not arbitrary upstream HEAD. Explicit selection is allowed only
@@ -135,9 +137,13 @@ provenance and documentation and requests explicit approval before public public
   Go were preserved. Latest-release selection failed closed because no release exists.
   [Sanitized evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt).
   [Exact-commit CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149).
-- M2 (`fa74c4a`): prerequisite/core/TLS and candidate runtime-image helper implemented; full Go
-  tests/build/vet passed, independent review pending. Read-only core CLI commands passed on the
+- M2 (`fa74c4a`, hardened in `da46c00`): prerequisite/core/TLS and candidate runtime-image helper
+  implemented; full Go tests/build/vet passed, independent review closed. Public endpoint
+  classification rejects CGNAT/mapped and relevant special-use addresses; this is not proof of
+  network reachability. Read-only core CLI commands passed on the
   actual Docker node ([evidence](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt)).
   Current exact package availability is also recorded
   [separately](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt).
   These checks do not certify fresh installation, image deployment or certificate issuance.
+- Follow-up review item retained for M4: include the last TLS handshake failure in readiness
+  diagnostics instead of only the final timeout. Functional pending/retry behavior is implemented.

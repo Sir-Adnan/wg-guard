@@ -8,6 +8,9 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Changed
+- **Public VPN endpoint classification:** reject CGNAT, mapped IPv4 bypasses and relevant
+  special-use ranges during explicit input and automatic address selection. Syntax/address
+  eligibility checks do not claim real reachability through routing, NAT or firewalls.
 - **Installer delivery phase planned:** inserted Phase 8.1 between completed Phase 8 and
   operational observability. It owns GitHub acquisition, terminal UX, prerequisites, compatible
   AWG version policy and lifecycle recovery. The Phase 9 design branch is paused; Phases 9–12

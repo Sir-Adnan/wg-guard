@@ -15,8 +15,8 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 |---|---|
 | Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested; independent review closed; local amd64/arm64 candidates built/checksummed. [Real VPS acquisition/build/help and empty-release refusal passed](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) on `3a02c72`; [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149). Full deployment integration and arm64 runtime remain pending |
 | Terminal installer and management UX | designed; not implemented |
-| OS prerequisites and compatible AWG selection | M2 implemented + unit tested in `fa74c4a`; independent review pending; [read-only installed/recommended core CLI passed on VPS](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt). Fresh package provisioning/runtime image deployment remain unverified |
-| Transactional update/rollback and bounded restore improvements | designed; not implemented |
+| OS prerequisites and compatible AWG selection | M2 implemented + unit tested in `fa74c4a`, special-use IP hardening `da46c00`; independent review closed; [read-only installed/recommended core CLI passed on VPS](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt). Fresh package provisioning/runtime image deployment remain unverified |
+| Transactional update/rollback and bounded restore improvements | M3 lifecycle implementation starting; restore improvements remain M5; not yet implemented |
 | Backup schedule management and Telegram workflow | designed; not implemented |
 | Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |
 

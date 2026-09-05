@@ -87,24 +87,24 @@ and tests; `Dockerfile` / runtime Docker build helper; integration/deployment do
 catalogued AWG bundle selection usable by installer and manager. Preserve `Install` and `Host`
 where possible; additive options distinguish explicit port choices and prerequisite policy.
 
-- [ ] Add failing tests for missing native tools, ignored SkipModule, Docker/Compose prerequisites,
+- [x] Add failing tests for missing native tools, ignored SkipModule, Docker/Compose prerequisites,
   unsupported OS before writes, explicit TLS 8080 preservation, negative Telegram chat, unsafe
   domain, conflicting panel/challenge TCP ports and loopback URL/tunnel instructions.
-- [ ] Implement OS/arch/init preflight with explicit package adapters. Ubuntu24 first-class;
+- [x] Implement OS/arch/init preflight with explicit package adapters. Ubuntu24 first-class;
   other hosts receive checked/manual-prerequisite paths until verified. Install native
   iproute2/nftables/AWG tools and host module; Docker dependencies on host and pinned tools inside
   image. Preserve pre-existing dependencies and fail full install if managed tunnels cannot work
   unless operator explicitly chose external/manual core. Never claim automatic userspace fallback.
-- [ ] Add catalog commands for installed/recommended/latest-compatible/exact bundle, with pinned
+- [x] Add catalog commands for installed/recommended/latest-compatible/exact bundle, with pinned
   tools/kernel metadata. Verify package availability before installing exact versions, avoid
   blind upgrades/downgrades, report loaded module/reboot state; never unload active tunnels.
   Build a local runtime image from the acquired panel binary plus pinned compatible tools and
   record its immutable Docker image identity. Existing `--image` remains explicit advanced input.
-- [ ] Correct TLS/IP terminology/defaults and preflight; verify certificate issuance separately
+- [x] Correct TLS/IP terminology/defaults and preflight; verify certificate issuance separately
   from liveness with bounded retries and actionable errors. Keep partial TLS readiness recoverable.
   Seed the VPN public endpoint from the domain or validated detected/operator-provided server IP,
   independently from the loopback panel address. Do not produce endpoint-less initial configs.
-- [ ] Run host-seam/pure tests + full suite/build, update docs/status and commit.
+- [x] Run host-seam/pure tests + full suite/build, update docs/status and commit.
 
 ### Task 3: Recoverable lifecycle transactions (M3)
 
