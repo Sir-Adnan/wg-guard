@@ -96,7 +96,7 @@ func TestResolveProxyStaysLoopback(t *testing.T) {
 	if res.HTTPListen() != "127.0.0.1:8080" {
 		t.Fatalf("listen = %s, want loopback 8080", res.HTTPListen())
 	}
-	if got := res.PanelURL(); got != "http://<server-ip>:8080" {
+	if got := res.PanelURL(); got != "http://127.0.0.1:8080" {
 		t.Fatalf("url = %s", got)
 	}
 }

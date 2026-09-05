@@ -8,7 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 )
 
 // Host is the machine seam for the installer: filesystem, processes and
@@ -82,15 +85,9 @@ func (realHost) RunWithInput(ctx context.Context, argv []string, stdin io.Reader
 }
 
 func (realHost) Output(ctx context.Context, argv []string, timeout time.Duration) (string, error) {
-	runCtx := ctx
-	var cancel context.CancelFunc
-	if timeout > 0 {
-		runCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) //nolint:gosec // explicit argv, installer-controlled
-	out, err := cmd.Output()
-	return string(out), err
+	runner := &subprocess.System{Timeout: timeout}
+	result, err := runner.RunConfigured(ctx, argv, "", os.Environ())
+	return string(result.Stdout), err
 }
 
 func (realHost) LookPath(name string) (string, error) { return exec.LookPath(name) }
@@ -141,7 +138,9 @@ func (realHost) PortFree(addr string) bool {
 }
 
 func (realHost) LookupHost(hostname string) ([]string, error) {
-	return net.LookupHost(hostname)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return net.DefaultResolver.LookupHost(ctx, hostname)
 }
 
 // memHost is the in-memory Host for tests: fs in a map, commands recorded
@@ -168,10 +167,10 @@ type memCmd struct {
 
 func newMemHost() *memHost {
 	return &memHost{
-		files:   map[string]memFile{"/src/wg-guard": {data: []byte("/src/wg-guard"), perm: 0o755}},
+		files:   map[string]memFile{"/src/wg-guard": {data: []byte("/src/wg-guard"), perm: 0o755}, "/etc/os-release": {data: []byte("ID=ubuntu\nVERSION_ID=24.04\n")}, "/proc/1/comm": {data: []byte("systemd\n")}},
 		dirs:    map[string]bool{},
 		failCmd: map[string]error{},
-		output:  map[string]string{},
+		output:  map[string]string{"uname -s": "Linux", "uname -m": "x86_64", "uname -r": "6.8.0-138-generic", "modinfo": "MATCHINGBUILD", "awg": "amneziawg-tools v3.1.20260812", "ip": `[{"addr_info":[{"local":"203.0.113.7"}]}]`},
 		now:     func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) },
 	}
 }
@@ -180,6 +179,10 @@ func (m *memHost) Run(_ context.Context, argv []string, _ time.Duration) error {
 	m.commands = append(m.commands, memCmd{argv: argv})
 	if err := m.failCmd[argv[0]]; err != nil {
 		return err
+	}
+	if argv[0] == "modprobe" && len(argv) == 2 {
+		m.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
+		m.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
 	}
 	return nil
 }
@@ -199,6 +202,22 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 	m.commands = append(m.commands, memCmd{argv: argv})
 	if err := m.failCmd[argv[0]]; err != nil {
 		return "", err
+	}
+	if value, ok := m.output[argv[0]]; ok {
+		return value, nil
+	}
+	if value, ok := m.output[strings.Join(argv, " ")]; ok {
+		return value, nil
+	}
+	if argv[0] == "dpkg-query" {
+		switch argv[len(argv)-1] {
+		case "amneziawg-tools":
+			return "installed\t1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1", nil
+		case "amneziawg-dkms":
+			return "installed\t1.0.0-0~202608282205+3c38e16~ubuntu24.04.1", nil
+		default:
+			return "installed\tsystem", nil
+		}
 	}
 	return m.output[argv[0]], nil
 }

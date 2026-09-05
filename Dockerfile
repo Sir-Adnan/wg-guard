@@ -33,11 +33,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 # the PPA with its signing key and purged right after to keep the image lean.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates nftables iproute2 curl \
+        ca-certificates nftables iproute2 procps curl \
         gnupg software-properties-common \
     && add-apt-repository -y ppa:amnezia/ppa \
     && apt-get update \
-    && apt-get install -y --no-install-recommends amneziawg-tools \
+    && apt-get install -y --no-install-recommends amneziawg-tools=1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1 \
     && apt-get purge -y --auto-remove gnupg software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 

@@ -24,9 +24,17 @@ data paths, so backups and mode-switching are layout-independent.
   container; `install`, `update`, `uninstall`, `status`, `doctor`, `version` run on the host;
   `serve` is refused with compose hints. Every CLI command is identical in both modes.
 - **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
-  persistence) and, when the DKMS module is registered for a different kernel series than the
-  running one (typical after an unattended kernel upgrade), installs the matching headers and
-  rebuilds via `dkms autoinstall`.
+  persistence). On the automatic Ubuntu 24.04 path it installs the exact catalogued DKMS package
+  and matching running-kernel headers when needed, loads the module, and can rebuild only
+  `amneziawg/1.0.0` for that kernel. It never unloads active tunnels.
+
+`internal/install.BuildRuntimeImage` can build a local Ubuntu 24.04 runtime image directly from
+a checksum-verified acquired panel binary plus the exact catalogued tools package, `iproute2`,
+`nftables`, `procps` (`sysctl`), CA roots and curl. It executes no candidate installer and returns
+only an immutable Docker image ID. Its private build context is removed after success/failure;
+the caller's staging parent is preserved. Acquisition-to-lifecycle plumbing and recording that
+ID as the active/previous artifact belong to M3. Until that integration lands, use an explicit
+locally built `--image`; no official public image publication is implied.
 
 ## Native mode (secondary, fully supported)
 
@@ -36,10 +44,10 @@ Spec compliance: Docker is never *required*.
 
 ## Interactive installer
 
-`wg-guard install` walks a short wizard; **pressing Enter everywhere is a complete,
-sensible install** (Docker, no domain → loopback HTTP for a reverse proxy; with a domain →
-ACME on 443). `--yes` skips all prompting and uses flags + defaults only — an explicit
-`--tls` flag is never overridden by a prompt default.
+`wg-guard install` walks a short wizard. Defaults are Docker, no domain → loopback HTTP, or
+domain → ACME on 443. A public VPN endpoint and usable prerequisites are required; hosts behind
+NAT must supply `--public-ip` or a domain. `--yes` skips prompting and uses flags + defaults.
+Explicit `--tls`, `--panel-port` (including TLS on 8080) and challenge port choices are preserved.
 
 1. Mode (Docker default / native), domain, TLS mode, panel + ACME challenge ports.
 2. *Optional* — **VPN network defaults** (Enter keeps the recommended defaults):
@@ -57,8 +65,10 @@ panel afterwards; values equal to the registry defaults are not persisted.
 **When seeding happens matters**: the collected settings are applied through the installed
 CLI (`wg-guard settings set`, `wg-guard backup schedule-add`) **before the service first
 boots** — the registry caches values in memory, so post-boot CLI writes would stay invisible
-until a restart. The panel domain is also seeded as `node.endpoint`, so the first exported
-client config carries a working `Endpoint` line. In Docker mode this runs before the state
+until a restart. The domain, explicit public IP, or validated global interface IP is seeded as
+`node.endpoint`, independently of the loopback panel listener. Endpoint-less installation is
+refused with `--public-ip` guidance. No third-party IP echo service is queried implicitly.
+Negative Telegram group IDs are accepted as signed nonzero integers. In Docker mode this runs before the state
 file exists, so the shim executes host-direct against the bind-mounted data dir (same DB the
 container will use).
 
@@ -77,6 +87,26 @@ Settings registry and hot-applies; only paths, the listener and the TLS mode req
 | Development | `tls.mode = "dev"`: loopback-only HTTP with loud warnings | implemented |
 
 The installer never silently exposes plaintext management to the public internet.
+
+IP-only loopback setup reports `http://127.0.0.1:8080` and an SSH command such as
+`ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7`; open the local URL while that tunnel runs.
+Public TLS without a domain can use a trusted manual certificate for the supplied IP. The
+current `autocert` implementation uses domain identifiers/SNI; this is not a claim that all
+certificate authorities prohibit IP certificates.
+
+The panel and challenge TCP listeners must use different ports. HTTP-01 always needs external
+TCP 80 reaching the configured challenge listener even when that listener is on another local
+port. Unsafe DNS names are rejected before deployment writes. Manual certificate/key files are
+validated before installation and mounted read-only into Docker.
+
+Process liveness and certificate readiness are distinct. After liveness, installation saves
+`tls_readiness=pending` and performs a bounded trusted TLS handshake to the local listener with
+the intended domain/IP. It verifies the hostname and chain, including for manual certificates;
+locally issued certificates need a trusted root in the host's trust store. Failure retains the
+running installation and pending state with DNS/port/CA guidance. After correcting the issue,
+run `wg-guard tls-check` to verify and persist `verified` without reinstalling. Success can use
+a cached certificate and must not be described as new issuance. M3 owns broader operation
+journaling/recovery; M4 owns the complete terminal workflow.
 
 ### Scheduler & background work
 
@@ -130,6 +160,44 @@ WG-Guard-owned artifacts; data/backups and installer-installed packages are pres
 `--purge-data` / `--purge-packages` is passed.
 
 ## Host requirements
+
+Phase 8.1 prerequisites and selection (implemented + host-seam/pure unit tested; new clean-host
+provisioning and runtime-image execution still require dedicated-VPS verification):
+
+```bash
+wg-guard core installed
+wg-guard core recommended
+wg-guard core latest-compatible
+wg-guard core exact awg-2026-08
+wg-guard install --mode native --yes --public-ip 203.0.113.7 --prerequisites auto --core recommended
+```
+
+The commands print bounded JSON metadata. Core errors and new prerequisite/TLS copy have fa/en
+catalog entries; the current CLI retains its English default until M4's language workflow.
+
+Preflight inspects Linux, amd64/arm64, OS identity, running kernel, init, endpoint and TCP ports
+before package/deployment writes. Only Ubuntu 24.04 + systemd has automatic package setup.
+Native mode needs `ip`, `tc`, `nft`, `sysctl`, matching `awg` and systemd. Docker mode checks the
+engine, Compose and daemon while keeping host module management separate. A missing engine uses
+Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendations and removals
+disabled, preserving an existing Docker CE engine. Existing dependencies are not blanket-upgraded.
+
+Automatic Ubuntu preparation may install missing repository tooling and add the documented
+Amnezia PPA. It refreshes signed apt metadata and verifies both exact AWG package versions before
+any AWG install or deployment write. Missing pins fail closed; there is no upstream substitution,
+blind AWG upgrade/downgrade, or PPA suite rewriting. Newly requested installed packages and PPA
+preparation are recorded in the returned installation state; PPA sources remain on uninstall.
+Prerequisite preparation can remain after a later failure; durable partial-operation ownership
+and recovery are M3's integration responsibility.
+
+`--prerequisites check` requires operator-provisioned prerequisites and makes no package/module
+mutations. Other Linux systems use this checked/manual path; native tools must report the
+catalogued version, and managed modules need observable matching loaded/disk build identity.
+Their source provenance and compatibility remain the operator's responsibility, not an automatic
+support claim. `--skip-module` explicitly delegates host module lifecycle to the operator, but
+still checks required native AWG tools. It does not enable or certify an automatic userspace
+fallback. A normal managed-core installation fails if the module is absent, different from disk,
+or its loaded build identity cannot be established.
 
 Compatibility targets are Ubuntu 22.04/24.04 and Debian 12 on amd64/arm64; only Ubuntu 24.04
 amd64 has completed the current real-host drills. Root is required. Kernel mode needs DKMS build

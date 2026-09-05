@@ -2,8 +2,9 @@ package install
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/tls"
 	"fmt"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"io"
 	"strings"
 	"time"
@@ -27,6 +28,8 @@ type InstallOptions struct {
 
 	Version        string // recorded in the state file
 	SkipModule     bool   // do not attempt the host kernel-module install
+	Prerequisites  PrerequisitePolicy
+	Core           string // recommended, latest-compatible or exact catalog bundle ID
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 }
@@ -53,6 +56,10 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 	if !h.IsRoot() {
 		return nil, fmt.Errorf("install: run as root (sudo)")
 	}
+	platform, err := InspectPlatform(ctx, h)
+	if err != nil {
+		return nil, err
+	}
 	// Completed installs refuse (rerun after uninstall or use update).
 	if st, err := LoadState(h); err == nil && st != nil {
 		return nil, fmt.Errorf("install: WG-Guard is already installed (%s mode, %s); use 'wg-guard update' or 'wg-guard uninstall' first", st.Mode, StatePath)
@@ -65,6 +72,12 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 	p, err := o.Plan.Resolve()
 	if err != nil {
 		return nil, fmt.Errorf("install: %w", err)
+	}
+	if p.Mode == ModeNative && platform.Init != "systemd" {
+		return nil, terminalError("install.error.systemd")
+	}
+	if err := resolveEndpoint(ctx, h, &p); err != nil {
+		return nil, err
 	}
 	if err := prompt.confirm(p); err != nil {
 		return nil, err
@@ -81,6 +94,16 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 		Mode:       p.Mode,
 		ConfigPath: p.BootConfigPath(),
 		DataDir:    p.DataDir,
+		PublicIP:   p.PublicIP,
+	}
+	bundle, err := SelectCore(o.Core)
+	if err != nil {
+		return nil, err
+	}
+	st.Platform = platform
+	st.Core, err = EnsurePrerequisites(ctx, h, p, platform, bundle, o.Prerequisites, o.SkipModule, st, out)
+	if err != nil {
+		return st, err
 	}
 
 	if err := h.MkdirAll(p.EtcDir, 0o755); err != nil {
@@ -115,14 +138,21 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 	}
 	fmt.Fprintf(out, "  node answers on %s\n", p.HealthProbeLabel())
 
-	// The state file is written LAST: it marks the install as complete and
-	// is the uninstall/update contract.
-	stateJSON, err := json.MarshalIndent(st, "", "  ")
-	if err != nil {
-		return st, err
+	st.TLSReadiness = "not-applicable"
+	if p.TLSMode == "acme" || p.TLSMode == "manual" {
+		st.TLSReadiness = "pending"
 	}
-	if err := h.WriteFile(StatePath, append(stateJSON, '\n'), 0o644); err != nil {
+	if err := saveState(h, st); err != nil {
 		return st, fmt.Errorf("install: write state: %w", err)
+	}
+	if st.TLSReadiness == "pending" {
+		if err := WaitCertificate(ctx, p, 90*time.Second); err != nil {
+			return st, err
+		}
+		st.TLSReadiness = "verified"
+		if err := saveState(h, st); err != nil {
+			return st, err
+		}
 	}
 
 	printSummary(out, p, st)
@@ -159,15 +189,6 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	st.ComposePath = ComposePth
 	st.Image = p.Image
 	fmt.Fprintf(out, "  wrote %s (image %s)\n", ComposePth, p.Image)
-
-	// Host kernel module: the data plane (ADR-0006). Best effort with a loud
-	// warning. A manually operated userspace daemon is backend-compatible, but
-	// automatic fallback lifecycle remains AUD-019.
-	if err := ensureKernelModule(ctx, h, st, out); err != nil {
-		fmt.Fprintf(out, "  WARNING: %v\n", err)
-		fmt.Fprintf(out, "  the panel will still run; tunnels need the module or the userspace daemon\n")
-		fmt.Fprintf(out, "  (docs/operations/deployment.md → Host requirements)\n")
-	}
 
 	// Runtime settings (wizard choices) seed through the installed CLI while
 	// the state file still doesn't exist — see seedSettings for why.
@@ -221,93 +242,6 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	return nil
 }
 
-// ensureKernelModule verifies the AmneziaWG kernel module is loadable and,
-// if not, walks a recovery ladder before warning: modprobe → DKMS rebuild
-// for the RUNNING kernel (an apt kernel upgrade leaves a DKMS module built
-// for the old series — the rebuild needs the matching headers) → fresh PPA
-// install. When the module loads, an /etc/modules-load.d entry makes it
-// boot-persistent. The returned error is a warning for the caller — module
-// absence is not fatal to panel installation, but it prevents managed tunnels
-// unless the operator supplies a userspace daemon manually (AUD-019).
-func ensureKernelModule(ctx context.Context, h Host, st *State, out io.Writer) error {
-	// Loaded, or loadable right now?
-	if data, err := h.ReadFile("/proc/modules"); err == nil && strings.Contains(string(data), "amneziawg") {
-		fmt.Fprintln(out, "  kernel module amneziawg: loaded")
-		return markModuleBootPersistence(h, st, out)
-	}
-	if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err == nil {
-		fmt.Fprintln(out, "  kernel module amneziawg: loaded via modprobe")
-		return markModuleBootPersistence(h, st, out)
-	}
-	// DKMS rebuild path: the package is installed but built for a different
-	// kernel series (typical after an unattended kernel upgrade).
-	if rebuilt := rebuildDKMSModule(ctx, h, out); rebuilt {
-		if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err == nil {
-			fmt.Fprintln(out, "  kernel module rebuilt for the running kernel and loaded")
-			return markModuleBootPersistence(h, st, out)
-		}
-	}
-	// Fresh-install path (Ubuntu + PPA per docs/integrations/amneziawg.md).
-	fmt.Fprintln(out, "  kernel module not present — attempting amneziawg-dkms install (may take minutes)…")
-	apt := func(argv ...string) error { return h.Run(ctx, argv, longTimeout) }
-	if err := apt("apt-get", "update"); err == nil {
-		err = apt("apt-get", "install", "-y", "software-properties-common")
-		if err == nil {
-			err = apt("add-apt-repository", "-y", "ppa:amnezia/ppa")
-		}
-		if err == nil {
-			err = apt("apt-get", "update")
-		}
-		if err == nil {
-			// Headers for the RUNNING kernel are what DKMS builds against.
-			if kr, e := h.Output(ctx, []string{"uname", "-r"}, 10*time.Second); e == nil {
-				_ = apt("apt-get", "install", "-y", "linux-headers-"+strings.TrimSpace(kr))
-			}
-			err = apt("apt-get", "install", "-y", "amneziawg-dkms")
-		}
-	}
-	if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err == nil {
-		st.PackagesInstalled = append(st.PackagesInstalled, "amneziawg-dkms", "software-properties-common")
-		fmt.Fprintln(out, "  kernel module installed and loaded")
-		return markModuleBootPersistence(h, st, out)
-	}
-	return fmt.Errorf("kernel module could not be installed automatically")
-}
-
-// rebuildDKMSModule rebuilds an already-registered DKMS module for the
-// running kernel: install matching headers, run dkms autoinstall, refresh
-// module dependencies. Reports whether every step succeeded.
-func rebuildDKMSModule(ctx context.Context, h Host, out io.Writer) bool {
-	dkmsStatus, err := h.Output(ctx, []string{"dkms", "status"}, 30*time.Second)
-	if err != nil || !strings.Contains(dkmsStatus, "amneziawg") {
-		return false
-	}
-	kr, err := h.Output(ctx, []string{"uname", "-r"}, 10*time.Second)
-	if err != nil {
-		return false
-	}
-	kr = strings.TrimSpace(kr)
-	if strings.Contains(dkmsStatus, kr) {
-		// Registered (and likely built) for the running kernel already; a
-		// plain modprobe failure means something else — skip to the warning.
-		return false
-	}
-	fmt.Fprintf(out, "  DKMS module registered for another kernel (running %s) — rebuilding…\n", kr)
-	apt := func(argv ...string) error { return h.Run(ctx, argv, longTimeout) }
-	if err := apt("apt-get", "update"); err != nil {
-		return false
-	}
-	if err := apt("apt-get", "install", "-y", "linux-headers-"+kr); err != nil {
-		fmt.Fprintf(out, "  WARNING: headers for %s could not be installed: %v\n", kr, err)
-		return false
-	}
-	if err := h.Run(ctx, []string{"dkms", "autoinstall"}, longTimeout); err != nil {
-		fmt.Fprintf(out, "  WARNING: dkms autoinstall failed: %v\n", err)
-		return false
-	}
-	return h.Run(ctx, []string{"depmod", "-a"}, 5*time.Minute) == nil
-}
-
 func addUnique(list []string, v string) []string {
 	for _, x := range list {
 		if x == v {
@@ -334,6 +268,16 @@ func markModuleBootPersistence(h Host, st *State, out io.Writer) error {
 // warns on DNS problems the operator must fix for ACME.
 func preflight(ctx context.Context, h Host, p Plan, out io.Writer) error {
 	step(out, "Preflight")
+	if p.TLSMode == "manual" {
+		cert, certErr := h.ReadFile(p.CertFile)
+		key, keyErr := h.ReadFile(p.KeyFile)
+		if certErr != nil || keyErr != nil {
+			return terminalError("install.error.manual_files")
+		}
+		if _, err := tls.X509KeyPair(cert, key); err != nil {
+			return terminalError("install.error.manual_pair")
+		}
+	}
 	panelAddr := fmt.Sprintf(":%d", p.PanelPort)
 	if !h.PortFree(panelAddr) {
 		return fmt.Errorf("install: panel port %d is already in use — free it or choose another with --panel-port", p.PanelPort)
@@ -381,7 +325,11 @@ func waitHealthy(ctx context.Context, h Host, p Plan, within time.Duration) erro
 func printSummary(out io.Writer, p Plan, st *State) {
 	step(out, "Done")
 	fmt.Fprintf(out, "\n  Panel:        %s\n", p.PanelURL())
+	if p.TLSMode == "proxy" || p.TLSMode == "dev" {
+		fmt.Fprintf(out, "  SSH:          %s\n", p.SSHTunnel())
+	}
 	fmt.Fprintf(out, "  Mode:         %s\n", p.Mode)
+	fmt.Fprint(out, i18n.T(i18n.En, "install.summary.core", st.Core.Requested.ID, st.Core.Requested.ToolsVersion, st.Core.Requested.KernelVersion, st.Core.ToolsPackage, st.Core.KernelPackage, st.Core.LoadedVersion, st.Core.ModuleIdentity, st.Core.RebootRequired))
 	fmt.Fprintf(out, "  Config:       %s\n", p.BootConfigPath())
 	fmt.Fprintf(out, "  Data:         %s\n", p.DataDir)
 	if p.Mode == ModeDocker {
@@ -397,7 +345,7 @@ func printSummary(out io.Writer, p Plan, st *State) {
 	fmt.Fprintf(out, "\n  Next steps:\n")
 	fmt.Fprintf(out, "   1. Open %s and create the owner account (first-run wizard).\n", p.PanelURL())
 	if p.TLSMode == "acme" {
-		fmt.Fprintf(out, "   2. The TLS certificate is issued on first browser visit (needs port %d reachable).\n", p.ACMEHTTPPort)
+		fmt.Fprint(out, i18n.T(i18n.En, "install.summary.certificate", st.TLSReadiness))
 	} else {
 		fmt.Fprintf(out, "   2. Create the first interface (awg0) — ports and subnet are auto-assigned.\n")
 	}

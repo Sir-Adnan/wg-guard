@@ -44,8 +44,8 @@ func planSeeds(p Plan) []seed {
 	}
 	// Client configs embed the endpoint: seeding it from the panel domain
 	// makes the first exported config work without a Settings visit.
-	if p.Domain != "" {
-		add("public endpoint", BinPath, "settings", "set", "node.endpoint", p.Domain)
+	if endpoint := p.VPNEndpoint(); endpoint != "" {
+		add("public endpoint", BinPath, "settings", "set", "node.endpoint", endpoint)
 	}
 	if p.PortMin != 0 && !skip("network.port_min", strconv.Itoa(p.PortMin)) {
 		add("AWG port range start", BinPath, "settings", "set", "network.port_min", strconv.Itoa(p.PortMin))

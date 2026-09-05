@@ -139,7 +139,7 @@ func (q *prompt) plan(p *Plan, h Host) error {
 
 	// TLS mode: an explicit --tls value is kept; the dev sentinel means
 	// "not chosen yet" and is prompted (Resolve derives ACME from a domain).
-	if p.TLSMode == config.TLSModeDev {
+	if p.TLSMode == config.TLSModeDev && !p.TLSModeExplicit {
 		if p.Domain == "" {
 			n, err := q.askChoice("TLS mode (no domain):", []string{
 				"Behind a reverse proxy — plain HTTP on loopback, proxy terminates TLS",
@@ -172,17 +172,21 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	switch p.TLSMode {
 	case config.TLSModeACME:
 		defPort := p.PanelPort
-		if defPort == 8080 {
+		if defPort == 8080 && !p.PanelPortExplicit {
 			defPort = 443
 		}
 		if p.PanelPort, err = q.askInt("Panel HTTPS port", defPort, 1, 65535); err != nil {
 			return err
 		}
-		if p.ACMEHTTPPort, err = q.askInt("ACME challenge (HTTP) port", 80, 1, 65535); err != nil {
+		if p.ACMEHTTPPort, err = q.askInt("ACME challenge (HTTP) port", p.ACMEHTTPPort, 1, 65535); err != nil {
 			return err
 		}
 	case config.TLSModeManual:
-		if p.PanelPort, err = q.askInt("Panel HTTPS port", 443, 1, 65535); err != nil {
+		defPort := 443
+		if p.PanelPortExplicit {
+			defPort = p.PanelPort
+		}
+		if p.PanelPort, err = q.askInt("Panel HTTPS port", defPort, 1, 65535); err != nil {
 			return err
 		}
 		if p.CertFile, err = q.ask("TLS certificate file", p.CertFile); err != nil {
@@ -196,6 +200,7 @@ func (q *prompt) plan(p *Plan, h Host) error {
 			return err
 		}
 	}
+	p.PanelPortExplicit = true
 
 	if err := q.planNetwork(p); err != nil {
 		return err
@@ -282,7 +287,7 @@ func (q *prompt) planTelegram(p *Plan) error {
 		if p.TelegramChat, err = q.ask("Telegram chat ID (numeric — message the bot once, then check it)", ""); err != nil {
 			return err
 		}
-		if isDigits(p.TelegramChat) {
+		if validChatID(p.TelegramChat) {
 			break
 		}
 		fmt.Fprintln(q.out, "  chat ID must be numeric")
@@ -298,6 +303,14 @@ func (q *prompt) planTelegram(p *Plan) error {
 	}
 	p.TelegramToken = token
 	return nil
+}
+
+func validChatID(s string) bool {
+	if s == "" || strings.HasPrefix(s, "+") {
+		return false
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	return err == nil && n != 0
 }
 
 // dailyTimeRe matches the HH:MM the backup scheduler accepts (UTC).

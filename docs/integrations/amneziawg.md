@@ -17,14 +17,28 @@ behavior is not listed here as verified, WG-Guard code must treat it as unverifi
 | Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
 | Verification environment (kernel) | dedicated VPS, Ubuntu **24.04 LTS** (noble), KVM, kernel `6.8.0-137-generic`, x86_64; PPA packages natively | 2026-08-31 |
 
-Package note: the PPA builds for `noble` (24.04). On Ubuntu 26.04 (`resolute`) the PPA has no
-Release file — workaround used here (and by the installer if it ever meets this case): add the
-PPA and pin its suite to `noble`. On the supported matrix (22.04/24.04/Debian 12) the PPA works
-natively (24.04 verified here; 22.04/Debian 12 verification belongs to the Phase 11 matrix).
+Package policy: the automatic installer adapter is limited to Ubuntu 24.04 (`noble`) with
+systemd, on amd64/arm64. It never rewrites another Ubuntu suite or injects an Ubuntu PPA into
+Debian. The historical WSL2 Ubuntu 26.04 source/runtime verification used a local noble-suite
+workaround; that is not an installer policy or evidence of native package support on 26.04,
+22.04 or Debian 12. Those compatibility cells remain unverified.
 
-Install: `apt install amneziawg-tools amneziawg-dkms` (avoid the `amneziawg` meta-package;
-it is a dependency-only package, and the tools+dkms pair is what we need). DKMS builds require
-`build-essential` and kernel headers.
+The Phase 8.1 catalog currently contains one bundle, `awg-2026-08`; `recommended` and
+`latest-compatible` both resolve to it. The installer checks availability of both exact package
+versions above before installing AWG, and refuses to replace an already installed different
+version automatically. It avoids the dependency-only `amneziawg` meta-package. DKMS builds need
+`build-essential` and headers for the running kernel. The pinned source's
+[`src/dkms.conf`](https://raw.githubusercontent.com/amnezia-vpn/amneziawg-linux-kernel-module/3c38e168beb7c60dec41dfe423d41555205a3dac/src/dkms.conf)
+registers `amneziawg/1.0.0`; targeted rebuilds use that identity and the running kernel.
+
+`wg-guard core installed` reports tools from the running container in Docker mode and the host
+in native mode; kernel observations always come from the host. Requested source/package pins,
+installed packages, loaded module version and loaded/disk `srcversion` are separate facts.
+Equal module version strings do not prove equal builds: this source revision still reports
+`3.1.20260812`. A differing `srcversion` requires an operator maintenance reboot; unavailable
+identity is reported as unknown and blocks managed-core readiness. No path unloads active
+tunnels. Matching loaded/disk identity does not independently attest the upstream Git commit.
+Userspace version metadata in the catalog does not implement automatic daemon lifecycle.
 
 ## CLI surface (verified, tools v3.1)
 

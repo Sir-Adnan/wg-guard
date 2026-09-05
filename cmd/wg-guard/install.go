@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
@@ -44,21 +45,42 @@ func routeDockerMode() {
 }
 
 func runInstall(args []string) error {
-	fs := flag.NewFlagSet("install", flag.ExitOnError)
+	o, err := parseInstallOptions(args)
+	if err != nil {
+		return err
+	}
+	_, err = install.Install(context.Background(), install.NewRealHost(), o)
+	return err
+}
+
+func parseInstallOptions(args []string) (install.InstallOptions, error) {
+	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	var (
-		mode      = fs.String("mode", "", "docker (default) | native")
-		domain    = fs.String("domain", "", "panel domain (enables ACME TLS)")
-		tlsMode   = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
-		panelPort = fs.Int("panel-port", 0, "panel port (default 443 with TLS, 8080 plain)")
-		acmePort  = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
-		image     = fs.String("image", install.DefaultImage, "container image (docker mode)")
-		certFile  = fs.String("cert-file", "", "TLS certificate file (manual mode)")
-		keyFile   = fs.String("key-file", "", "TLS key file (manual mode)")
-		yes       = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
-		skipMod   = fs.Bool("skip-module", false, "do not attempt the host AmneziaWG kernel-module install")
+		mode          = fs.String("mode", "", "docker (default) | native")
+		domain        = fs.String("domain", "", "panel domain (enables ACME TLS)")
+		tlsMode       = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
+		panelPort     = fs.Int("panel-port", 0, "panel port (default 443 with TLS, 8080 plain)")
+		acmePort      = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
+		image         = fs.String("image", install.DefaultImage, "container image (docker mode)")
+		certFile      = fs.String("cert-file", "", "TLS certificate file (manual mode)")
+		keyFile       = fs.String("key-file", "", "TLS key file (manual mode)")
+		yes           = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
+		skipMod       = fs.Bool("skip-module", false, i18n.T(i18n.En, "install.cli.skip_module"))
+		publicIP      = fs.String("public-ip", "", i18n.T(i18n.En, "install.cli.public_ip"))
+		prerequisites = fs.String("prerequisites", "auto", i18n.T(i18n.En, "install.cli.prerequisites"))
+		core          = fs.String("core", "recommended", i18n.T(i18n.En, "install.cli.core"))
 	)
 	if err := fs.Parse(args); err != nil {
-		return err
+		return install.InstallOptions{}, err
+	}
+	if fs.NArg() != 0 {
+		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.arguments"))
+	}
+	if *prerequisites != "auto" && *prerequisites != "check" {
+		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.policy"))
+	}
+	if _, err := install.SelectCore(*core); err != nil {
+		return install.InstallOptions{}, err
 	}
 
 	plan := install.Defaults()
@@ -72,25 +94,31 @@ func runInstall(args []string) error {
 	plan.Domain = *domain
 	if *tlsMode != "" {
 		plan.TLSMode = config.TLSMode(*tlsMode)
+		plan.TLSModeExplicit = true
 	}
-	if *panelPort != 0 {
-		plan.PanelPort = *panelPort
-	}
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "panel-port" {
+			plan.PanelPort = *panelPort
+			plan.PanelPortExplicit = true
+		}
+	})
 	plan.ACMEHTTPPort = *acmePort
 	plan.Image = *image
 	plan.CertFile = *certFile
 	plan.KeyFile = *keyFile
+	plan.PublicIP = *publicIP
 
-	_, err := install.Install(context.Background(), install.NewRealHost(), install.InstallOptions{
-		Plan:       plan,
-		Yes:        *yes,
-		Version:    version.Version,
-		SkipModule: *skipMod,
-		Stdin:      os.Stdin,
-		Stdout:     os.Stdout,
-		Stderr:     os.Stderr,
-	})
-	return err
+	return install.InstallOptions{
+		Plan:          plan,
+		Yes:           *yes,
+		Version:       version.Version,
+		SkipModule:    *skipMod,
+		Prerequisites: install.PrerequisitePolicy(*prerequisites),
+		Core:          *core,
+		Stdin:         os.Stdin,
+		Stdout:        os.Stdout,
+		Stderr:        os.Stderr,
+	}, nil
 }
 
 func runUninstall(args []string) error {

@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
-const usage = `wg-guard — lightweight AmneziaWG VPN node management panel
+var usage = `wg-guard — lightweight AmneziaWG VPN node management panel
 
 Usage:
   wg-guard <command> [flags]
@@ -49,7 +50,7 @@ Commands:
   secrets     Master-key rotation (service must be stopped)
               secrets rotate [-yes]
   help        Show this help
-`
+` + i18n.T(i18n.En, "install.cli.help")
 
 func main() {
 	if len(os.Args) < 2 {
@@ -62,6 +63,16 @@ func main() {
 	routeDockerMode()
 
 	switch os.Args[1] {
+	case "core":
+		if err := runCore(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "tls-check":
+		if err := runTLSCheck(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "version":
 		fmt.Println(version.String())
 	case "help", "-h", "--help":

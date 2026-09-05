@@ -9,6 +9,7 @@ package install
 import (
 	"fmt"
 	"net"
+	"path"
 	"strconv"
 	"strings"
 
@@ -58,7 +59,10 @@ type Plan struct {
 	KeyFile  string
 
 	// PanelPort is the TLS port (acme/manual) or HTTP port (proxy/dev).
-	PanelPort int
+	PanelPort         int
+	PanelPortExplicit bool // CLI/prompt choice, including 8080, survives TLS defaults
+	TLSModeExplicit   bool
+	PublicIP          string // VPN endpoint and SSH destination, independent of panel bind address
 	// ACMEHTTPPort is the HTTP-01 challenge port (acme only, default 80).
 	ACMEHTTPPort int
 
@@ -104,21 +108,30 @@ func Defaults() Plan {
 // loopback one (config.Validate enforces the same posture at boot).
 func (p Plan) Resolve() (Plan, error) {
 	if !p.Mode.Valid() {
-		return p, fmt.Errorf("mode %q is not docker|native", p.Mode)
+		return p, terminalError("install.error.plan.1", p.Mode)
 	}
 	p.Domain = strings.ToLower(strings.TrimSpace(p.Domain))
-	if p.Domain != "" && p.TLSMode == config.TLSModeDev {
+	if p.Domain != "" && !validHostname(p.Domain) {
+		return p, terminalError("install.error.plan.2")
+	}
+	if p.PublicIP != "" && !validPublicIP(p.PublicIP) {
+		return p, terminalError("install.error.plan.3")
+	}
+	if p.TelegramChat != "" && !validChatID(p.TelegramChat) {
+		return p, terminalError("install.error.plan.4")
+	}
+	if p.Domain != "" && p.TLSMode == config.TLSModeDev && !p.TLSModeExplicit {
 		p.TLSMode = config.TLSModeACME
 	}
 	switch p.TLSMode {
 	case config.TLSModeACME:
 		if p.Domain == "" {
-			return p, fmt.Errorf("tls.mode=acme requires a domain")
+			return p, terminalError("install.error.plan.5")
 		}
-		if strings.ContainsAny(p.Domain, "/:") {
-			return p, fmt.Errorf("domain %q must be a bare hostname", p.Domain)
+		if net.ParseIP(p.Domain) != nil {
+			return p, terminalError("install.error.plan.6", p.Domain)
 		}
-		if p.PanelPort == 8080 {
+		if p.PanelPort == 8080 && !p.PanelPortExplicit {
 			p.PanelPort = 443 // a domain install defaults to the TLS port
 		}
 		if p.ACMEHTTPPort == 0 {
@@ -126,21 +139,29 @@ func (p Plan) Resolve() (Plan, error) {
 		}
 	case config.TLSModeManual:
 		if p.CertFile == "" || p.KeyFile == "" {
-			return p, fmt.Errorf("tls.mode=manual requires --cert-file and --key-file")
+			return p, terminalError("install.error.plan.7")
 		}
-		if p.PanelPort == 8080 {
+		for _, file := range []string{p.CertFile, p.KeyFile} {
+			if !path.IsAbs(file) || strings.ContainsAny(file, "\r\n\t :#\"'") {
+				return p, terminalError("install.error.manual_path")
+			}
+		}
+		if p.PanelPort == 8080 && !p.PanelPortExplicit {
 			p.PanelPort = 443
 		}
 	case config.TLSModeProxy, config.TLSModeDev:
 		// keep ports as given
 	default:
-		return p, fmt.Errorf("tls mode %q is not acme|manual|proxy|dev", p.TLSMode)
+		return p, terminalError("install.error.plan.8", p.TLSMode)
 	}
 	if p.PanelPort < 1 || p.PanelPort > 65535 {
-		return p, fmt.Errorf("panel port %d is out of range 1-65535", p.PanelPort)
+		return p, terminalError("install.error.plan.9", p.PanelPort)
 	}
 	if p.TLSMode == config.TLSModeACME && (p.ACMEHTTPPort < 1 || p.ACMEHTTPPort > 65535) {
-		return p, fmt.Errorf("acme http port %d is out of range 1-65535", p.ACMEHTTPPort)
+		return p, terminalError("install.error.plan.10", p.ACMEHTTPPort)
+	}
+	if p.TLSMode == config.TLSModeACME && p.PanelPort == p.ACMEHTTPPort {
+		return p, terminalError("install.error.plan.11")
 	}
 	if p.Mode == ModeDocker && strings.TrimSpace(p.Image) == "" {
 		p.Image = DefaultImage
@@ -164,9 +185,9 @@ func (p Plan) BootConfig() *config.Config {
 	cfg.DataDir = p.DataDir
 	cfg.HTTPListen = p.HTTPListen()
 	cfg.TLS.Mode = p.TLSMode
+	cfg.TLS.Domain = p.Domain
 	switch p.TLSMode {
 	case config.TLSModeACME:
-		cfg.TLS.Domain = p.Domain
 		cfg.TLS.ACMEHTTPPort = p.ACMEHTTPPort
 	case config.TLSModeManual:
 		cfg.TLS.CertFile = p.CertFile
@@ -182,14 +203,61 @@ func (p Plan) PanelURL() string {
 		scheme = "https"
 	}
 	host := p.Domain
+	if scheme == "http" {
+		host = "127.0.0.1"
+	}
 	if host == "" {
-		host = "<server-ip>"
+		host = p.PublicIP
+		if host == "" {
+			host = "<server-ip>"
+		}
+	}
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
 	}
 	port := ""
 	if !(scheme == "https" && p.PanelPort == 443) && !(scheme == "http" && p.PanelPort == 80) {
 		port = ":" + strconv.Itoa(p.PanelPort)
 	}
 	return scheme + "://" + host + port
+}
+
+func validHostname(s string) bool {
+	if len(s) > 253 || !strings.Contains(s, ".") {
+		return false
+	}
+	for _, label := range strings.Split(s, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, c := range label {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validPublicIP(s string) bool {
+	ip := net.ParseIP(s)
+	return ip != nil && ip.IsGlobalUnicast() && !ip.IsPrivate()
+}
+
+// VPNEndpoint never derives an endpoint from the loopback management listener.
+func (p Plan) VPNEndpoint() string {
+	if p.Domain != "" {
+		return p.Domain
+	}
+	return p.PublicIP
+}
+
+func (p Plan) SSHTunnel() string {
+	host := p.VPNEndpoint()
+	if host == "" {
+		host = "<server-ip>"
+	}
+	return fmt.Sprintf("ssh -N -L %d:127.0.0.1:%d root@%s", p.PanelPort, p.PanelPort, host)
 }
 
 // HealthProbeURL is where the health check polls after (re)start, per mode:
@@ -212,18 +280,23 @@ func (p Plan) HealthProbeURL() (url string, skipVerify bool, err error) {
 // contract. It records everything WG-Guard owns so removal touches nothing
 // else, including packages the installer itself installed.
 type State struct {
-	Schema            int      `json:"schema"`
-	CreatedAt         string   `json:"created_at"`
-	Version           string   `json:"wg_guard_version"`
-	Mode              Mode     `json:"mode"`
-	ConfigPath        string   `json:"config_path"`
-	DataDir           string   `json:"data_dir"`
-	Image             string   `json:"image,omitempty"`
-	ComposePath       string   `json:"compose_path,omitempty"`
-	BinPath           string   `json:"binary_path,omitempty"`
-	UnitPath          string   `json:"unit_path,omitempty"`
-	ExtraFiles        []string `json:"extra_files,omitempty"`
-	PackagesInstalled []string `json:"packages_installed,omitempty"`
+	Platform          PlatformReport `json:"platform,omitempty"`
+	Core              CoreReport     `json:"core,omitempty"`
+	TLSReadiness      string         `json:"tls_readiness,omitempty"`
+	PublicIP          string         `json:"public_ip,omitempty"`
+	RepositoryChanges []string       `json:"repository_changes,omitempty"` // retained on uninstall; shared apt sources
+	Schema            int            `json:"schema"`
+	CreatedAt         string         `json:"created_at"`
+	Version           string         `json:"wg_guard_version"`
+	Mode              Mode           `json:"mode"`
+	ConfigPath        string         `json:"config_path"`
+	DataDir           string         `json:"data_dir"`
+	Image             string         `json:"image,omitempty"`
+	ComposePath       string         `json:"compose_path,omitempty"`
+	BinPath           string         `json:"binary_path,omitempty"`
+	UnitPath          string         `json:"unit_path,omitempty"`
+	ExtraFiles        []string       `json:"extra_files,omitempty"`
+	PackagesInstalled []string       `json:"packages_installed,omitempty"`
 }
 
 // StateSchema is the current install-state schema version.
