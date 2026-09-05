@@ -49,12 +49,18 @@ func (r *Renderer) Render(ctx context.Context, deviceID string) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	if err := iface.ValidateConfigText(ifc.Obfuscation); err != nil {
+		return "", fmt.Errorf("clientconf: stored obfuscation profile is invalid")
+	}
 	endpoint := ifc.EndpointOverride
 	if endpoint == "" {
 		endpoint, err = r.Settings.GetString(ctx, "node.endpoint")
 		if err != nil {
 			return "", fmt.Errorf("clientconf: load endpoint: %w", err)
 		}
+	}
+	if err := settings.ValidEndpoint(endpoint); err != nil {
+		return "", fmt.Errorf("clientconf: stored endpoint is invalid")
 	}
 	dns, err := r.Settings.GetStringList(ctx, "network.dns_servers")
 	if err != nil {

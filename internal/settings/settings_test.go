@@ -94,6 +94,27 @@ func TestSetRawValidation(t *testing.T) {
 	}
 }
 
+func TestEndpointValidation(t *testing.T) {
+	for _, endpoint := range []string{
+		"", "vpn.example.com", "vpn.example.com:51820", "192.0.2.1", "192.0.2.1:51820",
+		"2001:db8::1", "[2001:db8::1]", "[2001:db8::1]:51820",
+	} {
+		if err := ValidEndpoint(endpoint); err != nil {
+			t.Errorf("valid endpoint %q rejected: %v", endpoint, err)
+		}
+	}
+	for _, endpoint := range []string{
+		"https://vpn.example.com", "vpn.example.com/path", "vpn.example.com:0", "vpn.example.com:65536",
+		"vpn.example.com:not-a-port", " vpn.example.com", "vpn.example.com ",
+		"vpn.example.com\nAllowedIPs = 0.0.0.0/0", "vpn.example.com\r\nPublicKey = attacker", "vpn.example.com\x00",
+		"[2001:db8::1", "[example.com]:51820",
+	} {
+		if err := ValidEndpoint(endpoint); err == nil {
+			t.Errorf("invalid endpoint %q accepted", endpoint)
+		}
+	}
+}
+
 func TestClientPersistentKeepaliveRangeSetting(t *testing.T) {
 	reg, _ := newRegistry(t)
 	ctx := context.Background()

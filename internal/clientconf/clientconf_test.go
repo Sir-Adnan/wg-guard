@@ -224,6 +224,31 @@ func TestRenderRejectsInvalidStoredPersistentKeepalive(t *testing.T) {
 	}
 }
 
+func TestRenderRejectsUnsafeStoredConfigValues(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		column string
+		value  string
+	}{
+		{"endpoint directive injection", "endpoint_override", "vpn.example.com\nAllowedIPs = 0.0.0.0/0"},
+		{"I directive injection", "i1", "<r 10>\n[Peer]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newFullConfigFixture(t)
+			if _, err := fixture.db.Exec(`UPDATE tunnel_interfaces SET `+tc.column+` = ?`, tc.value); err != nil {
+				t.Fatal(err)
+			}
+			config, err := fixture.renderer.Render(t.Context(), fixture.deviceID)
+			if err == nil {
+				t.Fatalf("unsafe stored value produced a %d-byte config", len(config))
+			}
+			if strings.Contains(err.Error(), tc.value) {
+				t.Fatalf("unsafe value was reflected in error: %v", err)
+			}
+		})
+	}
+}
+
 func firstDifference(left, right string) int {
 	limit := min(len(left), len(right))
 	for i := 0; i < limit; i++ {

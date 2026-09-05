@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"testing"
+
+	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 )
 
 func BenchmarkInterfaceProfileGeneration(b *testing.B) {
@@ -118,6 +120,55 @@ func TestGeneratedProfilesProperty(t *testing.T) {
 			t.Fatalf("iterations %d and %d were identical", i-1, i)
 		}
 		previous = profile
+	}
+}
+
+func TestGeneratedProfileValidatorRejectsValuesOutsideConstructionPolicy(t *testing.T) {
+	recommended, err := NewProfileGenerator(deterministicProfileEntropy()).Generate(ProfileRecommended)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recommended.H1 = awgparam.ScalarU32(generatedHeaderBands[1].low)
+	recommended.H2 = awgparam.ScalarU32(generatedHeaderBands[2].low)
+	recommended.H3 = awgparam.ScalarU32(generatedHeaderBands[3].low)
+	recommended.H4 = awgparam.ScalarU32(generatedHeaderBands[3].high)
+	if err := ValidateGeneratedProfile(ProfileRecommended, recommended); err == nil {
+		t.Fatal("recommended headers outside their assigned bands were accepted")
+	}
+
+	randomized, err := NewProfileGenerator(deterministicProfileEntropy()).Generate(ProfileRandomized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	randomized.H1, err = awgparam.NewU32Range(generatedHeaderBands[0].low, generatedHeaderBands[0].low+randomizedHeaderMaxSpan+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateGeneratedProfile(ProfileRandomized, randomized); err == nil {
+		t.Fatal("randomized header span above the generator maximum was accepted")
+	}
+
+	randomized, err = NewProfileGenerator(deterministicProfileEntropy()).Generate(ProfileRandomized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	randomized.ContentPaddingAddition, err = awgparam.NewU16Range(31, 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateGeneratedProfile(ProfileRandomized, randomized); err == nil {
+		t.Fatal("randomized padding outside the generator low range was accepted")
+	}
+}
+
+func TestIntInclusiveExceptMapsExcludedValueWithoutRetry(t *testing.T) {
+	generator := NewProfileGenerator(bytes.NewReader([]byte{56}))
+	got, err := generator.intInclusiveExcept(12, 256, 68)
+	if err != nil {
+		t.Fatalf("single entropy draw failed: %v", err)
+	}
+	if got != 69 {
+		t.Fatalf("excluded value mapping = %d, want 69", got)
 	}
 }
 

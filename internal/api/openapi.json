@@ -283,7 +283,7 @@
       },
       "post": {
         "tags": ["interfaces"], "summary": "Create a profile (server keypair generated)", "security": [{ "BearerAuth": ["interfaces.write"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer" }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24" }, "mtu": { "type": "integer" }, "preset": { "type": "string", "enum": ["plain", "recommended", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer" }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24" }, "mtu": { "type": "integer" }, "preset": { "type": "string", "enum": ["plain", "recommended", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected.", "example": "vpn.example.com:51820" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "409": { "$ref": "#/components/responses/Conflict" } }
       }
     },
@@ -296,7 +296,7 @@
       "patch": {
         "tags": ["interfaces"], "summary": "Update MTU/endpoint/obfuscation/enabled", "description": "Name, port, and pool are immutable here. Obfuscation-mode transitions recreate the link (reconcile).", "security": [{ "BearerAuth": ["interfaces.write"] }],
         "parameters": [{ "$ref": "#/components/parameters/InterfaceID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "mtu": { "type": "integer" }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": "string", "nullable": true }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "mtu": { "type": "integer" }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": "string", "nullable": true, "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected." }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } } }
       },
       "delete": {
@@ -548,11 +548,11 @@
           "h2": { "description": "Inclusive u32 magic-header scalar or range.", "example": 200, "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "string", "pattern": "^[0-9]+(-[0-9]+)?$" }] },
           "h3": { "description": "Inclusive u32 magic-header scalar or range.", "example": "300-310", "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "string", "pattern": "^[0-9]+(-[0-9]+)?$" }] },
           "h4": { "description": "Inclusive u32 magic-header scalar or range.", "example": 400, "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "string", "pattern": "^[0-9]+(-[0-9]+)?$" }] },
-          "i1": { "type": "string" },
-          "i2": { "type": "string" },
-          "i3": { "type": "string" },
-          "i4": { "type": "string" },
-          "i5": { "type": "string" },
+          "i1": { "type": "string", "description": "Canonical single-line UTF-8 signature value; leading/trailing whitespace and control characters are rejected." },
+          "i2": { "type": "string", "description": "Canonical single-line UTF-8 signature value; leading/trailing whitespace and control characters are rejected." },
+          "i3": { "type": "string", "description": "Canonical single-line UTF-8 signature value; leading/trailing whitespace and control characters are rejected." },
+          "i4": { "type": "string", "description": "Canonical single-line UTF-8 signature value; leading/trailing whitespace and control characters are rejected." },
+          "i5": { "type": "string", "description": "Canonical single-line UTF-8 signature value; leading/trailing whitespace and control characters are rejected." },
           "header_protection_key": { "type": "string", "writeOnly": true, "maxLength": 44, "description": "Base64-encoded 32-byte HPK. Omit on PATCH to preserve; send an empty string to clear (link recreation required). All S1-S4 values must then be at least 12.", "example": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
           "header_protection_key_set": { "type": "boolean", "readOnly": true, "description": "Whether an HPK is configured; the key itself is never returned.", "example": true },
           "content_padding_addition": { "description": "Inclusive u16 content-padding scalar or range; zero uses the backend default.", "example": "10-20", "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 65535 }, { "type": "string", "pattern": "^[0-9]+(-[0-9]+)?$" }] },
@@ -578,7 +578,7 @@
           "preset": { "type": "string", "enum": ["plain", "recommended", "randomized", "custom"], "description": "Persisted profile classification; custom is inferred when explicit parameters are supplied." },
           "enabled": { "type": "boolean" },
           "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] },
-          "endpoint_override": { "type": "string" },
+          "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port." },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" }
         }

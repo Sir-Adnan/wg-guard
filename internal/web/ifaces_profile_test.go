@@ -17,12 +17,14 @@ import (
 type decodedProfilePreview struct {
 	Policy string            `json:"policy"`
 	Fields map[string]string `json:"fields"`
+	Token  string            `json:"token"`
 }
 
-func previewForm(fields map[string]string, csrf, name, policy string) url.Values {
+func previewForm(fields map[string]string, csrf, name, policy, token string) url.Values {
 	form := url.Values{
 		"_csrf": {csrf}, "name": {name}, "listen_port": {""}, "subnet": {""},
 		"profile_policy": {policy},
+		"profile_token":  {token},
 	}
 	for key, value := range fields {
 		if value != "" {
@@ -69,7 +71,7 @@ func TestProfilePreviewRecommendedAndRandomized(t *testing.T) {
 		t.Fatalf("preview response headers: %v", recommendedRec.Header())
 	}
 	recommended := decodeProfilePreview(t, recommendedRec.Body.String())
-	if recommended.Policy != "recommended" || recommended.Fields["obf_enabled"] != "1" ||
+	if recommended.Policy != "recommended" || recommended.Token == "" || recommended.Fields["obf_enabled"] != "1" ||
 		recommended.Fields["obf_jc"] != strconv.Itoa(iface.RecommendedJc) ||
 		recommended.Fields["obf_hpk"] != "" || recommended.Fields["obf_random_trailers"] != "" ||
 		recommended.Fields["obf_disable_cookies"] != "" {
@@ -86,7 +88,7 @@ func TestProfilePreviewRecommendedAndRandomized(t *testing.T) {
 		t.Fatalf("randomized preview: %d %s", randomizedRec.Code, randomizedRec.Body.String())
 	}
 	randomized := decodeProfilePreview(t, randomizedRec.Body.String())
-	if randomized.Policy != "randomized" || !strings.Contains(randomized.Fields["obf_h1"], "-") {
+	if randomized.Policy != "randomized" || randomized.Token == "" || !strings.Contains(randomized.Fields["obf_h1"], "-") {
 		t.Fatalf("randomized preview shape: %+v", randomized)
 	}
 	hpk, err := base64.StdEncoding.DecodeString(randomized.Fields["obf_hpk"])
@@ -140,7 +142,7 @@ func TestGeneratedProfileFormPersistsExactPolicy(t *testing.T) {
 		}
 		preview := decodeProfilePreview(t, previewRec.Body.String())
 		name := "awg" + strconv.Itoa(index)
-		created := e.post("/interfaces", previewForm(preview.Fields, csrf, name, preview.Policy), cookie, csrf)
+		created := e.post("/interfaces", previewForm(preview.Fields, csrf, name, preview.Policy, preview.Token), cookie, csrf)
 		if created.Code != http.StatusSeeOther {
 			t.Fatalf("%s form create: %d %s", policy, created.Code, created.Body.String())
 		}
@@ -158,11 +160,30 @@ func TestGeneratedProfileFormPersistsExactPolicy(t *testing.T) {
 
 	previewRec := e.post("/interfaces/profile-preview", url.Values{"policy": {"recommended"}}, cookie, csrf)
 	preview := decodeProfilePreview(t, previewRec.Body.String())
-	tampered := previewForm(preview.Fields, csrf, "awg2", preview.Policy)
+	tampered := previewForm(preview.Fields, csrf, "awg2", preview.Policy, preview.Token)
 	tampered.Set("obf_jc", "5")
 	_ = e.post("/interfaces", tampered, cookie, csrf)
 	if _, err := e.ifaces.GetByName(t.Context(), "awg2"); err == nil {
 		t.Fatal("tampered recommended profile was persisted under the generated policy")
+	}
+
+	forged := previewForm(preview.Fields, csrf, "awg2", preview.Policy, "")
+	_ = e.post("/interfaces", forged, cookie, csrf)
+	if _, err := e.ifaces.GetByName(t.Context(), "awg2"); err == nil {
+		t.Fatal("unsigned generated profile classification was persisted")
+	}
+	forged.Set("profile_token", preview.Token+"tampered")
+	_ = e.post("/interfaces", forged, cookie, csrf)
+	if _, err := e.ifaces.GetByName(t.Context(), "awg2"); err == nil {
+		t.Fatal("tampered generated profile token was persisted")
+	}
+
+	otherCookie := e.login("owner")
+	otherCSRF := deriveCSRF(otherCookie.Value)
+	replayed := previewForm(preview.Fields, otherCSRF, "awg2", preview.Policy, preview.Token)
+	_ = e.post("/interfaces", replayed, otherCookie, otherCSRF)
+	if _, err := e.ifaces.GetByName(t.Context(), "awg2"); err == nil {
+		t.Fatal("profile preview token was replayed in another session")
 	}
 }
 
@@ -186,7 +207,7 @@ func TestGeneratedHPKIsNotRenderedAndIsPreservedOnEdit(t *testing.T) {
 
 	fields := profileFormFields(created.Obfuscation)
 	delete(fields, "obf_hpk")
-	form := previewForm(fields, csrf, "", "randomized")
+	form := previewForm(fields, csrf, "", "randomized", "")
 	form.Set("mtu", strconv.Itoa(created.MTU))
 	form.Set("enabled", "1")
 	form.Set("endpoint_override", "")
@@ -204,7 +225,7 @@ func TestGeneratedHPKIsNotRenderedAndIsPreservedOnEdit(t *testing.T) {
 
 	clearFields := profileFormFields(stored.Obfuscation)
 	delete(clearFields, "obf_hpk")
-	clear := previewForm(clearFields, csrf, "", "custom")
+	clear := previewForm(clearFields, csrf, "", "custom", "")
 	clear.Set("mtu", strconv.Itoa(stored.MTU))
 	clear.Set("enabled", "1")
 	clear.Set("obf_hpk_clear", "1")

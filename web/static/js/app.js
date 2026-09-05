@@ -394,6 +394,7 @@
   if (obfToggle) {
     const obfBox = obfToggle.closest(".collapse-body");
     const profilePolicy = $("[data-profile-policy]");
+    const profileToken = $("[data-profile-token]");
     let applyingProfile = false;
     let generatingProfile = false;
     const sync = () => {
@@ -423,7 +424,7 @@
         });
         if (!response.ok) throw new Error("profile generation failed");
         const payload = await response.json();
-        if (!payload?.fields || payload.policy !== policy) throw new Error("invalid profile response");
+        if (!payload?.fields || !payload.token || payload.policy !== policy) throw new Error("invalid profile response");
 
         applyingProfile = true;
         obfToggle.checked = true;
@@ -435,6 +436,7 @@
           else input.value = value;
         }
         if (profilePolicy) profilePolicy.value = payload.policy;
+        if (profileToken) profileToken.value = payload.token;
       } catch {
         toast(source?.dataset.generationError || "Error", "err");
       } finally {
@@ -450,9 +452,11 @@
       if (applyingProfile) return;
       if (!obfToggle.checked) {
         if (profilePolicy) profilePolicy.value = "plain";
+        if (profileToken) profileToken.value = "";
         return;
       }
       if (profilePolicy) profilePolicy.value = "custom";
+      if (profileToken) profileToken.value = "";
       const recommended = obfBox.querySelector('[data-generate-obf="recommended"]');
       generate("recommended", recommended);
     });
@@ -460,6 +464,7 @@
     const markCustom = (event) => {
       if (applyingProfile || event.target === obfToggle || !obfToggle.checked) return;
       if (profilePolicy) profilePolicy.value = "custom";
+      if (profileToken) profileToken.value = "";
     };
     obfBox.addEventListener("input", markCustom);
     obfBox.addEventListener("change", markCustom);

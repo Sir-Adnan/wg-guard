@@ -348,6 +348,8 @@ func TestObfuscationConstraintMatrix(t *testing.T) {
 		{"jc zero", func() Obfuscation { o := balancedObfuscation(); o.Jc = 0; return o }(), false},
 		{"jc over max", func() Obfuscation { o := balancedObfuscation(); o.Jc = 129; return o }(), false},
 		{"jc max ok", func() Obfuscation { o := balancedObfuscation(); o.Jc = 128; return o }(), true},
+		{"jmin negative", func() Obfuscation { o := balancedObfuscation(); o.Jmin = -1; return o }(), false},
+		{"jmax negative", func() Obfuscation { o := balancedObfuscation(); o.Jmax = -1; return o }(), false},
 		{"jmin == jmax", func() Obfuscation { o := balancedObfuscation(); o.Jmin = 70; o.Jmax = 70; return o }(), false},
 		{"jmin > jmax (parser accepts, runtime rejects)", func() Obfuscation { o := balancedObfuscation(); o.Jmin = 100; o.Jmax = 50; return o }(), false},
 		{"jmax over 1280", func() Obfuscation { o := balancedObfuscation(); o.Jmax = 1281; return o }(), false},
@@ -360,7 +362,14 @@ func TestObfuscationConstraintMatrix(t *testing.T) {
 		{"duplicate H", func() Obfuscation { o := balancedObfuscation(); o.H2 = awgparam.ScalarU32(1); return o }(), false},
 		{"zero H", func() Obfuscation { o := balancedObfuscation(); o.H4 = awgparam.U32Range{}; return o }(), false},
 		{"distinct H", balancedObfuscation(), true},
+		{"I template", func() Obfuscation { o := balancedObfuscation(); o.I1 = "<r 105>"; return o }(), true},
+		{"I hex", func() Obfuscation { o := balancedObfuscation(); o.I1 = "f13f0000ffff"; return o }(), true},
+		{"I newline injection", func() Obfuscation { o := balancedObfuscation(); o.I1 = "<r 10>\n[Peer]"; return o }(), false},
+		{"I carriage-return injection", func() Obfuscation { o := balancedObfuscation(); o.I1 = "<r 10>\rJc = 1"; return o }(), false},
+		{"I NUL", func() Obfuscation { o := balancedObfuscation(); o.I1 = "aabb\x00ccdd"; return o }(), false},
+		{"I leading whitespace", func() Obfuscation { o := balancedObfuscation(); o.I1 = " <r 10>"; return o }(), false},
 		{"partial params with disabled flag", func() Obfuscation { o := balancedObfuscation(); o.Enabled = false; return o }(), false},
+		{"I value with disabled flag", Obfuscation{I1: "aabbccdd"}, false},
 	}
 	for _, tc := range cases {
 		err := ValidateObfuscation(tc.o)
@@ -370,6 +379,38 @@ func TestObfuscationConstraintMatrix(t *testing.T) {
 		if !tc.ok && domain.CodeOf(err) != domain.CodeParamConstraint {
 			t.Errorf("%s: want PARAM_CONSTRAINT, got %v", tc.name, err)
 		}
+	}
+}
+
+func TestCreateAndUpdateRejectUnsafeEndpointOverride(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+
+	for _, endpoint := range []string{
+		"vpn.example.com\nAllowedIPs = 0.0.0.0/0",
+		"vpn.example.com\r\nPersistentKeepalive = 0",
+		"https://vpn.example.com",
+		"vpn.example.com:70000",
+	} {
+		if _, err := svc.Create(ctx, CreateInput{Name: "awg0", EndpointOverride: endpoint}); domain.CodeOf(err) != domain.CodeInvalidRequest {
+			t.Fatalf("create accepted unsafe endpoint %q: %v", endpoint, err)
+		}
+	}
+
+	created, err := svc.Create(ctx, CreateInput{Name: "awg0", EndpointOverride: "vpn.example.com:51820"})
+	if err != nil {
+		t.Fatalf("create valid endpoint: %v", err)
+	}
+	unsafe := "vpn.example.com\nPublicKey = attacker"
+	if _, err := svc.Update(ctx, created.ID, UpdateInput{EndpointOverride: &unsafe}); domain.CodeOf(err) != domain.CodeInvalidRequest {
+		t.Fatalf("update accepted unsafe endpoint: %v", err)
+	}
+	got, err := svc.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.EndpointOverride != "vpn.example.com:51820" {
+		t.Fatalf("rejected update changed endpoint to %q", got.EndpointOverride)
 	}
 }
 

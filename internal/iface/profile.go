@@ -44,6 +44,31 @@ const (
 	RandomizedSMin    = 12
 	RandomizedSMax    = 256
 	RandomizedS34Max  = 64
+
+	randomizedPaddingLowMin       = 10
+	randomizedPaddingLowMax       = 30
+	randomizedPaddingSpanMin      = 10
+	randomizedPaddingSpanMax      = 60
+	randomizedRekeyAfterLowMin    = 90
+	randomizedRekeyAfterLowMax    = 120
+	randomizedRekeyAfterSpanMin   = 10
+	randomizedRekeyAfterSpanMax   = 20
+	randomizedRekeyTimeoutLowMin  = 3
+	randomizedRekeyTimeoutLowMax  = 7
+	randomizedRekeyTimeoutSpanMin = 1
+	randomizedRekeyTimeoutSpanMax = 5
+	randomizedRejectGapMin        = 20
+	randomizedRejectLowWindow     = 30
+	randomizedRejectSpanMin       = 20
+	randomizedRejectSpanMax       = 60
+	randomizedKeepaliveLowMin     = 5
+	randomizedKeepaliveLowMax     = 12
+	randomizedKeepaliveSpanMin    = 2
+	randomizedKeepaliveSpanMax    = 8
+	randomizedHandshakeLowMin     = 15
+	randomizedHandshakeLowMax     = 25
+	randomizedHandshakeSpanMin    = 5
+	randomizedHandshakeSpanMax    = 20
 )
 
 type headerBand struct {
@@ -139,15 +164,9 @@ func (g *ProfileGenerator) randomized() (Obfuscation, error) {
 	if err != nil {
 		return Obfuscation{}, fmt.Errorf("generate S1: %w", err)
 	}
-	var s2 int
-	for {
-		s2, err = g.intInclusive(RandomizedSMin, RandomizedSMax)
-		if err != nil {
-			return Obfuscation{}, fmt.Errorf("generate S2: %w", err)
-		}
-		if s1+56 != s2 {
-			break
-		}
+	s2, err := g.intInclusiveExcept(RandomizedSMin, RandomizedSMax, s1+56)
+	if err != nil {
+		return Obfuscation{}, fmt.Errorf("generate S2: %w", err)
 	}
 	s3, err := g.intInclusive(RandomizedSMin, RandomizedS34Max)
 	if err != nil {
@@ -181,23 +200,23 @@ func (g *ProfileGenerator) randomized() (Obfuscation, error) {
 	}
 	profile.HeaderProtectionKey = base64.StdEncoding.EncodeToString(key)
 
-	if profile.ContentPaddingAddition, err = g.u16Range(10, 30, 10, 60); err != nil {
+	if profile.ContentPaddingAddition, err = g.u16Range(randomizedPaddingLowMin, randomizedPaddingLowMax, randomizedPaddingSpanMin, randomizedPaddingSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate content padding: %w", err)
 	}
-	if profile.RekeyAfterTime, err = g.u16Range(90, 120, 10, 20); err != nil {
+	if profile.RekeyAfterTime, err = g.u16Range(randomizedRekeyAfterLowMin, randomizedRekeyAfterLowMax, randomizedRekeyAfterSpanMin, randomizedRekeyAfterSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate rekey-after time: %w", err)
 	}
-	if profile.RekeyTimeout, err = g.u16Range(3, 7, 1, 5); err != nil {
+	if profile.RekeyTimeout, err = g.u16Range(randomizedRekeyTimeoutLowMin, randomizedRekeyTimeoutLowMax, randomizedRekeyTimeoutSpanMin, randomizedRekeyTimeoutSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate rekey timeout: %w", err)
 	}
-	rejectLowMin := int(profile.RekeyAfterTime.High()) + 20
-	if profile.RejectAfterTime, err = g.u16Range(rejectLowMin, rejectLowMin+30, 20, 60); err != nil {
+	rejectLowMin := int(profile.RekeyAfterTime.High()) + randomizedRejectGapMin
+	if profile.RejectAfterTime, err = g.u16Range(rejectLowMin, rejectLowMin+randomizedRejectLowWindow, randomizedRejectSpanMin, randomizedRejectSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate reject-after time: %w", err)
 	}
-	if profile.KeepaliveTimeout, err = g.u16Range(5, 12, 2, 8); err != nil {
+	if profile.KeepaliveTimeout, err = g.u16Range(randomizedKeepaliveLowMin, randomizedKeepaliveLowMax, randomizedKeepaliveSpanMin, randomizedKeepaliveSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate keepalive timeout: %w", err)
 	}
-	if profile.MaxHandshakeAttempts, err = g.u16Range(15, 25, 5, 20); err != nil {
+	if profile.MaxHandshakeAttempts, err = g.u16Range(randomizedHandshakeLowMin, randomizedHandshakeLowMax, randomizedHandshakeSpanMin, randomizedHandshakeSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate max handshake attempts: %w", err)
 	}
 	return profile, nil
@@ -209,6 +228,26 @@ func (g *ProfileGenerator) intInclusive(minimum, maximum int) (int, error) {
 		return 0, err
 	}
 	return minimum + int(value.Int64()), nil
+}
+
+// intInclusiveExcept samples uniformly from the inclusive range while
+// excluding one value. Mapping the excluded slot avoids an unbounded retry
+// loop when the entropy source is deterministic or adversarially faulty.
+func (g *ProfileGenerator) intInclusiveExcept(minimum, maximum, excluded int) (int, error) {
+	if excluded < minimum || excluded > maximum {
+		return g.intInclusive(minimum, maximum)
+	}
+	if minimum >= maximum {
+		return 0, fmt.Errorf("cannot exclude the only value in an integer range")
+	}
+	value, err := g.intInclusive(minimum, maximum-1)
+	if err != nil {
+		return 0, err
+	}
+	if value >= excluded {
+		value++
+	}
+	return value, nil
 }
 
 func (g *ProfileGenerator) uint32Inclusive(minimum, maximum uint32) (uint32, error) {
@@ -260,8 +299,9 @@ func ValidateGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
 			return domain.E(domain.CodeParamConstraint, "recommended profile contains advanced or client-specific parameters")
 		}
 		for i, header := range []awgparam.U32Range{profile.H1, profile.H2, profile.H3, profile.H4} {
-			if header.Low() != header.High() || header.Low() < RecommendedHeaderMin || header.High() > RecommendedHeaderMax {
-				return domain.E(domain.CodeParamConstraint, "recommended H%d must be a scalar in %d..%d", i+1, RecommendedHeaderMin, RecommendedHeaderMax)
+			band := generatedHeaderBands[i]
+			if header.Low() != header.High() || header.Low() < band.low || header.High() > band.high {
+				return domain.E(domain.CodeParamConstraint, "recommended H%d must be a scalar in its assigned band %d..%d", i+1, band.low, band.high)
 			}
 		}
 		return nil
@@ -279,7 +319,8 @@ func ValidateGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
 		}
 		for i, header := range []awgparam.U32Range{profile.H1, profile.H2, profile.H3, profile.H4} {
 			band := generatedHeaderBands[i]
-			if header.Low() >= header.High() || header.Low() < band.low || header.High() > band.high {
+			if header.Low() >= header.High() || header.Low() < band.low || header.High() > band.high ||
+				header.High()-header.Low() > randomizedHeaderMaxSpan {
 				return domain.E(domain.CodeParamConstraint, "randomized H%d range is outside its non-overlapping policy band", i+1)
 			}
 		}
@@ -287,13 +328,13 @@ func ValidateGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
 			profile.RandomTrailers || profile.DisableCookies {
 			return domain.E(domain.CodeParamConstraint, "randomized profile contains unsafe or client-specific parameters")
 		}
-		if !validGeneratedRange(profile.ContentPaddingAddition, 10, 90) ||
-			!validGeneratedRange(profile.RekeyAfterTime, 90, 140) ||
-			!validGeneratedRange(profile.RekeyTimeout, 3, 12) ||
-			!validGeneratedRange(profile.RejectAfterTime, 120, 250) ||
-			!validGeneratedRange(profile.KeepaliveTimeout, 5, 20) ||
-			!validGeneratedRange(profile.MaxHandshakeAttempts, 15, 45) ||
-			profile.RejectAfterTime.Low() <= profile.RekeyAfterTime.High() {
+		rejectLowMin := int(profile.RekeyAfterTime.High()) + randomizedRejectGapMin
+		if !validGeneratedRangeShape(profile.ContentPaddingAddition, randomizedPaddingLowMin, randomizedPaddingLowMax, randomizedPaddingSpanMin, randomizedPaddingSpanMax) ||
+			!validGeneratedRangeShape(profile.RekeyAfterTime, randomizedRekeyAfterLowMin, randomizedRekeyAfterLowMax, randomizedRekeyAfterSpanMin, randomizedRekeyAfterSpanMax) ||
+			!validGeneratedRangeShape(profile.RekeyTimeout, randomizedRekeyTimeoutLowMin, randomizedRekeyTimeoutLowMax, randomizedRekeyTimeoutSpanMin, randomizedRekeyTimeoutSpanMax) ||
+			!validGeneratedRangeShape(profile.RejectAfterTime, rejectLowMin, rejectLowMin+randomizedRejectLowWindow, randomizedRejectSpanMin, randomizedRejectSpanMax) ||
+			!validGeneratedRangeShape(profile.KeepaliveTimeout, randomizedKeepaliveLowMin, randomizedKeepaliveLowMax, randomizedKeepaliveSpanMin, randomizedKeepaliveSpanMax) ||
+			!validGeneratedRangeShape(profile.MaxHandshakeAttempts, randomizedHandshakeLowMin, randomizedHandshakeLowMax, randomizedHandshakeSpanMin, randomizedHandshakeSpanMax) {
 			return domain.E(domain.CodeParamConstraint, "randomized timer ranges are outside policy")
 		}
 		return nil
@@ -310,6 +351,11 @@ func hasAdvancedGeneratedFields(profile Obfuscation) bool {
 		profile.RandomTrailers || profile.DisableCookies
 }
 
-func validGeneratedRange(value awgparam.U16Range, minimum, maximum uint16) bool {
-	return !value.IsZero() && value.Low() < value.High() && value.Low() >= minimum && value.High() <= maximum
+func validGeneratedRangeShape(value awgparam.U16Range, lowMinimum, lowMaximum, spanMinimum, spanMaximum int) bool {
+	if value.IsZero() || value.Low() >= value.High() {
+		return false
+	}
+	low := int(value.Low())
+	span := int(value.High() - value.Low())
+	return low >= lowMinimum && low <= lowMaximum && span >= spanMinimum && span <= spanMaximum
 }

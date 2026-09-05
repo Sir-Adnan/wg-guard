@@ -313,6 +313,7 @@ func TestReconcileObservableRangeDriftCorrected(t *testing.T) {
 		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
 		H1: mustU32Range(t, "100-110"), H2: mustU32Range(t, "200-210"),
 		H3: mustU32Range(t, "300-310"), H4: mustU32Range(t, "400-410"),
+		I1: "<r 10>", I2: "aabbccdd", I3: "<c>", I4: "<t>", I5: "<rd 8>",
 		ContentPaddingAddition: mustU16Range(t, "10-20"),
 		RekeyAfterTime:         mustU16Range(t, "120-180"),
 	}
@@ -327,7 +328,7 @@ func TestReconcileObservableRangeDriftCorrected(t *testing.T) {
 		t.Fatal(err)
 	}
 	if state.Obfuscation.ContentPaddingAddition != want.ContentPaddingAddition ||
-		state.Obfuscation.H1 != want.H1 {
+		state.Obfuscation.H1 != want.H1 || state.Obfuscation.I1 != want.I1 || state.Obfuscation.I5 != want.I5 {
 		t.Fatalf("DB intent lost before apply: %+v", state.Obfuscation)
 	}
 
@@ -336,6 +337,7 @@ func TestReconcileObservableRangeDriftCorrected(t *testing.T) {
 	// leave the running tunnel different from the database indefinitely.
 	drifted := state.Obfuscation
 	drifted.ContentPaddingAddition = mustU16Range(t, "10-19")
+	drifted.I3 = "<r 11>"
 	if err := h.backend.SetObfuscation("awg0", drifted); err != nil {
 		t.Fatal(err)
 	}
@@ -354,6 +356,34 @@ func TestReconcileObservableRangeDriftCorrected(t *testing.T) {
 	if state.Obfuscation.ContentPaddingAddition != want.ContentPaddingAddition {
 		t.Fatalf("range drift remains: got %s want %s",
 			state.Obfuscation.ContentPaddingAddition, want.ContentPaddingAddition)
+	}
+	if state.Obfuscation.I3 != want.I3 {
+		t.Fatalf("I3 drift remains: got %q want %q", state.Obfuscation.I3, want.I3)
+	}
+}
+
+func TestReconcileRejectsUnsafeStoredObfuscationBeforeBackendMutation(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	want := iface.Obfuscation{
+		Enabled: true,
+		Jc:      5, Jmin: 40, Jmax: 70, S1: 86, S2: 61,
+		H1: awgparam.ScalarU32(100), H2: awgparam.ScalarU32(200),
+		H3: awgparam.ScalarU32(300), H4: awgparam.ScalarU32(400),
+	}
+	stored, err := h.ifaceSvc.Create(ctx, iface.CreateInput{Name: "awg0", Obfuscation: want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`UPDATE tunnel_interfaces SET i1 = ? WHERE id = ?`, "<r 10>\n[Peer]", stored.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := h.engine.Run(ctx); err == nil {
+		t.Fatal("unsafe stored obfuscation reached reconcile")
+	}
+	if ops := h.backend.Ops(); len(ops) != 0 {
+		t.Fatalf("backend mutated before stored profile validation: %+v", ops)
 	}
 }
 

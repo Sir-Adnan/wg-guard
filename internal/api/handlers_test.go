@@ -580,6 +580,69 @@ func TestInterfaceObfuscationRangeContract(t *testing.T) {
 	}
 }
 
+func TestInterfaceAPIRejectsConfigLineInjection(t *testing.T) {
+	e := newEnv(t)
+
+	for _, tc := range []struct {
+		name     string
+		body     string
+		wantCode string
+	}{
+		{
+			name:     "endpoint newline",
+			body:     `{"name":"awg0","endpoint_override":"vpn.example.com\nAllowedIPs = 0.0.0.0/0"}`,
+			wantCode: "INVALID_REQUEST",
+		},
+		{
+			name:     "signature newline",
+			body:     `{"name":"awg0","obfuscation":{"enabled":true,"jc":4,"jmin":40,"jmax":70,"s1":15,"s2":64,"h1":10,"h2":20,"h3":30,"h4":40,"i1":"aabbccdd\nDNS = 203.0.113.1"}}`,
+			wantCode: "PARAM_CONSTRAINT",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := e.do("POST", "/api/v1/interfaces", tc.body)
+			if rec.Code != http.StatusBadRequest || errCode(t, rec) != tc.wantCode {
+				t.Fatalf("unsafe create: %d %s", rec.Code, rec.Body.String())
+			}
+			items, err := e.ifaces.List(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(items) != 0 {
+				t.Fatalf("unsafe create persisted %d interfaces", len(items))
+			}
+		})
+	}
+
+	created := e.do("POST", "/api/v1/interfaces", `{"name":"awg0","listen_port":39120}`)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("seed interface: %d %s", created.Code, created.Body.String())
+	}
+	id := decodeBody(t, created)["id"].(string)
+	for _, tc := range []struct {
+		name     string
+		body     string
+		wantCode string
+	}{
+		{"endpoint newline", `{"endpoint_override":"vpn.example.com\nPublicKey = injected"}`, "INVALID_REQUEST"},
+		{"signature newline", `{"obfuscation":{"enabled":true,"jc":4,"jmin":40,"jmax":70,"s1":15,"s2":64,"h1":10,"h2":20,"h3":30,"h4":40,"i1":"aabbccdd\nEndpoint = attacker.invalid:51820"}}`, "PARAM_CONSTRAINT"},
+	} {
+		t.Run("patch "+tc.name, func(t *testing.T) {
+			rec := e.do("PATCH", "/api/v1/interfaces/"+id, tc.body)
+			if rec.Code != http.StatusBadRequest || errCode(t, rec) != tc.wantCode {
+				t.Fatalf("unsafe patch: %d %s", rec.Code, rec.Body.String())
+			}
+			got, err := e.ifaces.Get(context.Background(), id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.EndpointOverride != "" || got.Obfuscation.Enabled || got.Obfuscation.I1 != "" {
+				t.Fatalf("unsafe patch mutated stored interface: %+v", got)
+			}
+		})
+	}
+}
+
 func TestInterfaceGeneratedProfileAPI(t *testing.T) {
 	e := newEnv(t)
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
@@ -362,7 +363,7 @@ type dbInterface struct {
 	ListenPort int
 	Subnet     string // device pool CIDR, e.g. "10.8.0.0/24"
 	MTU        int
-	Obf        obfuscation
+	Obf        iface.Obfuscation
 	Enabled    bool
 	PrivateKey string // decrypted for backend apply
 }
@@ -378,30 +379,13 @@ func gatewayAddress(subnet string) string {
 	return netip.PrefixFrom(p.Addr().Next(), p.Bits()).String()
 }
 
-type obfuscation struct {
-	Enabled                bool
-	Jc                     int
-	Jmin, Jmax             int
-	S1, S2                 int
-	H1, H2, H3, H4         awgparam.U32Range
-	S3, S4                 int
-	HeaderProtectionKey    string
-	ContentPaddingAddition awgparam.U16Range
-	RekeyAfterTime         awgparam.U16Range
-	RekeyTimeout           awgparam.U16Range
-	RejectAfterTime        awgparam.U16Range
-	KeepaliveTimeout       awgparam.U16Range
-	MaxHandshakeAttempts   awgparam.U16Range
-	RandomTrailers         bool
-	DisableCookies         bool
-}
-
-func toTunnelObfuscation(o obfuscation) tunnel.Obfuscation {
+func toTunnelObfuscation(o iface.Obfuscation) tunnel.Obfuscation {
 	return tunnel.Obfuscation{
 		Enabled: o.Enabled,
 		Jc:      o.Jc, Jmin: o.Jmin, Jmax: o.Jmax,
 		S1: o.S1, S2: o.S2,
 		H1: o.H1, H2: o.H2, H3: o.H3, H4: o.H4,
+		I1: o.I1, I2: o.I2, I3: o.I3, I4: o.I4, I5: o.I5,
 		S3: o.S3, S4: o.S4,
 		HeaderProtectionKey:    o.HeaderProtectionKey,
 		ContentPaddingAddition: o.ContentPaddingAddition,
@@ -426,7 +410,7 @@ type peerDesire struct {
 func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 	rows, err := e.DB.QueryContext(ctx, `SELECT id, name, listen_port, ipv4_subnet, mtu, public_key,
 		private_key_encrypted, jc, jmin, jmax, s1, s2,
-		h1_range, h2_range, h3_range, h4_range, enabled,
+		h1_range, h2_range, h3_range, h4_range, i1, i2, i3, i4, i5, enabled,
 		s3, s4, header_protection_key, content_padding_addition, rekey_after_time,
 		rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
 		random_trailers, disable_cookies
@@ -443,6 +427,7 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			privEnc              []byte
 			jc, jmin, jm, s1, s2 sql.NullInt64
 			h1, h2, h3, h4       awgparam.U32Range
+			i1, i2, i3, i4, i5   sql.NullString
 			s3, s4               sql.NullInt64
 			hpk                  sql.NullString
 			padding              awgparam.U16Range
@@ -455,17 +440,18 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			disableCookies       sql.NullInt64
 		)
 		if err := rows.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.Subnet, &ifc.MTU, &pubkey, &privEnc,
-			&jc, &jmin, &jm, &s1, &s2, &h1, &h2, &h3, &h4, &ifc.Enabled,
+			&jc, &jmin, &jm, &s1, &s2, &h1, &h2, &h3, &h4, &i1, &i2, &i3, &i4, &i5, &ifc.Enabled,
 			&s3, &s4, &hpk, &padding, &rekeyAfter, &rekeyTimeout, &rejectAfter,
 			&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies); err != nil {
 			return nil, fmt.Errorf("reconcile: scan interface: %w", err)
 		}
 		_ = pubkey // drift on the server key is covered by private-key apply
-		ifc.Obf = obfuscation{
+		ifc.Obf = iface.Obfuscation{
 			Enabled: jc.Valid,
 			Jc:      int(jc.Int64), Jmin: int(jmin.Int64), Jmax: int(jm.Int64),
 			S1: int(s1.Int64), S2: int(s2.Int64),
 			H1: h1, H2: h2, H3: h3, H4: h4,
+			I1: i1.String, I2: i2.String, I3: i3.String, I4: i4.String, I5: i5.String,
 			S3: int(s3.Int64), S4: int(s4.Int64),
 			HeaderProtectionKey:    hpk.String,
 			ContentPaddingAddition: padding,
@@ -476,6 +462,9 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			MaxHandshakeAttempts:   maxHandshake,
 			RandomTrailers:         randomTrailers.Int64 == 1,
 			DisableCookies:         disableCookies.Int64 == 1,
+		}
+		if err := iface.ValidateObfuscation(ifc.Obf); err != nil {
+			return nil, fmt.Errorf("reconcile: stored obfuscation profile for %s is invalid: %w", ifc.Name, err)
 		}
 		pt, err := e.Ring.Decrypt(privEnc)
 		if err != nil {

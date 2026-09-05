@@ -1,6 +1,8 @@
 package web
 
 import (
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -82,15 +84,75 @@ func (s *Server) handleProfilePreview(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "profile_generation_failed"})
 		return
 	}
+	token, err := s.sealProfilePreview(r, policy, profile)
+	if err != nil {
+		s.logError(r, "profile preview seal", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "profile_generation_failed"})
+		return
+	}
 	_ = json.NewEncoder(w).Encode(profilePreviewResponse{
 		Policy: string(policy),
 		Fields: profileFormFields(profile),
+		Token:  token,
 	})
 }
 
 type profilePreviewResponse struct {
 	Policy string            `json:"policy"`
 	Fields map[string]string `json:"fields"`
+	Token  string            `json:"token"`
+}
+
+type sealedProfilePreview struct {
+	Version int                 `json:"v"`
+	Policy  iface.ProfilePolicy `json:"policy"`
+	Profile iface.Obfuscation   `json:"profile"`
+	CSRF    string              `json:"csrf"`
+}
+
+func (s *Server) sealProfilePreview(r *http.Request, policy iface.ProfilePolicy, profile iface.Obfuscation) (string, error) {
+	if s.Ring == nil {
+		return "", domain.E(domain.CodeParamConstraint, "profile preview sealing is unavailable")
+	}
+	csrf, _ := r.Context().Value(ctxCSRF).(string)
+	if csrf == "" {
+		return "", domain.E(domain.CodeParamConstraint, "profile preview session binding is unavailable")
+	}
+	payload, err := json.Marshal(sealedProfilePreview{Version: 1, Policy: policy, Profile: profile, CSRF: csrf})
+	if err != nil {
+		return "", err
+	}
+	ciphertext, err := s.Ring.Encrypt(payload)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(ciphertext), nil
+}
+
+func (s *Server) verifyProfilePreview(r *http.Request, token string, policy iface.ProfilePolicy, profile iface.Obfuscation) error {
+	const maxTokenBytes = 16 << 10
+	if s.Ring == nil || token == "" || len(token) > maxTokenBytes {
+		return domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
+	}
+	ciphertext, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
+	}
+	payload, err := s.Ring.Decrypt(ciphertext)
+	if err != nil {
+		return domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
+	}
+	var preview sealedProfilePreview
+	if err := json.Unmarshal(payload, &preview); err != nil {
+		return domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
+	}
+	csrf, _ := r.Context().Value(ctxCSRF).(string)
+	if preview.Version != 1 || preview.Policy != policy || preview.Profile != profile ||
+		subtle.ConstantTimeCompare([]byte(preview.CSRF), []byte(csrf)) != 1 {
+		return domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
+	}
+	return iface.ValidateGeneratedProfile(policy, profile)
 }
 
 func profileFormFields(profile iface.Obfuscation) map[string]string {
@@ -242,7 +304,7 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	policy, generated, err := generatedPolicyFromForm(r)
+	policy, generated, err := s.generatedPolicyFromForm(r, obfuscation, nil)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
@@ -280,7 +342,7 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	policy, generated, err := generatedPolicyFromForm(r)
+	policy, generated, err := s.generatedPolicyFromForm(r, obfuscation, prev)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
@@ -325,15 +387,28 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	s.redirectToast(w, r, "/interfaces", "ifaces.toast.updated")
 }
 
-func generatedPolicyFromForm(r *http.Request) (string, bool, error) {
-	policy := strings.TrimSpace(r.PostFormValue("profile_policy"))
-	switch iface.ProfilePolicy(policy) {
+func (s *Server) generatedPolicyFromForm(r *http.Request, profile iface.Obfuscation, existing *iface.Interface) (string, bool, error) {
+	policyText := strings.TrimSpace(r.PostFormValue("profile_policy"))
+	policy := iface.ProfilePolicy(policyText)
+	switch policy {
 	case iface.ProfileRecommended, iface.ProfileRandomized:
-		return policy, true, nil
+		if token := strings.TrimSpace(r.PostFormValue("profile_token")); token != "" {
+			if err := s.verifyProfilePreview(r, token, policy, profile); err != nil {
+				return "", false, err
+			}
+			return policyText, true, nil
+		}
+		// Existing generated profiles may be edited for unrelated fields
+		// without minting a fresh preview. Preserve the classification only
+		// when the submitted AWG values are byte-for-byte unchanged.
+		if existing != nil && existing.Preset == policyText && existing.Obfuscation == profile {
+			return policyText, true, nil
+		}
+		return "", false, domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
 	default:
-		// Empty/plain/custom and legacy labels are inferred from the submitted
-		// values. This keeps pre-Phase-8 rows editable while only current
-		// server-generated policies receive the trusted classification path.
+		// Empty/plain/custom and legacy labels are inferred from submitted
+		// values. Generated classifications require an authenticated sealed
+		// preview (or an unchanged already-stored generated profile).
 		return "", false, nil
 	}
 }

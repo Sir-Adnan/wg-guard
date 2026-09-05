@@ -33,6 +33,70 @@ func validHostname(s string) bool {
 	return true
 }
 
+// ValidEndpoint validates the host or host:port form written to client
+// configuration Endpoint lines. URLs, paths, control characters, whitespace,
+// invalid bracket notation, and ports outside 1..65535 are rejected. Bare
+// IPv6 addresses are accepted and bracketed by the client-config renderer.
+func ValidEndpoint(s string) error {
+	if s == "" {
+		return nil
+	}
+	if strings.TrimSpace(s) != s || strings.ContainsAny(s, "\x00\r\n\t") {
+		return fmt.Errorf("%q is not a canonical endpoint", s)
+	}
+
+	host := s
+	portText := ""
+	bracketed := strings.HasPrefix(s, "[")
+	if bracketed && strings.HasSuffix(s, "]") {
+		host = strings.TrimSuffix(strings.TrimPrefix(s, "["), "]")
+		addr, err := netip.ParseAddr(host)
+		if err != nil || !addr.Is6() {
+			return fmt.Errorf("%q is not a bracketed IPv6 address", s)
+		}
+		return nil
+	}
+	if bracketed || strings.Count(s, ":") == 1 {
+		var err error
+		host, portText, err = net.SplitHostPort(s)
+		if err != nil || host == "" || portText == "" {
+			return fmt.Errorf("%q is not a valid host:port endpoint", s)
+		}
+		if bracketed {
+			addr, err := netip.ParseAddr(host)
+			if err != nil || !addr.Is6() {
+				return fmt.Errorf("%q uses brackets for a non-IPv6 host", s)
+			}
+		}
+	} else if strings.Contains(s, ":") {
+		if _, err := netip.ParseAddr(s); err != nil {
+			return fmt.Errorf("%q is not a valid IPv6 address", s)
+		}
+		return nil
+	}
+
+	if addr, err := netip.ParseAddr(host); err != nil {
+		if !validHostname(host) {
+			return fmt.Errorf("%q is not an IP address or hostname", s)
+		}
+	} else if bracketed && !addr.Is6() {
+		return fmt.Errorf("%q uses brackets for a non-IPv6 host", s)
+	}
+	if portText == "" {
+		return nil
+	}
+	for _, r := range portText {
+		if r < '0' || r > '9' {
+			return fmt.Errorf("%q has an invalid port", s)
+		}
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("%q has a port outside 1-65535", s)
+	}
+	return nil
+}
+
 // Defaults is the Phase 1 catalog. Every value here is a *recommended
 // default* chosen from upstream constraints (docs/operations/deployment.md) —
 // administrators may change any of it; final guidance follows the Phase 11
@@ -184,18 +248,7 @@ func Defaults() []Definition {
 			}},
 		{Key: "node.endpoint", Kind: KindString, Default: "", Category: "general",
 			Validator: func(v any) error {
-				s := v.(string)
-				if s == "" {
-					return nil
-				}
-				host, _, err := net.SplitHostPort(s)
-				if err != nil {
-					host = s // host-only is valid; the listen port is appended per interface
-				}
-				if net.ParseIP(host) == nil && !validHostname(host) {
-					return fmt.Errorf("%q is not an IP address or hostname", s)
-				}
-				return nil
+				return ValidEndpoint(v.(string))
 			}},
 
 		// Client-config rendering (GET /api/v1/devices/{id}/config).

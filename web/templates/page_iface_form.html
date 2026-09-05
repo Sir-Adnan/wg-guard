@@ -11,6 +11,7 @@
 <form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="card card--pad form-card" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
   <input type="hidden" name="profile_policy" value="{{if .Data.I}}{{.Data.I.Preset}}{{else}}plain{{end}}" data-profile-policy>
+  <input type="hidden" name="profile_token" value="" data-profile-token>
 
   <fieldset class="form-section">
     <legend>{{.T "ifaces.form.section_profile"}}</legend>

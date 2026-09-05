@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -88,6 +90,7 @@ func ValidateObfuscation(o Obfuscation) error {
 	if !o.Enabled {
 		if o.Jc != 0 || o.Jmin != 0 || o.Jmax != 0 || o.S1 != 0 || o.S2 != 0 ||
 			!o.H1.IsZero() || !o.H2.IsZero() || !o.H3.IsZero() || !o.H4.IsZero() ||
+			o.I1 != "" || o.I2 != "" || o.I3 != "" || o.I4 != "" || o.I5 != "" ||
 			o.S3 != 0 || o.S4 != 0 || o.HeaderProtectionKey != "" ||
 			!o.ContentPaddingAddition.IsZero() || !o.RekeyAfterTime.IsZero() || !o.RekeyTimeout.IsZero() ||
 			!o.RejectAfterTime.IsZero() || !o.KeepaliveTimeout.IsZero() || !o.MaxHandshakeAttempts.IsZero() ||
@@ -104,7 +107,7 @@ func ValidateObfuscation(o Obfuscation) error {
 	}
 	if o.HeaderProtectionKey != "" {
 		k, err := base64.StdEncoding.DecodeString(o.HeaderProtectionKey)
-		if err != nil || len(k) != 32 {
+		if err != nil || len(k) != 32 || base64.StdEncoding.EncodeToString(k) != o.HeaderProtectionKey {
 			return domain.E(domain.CodeParamConstraint, "HeaderProtectionKey must be a base64-encoded 32-byte key")
 		}
 		// Both pinned backends require each S value to cover the 12-byte
@@ -117,6 +120,9 @@ func ValidateObfuscation(o Obfuscation) error {
 	}
 	if o.Jc < 1 || o.Jc > JcMax {
 		return domain.E(domain.CodeParamConstraint, "Jc must be 1–%d (recommended 4–12), got %d", JcMax, o.Jc)
+	}
+	if o.Jmin < 0 || o.Jmax < 0 {
+		return domain.E(domain.CodeParamConstraint, "Jmin/Jmax must be 0–%d", JmaxMax)
 	}
 	if o.Jmin >= o.Jmax {
 		return domain.E(domain.CodeParamConstraint, "Jmin (%d) must be less than Jmax (%d)", o.Jmin, o.Jmax)
@@ -133,6 +139,9 @@ func ValidateObfuscation(o Obfuscation) error {
 	if o.S1+56 == o.S2 {
 		return domain.E(domain.CodeParamConstraint, "S1+56 must not equal S2 (%d+56=%d)", o.S1, o.S2)
 	}
+	if err := ValidateConfigText(o); err != nil {
+		return err
+	}
 	hs := [4]awgparam.U32Range{o.H1, o.H2, o.H3, o.H4}
 	for i := 0; i < 4; i++ {
 		if hs[i].IsZero() {
@@ -141,6 +150,27 @@ func ValidateObfuscation(o Obfuscation) error {
 		for j := i + 1; j < 4; j++ {
 			if hs[i].Overlaps(hs[j]) {
 				return domain.E(domain.CodeParamConstraint, "H1–H4 ranges must not overlap (H%d and H%d)", i+1, j+1)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateConfigText rejects values that cannot safely occupy one
+// configuration line. It is exported so client rendering can fail closed on
+// a corrupt or manually edited database row without requiring every numeric
+// relationship to be reclassified at delivery time.
+func ValidateConfigText(o Obfuscation) error {
+	for i, value := range []string{o.I1, o.I2, o.I3, o.I4, o.I5} {
+		if value == "" {
+			continue
+		}
+		if strings.TrimSpace(value) != value || !utf8.ValidString(value) {
+			return domain.E(domain.CodeParamConstraint, "I%d must be canonical single-line UTF-8 text", i+1)
+		}
+		for _, r := range value {
+			if unicode.IsControl(r) {
+				return domain.E(domain.CodeParamConstraint, "I%d must not contain control characters", i+1)
 			}
 		}
 	}
@@ -266,6 +296,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 	}
 	if mtu < 576 || mtu > 65535 {
 		return nil, domain.E(domain.CodeInvalidRequest, "MTU must be 576–65535, got %d", mtu)
+	}
+	if err := settings.ValidEndpoint(in.EndpointOverride); err != nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "endpoint override: %v", err)
 	}
 
 	if err := s.resolveCreateProfile(&in); err != nil {
@@ -736,7 +769,10 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		ifc.Enabled = *in.Enabled
 	}
 	if in.EndpointOverride != nil {
-		ifc.EndpointOverride = strings.TrimSpace(*in.EndpointOverride)
+		if err := settings.ValidEndpoint(*in.EndpointOverride); err != nil {
+			return nil, domain.E(domain.CodeInvalidRequest, "endpoint override: %v", err)
+		}
+		ifc.EndpointOverride = *in.EndpointOverride
 	}
 	if in.Obfuscation != nil {
 		preset, err := classifySubmittedProfile(*in.Obfuscation, in.Preset, in.GeneratedProfile)
