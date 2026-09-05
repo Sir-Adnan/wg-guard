@@ -130,6 +130,11 @@ readable from schema1; journal records operation stage and previous/current arti
   Provide a machine-readable installer/build compatibility contract and reject selected builds
   that cannot satisfy it before deployment. Bootstrap must not silently execute an older
   pre-Phase8.1 install command lacking the new prerequisite/owner/recovery guarantees.
+- [ ] Expose a controlled catalogued-core switch through the same lifecycle lock/journal, with
+  explicit impact confirmation, previous/requested bundle identity and package availability checks.
+  Do not unload active tunnels or infer loaded correctness from equal version strings. Preserve
+  pending-reboot/recovery state; refuse unknown incompatible transitions with an actionable manual
+  migration path. A catalog containing only one verified bundle must say so, not invent alternatives.
 - [ ] Run fault tests/full suite/build, synchronize operator recovery instructions and commit.
 
 ### Task 4: Terminal design system and complete management workflow (M4)
@@ -149,7 +154,7 @@ the correct host/container context; pass secrets via stdin, not nested argv.
 - [ ] Implement restrained brand/color, section hierarchy, status/review cards, deterministic
   numbered navigation, progress/result/error treatment and actionable recovery hints. Avoid
   animations/busy loops/full-screen dependencies. TTY secret reading uses the actual input FD.
-- [ ] Expose install/update/rollback/status/doctor/core versions/backup/restore/schedules/Telegram/
+- [ ] Expose install/update/rollback/status/doctor/core versions and controlled switch/backup/restore/schedules/Telegram/
   service restart and uninstall with preservation-aware confirmation. Permit command-line flags
   for automation; interactive no-args entry only on TTY. No unexpected startup mutations.
 - [ ] Source picker presents latest release, bounded release list, main development and pinned

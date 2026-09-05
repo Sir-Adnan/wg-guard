@@ -29,6 +29,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   userspace integration remains valid protocol/config compatibility evidence.
 
 ### Added
+- **Installer prerequisite and core checks:** Ubuntu 24.04 package preparation, explicit manual
+  routes on other Linux systems, pinned compatible AWG catalog, loaded/disk build-identity
+  reporting, immutable runtime-image preparation and retryable trusted TLS readiness. Explicit
+  TCP ports and IP-only VPN endpoints are preserved. Full lifecycle integration remains in progress.
 - **GitHub build acquisition:** bounded release/commit selection, checksummed private staging,
   immutable source builds with temporary verified Go tooling, a first-entry bootstrap, and local
   amd64/arm64 candidate artifact generation. No published-release installation is claimed;

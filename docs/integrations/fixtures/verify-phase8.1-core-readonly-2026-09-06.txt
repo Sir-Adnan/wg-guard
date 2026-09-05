@@ -1,0 +1,33 @@
+WG-Guard Phase 8.1 M2 — real read-only CLI inspection
+Date: 2026-09-06 local
+Environment: dedicated Ubuntu 24.04 amd64 VPS, existing Docker deployment.
+Commit: fa74c4a10bfed0f02f1e8e5e0f44d90fd773e777
+Candidate version: 0.0.0-phase8.1-m2
+Linux amd64 SHA-256: f5dadec6807c27fe393e957b014582a60120e4d437ea0ff5e93c63f53064aa15
+Linux arm64 SHA-256: 72117ac8ff587938d39987dd29c9603939a89c89a08b2d74d740b94df71784b0
+
+Method:
+scripts/build-artifacts.sh built immutable local HEAD for both architectures.
+sha256sum --check checksums.txt: both OK locally.
+Only amd64 copied into a root-private temporary directory; hash checked before execution.
+wg-guard version: exact version/commit above, linux/amd64.
+wg-guard core recommended: exit0, bundle awg-2026-08 with exact authoritative source/package pins.
+wg-guard core installed: exit0, observation from actual Docker runtime and host kernel:
+  tools_location: container
+  installed_tools_package: 1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1
+  installed_kernel_package: 1.0.0-0~202608282205+3c38e16~ubuntu24.04.1
+  observed_tools_version: amneziawg-tools v3.1.20260812
+  loaded_module_version: 3.1.20260812
+  loaded_module_srcversion: 5F142DE112E19E1AD2E6344
+  disk_module_srcversion: 5F142DE112E19E1AD2E6344
+  module_loaded: true
+  module_identity: matches-disk
+  reboot_required: false
+  external_module: false
+Original HTTPS /healthz: trusted TLS validation succeeded, JSON status ok.
+Cleanup: exact resolved root-private probe directory removed; no installed binary was replaced.
+
+Limits:
+No install, update, package change, module replacement/unload, tls-check state write or runtime
+image build was performed. The installed node remained unchanged. These observations do not
+certify clean provisioning, core switching, certificate issuance, recovery or arm64 execution.

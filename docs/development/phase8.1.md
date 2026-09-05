@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1 reviewed, M2 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1 reviewed, M2 implemented and under review**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -49,6 +49,9 @@ invented or silently substituted with development code.
    preserve foreign Docker/firewall/SSH resources, and record owned resources. Ubuntu PPA suites
    are not guessed or injected into Debian. Unsupported automatic setup fails with an actionable
    manual-prerequisite route. Only evidence-backed OS/architecture cells are advertised verified.
+   A clean supported host may need repository tooling and the documented PPA prepared first;
+   both exact AWG package versions must then be available before core/deployment mutation.
+   Failed availability is an incomplete prerequisite preparation, never a successful installation.
 7. AWG is a compatibility bundle: tools, kernel source/package and optional userspace daemon are
    separate versions. Recommended means the pinned verified contract. Latest means latest
    compatible catalog entry, not arbitrary upstream HEAD. Explicit selection is allowed only
@@ -78,7 +81,7 @@ invented or silently substituted with development code.
 |---|---|---|
 | M1 | GitHub catalog/acquisition, bootstrap, local candidate artifact builder | Fake HTTP failure/integrity tests; Linux bootstrap fixture execution; no-release behavior |
 | M2 | Prerequisites, AWG catalog/policy, safe port/TLS/IP setup | Host-seam tests; pinned upstream check; clean-host prerequisite drill |
-| M3 | Locked/recoverable install/update/rollback | Failure injection at swap/start/health/state; previous artifact and data recovery |
+| M3 | Locked/recoverable install/update/rollback and catalogued core switch | Failure injection at swap/start/health/state; previous artifact/data recovery; explicit pending-reboot state |
 | M4 | Terminal design system, setup and management navigation | fa/en parity; scripted flows, EOF/secret tests; real 48/80/120-column TTY |
 | M5 | Backup/Telegram/schedule/restore management | Real service/database tests; archive security/bounds; negative group IDs; scheduled execution |
 | M6 | Integrated verification, operator docs and handoff | Docker/native dedicated-VPS lifecycle, TLS, source identity, CI and clean repository |
@@ -127,3 +130,14 @@ provenance and documentation and requests explicit approval before public public
   started, but the SSH connection did not deliver a final result. Build success is **unverified**;
   the owned remote temporary directory was cleaned, original HTTPS health remained good, and
   system Go remained unchanged. Repeat with durable bounded evidence during integrated testing.
+- Durable repetition on `3a02c72` **passed**: real GitHub source acquisition, temporary compiler,
+  candidate build and installer help completed in 80.7 seconds; original HTTPS health and system
+  Go were preserved. Latest-release selection failed closed because no release exists.
+  [Sanitized evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt).
+  [Exact-commit CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149).
+- M2 (`fa74c4a`): prerequisite/core/TLS and candidate runtime-image helper implemented; full Go
+  tests/build/vet passed, independent review pending. Read-only core CLI commands passed on the
+  actual Docker node ([evidence](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt)).
+  Current exact package availability is also recorded
+  [separately](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt).
+  These checks do not certify fresh installation, image deployment or certificate issuance.

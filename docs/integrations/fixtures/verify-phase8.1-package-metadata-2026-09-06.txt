@@ -1,0 +1,32 @@
+WG-Guard Phase 8.1 — read-only prerequisite availability check
+Date: 2026-09-06 local
+Environment: dedicated Ubuntu 24.04 amd64 VPS, HTTPS read only (no apt update/install).
+
+Sources:
+https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu/dists/noble/main/binary-amd64/Packages.gz
+https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu/dists/noble/main/binary-arm64/Packages.gz
+
+Method: fetch with a 20-second request timeout, compressed bound4MiB and decompressed bound16MiB;
+parse only amneziawg-tools and amneziawg-dkms package records.
+
+Both indexes currently contain the exact documentation-pinned bundle:
+amneziawg-tools: 1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1
+  amd64 tools package listed under the amd64 index
+  arm64 tools package listed under the arm64 index
+amneziawg-dkms: 1.0.0-0~202608282205+3c38e16~ubuntu24.04.1
+  Architecture: all; listed in both indexes
+
+Limits:
+This verifies current upstream metadata availability only. It does not independently validate
+the repository signing key, install/rebuild the packages, certify arm64 execution, or prove clean
+host provisioning. The actual package adapter must still use signed apt metadata, verify both
+exact versions at execution time, and fail rather than silently substitute other versions.
+
+Related read-only module observation on the same host:
+loaded /sys/module/amneziawg/version: 3.1.20260812
+disk modinfo -F version amneziawg: 3.1.20260812
+loaded /sys/module/amneziawg/srcversion: 5F142DE112E19E1AD2E6344
+disk modinfo -F srcversion amneziawg: 5F142DE112E19E1AD2E6344
+The pinned source revision is newer than its MODULE_VERSION text. Equal version strings alone
+cannot establish that a newly installed module build is already loaded; compare actual available
+build identity and retain unknown status when it is missing. No module was unloaded or replaced.

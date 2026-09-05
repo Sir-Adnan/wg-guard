@@ -1,0 +1,43 @@
+WG-Guard Phase 8.1 M1 — real GitHub acquisition only
+Recorded 2026-09-06 local (probe started 2026-09-05T22:34:59Z).
+Environment: dedicated Ubuntu 24.04 amd64 VPS; existing node preserved.
+Candidate source: 3a02c720445c9b4a7983b1f138c9c45f7bac36d2
+Bootstrap SHA-256: 3dafe4fcb2ebfa2c0882e2614ca55e795c3f1ceefcb90d7dcd7162ec37cea117
+
+Method:
+- Download exact-commit install.sh over HTTPS; independently match local script checksum.
+- Run bash install.sh --commit <exact SHA> -- --help with closed stdin.
+- Keep sanitized result in a root-private harness directory under a bounded transient systemd
+  unit, independent of the SSH connection. No panel install/update was requested.
+- Host compiler was /usr/bin/go 1.22.2, below source go.mod floor; bootstrap fetched its own
+  verified temporary compiler, downloaded modules, built and executed the candidate help.
+
+Result:
+exit_code: 0
+elapsed_seconds: 80.7
+selected_version: 0.0.0-dev.3a02c720445c
+selected_commit: 3a02c720445c9b4a7983b1f138c9c45f7bac36d2
+candidate_sha256: 56f97b8e2b74807fe6ec66645dc441bb8913d3890682a16a3c24fdfe5c8ae5c1
+installer_help_received: true
+system_go_after: go version go1.22.2 linux/amd64
+existing_https_health_after: true (normal certificate validation, JSON status ok)
+existing_awg0_awg1_after: UP, LOWER_UP (no config/key dump)
+harness_cleanup: transient unit collected/inactive; resolved exact private probe directory removed
+
+No-release test:
+bash install.sh --release latest
+exit_code: 1
+WG-Guard acquisition failed: No published stable release exists; use --commit main explicitly for development
+No development fallback or installation occurred.
+
+CI on this exact commit:
+https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149
+completed / success
+
+Limits:
+- This proves acquisition/build/help and fail-closed empty-release behavior, NOT a clean
+  native/Docker installation, owner setup, TLS issuance, update, rollback or backup/restore.
+- The first SSH-bound probe of 5ec46e0 produced partial download output but no final result;
+  it remains unverified. Its owned directory was cleaned before this independent repetition.
+- arm64 artifacts were built locally previously; no arm64 runtime was available here.
+- No public release, tag or registry artifact was published.

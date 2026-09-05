@@ -13,9 +13,9 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 
 | Item | Status |
 |---|---|
-| Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested in `5ec46e0`, reviewed with output-cap fix `899f4e0`; local amd64/arm64 candidates built/checksummed, amd64 executed on Linux; [CI passed for M1](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156); integrated VPS verification pending (first acquisition probe had no final SSH result) |
+| Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested; independent review closed; local amd64/arm64 candidates built/checksummed. [Real VPS acquisition/build/help and empty-release refusal passed](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) on `3a02c72`; [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149). Full deployment integration and arm64 runtime remain pending |
 | Terminal installer and management UX | designed; not implemented |
-| OS prerequisites and compatible AWG selection | M2 active; not yet implemented |
+| OS prerequisites and compatible AWG selection | M2 implemented + unit tested in `fa74c4a`; independent review pending; [read-only installed/recommended core CLI passed on VPS](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt). Fresh package provisioning/runtime image deployment remain unverified |
 | Transactional update/rollback and bounded restore improvements | designed; not implemented |
 | Backup schedule management and Telegram workflow | designed; not implemented |
 | Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |

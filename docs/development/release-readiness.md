@@ -11,7 +11,7 @@ Last updated: 2026-09-06. Active phase: **8.1 — GitHub delivery & lifecycle**.
 | Phase | State | Exit dependency |
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 8.1 — GitHub delivery & lifecycle | active; M1 reviewed, M2 starting | One-command installation and safe lifecycle verified on the dedicated VPS |
+| 8.1 — GitHub delivery & lifecycle | active; M1 reviewed, M2 implemented and under review | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 9 — Operational observability | planned; existing design branch paused | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
