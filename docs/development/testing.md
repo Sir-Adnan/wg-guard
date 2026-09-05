@@ -1,5 +1,13 @@
 # Testing strategy
 
+## Active installer verification
+
+[Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
+host-operation failure injection, 48/80/120-column fa/en terminal checks, and dedicated Ubuntu
+24.04 Docker/native lifecycle drills. Until evidence is recorded in status.md, these are planned
+checks. They do not replace Phase 11's full OS/architecture certification or Phase 12's final
+published-artifact gate.
+
 Nothing is "complete" without tests matching its risk. The majority of tests run without root
 and without a real VPN interface.
 

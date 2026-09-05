@@ -8,6 +8,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Changed
+- **Installer delivery phase planned:** inserted Phase 8.1 between completed Phase 8 and
+  operational observability. It owns GitHub acquisition, terminal UX, prerequisites, compatible
+  AWG version policy and lifecycle recovery. The Phase 9 design branch is paused; Phases 9–12
+  retain their scope and final public publication remains owner-approved. No implementation or
+  new compatibility claim is implied by this planning change.
 - **Phase 8 configuration integrity complete:** supported AWG values are lossless across storage,
   API/OpenAPI, forms, runtime, reconciliation, backup/restore, configs, subscriptions, and QR.
   The exact Ubuntu 24.04 candidate passed three-surface decode equality, recommended/randomized

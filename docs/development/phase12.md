@@ -2,6 +2,10 @@
 
 Status: **planned; not implemented**. Starts only after Phase 11 certification closes.
 
+Phase 8.1 establishes the GitHub acquisition contract and local checksummed candidate builder
+needed by the installer. This phase consumes those foundations, repeats exact-candidate tests,
+and owns the final multi-arch publication workflow, provenance and freeze.
+
 ## Objective
 
 Produce a clean, reproducible, installable, fully documented release candidate and stop before

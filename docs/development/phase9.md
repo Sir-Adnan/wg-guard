@@ -1,7 +1,8 @@
 # Phase 9 — Operational observability
 
-Status: **active; implementation not yet started**. Started 2026-09-05 after Phase 8 closed
-RB-001 through RB-004 with dedicated real-VPS and browser evidence.
+Status: **planned; design branch paused for Phase 8.1**. Initial design began 2026-09-05 after
+Phase 8 closed RB-001 through RB-004. The design-only `codex/phase9-observability` branch is
+preserved. Implementation follows [Phase 8.1](phase8.1.md) installation/lifecycle verification.
 
 ## Objective
 

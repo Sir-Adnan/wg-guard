@@ -17,7 +17,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **6 — Backup, settings & operations** | Backup/restore, schedules and Telegram, settings, administrators, tokens, webhooks, audit, and doctor | ✅ Complete |
 | **7 — Deployment & installer** | Docker/native installation, ACME, host shim, update/rollback, uninstall, and deployment drills | ✅ Complete |
 | **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
-| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | 🚧 Active |
+| **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | 🚧 Active |
+| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Planned; design branch preserved |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and OS/architecture/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed/multi-arch artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
@@ -32,6 +33,17 @@ forms, backend apply/dump, reconciliation, downloads, subscriptions, QR, and bac
 Complete only with decoded QR equality and real default/randomized client handshake plus traffic
 evidence. Completed 2026-09-05 with the exact commit-stamped dedicated-VPS gate, browser QA, and
 sanitized evidence linked from [docs/development/phase8.md](docs/development/phase8.md).
+
+### Phase 8.1 — GitHub delivery & lifecycle
+
+Inserted after completed Phase 8 by the 2026-09-05 installer request. Extend Phase 7's engine
+with a GitHub bootstrap and cohesive terminal management, source/version provenance, prerequisite
+and AWG compatibility checks, safe update/rollback, and backup/restore scheduling. This is an
+independent delivery phase, not a reopening of Phase 8. Phase 9's design-only branch is paused;
+its metrics/log-retention implementation remains separate. Artifact acquisition contracts move
+forward from Phase 12; public publication still requires owner approval. Complete only with
+automated failure tests, terminal QA, and Docker/native lifecycle evidence on the dedicated VPS.
+Detailed gate: [docs/development/phase8.1.md](docs/development/phase8.1.md).
 
 ### Phase 9 — Operational observability
 

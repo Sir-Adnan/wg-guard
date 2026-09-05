@@ -11,14 +11,16 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–8 complete; Phase 9 is active.** Phase 8 completed the
+**In active development — Phases 0–8 complete; Phase 8.1 is active.** Phase 8 completed the
 configuration-integrity gate: lossless supported AmneziaWG parameters, canonical recommended and
 randomized profiles, byte-identical config/QR delivery, and independent QR decoding. Both profile
 classes were imported into isolated real kernel clients on Ubuntu 24.04 and passed handshake plus
 bidirectional traffic; the recommended profile also passed through the pinned userspace daemon.
 That gate exposed and fixed a peer-sync path that cleared the live interface private key. Phase 9
-now owns operational observability and bounded logs; the full compatibility matrix remains Phase
-11 and checksummed release engineering remains Phase 12. See [ROADMAP.md](ROADMAP.md) and
+owns operational observability and bounded logs, after the inserted
+[Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). The full compatibility matrix
+remains Phase 11 and final release engineering remains Phase 12. GitHub acquisition and artifact
+contracts are being built in Phase 8.1; they are not yet delivered. See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 
 ## Features

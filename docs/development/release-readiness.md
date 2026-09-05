@@ -4,14 +4,15 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the active phase document.
 
-Last updated: 2026-09-05. Active phase: **9 — Operational observability**.
+Last updated: 2026-09-05. Active phase: **8.1 — GitHub delivery & lifecycle**.
 
 ## Program status
 
 | Phase | State | Exit dependency |
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 9 — Operational observability | active | Useful live metrics/logs with bounded cost and retention |
+| 8.1 — GitHub delivery & lifecycle | active; design recorded | One-command installation and safe lifecycle verified on the dedicated VPS |
+| 9 — Operational observability | planned; existing design branch paused | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
@@ -28,6 +29,9 @@ implementation does not cross the active phase boundary.
 | Client config correctness and AWG parity | 8 | DB/runtime/download/QR/subscription equality plus real handshake and traffic |
 | H1–H4 and other range semantics | 8 | Lossless migration, validation, API, setconf, dump, reconcile, and backup round trips |
 | Recommended and randomized profiles | 8 | Relationship-aware generation, property tests, runtime acceptance, client use |
+| GitHub bootstrap, release/commit selection, terminal installer/manager | 8.1 | Checksummed acquisition, exact source identity, width/locale QA, real installation |
+| Prerequisites, compatible AWG bundle selection, domain/IP and TLS setup | 8.1; broad matrix in 11 | Explicit supported combinations; real kernel/tools and certificate evidence |
+| CLI backup/Telegram schedules and transactional lifecycle | 8.1; certification repeated in 11 | Failure injection, bounded restore, real update/rollback/backup/restore |
 | Live CPU/RAM/network/peer/node monitoring | 9; visual finish in 10 | Real-load graphs, hidden-tab pause, measured sampler overhead |
 | Unified CLI operational logs | 9 | Docker/native failure drills, follow/cancel behavior, no secret disclosure |
 | Seven-day log retention and disk bounds | 9; soak in 11 | Fake-clock tests, platform policy inspection, disk-growth drill |
@@ -41,7 +45,7 @@ implementation does not cross the active phase boundary.
 | Backup/update/rollback/recovery/ACME drills | 11 | Repeatable evidence using the feature-frozen candidate |
 | API/OpenAPI synchronization | Every affected phase; 12 final | Bidirectional route/schema coverage green |
 | Documentation and repository hygiene | Every phase; 12 final | Living docs agree; no secrets or inappropriate artifacts tracked |
-| Release artifacts and publication workflow | 12 | Checksums/multi-arch metadata verified; publication remains manually gated |
+| Release artifacts and publication workflow | Acquisition contract/dry-run artifacts in 8.1; final workflow/freeze in 12 | Checksums/multi-arch metadata verified; publication remains manually gated |
 
 ## Release blockers
 
@@ -51,10 +55,11 @@ implementation does not cross the active phase boundary.
 | RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | verified | Canonical typed paths and three delivery surfaces are unit tested; recommended and randomized decoded configs passed real kernel client handshake and bidirectional traffic. |
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | verified | Storage/apply/dump/drift/API/forms/config/QR/backup paths preserve both bounds; userspace integration and exact kernel runtime/client equality passed. |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
-| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | in progress | Unified log workflow and bounded retention verified in both modes |
+| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed artifacts and official multi-arch workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
+| RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | in progress | Source/version integrity; usable CLI; prerequisites; real Docker/native install and recovery evidence |
 
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
@@ -83,8 +88,8 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |
 | AUD-010 | high | Interface form numeric parse errors can silently become valid zero values | Phase 8 | verified |
 | AUD-011 | medium | API JSON decoding accepts unknown fields and trailing values, hiding configuration typos | Phase 8 | verified |
-| AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 11 | planned |
-| AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 11 | planned |
+| AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 8.1; recertify in 11 | planned |
+| AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 8.1 | planned |
 | AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 11 | planned |
 | AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 12 | planned |
 | AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, ordinary dump cannot observe it, and kernel `showconf` synthesizes a phantom peer line | Phase 8 | verified |
@@ -97,6 +102,10 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-023 | medium | The panel trusted a hidden generated-profile label without proving values came from its preview; policy validation was broader than generation and S2 used an unbounded retry | Phase 8 | verified |
 | AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
 | AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
+| AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | reproduced by code audit; tests pending |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

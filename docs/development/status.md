@@ -5,6 +5,24 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
+## Phase 8.1 — GitHub delivery & lifecycle (active, 2026-09-05)
+
+User-authorized insertion between completed Phase 8 and planned Phase 9. The existing
+`codex/phase9-observability` design-only branch is preserved and paused. See
+[phase8.1.md](phase8.1.md) for scope and evidence gates.
+
+| Item | Status |
+|---|---|
+| Bootstrap, release/commit selection and artifact identity | designed; not implemented |
+| Terminal installer and management UX | designed; not implemented |
+| OS prerequisites and compatible AWG selection | designed; not implemented |
+| Transactional update/rollback and bounded restore improvements | designed; not implemented |
+| Backup schedule management and Telegram workflow | designed; not implemented |
+| Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |
+
+No new REST API is planned; shared CLI/panel services remain authoritative. API/OpenAPI must be
+updated if implementation changes their contract. Full matrix certification remains Phase 11.
+
 ## Phase 5 — Web UI (complete, 2026-08-31; two refinement passes same day)
 
 The two refinement passes (round 1: subscription links, create-user redesign, users-page
@@ -370,7 +388,8 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 
 | Phase | State | Scope |
 |---|---|---|
-| 9 — Operational observability | active; implementation not yet started | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 8.1 — GitHub delivery & lifecycle | active; design recorded | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
+| 9 — Operational observability | planned; design branch paused | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed/multi-arch artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
