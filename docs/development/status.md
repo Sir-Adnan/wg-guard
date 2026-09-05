@@ -370,7 +370,9 @@ VPS kernel/client equality, and recommended/randomized traffic evidence are not 
 the Phase 8 release blockers remain open/in progress. A collision-safe, ownership-tracked real-host
 harness now automates exact API/DB/runtime/config/QR comparisons, three delivery surfaces,
 kernel/userspace traffic, and secret-log scanning; it is syntax-checked but has not yet completed
-on the dedicated VPS. The continuing audit also found that the
+on the dedicated VPS because the SSH service closes the connection before key exchange. No remote
+command or mutation occurred, and local/WSL verification is not promoted to real-host evidence.
+The continuing audit also found that the
 persisted userspace backend mode has no daemon lifecycle; doctor and deployment claims now state
 that limitation explicitly, with implementation and certification assigned to Phase 11 AUD-019.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:

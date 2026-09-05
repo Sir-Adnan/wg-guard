@@ -59,6 +59,11 @@ implementation does not cross the active phase boundary.
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
 
+Current Phase 8 execution block (2026-09-05): the dedicated host accepts TCP/22 and closes the
+connection before the SSH banner/key exchange. No remote command or mutation occurred. RB-001
+through RB-004 remain open until host access is restored and the isolated real-host harness plus
+browser/client checks complete; local/WSL success is not being substituted for that evidence.
+
 ## Audit findings
 
 Severity: critical (secret loss/exposure or unusable release), high (major correctness/security),

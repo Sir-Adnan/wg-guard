@@ -125,11 +125,11 @@ Exit: both profile classes establish real traffic; discrepancies are fixed and r
 
 ## Stage 8.6 — Phase gate
 
-- [ ] Run formatting, vet, unit, race, integration, API/OpenAPI, asset, and relevant benchmark
+- [x] Run formatting, vet, unit, race, integration, API/OpenAPI, asset, and relevant benchmark
       suites.
-- [ ] Review migrations, security-sensitive diffs, logs/errors, and repository hygiene.
-- [ ] Update status, roadmap, release tracker, AWG/API/database/testing docs, and CHANGELOG.
-- [ ] Commit and push coherent changes with tests green at every commit.
+- [x] Review migrations, security-sensitive diffs, logs/errors, and repository hygiene.
+- [x] Update status, roadmap, release tracker, AWG/API/database/testing docs, and CHANGELOG.
+- [x] Commit and push coherent changes with tests green at every commit.
 - [ ] Publish an honest Phase 8 report: implemented, unit tested, integration tested, real-VPS
       verified, unsupported/unverified, and deferred.
 
@@ -150,3 +150,5 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-05 | 8.2 restore + 8.5 userspace ranges | Windows/Go unit; WSL2 Ubuntu 26.04 root integration | Real pre-0007 archives forward-migrate scalar H/legacy keepalive and post-0007 archives preserve true H/keepalive/padding ranges, rollback mirrors, settings, and foreign keys through stage/apply and boot consumption. The restore review's broken interface query was reproduced and fixed. Pinned tools v3.1.20260812 and userspace v3.1.20260828 apply/dump/reapply every supported range-bearing field exactly; full `integration` suite passed. `sudo -n` remains unavailable locally, so the successful run used `wsl -u root`. Kernel/client traffic evidence remains. | `internal/backup/awg_ranges_test.go`, `internal/serve/serve_test.go`, `internal/tunnel/amneziawg/backend_integration_test.go` |
 | 2026-09-05 | 8.6 integration isolation | WSL2 Ubuntu 26.04 root, pinned userspace runtime | A fresh full-suite run reproduced the pinned space-separated `awg show interfaces` output with two concurrent fixture interfaces and exposed newline-only parsing. Whitespace parsing plus a real-shape unit regression fixed false combined-name state; focused and complete privileged integration suites pass. | `internal/tunnel/amneziawg/backend.go`, `backend_test.go`, `backend_integration_test.go` |
 | 2026-09-05 | 8.3/8.6 security review | Windows unit/API suites; exact pinned source; shell syntax | Config-line values now reject control injection and corrupt rows fail closed; reconcile applies/compares I1–I5 and validates stored profiles before mutation; generated panel classifications require a session-bound sealed preview and exact policy shape; S2 generation has no retry loop. The real-host harness now owns cleanup targets explicitly and compares API/DB/runtime/config/QR state rather than regex shape alone. VPS execution remains pending. | `internal/{settings,iface,reconcile,clientconf,web}`, `internal/api/openapi.json`, `verify-phase8-vps.sh` |
+| 2026-09-05 | 8.6 local gate | Windows Go 1.27 + WSL2 Ubuntu Go 1.26 | Full unit and vet suites pass on Windows; full race and privileged integration-tag suites pass in WSL2; formatting, OpenAPI tests, embedded Python/shell syntax, asset budgets, module verification, amd64/arm64 Linux builds, and govulncheck are green. Current benchmarks: recommended profile 497 ns/op, randomized 3.60 µs/op, canonical config 59.4 µs/op, full QR 3.15 ms/op. | pushed head `300e5db`; draft PR #1 CI |
+| 2026-09-05 | 8.5 VPS access | Dedicated Ubuntu 24.04 VPS control plane | Blocked before execution: TCP connection is accepted and closed before the SSH banner/key exchange. No remote command ran and the harness made no host mutation. Provider console/SSH restoration is required before kernel/client/browser gates can run. | local SSH diagnostic only; no secret or host address recorded |
