@@ -252,6 +252,21 @@ func TestLoginFlow(t *testing.T) {
 	}
 }
 
+func TestCSRFFormFieldWorksWithoutHeader(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+
+	rec := e.post("/prefs/locale", url.Values{
+		"_csrf":  {csrf},
+		"locale": {"en"},
+	}, cookie, "")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("form-field CSRF = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
 func TestLoginRateLimit(t *testing.T) {
 	e := newEnv(t)
 	e.seedOwner()

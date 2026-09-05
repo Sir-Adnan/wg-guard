@@ -91,14 +91,23 @@ func TestIntegrationCycleAgainstRealDaemon(t *testing.T) {
 	backend := amneziawg.NewWithBinary(run, "awg")
 	stop := startDaemon(t, daemon, ifcName, "/var/run/amneziawg/"+ifcName+".sock")
 	defer stop()
+	serverKeys, err := tunnel.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.ApplyInterfaceConfig(ctx, ifcName, tunnel.InterfaceConfig{
+		PrivateKey: serverKeys.Private, ListenPort: 40990,
+	}); err != nil {
+		t.Fatalf("configure accounting fixture interface: %v", err)
+	}
 
 	e := &env{db: db, backend: nil, now: time.Now()}
 	e.svc = NewService(db, backend, nil, nil, nil)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	if _, err := db.Exec(`INSERT INTO tunnel_interfaces
 		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted, preset_name, enabled, backend_mode, created_at, updated_at)
-		VALUES ('ifc-acc', ?, 40990, ?, 1420, 'srvpub', x'00', 'plain', 1, 'userspace', ?, ?)`,
-		ifcName, "10.9.9.0/24", now, now); err != nil {
+		VALUES ('ifc-acc', ?, 40990, ?, 1420, ?, x'00', 'plain', 1, 'userspace', ?, ?)`,
+		ifcName, "10.9.9.0/24", serverKeys.Public, now, now); err != nil {
 		t.Fatal(err)
 	}
 	// A user + device whose peer exists in the backend but has never

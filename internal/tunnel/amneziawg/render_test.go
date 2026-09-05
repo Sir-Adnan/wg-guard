@@ -149,6 +149,30 @@ func TestRenderSyncconfEmptyRemovesAllPeers(t *testing.T) {
 	}
 }
 
+func TestComposeSyncconfPreservesCompleteInterfaceSection(t *testing.T) {
+	current := []byte("[Interface]\nPrivateKey = " + testPriv +
+		"\nListenPort = 39411\nJc = 5\nH1 = 11-20\n\n" +
+		"[Peer]\nPublicKey = stale-peer-key=\nAllowedIPs = 10.8.0.9/32\n")
+	out, err := composeSyncconf(current, []tunnel.PeerConfig{
+		{PublicKey: testPub, AllowedIPs: []string{"10.8.0.2/32"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(out)
+	for _, want := range []string{
+		"[Interface]\n", "PrivateKey = " + testPriv + "\n", "ListenPort = 39411\n",
+		"Jc = 5\n", "H1 = 11-20\n", "[Peer]\nPublicKey = " + testPub + "\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("composed syncconf missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "stale-peer-key=") {
+		t.Fatalf("stale peer survived composition:\n%s", text)
+	}
+}
+
 func TestRenderSetconfGatedParams(t *testing.T) {
 	cfg := tunnel.InterfaceConfig{
 		PrivateKey: "8N8eM9uMx9WcXWvOHbiu4B9kB8eSvbG3wfZugvwtCWU=",

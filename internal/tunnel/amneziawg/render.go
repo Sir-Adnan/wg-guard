@@ -64,6 +64,63 @@ func renderSyncconf(peers []tunnel.PeerConfig) []byte {
 	return []byte(sb.String())
 }
 
+// composeSyncconf retains the complete live interface section and replaces
+// only peer sections. The pinned awg syncconf treats omitted interface fields
+// as desired removals; a peers-only file therefore clears the private key and
+// other interface state rather than preserving it.
+func composeSyncconf(current []byte, peers []tunnel.PeerConfig) ([]byte, error) {
+	section, err := currentInterfaceSection(current)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, 0, len(section)+len(peers)*160)
+	out = append(out, section...)
+	out = append(out, renderSyncconf(peers)...)
+	return out, nil
+}
+
+// currentInterfaceSection extracts and validates the secret-bearing
+// [Interface] section returned by awg showconf. Errors intentionally avoid
+// echoing any source content.
+func currentInterfaceSection(config []byte) ([]byte, error) {
+	text := strings.ReplaceAll(string(config), "\r\n", "\n")
+	lines := strings.Split(text, "\n")
+	kept := make([]string, 0, len(lines))
+	seenInterface := false
+	seenPrivateKey := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "[Peer]" {
+			break
+		}
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			if trimmed != "[Interface]" || seenInterface {
+				return nil, fmt.Errorf("current interface configuration has an unexpected section")
+			}
+			seenInterface = true
+			kept = append(kept, "[Interface]")
+			continue
+		}
+		if !seenInterface {
+			if trimmed == "" {
+				continue
+			}
+			return nil, fmt.Errorf("current interface configuration is missing [Interface]")
+		}
+		if key, value, ok := strings.Cut(line, "="); ok && strings.TrimSpace(key) == "PrivateKey" {
+			if seenPrivateKey || tunnel.ValidatePrivateKey(strings.TrimSpace(value)) != nil {
+				return nil, fmt.Errorf("current interface configuration has an invalid private key")
+			}
+			seenPrivateKey = true
+		}
+		kept = append(kept, line)
+	}
+	if !seenInterface || !seenPrivateKey {
+		return nil, fmt.Errorf("current interface configuration is incomplete")
+	}
+	return []byte(strings.TrimRight(strings.Join(kept, "\n"), "\n") + "\n"), nil
+}
+
 func writeObfuscation(sb *strings.Builder, o tunnel.Obfuscation) {
 	// Plain profiles omit the obfuscation block entirely: the runtime
 	// REJECTS explicit zeros ("Unable to modify interface: Invalid

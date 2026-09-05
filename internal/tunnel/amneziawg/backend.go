@@ -1,6 +1,7 @@
 package amneziawg
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -164,13 +165,36 @@ func verifyApplied(name string, cfg tunnel.InterfaceConfig, st tunnel.InterfaceS
 // from the rendered file are removed, listed peers are upserted, and the
 // interface's own configuration is untouched.
 func (b *Backend) SyncPeers(ctx context.Context, name string, peers []tunnel.PeerConfig) error {
-	path, cleanup, err := writeTempConfig(renderSyncconf(peers))
+	beforeResult, err := b.run.Run(ctx, []string{b.awg, "showconf", name})
+	if err != nil {
+		return fmt.Errorf("amneziawg: read current interface configuration %s: %w", name, err)
+	}
+	beforeSection, err := currentInterfaceSection(beforeResult.Stdout)
+	if err != nil {
+		return fmt.Errorf("amneziawg: current interface configuration %s: %w", name, err)
+	}
+	desired, err := composeSyncconf(beforeResult.Stdout, peers)
+	if err != nil {
+		return fmt.Errorf("amneziawg: current interface configuration %s: %w", name, err)
+	}
+	path, cleanup, err := writeTempConfig(desired)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 	if _, err := b.run.Run(ctx, []string{b.awg, "syncconf", name, path}); err != nil {
 		return fmt.Errorf("amneziawg: syncconf %s: %w", name, err)
+	}
+	afterResult, err := b.run.Run(ctx, []string{b.awg, "showconf", name})
+	if err != nil {
+		return fmt.Errorf("amneziawg: verify syncconf %s: %w", name, err)
+	}
+	afterSection, err := currentInterfaceSection(afterResult.Stdout)
+	if err != nil {
+		return fmt.Errorf("amneziawg: verify syncconf interface configuration %s: %w", name, err)
+	}
+	if !bytes.Equal(beforeSection, afterSection) {
+		return fmt.Errorf("amneziawg: syncconf %s changed interface configuration", name)
 	}
 	return nil
 }

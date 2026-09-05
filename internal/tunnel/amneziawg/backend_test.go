@@ -236,22 +236,43 @@ func TestApplyInterfaceConfigKeyMismatch(t *testing.T) {
 func TestSyncPeers(t *testing.T) {
 	f := &fakeRunner{}
 	b := NewWithBinary(f, "awg")
-	f.step("")
+	current := "[Interface]\nPrivateKey = " + testPriv + "\nListenPort = 39411\nJc = 5\n\n" +
+		"[Peer]\nPublicKey = old-peer-key=\nAllowedIPs = 10.8.0.9/32\n"
+	f.step(current) // showconf before sync
+	f.step("")      // syncconf
+	f.step(current) // showconf after sync; only its interface section must match
 	peers := []tunnel.PeerConfig{{PublicKey: testPub, AllowedIPs: []string{"10.8.0.2/32"}}}
 	if err := b.SyncPeers(context.Background(), "awg0", peers); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	f.drained(t)
-	if !strings.Contains(normalizeConfs(f.argvJoined()), "awg syncconf awg0 <conf>") {
+	wantCalls := "awg showconf awg0\nawg syncconf awg0 <conf>\nawg showconf awg0\n"
+	if got := normalizeConfs(f.argvJoined()); got != wantCalls {
 		t.Fatalf("argv =\n%s", f.argvJoined())
 	}
 	conf := f.confFile(t, "syncconf", "awg0")
-	if !strings.Contains(conf, "[Peer]\nPublicKey = "+testPub+"\n") ||
+	if !strings.Contains(conf, "[Interface]\nPrivateKey = "+testPriv+"\n") ||
+		!strings.Contains(conf, "ListenPort = 39411\n") ||
+		!strings.Contains(conf, "Jc = 5\n") ||
+		!strings.Contains(conf, "[Peer]\nPublicKey = "+testPub+"\n") ||
 		!strings.Contains(conf, "AllowedIPs = 10.8.0.2/32\n") {
 		t.Fatalf("rendered syncconf wrong:\n%s", conf)
 	}
-	if strings.Contains(conf, "[Interface]") {
-		t.Fatalf("syncconf must be peers-only:\n%s", conf)
+	if strings.Contains(conf, "old-peer-key=") {
+		t.Fatalf("syncconf retained a stale peer:\n%s", conf)
+	}
+}
+
+func TestSyncPeersRejectsMissingInterfaceSection(t *testing.T) {
+	f := &fakeRunner{}
+	b := NewWithBinary(f, "awg")
+	f.step("[Peer]\nPublicKey = old-peer-key=\n")
+	err := b.SyncPeers(context.Background(), "awg0", nil)
+	if err == nil || !strings.Contains(err.Error(), "current interface configuration") {
+		t.Fatalf("want safe interface-section error, got %v", err)
+	}
+	if got := f.argvJoined(); got != "awg showconf awg0\n" {
+		t.Fatalf("unsafe sync continued:\n%s", got)
 	}
 }
 

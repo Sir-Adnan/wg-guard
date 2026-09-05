@@ -135,6 +135,7 @@ chmod 0700 "$WORKDIR"
 
 cleanup() {
   local rc=$?
+  trap - ERR
   set +e
   if [[ -n "$SERVICE_PID" ]]; then
     kill "$SERVICE_PID" >/dev/null 2>&1
@@ -180,6 +181,7 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM HUP
+trap 'rc=$?; log "FAIL: unexpected command failure at line $LINENO (exit $rc)" >&2' ERR
 
 # Version, architecture, and collision validation above is deliberately
 # complete before the first host mutation outside the private work directory.
@@ -555,7 +557,9 @@ if not match:
 open(sys.argv[2], "w", encoding="utf-8").write(html.unescape(match.group(1)))
 PY
   csrf="$(cat "$WORKDIR/$prefix.csrf")"
-  printf '_csrf=%s\n' "$csrf" >"$WORKDIR/$prefix.sub.form"
+  # --data-binary preserves every byte; unlike a browser form encoder, a
+  # trailing newline would become part of the token and fail CSRF validation.
+  printf '_csrf=%s' "$csrf" >"$WORKDIR/$prefix.sub.form"
   code="$(curl --silent --show-error --output "$WORKDIR/$prefix.sub-create.html" \
     --write-out '%{http_code}' --cookie "$COOKIE_JAR" \
     --header 'Content-Type: application/x-www-form-urlencoded' \
@@ -606,6 +610,7 @@ assert_config_shape() {
       grep -Eq "^$field = [0-9]+-[0-9]+$" "$config" || die "randomized $field range missing"
     done
   fi
+  return 0
 }
 
 assert_config_network_state() {
@@ -613,7 +618,10 @@ assert_config_network_state() {
   local address mtu server_key endpoint allowed_ips
   address="$(awk -F ' *= *' '$1=="Address"{print $2; exit}' "$config")"
   mtu="$(awk -F ' *= *' '$1=="MTU"{print $2; exit}' "$config")"
-  server_key="$(awk -F ' *= *' '$1=="PublicKey"{print $2; exit}' "$config")"
+  # Split only the directive's first assignment. Base64 public keys end in
+  # padding '=' characters, which a generic equals-sign field separator
+  # would silently discard.
+  server_key="$(awk '/^PublicKey[[:space:]]*=/{sub(/^[^=]*=[[:space:]]*/, ""); print; exit}' "$config")"
   endpoint="$(awk -F ' *= *' '$1=="Endpoint"{print $2; exit}' "$config")"
   allowed_ips="$(awk -F ' *= *' '$1=="AllowedIPs"{print $2; exit}' "$config")"
   [[ "$address" == "$(jq -er '.ipv4_address' "$device_json")" ]] || die "client Address differs from device API state"
@@ -621,6 +629,33 @@ assert_config_network_state() {
   [[ "$server_key" == "$(jq -er '.public_key' "$iface_json")" ]] || die "client server key differs from interface API state"
   [[ "$endpoint" == "$SERVER_ADDRESS:$listen_port" ]] || die "client Endpoint differs from interface API state"
   [[ "$allowed_ips" == "0.0.0.0/0" ]] || die "client AllowedIPs differs from node setting"
+}
+
+assert_config_crypto_state() {
+  local config=$1 iface_json=$2 device_json=$3 iface_name=$4
+  local expected_server_key runtime_server_key expected_device_key derived_device_key
+  local runtime_peer_key runtime_psk config_psk
+  expected_server_key="$(jq -er '.public_key' "$iface_json")"
+  runtime_server_key="$(ip netns exec "$SERVER_NS" awg show "$iface_name" public-key)"
+  [[ "$runtime_server_key" == "$expected_server_key" ]] ||
+    die "server runtime public key differs from interface API state"
+
+  expected_device_key="$(jq -er '.public_key' "$device_json")"
+  derived_device_key="$(awk '/^PrivateKey[[:space:]]*=/{sub(/^[^=]*=[[:space:]]*/, ""); print; exit}' "$config" |
+    awg pubkey)"
+  [[ "$derived_device_key" == "$expected_device_key" ]] ||
+    die "client private key does not derive the device API public key"
+
+  read -r runtime_peer_key runtime_psk < <(
+    ip netns exec "$SERVER_NS" awg show "$iface_name" dump |
+      awk -F '\t' 'NR==2{print $1, $2; exit}'
+  )
+  [[ "$runtime_peer_key" == "$expected_device_key" ]] ||
+    die "server runtime peer differs from the device API public key"
+  config_psk="$(awk '/^PresharedKey[[:space:]]*=/{sub(/^[^=]*=[[:space:]]*/, ""); print; exit}' "$config")"
+  [[ -n "$config_psk" && "$runtime_psk" == "$config_psk" ]] ||
+    die "server runtime peer and client configuration preshared keys differ"
+  unset runtime_psk config_psk
 }
 
 configure_client() {
@@ -655,6 +690,17 @@ wait_for_handshake() {
     fi
     sleep 1
   done
+  local transport endpoint allowed server_port client_keepalive
+  if ip netns exec "$client_ns" ping -c 1 -W 1 "$SERVER_ADDRESS" >/dev/null 2>&1; then
+    transport="reachable"
+  else
+    transport="unreachable"
+  fi
+  endpoint="$(ip netns exec "$client_ns" awg show p8awg endpoints | awk 'NR==1{print $2}')"
+  allowed="$(ip netns exec "$SERVER_NS" awg show "$server_iface" allowed-ips | awk 'NR==1{print $2}')"
+  server_port="$(ip netns exec "$SERVER_NS" awg show "$server_iface" listen-port)"
+  client_keepalive="$(ip netns exec "$client_ns" awg show p8awg persistent-keepalive | awk 'NR==1{print $2, $3}')"
+  log "handshake diagnostics: transport=$transport endpoint=$endpoint server_port=$server_port server_allowed=$allowed client_keepalive=$client_keepalive"
   die "handshake did not establish on $server_iface"
 }
 
@@ -758,6 +804,8 @@ EOF
     die "$policy API/client-config profile state differs"
   assert_config_network_state "$WORKDIR/$prefix.api.conf" "$WORKDIR/$prefix.iface.json" \
     "$WORKDIR/$prefix.device.json" "$listen_port"
+  assert_config_crypto_state "$WORKDIR/$prefix.api.conf" "$WORKDIR/$prefix.iface.json" \
+    "$WORKDIR/$prefix.device.json" "$iface_name"
   "$QRCHECK" "$WORKDIR/$prefix.api.png" "$WORKDIR/$prefix.api.conf"
 
   extract_panel_tokens "$user_id" "$prefix"
@@ -804,6 +852,12 @@ verify_profile randomized "$RANDOMIZED_IFACE" "$RANDOMIZED_PORT" \
 # Capture is direct-to-0600 file; raw private/PSK material is never emitted.
 ip netns exec "$SERVER_NS" awg showconf "$RECOMMENDED_IFACE" >"$WORKDIR/recommended.server.conf"
 ip netns exec "$SERVER_NS" awg showconf "$RANDOMIZED_IFACE" >"$WORKDIR/randomized.server.conf"
+# The pinned kernel synthesizes AdvancedSecurity for every peer in showconf
+# even though its setter does not consume/store the flag. The pinned userspace
+# UAPI rejects that unsupported field. Remove only this known phantom so the
+# fallback gate exercises the complete intersection of supported parameters.
+awk '!/^[[:space:]]*AdvancedSecurity[[:space:]]*=/' \
+  "$WORKDIR/recommended.server.conf" >"$WORKDIR/recommended.userspace.conf"
 stop_service
 ip -n "$SERVER_NS" link del "$RECOMMENDED_IFACE"
 ip netns exec "$SERVER_NS" env WG_PROCESS_FOREGROUND=1 \
@@ -818,7 +872,7 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 [[ -S "/var/run/amneziawg/$USERSPACE_IFACE.sock" ]] || die "userspace UAPI socket did not appear"
-ip netns exec "$SERVER_NS" awg setconf "$USERSPACE_IFACE" "$WORKDIR/recommended.server.conf"
+ip netns exec "$SERVER_NS" awg setconf "$USERSPACE_IFACE" "$WORKDIR/recommended.userspace.conf"
 ip -n "$SERVER_NS" address add 10.246.80.1/24 dev "$USERSPACE_IFACE"
 ip -n "$SERVER_NS" link set dev "$USERSPACE_IFACE" mtu 1380 up
 read_runtime_state "$USERSPACE_IFACE" "$WORKDIR/recommended.userspace-state.json"
