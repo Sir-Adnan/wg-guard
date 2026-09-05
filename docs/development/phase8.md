@@ -76,6 +76,8 @@ Exit: no supported range can be truncated, coerced, or compared lossy anywhere i
 - [x] Define verified recommended defaults separately from randomized generation policy.
 - [x] Generate profiles server-side with `crypto/rand`; validate dependent fields as a coherent
       set and keep unsafe/client-specific options explicitly gated.
+- [x] Seal panel profile previews to the authenticated session and require exact value/provenance
+      equality before persisting a generated classification.
 - [x] Render one canonical client-config byte sequence for API, admin panel, and subscription
       surfaces.
 - [x] Verify private/server/preshared keys, address, DNS, MTU, endpoint, AllowedIPs, keepalive,
@@ -112,6 +114,13 @@ surfaces without third-party QR services.
 - [ ] Record sanitized commands/results and compatibility limitations without credentials,
       private keys, raw configs, or subscription tokens.
 
+The reproducible gate is `docs/integrations/fixtures/verify-phase8-vps.sh`. It collision-checks
+and owns its isolated namespaces/resources, verifies pinned packages and revisions, compares
+normalized API/database/runtime/config/decoded-QR state, tests all delivery surfaces and
+bidirectional UDP/TCP traffic, scans diagnostics for the run's actual secrets, and can hold the
+panel for browser QA. The script is implemented and syntax-checked; it is not evidence until a
+successful dedicated-VPS run is recorded below.
+
 Exit: both profile classes establish real traffic; discrepancies are fixed and regression-tested.
 
 ## Stage 8.6 — Phase gate
@@ -140,3 +149,4 @@ Phase 8 is complete only when RB-001 through RB-004 are closed with evidence.
 | 2026-09-05 | 8.4 automated QR | Windows/Go unit + HTTP suites; CGO-free production build | The all-black raster failed the independent decoder before the white-background fix. Empty, UTF-8, full-field, and 2.3 KB payloads now decode exactly; every HTTP QR equals its matching config and fails closed when oversized. Test decoder absent from the 26,234,880-byte production binary. Real browser/camera verification remains. | `internal/testutil/qrdecode`, `internal/clientconf/qr_test.go`, `internal/web/config_surfaces_test.go` |
 | 2026-09-05 | 8.2 restore + 8.5 userspace ranges | Windows/Go unit; WSL2 Ubuntu 26.04 root integration | Real pre-0007 archives forward-migrate scalar H/legacy keepalive and post-0007 archives preserve true H/keepalive/padding ranges, rollback mirrors, settings, and foreign keys through stage/apply and boot consumption. The restore review's broken interface query was reproduced and fixed. Pinned tools v3.1.20260812 and userspace v3.1.20260828 apply/dump/reapply every supported range-bearing field exactly; full `integration` suite passed. `sudo -n` remains unavailable locally, so the successful run used `wsl -u root`. Kernel/client traffic evidence remains. | `internal/backup/awg_ranges_test.go`, `internal/serve/serve_test.go`, `internal/tunnel/amneziawg/backend_integration_test.go` |
 | 2026-09-05 | 8.6 integration isolation | WSL2 Ubuntu 26.04 root, pinned userspace runtime | A fresh full-suite run reproduced the pinned space-separated `awg show interfaces` output with two concurrent fixture interfaces and exposed newline-only parsing. Whitespace parsing plus a real-shape unit regression fixed false combined-name state; focused and complete privileged integration suites pass. | `internal/tunnel/amneziawg/backend.go`, `backend_test.go`, `backend_integration_test.go` |
+| 2026-09-05 | 8.3/8.6 security review | Windows unit/API suites; exact pinned source; shell syntax | Config-line values now reject control injection and corrupt rows fail closed; reconcile applies/compares I1–I5 and validates stored profiles before mutation; generated panel classifications require a session-bound sealed preview and exact policy shape; S2 generation has no retry loop. The real-host harness now owns cleanup targets explicitly and compares API/DB/runtime/config/QR state rather than regex shape alone. VPS execution remains pending. | `internal/{settings,iface,reconcile,clientconf,web}`, `internal/api/openapi.json`, `verify-phase8-vps.sh` |

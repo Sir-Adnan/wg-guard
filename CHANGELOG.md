@@ -289,6 +289,20 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   `docs/integrations/amneziawg.md`.
 
 ### Fixed
+- **Phase 8 configuration-boundary hardening:** endpoint overrides and I1–I5 now reject
+  newline/control injection before persistence, and client rendering fails closed on corrupt
+  stored text before decrypting keys. Reconciliation now loads, applies, and drift-compares all
+  five I fields and refuses any invalid stored profile before backend mutation. Panel-generated
+  profile labels require an exact AES-GCM-sealed, session-bound preview (or an unchanged existing
+  generated profile); generated-policy validation matches the generator's exact bands/ranges,
+  and S2 sampling is bounded without bias or retry loops. REST regressions and OpenAPI document
+  the safe input contract.
+- **Phase 8 real-host evidence harness:** the isolated Ubuntu 24.04 gate now tracks ownership for
+  every cleanup target, verifies its full external-command and pinned-runtime prerequisites,
+  compares canonical API/database/kernel/userspace/client-config state, independently decodes QR
+  bytes from REST/admin/subscription surfaces, exercises bidirectional UDP/TCP traffic, and scans
+  logs for the run's actual secrets. The harness is implemented and syntax-checked; a successful
+  dedicated-VPS run remains required before Phase 8 completion.
 - **Multi-interface runtime discovery:** `awg show interfaces` returns names separated by spaces
   on one line, but the backend split only on newlines. With two live interfaces it reported one
   combined foreign name. Parsing now follows the pinned whitespace contract; a reproducing unit

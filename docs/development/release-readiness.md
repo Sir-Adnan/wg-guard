@@ -87,6 +87,10 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-018 | medium | Restore environment review queried a nonexistent `interfaces` table, silently omitting every staged tunnel interface from the operator report | Phase 8 | verified |
 | AUD-019 | high | `backend_mode="userspace"` is stored/reported but boot and reconciliation ignore it; no userspace daemon lifecycle implements the advertised fallback | Phase 11 | planned |
 | AUD-020 | medium | `awg show interfaces` space-separated multiple names were parsed as one combined name, producing false runtime/reconciliation state | Phase 8 | verified |
+| AUD-021 | high | Endpoint overrides and I1–I5 could contain line breaks/control text and inject extra directives into exported client configurations | Phase 8 | verified |
+| AUD-022 | high | Reconciliation neither loaded nor compared I1–I5, so configured signature packets were omitted from apply and their drift was invisible | Phase 8 | verified |
+| AUD-023 | medium | The panel trusted a hidden generated-profile label without proving values came from its preview; policy validation was broader than generation and S2 used an unbounded retry | Phase 8 | verified |
+| AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | in progress |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

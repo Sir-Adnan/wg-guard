@@ -23,6 +23,9 @@ and without a real VPN interface.
 - Idempotency: replayed `Idempotency-Key` returns the original response, no side effects.
 - Webhooks: signature scheme, replay window, restart-safe delivery (kill mid-flight), backoff.
 - Drift: unknown peer / missing interface / changed port → reconcile per policy.
+- Configuration text boundaries: endpoint and I1–I5 newline/control injection is rejected before
+  persistence; reconciliation refuses an invalid stored profile before backend mutation, and I1–I5
+  differences participate in exact drift correction.
 - Client configuration: one literal full-field golden covers exact section placement, ordering,
   range preservation, spacing, and final newline; REST/admin/subscription bytes and headers are
   compared against the direct renderer. Failures report only length/digest/offset metadata and
@@ -38,6 +41,12 @@ and without a real VPN interface.
   H/u16 interval fields plus peer PersistentKeepalive and requires exact equality, preventing a
   lossy conversion from appearing as perpetual drift. This is a privileged WSL2/CI test; it does
   not substitute for the real kernel/client traffic gate.
+- Phase 8 real-host gate: `docs/integrations/fixtures/verify-phase8-vps.sh` creates only
+  collision-checked, harness-owned namespaces/interfaces inside a mode-0700 work directory. It
+  compares normalized API, database, runtime, client-config, and independently decoded QR state;
+  exercises recommended/randomized kernel traffic plus recommended userspace traffic; checks all
+  three delivery surfaces and secret-free diagnostics; and can hold the isolated panel for browser
+  QA. Its cleanup ownership and comparison logic must itself be reviewed before each evidence run.
 
 ## Benchmarks (measured, not guessed)
 

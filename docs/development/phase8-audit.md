@@ -227,6 +227,66 @@ State 2026-09-05: verified. The unit fixture now reproduces the pinned multi-nam
 backend uses whitespace-field parsing. The focused real-userspace test and the complete privileged
 integration-tag suite both pass with simultaneous interfaces.
 
+### P8-013 — Client-config text fields admitted directive injection
+
+Severity: high. Owner: Phase 8. Tracker: AUD-021 / RB-002.
+
+Interface endpoint overrides and I1–I5 were interpolated as configuration-line values without a
+single-line/control-character contract. A caller with interface-write access could therefore
+store an embedded newline and add a second directive to every subsequently downloaded client
+configuration. A manually altered database row reached the same renderer.
+
+State 2026-09-05: verified. The shared endpoint validator accepts only canonical host/IP forms
+with an optional valid port and rejects URLs, paths, whitespace, bracket errors, and controls.
+I1–I5 require canonical single-line UTF-8 without controls, disabled profiles cannot retain them,
+and HPK input must use canonical padded base64. API create/PATCH regressions prove rejection and
+no persistence; client rendering repeats the stored-text checks before decrypting keys.
+
+### P8-014 — Reconciliation silently omitted I1–I5
+
+Severity: high. Owner: Phase 8. Tracker: AUD-022 / RB-002.
+
+The interface repository and tunnel renderer carried I1–I5, but the reconcile query and its
+private duplicate obfuscation type did not. A restart/apply omitted configured signature packets,
+and runtime I-field drift could compare equal and remain uncorrected.
+
+State 2026-09-05: verified. Reconciliation now loads the five fields into the authoritative
+`iface.Obfuscation` type, carries them into tunnel intent, compares them for drift, and validates
+the complete stored profile before decrypting or mutating the backend. Tests cover exact apply,
+I-field drift, and a corrupt injected row causing zero backend mutations.
+
+### P8-015 — Generated-profile provenance and policy validation were incomplete
+
+Severity: medium. Owner: Phase 8. Tracker: AUD-023.
+
+The panel posted generated values as ordinary hidden form data and the server trusted the posted
+policy label. Values still passed a policy validator, but that validator accepted shapes broader
+than the generator actually produced. Randomized S2 also retried until it differed from S1+56,
+which was not bounded for a deterministic/failing entropy source.
+
+State 2026-09-05: verified. The preview response now includes an AES-GCM-sealed copy of the exact
+policy/profile bound to the current session's CSRF value. Create rejects missing, altered, forged,
+or cross-session preview tokens; unrelated edits preserve an existing generated label only when
+all AWG values remain identical. Policy validation enforces assigned H bands, maximum H span, and
+the generator's exact low/span construction ranges. S2 uses one unbiased bounded draw that maps
+around the excluded value; property and adversarial-entropy tests cover the behavior.
+
+### P8-016 — Real-host harness evidence and cleanup were too weak
+
+Severity: medium. Owner: Phase 8. Tracker: AUD-024.
+
+The first Phase 8 harness draft selected collision-checked resource names but cleanup inferred
+ownership from setup progress, allowing a partial failure to target a resource it had not created.
+It also checked client configs mainly by regex shape and did not prove their complete non-secret
+AWG state matched API/database/runtime intent.
+
+State 2026-09-05: correction implemented; real-host execution pending. Every namespace, bridge,
+userspace socket, and module cleanup is guarded by explicit successful-creation ownership. The
+harness compares canonical normalized API, database, kernel/userspace dump, and parsed client
+config state (including I1–I5), then independently decodes each QR and checks network fields,
+three-surface byte identity, real bidirectional traffic, and actual-run secret absence. Shell
+syntax is green; only a successful dedicated-VPS run can promote this finding to verified.
+
 ## Findings assigned to later phases
 
 ### P11-001 — Restore can allocate multi-gigabyte archive members

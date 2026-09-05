@@ -46,7 +46,7 @@ Refinement pass additions (same status rules as above):
 | Create-user drawer on the users page (shared partial with the `/users/new` fallback): username generator, settings-driven quota/duration preset chips (`users.quota_presets_gb`, `users.duration_presets_months`), auto device provisioning (count = device limit, cap 10, per-device transactional), Jalali (fa) / Gregorian (en) vanilla-JS calendar — leap-year algorithm exhaustively verified against server-side conversions | ✅ implemented + unit tested (auto-device flow, quota/duration exactness); calendar verified in browser |
 | Users page redesign: identity rows, quick-share menu (per-device QR/download + sub-link copy, batch device load), fixed-coordinate menu positioning (no clipping in overflow containers; close on scroll) | ✅ implemented + unit tested; browser-verified desktop + 390 px mobile |
 | Theme + shell refinement: zinc-neutral light palette, refined dark palette (`#09090b` base), 8/12 px radii, component polish (buttons, inputs, badges, tables, menus, dialogs, empty states, metric icon chips), desktop sidebar collapse to a persisted 68 px icon rail with tooltips, compact footer icon row | ✅ implemented; palettes/collapse verified live in browser |
-| Interfaces: explicit advanced 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005 plus lossless range migration 0007, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; every dump-observable field is compared and corrected exactly, while HPK removal recreates the link; I1–I5 inputs retain the client warning | ✅ implemented + unit tested (validation, exact render/dump/drift and HPK-clear recreation); **kernel-module acceptance + round-trip of the whole advanced set verified on a real VPS** (see amneziawg.md verification log); real client-app compatibility remains a Phase 8 gate |
+| Interfaces: explicit advanced 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005 plus lossless range migration 0007, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; every dump-observable field including I1–I5 is applied, compared, and corrected exactly, while HPK removal recreates the link; endpoint/I values have injection-safe single-line validation and corrupt rows fail closed | ✅ implemented + unit tested (validation, exact render/dump/drift, corrupt-row no-mutation, and HPK-clear recreation); **kernel-module acceptance + round-trip of the whole advanced set verified on a real VPS** (see amneziawg.md verification log); real client-app compatibility remains a Phase 8 gate |
 
 Round 2 refinement additions (same status rules as above):
 
@@ -348,13 +348,18 @@ lossless scalar/range primitives, migration 0007, repository/tunnel/dump/reconci
 bilingual forms, range-aware keepalive setting, explicit REST DTOs, and OpenAPI parity are
 implemented and unit tested. A single injectable server generator now owns recommended and
 randomized policies; profile relationships have a 10,000-case property test, REST preset names
-apply the policy, and the authenticated CSRF panel flow only populates server-generated values.
+apply the policy, and the authenticated CSRF panel flow only accepts exact server-generated values
+carried by an AES-GCM-sealed session-bound preview. Generated-policy validation matches the
+generator's assigned H bands and exact range shapes, with bounded unbiased S2 sampling.
 Fixed headers and browser-side protocol generation are removed, unsafe/client-specific options
 stay off, and stored HPKs are not rendered into edit HTML. `AdvancedSecurity` remains
 unsupported. Canonical client delivery is now exact and unit tested: one full-field golden covers
 section placement, every supported field, per-interface MTU, ranges, spacing, and final newline;
 direct, REST, admin, and subscription downloads are byte-identical with shared safe headers and
-filenames. The QR raster defect is fixed and independent decoding proves exact config equality
+filenames. Endpoint and I1–I5 values reject configuration-line injection before persistence;
+client rendering fails closed on corrupt stored values, and reconciliation includes every I field
+and validates the complete stored profile before backend mutation. The QR raster defect is fixed
+and independent decoding proves exact config equality
 for direct, REST, admin, and subscription paths, including UTF-8/full/near-capacity payloads and
 oversized failure. Pre-0007 scalar and post-0007 true-range archives now preserve canonical and
 rollback representations through stage/apply and boot consumption; this work also fixed a
@@ -362,7 +367,10 @@ restore-review query that had silently omitted tunnel interfaces. The pinned WSL
 runtime preserves all supported range-bearing interface fields and peer keepalive across
 apply/dump/reapply, and the full privileged integration-tag suite passes. Real browser/camera,
 VPS kernel/client equality, and recommended/randomized traffic evidence are not yet complete, so
-the Phase 8 release blockers remain open/in progress. The continuing audit also found that the
+the Phase 8 release blockers remain open/in progress. A collision-safe, ownership-tracked real-host
+harness now automates exact API/DB/runtime/config/QR comparisons, three delivery surfaces,
+kernel/userspace traffic, and secret-log scanning; it is syntax-checked but has not yet completed
+on the dedicated VPS. The continuing audit also found that the
 persisted userspace backend mode has no daemon lifecycle; doctor and deployment claims now state
 that limitation explicitly, with implementation and certification assigned to Phase 11 AUD-019.
 Execution and evidence: [phase8.md](phase8.md); cross-phase status:
