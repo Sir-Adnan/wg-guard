@@ -76,8 +76,8 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | verified |
 | AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
-| AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | planned |
-| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | planned |
+| AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | in progress |
+| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | in progress |
 | AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | planned |
 | AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
 | AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |

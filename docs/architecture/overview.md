@@ -47,6 +47,7 @@ No cycles; no `utils` packages. Package responsibilities:
 | Bilingual fa/en panel with full RTL | [0010](../decisions/ADR-0010-bilingual-fa-en-rtl.md) |
 | Built-in TLS/ACME without a reverse proxy | [0011](../decisions/ADR-0011-builtin-tls.md) |
 | stdlib net/http ServeMux routing | [0012](../decisions/ADR-0012-net-http-mux.md) |
+| Scheduler-owned live telemetry and mode-native bounded logs | [0013](../decisions/ADR-0013-operational-observability.md) |
 
 ## Runtime (`serve`)
 

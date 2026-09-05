@@ -1,0 +1,7 @@
+Name:	wg-guard
+Umask:	0077
+State:	S (sleeping)
+VmPeak:	   34816 kB
+VmSize:	   32768 kB
+VmRSS:	   26624 kB
+Threads:	8
