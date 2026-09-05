@@ -46,7 +46,7 @@ produces `Selection{Channel, Ref}`, `Build{Channel, Ref, Commit, Version, SHA256
 Use constructors/options for test HTTP endpoints and build runner. Production defaults target
 only `Sir-Adnan/wg-guard`; source identity is validated before becoming argv/path/ldflags.
 
-- [ ] Write table-driven tests for published stable filtering, empty releases, exact tag lookup,
+- [x] Write table-driven tests for published stable filtering, empty releases, exact tag lookup,
   immutable commit resolution, malformed SHA/ref, bounded/error HTTP, duplicate/missing checksum,
   corrupt/truncated/oversized download and cancellation. Use httptest with independently hashed
   binary fixtures; failed acquisition must leave no runnable final artifact.
@@ -57,25 +57,25 @@ _, err := client.Resolve(ctx, Selection{Channel: "release"})
 if err == nil { t.Fatal("empty release catalog was accepted") }
 ```
 
-- [ ] Run `go test ./internal/distribution` and retain meaningful failing output before implementation.
-- [ ] Implement a bounded release catalog, HTTPS artifact downloading into private staging,
+- [x] Run `go test ./internal/distribution` and retain meaningful failing output before implementation.
+- [x] Implement a bounded release catalog, HTTPS artifact downloading into private staging,
   exact SHA-256 verification and atomic promotion. Reject unsafe/ambiguous asset names/URLs.
   Resolve source before fetching; safely extract only regular source files/directories with
   traversal/symlink/total-size bounds, build `./cmd/wg-guard` with CGO off, trimpath and version/SHA
   metadata. Never run arbitrary shell interpolation. Preserve current environment only where
   justified; no repository hooks. Source builds may use an existing compatible Go compiler.
-- [ ] Implement first-entry Bash bootstrap: Linux amd64/arm64 check, root/sudo handling, curl/CA/
+- [x] Implement first-entry Bash bootstrap: Linux amd64/arm64 check, root/sudo handling, curl/CA/
   tar/checksum prerequisites, bounded HTTPS transfer, cleanup trap, release/latest/list/exact and
   commit/main/exact selection, safe temporary toolchain installation when needed from official
   Go download metadata with verified checksum. Do not install global Go or upgrade all packages.
   Reconnect interactive input to `/dev/tty` when appropriate; `--help`/noninteractive usage must
   work without tty and never consume piped script bytes as answers. Pass remaining arguments to
   the acquired binary's `install` command (M4 changes interactive default to `manage`).
-- [ ] Add local candidate builder for both asset names plus checksums, with version/commit
+- [x] Add local candidate builder for both asset names plus checksums, with version/commit
   identity. It does not publish a tag/release. Execute bootstrap fixture tests against fake
   curl/system utilities to prove mode dispatch, integrity refusal, input handling and cleanup;
   no source-grep tests. Integrate shell tests with Linux CI where appropriate.
-- [ ] Document trust boundaries, source-build cost, no-release behavior and exact commands;
+- [x] Document trust boundaries, source-build cost, no-release behavior and exact commands;
   run focused Go/shell tests, build + full Go suite, self-review and commit.
 
 ### Task 2: Prerequisites, compatible core selection and network/TLS plan (M2)

@@ -4,14 +4,14 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the active phase document.
 
-Last updated: 2026-09-05. Active phase: **8.1 — GitHub delivery & lifecycle**.
+Last updated: 2026-09-06. Active phase: **8.1 — GitHub delivery & lifecycle**.
 
 ## Program status
 
 | Phase | State | Exit dependency |
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 8.1 — GitHub delivery & lifecycle | active; design recorded | One-command installation and safe lifecycle verified on the dedicated VPS |
+| 8.1 — GitHub delivery & lifecycle | active; M1 reviewed, M2 starting | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 9 — Operational observability | planned; existing design branch paused | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |

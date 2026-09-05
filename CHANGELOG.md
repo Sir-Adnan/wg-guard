@@ -29,6 +29,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   userspace integration remains valid protocol/config compatibility evidence.
 
 ### Added
+- **GitHub build acquisition:** bounded release/commit selection, checksummed private staging,
+  immutable source builds with temporary verified Go tooling, a first-entry bootstrap, and local
+  amd64/arm64 candidate artifact generation. No published-release installation is claimed;
+  runtime deployment integration and the redesigned terminal flow follow in Phase 8.1.
+- **Bounded build-command output:** configured subprocess execution retains at most 1 MiB per
+  output stream while draining the child pipes, covered by an actual oversized-child regression.
 - **Independent QR verification:** test-only `gozxing` v0.1.1 decoding now verifies direct,
   REST, admin, and public-subscription PNGs against the canonical private-key-bearing config
   without printing it. Coverage includes empty and Persian/English UTF-8 data, complete configs,

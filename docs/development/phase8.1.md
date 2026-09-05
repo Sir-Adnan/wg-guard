@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1 implemented, review in progress**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1 reviewed, M2 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -115,10 +115,15 @@ provenance and documentation and requests explicit approval before public public
 - M1 (`5ec46e0`): acquisition package, executable bootstrap and candidate builder implemented.
   Full Go tests/build/vet, WSL shell fixtures, dual-architecture local checksums and Linux amd64
   execution passed. [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156)
-  on the exact commit; independent review pending. This does not verify Docker
+  on the exact commit. Independent review closed after output-capture hardening in `899f4e0`;
+  a real subprocess regression verifies the per-stream memory cap. This does not verify Docker
   integration, clean-host provisioning or published-release installation.
 - Read-only dedicated-VPS baseline:
   [sanitized record](../integrations/fixtures/verify-phase8.1-baseline-2026-09-05.txt).
   Existing Docker node, two AWG interfaces and valid cached certificate must be preserved.
 - New integrated real-host verification: pending. A dedicated Telegram bot/chat was supplied;
   credential and chat reachability checks passed, while actual new-code backup delivery is pending.
+- Acquisition-only VPS probe of `5ec46e0`: bootstrap checksum matched and dependency downloads
+  started, but the SSH connection did not deliver a final result. Build success is **unverified**;
+  the owned remote temporary directory was cleaned, original HTTPS health remained good, and
+  system Go remained unchanged. Repeat with durable bounded evidence during integrated testing.

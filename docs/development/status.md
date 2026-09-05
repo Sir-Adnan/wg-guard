@@ -13,9 +13,9 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 
 | Item | Status |
 |---|---|
-| Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested in `5ec46e0`; local amd64/arm64 candidates built/checksummed, amd64 executed on Linux; [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156); independent review and integrated VPS verification pending |
+| Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested in `5ec46e0`, reviewed with output-cap fix `899f4e0`; local amd64/arm64 candidates built/checksummed, amd64 executed on Linux; [CI passed for M1](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156); integrated VPS verification pending (first acquisition probe had no final SSH result) |
 | Terminal installer and management UX | designed; not implemented |
-| OS prerequisites and compatible AWG selection | designed; not implemented |
+| OS prerequisites and compatible AWG selection | M2 active; not yet implemented |
 | Transactional update/rollback and bounded restore improvements | designed; not implemented |
 | Backup schedule management and Telegram workflow | designed; not implemented |
 | Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |
