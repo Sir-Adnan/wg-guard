@@ -40,6 +40,10 @@ make tidy         # go mod tidy
   vulnerabilities in dependencies.
 - Release pipeline (Phase 12): checksummed binaries + provenance notes; no signing secrets in
   the repository.
+- Phase 8.1 local candidate/acquisition contract: `bash scripts/build-artifacts.sh --version
+  VERSION --output NEW_DIRECTORY` builds immutable local HEAD for Linux amd64/arm64 with
+  checksums; it never publishes. Linux CI runs `bash scripts/test-bootstrap.sh`. See
+  [GitHub acquisition](../operations/github-install.md) for commands and verification limits.
 
 ## Frontend assets
 

@@ -7,7 +7,6 @@
 package subprocess
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -69,6 +68,10 @@ type System struct {
 func NewSystem() *System { return &System{Timeout: DefaultTimeout} }
 
 func (s *System) Run(ctx context.Context, argv []string) (Result, error) {
+	return s.run(ctx, argv, "", nil)
+}
+
+func (s *System) run(ctx context.Context, argv []string, dir string, env []string) (Result, error) {
 	if len(argv) == 0 {
 		return Result{}, fmt.Errorf("subprocess: empty argv")
 	}
@@ -80,7 +83,14 @@ func (s *System) Run(ctx context.Context, argv []string) (Result, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) // explicit argv — never a shell
-	var stdout, stderr bytes.Buffer
+	cmd.Dir = dir
+	cmd.Env = env
+	cmd.WaitDelay = time.Second
+	var stdout, stderr boundedOutput
+	if env != nil {
+		stdout.limit = 1 << 20
+		stderr.limit = 1 << 20
+	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 

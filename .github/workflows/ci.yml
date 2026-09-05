@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/installer-lifecycle]
   pull_request:
 
 jobs:
@@ -23,6 +23,8 @@ jobs:
         run: go vet ./...
       - name: Frontend asset budgets (gzip)
         run: bash scripts/check-assets.sh
+      - name: Bootstrap and candidate artifact fixtures
+        run: bash scripts/test-bootstrap.sh
       - name: Test (race)
         run: go test -race ./...
 
