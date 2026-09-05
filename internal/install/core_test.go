@@ -13,6 +13,7 @@ type packageHost struct {
 	*memHost
 	installed, available map[string]string
 	installedArgs        []string
+	metadataQueries      []string
 }
 
 func newPackageHost() *packageHost {
@@ -30,6 +31,7 @@ func (h *packageHost) Output(ctx context.Context, a []string, d time.Duration) (
 		return "installed\t" + v, nil
 	}
 	if a[0] == "apt-cache" {
+		h.metadataQueries = append(h.metadataQueries, a[len(a)-1])
 		v := h.available[a[len(a)-1]]
 		if v == "" {
 			return "", fmt.Errorf("unavailable")
@@ -37,6 +39,65 @@ func (h *packageHost) Output(ctx context.Context, a []string, d time.Duration) (
 		return a[len(a)-1] + " | " + v + " | noble/main", nil
 	}
 	return h.memHost.Output(ctx, a, d)
+}
+
+func TestInstalledExactCoreReuseDoesNotRequireRepositoryAccess(t *testing.T) {
+	h := newPackageHost()
+	b, _ := SelectCore("recommended")
+	h.installed["amneziawg-tools"] = b.ToolsPackage
+	h.installed["amneziawg-dkms"] = b.KernelPackage
+	h.available = map[string]string{}
+	h.failCmd["apt-get"] = fmt.Errorf("offline")
+	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
+	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
+	r, _ := InspectPlatform(context.Background(), h)
+	report, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	if err != nil || report.ModuleIdentity != "matches-disk" {
+		t.Fatalf("validated installed bundle cannot be reused offline: %+v %v", report, err)
+	}
+	if len(h.metadataQueries) != 0 || h.ran("apt-get") || h.ran("add-apt-repository") || len(h.installedArgs) != 0 {
+		t.Fatal("installed exact bundle unnecessarily required repository access")
+	}
+}
+
+func TestAnyMissingCorePackageRequiresBothMetadataPins(t *testing.T) {
+	for _, missing := range []string{"amneziawg-tools", "amneziawg-dkms"} {
+		for _, otherAvailable := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/other-available=%t", missing, otherAvailable), func(t *testing.T) {
+				h := newPackageHost()
+				b, _ := SelectCore("recommended")
+				h.installed["amneziawg-tools"] = b.ToolsPackage
+				h.installed["amneziawg-dkms"] = b.KernelPackage
+				delete(h.installed, missing)
+				h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
+				h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
+				other := "amneziawg-tools"
+				if missing == other {
+					other = "amneziawg-dkms"
+				}
+				if !otherAvailable {
+					delete(h.available, other)
+				}
+				r, _ := InspectPlatform(context.Background(), h)
+				_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+				if !otherAvailable {
+					if err == nil || len(h.installedArgs) != 0 {
+						t.Fatal("installed a core package without the other exact metadata pin")
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !contains(h.metadataQueries, "amneziawg-tools") || !contains(h.metadataQueries, "amneziawg-dkms") {
+					t.Fatal("did not check both metadata pins")
+				}
+				if len(h.installedArgs) != 1 || !strings.HasPrefix(h.installedArgs[0], missing+"=") {
+					t.Fatalf("unexpected package changes: %v", h.installedArgs)
+				}
+			})
+		}
+	}
 }
 func (h *packageHost) Run(ctx context.Context, a []string, d time.Duration) error {
 	if a[0] == "modprobe" && len(a) == 2 && a[1] == "amneziawg" {

@@ -239,11 +239,6 @@ func validHostname(s string) bool {
 	return true
 }
 
-func validPublicIP(s string) bool {
-	ip := net.ParseIP(s)
-	return ip != nil && ip.IsGlobalUnicast() && !ip.IsPrivate()
-}
-
 // VPNEndpoint never derives an endpoint from the loopback management listener.
 func (p Plan) VPNEndpoint() string {
 	if p.Domain != "" {

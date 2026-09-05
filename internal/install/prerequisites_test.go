@@ -106,12 +106,12 @@ func TestExplicitTLS8080AndEndpoint(t *testing.T) {
 		}
 	}
 	p := Defaults()
-	p.PublicIP = "203.0.113.7"
-	if p.VPNEndpoint() != "203.0.113.7" || p.PanelURL() != "http://127.0.0.1:8080" {
+	p.PublicIP = "8.8.8.8"
+	if p.VPNEndpoint() != "8.8.8.8" || p.PanelURL() != "http://127.0.0.1:8080" {
 		t.Fatal("VPN endpoint coupled to panel bind")
 	}
 	seeds := planSeeds(p)
-	if len(seeds) != 1 || seeds[0].argv[4] != "203.0.113.7" {
+	if len(seeds) != 1 || seeds[0].argv[4] != "8.8.8.8" {
 		t.Fatal("missing IP endpoint seed")
 	}
 	for _, ip := range []string{"127.0.0.1", "10.0.0.1", "::1", "0.0.0.0", "example.com", "203.0.113.1\n"} {
@@ -166,7 +166,7 @@ func TestManualTLSPreflightAndContainerMounts(t *testing.T) {
 	p.TLSMode = config.TLSModeManual
 	p.CertFile = "/etc/certs/panel.pem"
 	p.KeyFile = "/etc/certs/panel.key"
-	p.PublicIP = "203.0.113.7"
+	p.PublicIP = "8.8.8.8"
 	if err := preflight(context.Background(), newMemHost(), p, io.Discard); err == nil {
 		t.Fatal("missing manual TLS files accepted")
 	}

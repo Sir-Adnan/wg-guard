@@ -28,7 +28,7 @@ func TestCoreCommandCatalogAndInvalidSelection(t *testing.T) {
 }
 
 func TestInstallerExplicitPortFlagsAndInvalidValues(t *testing.T) {
-	o, err := parseInstallOptions([]string{"--yes", "--domain", "panel.example.com", "--panel-port", "8080", "--public-ip", "203.0.113.7", "--prerequisites", "check", "--core", "recommended"})
+	o, err := parseInstallOptions([]string{"--yes", "--domain", "panel.example.com", "--panel-port", "8080", "--public-ip", "8.8.8.8", "--prerequisites", "check", "--core", "recommended"})
 	if err != nil {
 		t.Fatal(err)
 	}

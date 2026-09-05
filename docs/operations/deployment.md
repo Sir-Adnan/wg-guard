@@ -65,9 +65,18 @@ panel afterwards; values equal to the registry defaults are not persisted.
 **When seeding happens matters**: the collected settings are applied through the installed
 CLI (`wg-guard settings set`, `wg-guard backup schedule-add`) **before the service first
 boots** — the registry caches values in memory, so post-boot CLI writes would stay invisible
-until a restart. The domain, explicit public IP, or validated global interface IP is seeded as
+until a restart. The domain, explicit public-IP candidate, or eligible interface IP is seeded as
 `node.endpoint`, independently of the loopback panel listener. Endpoint-less installation is
 refused with `--public-ip` guidance. No third-party IP echo service is queried implicitly.
+IPv4-mapped addresses use IPv4 classification. Private/shared space (including CGNAT
+`100.64.0.0/10`), documentation, benchmarking, reserved and other non-public special-use ranges
+are excluded. The classifier follows the [IANA IPv4](https://www.iana.org/assignments/iana-ipv4-special-registry/)
+and [IPv6](https://www.iana.org/assignments/iana-ipv6-special-registry/) special-purpose registries
+(checked 2026-09-06), preserving their globally reachable exceptions within protocol-assignment
+blocks. Deprecated compatible/site-local IPv6 ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html))
+and conditional/deprecated transition ranges are also excluded. Passing classification does not
+establish address assignment, routing, NAT forwarding, firewall access or actual reachability;
+operators must verify those separately.
 Negative Telegram group IDs are accepted as signed nonzero integers. In Docker mode this runs before the state
 file exists, so the shim executes host-direct against the bind-mounted data dir (same DB the
 container will use).
@@ -89,7 +98,8 @@ Settings registry and hot-applies; only paths, the listener and the TLS mode req
 The installer never silently exposes plaintext management to the public internet.
 
 IP-only loopback setup reports `http://127.0.0.1:8080` and an SSH command such as
-`ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7`; open the local URL while that tunnel runs.
+`ssh -N -L 8080:127.0.0.1:8080 root@PUBLIC_IP` (replace `PUBLIC_IP` with the server address);
+open the local URL while that tunnel runs.
 Public TLS without a domain can use a trusted manual certificate for the supplied IP. The
 current `autocert` implementation uses domain identifiers/SNI; this is not a claim that all
 certificate authorities prohibit IP certificates.
@@ -169,10 +179,11 @@ wg-guard core installed
 wg-guard core recommended
 wg-guard core latest-compatible
 wg-guard core exact awg-2026-08
-wg-guard install --mode native --yes --public-ip 203.0.113.7 --prerequisites auto --core recommended
+wg-guard install --mode native --yes --public-ip PUBLIC_IP --prerequisites auto --core recommended
 ```
 
-The commands print bounded JSON metadata. Core errors and new prerequisite/TLS copy have fa/en
+Replace `PUBLIC_IP` with the server's real public address; documentation-only addresses are rejected.
+The core commands print bounded JSON metadata. Core errors and new prerequisite/TLS copy have fa/en
 catalog entries; the current CLI retains its English default until M4's language workflow.
 
 Preflight inspects Linux, amd64/arm64, OS identity, running kernel, init, endpoint and TCP ports
@@ -183,8 +194,10 @@ Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendat
 disabled, preserving an existing Docker CE engine. Existing dependencies are not blanket-upgraded.
 
 Automatic Ubuntu preparation may install missing repository tooling and add the documented
-Amnezia PPA. It refreshes signed apt metadata and verifies both exact AWG package versions before
-any AWG install or deployment write. Missing pins fail closed; there is no upstream substitution,
+Amnezia PPA. If any AWG package must be installed, it refreshes signed apt metadata and verifies
+both exact AWG package versions before any AWG install or deployment write. An already installed,
+validated exact bundle can be reused offline without requiring those pins in a remote repository.
+Missing pins when installation is needed fail closed; there is no upstream substitution,
 blind AWG upgrade/downgrade, or PPA suite rewriting. Newly requested installed packages and PPA
 preparation are recorded in the returned installation state; PPA sources remain on uninstall.
 Prerequisite preparation can remain after a later failure; durable partial-operation ownership

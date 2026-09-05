@@ -83,8 +83,9 @@ func safeKernel(s string) bool {
 	return true
 }
 
-// resolveEndpoint uses only global interface addresses. Hosts behind NAT must
-// supply --public-ip; we do not trust a third-party IP echo service implicitly.
+// resolveEndpoint filters global-scope interface addresses for public endpoint
+// candidates. Classification cannot prove remote reachability. Hosts behind
+// NAT must supply --public-ip; no third-party IP echo service is trusted implicitly.
 func resolveEndpoint(ctx context.Context, h Host, p *Plan) error {
 	if p.VPNEndpoint() != "" {
 		return nil

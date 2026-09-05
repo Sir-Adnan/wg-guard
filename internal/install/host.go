@@ -170,7 +170,7 @@ func newMemHost() *memHost {
 		files:   map[string]memFile{"/src/wg-guard": {data: []byte("/src/wg-guard"), perm: 0o755}, "/etc/os-release": {data: []byte("ID=ubuntu\nVERSION_ID=24.04\n")}, "/proc/1/comm": {data: []byte("systemd\n")}},
 		dirs:    map[string]bool{},
 		failCmd: map[string]error{},
-		output:  map[string]string{"uname -s": "Linux", "uname -m": "x86_64", "uname -r": "6.8.0-138-generic", "modinfo": "MATCHINGBUILD", "awg": "amneziawg-tools v3.1.20260812", "ip": `[{"addr_info":[{"local":"203.0.113.7"}]}]`},
+		output:  map[string]string{"uname -s": "Linux", "uname -m": "x86_64", "uname -r": "6.8.0-138-generic", "modinfo": "MATCHINGBUILD", "awg": "amneziawg-tools v3.1.20260812", "ip": `[{"addr_info":[{"local":"8.8.8.8"}]}]`},
 		now:     func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) },
 	}
 }
