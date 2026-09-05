@@ -20,7 +20,8 @@ That gate exposed and fixed a peer-sync path that cleared the live interface pri
 owns operational observability and bounded logs, after the inserted
 [Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). The full compatibility matrix
 remains Phase 11 and final release engineering remains Phase 12. GitHub acquisition and artifact
-contracts are being built in Phase 8.1; they are not yet delivered. See [ROADMAP.md](ROADMAP.md) and
+acquisition components are implemented in Phase 8.1; the complete guided installation and
+lifecycle workflow is still in progress. See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 
 ## Features

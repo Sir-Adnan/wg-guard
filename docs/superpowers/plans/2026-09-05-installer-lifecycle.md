@@ -102,6 +102,8 @@ where possible; additive options distinguish explicit port choices and prerequis
   record its immutable Docker image identity. Existing `--image` remains explicit advanced input.
 - [ ] Correct TLS/IP terminology/defaults and preflight; verify certificate issuance separately
   from liveness with bounded retries and actionable errors. Keep partial TLS readiness recoverable.
+  Seed the VPN public endpoint from the domain or validated detected/operator-provided server IP,
+  independently from the loopback panel address. Do not produce endpoint-less initial configs.
 - [ ] Run host-seam/pure tests + full suite/build, update docs/status and commit.
 
 ### Task 3: Recoverable lifecycle transactions (M3)
@@ -116,6 +118,8 @@ readable from schema1; journal records operation stage and previous/current arti
 - [ ] Write failing fault-injection tests for corrupt install-state refusal; lock contention;
   failed pull without active mutation; compose-up/native-restart failure rollback; healthy update
   then explicit rollback; state-write failure; cancellation and interrupted journal recovery.
+  Also cover tampered/out-of-layout state paths and uninstall stop failure: never purge data or
+  remove artifacts unless the owning service is confirmed stopped; constrain all deletion targets.
 - [ ] Implement exclusive Linux lock (released on process death), atomic state/journal writes,
   preflight/staging before active mutation, pre-update backup identity, previous known-good
   artifact retention, Docker shim synchronization, recovery on all post-swap errors. If schema
@@ -123,6 +127,9 @@ readable from schema1; journal records operation stage and previous/current arti
   against upgraded data. Failed recovery must remain visible in state/exit status.
 - [ ] Integrate source selection into install/update flags using Task 1 shared package. Resolve
   current selection explicitly; no silently stale local fallback after failed remote fetch.
+  Provide a machine-readable installer/build compatibility contract and reject selected builds
+  that cannot satisfy it before deployment. Bootstrap must not silently execute an older
+  pre-Phase8.1 install command lacking the new prerequisite/owner/recovery guarantees.
 - [ ] Run fault tests/full suite/build, synchronize operator recovery instructions and commit.
 
 ### Task 4: Terminal design system and complete management workflow (M4)
@@ -130,6 +137,8 @@ readable from schema1; journal records operation stage and previous/current arti
 **Files:** create `internal/terminal` UI/input files and tests; refactor
 `internal/install/prompt.go`; create `cmd/wg-guard/manage.go`; modify CLI dispatch/route,
 `internal/i18n` en/fa catalogs and bootstrap interactive entry.
+Also modify `internal/admin/admin.go` and its tests for atomic owner bootstrap, and add a
+focused host CLI owner-bootstrap command used before the installer starts the service.
 
 **Interfaces:** terminal UI takes io.Reader/io.Writer, locale and width/color options; actions
 are explicit callbacks/CLI calls, no SQL/tunnel logic. Manager invokes existing CLI/services in
@@ -146,6 +155,13 @@ the correct host/container context; pass secrets via stdin, not nested argv.
 - [ ] Source picker presents latest release, bounded release list, main development and pinned
   SHA with actual metadata and installed version. Setup groups domain/IP, TLS/panel TCP port,
   AWG UDP defaults and optional backup settings; final review displays impact without secrets.
+- [ ] Provision the first owner locally through the existing admin service before opening the
+  public listener. Hidden password+confirmation for interactive fresh setup; protected password
+  file for noninteractive public setup; existing-owner detection skips creation without reset.
+  Add concurrent single-owner regression (atomic conditional insert/transaction, no count-then-
+  insert race), secret-transport and start-order tests. Keep uninstalled manual serve posture
+  explicit for Phase11 review, and never let an installer-managed fresh public node be claimed
+  by the first anonymous web visitor.
 - [ ] Run UI/CLI tests/full suite/build, document management navigation/terminal constraints and commit.
 
 ### Task 5: Backup, Telegram, scheduling and restore safety (M5)
@@ -159,6 +175,7 @@ manual Telegram send using existing delivery engine. Existing scheduler remains 
 - [ ] Reproduce missing-flag panic and unbounded stdin; add service/CLI tests for negative chat
   IDs, every-N-hours/equivalent days, enable/disable/delete/list, explicit archive send, secrets
   absent from argv/output, safe EOF and no scheduler duplication.
+  Include real net/http URL-error redaction and token echoes in Telegram response descriptions.
 - [ ] Implement coherent backup CLI/manager forms and flags, all bounded and validated. Ensure
   schedule/settings changes are observed by running service (cache invalidation or documented
   managed restart), show timezone/retention/next run. Warn appropriately for unencrypted off-host
@@ -168,6 +185,9 @@ manual Telegram send using existing delivery engine. Existing scheduler remains 
   traversal/symlink/invalid-manifest archives and no active-data mutation before validated swap.
 - [ ] Verify coordinated service stop/restore/start in both deployment modes and clearly separate
   configuration review from automatic application; old data remains recoverable on failure.
+  Require complete valid staged hash metadata; atomically recover database/key as a coherent
+  pair on partial replacement failure. Preview/confirmation must not expose an unapproved
+  restore to boot-time auto-apply if the CLI exits or the service restarts during review.
 - [ ] Run real SQLite/archive/Telegram HTTP-fixture tests + full suite/build, docs and commit.
 
 ### Task 6: Real-host integration, documentation and delivery (M6)

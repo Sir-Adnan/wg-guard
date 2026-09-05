@@ -1,0 +1,47 @@
+WG-Guard Phase 8.1 — read-only dedicated VPS baseline
+Observed: 2026-09-05 16:58–17:02 UTC
+Purpose: preserve the existing test node during installer/lifecycle verification.
+This is NOT verification of new Phase 8.1 implementation.
+Credentials, public address, domain and all VPN/backup contents are intentionally omitted.
+
+Host:
+  Ubuntu 24.04.4 LTS / noble / amd64
+  Linux 6.8.0-138-generic
+  Root filesystem: 38GiB total, 30GiB available
+  RAM: 3819MiB total, approximately 3GiB available; no swap
+
+Existing deployment:
+  Host binary: /usr/local/bin/wg-guard
+  Reported version: phase7-addendum; commit none; build date unknown
+  Container: wg-guard
+  Image: wgguard/wg-guard:phase7v4
+  State: healthy; up four days
+  Native wg-guard unit: inactive
+  Docker CE: 5:29.7.2-1~ubuntu.24.04~noble
+  Compose: v5.5.0
+  Bind mounts: /etc/wg-guard/wg-guard.toml; /var/lib/wg-guard
+  Existing config directory: 16KiB; existing data directory: 656KiB
+
+Core:
+  amneziawg-tools: v3.1.20260812
+  tools package: 1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1
+  dkms package: 1.0.0-0~202608282205+3c38e16~ubuntu24.04.1
+  apt-cache current candidate equals installed versions (cached index, no apt update run)
+  modinfo version and loaded /sys/module/amneziawg/version: 3.1.20260812
+  Running kernel headers present under /usr/src
+  Existing awg0 and awg1 links: UP
+  No keys, peer dumps or configuration contents were read into evidence.
+
+Network/TLS:
+  Panel TCP443 and challenge TCP80 are occupied by existing WG-Guard.
+  SSH TCP22 active; preserve throughout testing.
+  HTTPS /healthz: HTTP success, JSON status ok (normal certificate verification enabled).
+  Existing certificate: Let's Encrypt YE2; valid 2026-08-31 through 2026-11-29.
+  Cached-certificate reuse must not be described as new issuance.
+
+Implications for the execution harness:
+  Back up and preserve existing data/config/binary/compose before switching modes or artifacts.
+  Existing AWG interfaces are not harness-owned and must not be deleted by blanket cleanup.
+  Fresh-install tests must distinguish isolated empty data from upgrade of this existing node.
+  Restore the preserved baseline on any failed drill; verify HTTPS and interfaces afterward.
+  No host mutation was performed by these checks.

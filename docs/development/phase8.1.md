@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / design recorded**, 2026-09-05. Owner approval to implement and push was supplied
+State: **active / M1 implemented, review in progress**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -66,6 +66,11 @@ invented or silently substituted with development code.
    daily/weekly/every-N-hours or equivalent days with retention. Keep the single scheduler.
    Restore streams large allowed members with total/member bounds and rejects corrupt or unsafe
    archives before swap. No new backup REST API and no cron process.
+10. Fresh installer-managed nodes create the owner locally before starting a public listener.
+    Interactive setup uses hidden password and confirmation; noninteractive public setup needs
+    an explicit protected password file unless an owner already exists. Reuse the admin service
+    with atomic single-owner creation. Existing owners are never reset by install or update.
+    This closes the first-visitor ownership race without changing the panel's visual design.
 
 ## Milestones and deliverables
 
@@ -107,4 +112,13 @@ provenance and documentation and requests explicit approval before public public
 ## Verification record
 
 - Baseline: clean main `2f756b9`; isolated branch `codex/installer-lifecycle` created.
-- Implementation and new real-host verification: pending.
+- M1 (`5ec46e0`): acquisition package, executable bootstrap and candidate builder implemented.
+  Full Go tests/build/vet, WSL shell fixtures, dual-architecture local checksums and Linux amd64
+  execution passed. [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156)
+  on the exact commit; independent review pending. This does not verify Docker
+  integration, clean-host provisioning or published-release installation.
+- Read-only dedicated-VPS baseline:
+  [sanitized record](../integrations/fixtures/verify-phase8.1-baseline-2026-09-05.txt).
+  Existing Docker node, two AWG interfaces and valid cached certificate must be preserved.
+- New integrated real-host verification: pending. A dedicated Telegram bot/chat was supplied;
+  credential and chat reachability checks passed, while actual new-code backup delivery is pending.

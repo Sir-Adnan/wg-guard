@@ -13,7 +13,7 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 
 | Item | Status |
 |---|---|
-| Bootstrap, release/commit selection and artifact identity | designed; not implemented |
+| Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested in `5ec46e0`; local amd64/arm64 candidates built/checksummed, amd64 executed on Linux; [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156); independent review and integrated VPS verification pending |
 | Terminal installer and management UX | designed; not implemented |
 | OS prerequisites and compatible AWG selection | designed; not implemented |
 | Transactional update/rollback and bounded restore improvements | designed; not implemented |

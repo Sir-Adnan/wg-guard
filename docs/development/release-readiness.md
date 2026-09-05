@@ -106,6 +106,10 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | reproduced by code audit; tests pending |
 | AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | reproduced by code audit; tests pending |
 | AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-031 | high | Telegram delivery wraps HTTP transport errors containing the token-bearing request URL and echoes remote descriptions without token redaction | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-032 | high | Restore verification metadata is optional at apply; database/key replacement is not recovered as a pair on failure and boot may continue after partial apply | Phase 8.1 | reproduced by code audit; tests pending |
+| AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | reproduced by code audit; tests pending |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
