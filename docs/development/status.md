@@ -34,7 +34,7 @@ enforced by `scripts/check-assets.sh`: JS 19.5/30 KiB gz, CSS 8.4/25 KiB gz, fon
 | Dashboard: user metric cards (total/active/waiting/online/expiring/expired/exceeded/total traffic), host card (CPU/RAM/disk/load/uptime read from `/proc` on demand — `internal/hoststats`, no background polling; graceful "unavailable" state off Linux), CSP-safe server-rendered SVG traffic chart (24 h/7 d/30 d ranges, zero-filled buckets, nice-axis scaling, SI-suffixed axis labels), live fragment refresh every 30 s with `data-pause-hidden` (Page Visibility hook in app.js), no-JS fallback links | ✅ implemented + unit tested (chart buckets/escaping/geometry, hoststats fixtures incl. degradation, live fragment) |
 | Plans: CRUD + enable/disable with per-plan live user counts and interface references; tri-state limit fields (traffic GB, duration days, up/down kbps) | ✅ implemented + unit tested (CRUD flow) |
 | Interfaces: CRUD + enable/disable, AWG obfuscation parameter section (jc/jmin/jmax/s1/s2 and lossless scalar/range H1–H4), strict numeric/range parsing in both directions, plain↔obfuscated edit warns that clients must re-import profiles, delete guarded while devices exist, auto port + subnet defaults, immutable name/port/subnet on edit | ✅ implemented + unit tested (CRUD, exact range form round trip in fa/en, malformed/overlap no-mutation regressions) |
-| `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); the manually scaled raster is initialized white with a four-module quiet zone, and an independent test-only decoder proves exact config equality on direct/REST/admin/subscription paths | ✅ implemented + unit tested; real browser/camera/client scan remains a Phase 8 gate |
+| `internal/clientconf`: one config/QR renderer shared by API and web (bounded payload, pinned QR params); the manually scaled raster is initialized white with a four-module quiet zone, and an independent test-only decoder proves exact config equality on direct/REST/admin/subscription paths | ✅ implemented + unit tested + real-browser/VPS/client verified; all HTTP PNGs decode to canonical bytes and those bytes imported into real clients. Physical optical-camera scan was unavailable and is explicitly unperformed. |
 | API correctness fixes surfaced by web work: `/api/v1` traffic series used nonexistent `rx_delta`/`tx_delta` columns for rollups and mixed granularities — now correct per-granularity sums (regression test over the API) | ✅ implemented + unit tested |
 
 Refinement pass additions (same status rules as above):
@@ -46,7 +46,7 @@ Refinement pass additions (same status rules as above):
 | Create-user drawer on the users page (shared partial with the `/users/new` fallback): username generator, settings-driven quota/duration preset chips (`users.quota_presets_gb`, `users.duration_presets_months`), auto device provisioning (count = device limit, cap 10, per-device transactional), Jalali (fa) / Gregorian (en) vanilla-JS calendar — leap-year algorithm exhaustively verified against server-side conversions | ✅ implemented + unit tested (auto-device flow, quota/duration exactness); calendar verified in browser |
 | Users page redesign: identity rows, quick-share menu (per-device QR/download + sub-link copy, batch device load), fixed-coordinate menu positioning (no clipping in overflow containers; close on scroll) | ✅ implemented + unit tested; browser-verified desktop + 390 px mobile |
 | Theme + shell refinement: zinc-neutral light palette, refined dark palette (`#09090b` base), 8/12 px radii, component polish (buttons, inputs, badges, tables, menus, dialogs, empty states, metric icon chips), desktop sidebar collapse to a persisted 68 px icon rail with tooltips, compact footer icon row | ✅ implemented; palettes/collapse verified live in browser |
-| Interfaces: explicit advanced 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005 plus lossless range migration 0007, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; every dump-observable field including I1–I5 is applied, compared, and corrected exactly, while HPK removal recreates the link; endpoint/I values have injection-safe single-line validation and corrupt rows fail closed | ✅ implemented + unit tested (validation, exact render/dump/drift, corrupt-row no-mutation, and HPK-clear recreation); **kernel-module acceptance + round-trip of the whole advanced set verified on a real VPS** (see amneziawg.md verification log); real client-app compatibility remains a Phase 8 gate |
+| Interfaces: explicit advanced 2.0/3.x parameters (S3, S4, HeaderProtectionKey, ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts, RandomTrailers, DisableCookies) through the full chain — migration 0005 plus lossless range migration 0007, iface validation, reconcile spec, setconf rendering, dump parsing, client-config parity; value formats verified from pinned `config.c`; every dump-observable field including I1–I5 is applied, compared, and corrected exactly, while HPK removal recreates the link; endpoint/I values have injection-safe single-line validation and corrupt rows fail closed | ✅ implemented + unit tested; complete kernel-module round-trip verified on a real VPS, supported recommended/randomized profiles passed real kernel clients, and recommended passed pinned userspace traffic. Client-specific unsafe fields remain gated rather than advertised across every app/platform. |
 
 Round 2 refinement additions (same status rules as above):
 
@@ -80,8 +80,9 @@ Deferred / honest notes within Phase 5 scope:
 - The 30 s live-refresh pause-on-hidden behavior is covered by the attribute + JS hook; its
   visual effect was observed manually, not soak-tested.
 - The advanced 2.0/3.x obfuscation parameters are parser-, kernel-, and userspace-observable at
-  the pinned revisions, so Phase 8 now corrects their drift exactly. They remain off by default
-  because client-app compatibility is platform-dependent and still needs real-client evidence.
+  the pinned revisions, so Phase 8 corrects their drift exactly. The supported generated subsets
+  passed real isolated clients; client-specific unsafe fields remain off by default pending the
+  broader Phase 11 platform/client matrix.
 - The subscription page exposes per-device configs to whoever holds the (unguessable) link;
   the link is treated as a capability credential — rotate or revoke it to cut access.
 
@@ -341,56 +342,41 @@ Honest notes within Phase 7 scope:
   correctness was verified via DOM geometry (symmetric auto margins, max-width tier, no
   overflow) — same documented pipeline limitation as Phase 5.
 
-## Phase 8 — Audit & configuration integrity (active, 2026-08-31)
+## Phase 8 — Audit & configuration integrity (complete, 2026-09-05)
 
-Approved and active. The baseline audit and exact pinned-source contract are documented. The
-lossless scalar/range primitives, migration 0007, repository/tunnel/dump/reconcile path, strict
-bilingual forms, range-aware keepalive setting, explicit REST DTOs, and OpenAPI parity are
-implemented and unit tested. A single injectable server generator now owns recommended and
-randomized policies; profile relationships have a 10,000-case property test, REST preset names
-apply the policy, and the authenticated CSRF panel flow only accepts exact server-generated values
-carried by an AES-GCM-sealed session-bound preview. Generated-policy validation matches the
-generator's assigned H bands and exact range shapes, with bounded unbiased S2 sampling.
-Fixed headers and browser-side protocol generation are removed, unsafe/client-specific options
-stay off, and stored HPKs are not rendered into edit HTML. `AdvancedSecurity` remains
-unsupported. Canonical client delivery is now exact and unit tested: one full-field golden covers
-section placement, every supported field, per-interface MTU, ranges, spacing, and final newline;
-direct, REST, admin, and subscription downloads are byte-identical with shared safe headers and
-filenames. Endpoint and I1–I5 values reject configuration-line injection before persistence;
-client rendering fails closed on corrupt stored values, and reconciliation includes every I field
-and validates the complete stored profile before backend mutation. The QR raster defect is fixed
-and independent decoding proves exact config equality
-for direct, REST, admin, and subscription paths, including UTF-8/full/near-capacity payloads and
-oversized failure. Pre-0007 scalar and post-0007 true-range archives now preserve canonical and
-rollback representations through stage/apply and boot consumption; this work also fixed a
-restore-review query that had silently omitted tunnel interfaces. The pinned WSL2 userspace
-runtime preserves all supported range-bearing interface fields and peer keepalive across
-apply/dump/reapply, and the full privileged integration-tag suite passes. Real browser/camera,
-VPS kernel/client equality, and recommended/randomized traffic evidence are not yet complete, so
-the Phase 8 release blockers remain open/in progress. A collision-safe, ownership-tracked real-host
-harness now automates exact API/DB/runtime/config/QR comparisons, three delivery surfaces,
-kernel/userspace traffic, and secret-log scanning; it is syntax-checked but has not yet completed
-on the dedicated VPS because the SSH service closes the connection before key exchange. No remote
-command or mutation occurred, and local/WSL verification is not promoted to real-host evidence.
-The continuing audit also found that the
-persisted userspace backend mode has no daemon lifecycle; doctor and deployment claims now state
-that limitation explicitly, with implementation and certification assigned to Phase 11 AUD-019.
-Execution and evidence: [phase8.md](phase8.md); cross-phase status:
-[release-readiness.md](release-readiness.md).
+The baseline audit, pinned-source contract, lossless scalar/range model and migration 0007 are
+complete. Supported values round-trip through storage, REST/OpenAPI, strict bilingual forms,
+settings, apply/dump/reconcile, backup/restore, canonical downloads, subscriptions, and decoded QR.
+One server-side `crypto/rand` generator owns recommended/randomized profiles, with 10,000-case
+property coverage and sealed session-bound panel previews. Unsafe/client-specific options remain
+gated and `AdvancedSecurity` remains unsupported at the pins.
 
-## Phases 9–12 — planned
+The exact commit-stamped Ubuntu 24.04 gate proved normalized API/DB/runtime/config/QR equality;
+recommended and randomized decoded configurations established kernel-client handshakes and
+bidirectional ICMP/UDP/TCP, while recommended also passed the exact pinned userspace daemon.
+Real-browser QA passed fa/en, RTL/LTR, light/dark, desktop and 390 px mobile without QR clipping or
+overflow. A physical optical camera was unavailable and is explicitly unperformed; independent
+decoding of the actual HTTP PNGs and real-client import of those exact bytes provide the content
+and interoperability evidence. The VPS gate also exposed a critical peer-sync defect: a peers-only
+`syncconf` cleared the interface private key. The backend now preserves and post-verifies the
+complete live interface section, with unit, integration, and real-traffic regressions green.
+
+The configured userspace mode still has no production daemon lifecycle; Phase 11 AUD-019 owns
+that feature and certification. Execution: [phase8.md](phase8.md); sanitized real-host evidence:
+[`../integrations/fixtures/verify-phase8-vps-2026-09-05.txt`](../integrations/fixtures/verify-phase8-vps-2026-09-05.txt);
+cross-phase status: [release-readiness.md](release-readiness.md).
+
+## Phases 9–12
 
 | Phase | State | Scope |
 |---|---|---|
-| 9 — Operational observability | planned; not implemented | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 9 — Operational observability | active; implementation not yet started | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed/multi-arch artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 
 ## Requires real VPS or client verification (carried forward)
 
-- Phase 8: default and randomized configs, QR decode equality, real client handshake and traffic,
-  kernel/userspace config parity.
 - Phase 9: Docker/native operational logs, retention, live metrics under real traffic.
 - Phase 11: nftables/NAT/firewall coexistence, 1000-shaped-peer tc, Ubuntu 22.04/24.04,
   Debian 12, amd64/arm64, kernel/userspace, Docker/native, recovery and TLS drills.

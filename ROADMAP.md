@@ -16,8 +16,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **5 — Primary web UI** | Initial design system, auth/onboarding, dashboard, users/devices, plans, interfaces, subscriptions, fa/en and RTL | ✅ Complete |
 | **6 — Backup, settings & operations** | Backup/restore, schedules and Telegram, settings, administrators, tokens, webhooks, audit, and doctor | ✅ Complete |
 | **7 — Deployment & installer** | Docker/native installation, ACME, host shim, update/rollback, uninstall, and deployment drills | ✅ Complete |
-| **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | 🚧 Active |
-| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Planned |
+| **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
+| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | 🚧 Active |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and OS/architecture/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed/multi-arch artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
@@ -30,7 +30,8 @@ Eliminate the release-blocking QR and client-configuration defects before later 
 their models. Preserve every supported AmneziaWG value losslessly across database, API/OpenAPI,
 forms, backend apply/dump, reconciliation, downloads, subscriptions, QR, and backup/restore.
 Complete only with decoded QR equality and real default/randomized client handshake plus traffic
-evidence. Detailed execution: [docs/development/phase8.md](docs/development/phase8.md).
+evidence. Completed 2026-09-05 with the exact commit-stamped dedicated-VPS gate, browser QA, and
+sanitized evidence linked from [docs/development/phase8.md](docs/development/phase8.md).
 
 ### Phase 9 — Operational observability
 

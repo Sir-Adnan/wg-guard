@@ -11,14 +11,14 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–7 complete; Phase 8 is active.** Phase 7 delivered production deployment: the
-interactive installer (Docker default, native systemd secondary), built-in ACME TLS on any
-panel port (no reverse proxy required), the mode-aware host CLI (one binary for panel, backup,
-restore, update/rollback and uninstall in both modes), update with pre-upgrade backups and
-health-checked rollback, and uninstall with a dry-run plan — all verified end-to-end on a real
-Ubuntu 24.04 VPS, including ACME issuance for a public domain, reboot persistence, kernel-module
-self-heal after OS upgrades, and both install modes. The full OS/version matrix is Phase 11 and
-the checksummed release pipeline is Phase 12. See [ROADMAP.md](ROADMAP.md) and
+**In active development — Phases 0–8 complete; Phase 9 is active.** Phase 8 completed the
+configuration-integrity gate: lossless supported AmneziaWG parameters, canonical recommended and
+randomized profiles, byte-identical config/QR delivery, and independent QR decoding. Both profile
+classes were imported into isolated real kernel clients on Ubuntu 24.04 and passed handshake plus
+bidirectional traffic; the recommended profile also passed through the pinned userspace daemon.
+That gate exposed and fixed a peer-sync path that cleared the live interface private key. Phase 9
+now owns operational observability and bounded logs; the full compatibility matrix remains Phase
+11 and checksummed release engineering remains Phase 12. See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 
 ## Features

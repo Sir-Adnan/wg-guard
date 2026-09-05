@@ -26,6 +26,10 @@ and without a real VPN interface.
 - Configuration text boundaries: endpoint and I1–I5 newline/control injection is rejected before
   persistence; reconciliation refuses an invalid stored profile before backend mutation, and I1–I5
   differences participate in exact drift correction.
+- Peer replacement: `SyncPeers` carries forward the validated complete live `[Interface]`
+  section and byte-verifies it after `syncconf`; a missing/malformed private key or any interface
+  mutation fails closed. This prevents the pinned kernel backend from clearing the interface key
+  when given a peers-only configuration.
 - Client configuration: one literal full-field golden covers exact section placement, ordering,
   range preservation, spacing, and final newline; REST/admin/subscription bytes and headers are
   compared against the direct renderer. Failures report only length/digest/offset metadata and
@@ -46,7 +50,11 @@ and without a real VPN interface.
   compares normalized API, database, runtime, client-config, and independently decoded QR state;
   exercises recommended/randomized kernel traffic plus recommended userspace traffic; checks all
   three delivery surfaces and secret-free diagnostics; and can hold the isolated panel for browser
-  QA. Its cleanup ownership and comparison logic must itself be reviewed before each evidence run.
+  QA. The exact commit-stamped Ubuntu 24.04 amd64 run passed on 2026-09-05, including cleanup;
+  sanitized evidence is in
+  `docs/integrations/fixtures/verify-phase8-vps-2026-09-05.txt`. A physical optical-camera scan was
+  unavailable and is not claimed; actual HTTP PNG decoding and import of those bytes into real AWG
+  clients passed.
 
 ## Benchmarks (measured, not guessed)
 

@@ -8,6 +8,15 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Changed
+- **Phase 8 configuration integrity complete:** supported AWG values are lossless across storage,
+  API/OpenAPI, forms, runtime, reconciliation, backup/restore, configs, subscriptions, and QR.
+  The exact Ubuntu 24.04 candidate passed three-surface decode equality, recommended/randomized
+  kernel-client handshakes and bidirectional traffic, recommended userspace-daemon traffic,
+  browser presentation, actual-secret diagnostics scanning, and owned-resource cleanup.
+- **Peer-sync interface integrity:** real traffic testing found that a peers-only kernel
+  `awg syncconf` clears the interface private key. Peer replacement now preserves the validated
+  complete live interface section and byte-verifies it after apply; invalid or changed state
+  fails closed without exposing config or key material.
 - **Honest userspace-backend status:** the Phase 8 audit found that `backend_mode="userspace"`
   is stored and reported but never consumed by boot/reconciliation, and no component supervises
   `amneziawg-go`. Doctor and deployment documentation no longer promise automatic fallback;

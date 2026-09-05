@@ -1,6 +1,7 @@
 # Phase 9 — Operational observability
 
-Status: **planned; not implemented**. Starts only after Phase 8 closes RB-001 through RB-004.
+Status: **active; implementation not yet started**. Started 2026-09-05 after Phase 8 closed
+RB-001 through RB-004 with dedicated real-VPS and browser evidence.
 
 ## Objective
 

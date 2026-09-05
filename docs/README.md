@@ -28,8 +28,9 @@ or chat history.
 | [development/testing.md](development/testing.md) | Testing strategy: layers, fake backend, integration tags, benchmarks |
 | [development/status.md](development/status.md) | Feature matrix: designed / implemented / unit tested / integration tested / needs real VPS |
 | [development/release-readiness.md](development/release-readiness.md) | Active Phase 8–12 program: requirement ownership, blockers, audit findings, compatibility state |
-| [development/phase8.md](development/phase8.md) | Current Phase 8 execution checklist and verification log |
-| [development/phase9.md](development/phase9.md) through [phase12.md](development/phase12.md) | Planned observability, UI/UX, production-certification, and release-candidate gates |
+| [development/phase8.md](development/phase8.md) | Completed Phase 8 execution checklist and verification log |
+| [development/phase9.md](development/phase9.md) | Current Phase 9 operational-observability gate |
+| [development/phase10.md](development/phase10.md) through [phase12.md](development/phase12.md) | Planned UI/UX, production-certification, and release-candidate gates |
 | [decisions/](decisions/) | Architecture Decision Records (ADRs) |
 
 ## Archived sources (frozen, provenance only)

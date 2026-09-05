@@ -60,11 +60,13 @@ encoder or an HTTP surface.
 Required correction: white initialization, independent decode equality, quiet-zone/module
 assertions, HTTP-surface byte comparison, and real browser/client verification.
 
-State 2026-09-05: implementation verified. The pre-fix independent decoder reproduced a
+State 2026-09-05: verified. The pre-fix independent decoder reproduced a
 `NotFoundException`; the raster now starts white and retains integer modules plus a four-module
 quiet zone. Independent decoding covers direct and all HTTP surfaces, UTF-8/full/near-capacity
-payloads, deterministic output, safe headers, authorization, and oversized failure. Real
-browser/camera/client evidence remains an RB-001 gate rather than an inferred unit-test result.
+payloads, deterministic output, safe headers, authorization, and oversized failure. Real browser
+QA passed on desktop/mobile in both locales/themes; the actual HTTP PNG bytes were decoded and
+imported into real clients. A physical optical camera was unavailable and remains explicitly
+unperformed rather than inferred.
 
 ### P8-002 — H ranges are deliberately truncated by the dump parser
 
@@ -78,11 +80,11 @@ client rendering, and OpenAPI are scalar too.
 Required correction: one typed representation through migration, storage, apply/dump, drift,
 API/forms, config, backup/restore, and QR.
 
-State 2026-09-05: in progress. Typed values and migration 0007 preserve both endpoints through
+State 2026-09-05: verified. Typed values and migration 0007 preserve both endpoints through
 storage, apply/dump, reconciliation, API/OpenAPI, settings, forms, client config, decoded QR,
 and both pre/post-0007 backup/restore paths. The pinned userspace daemon also preserves every
-supported range-bearing field across apply/dump/reapply. Kernel/client equality and real traffic
-remain release gates.
+supported range-bearing field across apply/dump/reapply. Exact normalized kernel/API/database/
+config/QR equality and real client traffic passed on the dedicated Ubuntu 24.04 VPS.
 
 ### P8-003 — Interface API runtime shape disagrees with OpenAPI
 
@@ -280,12 +282,29 @@ ownership from setup progress, allowing a partial failure to target a resource i
 It also checked client configs mainly by regex shape and did not prove their complete non-secret
 AWG state matched API/database/runtime intent.
 
-State 2026-09-05: correction implemented; real-host execution pending. Every namespace, bridge,
+State 2026-09-05: verified. Every namespace, bridge,
 userspace socket, and module cleanup is guarded by explicit successful-creation ownership. The
 harness compares canonical normalized API, database, kernel/userspace dump, and parsed client
 config state (including I1–I5), then independently decodes each QR and checks network fields,
 three-surface byte identity, real bidirectional traffic, and actual-run secret absence. Shell
-syntax is green; only a successful dedicated-VPS run can promote this finding to verified.
+syntax and the exact commit-stamped dedicated-VPS run are green; post-run checks found no owned
+resource remaining.
+
+### P8-017 — Peer replacement cleared the interface private key
+
+Severity: critical. Owner: Phase 8. Tracker: AUD-025 / RB-002.
+
+The real-host handshake gate showed that applying a peers-only configuration through the pinned
+kernel `awg syncconf` clears the live interface private key. Unit and userspace-only paths had not
+exposed the backend-specific destructive behavior, and every client handshake consequently failed.
+
+State 2026-09-05: verified. `SyncPeers` now snapshots and validates the complete live
+`[Interface]` section from `awg showconf`, composes desired peer sections beneath it, writes the
+combined 0600 temporary configuration, applies it, then re-reads and byte-compares the interface
+section. Missing, malformed, or changed key-bearing interface state fails closed without echoing
+configuration content. Unit and privileged integration regressions pass, and the exact
+commit-stamped VPS run completed recommended/randomized kernel traffic plus recommended userspace
+traffic after the fix.
 
 ## Findings assigned to later phases
 

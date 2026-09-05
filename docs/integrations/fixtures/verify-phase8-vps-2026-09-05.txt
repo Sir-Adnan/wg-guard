@@ -1,0 +1,80 @@
+WG-Guard Phase 8 real-host verification evidence
+Date: 2026-09-05
+
+Scope and provenance
+--------------------
+- Source revision: 91b317dd5370d11b3cdc501286453e78c00bcdab
+- Embedded build date: 2026-09-05T16:05:42Z
+- Candidate SHA-256: fd233cc4a4a5c80f412dad16befef49e2b0afc907643782d5de66827b092385c
+- QR decode helper SHA-256: f6e0d91e53483cd12a0fc688b3c3da5ec45555679246e866152064afb4f5b17d
+- Pinned userspace daemon SHA-256: f1fcd604d134755b889f35cd511c2843885678c118c44b2491195ab6bf7bf03a
+- The reproducible driver was fixtures/verify-phase8-vps.sh.
+- Host address, domain, credentials, identifiers, keys, tokens, URLs, raw configurations, and
+  subscription capabilities are intentionally omitted.
+
+Environment
+-----------
+- Dedicated Ubuntu 24.04 LTS amd64 VPS, Linux 6.8.0-138-generic.
+- amneziawg-tools CLI: v3.1.20260812.
+- amneziawg-tools package: 1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1.
+- amneziawg-dkms package: 1.0.0-0~202608282205+3c38e16~ubuntu24.04.1.
+- Loaded kernel module version: 3.1.20260812.
+- Userspace daemon: v3.1.20260828, commit b5928efb6ca19f0153958460c3d141f04abc5c2e.
+
+Automated gate result
+---------------------
+- Result: PASS (exit 0).
+- The harness created collision-checked, owned network namespaces, bridge, kernel AWG links,
+  application data, and userspace socket under an isolated mode-0700 working directory.
+- Recommended profile: direct, REST/admin, and public-subscription QR images independently
+  decoded to the same 439-byte canonical configuration.
+- Recommended normalized profile SHA-256:
+  40a15e2a28283a5325b0b958f07b0addfe7927e7e9a650ee8af5a9cf332f868e8
+- Recommended canonical configuration SHA-256:
+  5a750f5c0dc148fae5516e69d8023eefc165aabdae1c3b516fdc62704b6e14e1
+- Randomized profile: direct, REST/admin, and public-subscription QR images independently decoded
+  to the same 722-byte canonical configuration.
+- Randomized normalized profile SHA-256:
+  ce3369c1375bbef5b652727d6ef9c4bbb15787482bd2075c817d5575bb7219c65
+- Randomized canonical configuration SHA-256:
+  5de760bfe164d72e73a3cc866808270aad9d4c88bf8ccea9ca561e4fcbce3f82
+- Both decoded configurations imported into isolated real kernel AmneziaWG client endpoints,
+  completed handshakes, and exchanged bidirectional ICMP, UDP, and TCP traffic.
+- The recommended profile was repeated through the exact pinned userspace daemon; normalized
+  state matched and bidirectional traffic passed.
+- Normalized API, SQLite intent, live runtime, downloadable config, and decoded-QR profile state
+  were equal. Private-to-public key derivation, runtime interface public key, runtime peer public
+  key, and preshared-key equality invariants passed without printing key material.
+- Diagnostics were scanned for the run's actual password, API token, subscription capabilities,
+  private keys, preshared keys, and header-protection keys; none were present.
+
+Defect found by the real-host gate
+----------------------------------
+- A peer-only `awg syncconf` cleared the owned interface private key on the pinned kernel backend,
+  preventing all client handshakes. WG-Guard now snapshots the complete live `[Interface]`
+  section, composes the desired peer set beneath it, applies that full configuration, and
+  verifies that interface state is byte-identical afterward. Missing or malformed key-bearing
+  interface state fails closed. Unit, integration, and exact real-host traffic regressions pass.
+- The pinned kernel's `showconf` also synthesizes an `AdvancedSecurity` peer line even though the
+  kernel setter does not store it and the pinned userspace transport rejects it. The cross-backend
+  verifier removes only that known phantom line; WG-Guard continues to classify the field as
+  unsupported and does not expose it.
+
+Browser presentation
+--------------------
+- Browser QA used a code-identical pre-commit candidate SHA-256
+  85071af9b17df8a445e5064c850e7fc2df32b2949f1e558a4c2ae5b08ff3a297 while the isolated server
+  was held for inspection. The commit-stamped automated run above then verified the same source.
+- Recommended QR: Persian RTL and English LTR, light and dark, desktop and 390 x 844 mobile.
+- Randomized larger QR: Persian RTL, light, 390 x 844 mobile.
+- No horizontal overflow, clipping, inversion, browser warning, or browser error was observed.
+  On mobile, the document width stayed within the 390 px viewport and the QR rendered at 280 px.
+- A physical optical camera was not available. This is recorded as unperformed, not inferred.
+  Independent decoding of the actual HTTP PNGs plus import of those exact decoded bytes into real
+  AWG clients verifies QR content, presentation, and client interoperability without a third-party
+  QR service.
+
+Cleanup
+-------
+- The harness removed every owned namespace, bridge, interface, socket, process, work directory,
+  and uploaded verification directory. Post-run checks found no Phase 8 test resource remaining.

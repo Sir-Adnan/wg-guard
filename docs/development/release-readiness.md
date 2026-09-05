@@ -4,14 +4,14 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the active phase document.
 
-Last updated: 2026-09-05. Active phase: **8 — Audit & configuration integrity**.
+Last updated: 2026-09-05. Active phase: **9 — Operational observability**.
 
 ## Program status
 
 | Phase | State | Exit dependency |
 |---|---|---|
-| 8 — Audit & configuration integrity | active | Lossless config + decoded QR + real handshake/traffic evidence |
-| 9 — Operational observability | planned | Useful live metrics/logs with bounded cost and retention |
+| 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
+| 9 — Operational observability | active | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
@@ -47,11 +47,11 @@ implementation does not cross the active phase boundary.
 
 | ID | Blocker | Owner | State | Evidence required to close |
 |---|---|---|---|---|
-| RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | in progress | Independent direct/REST/admin/subscription decode equality is green; real browser/mobile presentation and available camera/client scan evidence remain |
-| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | in progress | Typed API/settings/runtime paths, server profile policies, and byte-identical full-field config delivery are unit tested; QR equality plus real default/randomized tunnel traffic remain |
-| RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | in progress | Storage/apply/dump/drift/API/forms/config/decoded-QR and pre/post-0007 backup/restore paths are lossless; pinned userspace apply/dump/reapply is integration-tested; VPS/client equality remains |
-| RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | in progress | Source/runtime/client capability matrix is frozen; close after real-client profile evidence confirms the supported subset |
-| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
+| RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | verified | Direct/REST/admin/subscription PNGs independently decode to exact config bytes; real desktop/mobile fa/en light/dark presentation passed; those decoded bytes imported into real clients. Physical optical camera unavailable and explicitly unperformed. |
+| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | verified | Canonical typed paths and three delivery surfaces are unit tested; recommended and randomized decoded configs passed real kernel client handshake and bidirectional traffic. |
+| RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | verified | Storage/apply/dump/drift/API/forms/config/QR/backup paths preserve both bounds; userspace integration and exact kernel runtime/client equality passed. |
+| RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
+| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | in progress | Unified log workflow and bounded retention verified in both modes |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed artifacts and official multi-arch workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
@@ -59,10 +59,10 @@ implementation does not cross the active phase boundary.
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
 
-Current Phase 8 execution block (2026-09-05): the dedicated host accepts TCP/22 and closes the
-connection before the SSH banner/key exchange. No remote command or mutation occurred. RB-001
-through RB-004 remain open until host access is restored and the isolated real-host harness plus
-browser/client checks complete; local/WSL success is not being substituted for that evidence.
+Phase 8 completion (2026-09-05): the exact commit-stamped candidate passed the isolated Ubuntu
+24.04 kernel/userspace gate, three-surface QR/config equality, real client traffic, browser QA,
+actual-secret diagnostics scanning, and cleanup. Sanitized evidence:
+[`../integrations/fixtures/verify-phase8-vps-2026-09-05.txt`](../integrations/fixtures/verify-phase8-vps-2026-09-05.txt).
 
 ## Audit findings
 
@@ -73,7 +73,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | ID | Severity | Finding | Owner | State |
 |---|---|---|---|---|
 | AUD-001 | critical | QR raster path has no decode/content-equivalence test; current regression can pass an unusable image | Phase 8 | verified |
-| AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | in progress |
+| AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | verified |
 | AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
 | AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | planned |
@@ -87,7 +87,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 11 | planned |
 | AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 11 | planned |
 | AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 12 | planned |
-| AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, and dump cannot observe it | Phase 8 | verified |
+| AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, ordinary dump cannot observe it, and kernel `showconf` synthesizes a phantom peer line | Phase 8 | verified |
 | AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
 | AUD-018 | medium | Restore environment review queried a nonexistent `interfaces` table, silently omitting every staged tunnel interface from the operator report | Phase 8 | verified |
 | AUD-019 | high | `backend_mode="userspace"` is stored/reported but boot and reconciliation ignore it; no userspace daemon lifecycle implements the advertised fallback | Phase 11 | planned |
@@ -95,7 +95,8 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-021 | high | Endpoint overrides and I1–I5 could contain line breaks/control text and inject extra directives into exported client configurations | Phase 8 | verified |
 | AUD-022 | high | Reconciliation neither loaded nor compared I1–I5, so configured signature packets were omitted from apply and their drift was invisible | Phase 8 | verified |
 | AUD-023 | medium | The panel trusted a hidden generated-profile label without proving values came from its preview; policy validation was broader than generation and S2 used an unbounded retry | Phase 8 | verified |
-| AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | in progress |
+| AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
+| AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
@@ -106,7 +107,7 @@ The Phase 11 matrix starts from the honest state below. “Planned” is not sup
 
 | OS | Arch | Docker | Native | Kernel backend | Userspace fallback | State |
 |---|---|---|---|---|---|---|
-| Ubuntu 24.04 | amd64 | drill verified | drill verified | drill verified | manual-daemon range round-trip verified; product lifecycle planned | partial |
+| Ubuntu 24.04 | amd64 | drill verified | drill verified | config/client traffic verified | manual-daemon config/client traffic verified; product lifecycle planned | partial |
 | Ubuntu 24.04 | arm64 | planned | planned | planned | planned | unverified |
 | Ubuntu 22.04 | amd64 | planned | planned | planned | planned | unverified |
 | Ubuntu 22.04 | arm64 | planned | planned | planned | planned | unverified |

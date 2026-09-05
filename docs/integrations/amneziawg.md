@@ -197,6 +197,11 @@ reveal:
 2. **Omitted keys persist.** `setconf` without an obfuscation block leaves previously-set
    params untouched (setconf replaces peers and written fields; obfuscation params persist).
    WG-Guard's verify-after-apply catches the resulting state mismatch.
+3. **A peers-only `syncconf` clears the interface private key on the pinned kernel backend.**
+   WG-Guard therefore snapshots and validates the complete live `[Interface]` section, composes
+   peer state beneath it, and verifies that the interface section is byte-identical after apply.
+   Missing, malformed, or mutated interface state fails closed. This behavior was discovered and
+   regression-tested during real-client Phase 8 traffic verification.
 
 Consequence (implemented): a profile cannot move between plain and obfuscated states in place.
 The all-plain state exists only at link creation, so obfuscation-mode transitions recreate the
@@ -222,7 +227,9 @@ from the PPA (module name is **amneziawg** — `modprobe amneziawg`; links are
   padding block is present; HPK cannot be cleared (`(none)` is parser-rejected, omission persists).
 - **AdvancedSecurity is not a kernel capability at this pin.** `setconf` returns success because
   the tools send a recognized netlink attribute, but `set_peer` never consumes or stores it and
-  ordinary dump output has no field for it. The userspace tools path rejects it with `EINVAL`.
+  ordinary dump output has no field for it. Kernel `showconf` nevertheless synthesizes an
+  `AdvancedSecurity` peer line; the exact cross-backend verifier strips only this known phantom
+  before userspace application. The userspace tools path rejects the field with `EINVAL`.
 - **Clearing semantics**: `S3 = 0`/`S4 = 0` and `H1..H4 = 0` are rejected while HPK is set;
   `Jc = 0` alone is accepted (junk disabled). Omitted keys persist (re-verified on kernel).
   A fresh interface dumps `H1..H4 = 1,2,3,4` (stock header values), everything else
@@ -265,6 +272,8 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | `AdvancedSecurity` behavior | Pinned tools/kernel/userspace source plus VPS `setconf` | parser accepts; kernel setter ignores/unobservably succeeds; userspace transport rejects; dump omits | ⛔ unsupported/gated |
 | **setconf headerless config on kernel** | VPS: conf without `[Interface]` | rejected (`Line unrecognized`) — explicit headers required | ✅ **verified (VPS kernel)** |
 | **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
+| **Peer-only syncconf interface preservation** | VPS: reproduce kernel key clearing; fixed backend snapshot/apply/post-verify; repeat full client gate | interface private key and all live interface directives remain byte-identical while peers replace; recommended/randomized handshakes and traffic pass | ✅ **verified (VPS kernel, 2026-09-05)** |
+| **Phase 8 canonical config/QR/client gate** | Exact commit-stamped Ubuntu 24.04 harness run | normalized API/DB/runtime/config/decoded-QR equality; recommended/randomized kernel traffic; recommended userspace traffic; secret scan and cleanup pass | ✅ **verified** — [`fixtures/verify-phase8-vps-2026-09-05.txt`](fixtures/verify-phase8-vps-2026-09-05.txt) |
 | PPA on Ubuntu 22.04 / Debian 12 | requires real VPS matrix | — | ⚠️ Phase 11 |
 
 Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
