@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
@@ -132,7 +133,7 @@ func main() {
 		}
 	case "reconcile":
 		if err := runReconcile(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "wg-guard: reconcile: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wg-guard: reconcile: %s\n", backup.ErrorText(err, i18n.Locale(terminalLocale())))
 			os.Exit(1)
 		}
 	case "serve":
@@ -142,7 +143,7 @@ func main() {
 		}
 	case "token":
 		if err := runToken(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "wg-guard: token: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wg-guard: token: %s\n", backup.ErrorText(err, i18n.Locale(terminalLocale())))
 			os.Exit(1)
 		}
 	case "backup":
@@ -157,17 +158,17 @@ func main() {
 		}
 	case "settings":
 		if err := runSettings(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "wg-guard: settings: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wg-guard: settings: %s\n", backup.ErrorText(err, i18n.Locale(terminalLocale())))
 			os.Exit(1)
 		}
 	case "doctor":
 		if err := runDoctor(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "wg-guard: doctor: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wg-guard: doctor: %s\n", backup.ErrorText(err, i18n.Locale(terminalLocale())))
 			os.Exit(1)
 		}
 	case "secrets":
 		if err := runSecrets(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "wg-guard: secrets: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wg-guard: secrets: %s\n", backup.ErrorText(err, i18n.Locale(terminalLocale())))
 			os.Exit(1)
 		}
 	default:

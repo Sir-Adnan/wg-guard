@@ -12,6 +12,42 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 )
 
+func TestBackupSafetyMessagesUseRequestLocale(t *testing.T) {
+	for _, lang := range []string{"fa", "en"} {
+		t.Run(lang, func(t *testing.T) {
+			e := newEnv(t)
+			e.seedOwner()
+			cookie := e.login("owner")
+			e.post("/prefs/locale", url.Values{"locale": {lang}}, cookie, deriveCSRF(cookie.Value))
+			if err := e.reg.SetRaw(context.Background(), "backup.password", "synthetic-password"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := e.db.Exec(`UPDATE settings SET value='corrupt' WHERE key='backup.password'`); err != nil {
+				t.Fatal(err)
+			}
+			rec := e.postForm("/backups/create", url.Values{}, cookie)
+			want := "stored password could not be read"
+			if lang == "fa" {
+				want = "گذرواژه ذخیره‌شده"
+			}
+			if rec.Code != 200 || !strings.Contains(rec.Body.String(), want) {
+				t.Fatalf("localized password safety message absent (%s, %d)", lang, rec.Code)
+			}
+			if lang == "fa" && strings.Contains(rec.Body.String(), "stored password could not be read") {
+				t.Fatal("English safety body rendered in Persian")
+			}
+			rec = e.postForm("/backups/telegram-test", url.Values{}, cookie)
+			want = "Telegram is not configured"
+			if lang == "fa" {
+				want = "تلگرام تنظیم نشده"
+			}
+			if rec.Code != 200 || !strings.Contains(rec.Body.String(), want) {
+				t.Fatal("localized Telegram configuration error absent")
+			}
+		})
+	}
+}
+
 func (e *env) postForm(path string, form url.Values, cookie *http.Cookie) *httptest.ResponseRecorder {
 	e.t.Helper()
 	return e.post(path, form, cookie, deriveCSRF(cookie.Value))
@@ -42,7 +78,7 @@ func TestBackupsCreateListDelete(t *testing.T) {
 
 	// Create (no password → plain).
 	rec = e.postForm("/backups/create", url.Values{}, cookie)
-	if rec.Code != 303 {
+	if rec.Code != 200 && rec.Code != 303 {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
 	rec = e.get("/backups", cookie)
@@ -56,7 +92,7 @@ func TestBackupsCreateListDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec = e.postForm("/backups/create", url.Values{}, cookie)
-	if rec.Code != 303 {
+	if rec.Code != 200 && rec.Code != 303 {
 		t.Fatalf("create 2: %d", rec.Code)
 	}
 	body = e.get("/backups", cookie).Body.String()
@@ -179,7 +215,9 @@ func TestBackupRestoreFlow(t *testing.T) {
 
 	// Create an archive, then restore it.
 	if rec := e.postForm("/backups/create", url.Values{}, cookie); rec.Code != 303 {
-		t.Fatalf("create: %d", rec.Code)
+		if rec.Code != 200 {
+			t.Fatalf("create: %d", rec.Code)
+		}
 	}
 	name := archiveNameFrom(e.get("/backups", cookie).Body.String())
 

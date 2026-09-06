@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
+	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
@@ -20,6 +21,14 @@ func runRestore(args []string) error {
 	return runRestoreWith(ctx, args, os.Stdin, os.Stdout, install.NewRealHost())
 }
 func runRestoreWith(ctx context.Context, args []string, in io.Reader, out io.Writer, h install.Host) error {
+	return runRestoreWithServiceFactory(ctx, args, in, out, h, func(cfg *config.Config) *backup.Service {
+		return &backup.Service{Cfg: cfg, ConfigPath: install.ConfigPath}
+	})
+}
+
+// The service factory lets command-chain tests map the already validated fixed
+// host layout into private temporary files without touching installed node data.
+func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Reader, out io.Writer, h install.Host, makeService func(*config.Config) *backup.Service) (resultErr error) {
 	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	lang := fs.String("lang", terminalLocale(), "")
@@ -44,6 +53,10 @@ func runRestoreWith(ctx context.Context, args []string, in io.Reader, out io.Wri
 		return lifecycleArgsError()
 	}
 	printer := backupPrinter{i18n.Locale(*lang)}
+	defer func() { resultErr = backup.InLocale(resultErr, printer.locale) }()
+	if *configPath != install.ConfigPath {
+		return fmt.Errorf("%s", printer.text("layout"))
+	}
 	u := terminal.New(os.Stdin, out, terminal.Detect(os.Stdin, out, printer.locale))
 	u.Context = ctx
 	var svc *backup.Service
@@ -58,10 +71,7 @@ func runRestoreWith(ctx context.Context, args []string, in io.Reader, out io.Wri
 		if err != nil {
 			return nil, err
 		}
-		if *configPath != install.ConfigPath {
-			return nil, fmt.Errorf("%s", printer.text("layout"))
-		}
-		svc = &backup.Service{Cfg: cfg, ConfigPath: *configPath}
+		svc = makeService(cfg)
 		password := ""
 		if *passwordFile != "" {
 			password, err = install.ReadProtectedPassword(h, *passwordFile)
@@ -93,7 +103,7 @@ func runRestoreWith(ctx context.Context, args []string, in io.Reader, out io.Wri
 			u.Text(fmt.Sprintf("%s · %d · %s", f.Name, f.Port, f.Subnet))
 		}
 		for _, w := range report.Warnings {
-			u.Text(printer.text("warning", w))
+			u.Text(printer.text("warning", w.Localized(printer.locale)))
 		}
 		u.Text(printer.text("config_review"))
 		if id != nil {

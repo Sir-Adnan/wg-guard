@@ -112,7 +112,7 @@ func parseBackupFlags(command string, args []string) (backupFlags, error) {
 	return o, nil
 }
 
-func runBackup(args []string) error {
+func runBackup(args []string) (resultErr error) {
 	if len(args) == 0 {
 		return fmt.Errorf("%s", backupText("usage"))
 	}
@@ -121,6 +121,7 @@ func runBackup(args []string) error {
 		return err
 	}
 	printer := backupPrinter{i18n.Locale(o.lang)}
+	defer func() { resultErr = backup.InLocale(resultErr, printer.locale) }()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	password := ""
@@ -208,7 +209,7 @@ func runBackup(args []string) error {
 func (printer backupPrinter) printBackupResult(r *backup.Result) {
 	fmt.Println(printer.text("result", r.Encrypted, strings.Join(r.Delivered, ", ")))
 	for _, w := range r.Warnings {
-		fmt.Println(printer.text("warning", terminal.Clean(w)))
+		fmt.Println(printer.text("warning", terminal.Clean(w.Localized(printer.locale))))
 	}
 }
 func (printer backupPrinter) printSchedules(ctx context.Context, s *backup.Service) error {

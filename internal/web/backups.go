@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -28,7 +29,8 @@ type backupsData struct {
 
 	// Review carries the environment report of a freshly staged restore —
 	// rendered once between Stage and Confirm/Cancel.
-	Review *backup.RestoreReport
+	Review   *backup.RestoreReport
+	Warnings []string
 
 	// Submitted schedule form values redisplayed after a validation error.
 	SchedForm scheduleForm
@@ -91,6 +93,12 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	s.audit(r, "backup.created", res.Name, map[string]any{
 		"size": res.Size, "encrypted": res.Encrypted, "delivered": res.Delivered,
 	})
+	if len(res.Warnings) > 0 {
+		d := s.backupsData(r)
+		d.Warnings = backup.WarningTexts(res.Warnings, s.localeFor(r))
+		_ = s.render(w, r, "backups", "app", d)
+		return
+	}
 	s.redirectToast(w, r, "/backups", "backups.toast.created")
 }
 
@@ -152,6 +160,7 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	d := s.backupsData(r)
 	d.Pending = pr
 	d.Review = report
+	d.Warnings = backup.WarningTexts(report.Warnings, s.localeFor(r))
 	_ = s.render(w, r, "backups", "app", d)
 }
 
@@ -274,19 +283,9 @@ func (s *Server) handleScheduleToggle(w http.ResponseWriter, r *http.Request) {
 // handleTelegramTest sends the probe document with the stored credentials.
 func (s *Server) handleTelegramTest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	token, _ := s.Settings.GetSecret(ctx, "backup.telegram_token")
 	chat, _ := s.Settings.GetString(ctx, "backup.telegram_chat")
-	if token == "" || chat == "" {
-		d := s.backupsData(r)
-		d.Error = s.t(r, "backups.error.telegram_unset")
-		_ = s.render(w, r, "backups", "app", d)
-		return
-	}
-	tg := &backup.TelegramSink{Token: token, Chat: chat}
-	if err := tg.TestDelivery(ctx); err != nil {
-		d := s.backupsData(r)
-		d.Error = s.t(r, "backups.error.telegram_failed", err.Error())
-		_ = s.render(w, r, "backups", "app", d)
+	if err := s.Backup.TestTelegram(ctx); err != nil {
+		s.backupError(w, r, err)
 		return
 	}
 	s.audit(r, "backup.telegram_test", chat, nil)
@@ -296,10 +295,17 @@ func (s *Server) handleTelegramTest(w http.ResponseWriter, r *http.Request) {
 // backupError maps engine errors onto the page; unexpected ones surface the
 // generic error toast (never engine internals like paths of the key file).
 func (s *Server) backupError(w http.ResponseWriter, r *http.Request, err error) {
+	var message backup.Message
+	if errors.As(err, &message) {
+		d := s.backupsData(r)
+		d.Error = message.Localized(s.localeFor(r))
+		_ = s.render(w, r, "backups", "app", d)
+		return
+	}
 	switch domain.CodeOf(err) {
 	case domain.CodeInvalidRequest, domain.CodeNotFound, domain.CodeSettingInvalid:
 		d := s.backupsData(r)
-		d.Error = err.Error()
+		d.Error = backup.ErrorText(err, s.localeFor(r))
 		_ = s.render(w, r, "backups", "app", d)
 	default:
 		s.logError(r, "backup operation", err)
@@ -312,7 +318,7 @@ func (s *Server) scheduleError(w http.ResponseWriter, r *http.Request, f schedul
 	d := s.backupsData(r)
 	d.SchedForm = f
 	if domain.CodeOf(err) == domain.CodeInvalidRequest {
-		d.Error = err.Error()
+		d.Error = backup.ErrorText(err, s.localeFor(r))
 	} else {
 		d.Error = s.t(r, "common.error_generic")
 		s.logError(r, "schedule save", err)

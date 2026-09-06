@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/boot"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -40,6 +41,9 @@ func runReconcile(args []string) error {
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
+		return err
+	}
+	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
 		return err
 	}
 	db, err := database.Open(cfg.DatabasePath, database.Options{})

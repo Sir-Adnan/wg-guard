@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -39,7 +38,7 @@ func readSmall(path string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if !st.Mode().IsRegular() || st.Size() > limit {
-		return nil, fmt.Errorf("backup: unsafe or oversized metadata file")
+		return nil, safetyError("metadata_unsafe", nil)
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -51,7 +50,7 @@ func readSmall(path string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if int64(len(b)) > limit {
-		return nil, fmt.Errorf("backup: metadata exceeds limit")
+		return nil, safetyError("metadata_limit", nil)
 	}
 	return b, nil
 }
@@ -97,11 +96,11 @@ func extractArchive(ctx context.Context, r io.Reader, password, dir string) (*Ma
 			break
 		}
 		if err != nil {
-			return nil, encrypted, fmt.Errorf("backup: archive truncated or malformed")
+			return nil, encrypted, safetyError("truncated", err)
 		}
 		limit := memberLimit(hdr.Name)
 		if limit == 0 || hdr.Typeflag != tar.TypeReg || hdr.Size < 0 || hdr.Size > limit || hashes[hdr.Name] != "" {
-			return nil, encrypted, fmt.Errorf("backup: unsafe, duplicate or oversized archive member")
+			return nil, encrypted, safetyError("member_unsafe", nil)
 		}
 		f, err := os.OpenFile(filepath.Join(dir, hdr.Name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 		if err != nil {
@@ -117,33 +116,33 @@ func extractArchive(ctx context.Context, r io.Reader, password, dir string) (*Ma
 			err = closeErr
 		}
 		if err != nil || n != hdr.Size {
-			return nil, encrypted, fmt.Errorf("backup: incomplete archive member")
+			return nil, encrypted, safetyError("member_incomplete", err)
 		}
 		if hdr.Name == KeyMember && n != 32 {
-			return nil, encrypted, fmt.Errorf("backup: invalid master key size")
+			return nil, encrypted, safetyError("key_size", nil)
 		}
 		hashes[hdr.Name] = hex.EncodeToString(h.Sum(nil))
 	}
 	if _, err := io.Copy(io.Discard, expanded); err != nil {
-		return nil, encrypted, fmt.Errorf("backup: container checksum failed")
+		return nil, encrypted, safetyError("container_checksum", err)
 	}
 	if expanded.N <= 0 {
-		return nil, encrypted, fmt.Errorf("backup: decompressed archive exceeds total limit")
+		return nil, encrypted, safetyError("expanded_limit", nil)
 	}
 	raw, err := readSmall(filepath.Join(dir, ManifestName), maxMetadataBytes)
 	if err != nil {
-		return nil, encrypted, fmt.Errorf("backup: archive has no readable manifest")
+		return nil, encrypted, safetyError("manifest_missing", nil)
 	}
 	var manifest Manifest
 	if json.Unmarshal(raw, &manifest) == nil && manifest.Schema > SchemaVersion {
-		return nil, encrypted, fmt.Errorf("backup: archive schema is newer than this app supports; upgrade first")
+		return nil, encrypted, safetyError("schema_newer", nil)
 	}
 	if json.Unmarshal(raw, &manifest) != nil || manifest.Schema != SchemaVersion || len(manifest.Files) != len(hashes)-1 || manifest.Files[DBMember] == "" {
-		return nil, encrypted, fmt.Errorf("backup: invalid or incomplete manifest")
+		return nil, encrypted, safetyError("manifest_invalid", nil)
 	}
 	for name, want := range manifest.Files {
 		if name == ManifestName || !validHash(want) || hashes[name] != want {
-			return nil, encrypted, fmt.Errorf("backup: archive checksum mismatch")
+			return nil, encrypted, safetyError("archive_checksum", nil)
 		}
 	}
 	return &manifest, encrypted, nil

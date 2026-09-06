@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -33,6 +34,13 @@ func Restore(ctx context.Context, h Host, o RestoreOptions) error {
 	}
 	if st == nil {
 		return terminalError("install.error.health.3")
+	}
+	cfg, err := ReadBootConfig(h, ConfigPath)
+	if err != nil {
+		return err
+	}
+	if cfg.DataDir != DataDir || cfg.DatabasePath != filepath.Join(DataDir, "wg-guard.db") || cfg.MasterKeyFile != filepath.Join(DataDir, "master.key") {
+		return terminalError("backup.cli.layout")
 	}
 	j, err := LoadJournal(h)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,7 +17,7 @@ func (p *PendingRestore) PreviewID() string { return filepath.Base(p.Dir) }
 
 func (s *Service) previewDir(id string) (string, error) {
 	if !strings.HasPrefix(id, previewPrefix) || filepath.Base(id) != id || strings.ContainsAny(id, "/\\") || len(id) > 80 {
-		return "", fmt.Errorf("backup: invalid preview identity")
+		return "", safetyError("preview_identity", nil)
 	}
 	return filepath.Join(s.Cfg.DataDir, id), nil
 }
@@ -29,7 +28,7 @@ func loadStaged(dir string) (*PendingRestore, error) {
 		return nil, err
 	}
 	if !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("backup: unsafe staging directory")
+		return nil, safetyError("stage_directory", nil)
 	}
 	raw, err := readSmall(filepath.Join(dir, pendingMeta), maxMetadataBytes)
 	if err != nil {
@@ -37,30 +36,30 @@ func loadStaged(dir string) (*PendingRestore, error) {
 	}
 	var m stagedMeta
 	if json.Unmarshal(raw, &m) != nil {
-		return nil, fmt.Errorf("backup: invalid staged metadata")
+		return nil, safetyError("stage_metadata", nil)
 	}
 	p := &PendingRestore{Dir: dir, Archive: m.Archive, Size: m.Size, Manifest: m.Manifest, Files: m.Files, Original: m.Original}
 	p.StagedAt, err = time.Parse(time.RFC3339, m.StagedAt)
 	if err != nil || m.Manifest.Schema != SchemaVersion || !validHash(m.Files[ManifestName]) || !validHash(m.Files[DBMember]) || len(m.Files) != len(m.Manifest.Files)+1 {
-		return nil, fmt.Errorf("backup: incomplete staged metadata")
+		return nil, safetyError("stage_incomplete", nil)
 	}
 	for name, want := range m.Files {
 		limit := memberLimit(name)
 		if limit == 0 || !validHash(want) {
-			return nil, fmt.Errorf("backup: invalid staged hash metadata")
+			return nil, safetyError("stage_hashes", nil)
 		}
 		st, err := os.Lstat(filepath.Join(dir, name))
 		if err != nil || !st.Mode().IsRegular() || st.Size() > limit {
-			return nil, fmt.Errorf("backup: unsafe staged member")
+			return nil, safetyError("stage_member", nil)
 		}
 		if name == KeyMember && st.Size() != 32 {
-			return nil, fmt.Errorf("backup: invalid staged master key")
+			return nil, safetyError("stage_key", nil)
 		}
 		if fileHash(filepath.Join(dir, name)) != want {
-			return nil, fmt.Errorf("backup: staged checksum re-verification failed")
+			return nil, safetyError("stage_checksum", nil)
 		}
 		if name != ManifestName && !validHash(m.Manifest.Files[name]) {
-			return nil, fmt.Errorf("backup: incomplete manifest metadata")
+			return nil, safetyError("manifest_incomplete", nil)
 		}
 	}
 	ents, err := os.ReadDir(dir)
@@ -69,7 +68,7 @@ func loadStaged(dir string) (*PendingRestore, error) {
 	}
 	for _, e := range ents {
 		if e.Name() != pendingMeta && m.Files[e.Name()] == "" {
-			return nil, fmt.Errorf("backup: unexpected staged file")
+			return nil, safetyError("stage_extra", nil)
 		}
 	}
 	return p, nil
@@ -97,11 +96,11 @@ func (s *Service) Approve(id string) (*PendingRestore, error) {
 		return nil, err
 	}
 	if p.Original {
-		return nil, fmt.Errorf("backup: original-schema recovery cannot be queued for boot")
+		return nil, safetyError("original_queue", nil)
 	}
 	dst := filepath.Join(s.Cfg.DataDir, pendingDirName)
 	if _, err := os.Lstat(dst); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("backup: an approved restore is already pending")
+		return nil, safetyError("pending_exists", nil)
 	}
 	if err := os.Rename(dir, dst); err != nil {
 		return nil, err
@@ -133,7 +132,7 @@ func (s *Service) ApplyOriginal(ctx context.Context, id string) (*RestoreReport,
 		return nil, err
 	}
 	if !p.Original || p.Files[KeyMember] == "" {
-		return nil, fmt.Errorf("backup: original database/key pair required")
+		return nil, safetyError("original_pair", nil)
 	}
 	return s.apply(ctx, p)
 }
@@ -144,10 +143,10 @@ func (s *Service) ApplyStaged(ctx context.Context) (*RestoreReport, error) {
 		return nil, err
 	}
 	if p == nil {
-		return nil, fmt.Errorf("backup: no approved restore")
+		return nil, safetyError("pending_missing", nil)
 	}
 	if p.Original {
-		return nil, fmt.Errorf("backup: original-schema restore cannot be boot-applied")
+		return nil, safetyError("original_boot", nil)
 	}
 	return s.apply(ctx, p)
 }
@@ -174,7 +173,7 @@ func (s *Service) apply(ctx context.Context, p *PendingRestore) (*RestoreReport,
 	}
 	txdir := filepath.Join(s.Cfg.DataDir, transactionDir)
 	if _, err := os.Lstat(txdir); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("backup: unfinished restore requires recovery")
+		return nil, safetyError("unfinished", nil)
 	}
 	tmp, err := os.MkdirTemp(s.Cfg.DataDir, "restore.protect-")
 	if err != nil {
@@ -192,14 +191,14 @@ func (s *Service) apply(ctx context.Context, p *PendingRestore) (*RestoreReport,
 			return nil, err
 		}
 		if !st.Mode().IsRegular() {
-			return nil, fmt.Errorf("backup: active data path is not a regular file")
+			return nil, safetyError("active_regular", nil)
 		}
 		if err := copyFile(target, filepath.Join(tmp, name), 0600); err != nil {
 			return nil, err
 		}
 		tx.Files[name] = fileHash(filepath.Join(tmp, name))
 		if !validHash(tx.Files[name]) {
-			return nil, fmt.Errorf("backup: could not protect current state")
+			return nil, safetyError("protect_failed", nil)
 		}
 	}
 	raw, _ := json.Marshal(tx)
@@ -241,13 +240,13 @@ func (s *Service) apply(ctx context.Context, p *PendingRestore) (*RestoreReport,
 	}
 	report := &RestoreReport{}
 	if p.Files[KeyMember] == "" {
-		report.Warnings = append(report.Warnings, "archive has no master key; source secrets may be unrecoverable")
+		report.Warnings = append(report.Warnings, warning("missing_key"))
 	}
 	if p.Files[ConfigMember] != "" && s.ConfigPath != "" {
 		if err := replaceFile(filepath.Join(p.Dir, ConfigMember), s.ConfigPath+".restored"); err != nil {
-			report.Warnings = append(report.Warnings, "archived boot config could not be staged for review")
+			report.Warnings = append(report.Warnings, warning("config_failed"))
 		} else {
-			report.Warnings = append(report.Warnings, "archived boot config staged at "+s.ConfigPath+".restored; review separately")
+			report.Warnings = append(report.Warnings, warning("config_review", s.ConfigPath))
 		}
 	}
 	// Keeping the transaction originals also keeps WAL and a rotation-window key.
@@ -285,7 +284,7 @@ func (s *Service) RecoverInterrupted() error {
 	if err := s.recoverPair(); err != nil {
 		return err
 	}
-	return fmt.Errorf("backup: interrupted restore recovered; review before restarting")
+	return safetyError("interrupted", nil)
 }
 func (s *Service) recoverPair() error {
 	dir := filepath.Join(s.Cfg.DataDir, transactionDir)
@@ -295,7 +294,7 @@ func (s *Service) recoverPair() error {
 	}
 	var tx restoreTransaction
 	if json.Unmarshal(raw, &tx) != nil || len(tx.Files) != 5 {
-		return fmt.Errorf("backup: recovery metadata invalid")
+		return safetyError("recovery_metadata", nil)
 	}
 	if tx.Stage != pendingDirName {
 		if _, err := s.previewDir(tx.Stage); err != nil {
@@ -306,16 +305,16 @@ func (s *Service) recoverPair() error {
 	// Validate all originals first. Never restore one half from unverified data.
 	for name, want := range tx.Files {
 		if targets[name] == "" || want != "" && !validHash(want) {
-			return fmt.Errorf("backup: recovery originals failed verification")
+			return safetyError("recovery_originals", nil)
 		}
 		if want != "" {
 			st, err := os.Lstat(filepath.Join(dir, name))
 			if err != nil || !st.Mode().IsRegular() || st.Size() > maxExpandedBytes {
-				return fmt.Errorf("backup: unsafe recovery original")
+				return safetyError("recovery_unsafe", nil)
 			}
 		}
 		if want != "" && fileHash(filepath.Join(dir, name)) != want {
-			return fmt.Errorf("backup: recovery originals failed verification")
+			return safetyError("recovery_originals", nil)
 		}
 	}
 	for _, name := range []string{DBMember, KeyMember, "db-wal", "db-shm", "key-prev"} {
@@ -346,7 +345,7 @@ func (s *Service) recoverPair() error {
 
 func (s *Service) ConsumePendingRestore() (string, error) {
 	if _, err := os.Lstat(filepath.Join(s.Cfg.DataDir, RestoreGuardName)); !os.IsNotExist(err) {
-		return "", fmt.Errorf("backup: lifecycle restore is blocked; resume the offline coordinator")
+		return "", safetyError("lifecycle_blocked", nil)
 	}
 	if err := s.RecoverInterrupted(); err != nil {
 		return "", err
@@ -395,7 +394,7 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	}
 	n, err := io.Copy(out, io.LimitReader(in, maxExpandedBytes+1))
 	if n > maxExpandedBytes {
-		err = fmt.Errorf("backup: file exceeds recovery limit")
+		err = safetyError("recovery_limit", nil)
 	}
 	if err == nil {
 		err = out.Sync()

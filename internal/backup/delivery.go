@@ -2,7 +2,6 @@ package backup
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -10,11 +9,11 @@ import (
 func (s *Service) telegram(ctx context.Context) (*TelegramSink, error) {
 	token, err := s.Reg.GetSecret(ctx, "backup.telegram_token")
 	if err != nil {
-		return nil, fmt.Errorf("backup: Telegram credentials could not be read")
+		return nil, safetyError("telegram_credentials", err)
 	}
 	chat, err := s.Reg.GetString(ctx, "backup.telegram_chat")
 	if err != nil || token == "" || chat == "" {
-		return nil, fmt.Errorf("backup: Telegram is not configured")
+		return nil, safetyError("telegram_unset", err)
 	}
 	return &TelegramSink{Token: token, Chat: chat, HTTP: s.HTTPClient}, nil
 }
@@ -34,7 +33,7 @@ func (s *Service) Send(ctx context.Context, path string) (*Result, error) {
 	}
 	st, err := os.Lstat(path)
 	if err != nil || !st.Mode().IsRegular() {
-		return nil, fmt.Errorf("backup: archive must be a regular file")
+		return nil, safetyError("regular_archive", nil)
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -47,10 +46,10 @@ func (s *Service) Send(ctx context.Context, path string) (*Result, error) {
 	}
 	r := &Result{Name: filepath.Base(path), Path: path, Size: st.Size(), Encrypted: kind == "age"}
 	if !r.Encrypted {
-		r.Warnings = append(r.Warnings, "UNENCRYPTED off-host archive: set a backup password; this file contains readable node secrets")
+		r.Warnings = append(r.Warnings, warning("plaintext"))
 	}
 	if st.Size() >= telegramWarnSize {
-		r.Warnings = append(r.Warnings, "archive is near the Telegram upload limit")
+		r.Warnings = append(r.Warnings, warning("telegram_near"))
 	}
 	if err := tg.Deliver(ctx, path, r.Name); err != nil {
 		return r, err

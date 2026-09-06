@@ -110,7 +110,7 @@ type Result struct {
 	Size      int64
 	Encrypted bool
 	Delivered []string
-	Warnings  []string
+	Warnings  []Message
 }
 
 // Create produces one archive: SQLite snapshot → manifest → tar.gz (→ age)
@@ -124,7 +124,7 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 		var err error
 		password, err = s.Reg.GetSecret(ctx, "backup.password")
 		if err != nil {
-			return nil, domain.E(domain.CodeInternal, "backup: stored password could not be read; archive creation aborted")
+			return nil, domain.Wrap(safetyError("password_read", err), domain.CodeInternal, "backup")
 		}
 	}
 	if password != "" && len(password) < 8 {
@@ -178,12 +178,12 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 
 	// 4. Stream tar → gzip → (age) → file, atomically published.
 	res := &Result{Name: name, Path: finalPath, Encrypted: password != ""}
-	warn := func(w string) { res.Warnings = append(res.Warnings, w) }
+	warn := func(w Message) { res.Warnings = append(res.Warnings, w) }
 	if len(configBytes) == 0 {
-		warn("boot config not readable; archive written without it")
+		warn(warning("create_config_missing"))
 	}
 	if len(keyBytes) == 0 {
-		warn("master key missing from archive; device configs cannot be re-downloaded after restore (peers survive, devices must be re-enrolled)")
+		warn(warning("create_key_missing"))
 	}
 	// Only members that exist go into the archive; a nil data member would
 	// fall through to the file-path branch with an empty path.
@@ -224,7 +224,7 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 	}
 	if opts.Dir == "" && keep > 0 {
 		if n, err := s.pruneDir(dir, keep); err != nil {
-			warn(fmt.Sprintf("retention prune failed: %v", err))
+			warn(warning("retention_failed"))
 		} else if n > 0 && s.Log != nil {
 			s.Log.Info("backup retention pruned old archives", "count", n)
 		}
@@ -348,10 +348,10 @@ func (s *Service) configBytes() []byte {
 
 // deliver pushes the finished archive to configured remote sinks. Failures
 // become warnings — the local copy is the source of truth.
-func (s *Service) deliver(ctx context.Context, res *Result, password string, warn func(string)) {
+func (s *Service) deliver(ctx context.Context, res *Result, password string, warn func(Message)) {
 	token, err := s.Reg.GetSecret(ctx, "backup.telegram_token")
 	if err != nil {
-		warn("telegram delivery skipped: stored credentials could not be read")
+		warn(warning("telegram_skipped_credentials"))
 		return
 	}
 	if token == "" {
@@ -359,7 +359,7 @@ func (s *Service) deliver(ctx context.Context, res *Result, password string, war
 	}
 	chat, err := s.Reg.Get(ctx, "backup.telegram_chat")
 	if err != nil {
-		warn("telegram delivery skipped: destination could not be read")
+		warn(warning("telegram_skipped_chat"))
 		return
 	}
 	chatID, _ := chat.(string)
@@ -367,14 +367,14 @@ func (s *Service) deliver(ctx context.Context, res *Result, password string, war
 		return
 	}
 	if password == "" {
-		warn("telegram delivery of an UNENCRYPTED archive: set a backup password or the archive leaves the server readable")
+		warn(warning("plaintext"))
 	}
 	if st, err := os.Stat(res.Path); err == nil && st.Size() >= telegramWarnSize {
-		warn(fmt.Sprintf("archive is %d MB — near the Telegram Bot API 50 MB limit; delivery may fail", st.Size()>>20))
+		warn(warning("telegram_near"))
 	}
 	tg := &TelegramSink{Token: token, Chat: chatID, HTTP: s.HTTPClient}
 	if err := tg.Deliver(ctx, res.Path, res.Name); err != nil {
-		warn("telegram delivery failed: " + err.Error())
+		warn(warning("telegram_failed", err))
 		return
 	}
 	res.Delivered = append(res.Delivered, "telegram")

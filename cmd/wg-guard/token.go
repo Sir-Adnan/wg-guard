@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
@@ -187,6 +188,9 @@ func tokenRevoke(args []string) error {
 func openForToken(configPath string) (*database.DB, func(), error) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
+		return nil, nil, err
+	}
+	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
 		return nil, nil, err
 	}
 	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o755); err != nil {

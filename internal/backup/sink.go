@@ -46,7 +46,7 @@ func (t *TelegramSink) Deliver(ctx context.Context, archivePath, filename string
 		return fmt.Errorf("stat archive: %w", err)
 	}
 	if st.Size() >= telegramMaxUpload {
-		return fmt.Errorf("archive is %d MB — over the Telegram Bot API 50 MB sendDocument limit", st.Size()>>20)
+		return safetyError("telegram_limit", nil)
 	}
 
 	src, err := os.Open(archivePath)
@@ -73,7 +73,7 @@ func (t *TelegramSink) Deliver(ctx context.Context, archivePath, filename string
 	if n, err := io.Copy(part, io.LimitReader(restoreReader{ctx, src}, telegramMaxUpload)); err != nil {
 		return fmt.Errorf("multipart: %w", err)
 	} else if n >= telegramMaxUpload {
-		return fmt.Errorf("telegram: archive exceeds upload limit")
+		return safetyError("telegram_limit", nil)
 	}
 	if err := mw.Close(); err != nil {
 		return fmt.Errorf("multipart: %w", err)
@@ -95,32 +95,32 @@ func (t *TelegramSink) Deliver(ctx context.Context, archivePath, filename string
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost,
 		telegramAPIBase+"/bot"+t.Token+"/sendDocument", body)
 	if err != nil {
-		return fmt.Errorf("telegram: could not build upload request")
+		return safetyError("telegram_request", err)
 	}
 	req.ContentLength = size
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("telegram: upload transport failed")
+		return safetyError("telegram_transport", err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if err != nil {
-		return fmt.Errorf("telegram: response could not be read")
+		return safetyError("telegram_response", err)
 	}
 	var out struct {
 		OK          bool   `json:"ok"`
 		Description string `json:"description"`
 	}
 	if json.Unmarshal(raw, &out) != nil {
-		return fmt.Errorf("unexpected response (HTTP %d)", resp.StatusCode)
+		return safetyError("telegram_invalid", nil, resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK || !out.OK {
 		// Remote descriptions are untrusted and may echo credentials or file
 		// contents. Status is sufficient for an operator-visible failure.
-		return fmt.Errorf("telegram: delivery rejected (HTTP %d)", resp.StatusCode)
+		return safetyError("telegram_rejected", nil, resp.StatusCode)
 	}
 	return nil
 }

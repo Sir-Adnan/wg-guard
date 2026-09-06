@@ -2,11 +2,58 @@ package main
 
 import (
 	"context"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
 	"strings"
 	"testing"
 )
+
+func TestBackupPlaintextWarningLocalizedAtCLIBoundary(t *testing.T) {
+	for _, locale := range []i18n.Locale{i18n.Fa, i18n.En} {
+		out := captureStdout(t, func() {
+			backupPrinter{locale}.printBackupResult(&backup.Result{Warnings: []backup.Message{{Key: "plaintext"}}})
+		})
+		want := "readable node secrets"
+		if locale == i18n.Fa {
+			want = "اسرار خواندنی"
+			if strings.Contains(out, "readable node secrets") {
+				t.Fatal("English body in Persian warning")
+			}
+		}
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing substantive warning: %s", out)
+		}
+	}
+}
+
+func TestBackupPasswordFailureIsSubstantivelyLocalized(t *testing.T) {
+	cfg := testTokenConfig(t)
+	env, err := loadCLIEnv(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer env.Close()
+	if err := env.Reg.SetRaw(context.Background(), "backup.password", "synthetic-password"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.DB.Exec(`UPDATE settings SET value='corrupt' WHERE key='backup.password'`); err != nil {
+		t.Fatal(err)
+	}
+	for _, lang := range []string{"fa", "en"} {
+		err := runBackup([]string{"create", "--config", cfg, "--lang", lang})
+		if err == nil {
+			t.Fatal("corrupt password accepted")
+		}
+		if lang == "fa" && !strings.Contains(err.Error(), "گذرواژه") {
+			t.Fatalf("Persian safety error is not translated: %v", err)
+		}
+		if lang == "en" && !strings.Contains(err.Error(), "password") {
+			t.Fatal("English safety error missing")
+		}
+	}
+}
 
 func TestBackupMissingFlagValuesDoNotPanic(t *testing.T) {
 	for _, args := range [][]string{{"schedule-add", "--hours"}, {"schedule-add", "--config"}, {"create", "--output"}, {"list", "--config"}, {"telegram-test", "--config"}} {

@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
@@ -61,6 +62,9 @@ func loadOwnerService(path string) (*admin.Service, func(), error) {
 		return nil, nil, err
 	}
 	if err := cfg.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
 		return nil, nil, err
 	}
 	db, err := database.Open(cfg.DatabasePath, database.Options{})

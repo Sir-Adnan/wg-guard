@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,7 +15,7 @@ const RestoreGuardName = "restore.lifecycle-blocked"
 func (s *Service) CheckOpen() error {
 	for _, name := range []string{RestoreGuardName, transactionDir} {
 		if _, err := os.Lstat(filepath.Join(s.Cfg.DataDir, name)); !os.IsNotExist(err) {
-			return fmt.Errorf("backup: offline restore recovery must finish before opening node data")
+			return safetyError("open_blocked", nil)
 		}
 	}
 	return nil
@@ -26,7 +25,7 @@ func (s *Service) CheckOpen() error {
 // original-schema stage. Any drift discards the preview and blocks rollback.
 func (s *Service) StageRecovery(ctx context.Context, path, password, digest string, encrypted bool) (*PendingRestore, *RestoreReport, error) {
 	if !validHash(digest) || recoveryArchiveHash(ctx, path) != digest || fileEncrypted(path) != encrypted {
-		return nil, nil, fmt.Errorf("backup: recovery archive identity could not be verified")
+		return nil, nil, safetyError("archive_identity", nil)
 	}
 	p, r, err := s.StageOriginal(ctx, path, password)
 	if err != nil {
@@ -34,7 +33,7 @@ func (s *Service) StageRecovery(ctx context.Context, path, password, digest stri
 	}
 	if recoveryArchiveHash(ctx, path) != digest || r.Encrypted != encrypted {
 		_ = s.DiscardPreview(p.PreviewID())
-		return nil, nil, fmt.Errorf("backup: recovery archive changed during validation")
+		return nil, nil, safetyError("archive_drift", nil)
 	}
 	return p, r, nil
 }

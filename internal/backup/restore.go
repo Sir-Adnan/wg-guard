@@ -56,7 +56,7 @@ type RestoreReport struct {
 	Interfaces []IfaceSummary
 	HasKey     bool // master key member present
 	Encrypted  bool
-	Warnings   []string
+	Warnings   []Message
 }
 
 // PendingRestore describes a private preview or explicitly approved payload.
@@ -96,7 +96,7 @@ func (s *Service) StageOriginal(ctx context.Context, archivePath, password strin
 func (s *Service) stage(ctx context.Context, archivePath, password string, original bool) (*PendingRestore, *RestoreReport, error) {
 	input, err := os.Lstat(archivePath)
 	if err != nil || !input.Mode().IsRegular() || input.Size() > 8<<30 {
-		return nil, nil, fmt.Errorf("backup: archive must be a bounded regular file")
+		return nil, nil, safetyError("bounded_archive", nil)
 	}
 	f, err := os.Open(archivePath)
 	if err != nil {
@@ -108,7 +108,7 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 		return nil, nil, err
 	}
 	if !st.Mode().IsRegular() || st.Size() > 8<<30 {
-		return nil, nil, fmt.Errorf("backup: archive must be a bounded regular file")
+		return nil, nil, safetyError("bounded_archive", nil)
 	}
 
 	if err := os.MkdirAll(s.Cfg.DataDir, 0700); err != nil {
@@ -143,18 +143,18 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 		AppVersion: manifest.AppVersion,
 		Encrypted:  encrypted,
 		HasKey:     manifest.Files[KeyMember] != "",
-		Warnings:   []string{},
+		Warnings:   []Message{},
 	}
 	if t, err := time.Parse(time.RFC3339, manifest.CreatedAt); err == nil {
 		report.CreatedAt = t
 	}
 	if !report.HasKey {
 		report.Warnings = append(report.Warnings,
-			"archive has no master key: device private keys cannot be decrypted after restore — peers survive but configs must be re-enrolled")
+			warning("restore_key_missing"))
 	}
 	if manifest.Files[ConfigMember] == "" {
 		report.Warnings = append(report.Warnings,
-			"archive has no boot config: TLS mode and listen address stay as configured on this host")
+			warning("restore_config_missing"))
 	} else {
 		configBytes, err := readSmall(filepath.Join(pending, ConfigMember), maxConfigBytes)
 		if err != nil {
@@ -169,7 +169,7 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 	}
 
 	if original && !report.HasKey {
-		return nil, nil, fmt.Errorf("backup: rollback requires the matching archived master key")
+		return nil, nil, safetyError("rollback_key", nil)
 	}
 	pr := &PendingRestore{Dir: pending, Archive: report.Archive, Manifest: *manifest, StagedAt: time.Now().UTC(), Original: original}
 	if err := s.writeStagedMeta(pr, st.Size()); err != nil {
@@ -236,7 +236,7 @@ func (s *Service) prepareStagedDB(ctx context.Context, dir string, report *Resto
 		defer db.Close()
 		var integrity string
 		if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
-			return fmt.Errorf("backup: original database failed integrity check")
+			return safetyError("original_integrity", nil)
 		}
 		report.NodeID = stagedSetting(ctx, db, "node.id")
 		report.Endpoint = stagedSetting(ctx, db, "node.endpoint")

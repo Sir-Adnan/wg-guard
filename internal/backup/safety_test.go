@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"filippo.io/age"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"io"
@@ -19,6 +20,36 @@ import (
 	"testing"
 	"time"
 )
+
+type canceledTelegramTransport struct{}
+
+func (canceledTelegramTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, context.Canceled
+}
+func TestTelegramSafetyLocalizationPreservesCancellation(t *testing.T) {
+	sink := &TelegramSink{Token: "123:synthetic-secret", Chat: "-1001", HTTP: &http.Client{Transport: canceledTelegramTransport{}}}
+	err := sink.TestDelivery(context.Background())
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation cause lost: %v", err)
+	}
+	message := err
+	if !errors.Is(message, context.Canceled) {
+		t.Fatal("keyed error lost cause")
+	}
+	for _, locale := range []i18n.Locale{i18n.Fa, i18n.En} {
+		got := ErrorText(message, locale)
+		if strings.Contains(got, sink.Token) {
+			t.Fatal("localized error leaked token")
+		}
+		want := "transport failed"
+		if locale == i18n.Fa {
+			want = "ناموفق"
+		}
+		if !strings.Contains(got, want) {
+			t.Fatalf("untranslated safety body: %s", got)
+		}
+	}
+}
 
 func TestRestoreRejectsExcessiveScryptWorkBeforeKDF(t *testing.T) {
 	r, err := age.NewScryptRecipient("synthetic-password")
@@ -127,6 +158,9 @@ func TestExplicitSendDeliversSelectedArchiveToNegativeChat(t *testing.T) {
 	}
 	if len(result.Delivered) != 1 || len(result.Warnings) == 0 || requests != 1 {
 		t.Fatal("delivery result or plaintext warning missing")
+	}
+	if !strings.Contains(result.Warnings[0].Localized(i18n.Fa), "اسرار خواندنی") {
+		t.Fatal("service did not retain keyed plaintext warning")
 	}
 	arcs, err := s.List()
 	if err != nil || len(arcs) != 1 {
@@ -246,6 +280,10 @@ func TestTelegramErrorsNeverExposeToken(t *testing.T) {
 		}
 		if strings.Contains(err.Error(), sink.Token) || strings.Contains(err.Error(), "synthetic_secret_only") {
 			t.Fatal("delivery error exposed synthetic credential")
+		}
+		jsonLog, marshalErr := json.Marshal([]Message{warning("telegram_failed", err)})
+		if marshalErr != nil || strings.Contains(string(jsonLog), sink.Token) {
+			t.Fatal("structured warning log leaked transport cause")
 		}
 	}
 }

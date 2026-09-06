@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+func TestRestoreRejectsNoncanonicalLayoutBeforePrepareOrStop(t *testing.T) {
+	for _, field := range []string{"data_dir", "database_path", "master_key_file"} {
+		t.Run(field, func(t *testing.T) {
+			h := installedFixture(t, ModeNative)
+			h.files[ConfigPath] = memFile{data: []byte(field + " = '/outside/restore'\n"), perm: 0600}
+			before := len(h.commands)
+			journalBefore := string(h.files[JournalPath].data)
+			prepared := false
+			err := Restore(context.Background(), h, RestoreOptions{Prepare: func(context.Context, *BackupIdentity) (func(context.Context) error, error) {
+				prepared = true
+				return func(context.Context) error { return nil }, nil
+			}})
+			if err == nil || prepared {
+				t.Fatalf("noncanonical layout reached preparation: %v", err)
+			}
+			if len(h.commands) != before {
+				t.Fatal("service mutation/probe before layout refusal")
+			}
+			if string(h.files[JournalPath].data) != journalBefore {
+				t.Fatal("journal changed on layout refusal")
+			}
+		})
+	}
+}
+
 func TestRestoreCoordinatesBothModes(t *testing.T) {
 	for _, mode := range []Mode{ModeNative, ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {

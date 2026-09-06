@@ -11,6 +11,7 @@
 </div>
 
 {{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
+{{if not .Data.Review}}{{range .Data.Warnings}}<div class="auth-alert auth-alert--err"><span>{{.}}</span></div>{{end}}{{end}}
 
 {{if .Data.Review}}
 <div class="card card--pad mt-4">
@@ -25,7 +26,7 @@
     <dt>{{.T "backups.review_endpoint"}}</dt><dd class="ltr-data">{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</dd>
     {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd class="ltr-data">{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</dd>{{end}}
     {{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd class="ltr-data">{{.Name}} :{{.Port}} {{.Subnet}}</dd>{{end}}
-    {{range .Data.Review.Warnings}}<dt>{{$.T "backups.review_warning"}}</dt><dd>{{.}}</dd>{{end}}
+    {{range .Data.Warnings}}<dt>{{$.T "backups.review_warning"}}</dt><dd>{{.}}</dd>{{end}}
   </div>
   <div class="callout callout--warn mt-4">{{.IconS "alert-triangle"}}<span>{{.T "backups.review_note"}}</span></div>
   <div class="inline-actions mt-4">

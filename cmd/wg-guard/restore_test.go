@@ -113,8 +113,12 @@ func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 			cfg := e.Cfg
 			cfg.HTTPListen = strings.TrimPrefix(ts.URL, "http://")
 			cfg.TLS.Mode = config.TLSModeDev
+			managed := *cfg
+			managed.DataDir = install.DataDir
+			managed.DatabasePath = filepath.Join(install.DataDir, "wg-guard.db")
+			managed.MasterKeyFile = filepath.Join(install.DataDir, "master.key")
 			configCopy := filepath.Join(t.TempDir(), "node.toml")
-			if err := cfg.Save(configCopy); err != nil {
+			if err := managed.Save(configCopy); err != nil {
 				t.Fatal(err)
 			}
 			raw, err := os.ReadFile(configCopy)
@@ -125,7 +129,7 @@ func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 			stateBytes, _ := json.Marshal(state)
 			h := &restoreCLIHost{files: map[string][]byte{install.StatePath: stateBytes, install.ConfigPath: raw, install.ComposePth: []byte("fixture")}}
 			h.afterStart = func() {
-				env, err := loadCLIEnv(configCopy)
+				env, err := loadCLIEnv(cfgPath)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -139,7 +143,7 @@ func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 				t.Fatal("restore routed into a container that it must stop")
 			}
 			var out bytes.Buffer
-			if err := runRestoreWith(ctx, []string{archive.Path, "--password", "--yes"}, strings.NewReader("synthetic-cli-password\n"), &out, h); err != nil {
+			if err := runRestoreWithServiceFactory(ctx, []string{archive.Path, "--password", "--yes"}, strings.NewReader("synthetic-cli-password\n"), &out, h, func(*config.Config) *backup.Service { return &backup.Service{Cfg: cfg, ConfigPath: cfgPath} }); err != nil {
 				t.Fatal(err)
 			}
 			if strings.Contains(out.String(), "synthetic-cli-password") {

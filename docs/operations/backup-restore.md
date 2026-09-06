@@ -83,6 +83,12 @@ a regular private file (0600). Password values never belong in argv. An explicit
 password retains plaintext behavior; unreadable or undecryptable stored password data aborts
 archive creation and delivery, never silently downgrades encryption.
 
+Safety errors and warnings retain catalog identities through the shared engine and are
+translated at the CLI/panel boundary, including the substantive Persian plaintext-secret and
+password-read-failure messages. Completed panel backups with warnings render those warnings
+instead of silently redirecting. Error causes remain available for cancellation handling but
+are excluded from public text and structured warning logs.
+
 ## Restore (panel wizard and CLI share one engine)
 
 Restore is **stage-then-swap — never a live swap** (open WAL handles make in-place replacement
@@ -148,7 +154,16 @@ A failed ordinary managed restore leaves a pending journal and the service stopp
 correcting the error use `restore ARCHIVE --retry` to review and retry it explicitly. Unfinished
 file recovery is resolved first and may require a second invocation after reporting recovery.
 The shared-volume `restore.lifecycle-blocked` guard prevents startup/data commands during a
-coordinated replacement. Do not delete it to bypass the journal. Abandoned private previews
+coordinated replacement. All manual active-data openers (backup/settings/doctor/secrets,
+token, owner bootstrap and reconcile) check both recovery markers in their actual loaded
+configuration's data directory before opening SQLite. Normal serve retains its deliberate
+recovery-before-open path.
+
+Managed restore accepts only `/etc/wg-guard/wg-guard.toml`, `/var/lib/wg-guard`,
+`/var/lib/wg-guard/wg-guard.db` and `/var/lib/wg-guard/master.key`. A redirected data directory,
+database or key path is refused by the shared coordinator before preparation or service stop;
+the lifecycle guard cannot diverge from the data opener's directory.
+Do not delete the guard to bypass the journal. Abandoned private previews
 are never auto-applied; root may remove an exact reviewed `restore.preview-*` directory after
 confirming no restore command is running. Review retained `restore.previous` files before
 deliberate cleanup; they may contain unencrypted keys and WAL data.

@@ -118,7 +118,7 @@ func TestArchiveRoundTripPlain(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = pr
-	if len(applied.Warnings) == 0 || !strings.Contains(applied.Warnings[0], ".restored") {
+	if len(applied.Warnings) == 0 || !strings.Contains(applied.Warnings[0].String(), ".restored") {
 		t.Fatalf("expected archived-config note, got %v", applied.Warnings)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "restore.pending")); !os.IsNotExist(err) {
