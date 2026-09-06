@@ -18,6 +18,17 @@ Exact revisions and sanitized records live in [status.md](status.md) and
 code. These checks do not replace Phase 11's full OS/architecture certification or Phase 12's
 final published-artifact gate.
 
+The repeatable
+[`verify-phase8.1-synthetic-backup.py`](../integrations/fixtures/verify-phase8.1-synthetic-backup.py)
+fixture runs a private fake-backend node beside an installed node without reading or mutating the
+installed deployment. Its local regression suite covers candidate/credential preflight,
+collision refusal, owned child/workspace cleanup and capture redaction. A candidate run covers
+encrypted create/list/retention and schedule CRUD plus an accelerated actual central-scheduler
+tick. Without the explicit private-credential opt-in it records Telegram as **unverified**; even
+with that opt-in it remains synthetic fixture evidence rather than native/Docker or restore
+acceptance. See [backup and restore](../operations/backup-restore.md#isolated-acceptance-helper)
+for the bounded invocation and evidence limits.
+
 During implementation, run focused regressions for the changed risk; run full build/unit/vet
 and relevant race/integration gates at coherent milestones. Prose-only changes do not justify
 repeating unchanged expensive suites. Root/service/data recovery paths need failure injection

@@ -83,6 +83,49 @@ a regular private file (0600). Password values never belong in argv. An explicit
 password retains plaintext behavior; unreadable or undecryptable stored password data aborts
 archive creation and delivery, never silently downgrades encryption.
 
+### Isolated acceptance helper
+
+`docs/integrations/fixtures/verify-phase8.1-synthetic-backup.py` exercises the production CLI and
+the central scheduler against a temporary fake-backend node. It never installs a service, package,
+module or container, never touches tunnels/firewall, and never reads the installed node. Run it on
+Linux with a current-user-owned executable candidate that is not group/other-writable and supply
+its exact hash; the optional result path must not already exist:
+
+```bash
+python3 docs/integrations/fixtures/verify-phase8.1-synthetic-backup.py \
+  --candidate /root/private/wg-guard_linux_amd64 \
+  --expected-sha256 FULL_64_CHARACTER_SHA256 \
+  --result /root/private/synthetic-backup-result.json
+```
+
+That local mode creates three age-encrypted archives, proves keep-two retention and listing,
+performs schedule create/update/list/disable/enable/delete, moves only its owned row into the past,
+waits up to 90 seconds for an actual central-scheduler tick, proves keep-one scheduled retention,
+then stops only its child and removes only its private workspace. The result calls this an
+**accelerated due execution**, not elapsed hours. A pass without credentials explicitly records
+Telegram as unverified.
+
+Real Telegram acceptance is an explicit opt-in. Create an administrator-owned 0600 JSON file
+outside the repository (do not put either value in shell arguments or evidence):
+
+```json
+{"bot_token":"REDACTED","chat_id":"-1001234567890"}
+```
+
+Then add both `--real-telegram` and `--telegram-credentials-file /root/private/telegram.json`.
+The helper creates/retains the local archives before loading Telegram settings, sends the small
+Telegram probe, sends one explicitly selected encrypted archive, and permits one scheduled
+encrypted send: at most two archive sends. It scans bounded captures for its random password and
+Telegram values before writing sanitized evidence. The credential file is preserved for the
+operator; cleanup never removes it. A helper pass is synthetic fixture evidence, not proof of the
+managed native/Docker lifecycle, original-data recovery, public networking, or the dedicated VPS.
+
+Run its safe local regressions with:
+
+```bash
+python3 scripts/test-phase8.1-synthetic-backup.py
+```
+
 Safety errors and warnings retain catalog identities through the shared engine and are
 translated at the CLI/panel boundary, including the substantive Persian plaintext-secret and
 password-read-failure messages. Missing/short archive passwords, failed encryption, wrong
