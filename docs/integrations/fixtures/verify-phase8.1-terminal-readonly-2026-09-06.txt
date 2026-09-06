@@ -1,0 +1,54 @@
+WG-Guard Phase 8.1 — real VPS read-only terminal verification
+Observed: 2026-09-06. Ubuntu 24.04.4 / amd64, existing Phase 7 Docker node.
+This verifies the M4 management/input surface, NOT new installation or lifecycle mutation.
+
+Candidate:
+  Commit: 234f0679318605a01b209e698ba7b6c4eb4b94dd
+  Version: 0.0.0-phase8.1-m4
+  Built from immutable local HEAD using scripts/build-artifacts.sh; copied over trusted SSH.
+  Linux amd64 SHA256: 50cc6590ae405f09b00569b65f57c7227901fb988afe60601695c827b33f857b
+  Linux arm64 SHA256: 981957565d452c7006244e8487e5e0532ac0eb49f5ebc077ba68ae905f03f452
+  Only amd64 was executed; arm64 is build/checksum evidence, not runtime verification.
+
+Harness:
+  verify-phase8.1-m4-terminal-readonly.py
+  Copy the exact candidate and harness into an owned root-private 0700 directory, then run
+  Python 3 with a 150-second outer timeout. The harness rejects a different binary hash;
+  later menu changes require a reviewed fixture update, not blindly replaying numbered actions.
+  Each child owns its PTY/session, a 45-second deadline and a 256KiB capture bound.
+  Runtime captures/results are private; no real credentials are entered, saved or transmitted.
+
+Results: PASS, outer exit0.
+  17 actual Linux PTY cases:
+    en + fa: navigation/back/exit at 48, 80 and 120 columns (6 cases).
+    en + fa: TERM=dumb and NO_COLOR, no ANSI escape output (4 cases).
+    Invalid choice followed by Persian-digit navigation (1 case).
+    Blank rollback confirmation declines; rollback never invoked (1 case).
+    Synthetic hidden token input canceled before saving; actual echo disabled then restored.
+    SIGINT and Ctrl-C while entering a synthetic secret; no secret echoed (3 secret cases).
+    SIGINT and EOF at the ordinary main prompt (2 cases).
+  Terminal attributes restored in all 17 cases; output remained within configured text-cell width.
+  Expected exits: secret cancellation1, ordinary menu/back/EOF/cancellation0.
+  Three nonTTY checks: no arguments exits2/help; explicit manage refuses with exit1; help exits0.
+  No ANSI output in those nonTTY checks.
+
+Preservation independently checked:
+  Before/after settings rows equal (read through SQLite mode=ro/query_only, no values printed).
+  Install-state, journal presence/content, config, compose and installed-host-binary hashes equal.
+  Existing container ID, image ID, start time and running state equal; no restart or replacement.
+  Trusted HTTPS health remains status ok; original awg0 and awg1 remain UP.
+  No package/module/owner/backup/schedule changes, no Telegram message/document sent.
+
+Observations and limits:
+  Existing legacy schema1 install-state has no TLS-readiness/core-bundle fields; overview currently
+  renders those values blank. An explicit unknown/not-recorded label is a final UX-review item.
+  Unicode cell estimates and PTY bytes do not certify visual Persian shaping on every SSH client.
+  This is not execution of the one-command GitHub recipe, fresh owner creation, new ACME issuance,
+  native/systemd or Docker installation, update/rollback/restore, nor actual Telegram delivery.
+  M5 and M6 retain those gates. No public release/tag/registry artifact was published.
+
+Cleanup:
+  Exact owned remote directory was resolved/verified root-owned0700 with only harness files,
+  candidate, captures and result. It was removed after this sanitized record was retained;
+  absence was verified, exit0. No original deployment files or credentials were removed.
+  Local candidate/harness remain in ignored development scratch for reproducibility.

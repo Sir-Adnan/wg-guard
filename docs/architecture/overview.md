@@ -90,3 +90,10 @@ scheduler goroutine (due-heap, no busy loops), one dump per interface per cycle 
 transaction, bounded queues/caches, cursor pagination everywhere, capped SQLite page cache,
 dashboard auto-refresh paused on hidden tabs. Measured by `scripts/bench-idle.sh` and Go
 benchmarks; results recorded in [../development/status.md](../development/status.md).
+
+Archive staging streams database members instead of allocating their declared size. This does
+not eliminate standard age/scrypt's transient crypto cost: the pinned writer uses factor18
+(approximately 256 MiB for the KDF), and the Phase 8.1 reader caps acceptance at that same factor
+before expensive derivation. Idle-process budgets are not peak encrypted-backup/restore budgets.
+Keep this cost and concurrent operation limits in Phase 11 resource certification; see
+[backup limits and recovery](../operations/backup-restore.md).

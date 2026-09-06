@@ -47,16 +47,20 @@ internal/
                          composed into serve in Phase 4)
   webhook/               durable event delivery: events table, recorder (in-txn emit),
                          worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
-  backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6 ✅)
+  backup/                archive builder, bounded private preview/explicit approval, recoverable
+                         database/key pair replacement, optional age password, sinks/schedules
+                         (Phase 6; Phase 8.1 safety and CLI extensions)
   distribution/          bounded GitHub release/commit catalog, verified private acquisition,
                          immutable source build identity and temporary toolchain (Phase 8.1)
   terminal/              single-column fa/en presentation, bounded/cancellable input and actual-FD
                          hidden secrets; no deployment or database business logic (Phase 8.1)
   install/               deployment layer: install plan + wizard, compose/systemd renderers,
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
-                         update/rollback and uninstall, versioned state/artifact contract,
+                         update/rollback, coordinated offline restore and uninstall,
+                         versioned state/artifact contract,
                          Host seam for fault-injection testing (Phase 8.1; VPS gate pending)
-  serve/                 runtime composition: config → DB → secrets → settings → services →
+  serve/                 runtime composition: config → fail-closed pending-restore/recovery gate →
+                         DB → secrets → settings → services →
                          boot → HTTP(S) listener (manual/proxy/dev/ACME) → scheduler;
                          serialized reconciler shared by API + accounting (Phase 4 ✅)
   metrics/               healthz/readyz + optional hand-written /metrics (Phase 4 ✅)

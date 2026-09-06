@@ -1,0 +1,53 @@
+WG-Guard Phase 8.1 — real VPS runtime-image preparation
+Observed: 2026-09-06. Ubuntu 24.04.4 / amd64, Docker 29.7.2.
+This verifies image preparation and isolated executable identity, NOT node deployment.
+
+Inputs:
+  Reviewed source: 234f0679318605a01b209e698ba7b6c4eb4b94dd
+  Candidate version: 0.0.0-phase8.1-m4
+  Candidate amd64 SHA256: 50cc6590ae405f09b00569b65f57c7227901fb988afe60601695c827b33f857b
+  Core bundle: awg-2026-08 (recommended)
+  A small Go driver built from that exact source invokes install.BuildRuntimeImage with
+  the above distribution.Build and a root-private staging directory, with an 18-minute
+  context deadline. It writes a durable JSON result. An outer transient systemd unit has
+  RuntimeMaxSec=1200 and private logs. No application install/start is invoked.
+
+Attempt 1: FAILED CLOSED, exit1.
+  add-apt-repository failed while fetching Launchpad getSigningKeyData: HTTP 504.
+  No successful image identity was returned; the original deployment was unchanged.
+  Read-only inspection of installed softwareproperties/ppa.py confirmed the devel API
+  version; the same signing-key endpoint then returned HTTP 200 (1675 bytes).
+  No repository/signature bypass, alternative key, package-pin change or code fix applied.
+
+Attempt 2: PASS, identical code/input and one bounded retry.
+  Image: sha256:54e0c82ee809f6850952207f6acd1834211b697a1efd7f3fa9b6ac718de28207
+  Actual OCI revision, candidate digest and core-bundle labels matched expected inputs.
+  Image was absent from all five pre-existing image identities recorded before the build.
+  Isolated commands used --rm --network none --read-only --cap-drop ALL and
+  --security-opt no-new-privileges; they did not run serve or mount application data.
+  Actual binary digest matched the candidate SHA256 above.
+  version: wg-guard 0.0.0-phase8.1-m4, commit 234f0679318605a01b209e698ba7b6c4eb4b94dd
+  installer-contract: revision1, data_contract schema7-h-ranges-v1,
+    prerequisites=true, recovery=true, local_owner=true, coordinated_restore=false.
+  awg --version: amneziawg-tools v3.1.20260812 - https://amnezia.org
+  dpkg-query tools version: 1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1
+
+Preservation:
+  Original wg-guard container ID, image ID, start time and running state unchanged.
+  Trusted public HTTPS /healthz returned status ok; original awg0 and awg1 remained UP.
+  Both transient build units collected (not-found/inactive/dead).
+  No host package/module, original application configuration, database or owner mutation.
+
+Limits:
+  The first failure demonstrates an external signing-key service availability dependency.
+  A later successful retry is not a claim of automatic network retry or offline acquisition.
+  This is not clean-host DKMS installation, Docker node installation, health/startup,
+  native installation, ACME issuance, update/rollback/restore or arm64 runtime proof.
+  Coordinated restore belongs to the later M5 candidate, not this M4 image.
+  No public release, tag or registry artifact was published.
+
+Cleanup: PASS, exit0.
+  The exact new image had no container references and was removed by immutable ID.
+  All five pre-existing images remained; shared build cache was not pruned.
+  The exact root-private staging directory was resolved, ownership/mode and every file
+  inspected, then removed. Absence verified; no original deployment artifact removed.

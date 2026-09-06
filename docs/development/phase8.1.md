@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M4 reviewed, M5 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M4 reviewed, M5 implemented under review**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -178,5 +178,31 @@ provenance and documentation and requests explicit approval before public public
 - Two minor M4 review items remain for M6 final review: show customized pool/MTU/DNS in the final
   setup review, and make recovery hints operation-specific (restart journals need restart retry,
   not update recovery). They do not waive the final product-quality gate.
-- M5 starts next: complete backup/schedule/Telegram management, bounded staged restore and
-  coordinated original-schema/database/master-key recovery. No new REST contract changed in M4.
+- M5 (`281b607`) implements complete backup/schedule/Telegram management, streaming private
+  restore preview/explicit approval and recoverable database/master-key replacement. Shared
+  host-side restoration coordinates stop/apply/start in both modes; original-schema recovery
+  verifies the journal's archive and retained artifact before old-code startup. Full test/build/
+  vet, scoped Linux race/integration and bootstrap fixture gates pass; independent review is
+  pending. Actual VPS lifecycle, Telegram delivery and scheduler-tick acceptance remain M6.
+  No REST route/wire representation changed; internal web restore forms carry preview identity.
+- M5 also closes implementation gaps found during execution: secret-read failure cannot
+  downgrade encryption, Telegram transport errors do not echo credential URLs, same-second
+  archives have unique names, and excessive age/scrypt work factors are refused before costly
+  derivation. The existing factor18 crypto cost (~256 MiB transient) is documented. These are
+  automated implementation results, not a completed phase or VPS recovery claim.
+- M4 implementation/status revision `99b9338`
+  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003509985).
+  Closing-review revision `234f067` also
+  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003707951).
+- Real read-only management/input verification on candidate `234f067` passed 17 Linux PTY
+  cases and three nonTTY checks; original settings, deployment identity and trusted HTTPS health
+  were preserved ([sanitized evidence](../integrations/fixtures/verify-phase8.1-terminal-readonly-2026-09-06.txt)).
+  This does not certify new installation, lifecycle mutation or universal Persian client shaping.
+  Legacy install-state displays missing TLS/core fields as blank; final UX review should use an
+  explicit unknown/not-recorded state. The bounded exact-candidate harness is retained with the evidence.
+- Real runtime-image preparation on `234f067` passed after one identical bounded retry of an
+  external Launchpad signing-key API 504. Actual image labels, binary digest, installer contract
+  and pinned AWG tools/package were verified in network-isolated, read-only containers;
+  original deployment and interfaces remained unchanged. Only the exact owned probe image and
+  private staging directory were removed. [Evidence and limits](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt).
+  This verifies image preparation, not node installation, clean-host DKMS provisioning or ACME.

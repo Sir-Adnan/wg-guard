@@ -183,21 +183,21 @@ helpers/tests as needed; i18n catalogs; `docs/operations/backup-restore.md`.
 **Interfaces:** preserve .wgg format and existing service methods; extend CLI schedule CRUD and
 manual Telegram send using existing delivery engine. Existing scheduler remains sole owner.
 
-- [ ] Reproduce missing-flag panic and unbounded stdin; add service/CLI tests for negative chat
+- [x] Reproduce missing-flag panic and unbounded stdin; add service/CLI tests for negative chat
   IDs, every-N-hours/equivalent days, enable/disable/delete/list, explicit archive send, secrets
   absent from argv/output, safe EOF and no scheduler duplication.
   Include real net/http URL-error redaction and token echoes in Telegram response descriptions.
   Also reproduce stored backup-password read/decryption failure: an explicitly unset password
   may retain the documented plaintext default, but a failed secret read must abort before archive
   creation/delivery instead of silently downgrading encryption (AUD-034).
-- [ ] Implement coherent backup CLI/manager forms and flags, all bounded and validated. Ensure
+- [x] Implement coherent backup CLI/manager forms and flags, all bounded and validated. Ensure
   schedule/settings changes are observed by running service (cache invalidation or documented
   managed restart), show timezone/retention/next run. Warn appropriately for unencrypted off-host
   backups and show delivery result without token/backup content.
-- [ ] Replace archive member-sized allocations with streaming stage writes plus member/total
+- [x] Replace archive member-sized allocations with streaming stage writes plus member/total
   decompressed-size limits and bounded small metadata/key reads. Test oversized/truncated/duplicate/
   traversal/symlink/invalid-manifest archives and no active-data mutation before validated swap.
-- [ ] Verify coordinated service stop/restore/start in both deployment modes and clearly separate
+- [x] Verify coordinated service stop/restore/start in both deployment modes and clearly separate
   configuration review from automatic application; old data remains recoverable on failure.
   Require complete valid staged hash metadata; atomically recover database/key as a coherent
   pair on partial replacement failure. Preview/confirmation must not expose an unapproved
@@ -207,7 +207,11 @@ manual Telegram send using existing delivery engine. Existing scheduler remains 
   and restore the original database schema/key pair before starting old code; normal forward-
   migrating restore is not a substitute for rollback recovery. Encrypted archives require protected
   password input. Unknown or unverifiable archive/artifact identity must keep recovery blocked.
-- [ ] Run real SQLite/archive/Telegram HTTP-fixture tests + full suite/build, docs and commit.
+- [x] Run real SQLite/archive/Telegram HTTP-fixture tests + full suite/build, docs and commit.
+
+M5 implementation: `281b607`; independent task review pending. Both-mode tests above use
+Host/service-manager boundaries with real SQLite/archive bytes, not actual VPS deployments.
+M6 retains live lifecycle, Telegram delivery and production scheduler-tick acceptance.
 
 ### Task 6: Real-host integration, documentation and delivery (M6)
 
