@@ -79,6 +79,9 @@ Read [terminal navigation and automation](docs/operations/terminal-management.md
 [deployment](docs/operations/deployment.md), and [lifecycle recovery limits](docs/operations/lifecycle-recovery.md)
 before unattended changes. Full new Docker/native installation and recovery verification remains
 the active Phase 8.1 gate; earlier Phase 7 evidence does not certify the redesigned installer.
+The [exact GitHub management rerun](docs/integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt)
+and [isolated real Telegram/scheduler acceptance](docs/integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt)
+have passed without changing the existing test node.
 
 ## Documentation
 

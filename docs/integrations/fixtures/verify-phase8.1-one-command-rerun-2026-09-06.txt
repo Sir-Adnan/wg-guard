@@ -1,0 +1,26 @@
+WG-Guard Phase8.1 — exact documented one-command installed-node rerun
+Date: 2026-09-06 UTC
+Host: dedicated Ubuntu24.04 amd64 VPS; original Phase7 Docker deployment retained
+Source: 53f55e261f0cdeadfa128eb232fb8731e4719bc7 (pushed development revision)
+
+Executed the bash -c recipe from docs/operations/github-install.md in a real80-column PTY,
+with the reviewed full SHA as its only source argument and --lang en. Bootstrap downloaded
+from GitHub, acquired/built its selected source, dispatched management and accepted exit0.
+No install/update/backup/restart action was selected or confirmed.
+
+Result: PASS, exit0, 75.4seconds
+Full selected SHA appeared in captured output.
+Original settings rows and config/state/journal/host-binary hashes unchanged.
+Original container ID/image/start time unchanged.
+Terminal attributes restored after exit.
+System Go remained go1.22.2 linux/amd64 (temporary build compiler, no global upgrade).
+Trusted original HTTPS /healthz returned status ok after the probe.
+Private capture1907bytes; no raw configuration, credential or archive contents in this record.
+
+Limits: this proves the exact one-command installed-node rerun, not fresh installation,
+published-release installation, active update/rollback or ARM64 execution.
+CI on this probe's revision is separate: stable-Go failed a100ms TLS diagnostic test before obtaining a
+certificate cause; distribution cancellation fix passed. No green-CI claim is made here.
+
+Cleanup: transient unit inactive; removed only the three exact owned probe/capture/result
+files and their now-empty private directory. Absence verified; original deployment untouched.

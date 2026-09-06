@@ -126,8 +126,8 @@ provenance and documentation and requests explicit approval before public public
 - Read-only dedicated-VPS baseline:
   [sanitized record](../integrations/fixtures/verify-phase8.1-baseline-2026-09-05.txt).
   Existing Docker node, two AWG interfaces and valid cached certificate must be preserved.
-- New integrated real-host verification: pending. A dedicated Telegram bot/chat was supplied;
-  credential and chat reachability checks passed, while actual new-code backup delivery is pending.
+- Managed lifecycle real-host verification remains pending. A dedicated Telegram bot/chat was
+  supplied; isolated real delivery and central-scheduler acceptance subsequently passed below.
 - Acquisition-only VPS probe of `5ec46e0`: bootstrap checksum matched and dependency downloads
   started, but the SSH connection did not deliver a final result. Build success is **unverified**;
   the owned remote temporary directory was cleaned, original HTTPS health remained good, and
@@ -208,8 +208,8 @@ provenance and documentation and requests explicit approval before public public
   mismatch. Minimum-Go tests, both architecture builds and vulnerability checks passed.
   Correction `f47d92c` checks cancellation after response/file cleanup; a deterministic body
   fixture reproduces canceled clean EOF before the fix. Focused repeated/race and full local
-  test/build/vet gates pass. Scoped review and the next exact-head CI remain pending; the
-  older green run does not cover this failure.
+  test/build/vet gates pass. Scoped review closed with no findings. The subsequent `53f55e2`
+  CI run passed distribution but failed a separate TLS diagnostic test, corrected below.
 - M4 implementation/status revision `99b9338`
   [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003509985).
   Closing-review revision `234f067` also
@@ -226,3 +226,25 @@ provenance and documentation and requests explicit approval before public public
   original deployment and interfaces remained unchanged. Only the exact owned probe image and
   private staging directory were removed. [Evidence and limits](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt).
   This verifies image preparation, not node installation, clean-host DKMS provisioning or ACME.
+- Exact documented one-command installed-node rerun on `53f55e2` passed in 75.4 seconds:
+  GitHub acquisition/build opened management in a real PTY, exit was selected, and original
+  settings/config/state/binary/container identity remained unchanged. Terminal attributes and
+  original trusted HTTPS health were verified afterward; owned probe files were removed.
+  [Evidence and limits](../integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt).
+- `53f55e2` [CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34007605722) passed minimum-Go,
+  both builds and vulnerability checks; stable-Go race failed
+  `TestWaitCertificatePreservesLastHandshakeCause` before any classified certificate error
+  was observed within its 100ms test window. Correction `0911250` separates the actual TLS
+  error from deterministic wait-loop cancellation; it proves retained certificate/context
+  causes without that timing assumption. Focused Linux race and full test/build/vet pass;
+  scoped review closed with no findings and exact revision `0911250`
+  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34008831152).
+  Production TLS trust, hostname checks, deadlines and diagnostics are unchanged.
+- Real isolated backup/scheduler/Telegram acceptance on candidate `53f55e2` passed using
+  helper `6470928`: three encrypted manual archives, count retention, UTC schedule CRUD and
+  an actual production scheduler tick after advancing only the owned test row's due time.
+  The API accepted the connectivity probe and exactly two encrypted synthetic archive sends.
+  Child/workspace cleanup passed; an independent snapshot proved original settings, files,
+  container identity/start and AWG configurations unchanged.
+  [Evidence and limits](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt).
+  Native/Docker lifecycle, coordinated recovery and fresh ACME remain distinct pending gates.

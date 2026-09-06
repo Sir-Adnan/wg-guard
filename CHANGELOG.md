@@ -39,20 +39,22 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   archive names remain unique within one second and age work-factor acceptance is bounded.
   Automated full/scoped Linux/HTTP tests pass; independent review closed after all manual
   database openers, canonical managed paths and keyed fa/en crypto safety boundaries were fixed.
-  Real-VPS acceptance remains pending. No new REST API, scheduler or dependency was added.
+  Real isolated VPS acceptance passed encrypted retention, schedule CRUD, an accelerated due
+  execution by the production scheduler and two real Telegram archive sends. Managed native/
+  Docker restore certification remains pending. No new REST API, scheduler or dependency was added.
 - **Bilingual terminal lifecycle management (M4):** streaming width-aware setup/management,
   bounded cancellable input, actual-terminal-FD hidden secrets, explicit source/impact review,
   and locked service restart. Re-running the default interactive GitHub bootstrap opens existing
   management without reinstalling. Local owner provisioning now precedes listener startup;
   atomic shared owner creation prevents concurrent first-owner claims and preserves existing
   credentials. Automated/PTY tests pass and independent task review closed; integrated VPS
-  verification remains pending. Backup/Telegram/schedule and coordinated restore completion follow in M5.
+  verification remains pending. Backup/Telegram/schedule and coordinated restore are implemented in M5.
 - **Recoverable lifecycle transactions (M3):** exclusive Linux lock, durable private state and
   operation journal, immutable previous artifacts, source-aware install/update, mandatory remote
   fetch semantics, same-data-contract rollback, safe removal targets, and catalog-only core
   maintenance. Unproven data compatibility retains a visible restore-required state instead of
   starting old code. Automated tests and independent review pass; VPS certification remains pending.
-  Local first-owner provisioning is implemented in M4; coordinated cross-contract restore follows in M5.
+  Local first-owner provisioning is implemented in M4; coordinated cross-contract restore in M5.
 - **Installer prerequisite and core checks:** Ubuntu 24.04 package preparation, explicit manual
   routes on other Linux systems, pinned compatible AWG catalog, loaded/disk build-identity
   reporting, immutable runtime-image preparation and retryable trusted TLS readiness. Explicit

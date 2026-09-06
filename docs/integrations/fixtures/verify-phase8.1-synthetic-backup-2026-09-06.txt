@@ -1,0 +1,34 @@
+WG-Guard Phase8.1 — real Telegram and central-scheduler acceptance
+Date: 2026-09-06 UTC, dedicated Ubuntu24.04 amd64 VPS
+Candidate: 53f55e261f0cdeadfa128eb232fb8731e4719bc7
+Candidate SHA256: 36571fcf3a15186b7c98ad84edc0a82c4e35415bec6b252608be8e0229cddb70
+Helper revision: 647092805f72512b9f523973a50c48bd3f1c2788
+Helper SHA256: 44048902c57395b22344a571e6dec11f9d1dc77080909f40621cedd6fa244e5e
+
+PASS: real candidate ran a separate loopback-only, fake-backend synthetic node.
+Its database, master key, random archive password and configuration were newly generated.
+No original deployment archive or key was sent to Telegram.
+
+Three manual encrypted backups created; count retention kept two, mode0600 and age headers
+verified. CLI added/updated/listed/enabled/disabled/deleted the owned schedule, including
+hours-to-days conversion and UTC display/storage. Only its next_run_at was moved into the past;
+the actual production central scheduler executed it on its normal minute tick, recorded status
+ok and enforced count retention1. This is accelerated due execution, not elapsed-hours proof.
+
+Telegram API accepted the product connectivity probe and exactly two encrypted archive sends:
+the explicitly selected manual archive and the scheduler-created archive. No delivery from
+the original node is claimed. The accompanying JSON records sanitized archive hashes/sizes.
+
+The helper stopped its child, scanned bounded captures for private values and removed its
+owned synthetic workspace. Transient unit is inactive. Controller's independent before/after
+comparison: original settings rows, config/state/journal/host-binary hashes, original container
+ID/image/start/running and awg0/awg1 configuration hashes were identical.
+
+Controller removed both exact temporary credential files after acceptance and verified their
+absence; the now-empty initial credential directory was also removed. Synthetic workspace
+passwords/keys/archives were already removed by the helper. This is normal deletion, not a
+claim of secure media erasure; it does not revoke the bot token or delete the sent messages.
+
+Limits: fake backend deliberately does not exercise VPN traffic, native/systemd installation,
+Docker lifecycle, managed restore/rollback, fresh ACME, other OS or arm64 runtime. Those have
+separate M6/Phase11 gates. Bot credentials and raw archives are absent from this evidence.

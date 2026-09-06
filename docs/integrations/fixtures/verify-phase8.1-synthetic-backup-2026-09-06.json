@@ -1,0 +1,60 @@
+{
+  "candidate_sha256": "36571fcf3a15186b7c98ad84edc0a82c4e35415bec6b252608be8e0229cddb70",
+  "candidate_version": "wg-guard 0.0.0-phase8.1-m6 (commit 53f55e261f0cdeadfa128eb232fb8731e4719bc7, built unknown, linux/amd64)",
+  "cleanup": {
+    "credential_file_preserved": true,
+    "owned_child_stopped": true,
+    "owned_workspace_removed": true
+  },
+  "isolation": {
+    "backend": "fake",
+    "host_install_changes": false,
+    "original_deployment_read": false
+  },
+  "listen": "loopback-ephemeral",
+  "manual_backups": {
+    "archives": [
+      {
+        "encrypted": true,
+        "mode": "0600",
+        "name": "wg-guard-20260906-035229-caa028b7f806a137.wgg",
+        "sha256": "21b19aedd6c108977fab10965ca7b1beddaaeb3536b737542dd16676deb7455a",
+        "size": 9170
+      },
+      {
+        "encrypted": true,
+        "mode": "0600",
+        "name": "wg-guard-20260906-035230-7d0d8d8ae289f60f.wgg",
+        "sha256": "3e3af6a70c0f64ab246a6d73bdb61be24b61a6a3c3663fb78364d272c116e579",
+        "size": 9241
+      }
+    ],
+    "created": 3,
+    "retained": 2,
+    "retention_count": 2
+  },
+  "ok": true,
+  "schedule": {
+    "accelerated_due_execution": true,
+    "archive": {
+      "encrypted": true,
+      "mode": "0600",
+      "name": "wg-guard-20260906-035327-ea44c8ee23f08f49.wgg",
+      "sha256": "b5270c8caa459e1dcdbde0ac9dfee2fc1966c07f3ee0abaaf9991fedfe89a74e",
+      "size": 9781
+    },
+    "crud": true,
+    "elapsed_hours_claimed": false,
+    "last_status": "ok",
+    "retention_count": 1,
+    "utc_display_and_storage": true
+  },
+  "telegram": {
+    "encrypted_archive_sends": 2,
+    "probe_delivered": true,
+    "requested": true,
+    "scheduled_archive_delivered": true,
+    "selected_archive_delivered": true,
+    "verified": true
+  }
+}

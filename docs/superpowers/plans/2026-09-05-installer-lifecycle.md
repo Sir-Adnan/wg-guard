@@ -220,7 +220,7 @@ M6 retains live lifecycle, Telegram delivery and production scheduler-tick accep
 README, CLI/deployment/runbook/security docs, architecture map, testing/status, phase8.1 and
 release-readiness; AGENTS references only if needed; CI candidate artifacts/bootstrap checks.
 
-- [ ] Audit dedicated VPS read-only first; record kernel/OS/arch/tools/Docker/service/ports and
+- [x] Audit dedicated VPS read-only first; record kernel/OS/arch/tools/Docker/service/ports and
   preserve pre-existing node data. Use existing SSH trust; never commit credential material.
 - [ ] Build exact candidate and exercise bootstrap/source identity, new install, ACME certificate,
   AWG readiness and config traffic smoke, Docker/native update/rollback/failed update recovery,
@@ -235,3 +235,9 @@ release-readiness; AGENTS references only if needed; CI candidate artifacts/boot
 - [ ] Produce concise Persian handoff with features, exact test/host evidence, commits/CI and
   genuine limits (e.g. no public release or Telegram credentials); mark phase complete only if
   its implemented gates are actually satisfied, otherwise name the remaining gate precisely.
+
+M6 partial evidence (2026-09-06): exact documented GitHub rerun and original-node preservation
+passed; the isolated fake-backend synthetic node passed encrypted backup retention, UTC schedule
+CRUD, real accelerated-due production scheduler execution and two encrypted Telegram archive
+sends. Temporary credentials were removed. Managed native/Docker lifecycle, fresh ACME and
+coordinated original-schema recovery are still pending; do not check those gates from this proof.

@@ -46,6 +46,8 @@ automated failure tests, terminal QA, and Docker/native lifecycle evidence on th
 Detailed gate: [docs/development/phase8.1.md](docs/development/phase8.1.md).
 M1–M5 implementation reviews are closed. M6 integrated acceptance and final review remain;
 this does not mark Phase 8.1 complete or certify the latest CI revision.
+M6 has verified the exact GitHub management rerun and isolated real encrypted Telegram delivery/
+central-scheduler execution. Managed Docker/native lifecycle and fresh TLS issuance remain gates.
 
 ### Phase 9 — Operational observability
 
