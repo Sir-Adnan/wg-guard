@@ -29,7 +29,7 @@ type tarReader struct {
 func newTarReader(r io.Reader) (*tarReader, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("backup: gzip: %w", err)
+		return nil, safetyError("archive_invalid", err)
 	}
 	return &tarReader{tar: tar.NewReader(gz), gz: gz}, nil
 }

@@ -2,6 +2,26 @@ package i18n
 
 func init() {
 	for key, value := range map[string]string{
+		"password_required": "backup: archive is password-protected; a password is required",
+		"archive_invalid":   "backup: archive container is invalid or incomplete",
+		"password_short":    "backup: password must be at least %d characters",
+		"decrypt_failed":    "backup: archive could not be decrypted; check the password and encrypted file integrity",
+		"encrypt_failed":    "backup: password-protected archive could not be encrypted",
+		"scrypt_limit":      "backup: scrypt work factor too large; maximum supported factor is %d",
+	} {
+		catalogs[En]["backup.safety."+key] = value
+	}
+	for key, value := range map[string]string{
+		"password_required": "آرشیو با گذرواژه محافظت شده است؛ گذرواژه لازم است",
+		"archive_invalid":   "محفظه آرشیو نامعتبر یا ناقص است",
+		"password_short":    "گذرواژه پشتیبان باید دست‌کم %d کاراکتر باشد",
+		"decrypt_failed":    "رمزگشایی آرشیو ممکن نشد؛ گذرواژه و یکپارچگی فایل رمزگذاری‌شده را بررسی کنید",
+		"encrypt_failed":    "رمزگذاری آرشیو محافظت‌شده با گذرواژه ممکن نشد",
+		"scrypt_limit":      "ضریب محاسباتی scrypt بیش از حد مجاز است؛ بیشترین ضریب پشتیبانی‌شده %d است",
+	} {
+		catalogs[Fa]["backup.safety."+key] = value
+	}
+	for key, value := range map[string]string{
 		"backup.safety.password_read":                "backup: stored password could not be read; archive creation aborted",
 		"backup.safety.telegram_credentials":         "backup: Telegram credentials could not be read",
 		"backup.safety.telegram_unset":               "backup: Telegram is not configured",

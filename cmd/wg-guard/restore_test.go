@@ -85,6 +85,60 @@ func (h *restoreCLIHost) Output(_ context.Context, args []string, _ time.Duratio
 	return "", nil
 }
 
+func TestRestoreCryptoFailuresLocalizedBeforeServiceMutation(t *testing.T) {
+	cfgPath := testTokenConfig(t)
+	env, err := loadCLIEnv(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer env.Close()
+	svc := env.newBackupService()
+	archive, err := svc.Create(context.Background(), backup.CreateOpts{Password: "synthetic-cli-password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := filepath.Join(t.TempDir(), "invalid.wgg")
+	if err := os.WriteFile(invalid, []byte("age-encryption.org/v1\nsynthetic-sensitive-invalid-header\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	st := install.State{Schema: 1, Mode: install.ModeNative, ConfigPath: install.ConfigPath, DataDir: install.DataDir, BinPath: install.BinPath, UnitPath: install.UnitPath, ComposePath: install.ComposePth}
+	state, _ := json.Marshal(st)
+	for _, locale := range []string{"fa", "en"} {
+		for _, kind := range []string{"missing", "wrong", "invalid"} {
+			t.Run(locale+"/"+kind, func(t *testing.T) {
+				h := &restoreCLIHost{files: map[string][]byte{install.StatePath: state, install.ConfigPath: []byte("")}}
+				args := []string{archive.Path, "--lang", locale, "--yes"}
+				input := ""
+				if kind != "missing" {
+					args = append(args, "--password")
+					input = "wrong-password\n"
+				}
+				if kind == "invalid" {
+					args[0] = invalid
+				}
+				var out bytes.Buffer
+				err := runRestoreWithServiceFactory(context.Background(), args, strings.NewReader(input), &out, h, func(*config.Config) *backup.Service { return svc })
+				want := "password"
+				if locale == "fa" {
+					want = "گذرواژه"
+				}
+				if err == nil || !strings.Contains(err.Error(), want) {
+					t.Fatalf("untranslated restore crypto error: %v", err)
+				}
+				if strings.Contains(err.Error(), "synthetic-sensitive") || strings.Contains(err.Error(), "wrong-password") {
+					t.Fatal("secret/header echoed")
+				}
+				if len(h.commands) != 0 {
+					t.Fatal("service mutated on crypto refusal")
+				}
+				if _, ok := h.files[install.JournalPath]; ok {
+					t.Fatal("restore journal written before crypto refusal")
+				}
+			})
+		}
+	}
+}
+
 func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 	for _, mode := range []install.Mode{install.ModeNative, install.ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {

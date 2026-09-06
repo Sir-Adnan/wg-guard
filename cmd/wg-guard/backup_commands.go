@@ -133,8 +133,10 @@ func runBackup(args []string) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	if (o.password || o.passwordFile != "") && len(password) < 8 {
-		return fmt.Errorf("%s", printer.text("password"))
+	if o.password || o.passwordFile != "" {
+		if err := backup.ValidatePassword(password); err != nil {
+			return err
+		}
 	}
 	env, err := loadCLIEnv(o.config)
 	if err != nil {

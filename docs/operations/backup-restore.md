@@ -85,7 +85,11 @@ archive creation and delivery, never silently downgrades encryption.
 
 Safety errors and warnings retain catalog identities through the shared engine and are
 translated at the CLI/panel boundary, including the substantive Persian plaintext-secret and
-password-read-failure messages. Completed panel backups with warnings render those warnings
+password-read-failure messages. Missing/short archive passwords, failed encryption, wrong
+passwords and malformed/damaged age input also use keyed fa/en messages. Low-level parser
+details are not echoed; sentinel/cancellation causes remain available internally. Excessive
+scrypt work factors retain their specific pre-KDF refusal rather than a generic password error.
+Completed panel backups with warnings render those warnings
 instead of silently redirecting. Error causes remain available for cancellation handling but
 are excluded from public text and structured warning logs.
 

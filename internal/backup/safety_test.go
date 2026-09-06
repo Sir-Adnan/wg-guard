@@ -73,6 +73,136 @@ func TestRestoreRejectsExcessiveScryptWorkBeforeKDF(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "work factor too large") {
 		t.Fatalf("expected pre-KDF work-factor refusal, got %v", err)
 	}
+	if !errors.Is(err, errScryptWorkFactor) || !strings.Contains(ErrorText(err, i18n.Fa), "بیش از حد مجاز") {
+		t.Fatal("specific localized work-factor refusal lost")
+	}
+}
+
+type cryptoFailureReader struct{ err error }
+
+func (r cryptoFailureReader) Read([]byte) (int, error) { return 0, r.err }
+
+type cryptoFailureWriter struct{ err error }
+
+func (w cryptoFailureWriter) Write([]byte) (int, error) { return 0, w.err }
+func (w cryptoFailureWriter) Close() error              { return w.err }
+
+func TestArchiveCryptoCancellationAndStreamCauses(t *testing.T) {
+	_, err := ageDecrypt(cryptoFailureReader{context.Canceled}, "synthetic-password")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("decrypt cancellation cause lost: %v", err)
+	}
+	_, err = decryptedReader{cryptoFailureReader{context.Canceled}}.Read(make([]byte, 1))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatal("payload cancellation cause lost")
+	}
+	w := encryptedWriter{cryptoFailureWriter{context.Canceled}}
+	_, err = w.Write([]byte("synthetic-body"))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatal("write cause lost")
+	}
+	if !errors.Is(w.Close(), context.Canceled) {
+		t.Fatal("close cause lost")
+	}
+}
+
+func TestArchiveCryptoErrorsLocalizedAndKeepCauses(t *testing.T) {
+	recipient, err := age.NewScryptRecipient("synthetic-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	recipient.SetWorkFactor(1)
+	var b bytes.Buffer
+	w, err := age.Encrypt(&b, recipient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("synthetic-body")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name string
+		run  func() error
+		want string
+	}{
+		{"missing", func() error { _, e := ageDecrypt(bytes.NewReader(b.Bytes()), ""); return e }, "password_required"},
+		{"short", func() error { _, e := ageEncrypt(io.Discard, "short"); return e }, "password_short"},
+		{"wrong", func() error { _, e := ageDecrypt(bytes.NewReader(b.Bytes()), "wrong-password"); return e }, "decrypt_failed"},
+		{"invalid", func() error {
+			_, e := ageDecrypt(strings.NewReader("age-encryption.org/v1\nsynthetic-sensitive-malformed\n"), "synthetic-password")
+			return e
+		}, "decrypt_failed"},
+		{"truncated-payload", func() error {
+			r, e := ageDecrypt(bytes.NewReader(b.Bytes()[:b.Len()-5]), "synthetic-password")
+			if e != nil {
+				return e
+			}
+			_, e = io.Copy(io.Discard, r)
+			return e
+		}, "decrypt_failed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := tc.run()
+			if e == nil {
+				t.Fatal("expected crypto failure")
+			}
+			var m Message
+			if !errors.As(e, &m) || m.Key != tc.want {
+				t.Fatalf("unkeyed crypto safety error: %v", e)
+			}
+			if tc.name == "missing" && !errors.Is(e, errPasswordRequired) {
+				t.Fatal("missing-password sentinel lost")
+			}
+			if tc.name == "wrong" {
+				var noMatch *age.NoIdentityMatchError
+				if !errors.As(e, &noMatch) {
+					t.Fatal("age wrong-identity cause lost")
+				}
+			}
+			for _, locale := range []i18n.Locale{i18n.En, i18n.Fa} {
+				got := ErrorText(e, locale)
+				want := "password"
+				if locale == i18n.Fa {
+					want = "گذرواژه"
+				}
+				if !strings.Contains(got, want) || strings.Contains(got, "synthetic-sensitive") {
+					t.Fatalf("unsafe/untranslated crypto message: %s", got)
+				}
+			}
+		})
+	}
+	// An age file can decrypt correctly yet contain something other than .wgg
+	// gzip data; the surrounding archive boundary must stay localized too.
+	for _, raw := range [][]byte{[]byte("age"), b.Bytes()} {
+		_, e := openArchive(bytes.NewReader(raw), "synthetic-password")
+		var m Message
+		if !errors.As(e, &m) || m.Key != "archive_invalid" {
+			t.Fatalf("unkeyed invalid encrypted container: %v", e)
+		}
+		if !strings.Contains(ErrorText(e, i18n.Fa), "آرشیو") {
+			t.Fatal("invalid container not translated")
+		}
+	}
+}
+
+func TestCreateShortPasswordUsesKeyedSafetyValidation(t *testing.T) {
+	s, _ := newService(t)
+	_, err := s.Create(context.Background(), CreateOpts{Password: "short"})
+	var message Message
+	if !errors.As(err, &message) || message.Key != "password_short" {
+		t.Fatalf("service short password error unkeyed: %v", err)
+	}
+	if !strings.Contains(ErrorText(err, i18n.Fa), "گذرواژه") {
+		t.Fatal("service short password not translated")
+	}
+	archives, listErr := s.List()
+	if listErr != nil || len(archives) != 0 {
+		t.Fatal("archive created after short password refusal")
+	}
 }
 
 func TestPasswordReadFailureNeverCreatesPlaintext(t *testing.T) {

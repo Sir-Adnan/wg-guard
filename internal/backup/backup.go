@@ -127,8 +127,10 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 			return nil, domain.Wrap(safetyError("password_read", err), domain.CodeInternal, "backup")
 		}
 	}
-	if password != "" && len(password) < 8 {
-		return nil, domain.E(domain.CodeSettingInvalid, "backup password must be at least 8 characters")
+	if password != "" {
+		if err := ValidatePassword(password); err != nil {
+			return nil, domain.Wrap(err, domain.CodeSettingInvalid, "backup")
+		}
 	}
 
 	dir := opts.Dir

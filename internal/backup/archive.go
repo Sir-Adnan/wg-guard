@@ -2,10 +2,12 @@ package backup
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,33 +20,96 @@ const ageMagic = "age-en"
 // ageMinPassword mirrors the product rule: setting or overriding the backup
 // password with fewer than 8 characters is rejected.
 const ageMinPassword = 8
+const maxScryptWorkFactor = 18
+
+// ValidatePassword checks an explicit archive password; an unset stored
+// password remains the separately documented plaintext choice in Create.
+func ValidatePassword(password string) error {
+	if len(password) < ageMinPassword {
+		return safetyError("password_short", nil, ageMinPassword)
+	}
+	return nil
+}
 
 // ageEncrypt wraps w in an age v1 stream using the scrypt passphrase
 // recipient (ADR-0008: a standard format, no custom cryptography).
 func ageEncrypt(w io.Writer, password string) (io.WriteCloser, error) {
-	if len(password) < ageMinPassword {
-		return nil, fmt.Errorf("backup: password must be at least %d characters", ageMinPassword)
+	if err := ValidatePassword(password); err != nil {
+		return nil, err
 	}
 	recipient, err := age.NewScryptRecipient(password)
 	if err != nil {
-		return nil, err
+		return nil, safetyError("encrypt_failed", err)
 	}
-	return age.Encrypt(w, recipient)
+	writer, err := age.Encrypt(w, recipient)
+	if err != nil {
+		return nil, safetyError("encrypt_failed", err)
+	}
+	return encryptedWriter{writer}, nil
 }
 
 // ageDecrypt wraps r in an age v1 reader using the passphrase identity.
 func ageDecrypt(r io.Reader, password string) (io.Reader, error) {
 	if password == "" {
-		return nil, errPasswordRequired
+		return nil, safetyError("password_required", errPasswordRequired)
 	}
 	id, err := age.NewScryptIdentity(password)
 	if err != nil {
-		return nil, err
+		return nil, safetyError("decrypt_failed", err)
 	}
 	// Match our pinned writer's default without allowing attacker-selected
 	// factors up to age's default maximum (22, approximately 4 GiB).
-	id.SetMaxWorkFactor(18)
-	return age.Decrypt(r, id)
+	id.SetMaxWorkFactor(maxScryptWorkFactor)
+	reader, err := age.Decrypt(r, cappedScryptIdentity{id})
+	if errors.Is(err, errScryptWorkFactor) {
+		return nil, safetyError("scrypt_limit", err, maxScryptWorkFactor)
+	}
+	if err != nil {
+		return nil, safetyError("decrypt_failed", err)
+	}
+	return decryptedReader{reader}, nil
+}
+
+var errScryptWorkFactor = errors.New("scrypt work factor too large")
+
+// age exposes parsed recipient stanzas but no typed work-factor error. Check
+// only the declared bound here to preserve a specific refusal without matching
+// library error strings. age remains responsible for all format/crypto validation.
+type cappedScryptIdentity struct{ identity *age.ScryptIdentity }
+
+func (i cappedScryptIdentity) Unwrap(stanzas []*age.Stanza) ([]byte, error) {
+	if len(stanzas) == 1 && stanzas[0].Type == "scrypt" && len(stanzas[0].Args) == 2 {
+		if n, err := strconv.ParseUint(stanzas[0].Args[1], 10, 64); err == nil && n > maxScryptWorkFactor {
+			return nil, errScryptWorkFactor
+		}
+	}
+	return i.identity.Unwrap(stanzas)
+}
+
+type decryptedReader struct{ io.Reader }
+
+func (r decryptedReader) Read(b []byte) (int, error) {
+	n, err := r.Reader.Read(b)
+	if err != nil && err != io.EOF {
+		err = safetyError("decrypt_failed", err)
+	}
+	return n, err
+}
+
+type encryptedWriter struct{ io.WriteCloser }
+
+func (w encryptedWriter) Write(b []byte) (int, error) {
+	n, err := w.WriteCloser.Write(b)
+	if err != nil {
+		err = safetyError("encrypt_failed", err)
+	}
+	return n, err
+}
+func (w encryptedWriter) Close() error {
+	if err := w.WriteCloser.Close(); err != nil {
+		return safetyError("encrypt_failed", err)
+	}
+	return nil
 }
 
 // errPasswordRequired is returned when an age-encrypted archive is opened
@@ -63,7 +128,7 @@ func sniffContainer(r io.Reader) (kind string, br *bufio.Reader, err error) {
 	br = bufio.NewReaderSize(r, 64)
 	head, err := br.Peek(len(ageMagic))
 	if err != nil {
-		return "", nil, fmt.Errorf("backup: read archive header: %w", err)
+		return "", nil, safetyError("archive_invalid", err)
 	}
 	switch {
 	case string(head) == ageMagic:
@@ -71,7 +136,7 @@ func sniffContainer(r io.Reader) (kind string, br *bufio.Reader, err error) {
 	case head[0] == 0x1f && head[1] == 0x8b:
 		return "gzip", br, nil
 	default:
-		return "", nil, fmt.Errorf("backup: unrecognized archive format")
+		return "", nil, safetyError("archive_invalid", nil)
 	}
 }
 

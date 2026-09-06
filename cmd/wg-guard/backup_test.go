@@ -6,9 +6,36 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
+	"os"
 	"strings"
 	"testing"
 )
+
+func TestBackupShortExplicitPasswordLocalized(t *testing.T) {
+	for _, lang := range []string{"fa", "en"} {
+		t.Run(lang, func(t *testing.T) {
+			in, out, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := os.Stdin
+			os.Stdin = in
+			defer func() { os.Stdin = original; in.Close() }()
+			if _, err := out.WriteString("short\n"); err != nil {
+				t.Fatal(err)
+			}
+			out.Close()
+			err = runBackup([]string{"create", "--password", "--lang", lang, "--config", "must-not-open-config"})
+			want := "at least 8"
+			if lang == "fa" {
+				want = "دست‌کم 8"
+			}
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("short password safety error not localized: %v", err)
+			}
+		})
+	}
+}
 
 func TestBackupPlaintextWarningLocalizedAtCLIBoundary(t *testing.T) {
 	for _, locale := range []i18n.Locale{i18n.Fa, i18n.En} {
