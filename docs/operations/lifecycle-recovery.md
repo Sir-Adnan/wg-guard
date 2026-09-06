@@ -58,6 +58,10 @@ installation recovery records its partial ownership and stops a possibly started
 inspect prerequisites, then use managed uninstall (data preserved) before reinstalling.
 Uninstall resumes its own interrupted record, confirms stop before deleting anything and
 removes only constrained paths. A failed service-stop command prevents deletion.
+Native cleanup first validates systemd's load and activity properties. Confirmed
+`LoadState=not-found` with `ActiveState=inactive` permits cleanup without stop/disable, including
+installation before unit creation or uninstall retried after unit removal. Missing unit files,
+failed queries, incomplete properties and inconsistent states do not establish absence.
 
 Certificate readiness is separate from process health. A healthy installation with pending
 TLS can keep serving the ACME challenge while `wg-guard tls-check` retries certificate proof.

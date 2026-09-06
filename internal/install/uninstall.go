@@ -120,15 +120,20 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		return rep, err
 	}
 	step(out, "Stopping the node")
-	if err := stopService(ctx, h, st); err != nil {
+	if st.Mode == ModeNative {
+		absent, err := stopNativeService(ctx, h)
+		if err != nil {
+			return rep, err
+		}
+		if !absent {
+			if err := h.Run(ctx, []string{"systemctl", "disable", "wg-guard"}, 30*time.Second); err != nil {
+				return rep, err
+			}
+		}
+	} else if err := stopService(ctx, h, st); err != nil {
 		return rep, err
 	}
 	rep.Stopped = true
-	if st.Mode == ModeNative {
-		if err := h.Run(ctx, []string{"systemctl", "disable", "wg-guard"}, 30*time.Second); err != nil {
-			return rep, err
-		}
-	}
 	if err := j.save(h, "swap-pending"); err != nil {
 		return rep, err
 	}

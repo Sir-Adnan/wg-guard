@@ -39,7 +39,7 @@ func TestAtomicStateWriteKeepsPreviousOnFailure(t *testing.T) {
 	}
 }
 func contractFixture(h *memHost) {
-	h.output["systemctl show --property=ActiveState --value wg-guard"] = "inactive"
+	h.output["systemctl show wg-guard.service --property=LoadState --property=ActiveState"] = "LoadState=loaded\nActiveState=inactive\n"
 	h.output["docker inspect --format {{.Image}} "+Container] = "sha256:" + strings.Repeat("a", 64)
 	h.output["docker run --rm --network none --entrypoint sha256sum sha256:"+strings.Repeat("b", 64)+" "+BinPath] = fmt.Sprintf("%x  %s", sha256.Sum256([]byte("candidate")), BinPath)
 	b, _ := json.Marshal(CurrentContract())

@@ -110,8 +110,8 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 			return "installed\tsystem", nil
 		}
 	}
-	if strings.Join(argv, " ") == "systemctl show --property=ActiveState --value wg-guard" {
-		return "inactive", nil
+	if strings.Join(argv, " ") == "systemctl show wg-guard.service --property=LoadState --property=ActiveState" {
+		return "LoadState=loaded\nActiveState=inactive\n", nil
 	}
 	return m.output[argv[0]], nil
 }
