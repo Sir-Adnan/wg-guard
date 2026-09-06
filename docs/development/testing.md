@@ -4,9 +4,24 @@
 
 [Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
 host-operation failure injection, 48/80/120-column fa/en terminal checks, and dedicated Ubuntu
-24.04 Docker/native lifecycle drills. Until evidence is recorded in status.md, these are planned
-checks. They do not replace Phase 11's full OS/architecture certification or Phase 12's final
-published-artifact gate.
+24.04 Docker/native lifecycle drills. The evidence levels are separate:
+
+| Area | Recorded evidence | Still required |
+|---|---|---|
+| GitHub delivery | Real source acquisition/build/help; executable release/error fixtures | Exact final one-command setup/rerun and published-release installation |
+| Terminal | Real read-only Linux PTY at 48/80/120 columns, fa/en, hidden-input cancellation and nonTTY refusal on `234f067` | Final M5 forms and integrated setup/lifecycle; universal Persian client shaping is not claimed |
+| Runtime image | Actual builder/image identity and isolated binary/AWG package checks on `234f067` | Deployment startup, fresh host kernel provisioning and broader OS/architecture cells |
+| Backup/recovery | Actual SQLite/archive/encryption/HTTP fixtures and both-mode Host/CLI boundaries on `281b607`; scoped Linux race/integration pass; [CI passed on the following docs revision `c46f313`](https://github.com/Sir-Adnan/wg-guard/actions/runs/34005864073) | Independent review fixes, actual managed restore, Telegram delivery and production scheduler tick |
+
+Exact revisions and sanitized records live in [status.md](status.md) and
+[phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
+code. These checks do not replace Phase 11's full OS/architecture certification or Phase 12's
+final published-artifact gate.
+
+During implementation, run focused regressions for the changed risk; run full build/unit/vet
+and relevant race/integration gates at coherent milestones. Prose-only changes do not justify
+repeating unchanged expensive suites. Root/service/data recovery paths need failure injection
+before real-host execution, not only a happy-path test after the entire installer is assembled.
 
 Nothing is "complete" without tests matching its risk. The majority of tests run without root
 and without a real VPN interface.

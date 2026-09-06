@@ -190,6 +190,14 @@ provenance and documentation and requests explicit approval before public public
   archives have unique names, and excessive age/scrypt work factors are refused before costly
   derivation. The existing factor18 crypto cost (~256 MiB transient) is documented. These are
   automated implementation results, not a completed phase or VPS recovery claim.
+- M5 review identified three Important gaps: recovery markers were not checked by every manual
+  database opener, managed configuration could redirect data away from the lifecycle guard,
+  and new substantive safety messages bypassed Persian localization. Fix `8be8c6f` adds opener
+  refusal before database access, canonical managed-path validation before preparation/stop and
+  keyed safe fa/en CLI/panel conditions. Focused regressions, full test/build/vet and scoped Linux
+  race/integration pass; scoped re-review is pending. Original implementation/docs revision
+  `c46f313` [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34005864073);
+  the fix requires its own CI result.
 - M4 implementation/status revision `99b9338`
   [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003509985).
   Closing-review revision `234f067` also
