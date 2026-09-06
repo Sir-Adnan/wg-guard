@@ -22,11 +22,17 @@ import (
 // the local TLS listener. This may trigger ACME issuance or reuse its cache;
 // it never calls either case newly issued without separate issuance evidence.
 func WaitCertificate(ctx context.Context, p Plan, within time.Duration) error {
+	return waitCertificate(ctx, p, within, func(ctx context.Context) error {
+		return probeCertificate(ctx, p, nil)
+	})
+}
+
+func waitCertificate(ctx context.Context, p Plan, within time.Duration, probe func(context.Context) error) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	var lastErr error
 	for {
-		if err := probeCertificate(ctx, p, nil); err == nil {
+		if err := probe(ctx); err == nil {
 			return nil
 		} else if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) || lastErr == nil {
 			lastErr = err

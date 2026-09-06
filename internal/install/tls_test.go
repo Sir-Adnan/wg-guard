@@ -23,10 +23,22 @@ func TestWaitCertificatePreservesLastHandshakeCause(t *testing.T) {
 	p.TLSMode = config.TLSModeManual
 	p.Domain = "wrong.invalid"
 	p.PanelPort = portOf(srv.Listener.Addr().String())
-	err := WaitCertificate(context.Background(), p, 100*time.Millisecond)
+	roots := x509.NewCertPool()
+	roots.AddCert(srv.Certificate())
+	handshakeErr := probeCertificate(context.Background(), p, roots)
 	var certErr *tls.CertificateVerificationError
-	if !errors.As(err, &certErr) {
-		t.Fatalf("lost classified certificate error: %v", err)
+	if !errors.As(handshakeErr, &certErr) {
+		t.Fatalf("probe did not produce a classified certificate error: %v", handshakeErr)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err := waitCertificate(ctx, p, time.Minute, func(context.Context) error {
+		cancel()
+		return handshakeErr
+	})
+	if !errors.As(err, &certErr) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("lost certificate or cancellation cause: %v", err)
 	}
 }
 
