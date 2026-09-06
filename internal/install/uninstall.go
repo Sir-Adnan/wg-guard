@@ -2,8 +2,10 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"time"
 )
 
@@ -34,15 +36,40 @@ type UninstallOptions struct {
 // preserved unless PurgeData; installer-installed packages are preserved
 // unless PurgePackages. With DryRun nothing is mutated.
 func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallReport, error) {
+	if !h.IsRoot() {
+		return nil, terminalError("install.error.root")
+	}
+	unlock, err := h.LockLifecycle()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	out := o.Stdout
+	if out == nil {
+		out = io.Discard
+	}
 	st, err := LoadState(h)
 	if err != nil {
 		return nil, err
 	}
+	pending, err := LoadJournal(h)
+	if err != nil {
+		return nil, err
+	}
+	if st == nil && pending != nil && !pending.terminal() {
+		if pending.Operation == "uninstall" {
+			st = pending.Before
+		} else if pending.Operation == "install" {
+			st = pending.After
+		}
+	}
 	if st == nil {
-		return nil, fmt.Errorf("uninstall: no install state at %s — nothing to uninstall (remove files manually if this host was set up differently)", StatePath)
+		return nil, terminalError("install.error.no_state")
 	}
 	rep := &UninstallReport{Mode: st.Mode}
+	if pending != nil && !pending.terminal() && pending.Operation != "install" && pending.Operation != "uninstall" {
+		return nil, terminalError("install.error.pending")
+	}
 
 	// What will be removed, computed up front (dry-run prints the same list).
 	var artifacts []string
@@ -56,8 +83,16 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		artifacts = append(artifacts, st.BinPath)
 	}
 	artifacts = append(artifacts, st.ExtraFiles...)
-	artifacts = append(artifacts, st.ConfigPath, StatePath)
-	rep.Artifacts = artifacts
+	artifacts = append(artifacts, st.ConfigPath)
+	for _, a := range []*Artifact{st.Current, st.Previous} {
+		if a != nil {
+			artifacts = append(artifacts, a.Binary)
+			if a.Compose != "" {
+				artifacts = append(artifacts, a.Compose)
+			}
+		}
+	}
+	rep.Artifacts = append(append([]string{}, artifacts...), StatePath)
 
 	if o.DryRun {
 		fmt.Fprintln(out, "Uninstall plan (--dry-run, nothing changed):")
@@ -80,24 +115,28 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	}
 
 	// Stop first: a still-running service could reopen files being removed.
+	j := &Journal{Schema: 1, ID: transactionID(), Operation: "uninstall", Before: st}
+	if err := j.save(h, "prepared"); err != nil {
+		return rep, err
+	}
 	step(out, "Stopping the node")
-	switch st.Mode {
-	case ModeDocker:
-		if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "down"}, longTimeout); err != nil {
-			fmt.Fprintf(out, "  WARNING: compose down failed (%v) — continuing with removal\n", err)
-		} else {
-			rep.Stopped = true
+	if err := stopService(ctx, h, st); err != nil {
+		return rep, err
+	}
+	rep.Stopped = true
+	if st.Mode == ModeNative {
+		if err := h.Run(ctx, []string{"systemctl", "disable", "wg-guard"}, 30*time.Second); err != nil {
+			return rep, err
 		}
-	case ModeNative:
-		_ = h.Run(ctx, []string{"systemctl", "stop", "wg-guard"}, 60*time.Second)
-		_ = h.Run(ctx, []string{"systemctl", "disable", "wg-guard"}, 30*time.Second)
-		rep.Stopped = true
+	}
+	if err := j.save(h, "swap-pending"); err != nil {
+		return rep, err
 	}
 
 	step(out, "Removing artifacts")
 	for _, path := range artifacts {
-		if err := h.Remove(path); err != nil {
-			fmt.Fprintf(out, "  WARNING: could not remove %s: %v\n", path, err)
+		if err := h.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return rep, err
 		} else {
 			fmt.Fprintf(out, "  removed %s\n", path)
 		}
@@ -116,7 +155,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	if o.PurgePackages && len(st.PackagesInstalled) > 0 {
 		step(out, "Removing installer-installed packages")
 		pkgs := append([]string{"apt-get", "remove", "-y"}, st.PackagesInstalled...)
-		_ = h.Run(ctx, pkgs, longTimeout)
+		if err := h.Run(ctx, pkgs, longTimeout); err != nil {
+			return rep, err
+		}
 		rep.PurgedPkgs = st.PackagesInstalled
 	}
 
@@ -125,7 +166,10 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	} else {
 		fmt.Fprintf(out, "\nWG-Guard uninstalled. Data kept at %s — delete manually when sure.\n", st.DataDir)
 	}
-	return rep, nil
+	if err := h.Remove(StatePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return rep, err
+	}
+	return rep, j.save(h, "complete")
 }
 
 func dataFate(purge bool, dir string) string {

@@ -320,7 +320,7 @@ func TestExistingDockerGetsOnlyMissingComposeWithNoRemoval(t *testing.T) {
 
 func TestInstalledCoreReportsContainerToolsAndHostModule(t *testing.T) {
 	h := newMemHost()
-	h.files[StatePath] = memFile{data: []byte(`{"schema":1,"mode":"docker"}`)}
+	h.files[StatePath] = memFile{data: []byte(`{"schema":1,"mode":"docker","config_path":"/etc/wg-guard/wg-guard.toml","data_dir":"/var/lib/wg-guard","compose_path":"/etc/wg-guard/compose.yaml","binary_path":"/usr/local/bin/wg-guard"}`)}
 	h.output["docker exec wg-guard awg --version"] = "amneziawg-tools v3.1.20260812"
 	h.output["docker exec wg-guard dpkg-query -W -f=${db:Status-Status}\t${Version} amneziawg-tools"] = "installed\tcontainer-package"
 	r, err := InspectInstalledCore(context.Background(), h)

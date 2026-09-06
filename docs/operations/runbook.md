@@ -6,7 +6,7 @@ this file is the "type this, expect that" reference.
 ## Install
 
 ```bash
-wg-guard install                      # interactive wizard (Docker default)
+wg-guard install --commit main        # explicit development source; interactive wizard
 wg-guard install --mode docker --domain vpn.example.com --yes
 wg-guard install --mode native --tls proxy --panel-port 8080 --yes
 ```
@@ -40,24 +40,30 @@ resolve yet is a loud warning (ACME will fail until DNS points at the host).
 Verify: `wg-guard status` → container/unit healthy; open the printed panel URL; complete the
 onboarding wizard. Diagnostics: `wg-guard doctor`.
 
-## Update
+## Update and recovery
 
 ```bash
-wg-guard update --image wgguard/wg-guard:vX      # docker mode
-wg-guard update --binary /path/to/new-wg-guard   # native mode (staged file; nothing is downloaded)
+wg-guard update --release latest               # published stable release; no source fallback
+wg-guard update --commit main                  # resolves an immutable development commit
+wg-guard update --binary /path/to/new-wg-guard  # explicit local native candidate
+wg-guard update --image registry/image:tag --binary /path/to/matching-wg-guard
+wg-guard update --local-image --image sha256:IMAGE_ID --binary /path/to/matching-wg-guard
+wg-guard update --rollback                     # previous healthy artifact, when data-compatible
+wg-guard update --recover                      # interrupted operation from durable journal
 ```
 
-Explicit only — nothing auto-updates. The flow: pre-upgrade backup (in the owning
-environment) → swap (compose image switch + pull + recreate, or previous binary kept at
-`<bin>.pre-update` and the staged one applied) → restart → health check → **automatic
-rollback** to the previous artifact when the health check fails.
+Updates remain explicit. Remote pulls, acquisition, checksum and installer-contract checks
+must succeed before the active deployment changes. Docker runtime and host-command binary
+checksums must agree; deployment and rollback use immutable image IDs. A successful update
+retains the previous healthy binary, Compose snapshot and backup identity. Startup, health,
+state-write and cancellation failures attempt recovery under a separate bounded context.
 
-If an update is interrupted (killed mid-flight, host reboot), the state file still records
-the last health-checked artifact:
-
-```bash
-wg-guard update --rollback          # re-deploy the recorded image / <bin>.pre-update
-```
+Automatic artifact recovery requires equal explicit data contracts. Schema1 installations
+remain readable, but pre-Phase8.1 binaries have no such proof. Their forward update requires a
+local pre-update archive; a later failure leaves the service stopped with `restore-required`.
+An explicit rollback after a healthy legacy upgrade refuses before changing the active node.
+See [lifecycle-recovery.md](lifecycle-recovery.md) for journal states, encrypted backup handling,
+manual recovery and the current coordinated-restore boundary.
 
 ## Uninstall
 
@@ -67,6 +73,9 @@ wg-guard update --rollback          # re-deploy the recorded image / <bin>.pre-u
 (`/var/lib/wg-guard` — database, master key, backups, ACME cache) and installer-installed
 packages are **kept** unless `--purge-data` / `--purge-packages` is passed. Uninstall removes
 the CLI itself — run it from the installed path and expect the command to disappear.
+State-derived paths are restricted to the fixed managed layout. Stop failure or an unconfirmed
+stopped service prevents artifact/data deletion. Corrupt or unsupported state refuses the
+operation. Interrupted removal can be retried from its journal; shared apt sources are retained.
 
 ## Backup / restore / migration
 
@@ -119,8 +128,8 @@ the serialized reconciler for the AWG subprocess. Read-only doctor is safe anyti
 
 ## Verification status
 
-Phase 6 procedures (backup/restore/doctor/settings/rotation) and the Phase 7 deployment
-procedures (install docker/native, update + rollback, uninstall, status, ACME issuance,
-reboot persistence) are **implemented + unit tested + verified on the real VPS**; the drill
-record lives in [../development/phase7.md](../development/phase7.md) and
-[../development/status.md](../development/status.md).
+Historical Phase 6/7 drills are recorded in [../development/phase7.md](../development/phase7.md).
+The Phase 8.1 lifecycle changes have host-seam/fault tests, Linux process-death lock and atomic
+filesystem tests, and executable bootstrap fixtures. Their new Docker/native deployment and
+legacy-data migration behavior still require the dedicated M6 VPS drill; prior drills do not
+certify them. Current certification is tracked in [../development/status.md](../development/status.md).

@@ -157,11 +157,14 @@ the Phase 11 production matrix.
 
 ## Updates
 
-`wg-guard update` (CLI): pre-upgrade backup → compose image switch + pull + recreate (docker)
-or staged binary replace with the previous kept at `<bin>.pre-update` (native) → restart →
-health check → automatic rollback on failure. Interrupted updates recover with
-`wg-guard update --rollback` (re-deploys the state-recorded last healthy artifact). Never
-auto-updates. Full procedures: [runbook.md](runbook.md).
+`wg-guard update` explicitly selects the latest published stable release; `--commit main`
+explicitly selects development source and resolves its immutable SHA. Acquisition/pull and
+contract verification precede active mutation, followed by a recorded local backup, swap,
+restart, health check and durable commit. `--binary` supplies a local candidate; Docker image
+overrides also require the matching host binary and `--local-image` explicitly disables pulling.
+Both modes retain a previous artifact; `--rollback` requires proven data compatibility and
+`--recover` replays an interrupted journal. Unknown compatibility requires coordinated DB/key
+restoration, not just restarting old code. See [lifecycle-recovery.md](lifecycle-recovery.md).
 
 ## Uninstall
 
@@ -200,8 +203,9 @@ validated exact bundle can be reused offline without requiring those pins in a r
 Missing pins when installation is needed fail closed; there is no upstream substitution,
 blind AWG upgrade/downgrade, or PPA suite rewriting. Newly requested installed packages and PPA
 preparation are recorded in the returned installation state; PPA sources remain on uninstall.
-Prerequisite preparation can remain after a later failure; durable partial-operation ownership
-and recovery are M3's integration responsibility.
+Prerequisite preparation can remain after a later failure. The lifecycle journal records package
+and repository intents before commands run, and observed ownership is saved on completion/error.
+Interrupted intents require inspection; they are not automatically treated as owned packages.
 
 `--prerequisites check` requires operator-provisioned prerequisites and makes no package/module
 mutations. Other Linux systems use this checked/manual path; native tools must report the

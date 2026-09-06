@@ -197,6 +197,17 @@ try:
             for block in iter(lambda:f.read(65536),b''):h.update(block)
         digest=h.hexdigest()
     candidate.chmod(0o700);candidate.rename(stage/'wg-guard')
+    # Probe without privilege or node-data access; cap output on disk and time.
+    import resource
+    def contract_limits():resource.setrlimit(resource.RLIMIT_FSIZE,(4096,4096))
+    contract_path=stage/'installer-contract.json'
+    with contract_path.open('wb') as contract_output:
+        subprocess.run([str(stage/'wg-guard'),'installer-contract'],stdin=subprocess.DEVNULL,stdout=contract_output,stderr=subprocess.DEVNULL,timeout=15,check=True,preexec_fn=contract_limits)
+    contract=json.loads(contract_path.read_bytes())
+    require(contract.get('revision')==1 and contract.get('prerequisites') is True and contract.get('recovery') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.1 installer contract; choose a compatible build')
+    # Owner gating is deliberately not advertised until M4 implements it.
+    (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=ref if channel=='release' else sha,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
+    (stage/'build.json').chmod(0o600)
     print('Selected '+version+' ('+sha+'), SHA-256 '+digest,file=sys.stderr)
 except subprocess.SubprocessError:
     # CalledProcessError includes argv; redirect URLs may contain temporary tokens.
@@ -212,7 +223,7 @@ PY
 interactive=1
 for arg in "${args[@]}"; do [[ "$arg" == --yes || "$arg" == -yes || "$arg" == --yes=true ]] && interactive=0; done
 if ((interactive)) && { true </dev/tty; } 2>/dev/null; then
-  "${sudo_cmd[@]}" "$stage/wg-guard" install "${args[@]}" </dev/tty
+  "${sudo_cmd[@]}" "$stage/wg-guard" install --build-metadata "$stage/build.json" "${args[@]}" </dev/tty
 else
-  "${sudo_cmd[@]}" "$stage/wg-guard" install "${args[@]}" </dev/null
+  "${sudo_cmd[@]}" "$stage/wg-guard" install --build-metadata "$stage/build.json" "${args[@]}" </dev/null
 fi

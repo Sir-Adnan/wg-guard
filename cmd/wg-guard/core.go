@@ -13,6 +13,16 @@ import (
 )
 
 func runCoreWithHost(args []string, h install.Host, out io.Writer) error {
+	if len(args) > 0 && args[0] == "switch" {
+		if len(args) != 3 || args[2] != "--confirm-impact" {
+			return fmt.Errorf("%s", i18n.T(i18n.En, "install.error.core_confirmation"))
+		}
+		r, err := install.SwitchCore(context.Background(), h, install.CoreSwitchOptions{Selector: args[1], ConfirmImpact: true, Stdout: out})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(out).Encode(r)
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.core_usage"))
 	}

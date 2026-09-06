@@ -3,9 +3,12 @@ package install
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"io"
+	"io/fs"
 	"strings"
 	"time"
 )
@@ -23,8 +26,16 @@ var (
 // InstallOptions drives one install run. Plan is pre-filled from CLI flags;
 // empty fields are prompted for unless Yes.
 type InstallOptions struct {
-	Plan Plan
-	Yes  bool // non-interactive: flags + defaults only
+	// BeforeStart is M4's local-owner setup point, after configuration/settings
+	// exist and before any public listener starts. Nil advertises no owner guarantee.
+	BeforeStart   func(context.Context, Host, Plan, *State) error
+	Selection     distribution.Selection
+	BuildMetadata string
+	Build         distribution.Build
+	StageParent   string
+	LocalImage    bool
+	Plan          Plan
+	Yes           bool // non-interactive: flags + defaults only
 
 	Version        string // recorded in the state file
 	SkipModule     bool   // do not attempt the host kernel-module install
@@ -36,6 +47,10 @@ type InstallOptions struct {
 
 // UpdateOptions drives one update.
 type UpdateOptions struct {
+	Selection      distribution.Selection
+	Build          distribution.Build
+	LocalImage     bool // explicitly local: never pull; remote must pull successfully
+	Recover        bool
 	Image          string // docker: new image reference (default: keep compose value)
 	BinaryPath     string // native: staged binary to install
 	SkipBackup     bool
@@ -43,25 +58,51 @@ type UpdateOptions struct {
 	Stdout, Stderr io.Writer
 }
 
-// Install runs the full installation: preflight → config + artifacts →
-// service up → health check → state file. On any failure the already-written
-// files are left in place (they are inert without the service) and the error
-// explains the step; rerunning install after fixing is safe (preflight
-// refuses only a completed install, detected via the state file written last).
-func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
+// Install locks the lifecycle, records prerequisite ownership/intents, stages
+// the selected artifact and starts the service only after settings and the
+// optional local-owner hook succeed. Failures retain a recovery journal.
+func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resultErr error) {
 	out := o.Stdout
+	if out == nil {
+		out = io.Discard
+	}
 	prompt := newPrompt(o.Stdin, out, o.Yes)
 
 	// Root: the installer writes /etc, binds ports and manages services.
 	if !h.IsRoot() {
 		return nil, fmt.Errorf("install: run as root (sudo)")
 	}
+	unlock, err := h.LockLifecycle()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	if err := noPending(h); err != nil {
+		return nil, err
+	}
+	if o.Build.BinaryPath == "" {
+		o.Build.BinaryPath, err = h.SelfExe()
+		if err != nil {
+			return nil, err
+		}
+		o.Build.Channel = "local"
+		o.Build.Version = o.Version
+		o.Build.SHA256, _, err = fileDigest(ctx, h, o.Build.BinaryPath, 256<<20)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err := inspectContract(ctx, h, []string{o.Build.BinaryPath}); err != nil {
+		return nil, err
+	}
 	platform, err := InspectPlatform(ctx, h)
 	if err != nil {
 		return nil, err
 	}
 	// Completed installs refuse (rerun after uninstall or use update).
-	if st, err := LoadState(h); err == nil && st != nil {
+	if st, err := LoadState(h); err != nil {
+		return nil, err
+	} else if st != nil {
 		return nil, fmt.Errorf("install: WG-Guard is already installed (%s mode, %s); use 'wg-guard update' or 'wg-guard uninstall' first", st.Mode, StatePath)
 	}
 
@@ -86,6 +127,21 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 	if err := preflight(ctx, h, p, out); err != nil {
 		return nil, err
 	}
+	for _, target := range []string{ConfigPath, ComposePth, UnitPath} {
+		if _, err := h.Stat(target); err == nil {
+			return nil, terminalError("install.error.state")
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+	}
+	if _, err := h.Stat(BinPath); err == nil {
+		self, e := h.SelfExe()
+		if e != nil || self != BinPath {
+			return nil, terminalError("install.error.state")
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
 
 	st := &State{
 		Schema:     StateSchema,
@@ -96,14 +152,50 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 		DataDir:    p.DataDir,
 		PublicIP:   p.PublicIP,
 	}
+	st.BinPath = BinPath
+	if p.Mode == ModeDocker {
+		st.ComposePath = ComposePth
+		st.Image = p.Image
+	} else {
+		st.UnitPath = UnitPath
+	}
+	if err := h.MkdirAll(EtcDir, 0700); err != nil {
+		return st, err
+	}
+	j := &Journal{Schema: 1, ID: transactionID(), Operation: "install", After: st}
+	if err := j.save(h, "prepared"); err != nil {
+		return st, err
+	}
+	defer func() {
+		if resultErr != nil && !j.terminal() {
+			st.Recovery = "install-incomplete"
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			if j.DataMayHaveChanged {
+				resultErr = errors.Join(resultErr, stopService(ctx, h, st))
+			}
+			resultErr = errors.Join(resultErr, saveState(h, st), j.save(h, "recovery-required"))
+			result = st
+		}
+	}()
 	bundle, err := SelectCore(o.Core)
 	if err != nil {
 		return nil, err
 	}
 	st.Platform = platform
-	st.Core, err = EnsurePrerequisites(ctx, h, p, platform, bundle, o.Prerequisites, o.SkipModule, st, out)
+	st.Core, err = EnsurePrerequisites(ctx, journalHost{Host: h, j: j}, p, platform, bundle, o.Prerequisites, o.SkipModule, st, out)
 	if err != nil {
 		return st, err
+	}
+	if err := j.save(h, "prepared"); err != nil {
+		return st, err
+	}
+	if o.StageParent != "" && p.Mode == ModeDocker && p.Image == DefaultImage {
+		p.Image, err = BuildRuntimeImage(ctx, h, o.Build, bundle, o.StageParent)
+		if err != nil {
+			return st, err
+		}
+		o.LocalImage = true
 	}
 
 	if err := h.MkdirAll(p.EtcDir, 0o755); err != nil {
@@ -120,13 +212,34 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 		return nil, fmt.Errorf("install: write config: %w", err)
 	}
 
+	if o.Build.BinaryPath != "" {
+		if p.Mode == ModeDocker {
+			if err := atomicWrite(h, ComposePth, []byte(RenderCompose(p)), 0644); err != nil {
+				return st, err
+			}
+		}
+		a, err := stageCandidate(ctx, h, st, UpdateOptions{Build: o.Build, Image: p.Image, LocalImage: o.LocalImage})
+		if err != nil {
+			return st, err
+		}
+		st.Current = a
+		p.Image = a.Image
+		st.Image = a.Image
+	}
+	if err := j.save(h, "swap-pending"); err != nil {
+		return st, err
+	}
+	j.DataMayHaveChanged = true
+	if err := j.save(h, "started"); err != nil {
+		return st, err
+	}
 	switch p.Mode {
 	case ModeDocker:
-		if err := installDocker(ctx, h, p, st, out); err != nil {
+		if err := installDocker(ctx, h, p, st, out, o.BeforeStart); err != nil {
 			return nil, err
 		}
 	case ModeNative:
-		if err := installNative(ctx, h, p, st, out); err != nil {
+		if err := installNative(ctx, h, p, st, out, o.BeforeStart); err != nil {
 			return nil, err
 		}
 	}
@@ -147,6 +260,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 	}
 	if st.TLSReadiness == "pending" {
 		if err := WaitCertificate(ctx, p, 90*time.Second); err != nil {
+			// The installed service must remain available for ACME retries.
+			if journalErr := j.save(h, "complete"); journalErr != nil {
+				return st, errors.Join(err, journalErr)
+			}
+			j.DataMayHaveChanged = false
 			return st, err
 		}
 		st.TLSReadiness = "verified"
@@ -156,12 +274,15 @@ func Install(ctx context.Context, h Host, o InstallOptions) (*State, error) {
 	}
 
 	printSummary(out, p, st)
+	if err := j.save(h, "complete"); err != nil {
+		return st, err
+	}
 	return st, nil
 }
 
 // installDocker writes the compose project and brings the container up. It
 // also verifies docker + the compose plugin exist before mutating anything.
-func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer) error {
+func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer, beforeStart func(context.Context, Host, Plan, *State) error) error {
 	step(out, "Docker preflight")
 	if _, err := h.LookPath("docker"); err != nil {
 		return fmt.Errorf("install: docker not found — install docker first (https://docs.docker.com/engine/install/) or use --mode native")
@@ -172,6 +293,10 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 
 	step(out, "Host CLI (shim)")
 	self, err := h.SelfExe()
+	if st.Current != nil {
+		self = st.Current.Binary
+		err = nil
+	}
 	if err != nil {
 		return fmt.Errorf("install: locate running binary: %w", err)
 	}
@@ -197,6 +322,11 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	}
 
 	step(out, "Starting container")
+	if beforeStart != nil {
+		if err := beforeStart(ctx, h, p, st); err != nil {
+			return err
+		}
+	}
 	if err := h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "up", "-d"}, longTimeout); err != nil {
 		return fmt.Errorf("install: docker compose up: %w", err)
 	}
@@ -204,7 +334,7 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 }
 
 // installNative installs the binary + unit and starts the service.
-func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer) error {
+func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer, beforeStart func(context.Context, Host, Plan, *State) error) error {
 	step(out, "systemd preflight")
 	if _, err := h.LookPath("systemctl"); err != nil {
 		return fmt.Errorf("install: systemctl not found — native mode needs systemd")
@@ -212,6 +342,10 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 
 	step(out, "Binary")
 	self, err := h.SelfExe()
+	if st.Current != nil {
+		self = st.Current.Binary
+		err = nil
+	}
 	if err != nil {
 		return fmt.Errorf("install: locate running binary: %w", err)
 	}
@@ -234,6 +368,11 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	st.UnitPath = UnitPath
 	if err := h.Run(ctx, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
 		return fmt.Errorf("install: daemon-reload: %w", err)
+	}
+	if beforeStart != nil {
+		if err := beforeStart(ctx, h, p, st); err != nil {
+			return err
+		}
 	}
 	if err := h.Run(ctx, []string{"systemctl", "enable", "--now", "wg-guard"}, 60*time.Second); err != nil {
 		return fmt.Errorf("install: enable service: %w", err)

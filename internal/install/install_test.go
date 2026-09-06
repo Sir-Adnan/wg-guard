@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -226,8 +227,8 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	if !strings.Contains(string(cfg.data), `http_listen = "127.0.0.1:`+fmt.Sprint(port)+`"`) {
 		t.Errorf("config missing listen:\n%s", cfg.data)
 	}
-	if got := h.files[StatePath].perm; got != 0o644 {
-		t.Errorf("state perm = %o, want 644", got)
+	if got := h.files[StatePath].perm; got != 0o600 {
+		t.Errorf("state perm = %o, want 600", got)
 	}
 	for _, want := range [][]string{
 		{"docker", "compose", "version"},
@@ -284,7 +285,7 @@ func TestInstallNativeHappyPath(t *testing.T) {
 func TestInstallRefusesExistingAndBusyPort(t *testing.T) {
 	h := newMemHost()
 	// Existing install.
-	if err := h.WriteFile(StatePath, []byte(`{"schema":1,"mode":"docker"}`), 0o644); err != nil {
+	if err := h.WriteFile(StatePath, []byte(`{"schema":1,"mode":"docker","config_path":"/etc/wg-guard/wg-guard.toml","data_dir":"/var/lib/wg-guard","compose_path":"/etc/wg-guard/compose.yaml"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Install(context.Background(), h, InstallOptions{
@@ -411,9 +412,10 @@ func TestUpdateDockerRollbackOnUnhealthy(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldCompose := string(h.files[ComposePth].data)
+	contractFixture(h)
 
 	err = Update(context.Background(), h, UpdateOptions{
-		Image: "wgguard/wg-guard:v9", Stdout: &strings.Builder{},
+		Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: &strings.Builder{},
 	})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("update: want rollback error, got %v", err)
@@ -422,15 +424,14 @@ func TestUpdateDockerRollbackOnUnhealthy(t *testing.T) {
 		t.Error("compose not restored to the pre-update content")
 	}
 	for _, want := range [][]string{
-		{"docker", "exec", Container, BinPath, "backup", "create", "--reason", "pre-upgrade"},
-		{"docker", "compose", "-f", ComposePth, "pull"},
+		{"docker", "pull", "image:new"},
 		{"docker", "compose", "-f", ComposePth, "up", "-d"},
 	} {
 		if !h.ran(want...) {
 			t.Errorf("command not run: %v", want)
 		}
 	}
-	if st.Image != DefaultImage {
+	if st.Image != "sha256:"+strings.Repeat("a", 64) {
 		t.Fatalf("state image changed by a rolled-back update: %s", st.Image)
 	}
 }
@@ -466,7 +467,7 @@ func TestUpdateNativeRollback(t *testing.T) {
 	}
 
 	err = Update(context.Background(), h, UpdateOptions{
-		BinaryPath: "/tmp/new-wg-guard", Stdout: &strings.Builder{},
+		BinaryPath: "/tmp/new-wg-guard", SkipBackup: true, Stdout: &strings.Builder{},
 	})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("update: want rollback, got %v", err)
@@ -669,35 +670,15 @@ func TestPromptExplicitTLSNotReasked(t *testing.T) {
 	}
 }
 
-// TestUpdateDockerRollbackFlag: update --rollback re-deploys the state-
-// recorded image when compose points at something else (interrupted update).
+// A legacy drift without a journal or previous artifact cannot prove safe rollback.
 func TestUpdateDockerRollbackFlag(t *testing.T) {
-	h := newMemHost()
-	port := healthServer(t, http.StatusOK)
-	p := Defaults()
-	p.TLSMode = config.TLSModeProxy
-	p.PanelPort = port
-	if _, err := Install(context.Background(), h, InstallOptions{
-		Plan: p, Yes: true, Version: "test", Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
-	}); err != nil {
-		t.Fatal(err)
+	h := installedFixture(t, ModeDocker)
+	before := string(h.files[ComposePth].data)
+	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: io.Discard}); err == nil {
+		t.Fatal("unjournaled legacy rollback accepted")
 	}
-	// Simulate an interrupted update: compose drifted to a broken image while
-	// the state still records the good one.
-	bad := strings.Replace(string(h.files[ComposePth].data), "image: "+DefaultImage, "image: wgguard/wg-guard:broken", 1)
-	if err := h.WriteFile(ComposePth, []byte(bad), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: &strings.Builder{}}); err != nil {
-		t.Fatalf("rollback: %v", err)
-	}
-	if got := imageFromCompose(string(h.files[ComposePth].data)); got != DefaultImage {
-		t.Fatalf("compose image after rollback = %s, want %s", got, DefaultImage)
-	}
-	// Already on the recorded image: refuse, not rewrite.
-	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: &strings.Builder{}}); err == nil ||
-		!strings.Contains(err.Error(), "already references") {
-		t.Fatalf("second rollback: want refusal, got %v", err)
+	if string(h.files[ComposePth].data) != before {
+		t.Fatal("refusal changed compose")
 	}
 }
 
@@ -844,8 +825,8 @@ func TestInstallSeedFailureAborts(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "apply public endpoint") {
 		t.Fatalf("want seed failure, got %v", err)
 	}
-	if _, ok := h.files[StatePath]; ok {
-		t.Fatal("state file must not be written after a failed seed")
+	if st, loadErr := LoadState(h); loadErr != nil || st == nil || st.Recovery != "install-incomplete" {
+		t.Fatal("failed seed must durably record incomplete ownership")
 	}
 	if h.ran("docker", "compose", "-f", ComposePth, "up", "-d") {
 		t.Fatal("container must not start after a failed seed")

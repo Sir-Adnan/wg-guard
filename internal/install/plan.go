@@ -107,6 +107,9 @@ func Defaults() Plan {
 // ACME (the flagship path); acme/manual get a public listener, proxy/dev a
 // loopback one (config.Validate enforces the same posture at boot).
 func (p Plan) Resolve() (Plan, error) {
+	if p.EtcDir != EtcDir || p.DataDir != DataDir {
+		return p, terminalError("install.error.state")
+	}
 	if !p.Mode.Valid() {
 		return p, terminalError("install.error.plan.1", p.Mode)
 	}
@@ -275,6 +278,9 @@ func (p Plan) HealthProbeURL() (url string, skipVerify bool, err error) {
 // contract. It records everything WG-Guard owns so removal touches nothing
 // else, including packages the installer itself installed.
 type State struct {
+	Current           *Artifact      `json:"current,omitempty"`
+	Previous          *Artifact      `json:"previous,omitempty"`
+	Recovery          string         `json:"recovery,omitempty"`
 	Platform          PlatformReport `json:"platform,omitempty"`
 	Core              CoreReport     `json:"core,omitempty"`
 	TLSReadiness      string         `json:"tls_readiness,omitempty"`
@@ -295,4 +301,4 @@ type State struct {
 }
 
 // StateSchema is the current install-state schema version.
-const StateSchema = 1
+const StateSchema = 2

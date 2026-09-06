@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"net"
 	"net/http"
 	"strconv"
@@ -54,6 +56,11 @@ func probeCertificate(ctx context.Context, p Plan, roots *x509.CertPool) error {
 // CheckInstalledTLS retries readiness without reinstalling or changing the
 // running service. Pending state is retained on failure for later recovery.
 func CheckInstalledTLS(ctx context.Context, h Host, within time.Duration) error {
+	unlock, err := h.LockLifecycle()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	st, err := LoadState(h)
 	if err != nil {
 		return err
@@ -78,18 +85,26 @@ func CheckInstalledTLS(ctx context.Context, h Host, within time.Duration) error 
 		return err
 	}
 	st.TLSReadiness = "verified"
-	return saveState(h, st)
-}
-
-func saveState(h Host, st *State) error {
-	data, err := json.MarshalIndent(st, "", "  ")
+	if err := saveState(h, st); err != nil {
+		return err
+	}
+	j, err := LoadJournal(h)
 	if err != nil {
 		return err
 	}
-	if err := h.WriteFile(StatePath+".tmp", append(data, '\n'), 0o644); err != nil {
-		return err
+	if j != nil && j.Operation == "install" && j.After != nil && j.After.TLSReadiness == "pending" {
+		j.After = st
+		st.Recovery = ""
+		if err := saveState(h, st); err != nil {
+			return err
+		}
+		return j.save(h, "complete")
 	}
-	return h.Rename(StatePath+".tmp", StatePath)
+	return nil
+}
+
+func saveState(h Host, st *State) error {
+	return writeJSON(h, StatePath, st)
 }
 
 // probeHealth performs one health probe. 200 is healthy; 302 is healthy on
@@ -131,13 +146,47 @@ func (p Plan) HealthProbeLabel() string {
 // LoadState reads install-state.json. A missing file returns (nil, nil) —
 // "not installed by the installer" — which is distinct from a corrupt file.
 func LoadState(h Host) (*State, error) {
-	data, err := h.ReadFile(StatePath)
+	if _, ok := h.(realHost); ok {
+		if err := safeHostPath(StatePath); err != nil {
+			return nil, err
+		}
+	}
+	data, err := readRecord(h, StatePath)
 	if err != nil {
-		return nil, nil //nolint:nilerr // absent state = not installed
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	var st State
+	if len(data) > 256<<10 {
+		return nil, terminalError("install.error.state")
+	}
 	if err := json.Unmarshal(data, &st); err != nil {
 		return nil, terminalError("install.error.health.6", StatePath, err)
+	}
+	if err := validateState(&st); err != nil {
+		return nil, err
+	}
+	if _, ok := h.(realHost); ok {
+		for _, p := range append([]string{st.ConfigPath, st.DataDir, st.BinPath, st.ComposePath, st.UnitPath, ArtifactDir}, st.ExtraFiles...) {
+			if p != "" {
+				if err := safeHostPath(p); err != nil {
+					return nil, err
+				}
+			}
+		}
+		for _, a := range []*Artifact{st.Current, st.Previous} {
+			if a != nil {
+				for _, p := range []string{a.Binary, a.Compose} {
+					if p != "" {
+						if err := safeHostPath(p); err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+		}
 	}
 	return &st, nil
 }

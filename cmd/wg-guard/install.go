@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
@@ -23,7 +25,11 @@ func routeDockerMode() {
 		return
 	}
 	st, err := install.LoadState(install.NewRealHost())
-	if err != nil || st == nil || st.Mode != install.ModeDocker {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if st == nil || st.Mode != install.ModeDocker {
 		return
 	}
 	cmd := os.Args[1]
@@ -49,7 +55,17 @@ func runInstall(args []string) error {
 	if err != nil {
 		return err
 	}
-	_, err = install.Install(context.Background(), install.NewRealHost(), o)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	build, parent, cleanup, err := prepareBuild(ctx, o.Selection, o.BuildMetadata)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	o.Build = build
+	o.StageParent = parent
+	o.Version = build.Version
+	_, err = install.Install(ctx, install.NewRealHost(), o)
 	return err
 }
 
@@ -69,12 +85,23 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 		publicIP      = fs.String("public-ip", "", i18n.T(i18n.En, "install.cli.public_ip"))
 		prerequisites = fs.String("prerequisites", "auto", i18n.T(i18n.En, "install.cli.prerequisites"))
 		core          = fs.String("core", "recommended", i18n.T(i18n.En, "install.cli.core"))
+		release       = fs.String("release", "", i18n.T(i18n.En, "install.cli.release"))
+		commit        = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
+		metadata      = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
+		localImage    = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
 	)
 	if err := fs.Parse(args); err != nil {
 		return install.InstallOptions{}, err
 	}
 	if fs.NArg() != 0 {
 		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.arguments"))
+	}
+	selection, err := sourceSelection(*release, *commit)
+	if err != nil {
+		return install.InstallOptions{}, err
+	}
+	if *metadata != "" && selection.Channel != "" {
+		return install.InstallOptions{}, lifecycleArgsError()
 	}
 	if *prerequisites != "auto" && *prerequisites != "check" {
 		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.policy"))
@@ -109,6 +136,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	plan.PublicIP = *publicIP
 
 	return install.InstallOptions{
+		Selection: selection, BuildMetadata: *metadata, LocalImage: *localImage,
 		Plan:          plan,
 		Yes:           *yes,
 		Version:       version.Version,
@@ -145,24 +173,72 @@ func runUninstall(args []string) error {
 }
 
 func runUpdate(args []string) error {
-	fs := flag.NewFlagSet("update", flag.ExitOnError)
+	o, err := parseUpdateOptions(args)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	if o.Selection.Channel != "" {
+		build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "")
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		o.Build = build
+		o.BinaryPath = build.BinaryPath
+		st, err := install.LoadState(install.NewRealHost())
+		if err != nil {
+			return err
+		}
+		if st != nil && st.Mode == install.ModeDocker {
+			bundle, err := install.SelectCore(st.Core.Requested.ID)
+			if err != nil {
+				return err
+			}
+			o.Image, err = install.BuildRuntimeImage(ctx, install.NewRealHost(), build, bundle, parent)
+			if err != nil {
+				return err
+			}
+			o.LocalImage = true
+		}
+	}
+	return install.Update(ctx, install.NewRealHost(), o)
+}
+func parseUpdateOptions(args []string) (install.UpdateOptions, error) {
+	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	var (
 		image      = fs.String("image", "", "new image reference (docker mode)")
 		binaryPath = fs.String("binary", "", "staged new binary path (native mode)")
 		skipBackup = fs.Bool("skip-backup", false, "skip the pre-upgrade backup (not recommended)")
 		rollback   = fs.Bool("rollback", false, "re-deploy the last healthy image/binary recorded in the install state (recovery after a failed or interrupted update)")
+		recover    = fs.Bool("recover", false, i18n.T(i18n.En, "install.cli.recover"))
+		local      = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
+		release    = fs.String("release", "", i18n.T(i18n.En, "install.cli.release"))
+		commit     = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
 	)
 	if err := fs.Parse(args); err != nil {
-		return err
+		return install.UpdateOptions{}, err
 	}
-	return install.Update(context.Background(), install.NewRealHost(), install.UpdateOptions{
+	selection, err := sourceSelection(*release, *commit)
+	if err != nil {
+		return install.UpdateOptions{}, err
+	}
+	if fs.NArg() != 0 || (*rollback || *recover) && (selection.Channel != "" || *binaryPath != "" || *image != "" || *local || *skipBackup) || *rollback && *recover || selection.Channel != "" && (*binaryPath != "" || *image != "" || *local) || *local && *image == "" {
+		return install.UpdateOptions{}, lifecycleArgsError()
+	}
+	if !*rollback && !*recover && selection.Channel == "" && *binaryPath == "" && *image == "" {
+		selection = distribution.Selection{Channel: "release", Ref: "latest"}
+	}
+	return install.UpdateOptions{
+		Selection: selection, Recover: *recover, LocalImage: *local,
 		Image:      *image,
 		BinaryPath: *binaryPath,
 		SkipBackup: *skipBackup,
 		Rollback:   *rollback,
 		Stdout:     os.Stdout,
 		Stderr:     os.Stderr,
-	})
+	}, nil
 }
 
 // runStatus prints the operational snapshot: version, install state, service

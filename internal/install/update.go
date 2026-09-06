@@ -2,294 +2,532 @@ package install
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"io"
+	"io/fs"
+	"path"
 	"strings"
 	"time"
 )
 
-// Update performs one explicit, operator-initiated update (never automatic):
-// pre-upgrade backup → swap (image pull or binary replace) → restart → health
-// check → automatic rollback to the previous artifact when the health check
-// fails. The pre-upgrade archive is the durable rollback for state.
-//
-// If an update is interrupted (killed mid-flight, host reboot), the compose
-// file or binary may reference a bad artifact while the state file still
-// records the last known-good one: `wg-guard update --rollback` re-deploys
-// that recorded image/binary without touching backups.
+// Update verifies before changing the active deployment. Every step after
+// swap-pending is recoverable, including state persistence and cancellation.
 func Update(ctx context.Context, h Host, o UpdateOptions) error {
-	out := o.Stdout
+	if !h.IsRoot() {
+		return terminalError("install.error.root")
+	}
+	unlock, err := h.LockLifecycle()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	st, err := LoadState(h)
 	if err != nil {
 		return err
 	}
+	j, err := LoadJournal(h)
+	if err != nil {
+		return err
+	}
+	if j != nil && !j.terminal() {
+		if !o.Rollback && !o.Recover {
+			return terminalError("install.error.pending")
+		}
+		return recoverTransaction(h, j, o.Stdout)
+	}
+	if o.Recover {
+		return nil
+	}
 	if st == nil {
-		return fmt.Errorf("update: no install state at %s — run 'wg-guard install' first", StatePath)
+		return terminalError("install.error.no_state")
 	}
-
+	if o.Stdout == nil {
+		o.Stdout = io.Discard
+	}
+	j = &Journal{Schema: 1, ID: transactionID(), Operation: "update", Before: st}
+	previous, err := retainCurrent(ctx, h, st)
+	if err != nil {
+		return err
+	}
+	j.Previous = previous
+	recorded := false
+	defer func() {
+		if !recorded {
+			removeArtifact(h, previous)
+			if !o.Rollback {
+				removeArtifact(h, j.Candidate)
+			}
+		}
+	}()
 	if o.Rollback {
-		step(out, "Rolling back to the last healthy artifact")
-		switch st.Mode {
-		case ModeDocker:
-			return rollbackDocker(ctx, h, st, out)
-		case ModeNative:
-			return rollbackNative(ctx, h, st, out)
+		j.Operation = "rollback"
+		if st.Previous == nil {
+			return terminalError("install.error.no_previous")
 		}
-		return fmt.Errorf("update: unknown mode %q", st.Mode)
-	}
-
-	if !o.SkipBackup {
-		step(out, "Pre-upgrade backup")
-		if err := runBackup(ctx, h, st); err != nil {
-			return fmt.Errorf("update: pre-upgrade backup failed (nothing changed): %w"+
-				"\n  if the node is down, recover with: wg-guard update --rollback", err)
-		}
-		fmt.Fprintln(out, "  archive written to the node's backup sink")
-	}
-
-	switch st.Mode {
-	case ModeDocker:
-		return updateDocker(ctx, h, st, o, out)
-	case ModeNative:
-		return updateNative(ctx, h, st, o, out)
-	}
-	return fmt.Errorf("update: unknown mode %q", st.Mode)
-}
-
-// rollbackDocker re-deploys the state-recorded (last health-checked) image.
-func rollbackDocker(ctx context.Context, h Host, st *State, out io.Writer) error {
-	if st.Image == "" {
-		return fmt.Errorf("rollback: state records no image — restore %s manually", st.ComposePath)
-	}
-	compose, err := h.ReadFile(st.ComposePath)
-	if err != nil {
-		return fmt.Errorf("rollback: read compose: %w", err)
-	}
-	current := imageFromCompose(string(compose))
-	if current == st.Image {
-		return fmt.Errorf("rollback: compose already references %s", current)
-	}
-	fixed := strings.Replace(string(compose), "image: "+current, "image: "+st.Image, 1)
-	if fixed == string(compose) {
-		return fmt.Errorf("rollback: could not switch image reference %s -> %s", current, st.Image)
-	}
-	if err := h.WriteFile(st.ComposePath, []byte(fixed), 0o644); err != nil {
-		return fmt.Errorf("rollback: write compose: %w", err)
-	}
-	if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "up", "-d"}, longTimeout); err != nil {
-		return fmt.Errorf("rollback: compose up: %w", err)
-	}
-	if err := waitHealthyRecorded(ctx, h, st, updateHealthWindow, out); err != nil {
-		return fmt.Errorf("rollback: node still unhealthy after redeploying %s: %w", st.Image, err)
-	}
-	// The last-known-good record is still correct; nothing to patch.
-	fmt.Fprintf(out, "  node healthy on image %s\n", st.Image)
-	return nil
-}
-
-// rollbackNative restores the <bin>.pre-update copy when present.
-func rollbackNative(ctx context.Context, h Host, st *State, out io.Writer) error {
-	keep := st.BinPath + ".pre-update"
-	if _, err := h.Stat(keep); err != nil {
-		return fmt.Errorf("rollback: no %s — reinstall the previous binary manually", keep)
-	}
-	if err := h.CopyFile(keep, st.BinPath, 0o755); err != nil {
-		return fmt.Errorf("rollback: restore binary: %w", err)
-	}
-	if err := h.Run(ctx, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second); err != nil {
-		return fmt.Errorf("rollback: restart: %w", err)
-	}
-	if err := waitHealthyRecorded(ctx, h, st, updateHealthWindow, out); err != nil {
-		return fmt.Errorf("rollback: node still unhealthy: %w", err)
-	}
-	fmt.Fprintln(out, "  node healthy on the restored binary")
-	return nil
-}
-
-// runBackup invokes backup create in the owning environment: inside the
-// container in docker mode (the volume's DB owner), locally in native mode.
-// Older images may predate the -reason flag; a plain retry keeps the
-// pre-upgrade backup version-independent.
-func runBackup(ctx context.Context, h Host, st *State) error {
-	if st.Mode == ModeDocker {
-		if err := h.Run(ctx, []string{
-			"docker", "exec", Container, BinPath,
-			"backup", "create", "--reason", "pre-upgrade",
-		}, 5*time.Minute); err == nil {
-			return nil
-		}
-		return h.Run(ctx, []string{
-			"docker", "exec", Container, BinPath, "backup", "create",
-		}, 5*time.Minute)
-	}
-	return h.Run(ctx, []string{
-		BinPath, "backup", "create", "--reason", "pre-upgrade",
-	}, 5*time.Minute)
-}
-
-// updateDocker pulls the (possibly new) image and recreates the container.
-// Rollback re-renders the compose project with the previous image reference
-// and brings it back up; the health check decides.
-func updateDocker(ctx context.Context, h Host, st *State, o UpdateOptions, out io.Writer) error {
-	oldCompose, err := h.ReadFile(st.ComposePath)
-	if err != nil {
-		return fmt.Errorf("update: read compose: %w", err)
-	}
-	image := o.Image
-	if image == "" {
-		image = st.Image
-	}
-	if image == "" {
-		return fmt.Errorf("update: compose has no recorded image and --image was not given")
-	}
-	// The compose file is the source of truth for what runs (the state file
-	// is a record; reconcile from it if they ever drift).
-	current := imageFromCompose(string(oldCompose))
-	if current == "" {
-		return fmt.Errorf("update: %s has no image reference — edit it or reinstall", st.ComposePath)
-	}
-	if current == image {
-		return fmt.Errorf("update: already on image %s (pass --image to change it)", image)
-	}
-	// Point the compose project at the new image BEFORE pulling: `up -d`
-	// recreates the container only when the rendered config changed.
-	newCompose := strings.Replace(string(oldCompose), "image: "+current, "image: "+image, 1)
-	if newCompose == string(oldCompose) {
-		return fmt.Errorf("update: could not switch image reference %s -> %s in %s", current, image, st.ComposePath)
-	}
-
-	step(out, "Switching image reference")
-	if err := h.WriteFile(st.ComposePath, []byte(newCompose), 0o644); err != nil {
-		return fmt.Errorf("update: write compose: %w", err)
-	}
-
-	step(out, "Pulling image")
-	// Best-effort pull: a locally-built image (no registry) cannot be pulled;
-	// `up -d` below still resolves it. A real registry failure surfaces at
-	// up -d and the health check/rollback handles it.
-	if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "pull"}, longTimeout); err != nil {
-		fmt.Fprintf(out, "  WARNING: pull failed (%v) — continuing with the locally available image\n", err)
-	}
-
-	step(out, "Recreating container")
-	if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "up", "-d"}, longTimeout); err != nil {
-		return fmt.Errorf("update: compose up: %w", err)
-	}
-
-	step(out, "Health check")
-	if err := waitHealthyRecorded(ctx, h, st, updateHealthWindow, out); err != nil {
-		fmt.Fprintf(out, "  update failed (%v) — rolling back\n", err)
-		if err := h.WriteFile(st.ComposePath, oldCompose, 0o644); err != nil {
-			return fmt.Errorf("update: rollback compose write: %w", err)
-		}
-		if err := h.Run(ctx, []string{"docker", "compose", "-f", st.ComposePath, "up", "-d"}, longTimeout); err != nil {
-			return fmt.Errorf("update: ROLLBACK FAILED — inspect 'docker compose -f %s ps' manually", st.ComposePath)
-		}
-		if err := waitHealthyRecorded(ctx, h, st, updateHealthWindow, out); err != nil {
-			return fmt.Errorf("update: rolled back to %s but the node is unhealthy: %w", st.Image, err)
-		}
-		return fmt.Errorf("update: rolled back to %s (pre-upgrade backup is available)", st.Image)
-	}
-
-	// Persist the new reference for the next update/rollback decision.
-	if st.Image != image {
-		if err := patchStateImage(h, st, image); err != nil {
-			fmt.Fprintf(out, "  WARNING: state file not updated with the new image: %v\n", err)
-		}
-	}
-	fmt.Fprintf(out, "  node healthy on image %s\n", image)
-	return nil
-}
-
-// updateNative replaces the binary (keeping the previous one as
-// <bin>.pre-update), restarts and health checks; on failure the previous
-// binary is restored and the service restarted again.
-func updateNative(ctx context.Context, h Host, st *State, o UpdateOptions, out io.Writer) error {
-	if o.BinaryPath == "" {
-		return fmt.Errorf("update: native mode needs --binary PATH (the staged new wg-guard binary); " +
-			"downloads are never fetched automatically")
-	}
-	if _, err := h.Stat(o.BinaryPath); err != nil {
-		return fmt.Errorf("update: staged binary %s: %w", o.BinaryPath, err)
-	}
-
-	step(out, "Staging binary")
-	keep := st.BinPath + ".pre-update"
-	if err := h.CopyFile(st.BinPath, keep, 0o755); err != nil {
-		return fmt.Errorf("update: keep previous binary: %w", err)
-	}
-	if err := h.CopyFile(o.BinaryPath, st.BinPath+".new", 0o755); err != nil {
-		return fmt.Errorf("update: stage new binary: %w", err)
-	}
-
-	apply := func() error {
-		if err := h.Rename(st.BinPath+".new", st.BinPath); err != nil {
+		j.Candidate = st.Previous
+	} else {
+		j.Candidate, err = stageCandidate(ctx, h, st, o)
+		if err != nil {
 			return err
 		}
-		return h.Run(ctx, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second)
 	}
-
-	step(out, "Applying + restart")
-	if err := apply(); err != nil {
-		return fmt.Errorf("update: apply: %w", err)
+	if o.Rollback && !dataCompatible(previous, j.Candidate) {
+		return terminalError("install.error.rollback_restore")
 	}
-
-	step(out, "Health check")
-	if err := waitHealthyRecorded(ctx, h, st, updateHealthWindow, out); err != nil {
-		fmt.Fprintf(out, "  update failed (%v) — restoring previous binary\n", err)
-		if err := h.CopyFile(keep, st.BinPath, 0o755); err != nil {
-			return fmt.Errorf("update: ROLLBACK FAILED — previous binary kept at %s", keep)
-		}
-		if err := h.Run(ctx, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second); err != nil {
-			return fmt.Errorf("update: rollback restart failed: %w", err)
-		}
-		if err := waitHealthyRecorded(ctx, h, st, updateHealthWindow, out); err != nil {
-			return fmt.Errorf("update: rolled back but the node is unhealthy: %w", err)
-		}
-		return fmt.Errorf("update: rolled back to the previous binary (pre-upgrade backup is available)")
+	if o.SkipBackup && !dataCompatible(previous, j.Candidate) {
+		return terminalError("install.error.backup_required")
 	}
-	fmt.Fprintf(out, "  node healthy (previous binary kept at %s)\n", keep)
+	if !o.SkipBackup && !o.Rollback {
+		previous.Backup, err = createBackup(ctx, h, st, j.ID)
+		if err != nil {
+			return err
+		}
+	}
+	next := *st
+	next.Schema = StateSchema
+	next.Current = j.Candidate
+	next.Previous = previous
+	next.Image = j.Candidate.Image
+	next.Version = j.Candidate.Build.Version
+	next.Recovery = ""
+	j.After = &next
+	if err = j.save(h, "prepared"); err != nil {
+		return err
+	}
+	recorded = true
+	if err = ctx.Err(); err != nil {
+		_ = j.save(h, "aborted")
+		return err
+	}
+	// systemd may restart independently immediately after a binary rename.
+	j.DataMayHaveChanged = true
+	if err = j.save(h, "swap-pending"); err != nil {
+		return err
+	}
+	fail := func(cause error) error {
+		return errors.Join(cause, recoverTransaction(h, j, o.Stdout), terminalError("install.error.update_failed"))
+	}
+	if err = deployArtifact(h, st, j.Candidate); err != nil {
+		return fail(err)
+	}
+	// A failed start command may already have run migrations: journal first.
+	if err = j.save(h, "started"); err != nil {
+		return fail(err)
+	}
+	if err = startService(ctx, h, st); err != nil {
+		return fail(err)
+	}
+	if err = waitHealthyRecorded(ctx, h, st, updateHealthWindow, o.Stdout); err != nil {
+		return fail(err)
+	}
+	if err = saveState(h, &next); err != nil {
+		return fail(err)
+	}
+	if err = j.save(h, "complete"); err != nil {
+		return fail(err)
+	}
+	for _, old := range []*Artifact{st.Current, st.Previous} {
+		if old != nil && old.Binary != previous.Binary && old.Binary != j.Candidate.Binary {
+			removeArtifact(h, old)
+		}
+	}
 	return nil
 }
 
-// waitHealthyRecorded is waitHealthy with progress dots and mode-aware probe
-// resolution from the state file.
+// Only exact owned files and their empty private directory may be pruned.
+// Docker images and backups may be shared/recovery resources and are retained.
+func removeArtifact(h Host, a *Artifact) {
+	if a == nil || validateArtifact(a) != nil {
+		return
+	}
+	if _, ok := h.(realHost); ok {
+		if safeHostPath(a.Binary) != nil || a.Compose != "" && safeHostPath(a.Compose) != nil {
+			return
+		}
+	}
+	_ = h.Remove(a.Binary)
+	if a.Compose != "" {
+		_ = h.Remove(a.Compose)
+	}
+	_ = h.Remove(path.Dir(a.Binary))
+}
+func dataCompatible(a, b *Artifact) bool {
+	return a != nil && b != nil && CheckContract(a.Contract) == nil && CheckContract(b.Contract) == nil && a.Contract.DataContract == b.Contract.DataContract
+}
+
+func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, resultErr error) {
+	dir := ArtifactDir + "/" + transactionID()
+	if err := h.MkdirAll(dir, 0700); err != nil {
+		return nil, err
+	}
+	a := &Artifact{Binary: dir + "/binary"}
+	defer func() {
+		if resultErr != nil {
+			_ = h.Remove(dir + "/binary")
+			_ = h.Remove(dir + "/compose.yaml")
+			_ = h.Remove(dir)
+		}
+	}()
+	if st.Current != nil {
+		a.Build = st.Current.Build
+	}
+	if err := h.CopyFile(BinPath, a.Binary, 0755); err != nil {
+		return nil, err
+	}
+	digest, _, err := fileDigest(ctx, h, a.Binary, 256<<20)
+	if err != nil {
+		return nil, err
+	}
+	a.BinarySHA256 = digest
+	args := []string{BinPath}
+	if st.Mode == ModeDocker {
+		raw, err := h.Output(ctx, []string{"docker", "inspect", "--format", "{{.Image}}", Container}, 30*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		a.Image = strings.TrimSpace(raw)
+		if !imageID(a.Image) {
+			return nil, terminalError("install.error.image_identity")
+		}
+		a.Compose = dir + "/compose.yaml"
+		b, err := h.ReadFile(ComposePth)
+		if err != nil {
+			return nil, err
+		}
+		b, err = composeImage(b, a.Image)
+		if err != nil {
+			return nil, err
+		}
+		if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
+			return nil, err
+		}
+		args = []string{"docker", "exec", Container, BinPath}
+	}
+	// Absent legacy contract never proves interpretation compatibility.
+	a.Contract, _ = inspectContract(ctx, h, args)
+	return a, nil
+}
+
+func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (result *Artifact, resultErr error) {
+	binary := o.BinaryPath
+	if o.Build.BinaryPath != "" {
+		binary = o.Build.BinaryPath
+	}
+	if binary == "" {
+		return nil, terminalError("install.error.binary")
+	}
+	dir := ArtifactDir + "/" + transactionID()
+	if err := h.MkdirAll(dir, 0700); err != nil {
+		return nil, err
+	}
+	a := &Artifact{Build: o.Build, Binary: dir + "/binary"}
+	defer func() {
+		if resultErr != nil {
+			_ = h.Remove(dir + "/binary")
+			_ = h.Remove(dir + "/compose.yaml")
+			_ = h.Remove(dir)
+		}
+	}()
+	if err := h.CopyFile(binary, a.Binary, 0755); err != nil {
+		return nil, err
+	}
+	digest, _, err := fileDigest(ctx, h, a.Binary, 256<<20)
+	if err != nil {
+		return nil, err
+	}
+	a.BinarySHA256 = digest
+	if o.Build.SHA256 != "" && digest != o.Build.SHA256 {
+		return nil, terminalError("install.error.image.5")
+	}
+	a.Build.BinaryPath = ""
+	a.Build.SHA256 = digest
+	a.Contract, err = inspectContract(ctx, h, []string{a.Binary})
+	if err != nil {
+		return nil, err
+	}
+	if st.Mode == ModeDocker {
+		if o.Image == "" {
+			return nil, terminalError("install.error.image_identity")
+		}
+		if !o.LocalImage {
+			if err := h.Run(ctx, []string{"docker", "pull", o.Image}, longTimeout); err != nil {
+				return nil, err
+			}
+		}
+		raw, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Id}}", o.Image}, 30*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		a.Image = strings.TrimSpace(raw)
+		if !imageID(a.Image) {
+			return nil, terminalError("install.error.image_identity")
+		}
+		contract, err := inspectContract(ctx, h, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", BinPath, a.Image})
+		if err != nil {
+			return nil, err
+		}
+		if contract != a.Contract {
+			return nil, terminalError("install.error.contract")
+		}
+		sum, err := h.Output(ctx, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", "sha256sum", a.Image, BinPath}, 30*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		fields := strings.Fields(sum)
+		if len(fields) != 2 || fields[0] != digest || fields[1] != BinPath {
+			return nil, terminalError("install.error.shim")
+		}
+		b, err := h.ReadFile(ComposePth)
+		if err != nil {
+			return nil, err
+		}
+		b, err = composeImage(b, a.Image)
+		if err != nil {
+			return nil, err
+		}
+		a.Compose = dir + "/compose.yaml"
+		if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
+			return nil, err
+		}
+	}
+	return a, nil
+}
+func imageID(s string) bool {
+	return strings.HasPrefix(s, "sha256:") && hexLength(strings.TrimPrefix(s, "sha256:"), 64)
+}
+func composeImage(b []byte, image string) ([]byte, error) {
+	lines := strings.Split(string(b), "\n")
+	n := 0
+	for i, line := range lines {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "image:") {
+			n++
+			indent := len(line) - len(strings.TrimLeft(line, " \t"))
+			lines[i] = line[:indent] + "image: " + image
+		}
+	}
+	if n != 1 {
+		return nil, terminalError("install.error.compose")
+	}
+	return []byte(strings.Join(lines, "\n")), nil
+}
+func deployArtifact(h Host, st *State, a *Artifact) error {
+	if err := validateArtifact(a); err != nil {
+		return err
+	}
+	digest, _, err := fileDigest(context.Background(), h, a.Binary, 256<<20)
+	if err != nil {
+		return err
+	}
+	if digest != a.BinarySHA256 {
+		return terminalError("install.error.image.5")
+	}
+	if err = h.CopyFile(a.Binary, BinPath, 0755); err != nil {
+		return err
+	}
+	if st.Mode == ModeDocker {
+		b, err := h.ReadFile(a.Compose)
+		if err != nil {
+			return err
+		}
+		b, err = composeImage(b, a.Image)
+		if err != nil {
+			return err
+		}
+		return atomicWrite(h, ComposePth, b, 0644)
+	}
+	return nil
+}
+func startService(ctx context.Context, h Host, st *State) error {
+	if st.Mode == ModeDocker {
+		return h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "up", "-d", "--pull", "never"}, longTimeout)
+	}
+	return h.Run(ctx, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second)
+}
+func stopService(ctx context.Context, h Host, st *State) error {
+	if st.Mode == ModeDocker {
+		if _, err := h.Stat(ComposePth); !errors.Is(err, fs.ErrNotExist) {
+			if err != nil {
+				return err
+			}
+			if err := h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "down"}, longTimeout); err != nil {
+				return err
+			}
+		}
+		raw, err := h.Output(ctx, []string{"docker", "ps", "--filter", "name=^/" + Container + "$", "--format", "{{.ID}}"}, 30*time.Second)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(raw) != "" {
+			return terminalError("install.error.stop")
+		}
+		return nil
+	}
+	if err := h.Run(ctx, []string{"systemctl", "stop", "wg-guard"}, 60*time.Second); err != nil {
+		return err
+	}
+	raw, err := h.Output(ctx, []string{"systemctl", "show", "--property=ActiveState", "--value", "wg-guard"}, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	switch strings.TrimSpace(raw) {
+	case "inactive", "failed":
+		return nil
+	}
+	return terminalError("install.error.stop")
+}
+
+// Recovery has its own deadline so cancellation cannot disable compensation.
+func recoverTransaction(h Host, j *Journal, out io.Writer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	fail := func(err error) error {
+		if j.After != nil {
+			j.After.Recovery = "recovery-required"
+			_ = saveState(h, j.After)
+		}
+		return errors.Join(err, j.save(h, "recovery-required"), terminalError("install.error.recovery_failed"))
+	}
+	if j.Operation == "install" && j.After != nil {
+		if j.DataMayHaveChanged {
+			if err := stopService(ctx, h, j.After); err != nil {
+				return fail(err)
+			}
+		}
+		j.After.Recovery = "install-incomplete"
+		if err := saveState(h, j.After); err != nil {
+			return fail(err)
+		}
+		return errors.Join(j.save(h, "recovery-required"), terminalError("install.error.manual_recovery"))
+	}
+	if j.Operation != "update" && j.Operation != "rollback" {
+		return terminalError("install.error.manual_recovery")
+	}
+	if j.Stage == "prepared" {
+		return j.save(h, "aborted")
+	}
+	if j.Before == nil || j.Previous == nil {
+		return fail(terminalError("install.error.journal"))
+	}
+	if err := stopService(ctx, h, j.Before); err != nil {
+		return fail(err)
+	}
+	if j.DataMayHaveChanged && !dataCompatible(j.Previous, j.Candidate) {
+		if j.Previous.Backup != nil {
+			j.Previous.Backup.RestoreRequired = true
+		}
+		st := *j.Before
+		st.Recovery = "restore-required"
+		if err := saveState(h, &st); err != nil {
+			return fail(err)
+		}
+		return errors.Join(j.save(h, "restore-required"), terminalError("install.error.restore_required"))
+	}
+	if err := deployArtifact(h, j.Before, j.Previous); err != nil {
+		return fail(err)
+	}
+	if err := startService(ctx, h, j.Before); err != nil {
+		return fail(err)
+	}
+	if err := waitHealthyRecorded(ctx, h, j.Before, updateHealthWindow, out); err != nil {
+		return fail(err)
+	}
+	if err := saveState(h, j.Before); err != nil {
+		return fail(err)
+	}
+	return j.save(h, "rolled-back")
+}
+
+func fileDigest(ctx context.Context, h Host, p string, limit int64) (string, bool, error) {
+	if _, ok := h.(realHost); ok {
+		if err := safeHostPath(p); err != nil {
+			return "", false, err
+		}
+	}
+	f, err := h.Open(p)
+	if err != nil {
+		return "", false, err
+	}
+	defer f.Close()
+	hash := sha256.New()
+	buf := make([]byte, 64<<10)
+	var n int64
+	encrypted := false
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", false, err
+		}
+		count, e := f.Read(buf)
+		if n == 0 {
+			encrypted = strings.HasPrefix(string(buf[:count]), "age-encryption.org/v1")
+		}
+		n += int64(count)
+		if n > limit {
+			return "", false, terminalError("install.error.archive")
+		}
+		hash.Write(buf[:count])
+		if e == io.EOF {
+			break
+		}
+		if e != nil {
+			return "", false, e
+		}
+	}
+	if n == 0 {
+		return "", false, terminalError("install.error.archive")
+	}
+	return hex.EncodeToString(hash.Sum(nil)), encrypted, nil
+}
+func createBackup(ctx context.Context, h Host, st *State, id string) (*BackupIdentity, error) {
+	dir := DataDir + "/backups/lifecycle-" + id
+	if err := h.MkdirAll(dir, 0700); err != nil {
+		return nil, err
+	}
+	args := []string{BinPath}
+	if st.Mode == ModeDocker {
+		args = []string{"docker", "exec", Container, BinPath}
+	}
+	args = append(args, "backup", "create", "--reason", "pre-upgrade", "--output", dir)
+	raw, err := h.Output(ctx, args, 5*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	// Never log complete delivery output: it can contain remote warnings.
+	name := ""
+	for _, line := range strings.Split(raw, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 3 && fields[0] == "created" {
+			if name != "" {
+				return nil, terminalError("install.error.archive")
+			}
+			name = fields[1]
+		}
+	}
+	if name == "" || path.Base(name) != name || strings.ContainsAny(name, "\\\r\n\t") || !strings.HasSuffix(name, ".wgg") {
+		return nil, terminalError("install.error.archive")
+	}
+	b := &BackupIdentity{Path: dir + "/" + name}
+	b.SHA256, b.Encrypted, err = fileDigest(ctx, h, b.Path, 8<<30)
+	return b, err
+}
 func waitHealthyRecorded(ctx context.Context, h Host, st *State, within time.Duration, out io.Writer) error {
-	p := Plan{Mode: st.Mode, DataDir: st.DataDir}
-	// Reconstruct the plan's TLS posture from the live boot config.
 	cfg, err := ReadBootConfig(h, st.ConfigPath)
 	if err != nil {
 		return err
 	}
-	p.TLSMode = cfg.TLS.Mode
-	p.Domain = cfg.TLS.Domain
-	p.PanelPort = portOf(cfg.HTTPListen)
-	p.ACMEHTTPPort = cfg.TLS.ACMEHTTPPort
+	p := Plan{Mode: st.Mode, DataDir: st.DataDir, TLSMode: cfg.TLS.Mode, Domain: cfg.TLS.Domain, PanelPort: portOf(cfg.HTTPListen), ACMEHTTPPort: cfg.TLS.ACMEHTTPPort}
 	if p.ACMEHTTPPort == 0 {
 		p.ACMEHTTPPort = 80
 	}
 	return waitHealthy(ctx, h, p, within)
 }
-
-// imageFromCompose extracts the service image reference from a compose file
-// (first "image:" line, trimmed).
 func imageFromCompose(content string) string {
 	for _, line := range strings.Split(content, "\n") {
-		t := strings.TrimSpace(line)
-		if rest, ok := strings.CutPrefix(t, "image:"); ok {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "image:"); ok {
 			return strings.TrimSpace(rest)
 		}
 	}
 	return ""
-}
-
-// patchStateImage rewrites the state file's image field (docker mode).
-func patchStateImage(h Host, st *State, image string) error {
-	st.Image = image
-	data, err := json.MarshalIndent(st, "", "  ")
-	if err != nil {
-		return err
-	}
-	return h.WriteFile(StatePath, append(data, '\n'), 0o644)
 }

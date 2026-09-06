@@ -103,6 +103,20 @@ and removes it after consuming the binary. Acquisition never changes an active i
 
 ## Local artifacts and verification
 
+Before dispatching install, the bootstrap runs the candidate's `installer-contract` command
+without elevation, with a 15-second deadline and a 4096-byte output cap. Missing/older contracts
+are refused. Revision1 requires prerequisite and recoverable-lifecycle capabilities plus an
+explicit data contract; it does not yet require/advertise M4 local-owner creation or M5
+coordinated restore. The bootstrap passes private build-identity metadata to the installer,
+which validates the candidate and deploys the same binary in Docker and on the host.
+
+The Go install/update flags share `internal/distribution`: `--release TAG|latest` and
+`--commit main|FULL_SHA` are mutually exclusive. Docker uses a runtime image built from the
+selected binary and verified core bundle, or an explicit image override with a matching
+binary checksum. Remote image failure is fatal; only `--local-image` permits an already local
+image without pulling. No source or stale-local fallback is implicit. Transaction and legacy
+recovery semantics are documented in [lifecycle-recovery.md](lifecycle-recovery.md).
+
 ```bash
 bash scripts/build-artifacts.sh --version v0.1.0-candidate --output /tmp/wg-guard-candidate
 cd /tmp/wg-guard-candidate

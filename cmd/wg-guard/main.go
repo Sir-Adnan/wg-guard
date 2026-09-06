@@ -4,10 +4,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
@@ -58,6 +60,16 @@ func main() {
 		os.Exit(2)
 	}
 
+	// Contract probes inspect this binary without reading or migrating node data.
+	if os.Args[1] == "installer-contract" {
+		if len(os.Args) != 2 {
+			os.Exit(2)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(install.CurrentContract()); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	// Docker-mode host shim: on a docker-mode install the host binary routes
 	// panel/data commands into the container (ADR-0006). No-op otherwise.
 	routeDockerMode()
