@@ -15,13 +15,14 @@ type Contract struct {
 	Recovery           bool   `json:"recovery"`
 	LocalOwner         bool   `json:"local_owner"`
 	CoordinatedRestore bool   `json:"coordinated_restore"`
+	DataLease          bool   `json:"data_lease"`
 }
 
 func CurrentContract() Contract {
-	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true, LocalOwner: true, CoordinatedRestore: true}
+	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true, LocalOwner: true, CoordinatedRestore: true, DataLease: true}
 }
 func CheckContract(c Contract) error {
-	if !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore {
+	if !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore || !c.DataLease {
 		return terminalError("install.error.contract")
 	}
 	return nil

@@ -94,9 +94,10 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		"size": res.Size, "encrypted": res.Encrypted, "delivered": res.Delivered,
 	})
 	if len(res.Warnings) > 0 {
-		d := s.backupsData(r)
-		d.Warnings = backup.WarningTexts(res.Warnings, s.localeFor(r))
-		_ = s.render(w, r, "backups", "app", d)
+		// Only safe, localized public messages enter the existing escaped PRG
+		// flash channel; engine causes (including credential URLs) stay private.
+		text := s.t(r, "backups.toast.created") + " " + strings.Join(backup.WarningTexts(res.Warnings, s.localeFor(r)), " · ")
+		s.redirectToastRaw(w, r, "/backups", text)
 		return
 	}
 	s.redirectToast(w, r, "/backups", "backups.toast.created")

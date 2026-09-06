@@ -122,9 +122,9 @@ and removes it after consuming the binary. Acquisition never changes an active i
 
 Before dispatching management/install, the bootstrap runs the candidate's `installer-contract` command
 without elevation, with a 15-second deadline and a 4096-byte output cap. Missing/older contracts
-are refused. Revision1 requires prerequisite, recoverable-lifecycle, local-owner and
-coordinated-restore capabilities plus an explicit data contract. M5 candidates advertise
-coordinated restore; older candidates lacking it are refused. Retained recovery artifacts
+are refused. Revision1 requires prerequisite, recoverable-lifecycle, local-owner,
+coordinated-restore and `data_lease` capabilities plus an explicit data contract. Candidates
+lacking shared-volume lifetime data ownership are refused. Retained recovery artifacts
 remain governed separately by their recorded identity and data contract.
 The bootstrap passes private build-identity metadata to the installer,
 which validates the candidate and deploys the same binary in Docker and on the host.

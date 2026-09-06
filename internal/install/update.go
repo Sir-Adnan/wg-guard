@@ -33,7 +33,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	}
 	if j != nil && !j.terminal() {
 		if !o.Rollback && !o.Recover {
-			return terminalError("install.error.pending")
+			return pendingOperationError(j)
 		}
 		return recoverTransaction(h, j, o.Stdout)
 	}
@@ -466,7 +466,7 @@ func recoverTransaction(h Host, j *Journal, out io.Writer) error {
 		return errors.Join(j.save(h, "recovery-required"), terminalError("install.error.manual_recovery"))
 	}
 	if j.Operation != "update" && j.Operation != "rollback" {
-		return terminalError("install.error.manual_recovery")
+		return pendingOperationError(j)
 	}
 	if j.Stage == "prepared" {
 		return j.save(h, "aborted")

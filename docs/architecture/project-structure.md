@@ -48,7 +48,8 @@ internal/
   webhook/               durable event delivery: events table, recorder (in-txn emit),
                          worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
   backup/                archive builder, bounded private preview/explicit approval, recoverable
-                         database/key pair replacement, optional age password, sinks/schedules
+                         database/key pair replacement, shared-volume lifetime data leases,
+                         optional age password, sinks/schedules
                          (Phase 6; Phase 8.1 safety and CLI extensions)
   distribution/          bounded GitHub release/commit catalog, verified private acquisition,
                          immutable source build identity and temporary toolchain (Phase 8.1)

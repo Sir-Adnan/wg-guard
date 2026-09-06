@@ -35,7 +35,7 @@ func runSecrets(args []string) error {
 		}
 	}
 
-	env, err := loadCLIEnv(configPath)
+	env, err := loadCLIEnvOwnership(configPath, true)
 	if err != nil {
 		return err
 	}

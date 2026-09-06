@@ -5,6 +5,39 @@ The Linux kernel releases it when the process exits or dies; do not delete the l
 to bypass another operator. Install/update/uninstall/restart/core selection and TLS-state writes
 share this lock. The application remains one binary with one scheduler.
 
+DB/key access also uses `/var/lib/wg-guard/.wg-guard-data.lock`, a separate persistent
+inode shared by native commands and Docker's bind-mounted data volume. Every data CLI and
+the server keep shared kernel ownership until their DB/key users close. `secrets rotate`
+takes exclusive ownership before loading keys or carriers, including while awaiting `YES`.
+Restore and interrupted pair recovery require exclusive ownership; stopping the service
+alone is insufficient if another data command is still running. Startup completes any
+pending restore exclusively and converts to lifetime shared ownership while admission stays
+closed. Preview/archive staging remains possible while the server is running.
+Startup retains exclusive ownership until DB/key initialization finishes. A CLI opening
+a node whose master key does not yet exist also keeps exclusive ownership until key
+initialization finishes, preventing concurrent first-key creation. Database-only commands
+do not create a key as a side effect. A timed-out server shutdown retains its lease until a later
+successful handler drain or process exit.
+
+Contention fails immediately with fa/en guidance to finish other data commands and stop the
+service before rotation/restore. A failed managed restore retains its journal/guard and
+keeps the service stopped: finish the contender, then use `restore ARCHIVE --retry` (or
+`restore --recover` for recorded original-schema recovery). Locks are kernel-owned and
+released on process exit/death; the file is never archived, replaced or removed during
+restore. Never unlink the lock file to bypass an owner. On Linux the two byte ranges use
+open-file-description locks, which also serialize distinct processes and survive pathname
+aliases into the same volume. No lifecycle-lock inheritance or nested subprocess exception
+is required; lifecycle commands may still invoke installed data CLI helpers.
+
+Alternate data directories and custom direct-child DB/key filenames remain supported for
+manual operation. Both files must belong to the configured data directory: split directories
+or a file symlink escaping that directory fail closed with migration guidance. Directory
+aliases are compared by underlying inode, so a legitimate alternate path to the same volume
+still participates in the same lock. If using a split legacy layout, stop all data processes,
+migrate the database (including its SQLite sidecars) and current/previous master keys together
+into one directory, and update all boot configuration/environment overrides before restarting.
+Managed restore retains its separate canonical-filename/layout requirement.
+
 ## State and retained resources
 
 `/etc/wg-guard/install-state.json` is schema2 and mode 0600. Schema1 remains readable when
@@ -37,7 +70,7 @@ retention review after the rollback window. `--purge-data` removes them with the
 
 ## Interrupted operations
 
-Run `wg-guard update --recover` using a Phase8.1 binary. If the installed host command predates
+For interrupted updates, run `wg-guard update --recover` using a Phase8.1 binary. If the installed host command predates
 that command, use an acquired compatible candidate directly. Do not start old code manually
 just because a health endpoint responds.
 
@@ -73,9 +106,16 @@ currently reports `data_contract: schema7-h-ranges-v1`, prerequisites and recove
 support. `local_owner` is true and required for new candidates: installer-managed setup
 prepares the local owner before listener startup. M5 implements bounded coordinated
 database/master-key restoration, including original-schema recovery; `coordinated_restore` is
-true and required for new candidates. Candidate admission
+true and required for new candidates. `data_lease=true` is also required by both the
+bootstrap and Go candidate admission. Candidate admission
 is separate from data compatibility: valid older revision1 records keep their known schema
 identity even if they lack the newer owner-setup capability.
+
+Earlier binaries do not participate in data leases. Before upgrading from, rolling back to,
+or recovering an earlier artifact, operators must stop every independently running earlier
+data command and prevent another from starting during maintenance. The new coordinator
+cannot exclude a binary that ignores its locks. Same-schema compatibility of a retained
+artifact remains a data-format statement, not evidence of lifetime ownership support.
 
 `wg-guard restart --yes` records a `restart` operation using the same lock and service helpers.
 Retry that command after a failed/interrupted restart; `update --recover` remains the update/
@@ -122,6 +162,14 @@ integration contract, verify both exact package versions are available, and plan
 window. Loaded module version, loaded `srcversion` and on-disk `srcversion` are distinct facts.
 Never unload active tunnels as an installer step. A differing source identity stays pending
 until an operator reboot and successful recheck; unknown identity never counts as correct.
+
+After correcting unavailable package/module observations, repeat
+`wg-guard core switch recommended --confirm-impact`. This explicitly retries its own
+`prepared`, `pending-reboot` or `recovery-required` record under the lifecycle lock, observing
+the installed packages and loaded/disk module identity again before completing. It also
+handles interrupted or failed state/journal writes; another pending operation is never
+overwritten. `update --recover` points core/restart/restore operators to their own recovery
+commands rather than treating those records as updates.
 
 These transaction and failure paths are unit/Linux-fixture tested, not yet certified by the
 Phase8.1 dedicated Docker/native VPS lifecycle and legacy-upgrade drill.

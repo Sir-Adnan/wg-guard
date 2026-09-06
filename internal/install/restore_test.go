@@ -90,3 +90,14 @@ func TestCandidateRequiresCoordinatedRestoreWithoutChangingDataCompatibility(t *
 		t.Fatal("capability admission changed retained data compatibility")
 	}
 }
+
+func TestCandidateRequiresDataLeaseWithoutChangingDataCompatibility(t *testing.T) {
+	prior := CurrentContract()
+	prior.DataLease = false
+	if err := CheckContract(prior); err == nil {
+		t.Fatal("candidate without lifetime ownership admitted")
+	}
+	if !dataCompatible(&Artifact{Contract: prior}, &Artifact{Contract: CurrentContract()}) {
+		t.Fatal("admission changed data compatibility")
+	}
+}

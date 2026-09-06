@@ -33,6 +33,13 @@ and publication date, a bounded page of at most 30 stable releases, or explicit 
 release catalog does not select development automatically. Source metadata and the final
 install review show build identity and impact, never credentials.
 
+The final setup review shows the effective first-interface pool, MTU and DNS values,
+including defaults when customization is skipped. Legacy schema1 records with absent TLS
+readiness or core bundle show localized “Unknown / not recorded” values rather than blank
+fields. Recovery hints follow the journal's operation: restart and core retry their own
+commands; ordinary restore uses `--retry`; coordinated original-schema recovery uses
+`restore --recover`; interrupted updates use `update --recover`.
+
 Setup groups the public VPN endpoint, panel/TLS TCP settings, per-interface AWG UDP allocation,
 and optional Telegram/daily backup settings. The default UDP range is 30000–50000, allocated
 one port per interface; it is not the panel TCP port. HTTP-01 always requires external TCP80

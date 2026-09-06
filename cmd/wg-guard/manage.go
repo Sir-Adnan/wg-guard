@@ -108,8 +108,7 @@ func runManage(args []string) error {
 		}
 		m.installed = st.Version
 		u.Field(u.T("manage.installed"), string(st.Mode)+" · "+st.Version)
-		u.Field("TLS", st.TLSReadiness)
-		u.Field(u.T("manage.core"), st.Core.Requested.ID)
+		showRecordedReadiness(u, st)
 		if st.Core.RebootRequired {
 			u.Text(u.T("manage.reboot"))
 		}
@@ -150,6 +149,18 @@ func runManage(args []string) error {
 		return nil
 	}
 	return m.loop(ctx)
+}
+
+func showRecordedReadiness(u *terminal.UI, st *install.State) {
+	tls, core := st.TLSReadiness, st.Core.Requested.ID
+	if tls == "" {
+		tls = u.T("manage.not_recorded")
+	}
+	if core == "" {
+		core = u.T("manage.not_recorded")
+	}
+	u.Field("TLS", tls)
+	u.Field(u.T("manage.core"), core)
 }
 
 // Only the acquisition entry auto-starts fresh setup. An installed node opens

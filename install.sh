@@ -205,7 +205,7 @@ try:
     with contract_path.open('wb') as contract_output:
         subprocess.run([str(stage/'wg-guard'),'installer-contract'],stdin=subprocess.DEVNULL,stdout=contract_output,stderr=subprocess.DEVNULL,timeout=15,check=True,preexec_fn=contract_limits)
     contract=json.loads(contract_path.read_bytes())
-    require(contract.get('revision')==1 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.1 owner/restore installer contract; choose a compatible build')
+    require(contract.get('revision')==1 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.1 owner/restore/data-ownership installer contract; choose a compatible build')
     (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=ref if channel=='release' else sha,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
     (stage/'build.json').chmod(0o600)
     print('Selected '+version+' ('+sha+'), SHA-256 '+digest,file=sys.stderr)

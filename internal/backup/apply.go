@@ -123,6 +123,11 @@ func (s *Service) DiscardPending() error {
 // ApplyOriginal requires an exact private preview and is only called offline by
 // the lifecycle recovery coordinator after checking archive/artifact identities.
 func (s *Service) ApplyOriginal(ctx context.Context, id string) (*RestoreReport, error) {
+	lease, err := s.lockData(true)
+	if err != nil {
+		return nil, err
+	}
+	defer lease.Close()
 	dir, err := s.previewDir(id)
 	if err != nil {
 		return nil, err
@@ -138,6 +143,15 @@ func (s *Service) ApplyOriginal(ctx context.Context, id string) (*RestoreReport,
 }
 
 func (s *Service) ApplyStaged(ctx context.Context) (*RestoreReport, error) {
+	lease, err := s.lockData(true)
+	if err != nil {
+		return nil, err
+	}
+	defer lease.Close()
+	return s.applyStaged(ctx)
+}
+
+func (s *Service) applyStaged(ctx context.Context) (*RestoreReport, error) {
 	p, err := s.Pending()
 	if err != nil {
 		return nil, err
@@ -276,6 +290,15 @@ func (s *Service) apply(ctx context.Context, p *PendingRestore) (*RestoreReport,
 
 // RecoverInterrupted must run before opening any active database handle.
 func (s *Service) RecoverInterrupted() error {
+	lease, err := s.lockData(true)
+	if err != nil {
+		return err
+	}
+	defer lease.Close()
+	return s.recoverInterrupted()
+}
+
+func (s *Service) recoverInterrupted() error {
 	if _, err := os.Lstat(filepath.Join(s.Cfg.DataDir, transactionDir)); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -344,17 +367,26 @@ func (s *Service) recoverPair() error {
 }
 
 func (s *Service) ConsumePendingRestore() (string, error) {
+	lease, err := s.lockData(true)
+	if err != nil {
+		return "", err
+	}
+	defer lease.Close()
+	return s.consumePendingRestore()
+}
+
+func (s *Service) consumePendingRestore() (string, error) {
 	if _, err := os.Lstat(filepath.Join(s.Cfg.DataDir, RestoreGuardName)); !os.IsNotExist(err) {
 		return "", safetyError("lifecycle_blocked", nil)
 	}
-	if err := s.RecoverInterrupted(); err != nil {
+	if err := s.recoverInterrupted(); err != nil {
 		return "", err
 	}
 	p, err := s.Pending()
 	if err != nil || p == nil {
 		return "", err
 	}
-	if _, err := s.ApplyStaged(context.Background()); err != nil {
+	if _, err := s.applyStaged(context.Background()); err != nil {
 		return "", err
 	}
 	return p.Archive, nil

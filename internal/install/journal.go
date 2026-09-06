@@ -133,7 +133,20 @@ func noPending(h Host) error {
 		return err
 	}
 	if j != nil && !j.terminal() {
-		return terminalError("install.error.pending")
+		return pendingOperationError(j)
 	}
 	return nil
+}
+
+func pendingOperationError(j *Journal) error {
+	if j != nil {
+		if j.Stage == "restore-required" || j.Previous != nil && j.Previous.Backup != nil && j.Previous.Backup.RestoreRequired && j.DataMayHaveChanged {
+			return terminalError("install.error.pending.data")
+		}
+		switch j.Operation {
+		case "install", "update", "restart", "restore", "core", "uninstall":
+			return terminalError("install.error.pending." + j.Operation)
+		}
+	}
+	return terminalError("install.error.pending")
 }

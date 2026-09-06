@@ -11,7 +11,8 @@ import (
 
 const RestoreGuardName = "restore.lifecycle-blocked"
 
-// CheckOpen blocks other processes from touching data during coordinated restore.
+// CheckOpen checks durable restore markers. Callers opening data must use
+// OpenData so this check and the entire DB/key lifetime have kernel ownership.
 func (s *Service) CheckOpen() error {
 	for _, name := range []string{RestoreGuardName, transactionDir} {
 		if _, err := os.Lstat(filepath.Join(s.Cfg.DataDir, name)); !os.IsNotExist(err) {

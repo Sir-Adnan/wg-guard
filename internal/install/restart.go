@@ -29,7 +29,7 @@ func Restart(ctx context.Context, h Host) (resultErr error) {
 		return err
 	}
 	if j != nil && !j.terminal() && j.Operation != "restart" {
-		return terminalError("install.error.pending")
+		return pendingOperationError(j)
 	}
 	j = &Journal{Schema: 1, ID: transactionID(), Operation: "restart", Before: st, After: st}
 	if err := j.save(h, "prepared"); err != nil {

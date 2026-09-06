@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -35,6 +36,10 @@ func runOwnerBootstrap(args []string) error {
 	}
 	svc, close, err := loadOwnerService(*cfg)
 	if err != nil {
+		var safe backup.Message
+		if errors.As(err, &safe) {
+			return backup.InLocale(err, i18n.Locale(terminalLocale()))
+		}
 		return fmt.Errorf("%s", i18n.T(i18n.En, "owner.check_failed"))
 	}
 	defer close()
@@ -64,9 +69,16 @@ func loadOwnerService(path string) (*admin.Service, func(), error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, err
 	}
-	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
+	lease, err := (&backup.Service{Cfg: cfg}).OpenData(false)
+	if err != nil {
 		return nil, nil, err
 	}
+	owned := false
+	defer func() {
+		if !owned {
+			lease.Close()
+		}
+	}()
 	db, err := database.Open(cfg.DatabasePath, database.Options{})
 	if err != nil {
 		return nil, nil, err
@@ -75,7 +87,8 @@ func loadOwnerService(path string) (*admin.Service, func(), error) {
 		db.Close()
 		return nil, nil, err
 	}
-	return admin.NewService(db, nil), func() { db.Close() }, nil
+	owned = true
+	return admin.NewService(db, nil), func() { db.Close(); lease.Close() }, nil
 }
 func bootstrapOwnerInput(ctx context.Context, svc *admin.Service, in io.Reader, out io.Writer) error {
 	fail := func() error { return fmt.Errorf("%s", i18n.T(i18n.En, "owner.failed")) }

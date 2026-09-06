@@ -44,8 +44,11 @@ func SwitchCore(ctx context.Context, h Host, o CoreSwitchOptions) (CoreReport, e
 	if err != nil {
 		return CoreReport{}, err
 	}
-	if pending != nil && !pending.terminal() && !(pending.Operation == "core" && pending.Stage == "pending-reboot") {
-		return CoreReport{}, terminalError("install.error.pending")
+	// Core only records observation of the single catalogued bundle. Retrying
+	// any interrupted core stage is safe after fresh package/module observation;
+	// a different pending operation must never be replaced.
+	if pending != nil && !pending.terminal() && pending.Operation != "core" {
+		return CoreReport{}, pendingOperationError(pending)
 	}
 	r, err := InspectInstalledCore(ctx, h)
 	if err != nil {

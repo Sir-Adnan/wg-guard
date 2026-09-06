@@ -27,6 +27,26 @@ func TestBootstrapManagementEntryPreservesAcquiredBuild(t *testing.T) {
 	}
 }
 
+func TestManagerLegacyReadinessIsExplicitlyUnknown(t *testing.T) {
+	for _, locale := range []i18n.Locale{i18n.En, i18n.Fa} {
+		var out strings.Builder
+		u := terminal.New(strings.NewReader(""), &out, terminal.Options{Locale: locale})
+		showRecordedReadiness(u, &install.State{Schema: 1})
+		want := "Unknown / not recorded"
+		if locale == i18n.Fa {
+			want = "نامشخص / ثبت نشده"
+		}
+		if strings.Count(out.String(), want) != 2 {
+			t.Fatal("legacy readiness missing explicit unknown", out.String())
+		}
+		out.Reset()
+		showRecordedReadiness(u, &install.State{TLSReadiness: "verified", Core: install.CoreReport{Requested: install.CoreBundle{ID: "awg-2026-08"}}})
+		if !strings.Contains(out.String(), "verified") || !strings.Contains(out.String(), "awg-2026-08") || strings.Contains(out.String(), want) {
+			t.Fatal("known readiness changed", out.String())
+		}
+	}
+}
+
 func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 	cases := []struct {
 		script string

@@ -135,6 +135,25 @@ class SyntheticBackupHelperTests(unittest.TestCase):
         run.cleanup()
         self.assertFalse(run.workspace.path.exists())
 
+    def test_cleanup_credential_preservation_is_not_applicable_without_file(self):
+        candidate, digest = self.candidate()
+        run = self.helper.AcceptanceRun(self.helper.prepare(self.options(candidate, digest)))
+        run.cleanup()
+        self.assertIsNone(run.summary["cleanup"]["credential_file_preserved"])
+
+    def test_cleanup_reports_existing_credential_file_preserved(self):
+        candidate, digest = self.candidate()
+        credentials = self.root / "telegram.json"
+        content = '{"bot_token":"123:synthetic-token","chat_id":"-12345"}'
+        credentials.write_text(content)
+        credentials.chmod(0o600)
+        run = self.helper.AcceptanceRun(self.helper.prepare(self.options(
+            candidate, digest, "--real-telegram", "--telegram-credentials-file", str(credentials)
+        )))
+        run.cleanup()
+        self.assertTrue(run.summary["cleanup"]["credential_file_preserved"])
+        self.assertEqual(credentials.read_text(), content)
+
     def test_commands_use_private_pinned_candidate_after_source_replacement(self):
         candidate = self.root / "candidate"
         candidate.write_text("#!/bin/sh\nprintf 'trusted candidate\\n'\n")

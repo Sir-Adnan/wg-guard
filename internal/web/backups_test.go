@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -45,6 +46,36 @@ func TestBackupSafetyMessagesUseRequestLocale(t *testing.T) {
 				t.Fatal("localized Telegram configuration error absent")
 			}
 		})
+	}
+}
+
+type backupWarningHTTP struct{}
+
+func (backupWarningHTTP) Do(*http.Request) (*http.Response, error) {
+	return nil, errors.New("private-synthetic-token in transport URL")
+}
+
+func TestBackupWarningRedirectDoesNotExposeTransportCause(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	for key, value := range map[string]string{"backup.telegram_token": "synthetic-token", "backup.telegram_chat": "-123"} {
+		if err := e.reg.SetRaw(context.Background(), key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e.srv.Backup.HTTPClient = backupWarningHTTP{}
+	rec := e.postForm("/backups/create", url.Values{}, cookie)
+	if rec.Code != 303 {
+		t.Fatal("warning creation did not redirect", rec.Code)
+	}
+	location := rec.Header().Get("Location")
+	page := e.get(location, cookie)
+	if strings.Contains(location, "synthetic-token") || strings.Contains(page.Body.String(), "synthetic-token") {
+		t.Fatal("private transport cause exposed")
+	}
+	if !strings.Contains(page.Body.String(), "telegram delivery failed") {
+		t.Fatal("public warning omitted")
 	}
 }
 
@@ -116,6 +147,32 @@ func TestBackupsCreateListDelete(t *testing.T) {
 	body = e.get("/backups", cookie).Body.String()
 	if strings.Contains(body, name) {
 		t.Fatal("archive still listed after delete")
+	}
+}
+
+func TestBackupCreationWarningsRedirectAndRefreshDoesNotCreate(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	// This fixture's missing archived key is a real nonfatal archive warning.
+	e.srv.Backup.ConfigPath = "/does-not-exist/private-config"
+	rec := e.postForm("/backups/create", url.Values{}, cookie)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("successful creation must redirect: %d", rec.Code)
+	}
+	location := rec.Header().Get("Location")
+	for range 2 {
+		page := e.get(location, cookie)
+		if page.Code != 200 || !strings.Contains(page.Body.String(), "master key missing from archive") {
+			t.Fatalf("warning lost across redirect: status=%d location=%s", page.Code, location)
+		}
+	}
+	arcs, err := e.srv.Backup.List()
+	if err != nil || len(arcs) != 1 {
+		t.Fatalf("refresh repeated creation: %d %v", len(arcs), err)
+	}
+	if strings.Contains(location, "private-config") {
+		t.Fatal("private cause exposed in redirect")
 	}
 }
 

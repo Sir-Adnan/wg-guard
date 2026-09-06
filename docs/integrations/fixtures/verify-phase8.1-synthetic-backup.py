@@ -877,7 +877,7 @@ class AcceptanceRun:
             "owned_child_stopped": self.child is None or self.child.process.poll() is not None,
             "owned_workspace_removed": self.workspace is None or not self.workspace.path.exists(),
             "credential_file_preserved": (
-                self.prepared.credentials_file is None or self.prepared.credentials_file.exists()
+                None if self.prepared.credentials_file is None else self.prepared.credentials_file.exists()
             ),
         }
         if leak:

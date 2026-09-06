@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
@@ -114,6 +116,83 @@ func TestServeLifecycle(t *testing.T) {
 	if id, _ := v.(string); id == "" {
 		t.Fatal("node.id not initialized")
 	}
+}
+
+func TestServeOwnsDataUntilShutdown(t *testing.T) {
+	cfg := testConfig(t, "127.0.0.1:0")
+	n := startNode(t, cfg)
+	s := &backup.Service{Cfg: cfg}
+	if lease, err := s.OpenData(true); err == nil {
+		lease.Close()
+		t.Fatal("running server admitted rotation")
+	}
+	shared, err := s.OpenData(false)
+	if err != nil {
+		t.Fatal("shared CLI admission", err)
+	}
+	shared.Close()
+	if err := n.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	exclusive, err := s.OpenData(true)
+	if err != nil {
+		t.Fatal("shutdown leaked data ownership", err)
+	}
+	exclusive.Close()
+}
+
+func TestShutdownKeepsDataOwnershipUntilHandlersDrain(t *testing.T) {
+	cfg := testConfig(t, "127.0.0.1:0")
+	s := &backup.Service{Cfg: cfg}
+	lease, err := s.OpenData(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Close()
+	db, err := database.Open(cfg.DatabasePath, database.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	entered, release := make(chan struct{}), make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { close(entered); <-release }))
+	defer ts.Close()
+	released := false
+	defer func() {
+		if !released {
+			close(release)
+		}
+	}()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		resp, err := http.Get(ts.URL)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}()
+	<-entered
+	n := &Node{db: db, dataLease: lease, httpServer: ts.Config}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := n.Shutdown(ctx); err == nil {
+		t.Fatal("shutdown ignored undrained handler")
+	}
+	if l, err := s.OpenData(true); err == nil {
+		l.Close()
+		t.Fatal("shutdown released data while handler still held keys")
+	}
+	close(release)
+	released = true
+	<-done
+	if err := n.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	l, err := s.OpenData(true)
+	if err != nil {
+		t.Fatal("successful retry leaked ownership", err)
+	}
+	l.Close()
 }
 
 func TestServeRestart(t *testing.T) {

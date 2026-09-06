@@ -25,6 +25,8 @@ jobs:
         run: bash scripts/check-assets.sh
       - name: Bootstrap and candidate artifact fixtures
         run: bash scripts/test-bootstrap.sh
+      - name: Credential-free synthetic backup helper fixtures
+        run: python3 scripts/test-phase8.1-synthetic-backup.py
       - name: Test (race)
         run: go test -race ./...
 

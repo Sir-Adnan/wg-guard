@@ -149,11 +149,18 @@ password-read-failure messages. Missing/short archive passwords, failed encrypti
 passwords and malformed/damaged age input also use keyed fa/en messages. Low-level parser
 details are not echoed; sentinel/cancellation causes remain available internally. Excessive
 scrypt work factors retain their specific pre-KDF refusal rather than a generic password error.
-Completed panel backups with warnings render those warnings
-instead of silently redirecting. Error causes remain available for cancellation handling but
+Completed panel backups always redirect after creation (POST/Redirect/GET), preserving safe
+localized warnings in the escaped flash message so browser refresh cannot create another
+archive. Error causes remain available for cancellation handling but
 are excluded from public text and structured warning logs.
 
 ## Restore (panel wizard and CLI share one engine)
+
+All pair replacement and interrupted recovery acquire exclusive kernel ownership in the
+shared data volume. CLI/server DB/key handles hold shared ownership until closed; rotation
+holds exclusive ownership even at its confirmation prompt. A stopped service does not imply
+other commands have exited. Contention leaves data intact and fails with retry guidance;
+see [the lifetime ownership and legacy-binary boundary](lifecycle-recovery.md).
 
 Restore is **stage-then-swap — never a live swap** (open WAL handles make in-place replacement
 unsafe):

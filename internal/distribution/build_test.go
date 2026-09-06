@@ -116,7 +116,7 @@ func TestAcquireSourceRejectsUnsafeArchivesBeforeBuild(t *testing.T) {
 	}{
 		{"wg-guard-" + fixtureSHA + "/go.mod", tar.TypeReg, false},
 		{"../escape", tar.TypeReg, true}, {"/absolute", tar.TypeReg, true}, {"root/../../escape", tar.TypeReg, true},
-		{"root/go.mod", tar.TypeSymlink, true}, {"root/go.mod", tar.TypeLink, true}, {"root/go.mod", tar.TypeFifo, true},
+		{"wg-guard-" + fixtureSHA + "/go.mod", tar.TypeSymlink, true}, {"wg-guard-" + fixtureSHA + "/go.mod", tar.TypeLink, true}, {"wg-guard-" + fixtureSHA + "/go.mod", tar.TypeFifo, true},
 		{"root/drive:C", tar.TypeReg, true},
 	} {
 		t.Run(tc.name+fmt.Sprint(tc.kind), func(t *testing.T) {
@@ -139,6 +139,9 @@ func TestAcquireSourceRejectsUnsafeArchivesBeforeBuild(t *testing.T) {
 				t.Fatalf("source acquisition error=%v want fail %v", err, tc.fail)
 			}
 			if tc.fail {
+				if tc.kind != tar.TypeReg && !strings.Contains(err.Error(), "unsupported archive member") {
+					t.Fatalf("special member did not reach type validation: %v", err)
+				}
 				if runner.calls != 0 {
 					t.Fatal("unsafe source built")
 				}

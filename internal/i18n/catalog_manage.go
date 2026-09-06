@@ -1,6 +1,8 @@
 package i18n
 
 func init() {
+	catalogs[En]["manage.not_recorded"] = "Unknown / not recorded"
+	catalogs[Fa]["manage.not_recorded"] = "نامشخص / ثبت نشده"
 	catalogs[En]["manage.update_review"] = "Update this node with the reviewed build? A pre-update backup is required by default; panel and VPN connections may pause."
 	catalogs[Fa]["manage.update_review"] = "گره با نسخه بررسی‌شده به‌روز شود؟ به‌طور پیش‌فرض پشتیبان ساخته می‌شود؛ پنل و اتصال‌های VPN ممکن است قطع شوند."
 	catalogs[En]["manage.core_installed"] = "Installed core / readiness"

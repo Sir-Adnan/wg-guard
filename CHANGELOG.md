@@ -8,6 +8,21 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Changed
+- **DB/key lifetime ownership:** native and Docker data commands and server startup now
+  coordinate shared/exclusive kernel leases across the shared volume. Rotation holds
+  exclusive ownership through confirmation; restore refuses an already admitted data
+  opener without replacing the pair. New candidates must advertise `data_lease`; older
+  binaries require explicit offline operator exclusion. Split DB/key directories now require
+  an offline migration into one configured data directory; alternate directories and custom
+  direct-child filenames remain usable for manual operation.
+- **Core recovery and terminal review:** core verification can retry its own interrupted or
+  failed-observation journal after fresh package/module checks; recovery guidance follows
+  the recorded operation. Setup review includes effective pool/MTU/DNS, and absent legacy
+  TLS/core readiness is explicitly unknown in English and Persian.
+- **Backup creation feedback:** successful panel creation preserves safe warnings through
+  POST/Redirect/GET, preventing refresh from creating another archive. Credential-free
+  acceptance cleanup reports credential-file preservation as not applicable (`null`), and
+  its synthetic behavioral suite now runs in Linux CI.
 - **Public VPN endpoint classification:** reject CGNAT, mapped IPv4 bypasses and relevant
   special-use ranges during explicit input and automatic address selection. Syntax/address
   eligibility checks do not claim real reachability through routing, NAT or firewalls.

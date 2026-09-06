@@ -27,6 +27,14 @@ access). Principles: least privilege, secure defaults, standard primitives only,
 
 ### Master-key rotation (implemented in `internal/secrets`)
 
+Stop the server and finish other data commands before `wg-guard secrets rotate`. The CLI
+holds exclusive kernel ownership of the shared-volume DB/key pair from before opening its
+carriers through confirmation, rotation and database close. Ordinary data commands and
+the server hold shared ownership for their lifetime, and restore/recovery require exclusive
+ownership. Contention fails closed immediately; never delete the persistent data lock to
+bypass it. Earlier binaries do not implement this protocol and must be stopped separately;
+see [lifecycle recovery](lifecycle-recovery.md).
+
 Rotation is crash-safe via a dual-key window: (1) the old key file is renamed to
 `master.key.prev` and a new key takes its place — from this instant both key versions can
 decrypt; (2) every carrier (interface keys, device keys, encrypted settings) re-encrypts its

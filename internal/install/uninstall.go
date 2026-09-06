@@ -70,7 +70,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	}
 	rep := &UninstallReport{Mode: st.Mode}
 	if pending != nil && !pending.terminal() && pending.Operation != "install" && pending.Operation != "uninstall" {
-		return nil, terminalError("install.error.pending")
+		return nil, pendingOperationError(pending)
 	}
 
 	// What will be removed, computed up front (dry-run prints the same list).

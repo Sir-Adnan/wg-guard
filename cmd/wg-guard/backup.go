@@ -23,18 +23,30 @@ type cliEnv struct {
 	DB         *database.DB
 	Reg        *settings.Registry
 	Ring       *secrets.KeyRing
+	lease      *backup.DataLease
 }
 
 // loadCLIEnv loads the boot config and opens the node state. It is the
 // ops-command counterpart of runReconcile's setup.
 func loadCLIEnv(configPath string) (*cliEnv, error) {
+	return loadCLIEnvOwnership(configPath, false)
+}
+
+func loadCLIEnvOwnership(configPath string, exclusive bool) (*cliEnv, error) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return nil, err
 	}
-	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
+	lease, err := (&backup.Service{Cfg: cfg}).OpenKeys(exclusive)
+	if err != nil {
 		return nil, err
 	}
+	owned := false
+	defer func() {
+		if !owned {
+			lease.Close()
+		}
+	}()
 	db, err := database.Open(cfg.DatabasePath, database.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -49,15 +61,22 @@ func loadCLIEnv(configPath string) (*cliEnv, error) {
 		db.Close()
 		return nil, err
 	}
+	if !exclusive {
+		if err := lease.Share(); err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
 	reg, err := settings.New(db, ring, settings.Defaults())
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
-	return &cliEnv{Cfg: cfg, ConfigPath: configPath, DB: db, Reg: reg, Ring: ring}, nil
+	owned = true
+	return &cliEnv{Cfg: cfg, ConfigPath: configPath, DB: db, Reg: reg, Ring: ring, lease: lease}, nil
 }
 
-func (e *cliEnv) Close() { e.DB.Close() }
+func (e *cliEnv) Close() { e.DB.Close(); e.lease.Close() }
 
 // newBackupService builds the archive engine over the CLI environment.
 func (e *cliEnv) newBackupService() *backup.Service {

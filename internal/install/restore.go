@@ -78,7 +78,7 @@ func Restore(ctx context.Context, h Host, o RestoreOptions) error {
 			}
 		}
 	} else if j != nil && !j.terminal() && !(o.Retry && j.Operation == "restore") {
-		return terminalError("install.error.pending")
+		return pendingOperationError(j)
 	}
 	if o.Prepare == nil {
 		return terminalError("install.error.restore_required")

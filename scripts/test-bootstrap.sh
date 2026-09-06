@@ -9,7 +9,7 @@ export FIXTURE_ROOT="$fixture" TMPDIR="$fixture/tmp"
 python3 - "$fixture" <<'PY'
 import hashlib,io,json,pathlib,sys,tarfile
 p=pathlib.Path(sys.argv[1])
-binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "${FIXTURE_MODE:-}" == owner-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == restore-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false}\\n\'; exit 0; fi; [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
+binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "${FIXTURE_MODE:-}" == owner-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false,"coordinated_restore":true,"data_lease":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == restore-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false,"data_lease":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == lease-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":false}\\n\'; exit 0; fi; [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
 (p/'binary').write_bytes(binary)
 (p/'sums').write_text(hashlib.sha256(binary).hexdigest()+'  wg-guard_linux_amd64\n')
 go_script='''#!/usr/bin/env python3
@@ -83,6 +83,8 @@ if FIXTURE_MODE=owner-unsafe bash "$root/install.sh" --release v1 --yes </dev/nu
 test ! -e "$fixture/argv" || fail 'owner-unsafe deployment ran'
 if FIXTURE_MODE=restore-unsafe bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'restore-unsafe installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'restore-unsafe deployment ran'
+if FIXTURE_MODE=lease-unsafe bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'lease-unsafe installer accepted'; fi
+test ! -e "$fixture/argv" || fail 'lease-unsafe deployment ran'
 if FIXTURE_MODE=corrupt bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'corrupt binary accepted'; fi
 test ! -e "$fixture/argv" || fail 'corrupt executable ran'
 test -z "$(ls -A "$fixture/tmp")" || fail 'failure cleanup'

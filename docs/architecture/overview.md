@@ -62,6 +62,13 @@ sidecar), lets the running job finish, then closes the DB. TLS: manual cert, pro
 dev, and ACME (`autocert`; HTTP-01 sidecar + certificate cache under the data dir) — all four
 implemented, ACME verified against a public domain in Phase 7.
 
+DB/key openers retain a shared kernel lease on the persistent data-volume lock inode;
+rotation and pair replacement/recovery require exclusive ownership. Startup consumes any
+approved restore exclusively, then converts to shared lifetime ownership with admission
+closed. The separate host lifecycle lock still owns deployment orchestration, so installed
+CLI subprocesses do not inherit or reacquire it. See the exact protocol and older-binary
+boundary in [lifecycle recovery](../operations/lifecycle-recovery.md).
+
 ## Reconciliation (DB is the source of truth)
 
 On boot and continuously, kernel state is verified against the database: missing interfaces are

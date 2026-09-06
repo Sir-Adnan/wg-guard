@@ -44,6 +44,8 @@ make tidy         # go mod tidy
   VERSION --output NEW_DIRECTORY` builds immutable local HEAD for Linux amd64/arm64 with
   checksums; it never publishes. Linux CI runs `bash scripts/test-bootstrap.sh`. See
   [GitHub acquisition](../operations/github-install.md) for commands and verification limits.
+- Linux CI also runs `python3 scripts/test-phase8.1-synthetic-backup.py`, the credential-free
+  behavioral helper suite. It uses only synthetic local fixtures, never real Telegram delivery.
 
 ## Frontend assets
 

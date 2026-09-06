@@ -89,6 +89,7 @@ type Node struct {
 	cfg           *config.Config
 	log           *slog.Logger
 	db            *database.DB
+	dataLease     *backup.DataLease
 	ring          *secrets.KeyRing
 	reg           *settings.Registry
 	sched         *scheduler.Scheduler
@@ -154,10 +155,17 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.backup = &backup.Service{
 		Cfg: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: log,
 	}
-	pendingRestoreArchive, err := n.backup.ConsumePendingRestore()
+	pendingRestoreArchive, lease, err := n.backup.PrepareOpen()
 	if err != nil {
 		return nil, fmt.Errorf("serve: restore must be resolved before startup: %w", err)
 	}
+	n.dataLease = lease
+	owned := false
+	defer func() {
+		if !owned {
+			lease.Close()
+		}
+	}()
 
 	db, err := database.Open(cfg.DatabasePath, database.Options{})
 	if err != nil {
@@ -190,6 +198,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	}
 	if n.ring, err = secrets.LoadKeyRing(cfg.MasterKeyFile); err != nil {
 		return fail(fmt.Errorf("serve: master key: %w", err))
+	}
+	if err := lease.Share(); err != nil {
+		return fail(err)
 	}
 	if n.reg, err = settings.New(db, n.ring, settings.Defaults()); err != nil {
 		return fail(fmt.Errorf("serve: settings: %w", err))
@@ -381,6 +392,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	}
 	log.Info("wg-guard is serving",
 		"addr", ln.Addr().String(), "backend", toolsVersion, "node_id", nodeID)
+	owned = true
 	return n, nil
 }
 
@@ -554,6 +566,11 @@ func (n *Node) Shutdown(ctx context.Context) error {
 	}
 	if err := n.db.Close(); err != nil {
 		errs = append(errs, err)
+	}
+	// Shutdown timeout can leave handlers using keys or reading backup members.
+	// Keep ownership until a later successful drain or kernel process cleanup.
+	if len(errs) == 0 {
+		n.dataLease.Close()
 	}
 	return errors.Join(errs...)
 }

@@ -43,9 +43,11 @@ func runReconcile(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
+	lease, err := (&backup.Service{Cfg: cfg}).OpenKeys(false)
+	if err != nil {
 		return err
 	}
+	defer lease.Close()
 	db, err := database.Open(cfg.DatabasePath, database.Options{})
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
@@ -57,6 +59,9 @@ func runReconcile(args []string) error {
 	}
 	ring, err := secrets.LoadKeyRing(cfg.MasterKeyFile)
 	if err != nil {
+		return err
+	}
+	if err := lease.Share(); err != nil {
 		return err
 	}
 	reg, err := settings.New(db, ring, settings.Defaults())

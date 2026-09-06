@@ -288,6 +288,19 @@ func (q *prompt) confirm(p Plan) error {
 		hi = 50000
 	}
 	q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
+	pool, mtu, dns := p.VPNSubnet, p.MTU, p.ClientDNS
+	if pool == "" {
+		pool = "10.8.0.0/24"
+	}
+	if mtu == 0 {
+		mtu = 1420
+	}
+	if dns == "" {
+		dns = "1.1.1.1, 1.0.0.1"
+	}
+	q.ui.Field(q.t("pool"), pool)
+	q.ui.Field(q.t("mtu"), strconv.Itoa(mtu))
+	q.ui.Field(q.t("dns"), dns)
 	if p.TLSMode == config.TLSModeACME {
 		q.ui.Text(q.t("http01"))
 	}

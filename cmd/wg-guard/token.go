@@ -190,9 +190,16 @@ func openForToken(configPath string) (*database.DB, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := (&backup.Service{Cfg: cfg}).CheckOpen(); err != nil {
+	lease, err := (&backup.Service{Cfg: cfg}).OpenData(false)
+	if err != nil {
 		return nil, nil, err
 	}
+	owned := false
+	defer func() {
+		if !owned {
+			lease.Close()
+		}
+	}()
 	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o755); err != nil {
 		return nil, nil, domain.Wrap(err, domain.CodeConfigInvalid, "create data dir")
 	}
@@ -204,5 +211,6 @@ func openForToken(configPath string) (*database.DB, func(), error) {
 		_ = db.Close()
 		return nil, nil, err
 	}
-	return db, func() { _ = db.Close() }, nil
+	owned = true
+	return db, func() { _ = db.Close(); lease.Close() }, nil
 }
