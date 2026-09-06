@@ -11,7 +11,7 @@ Last updated: 2026-09-06. Active phase: **8.1 — GitHub delivery & lifecycle**.
 | Phase | State | Exit dependency |
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 8.1 — GitHub delivery & lifecycle | active; M1–M3 reviewed, M4 starting | One-command installation and safe lifecycle verified on the dedicated VPS |
+| 8.1 — GitHub delivery & lifecycle | active; M1–M3 reviewed, M4 implemented and under review | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 9 — Operational observability | planned; existing design branch paused | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
@@ -109,7 +109,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; independent review closed; actual removal/recovery drill remains M6 |
 | AUD-031 | high | Telegram delivery wraps HTTP transport errors containing the token-bearing request URL and echoes remote descriptions without token redaction | Phase 8.1 | reproduced by code audit; tests pending |
 | AUD-032 | high | Restore verification metadata is optional at apply; database/key replacement is not recovered as a pair on failure and boot may continue after partial apply | Phase 8.1 | reproduced by code audit; tests pending |
-| AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | reproduced by code audit; tests pending |
+| AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | M4 implemented and unit/PTY tested in `e21a87f`/`4c8f07e`; independent review active, real deployment gate pending M6 |
 | AUD-034 | high | Backup creation ignores stored-password read/decryption errors and may silently create a plaintext archive instead of the intended encrypted backup | Phase 8.1 M5 | found by code audit; error-path regression and fail-closed handling pending |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).

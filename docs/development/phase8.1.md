@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M3 reviewed, M4 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M3 reviewed, M4 implemented and under review**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -145,10 +145,10 @@ provenance and documentation and requests explicit approval before public public
   Current exact package availability is also recorded
   [separately](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt).
   These checks do not certify fresh installation, image deployment or certificate issuance.
-- Follow-up review item retained for M4: include the last TLS handshake failure in readiness
-  diagnostics instead of only the final timeout. Functional pending/retry behavior is implemented.
+- TLS diagnostic follow-up: M4 now retains the last classified handshake failure alongside
+  timeout/cancellation, with a regression test. See the M4 review record below.
 - M2 review/status revision `bd40179`: [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33998640840).
-  M3 lifecycle transaction work is in progress, not yet reviewed or real-host verified.
+  M3 was still in progress at that revision; its later review record follows below.
 - Baseline schema follow-up (read-only, 2026-09-06): the existing Phase 7 VPS database contains
   migrations 0001–0006. Candidate schema 0007 is a real data-contract transition. Integrated
   drills must preserve and restore the original database/master-key pair before returning to
@@ -159,10 +159,21 @@ provenance and documentation and requests explicit approval before public public
   fix in `fc2c537`; no real deployment drill
   is claimed. [Recovery contract and limits](../operations/lifecycle-recovery.md) distinguish
   same-contract rollback from M5's still-pending coordinated original-schema recovery. M4's
-  owner-before-listener hook exists, but account provisioning itself is not yet implemented.
+  owner-before-listener hook was provided for the later M4 provisioning implementation below.
 - M3 native cleanup review fix: complete systemd load/activity observations distinguish a
   genuinely absent inactive unit from failed/ambiguous queries. Partial install cleanup and
   interrupted uninstall retry tests pass while genuine stop failures still preserve data.
   Scoped re-review found no remaining Important/Critical issue. The `2a65933` implementation/
   status revision [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34000616493);
   CI on the subsequent cleanup fix must be observed separately.
+- Cleanup fix and closing status revision `e041875` subsequently
+  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34001185021).
+- M4 (`e21a87f`, bootstrap rerun follow-up `4c8f07e`): bilingual terminal/setup/management,
+  actual-FD hidden input, local owner-before-listener provisioning, atomic single-owner creation,
+  shared locked restart and candidate capability gating implemented. Full Go suite/build/vet,
+  scoped Linux race/PTY and executable bootstrap fixtures passed. Independent review is active;
+  this is not yet the M4 review gate or M6 real-deployment certification. Bootstrap default
+  interactive entry starts fresh setup with the acquired build or opens an existing node's menu
+  without reinstalling. [Operator guide](../operations/terminal-management.md).
+- M5 remains pending: complete backup/schedule/Telegram management, bounded staged restore and
+  coordinated original-schema/database/master-key recovery. No new REST contract changed in M4.

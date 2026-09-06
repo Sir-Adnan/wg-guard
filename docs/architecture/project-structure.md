@@ -7,7 +7,8 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
                          HTTP + scheduler + graceful shutdown), token, install/update/
-                         uninstall/status (Phase 7; mode-aware docker dispatch), doctor,
+                         uninstall/status/core/tls-check/restart, bilingual manage,
+                         host-local owner-bootstrap (mode-aware Docker dispatch), doctor,
                          backup, restore, settings, secrets (single binary, hand-rolled arg
                          parsing — no CLI framework)
 internal/
@@ -47,9 +48,14 @@ internal/
   webhook/               durable event delivery: events table, recorder (in-txn emit),
                          worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
   backup/                archive builder/restorer (tar.gz, optional age password), sinks (Phase 6 ✅)
+  distribution/          bounded GitHub release/commit catalog, verified private acquisition,
+                         immutable source build identity and temporary toolchain (Phase 8.1)
+  terminal/              single-column fa/en presentation, bounded/cancellable input and actual-FD
+                         hidden secrets; no deployment or database business logic (Phase 8.1)
   install/               deployment layer: install plan + wizard, compose/systemd renderers,
-                         update/rollback, uninstall, install-state contract, Host seam for
-                         in-memory testing (Phase 7 ✅)
+                         prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
+                         update/rollback and uninstall, versioned state/artifact contract,
+                         Host seam for fault-injection testing (Phase 8.1; VPS gate pending)
   serve/                 runtime composition: config → DB → secrets → settings → services →
                          boot → HTTP(S) listener (manual/proxy/dev/ACME) → scheduler;
                          serialized reconciler shared by API + accounting (Phase 4 ✅)
@@ -72,11 +78,12 @@ internal/
 web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
 migrations/              numbered SQL migrations (embedded; 0004 sub_links,
                          0005 gated interface obfuscation parameters,
-                         0006 backup schedules)
+                         0006 backup schedules, 0007 lossless H1–H4 ranges)
 deploy/                  reference compose for Docker mode (installer generates the tailored one)
 Dockerfile               official image: multi-stage build onto ubuntu:24.04 + pinned
                          amneziawg-tools (ppa:amnezia/ppa) + nftables (Phase 7 ✅)
-scripts/                 dev helpers (bench-idle.sh, check-assets.sh, fixtures)
+install.sh               GitHub first acquisition only; delegates host lifecycle to the Go binary
+scripts/                 dev helpers, immutable candidate builder and executable bootstrap fixtures
 docs/                    this documentation tree
 .github/workflows/       CI
 ```

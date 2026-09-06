@@ -22,6 +22,8 @@ or chat history.
 | [integrations/webhooks.md](integrations/webhooks.md) | Event catalog, HMAC signature scheme, durable delivery semantics |
 | [operations/deployment.md](operations/deployment.md) | Docker (default) and native installation, TLS modes, ports, updates |
 | [operations/github-install.md](operations/github-install.md) | GitHub bootstrap, release/source acquisition, trust boundary and local candidate artifacts |
+| [operations/terminal-management.md](operations/terminal-management.md) | Bilingual terminal navigation, local owner setup, cancellation and automation |
+| [operations/lifecycle-recovery.md](operations/lifecycle-recovery.md) | Durable lifecycle state, safe rollback, interrupted operations and recovery limits |
 | [operations/backup-restore.md](operations/backup-restore.md) | Backup archives, schedules, Telegram delivery, restore and server migration |
 | [operations/runbook.md](operations/runbook.md) | Operational procedures: install/update/uninstall, DR, doctor, incidents |
 | [operations/security.md](operations/security.md) | Threat model, secrets inventory, panel hardening, subprocess safety |

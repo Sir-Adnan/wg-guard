@@ -151,25 +151,29 @@ focused host CLI owner-bootstrap command used before the installer starts the se
 are explicit callbacks/CLI calls, no SQL/tunnel logic. Manager invokes existing CLI/services in
 the correct host/container context; pass secrets via stdin, not nested argv.
 
-- [ ] Write scripted flow tests for main menu/setup/source choices, invalid/retry/back/EOF/cancel,
+- [x] Write scripted flow tests for main menu/setup/source choices, invalid/retry/back/EOF/cancel,
   48/80/120-column wrapping and no ANSI under NO_COLOR/nonTTY/dumb, hidden secret input and locale parity.
-- [ ] Implement restrained brand/color, section hierarchy, status/review cards, deterministic
+- [x] Implement restrained brand/color, section hierarchy, status/review cards, deterministic
   numbered navigation, progress/result/error treatment and actionable recovery hints. Avoid
   animations/busy loops/full-screen dependencies. TTY secret reading uses the actual input FD.
-- [ ] Expose install/update/rollback/status/doctor/core versions and controlled switch/backup/restore/schedules/Telegram/
+- [x] Expose install/update/rollback/status/doctor/core versions and controlled switch/backup/restore/schedules/Telegram/
   service restart and uninstall with preservation-aware confirmation. Permit command-line flags
   for automation; interactive no-args entry only on TTY. No unexpected startup mutations.
-- [ ] Source picker presents latest release, bounded release list, main development and pinned
+- [x] Source picker presents latest release, bounded release list, main development and pinned
   SHA with actual metadata and installed version. Setup groups domain/IP, TLS/panel TCP port,
   AWG UDP defaults and optional backup settings; final review displays impact without secrets.
-- [ ] Provision the first owner locally through the existing admin service before opening the
+- [x] Provision the first owner locally through the existing admin service before opening the
   public listener. Hidden password+confirmation for interactive fresh setup; protected password
   file for noninteractive public setup; existing-owner detection skips creation without reset.
   Add concurrent single-owner regression (atomic conditional insert/transaction, no count-then-
   insert race), secret-transport and start-order tests. Keep uninstalled manual serve posture
   explicit for Phase11 review, and never let an installer-managed fresh public node be claimed
   by the first anonymous web visitor.
-- [ ] Run UI/CLI tests/full suite/build, document management navigation/terminal constraints and commit.
+- [x] Run UI/CLI tests/full suite/build, document management navigation/terminal constraints and commit.
+
+M4 implementation commits: `e21a87f`, `4c8f07e`. Independent task review is active; M5 does not
+start until that gate closes. Backup navigation currently invokes existing commands; its full
+management and recovery semantics remain the next task, not a completed M4 feature claim.
 
 ### Task 5: Backup, Telegram, scheduling and restore safety (M5)
 

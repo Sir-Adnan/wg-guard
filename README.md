@@ -19,9 +19,10 @@ bidirectional traffic; the recommended profile also passed through the pinned us
 That gate exposed and fixed a peer-sync path that cleared the live interface private key. Phase 9
 owns operational observability and bounded logs, after the inserted
 [Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). The full compatibility matrix
-remains Phase 11 and final release engineering remains Phase 12. GitHub acquisition and artifact
-acquisition components are implemented in Phase 8.1; the complete guided installation and
-lifecycle workflow is still in progress. See [ROADMAP.md](ROADMAP.md) and
+remains Phase 11 and final release engineering remains Phase 12. Phase 8.1 implements GitHub
+acquisition, prerequisite/core checks, recoverable lifecycle operations and bilingual terminal
+management. Backup/recovery completion and integrated VPS certification are still in progress.
+See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 
 ## Features
@@ -46,29 +47,37 @@ lifecycle workflow is still in progress. See [ROADMAP.md](ROADMAP.md) and
 
 ## Installation
 
-Build the binary, then run the interactive installer as root (Docker is the default target; a
-native systemd mode is fully supported):
+The GitHub bootstrap acquires a verified release or builds an explicitly selected commit; it
+does not require a preinstalled Go compiler or a published Docker image. Docker is the default
+deployment mode; native systemd uses the same installation engine and data layout.
+
+**Pre-release:** the new installer is on `codex/installer-lifecycle`, not yet on `main`, and no
+compatible public release is currently available. Select a reviewed, pushed full commit SHA
+from that branch. Do not substitute `main` or assume that downloading a feature-branch bootstrap
+also selects that branch's binary. See the [single-command recipe and inspection-first option](docs/operations/github-install.md).
+
+After installation, use the same bilingual management interface:
 
 ```bash
-go build -o wg-guard ./cmd/wg-guard
-sudo ./wg-guard install            # wizard: mode, domain, TLS, ports — every value has a safe default
-sudo ./wg-guard install --mode docker --domain vpn.example.com --yes   # non-interactive
+sudo wg-guard manage --lang fa
+sudo wg-guard manage --lang en
 ```
 
-The wizard also offers two optional sections (skipped with Enter): VPN network defaults —
-AWG port allocation range, first-interface VPN pool, client MTU and DNS — and Telegram
-backup delivery (bot token, chat ID, daily schedule). Everything stays editable later in
-the panel, and the panel domain is seeded as the client endpoint so the first exported
-config works immediately.
+Setup reviews the domain or public VPN IP, panel TCP/TLS settings, per-interface AWG UDP
+allocation, compatible core and optional backup settings before deployment. Domain ACME needs
+external TCP80; IP-only defaults to loopback access with an SSH tunnel. TLS readiness is checked
+separately from service health.
 
-The installer writes `/etc/wg-guard/wg-guard.toml` and the data directory, brings the service
-up (compose project or hardened systemd unit), health-checks it, and prints the panel URL —
-open it and finish the first-run owner wizard. Certificate issuance (ACME) happens
-automatically on the first visit; port 80 must stay reachable. For Docker mode the container
-image is built from [Dockerfile](Dockerfile) (`docker build -t wgguard/wg-guard:<tag> .`) and
-selected with `--image`; the registry publication of versioned images is part of the Phase 12
-release pipeline. Day-2 operations: `wg-guard status · update · uninstall · doctor · backup`,
-all documented in [docs/operations/runbook.md](docs/operations/runbook.md).
+The owner is created locally **before the public listener starts**, using hidden password input;
+automation requires a private password file unless an owner already exists. Existing owners are
+never reset. The installer writes `/etc/wg-guard/wg-guard.toml`, uses `/var/lib/wg-guard`, and
+builds a Docker runtime image from the selected binary when needed. No registry publication is
+implied. The first VPN interface is created in the panel after signing in.
+
+Read [terminal navigation and automation](docs/operations/terminal-management.md),
+[deployment](docs/operations/deployment.md), and [lifecycle recovery limits](docs/operations/lifecycle-recovery.md)
+before unattended changes. Full new Docker/native installation and recovery verification remains
+the active Phase 8.1 gate; earlier Phase 7 evidence does not certify the redesigned installer.
 
 ## Documentation
 
