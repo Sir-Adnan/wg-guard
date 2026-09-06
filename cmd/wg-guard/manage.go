@@ -34,6 +34,7 @@ type manager struct {
 func runManage(args []string) error {
 	fs := flag.NewFlagSet("manage", flag.ContinueOnError)
 	lang := fs.String("lang", terminalLocale(), "fa | en")
+	metadata := fs.String("build-metadata", "", "private bootstrap build identity")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -51,6 +52,13 @@ func runManage(args []string) error {
 	u := terminal.New(os.Stdin, os.Stdout, terminal.Detect(os.Stdin, os.Stdout, i18n.Locale(*lang)))
 	u.Context = ctx
 	h := install.NewRealHost()
+	st, err := install.LoadState(h)
+	if err != nil {
+		return err
+	}
+	if setup := managementSetup(st, *metadata, *lang); setup != nil {
+		return runInstall(setup)
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return err
@@ -142,6 +150,15 @@ func runManage(args []string) error {
 		return nil
 	}
 	return m.loop(ctx)
+}
+
+// Only the acquisition entry auto-starts fresh setup. An installed node opens
+// management without reinstalling or implicitly adopting the acquired build.
+func managementSetup(st *install.State, metadata, locale string) []string {
+	if st != nil || metadata == "" {
+		return nil
+	}
+	return []string{"--build-metadata", metadata, "--lang", locale}
 }
 func terminalLocale() string {
 	if v := os.Getenv("WGG_LANG"); v == "fa" || v == "en" {

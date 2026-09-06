@@ -6,12 +6,26 @@ import (
 	"errors"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestBootstrapManagementEntryPreservesAcquiredBuild(t *testing.T) {
+	want := []string{"--build-metadata", "/private/build.json", "--lang", "fa"}
+	if got := managementSetup(nil, "/private/build.json", "fa"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("fresh bootstrap source/locale lost: %v", got)
+	}
+	if got := managementSetup(&install.State{Mode: install.ModeDocker}, "/private/build.json", "fa"); got != nil {
+		t.Fatal("installed bootstrap tried reinstall")
+	}
+	if got := managementSetup(nil, "", "en"); got != nil {
+		t.Fatal("ordinary management opening started setup")
+	}
+}
 
 func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 	cases := []struct {

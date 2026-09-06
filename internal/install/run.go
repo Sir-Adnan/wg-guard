@@ -29,7 +29,7 @@ type InstallOptions struct {
 	Owner  OwnerOptions
 	Locale i18n.Locale
 	// BeforeStart is M4's local-owner setup point, after configuration/settings
-	// exist and before any public listener starts. Nil advertises no owner guarantee.
+	// exist and before any public listener starts. Nil uses BootstrapLocalOwner.
 	BeforeStart   func(context.Context, Host, Plan, *State) error
 	Selection     distribution.Selection
 	BuildMetadata string

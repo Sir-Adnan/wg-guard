@@ -1,6 +1,8 @@
 # GitHub acquisition and local candidate artifacts
 
-The Bash entry point obtains a Linux executable and calls its bilingual `install` workflow.
+The Bash entry point obtains a Linux executable and opens its bilingual management entry.
+On a fresh node that entry starts installation with the exact acquired build identity; on an
+installed node it opens management without reinstalling or implicitly applying an update.
 The shared distribution/installer engine verifies build identity and builds the Docker runtime
 image from the selected binary when needed. No published official image is assumed. Installed
 nodes expose [terminal management](terminal-management.md) through `sudo wg-guard manage`.
@@ -51,8 +53,10 @@ source tarball. The development version is `0.0.0-dev.<first-12-SHA-characters>`
 commit is stamped into the binary. No branch name or unvalidated external text enters build
 arguments. The bootstrap displays the version, full commit and binary SHA-256.
 
-Arguments after `--` are passed unchanged to `wg-guard install`; unrecognized bootstrap flags
-are also forwarded. `--yes` uses noninteractive flags/defaults. Without it, interactive install
+With no forwarded flags (or only `--lang fa|en`), the bootstrap calls `wg-guard manage`.
+Explicit setup flags such as `--mode native` select `wg-guard install`; all arguments after `--`
+and unrecognized bootstrap flags are forwarded unchanged. `--yes` always selects install with
+noninteractive flags/defaults, including the existing installed-node refusal. Interactive
 input is reopened from `/dev/tty` when available, otherwise `/dev/null`. A piped script is never
 read as installer answers. `--help` works without a terminal or any acquisition prerequisite.
 Initial acquisition diagnostics are English; the Go wizard accepts `--lang fa|en`.
@@ -61,7 +65,7 @@ Initial acquisition diagnostics are English; the Go wizard accepts `--lang fa|en
 
 Supported acquisition targets are Linux amd64 and arm64. Root or `sudo` is required to perform
 installation. Acquisition/build run as the invoking user; privilege elevation occurs for missing
-packages and the acquired install command. The script checks curl, CA certificates, Python 3,
+packages and the acquired management/install command. The script checks curl, CA certificates, Python 3,
 tar and sha256sum. On apt systems it installs only missing packages (`curl`, `ca-certificates`,
 `python3`, `tar`, `coreutils`) after refreshing indexes; it never performs a blanket upgrade.
 Other systems must provision missing tools manually. Python uses only its standard library and
@@ -116,7 +120,7 @@ and removes it after consuming the binary. Acquisition never changes an active i
 
 ## Local artifacts and verification
 
-Before dispatching install, the bootstrap runs the candidate's `installer-contract` command
+Before dispatching management/install, the bootstrap runs the candidate's `installer-contract` command
 without elevation, with a 15-second deadline and a 4096-byte output cap. Missing/older contracts
 are refused. Revision1 requires prerequisite, recoverable-lifecycle and local-owner capabilities
 plus an explicit data contract. Coordinated restore remains false until M5 verification.

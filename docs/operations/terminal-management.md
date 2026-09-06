@@ -7,6 +7,10 @@ installation record, health endpoint, TLS/core readiness and lifecycle journal; 
 no deployment mutation. `WGG_LANG=fa|en` selects the default language, with `LANG=fa…`
 also recognized. The language action switches the current menu session.
 
+The [one-command GitHub entry](github-install.md) opens this manager on installed nodes.
+On fresh nodes it starts setup using the exact acquired build; rerunning it does not imply an
+update. Forwarded setup flags or `--yes` explicitly retain install-only behavior.
+
 The stable numbered groups are:
 
 | Group | Actions |

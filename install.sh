@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First acquisition only. The acquired Go binary owns installation/lifecycle.
+# Acquisition entry. The acquired Go binary owns installation/management/lifecycle.
 set -euo pipefail
 umask 077
 channel=release
@@ -12,6 +12,7 @@ while (($#)); do
       printf '%s\n' 'WG-Guard GitHub bootstrap' \
         'Usage: bash install.sh [--release latest|TAG | --commit main|FULL_SHA | --list-releases] [-- INSTALL_FLAGS]' \
         'Default: latest published stable release. Development source is never selected implicitly.' \
+        'Interactive default opens management (fresh nodes enter setup); --lang fa|en is supported.' \
         'Install flags (for example --yes --mode native) are forwarded unchanged.'
       exit 0 ;;
     --release|--commit)
@@ -218,11 +219,22 @@ except (ValueError,KeyError,TypeError,OSError,tarfile.TarError) as error:
 PY
 ((list)) && exit 0
 # A piped script is never an answer stream. Reopen the controlling terminal
-# only for interactive installation; noninteractive flags remain usable without it.
+# only for interactive entry; noninteractive flags remain usable without it.
 interactive=1
 for arg in "${args[@]}"; do [[ "$arg" == --yes || "$arg" == -yes || "$arg" == --yes=true ]] && interactive=0; done
+entry=manage
+# Explicit setup arguments retain the install-only contract. Locale alone does
+# not force a reinstall when the operator reruns the one-command entry.
+for ((i=0; i<${#args[@]}; i++)); do
+  case "${args[i]}" in
+    --lang|-lang) i=$((i+1)) ;;
+    --lang=*|-lang=*) ;;
+    *) entry=install ;;
+  esac
+done
+((interactive)) || entry=install
 if ((interactive)) && { true </dev/tty; } 2>/dev/null; then
-  "${sudo_cmd[@]}" "$stage/wg-guard" install --build-metadata "$stage/build.json" "${args[@]}" </dev/tty
+  "${sudo_cmd[@]}" "$stage/wg-guard" "$entry" --build-metadata "$stage/build.json" "${args[@]}" </dev/tty
 else
-  "${sudo_cmd[@]}" "$stage/wg-guard" install --build-metadata "$stage/build.json" "${args[@]}" </dev/null
+  "${sudo_cmd[@]}" "$stage/wg-guard" "$entry" --build-metadata "$stage/build.json" "${args[@]}" </dev/null
 fi

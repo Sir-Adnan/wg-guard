@@ -62,6 +62,14 @@ export PATH="$fixture/bin:$PATH"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 bash "$root/install.sh" --help </dev/null >/dev/null
 test ! -e "$fixture/requests" || fail 'help performed acquisition'
+setsid --wait bash "$root/install.sh" --release v1 </dev/null
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'default interactive management entry'
+test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'management build identity forwarding'
+setsid --wait bash "$root/install.sh" --release v1 -- --lang fa </dev/null
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'localized management entry'
+test "$(tail -n 1 "$fixture/argv")" = fa || fail 'management locale forwarding'
+setsid --wait bash "$root/install.sh" --release v1 -- --mode native </dev/null
+test "$(head -n 1 "$fixture/argv")" = install || fail 'explicit setup flags lost'
 bash "$root/install.sh" --release v1 -- --yes --mode native </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'install dispatch'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'build identity forwarding'
