@@ -178,6 +178,9 @@ func (c *Client) download(ctx context.Context, url, path string, max, expected i
 	n, copyErr := io.Copy(io.MultiWriter(f, hash), io.LimitReader(resp.Body, max+1))
 	syncErr := f.Sync()
 	closeErr := f.Close()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if copyErr != nil {
 		return "", copyErr
 	}

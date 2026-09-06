@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -96,6 +97,44 @@ func TestStreamingDownloadBoundsAndCancellation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDownloadPreservesCancellationAfterCleanEOF(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	body := &cancelAfterRead{reader: strings.NewReader("x"), cancel: cancel}
+	c := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Body:          io.NopCloser(body),
+			ContentLength: -1,
+			Header:        make(http.Header),
+		}, nil
+	})}, Options{})
+
+	_, err := c.download(ctx, "https://example.test/download", filepath.Join(t.TempDir(), "candidate.part"), 4, 2)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("lost cancellation after clean EOF: %v", err)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+type cancelAfterRead struct {
+	reader io.Reader
+	cancel context.CancelFunc
+}
+
+func (r *cancelAfterRead) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if n > 0 && r.cancel != nil {
+		r.cancel()
+		r.cancel = nil
+	}
+	return n, err
 }
 
 func TestUnsafeAssetURLs(t *testing.T) {
