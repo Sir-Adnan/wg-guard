@@ -1,10 +1,9 @@
 # GitHub acquisition and local candidate artifacts
 
-Phase 8.1 M1 implements acquisition only. The Bash entry point obtains a Linux native
-executable and calls its existing `install` command. The Go distribution package supplies the
-same candidate contract for subsequent lifecycle integration. Docker image building and the
-complete terminal manager belong to later Phase 8.1 milestones; until then Docker installation
-needs a usable explicit `--image` (there is no assumed published official image).
+The Bash entry point obtains a Linux executable and calls its bilingual `install` workflow.
+The shared distribution/installer engine verifies build identity and builds the Docker runtime
+image from the selected binary when needed. No published official image is assumed. Installed
+nodes expose [terminal management](terminal-management.md) through `sudo wg-guard manage`.
 
 ## Commands
 
@@ -15,16 +14,30 @@ curl --proto '=https' --tlsv1.2 -fsSLo install.sh \
   https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
 bash install.sh --help
 bash install.sh --list-releases
-bash install.sh --release latest -- --yes --mode native
-bash install.sh --release v0.1.0 -- --yes --mode native
-bash install.sh --commit main -- --yes --mode native
-bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --yes --mode native
+bash install.sh --release latest -- --mode native
+bash install.sh --release v0.1.0 -- --mode native
+bash install.sh --commit main -- --mode native
+bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --mode native --lang fa
 ```
 
 The tag above is an example, not a claim that a release exists. Before this feature is merged,
 replace the bootstrap URL's `main` with the reviewed `codex/installer-lifecycle` branch or its
 full commit SHA. Selecting `main` for the binary always means the repository's actual main
 branch; downloading a bootstrap from another ref does not change that selection.
+
+For a convenient single command, supply a reviewed full SHA containing the local-owner
+installer capability. This downloads into a uniquely created private temporary file, propagates
+download/install failure and cleans up on exit; it does not pipe a failed download into a shell:
+
+```bash
+bash -c 'set -euo pipefail; umask 077; ref="$1"; script=$(mktemp /tmp/wg-guard-bootstrap.XXXXXXXX); trap '\''rm -f -- "$script"'\'' EXIT; curl --proto "=https" --tlsv1.2 -fsS --connect-timeout 15 --max-time 120 -o "$script" "https://raw.githubusercontent.com/Sir-Adnan/wg-guard/$ref/install.sh"; bash "$script" --commit "$ref" -- --lang en' -- REVIEWED_FULL_40_CHARACTER_SHA
+```
+
+Before a compatible public release exists, explicitly select the reviewed development SHA;
+the SHA must have been pushed to GitHub. A local unpushed commit cannot be acquired remotely.
+`--commit main` is usable only after main contains this capability. Fresh noninteractive setup
+also needs `--owner-password-file /root/private-file` (0600), optionally `--owner-username`;
+see [owner setup and terminal constraints](terminal-management.md).
 
 `--release latest` is the default. The catalog is one bounded page of 30 GitHub releases; drafts,
 prereleases and unpublished entries are excluded. Latest chooses the first stable entry on
@@ -42,7 +55,7 @@ Arguments after `--` are passed unchanged to `wg-guard install`; unrecognized bo
 are also forwarded. `--yes` uses noninteractive flags/defaults. Without it, interactive install
 input is reopened from `/dev/tty` when available, otherwise `/dev/null`. A piped script is never
 read as installer answers. `--help` works without a terminal or any acquisition prerequisite.
-Initial bootstrap diagnostics are English; the Go terminal locale workflow is M4.
+Initial acquisition diagnostics are English; the Go wizard accepts `--lang fa|en`.
 
 ## Build prerequisites and cost
 
@@ -105,9 +118,9 @@ and removes it after consuming the binary. Acquisition never changes an active i
 
 Before dispatching install, the bootstrap runs the candidate's `installer-contract` command
 without elevation, with a 15-second deadline and a 4096-byte output cap. Missing/older contracts
-are refused. Revision1 requires prerequisite and recoverable-lifecycle capabilities plus an
-explicit data contract; it does not yet require/advertise M4 local-owner creation or M5
-coordinated restore. The bootstrap passes private build-identity metadata to the installer,
+are refused. Revision1 requires prerequisite, recoverable-lifecycle and local-owner capabilities
+plus an explicit data contract. Coordinated restore remains false until M5 verification.
+The bootstrap passes private build-identity metadata to the installer,
 which validates the candidate and deploys the same binary in Docker and on the host.
 
 The Go install/update flags share `internal/distribution`: `--release TAG|latest` and

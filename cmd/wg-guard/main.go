@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
+	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
@@ -52,12 +53,16 @@ Commands:
   secrets     Master-key rotation (service must be stopped)
               secrets rotate [-yes]
   help        Show this help
-` + i18n.T(i18n.En, "install.cli.help")
+` + i18n.T(i18n.En, "install.cli.help") + i18n.T(i18n.En, "manage.help")
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
+		if terminal.IsTerminal(os.Stdin) {
+			os.Args = append(os.Args, "manage")
+		} else {
+			fmt.Fprint(os.Stderr, usage)
+			os.Exit(2)
+		}
 	}
 
 	// Contract probes inspect this binary without reading or migrating node data.
@@ -75,6 +80,21 @@ func main() {
 	routeDockerMode()
 
 	switch os.Args[1] {
+	case "manage":
+		if err := runManage(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "restart":
+		if err := runRestart(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "owner-bootstrap":
+		if err := runOwnerBootstrap(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "core":
 		if err := runCore(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)

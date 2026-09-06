@@ -2,7 +2,9 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,6 +12,42 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 )
+
+func TestConcurrentOwnerEntryPoints(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			var err error
+			if i%2 == 0 {
+				_, err = svc.BootstrapOwner(ctx, fmt.Sprintf("owner%d", i), "synthetic-password-123")
+			} else {
+				_, err = svc.Create(ctx, fmt.Sprintf("owner%d", i), "synthetic-password-123", auth.RoleOwner, nil)
+			}
+			if err != nil && domain.CodeOf(err) != domain.CodeOwnerProtected {
+				t.Errorf("owner creation: %v", err)
+			}
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	list, err := svc.List(ctx)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("single owner invariant: count=%d err=%v", len(list), err)
+	}
+	created, err := svc.BootstrapOwner(ctx, "replacement", "replacement-password")
+	if err != nil || created {
+		t.Fatalf("reuse: %v %v", created, err)
+	}
+	if _, err := svc.Authenticate(ctx, list[0].Username, "synthetic-password-123"); err != nil {
+		t.Fatalf("existing owner changed: %v", err)
+	}
+}
 
 func newService(t *testing.T) (*Service, *auth.SessionStore) {
 	t.Helper()

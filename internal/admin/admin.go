@@ -77,6 +77,9 @@ func (s *Service) BootstrapOwner(ctx context.Context, username, password string)
 		return false, nil
 	}
 	if _, err := s.Create(ctx, username, password, auth.RoleOwner, nil); err != nil {
+		if domain.CodeOf(err) == domain.CodeOwnerProtected {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
@@ -118,15 +121,24 @@ func (s *Service) Create(ctx context.Context, username, password string, role au
 	if a.Permissions == nil {
 		permsJSON = []byte("[]")
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO admins (id, username, password_hash, role, permissions, enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+	// The predicate and insert execute in one SQLite write statement. Both
+	// web bootstrap and direct Create therefore share the same atomic gate,
+	// including across independent processes/DB connections.
+	res, err := s.db.ExecContext(ctx, `INSERT INTO admins (id, username, password_hash, role, permissions, enabled, created_at, updated_at)
+		SELECT ?, ?, ?, ?, ?, 1, ?, ?
+		WHERE ? != 'owner' OR NOT EXISTS (SELECT 1 FROM admins WHERE role = 'owner')`,
 		a.ID, a.Username, hash, string(role), string(permsJSON),
-		a.CreatedAt.Format(time.RFC3339Nano), a.CreatedAt.Format(time.RFC3339Nano))
+		a.CreatedAt.Format(time.RFC3339Nano), a.CreatedAt.Format(time.RFC3339Nano), string(role))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, domain.E(domain.CodeAdminExists, "username %q is taken", username)
 		}
 		return nil, fmt.Errorf("admin: create: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return nil, fmt.Errorf("admin: create result: %w", err)
+	} else if n == 0 {
+		return nil, domain.E(domain.CodeOwnerProtected, "an owner already exists; there is exactly one owner per node")
 	}
 	return a, nil
 }

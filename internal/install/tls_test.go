@@ -2,7 +2,9 @@ package install
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +15,20 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 )
+
+func TestWaitCertificatePreservesLastHandshakeCause(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+	p := Defaults()
+	p.TLSMode = config.TLSModeManual
+	p.Domain = "wrong.invalid"
+	p.PanelPort = portOf(srv.Listener.Addr().String())
+	err := WaitCertificate(context.Background(), p, 100*time.Millisecond)
+	var certErr *tls.CertificateVerificationError
+	if !errors.As(err, &certErr) {
+		t.Fatalf("lost classified certificate error: %v", err)
+	}
+}
 
 func TestCertificateProbeVerifiesNameAndTrust(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))

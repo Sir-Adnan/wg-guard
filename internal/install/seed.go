@@ -93,7 +93,7 @@ func seedSettings(ctx context.Context, h Host, p Plan, out io.Writer) error {
 	}
 	step(out, "Initial settings")
 	for _, s := range seeds {
-		fmt.Fprintf(out, "  %s\n", s.label)
+		progress(out, s.label)
 		var err error
 		if s.stdin != "" {
 			err = h.RunWithInput(ctx, s.argv, strings.NewReader(s.stdin+"\n"), seedTimeout)

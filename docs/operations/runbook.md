@@ -7,14 +7,16 @@ this file is the "type this, expect that" reference.
 
 ```bash
 wg-guard install --commit main        # explicit development source; interactive wizard
-wg-guard install --mode docker --domain vpn.example.com --yes
-wg-guard install --mode native --tls proxy --panel-port 8080 --yes
+wg-guard install --mode docker --domain vpn.example.com --yes --owner-password-file /root/private-owner-password
+wg-guard install --mode native --tls proxy --panel-port 8080 --yes --owner-password-file /root/private-owner-password
+wg-guard manage --lang fa                   # host management menus
 ```
 
 The wizard asks for: mode (Docker default / native systemd), domain (blank = IP-only),
 TLS mode (ACME automatic with a domain; manual certs; proxy; dev), panel port, ACME challenge
 port (default 80), and the container image (Docker mode). Two optional sections follow, both
-defaulting to skip — **pressing Enter everywhere is a complete install**:
+defaulting to skip. Installation confirmation requires an explicit yes, and a fresh owner
+requires a local password before the public listener starts:
 
 - *VPN network defaults*: AWG listen-port allocation range, the VPN pool offered to the
   first interface (awg0), client MTU, client DNS resolvers. Per-interface values remain
@@ -37,8 +39,9 @@ refused with compose hints), and `/etc/modules-load.d/wg-guard.conf` so the Amne
 loads at boot. Preflight refuses busy ports and completed installs; a domain that does not
 resolve yet is a loud warning (ACME will fail until DNS points at the host).
 
-Verify: `wg-guard status` → container/unit healthy; open the printed panel URL; complete the
-onboarding wizard. Diagnostics: `wg-guard doctor`.
+Verify: `wg-guard status` → container/unit healthy; open the printed panel URL and sign in with
+the locally supplied owner credentials. Diagnostics: `wg-guard doctor`. See
+[terminal management](terminal-management.md) for navigation, restart, secrets and cancellation.
 
 ## Update and recovery
 

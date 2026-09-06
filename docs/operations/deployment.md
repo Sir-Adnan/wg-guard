@@ -21,7 +21,8 @@ data paths, so backups and mode-switching are layout-independent.
   edits the host's tables through the shared netns). Rejected alternatives (host agent process;
   privileged module-loading container) are recorded in [ADR-0006](../decisions/ADR-0006-docker-default-deployment.md).
 - **Host `wg-guard` shim**: the same binary, mode-aware — panel/data commands exec into the
-  container; `install`, `update`, `uninstall`, `status`, `doctor`, `version` run on the host;
+  container; `manage`, `install`, `update`, `uninstall`, `restart`, `owner-bootstrap`, `core`,
+  `status`, `doctor`, `version` run on the host;
   `serve` is refused with compose hints. Every CLI command is identical in both modes.
 - **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
   persistence). On the automatic Ubuntu 24.04 path it installs the exact catalogued DKMS package
@@ -33,8 +34,8 @@ a checksum-verified acquired panel binary plus the exact catalogued tools packag
 `nftables`, `procps` (`sysctl`), CA roots and curl. It executes no candidate installer and returns
 only an immutable Docker image ID. Its private build context is removed after success/failure;
 the caller's staging parent is preserved. Acquisition-to-lifecycle plumbing and recording that
-ID as the active/previous artifact belong to M3. Until that integration lands, use an explicit
-locally built `--image`; no official public image publication is implied.
+ID as the active/previous artifact are implemented by the shared lifecycle engine. No official
+public image publication is implied.
 
 ## Native mode (secondary, fully supported)
 
@@ -58,6 +59,10 @@ Explicit `--tls`, `--panel-port` (including TLS on 8080) and challenge port choi
    (input is hidden on terminals and travels via stdin — never argv, logs or state),
    chat ID, and a daily UTC backup time that creates an enabled `installer-daily` schedule.
 4. Container image (Docker mode) and a final plan confirmation.
+5. Create the first local owner with a hidden password and confirmation before starting the
+   public listener; reuse an existing owner without changing its credentials. Fresh `--yes`
+   setup requires a private `--owner-password-file`. See [terminal management](terminal-management.md)
+   for menus, locale, input bounds, automation and the manual-serve posture.
 
 Every choice lands in the Settings registry / backup schedules and stays editable in the
 panel afterwards; values equal to the registry defaults are not persisted.

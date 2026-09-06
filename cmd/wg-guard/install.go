@@ -13,6 +13,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
+	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
@@ -57,6 +58,14 @@ func runInstall(args []string) error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
+	if !o.Yes && o.Selection.Channel == "" && o.BuildMetadata == "" {
+		u := terminal.New(o.Stdin, o.Stdout, terminal.Detect(o.Stdin, o.Stdout, o.Locale))
+		u.Context = ctx
+		o.Selection, err = pickSource(ctx, u, distribution.NewClient(nil, distribution.Options{}), version.String())
+		if err != nil {
+			return err
+		}
+	}
 	build, parent, cleanup, err := prepareBuild(ctx, o.Selection, o.BuildMetadata)
 	if err != nil {
 		return err
@@ -89,12 +98,18 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 		commit        = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
 		metadata      = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
 		localImage    = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
+		ownerName     = fs.String("owner-username", "owner", i18n.T(i18n.En, "owner.username"))
+		ownerFile     = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
+		locale        = fs.String("lang", terminalLocale(), "fa | en")
 	)
 	if err := fs.Parse(args); err != nil {
 		return install.InstallOptions{}, err
 	}
 	if fs.NArg() != 0 {
 		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.arguments"))
+	}
+	if !i18n.Locale(*locale).Valid() {
+		return install.InstallOptions{}, lifecycleArgsError()
 	}
 	selection, err := sourceSelection(*release, *commit)
 	if err != nil {
@@ -136,6 +151,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	plan.PublicIP = *publicIP
 
 	return install.InstallOptions{
+		Owner: install.OwnerOptions{Username: *ownerName, PasswordFile: *ownerFile}, Locale: i18n.Locale(*locale),
 		Selection: selection, BuildMetadata: *metadata, LocalImage: *localImage,
 		Plan:          plan,
 		Yes:           *yes,
@@ -160,7 +176,9 @@ func runUninstall(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	_, err := install.Uninstall(context.Background(), install.NewRealHost(), install.UninstallOptions{
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	_, err := install.Uninstall(ctx, install.NewRealHost(), install.UninstallOptions{
 		DryRun:        *dryRun,
 		PurgeData:     *purgeData,
 		PurgePackages: *purgePkgs,

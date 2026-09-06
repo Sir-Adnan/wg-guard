@@ -18,15 +18,26 @@ type Contract struct {
 }
 
 func CurrentContract() Contract {
-	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true}
+	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true, LocalOwner: true}
 }
 func CheckContract(c Contract) error {
-	if c.Revision != 1 || c.DataContract == "" || !c.Prerequisites || !c.Recovery {
+	if !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner {
 		return terminalError("install.error.contract")
 	}
 	return nil
 }
 func inspectContract(ctx context.Context, h Host, args []string) (Contract, error) {
+	c, err := readContract(ctx, h, args)
+	if err != nil {
+		return c, err
+	}
+	return c, CheckContract(c)
+}
+
+// Data compatibility and candidate admission are distinct: old artifacts can
+// understand the same schema while lacking today's fresh-install capabilities.
+func knownDataContract(c Contract) bool { return c.Revision == 1 && c.DataContract != "" }
+func readContract(ctx context.Context, h Host, args []string) (Contract, error) {
 	raw, err := h.Output(ctx, append(args, "installer-contract"), 15*time.Second)
 	if err != nil {
 		return Contract{}, terminalError("install.error.contract")
@@ -36,7 +47,10 @@ func inspectContract(ctx context.Context, h Host, args []string) (Contract, erro
 	}
 	var c Contract
 	if err := json.Unmarshal([]byte(raw), &c); err != nil {
-		return c, terminalError("install.error.contract")
+		return Contract{}, terminalError("install.error.contract")
 	}
-	return c, CheckContract(c)
+	if !knownDataContract(c) {
+		return Contract{}, terminalError("install.error.contract")
+	}
+	return c, nil
 }

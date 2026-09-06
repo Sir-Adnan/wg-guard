@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net"
 	"net/http"
@@ -23,16 +24,19 @@ import (
 func WaitCertificate(ctx context.Context, p Plan, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
+	var lastErr error
 	for {
 		if err := probeCertificate(ctx, p, nil); err == nil {
 			return nil
+		} else if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) || lastErr == nil {
+			lastErr = err
 		}
 		select {
 		case <-ctx.Done():
 			if p.TLSMode == config.TLSModeManual {
-				return terminalError("install.error.manual_pending", ctx.Err())
+				return fmt.Errorf("%v: %w", terminalError("install.error.manual_pending", ctx.Err()), errors.Join(ctx.Err(), lastErr))
 			}
-			return terminalError("install.error.health.1", p.ACMEHTTPPort, ctx.Err())
+			return fmt.Errorf("%v: %w", terminalError("install.error.health.1", p.ACMEHTTPPort, ctx.Err()), errors.Join(ctx.Err(), lastErr))
 		case <-time.After(2 * time.Second):
 		}
 	}

@@ -2,7 +2,7 @@
 
 Phase 8.1 M3 uses one host lifecycle lock, `/run/lock/wg-guard-lifecycle.lock`.
 The Linux kernel releases it when the process exits or dies; do not delete the lock file
-to bypass another operator. Install/update/uninstall/core selection and TLS-state writes
+to bypass another operator. Install/update/uninstall/restart/core selection and TLS-state writes
 share this lock. The application remains one binary with one scheduler.
 
 ## State and retained resources
@@ -70,8 +70,15 @@ TLS can keep serving the ACME challenge while `wg-guard tls-check` retries certi
 
 The machine-readable `wg-guard installer-contract` command does not open node data. Revision1
 currently reports `data_contract: schema7-h-ranges-v1`, prerequisites and recoverable lifecycle
-support. `local_owner` and `coordinated_restore` remain false: M4 owns local owner creation;
-M5 owns verified, bounded and coordinated database/master-key restoration.
+support. `local_owner` is true and required for new candidates: installer-managed setup
+prepares the local owner before listener startup. `coordinated_restore` remains false;
+M5 owns verified, bounded and coordinated database/master-key restoration. Candidate admission
+is separate from data compatibility: valid older revision1 records keep their known schema
+identity even if they lack the newer owner-setup capability.
+
+`wg-guard restart --yes` records a `restart` operation using the same lock and service helpers.
+Retry that command after a failed/interrupted restart; `update --recover` remains the update/
+rollback recovery route. Restart refuses to overwrite another pending operation.
 
 Matching health or SQL column names does not establish compatibility. Migration0007 retains
 scalar mirrors, but a pre-0007 binary can run while losing H-range semantics. M3 therefore

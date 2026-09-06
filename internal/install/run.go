@@ -26,6 +26,8 @@ var (
 // InstallOptions drives one install run. Plan is pre-filled from CLI flags;
 // empty fields are prompted for unless Yes.
 type InstallOptions struct {
+	Owner  OwnerOptions
+	Locale i18n.Locale
 	// BeforeStart is M4's local-owner setup point, after configuration/settings
 	// exist and before any public listener starts. Nil advertises no owner guarantee.
 	BeforeStart   func(context.Context, Host, Plan, *State) error
@@ -67,6 +69,22 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		out = io.Discard
 	}
 	prompt := newPrompt(o.Stdin, out, o.Yes)
+	prompt.ui.Context = ctx
+	prompt.ui.Locale = o.Locale
+	if !prompt.ui.Locale.Valid() {
+		prompt.ui.Locale = i18n.En
+	}
+	out = &progressOutput{Writer: out, ui: prompt.ui}
+	if o.BeforeStart == nil {
+		o.BeforeStart = func(ctx context.Context, h Host, p Plan, _ *State) error {
+			owner := o.Owner
+			owner.Yes = o.Yes
+			owner.Stdin = o.Stdin
+			owner.Stdout = out
+			owner.Locale = o.Locale
+			return BootstrapLocalOwner(ctx, h, p, owner)
+		}
+	}
 
 	// Root: the installer writes /etc, binds ports and manages services.
 	if !h.IsRoot() {
@@ -120,6 +138,9 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := resolveEndpoint(ctx, h, &p); err != nil {
 		return nil, err
 	}
+	prompt.ui.Field(prompt.ui.T("manage.build"), o.Build.Version)
+	prompt.ui.Field("Commit", o.Build.Commit)
+	prompt.ui.Field("SHA-256", o.Build.SHA256)
 	if err := prompt.confirm(p); err != nil {
 		return nil, err
 	}
@@ -249,7 +270,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := waitHealthy(ctx, h, p, installHealthWindow); err != nil {
 		return st, fmt.Errorf("install: %w", err)
 	}
-	fmt.Fprintf(out, "  node answers on %s\n", p.HealthProbeLabel())
+	progress(out, "healthy", p.HealthProbeLabel())
 
 	st.TLSReadiness = "not-applicable"
 	if p.TLSMode == "acme" || p.TLSMode == "manual" {
@@ -273,7 +294,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		}
 	}
 
-	printSummary(out, p, st)
+	printSummaryLocale(out, p, st, o.Locale)
 	if err := j.save(h, "complete"); err != nil {
 		return st, err
 	}
@@ -304,7 +325,7 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 		return fmt.Errorf("install: install host CLI to %s: %w", BinPath, err)
 	}
 	st.BinPath = BinPath
-	fmt.Fprintf(out, "  %s → %s (mode-aware: panel commands exec into the container)\n", self, BinPath)
+	progress(out, "shim", self, BinPath)
 
 	step(out, "Compose project")
 	compose := RenderCompose(p)
@@ -313,7 +334,7 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	}
 	st.ComposePath = ComposePth
 	st.Image = p.Image
-	fmt.Fprintf(out, "  wrote %s (image %s)\n", ComposePth, p.Image)
+	progress(out, "compose", ComposePth, p.Image)
 
 	// Runtime settings (wizard choices) seed through the installed CLI while
 	// the state file still doesn't exist — see seedSettings for why.
@@ -353,7 +374,7 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 		return fmt.Errorf("install: install binary to %s: %w", BinPath, err)
 	}
 	st.BinPath = BinPath
-	fmt.Fprintf(out, "  %s → %s\n", self, BinPath)
+	progressUI(out).Field("", self+" → "+BinPath)
 
 	// Runtime settings (wizard choices) seed through the just-installed
 	// binary before the service starts — see seedSettings for why.
@@ -377,7 +398,7 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	if err := h.Run(ctx, []string{"systemctl", "enable", "--now", "wg-guard"}, 60*time.Second); err != nil {
 		return fmt.Errorf("install: enable service: %w", err)
 	}
-	fmt.Fprintln(out, "  wg-guard.service enabled and started")
+	progress(out, "started")
 	return nil
 }
 
@@ -396,7 +417,7 @@ const ModuleAutoLoadPath = "/etc/modules-load.d/wg-guard.conf"
 
 func markModuleBootPersistence(h Host, st *State, out io.Writer) error {
 	if err := h.WriteFile(ModuleAutoLoadPath, []byte("# Written by wg-guard install: load the AmneziaWG module at boot\namneziawg\n"), 0o644); err != nil {
-		fmt.Fprintf(out, "  WARNING: boot persistence not written: %v\n", err)
+		progress(out, "persistence", err)
 		return nil
 	}
 	st.ExtraFiles = addUnique(st.ExtraFiles, ModuleAutoLoadPath)
@@ -424,14 +445,14 @@ func preflight(ctx context.Context, h Host, p Plan, out io.Writer) error {
 	if p.TLSMode == "acme" && !h.PortFree(fmt.Sprintf(":%d", p.ACMEHTTPPort)) {
 		return fmt.Errorf("install: acme challenge port %d is already in use (HTTP-01 requires it)", p.ACMEHTTPPort)
 	}
-	fmt.Fprintf(out, "  ports %d free\n", p.PanelPort)
+	progress(out, "port_free", p.PanelPort)
 	if p.TLSMode == "acme" {
 		addrs, err := h.LookupHost(p.Domain)
 		switch {
 		case err != nil || len(addrs) == 0:
-			fmt.Fprintf(out, "  WARNING: %s does not resolve yet — certificate issuance will fail until DNS points here\n", p.Domain)
+			progress(out, "dns_pending", p.Domain)
 		default:
-			fmt.Fprintf(out, "  %s resolves (%s)\n", p.Domain, strings.Join(addrs, ", "))
+			progress(out, "dns", p.Domain, strings.Join(addrs, ", "))
 		}
 	}
 	return nil
@@ -461,34 +482,22 @@ func waitHealthy(ctx context.Context, h Host, p Plan, within time.Duration) erro
 	return fmt.Errorf("node did not become healthy within %s: %v", within, lastErr)
 }
 
-func printSummary(out io.Writer, p Plan, st *State) {
-	step(out, "Done")
-	fmt.Fprintf(out, "\n  Panel:        %s\n", p.PanelURL())
+func printSummary(out io.Writer, p Plan, st *State) { printSummaryLocale(out, p, st, i18n.En) }
+func printSummaryLocale(out io.Writer, p Plan, st *State, locale i18n.Locale) {
+	u := progressUI(out)
+	if locale.Valid() {
+		u.Locale = locale
+	}
+	u.Section(u.T("terminal.done"))
+	for _, f := range []struct{ k, v string }{{"manage.panel", p.PanelURL()}, {"manage.endpoint", p.VPNEndpoint()}, {"setup.mode", string(p.Mode)}, {"setup.config", p.BootConfigPath()}, {"setup.data", p.DataDir}, {"manage.core", st.Core.Requested.ID}} {
+		u.Field(u.T(f.k), f.v)
+	}
+	u.Field("TLS", st.TLSReadiness)
 	if p.TLSMode == "proxy" || p.TLSMode == "dev" {
-		fmt.Fprintf(out, "  SSH:          %s\n", p.SSHTunnel())
+		u.Field("SSH", p.SSHTunnel())
 	}
-	fmt.Fprintf(out, "  Mode:         %s\n", p.Mode)
-	fmt.Fprint(out, i18n.T(i18n.En, "install.summary.core", st.Core.Requested.ID, st.Core.Requested.ToolsVersion, st.Core.Requested.KernelVersion, st.Core.ToolsPackage, st.Core.KernelPackage, st.Core.LoadedVersion, st.Core.ModuleIdentity, st.Core.RebootRequired))
-	fmt.Fprintf(out, "  Config:       %s\n", p.BootConfigPath())
-	fmt.Fprintf(out, "  Data:         %s\n", p.DataDir)
-	if p.Mode == ModeDocker {
-		fmt.Fprintf(out, "  Compose:      %s\n", ComposePth)
-		fmt.Fprintf(out, "  Service:      docker compose -f %s <up -d|down|pull>\n", ComposePth)
-	} else {
-		fmt.Fprintf(out, "  Service:      systemctl <status|restart|stop> wg-guard\n")
-	}
-	fmt.Fprintf(out, "  Diagnostics:  wg-guard doctor\n")
-	if p.TelegramToken != "" {
-		fmt.Fprintf(out, "  Telegram:     daily %s UTC → chat %s (test: wg-guard backup telegram-test)\n", p.TelegramTime, p.TelegramChat)
-	}
-	fmt.Fprintf(out, "\n  Next steps:\n")
-	fmt.Fprintf(out, "   1. Open %s and create the owner account (first-run wizard).\n", p.PanelURL())
-	if p.TLSMode == "acme" {
-		fmt.Fprint(out, i18n.T(i18n.En, "install.summary.certificate", st.TLSReadiness))
-	} else {
-		fmt.Fprintf(out, "   2. Create the first interface (awg0) — ports and subnet are auto-assigned.\n")
-	}
-	fmt.Fprintf(out, "   3. wg-guard status · wg-guard doctor · wg-guard backup create\n\n")
+	u.Text(u.T("owner.ready"))
+	u.Text(u.T("setup.next"))
 }
 
-func step(out io.Writer, name string) { fmt.Fprintf(out, "==> %s\n", name) }
+func step(out io.Writer, name string) { u := progressUI(out); u.Section(u.T("progress." + name)) }

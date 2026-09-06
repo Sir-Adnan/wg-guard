@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
 	"io/fs"
 	"time"
@@ -103,14 +105,14 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	if !o.Yes {
 		fmt.Fprintf(out, "Stop and remove WG-Guard (%s mode)? Data %s.\nType 'uninstall' to confirm: ",
 			st.Mode, dataFate(o.PurgeData, st.DataDir))
-		var answer string
-		if o.Stdin != nil {
-			if _, err := fmt.Fscanln(o.Stdin, &answer); err != nil && answer != "uninstall" {
-				return nil, fmt.Errorf("uninstall: cancelled")
-			}
+		u := terminal.New(o.Stdin, out, terminal.Detect(o.Stdin, out, i18n.En))
+		u.Context = ctx
+		answer, err := u.Ask("uninstall", "")
+		if err != nil {
+			return nil, err
 		}
 		if answer != "uninstall" {
-			return nil, fmt.Errorf("uninstall: cancelled")
+			return nil, terminal.ErrCanceled
 		}
 	}
 

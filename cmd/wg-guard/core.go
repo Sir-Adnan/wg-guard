@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
@@ -13,11 +14,14 @@ import (
 )
 
 func runCoreWithHost(args []string, h install.Host, out io.Writer) error {
+	return runCoreWithHostContext(context.Background(), args, h, out)
+}
+func runCoreWithHostContext(ctx context.Context, args []string, h install.Host, out io.Writer) error {
 	if len(args) > 0 && args[0] == "switch" {
 		if len(args) != 3 || args[2] != "--confirm-impact" {
 			return fmt.Errorf("%s", i18n.T(i18n.En, "install.error.core_confirmation"))
 		}
-		r, err := install.SwitchCore(context.Background(), h, install.CoreSwitchOptions{Selector: args[1], ConfirmImpact: true, Stdout: out})
+		r, err := install.SwitchCore(ctx, h, install.CoreSwitchOptions{Selector: args[1], ConfirmImpact: true, Stdout: out})
 		if err != nil {
 			return err
 		}
@@ -49,7 +53,11 @@ func runCoreWithHost(args []string, h install.Host, out io.Writer) error {
 	return json.NewEncoder(out).Encode(b)
 }
 
-func runCore(args []string) error { return runCoreWithHost(args, install.NewRealHost(), os.Stdout) }
+func runCore(args []string) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	return runCoreWithHostContext(ctx, args, install.NewRealHost(), os.Stdout)
+}
 
 func runTLSCheck(args []string) error {
 	if len(args) != 0 {

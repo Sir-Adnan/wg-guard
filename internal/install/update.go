@@ -154,7 +154,7 @@ func removeArtifact(h Host, a *Artifact) {
 	_ = h.Remove(path.Dir(a.Binary))
 }
 func dataCompatible(a, b *Artifact) bool {
-	return a != nil && b != nil && CheckContract(a.Contract) == nil && CheckContract(b.Contract) == nil && a.Contract.DataContract == b.Contract.DataContract
+	return a != nil && b != nil && knownDataContract(a.Contract) && knownDataContract(b.Contract) && a.Contract.DataContract == b.Contract.DataContract
 }
 
 func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, resultErr error) {
@@ -206,7 +206,7 @@ func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, re
 		args = []string{"docker", "exec", Container, BinPath}
 	}
 	// Absent legacy contract never proves interpretation compatibility.
-	a.Contract, _ = inspectContract(ctx, h, args)
+	a.Contract, _ = readContract(ctx, h, args)
 	return a, nil
 }
 

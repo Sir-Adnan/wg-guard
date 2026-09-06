@@ -9,7 +9,7 @@ export FIXTURE_ROOT="$fixture" TMPDIR="$fixture/tmp"
 python3 - "$fixture" <<'PY'
 import hashlib,io,json,pathlib,sys,tarfile
 p=pathlib.Path(sys.argv[1])
-binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false,"coordinated_restore":false}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
+binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "${FIXTURE_MODE:-}" == owner-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false}\\n\'; exit 0; fi; [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
 (p/'binary').write_bytes(binary)
 (p/'sums').write_text(hashlib.sha256(binary).hexdigest()+'  wg-guard_linux_amd64\n')
 go_script='''#!/usr/bin/env python3
@@ -71,6 +71,8 @@ test -z "$(ls -A "$fixture/tmp")" || fail 'success cleanup'
 rm "$fixture/argv"
 if FIXTURE_MODE=old-installer bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'old installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'old installer deployment ran'
+if FIXTURE_MODE=owner-unsafe bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'owner-unsafe installer accepted'; fi
+test ! -e "$fixture/argv" || fail 'owner-unsafe deployment ran'
 if FIXTURE_MODE=corrupt bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'corrupt binary accepted'; fi
 test ! -e "$fixture/argv" || fail 'corrupt executable ran'
 test -z "$(ls -A "$fixture/tmp")" || fail 'failure cleanup'
