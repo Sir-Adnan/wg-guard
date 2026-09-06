@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M4 reviewed, M5 implemented under review**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M5 reviewed, integrated acceptance pending**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -198,6 +198,18 @@ provenance and documentation and requests explicit approval before public public
   race/integration pass; scoped re-review is pending. Original implementation/docs revision
   `c46f313` [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34005864073);
   the fix requires its own CI result.
+- Crypto-localization follow-up `8ce6f99` covers missing/short passwords, invalid or damaged
+  encrypted inputs, streaming crypto failures and excessive KDF work with safe keyed fa/en
+  messages while retaining internal error causes. Focused and full local gates pass; the
+  scoped re-review closed the residual finding with no new Important/Critical issue. M5's
+  implementation review is complete; actual Telegram, schedule and lifecycle acceptance remain M6.
+- Exact revision `9db9016` [failed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34006644053)
+  in the stable-Go download cancellation test: a canceled response was reported as a size
+  mismatch. Minimum-Go tests, both architecture builds and vulnerability checks passed.
+  Correction `f47d92c` checks cancellation after response/file cleanup; a deterministic body
+  fixture reproduces canceled clean EOF before the fix. Focused repeated/race and full local
+  test/build/vet gates pass. Scoped review and the next exact-head CI remain pending; the
+  older green run does not cover this failure.
 - M4 implementation/status revision `99b9338`
   [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003509985).
   Closing-review revision `234f067` also

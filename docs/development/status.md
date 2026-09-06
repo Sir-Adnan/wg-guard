@@ -19,8 +19,8 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 | OS prerequisites and compatible AWG selection | M2 implemented + unit tested in `fa74c4a`, special-use IP hardening `da46c00`; independent review closed; [read-only installed/recommended core CLI](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt) and [actual runtime-image preparation/identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on VPS. Fresh host package provisioning and node deployment remain unverified |
 | Transactional install/update/rollback and safe uninstall | M3 implemented in `4b72243`, native interrupted-cleanup fix `fc2c537`; full Go test/build/vet, scoped Linux race/lock/atomic tests and bootstrap rejection fixtures passed; independent review closed; real lifecycle verification remains M6 |
 | Catalogued core maintenance | M3 lock/journal/impact confirmation and pending-reboot handling unit tested; only the one verified installed bundle can currently be reaffirmed, not an invented version transition |
-| Bounded restore and cross-contract recovery | M5 implemented in `281b607`: streaming private preview/approval, mandatory staged hashes, recoverable DB/key replacement and original-schema recovery before retained-artifact startup. Review fix `8be8c6f` covers all manual openers, canonical managed paths and bilingual safety messages; full/scoped Linux gates pass. Scoped re-review pending, real VPS acceptance M6 |
-| Backup schedule management and Telegram workflow | M5 implemented in `281b607`: complete CLI/manager forms, UTC schedule CRUD, live backup-setting reads, explicit archive send, fail-closed encryption and credential-safe errors. Full test/build/vet, scoped Linux race/integration and HTTP/bootstrap fixtures pass; independent review and actual Telegram/scheduler-tick acceptance pending |
+| Bounded restore and cross-contract recovery | M5 implemented in `281b607`: streaming private preview/approval, mandatory staged hashes, recoverable DB/key replacement and original-schema recovery before retained-artifact startup. Review fixes `8be8c6f`/`8ce6f99` cover manual openers, canonical managed paths and keyed fa/en safety/crypto boundaries; full/scoped Linux gates pass. Independent review closed; real VPS acceptance M6 |
+| Backup schedule management and Telegram workflow | M5 implemented in `281b607`: complete CLI/manager forms, UTC schedule CRUD, live backup-setting reads, explicit archive send, fail-closed encryption and credential-safe errors. Full test/build/vet, scoped Linux race/integration and HTTP/bootstrap fixtures pass; independent review closed. Actual Telegram/scheduler-tick acceptance pending |
 | Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |
 
 No new REST API is planned; shared CLI/panel services remain authoritative. API/OpenAPI must be
@@ -391,7 +391,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 
 | Phase | State | Scope |
 |---|---|---|
-| 8.1 — GitHub delivery & lifecycle | active; M1–M4 reviewed, M5 implemented under review | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
+| 8.1 — GitHub delivery & lifecycle | active; M1–M5 reviewed, integrated acceptance pending | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | planned; design branch paused | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |

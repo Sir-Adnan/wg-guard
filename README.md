@@ -21,7 +21,8 @@ owns operational observability and bounded logs, after the inserted
 [Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). The full compatibility matrix
 remains Phase 11 and final release engineering remains Phase 12. Phase 8.1 implements GitHub
 acquisition, prerequisite/core checks, recoverable lifecycle operations and bilingual terminal
-management. Backup/recovery completion and integrated VPS certification are still in progress.
+management and backup/recovery workflows. M1–M5 implementation reviews are closed; integrated
+VPS certification and the final quality gate are still in progress.
 See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 

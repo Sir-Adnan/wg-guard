@@ -209,7 +209,8 @@ manual Telegram send using existing delivery engine. Existing scheduler remains 
   password input. Unknown or unverifiable archive/artifact identity must keep recovery blocked.
 - [x] Run real SQLite/archive/Telegram HTTP-fixture tests + full suite/build, docs and commit.
 
-M5 implementation: `281b607`; independent task review pending. Both-mode tests above use
+M5 implementation: `281b607`; independent task review closed after `8be8c6f` and `8ce6f99`
+addressed all Important findings, with no new Important/Critical breakage. Both-mode tests above use
 Host/service-manager boundaries with real SQLite/archive bytes, not actual VPS deployments.
 M6 retains live lifecycle, Telegram delivery and production scheduler-tick acceptance.
 

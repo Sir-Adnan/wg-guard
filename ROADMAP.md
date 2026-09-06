@@ -44,6 +44,8 @@ its metrics/log-retention implementation remains separate. Artifact acquisition 
 forward from Phase 12; public publication still requires owner approval. Complete only with
 automated failure tests, terminal QA, and Docker/native lifecycle evidence on the dedicated VPS.
 Detailed gate: [docs/development/phase8.1.md](docs/development/phase8.1.md).
+M1–M5 implementation reviews are closed. M6 integrated acceptance and final review remain;
+this does not mark Phase 8.1 complete or certify the latest CI revision.
 
 ### Phase 9 — Operational observability
 

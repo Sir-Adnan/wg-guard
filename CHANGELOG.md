@@ -37,8 +37,9 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   explicit approval, recoverable database/key replacement and original-schema legacy recovery.
   Encryption failures never silently become plaintext; Telegram errors do not expose tokens;
   archive names remain unique within one second and age work-factor acceptance is bounded.
-  Automated full/scoped Linux/HTTP tests pass; independent review and real-VPS acceptance remain
-  pending. No new REST API, scheduler or dependency was added.
+  Automated full/scoped Linux/HTTP tests pass; independent review closed after all manual
+  database openers, canonical managed paths and keyed fa/en crypto safety boundaries were fixed.
+  Real-VPS acceptance remains pending. No new REST API, scheduler or dependency was added.
 - **Bilingual terminal lifecycle management (M4):** streaming width-aware setup/management,
   bounded cancellable input, actual-terminal-FD hidden secrets, explicit source/impact review,
   and locked service restart. Re-running the default interactive GitHub bootstrap opens existing
