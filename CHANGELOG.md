@@ -37,8 +37,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   and locked service restart. Re-running the default interactive GitHub bootstrap opens existing
   management without reinstalling. Local owner provisioning now precedes listener startup;
   atomic shared owner creation prevents concurrent first-owner claims and preserves existing
-  credentials. Automated/PTY tests pass; independent review and integrated VPS verification
-  remain pending. Backup/Telegram/schedule and coordinated restore completion follow in M5.
+  credentials. Automated/PTY tests pass and independent task review closed; integrated VPS
+  verification remains pending. Backup/Telegram/schedule and coordinated restore completion follow in M5.
 - **Recoverable lifecycle transactions (M3):** exclusive Linux lock, durable private state and
   operation journal, immutable previous artifacts, source-aware install/update, mandatory remote
   fetch semantics, same-data-contract rollback, safe removal targets, and catalog-only core

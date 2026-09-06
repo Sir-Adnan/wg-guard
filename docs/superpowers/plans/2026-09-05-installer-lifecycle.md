@@ -171,8 +171,8 @@ the correct host/container context; pass secrets via stdin, not nested argv.
   by the first anonymous web visitor.
 - [x] Run UI/CLI tests/full suite/build, document management navigation/terminal constraints and commit.
 
-M4 implementation commits: `e21a87f`, `4c8f07e`. Independent task review is active; M5 does not
-start until that gate closes. Backup navigation currently invokes existing commands; its full
+M4 implementation commits: `e21a87f`, `4c8f07e`. Independent task review closed with two minor
+final-review items tracked in phase8.1.md. Backup navigation currently invokes existing commands; its full
 management and recovery semantics remain the next task, not a completed M4 feature claim.
 
 ### Task 5: Backup, Telegram, scheduling and restore safety (M5)

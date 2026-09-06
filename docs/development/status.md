@@ -14,13 +14,13 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 | Item | Status |
 |---|---|
 | Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested; independent review closed; local amd64/arm64 candidates built/checksummed. [Real VPS acquisition/build/help and empty-release refusal passed](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) on `3a02c72`; [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149). Full deployment integration and arm64 runtime remain pending |
-| Terminal installer and management UX | M4 implemented in `e21a87f`/`4c8f07e`; full Go test/build/vet, scoped Linux race/PTY and shell fixtures pass; independent review active. Real integrated SSH/deployment verification remains M6 |
-| Local owner before public listener | M4 shared admin atomic creation, protected file/stdin transport, existing-owner preservation and both-mode start-order regressions pass; candidate contract requires local_owner. Independent review and M6 deployment gate remain pending |
+| Terminal installer and management UX | M4 implemented in `e21a87f`/`4c8f07e`; full Go test/build/vet, scoped Linux race/PTY and shell fixtures pass; independent task review closed, two minor final-review items recorded in phase8.1.md. Real integrated SSH/deployment verification remains M6 |
+| Local owner before public listener | M4 shared admin atomic creation, protected file/stdin transport, existing-owner preservation and both-mode start-order regressions pass; candidate contract requires local_owner. Independent task review closed; M6 deployment gate remains pending |
 | OS prerequisites and compatible AWG selection | M2 implemented + unit tested in `fa74c4a`, special-use IP hardening `da46c00`; independent review closed; [read-only installed/recommended core CLI passed on VPS](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt). Fresh package provisioning/runtime image deployment remain unverified |
 | Transactional install/update/rollback and safe uninstall | M3 implemented in `4b72243`, native interrupted-cleanup fix `fc2c537`; full Go test/build/vet, scoped Linux race/lock/atomic tests and bootstrap rejection fixtures passed; independent review closed; real lifecycle verification remains M6 |
 | Catalogued core maintenance | M3 lock/journal/impact confirmation and pending-reboot handling unit tested; only the one verified installed bundle can currently be reaffirmed, not an invented version transition |
 | Bounded restore and cross-contract recovery | M5 pending; M3 retains recorded archive/previous artifact and refuses unsafe old-binary startup; coordinated original-schema/database/key recovery is not yet implemented |
-| Backup schedule management and Telegram workflow | designed; not implemented |
+| Backup schedule management and Telegram workflow | M5 starting; complete CLI forms, schedule CRUD, delivery hardening and actual Telegram evidence not yet implemented/verified |
 | Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |
 
 No new REST API is planned; shared CLI/panel services remain authoritative. API/OpenAPI must be
@@ -391,7 +391,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 
 | Phase | State | Scope |
 |---|---|---|
-| 8.1 — GitHub delivery & lifecycle | active; M1–M3 reviewed, M4 implemented and under review | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
+| 8.1 — GitHub delivery & lifecycle | active; M1–M4 reviewed, M5 starting | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | planned; design branch paused | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |

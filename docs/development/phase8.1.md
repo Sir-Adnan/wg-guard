@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M3 reviewed, M4 implemented and under review**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M4 reviewed, M5 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -171,9 +171,12 @@ provenance and documentation and requests explicit approval before public public
 - M4 (`e21a87f`, bootstrap rerun follow-up `4c8f07e`): bilingual terminal/setup/management,
   actual-FD hidden input, local owner-before-listener provisioning, atomic single-owner creation,
   shared locked restart and candidate capability gating implemented. Full Go suite/build/vet,
-  scoped Linux race/PTY and executable bootstrap fixtures passed. Independent review is active;
-  this is not yet the M4 review gate or M6 real-deployment certification. Bootstrap default
+  scoped Linux race/PTY and executable bootstrap fixtures passed. Independent task review closed
+  with no Important/Critical finding; M6 real-deployment certification remains pending. Bootstrap default
   interactive entry starts fresh setup with the acquired build or opens an existing node's menu
   without reinstalling. [Operator guide](../operations/terminal-management.md).
-- M5 remains pending: complete backup/schedule/Telegram management, bounded staged restore and
+- Two minor M4 review items remain for M6 final review: show customized pool/MTU/DNS in the final
+  setup review, and make recovery hints operation-specific (restart journals need restart retry,
+  not update recovery). They do not waive the final product-quality gate.
+- M5 starts next: complete backup/schedule/Telegram management, bounded staged restore and
   coordinated original-schema/database/master-key recovery. No new REST contract changed in M4.
