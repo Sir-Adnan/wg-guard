@@ -11,7 +11,7 @@ Last updated: 2026-09-06. Active phase: **8.1 — GitHub delivery & lifecycle**.
 | Phase | State | Exit dependency |
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 8.1 — GitHub delivery & lifecycle | active; M1–M2 reviewed, M3 in progress | One-command installation and safe lifecycle verified on the dedicated VPS |
+| 8.1 — GitHub delivery & lifecycle | active; M1–M3 reviewed, M4 starting | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 9 — Operational observability | planned; existing design branch paused | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
@@ -102,11 +102,11 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-023 | medium | The panel trusted a hidden generated-profile label without proving values came from its preview; policy validation was broader than generation and S2 used an unbounded retry | Phase 8 | verified |
 | AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
 | AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
-| AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`; independent review open; actual deployment drills pending M6 |
+| AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`; independent review closed after `fc2c537`; actual deployment drills pending M6 |
 | AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | M2 implemented, unit tested and independently reviewed; fresh prerequisite/runtime deployment verification remains M6 |
 | AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and independently reviewed; integrated real-host setup remains M6 |
 | AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | Installer parsing/group-ID fixes unit tested in M2; backup schedule parser remains M5 |
-| AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path and stop-failure regressions pass; independent review open; actual removal/recovery drill remains M6 |
+| AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; independent review closed; actual removal/recovery drill remains M6 |
 | AUD-031 | high | Telegram delivery wraps HTTP transport errors containing the token-bearing request URL and echoes remote descriptions without token redaction | Phase 8.1 | reproduced by code audit; tests pending |
 | AUD-032 | high | Restore verification metadata is optional at apply; database/key replacement is not recovered as a pair on failure and boot may continue after partial apply | Phase 8.1 | reproduced by code audit; tests pending |
 | AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | reproduced by code audit; tests pending |

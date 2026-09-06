@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M2 reviewed, M3 in progress**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M3 reviewed, M4 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -155,7 +155,14 @@ provenance and documentation and requests explicit approval before public public
   the original Phase 7 image; binary-only rollback is not sufficient proof of safe recovery.
 - M3 (`4b72243`): locked, journaled lifecycle/source integration and core maintenance implemented;
   full Go tests/build/vet, Linux scoped race/process-death lock/atomic-file tests and executable
-  bootstrap compatibility fixtures passed. Independent review is open; no real deployment drill
+  bootstrap compatibility fixtures passed. Independent review closed after the native cleanup
+  fix in `fc2c537`; no real deployment drill
   is claimed. [Recovery contract and limits](../operations/lifecycle-recovery.md) distinguish
   same-contract rollback from M5's still-pending coordinated original-schema recovery. M4's
   owner-before-listener hook exists, but account provisioning itself is not yet implemented.
+- M3 native cleanup review fix: complete systemd load/activity observations distinguish a
+  genuinely absent inactive unit from failed/ambiguous queries. Partial install cleanup and
+  interrupted uninstall retry tests pass while genuine stop failures still preserve data.
+  Scoped re-review found no remaining Important/Critical issue. The `2a65933` implementation/
+  status revision [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34000616493);
+  CI on the subsequent cleanup fix must be observed separately.

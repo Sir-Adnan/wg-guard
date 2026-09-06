@@ -115,29 +115,29 @@ and tests; `cmd/wg-guard/install.go`; lifecycle runbook.
 gains explicit staged/local-versus-remote semantics and build identity. State remains backward
 readable from schema1; journal records operation stage and previous/current artifacts.
 
-- [ ] Write failing fault-injection tests for corrupt install-state refusal; lock contention;
+- [x] Write failing fault-injection tests for corrupt install-state refusal; lock contention;
   failed pull without active mutation; compose-up/native-restart failure rollback; healthy update
   then explicit rollback; state-write failure; cancellation and interrupted journal recovery.
   Also cover tampered/out-of-layout state paths and uninstall stop failure: never purge data or
   remove artifacts unless the owning service is confirmed stopped; constrain all deletion targets.
-- [ ] Implement exclusive Linux lock (released on process death), atomic state/journal writes,
+- [x] Implement exclusive Linux lock (released on process death), atomic state/journal writes,
   preflight/staging before active mutation, pre-update backup identity, previous known-good
   artifact retention, Docker shim synchronization, recovery on all post-swap errors. If schema
   compatibility cannot be proven, require coordinated backup restore rather than start old code
   against upgraded data. Failed recovery must remain visible in state/exit status.
-- [ ] Integrate source selection into install/update flags using Task 1 shared package. Resolve
+- [x] Integrate source selection into install/update flags using Task 1 shared package. Resolve
   current selection explicitly; no silently stale local fallback after failed remote fetch.
   Provide a machine-readable installer/build compatibility contract and reject selected builds
   that cannot satisfy it before deployment. Bootstrap must not silently execute an older
   pre-Phase8.1 install command lacking the implemented prerequisite/recovery guarantees.
   Advertise only capabilities actually implemented at this milestone; M4 implements the local
   owner-before-listener guarantee and tightens the bootstrap/manager contract gate accordingly.
-- [ ] Expose a controlled catalogued-core switch through the same lifecycle lock/journal, with
+- [x] Expose a controlled catalogued-core switch through the same lifecycle lock/journal, with
   explicit impact confirmation, previous/requested bundle identity and package availability checks.
   Do not unload active tunnels or infer loaded correctness from equal version strings. Preserve
   pending-reboot/recovery state; refuse unknown incompatible transitions with an actionable manual
   migration path. A catalog containing only one verified bundle must say so, not invent alternatives.
-- [ ] Run fault tests/full suite/build, synchronize operator recovery instructions and commit.
+- [x] Run fault tests/full suite/build, synchronize operator recovery instructions and commit.
 
 ### Task 4: Terminal design system and complete management workflow (M4)
 
