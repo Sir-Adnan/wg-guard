@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"sort"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
@@ -35,6 +33,9 @@ func runSettings(args []string) error {
 	var rest []string
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-config" || args[i] == "--config" {
+			if i+1 >= len(args) {
+				return fmt.Errorf("%s", backupText("flags"))
+			}
 			i++
 			configPath = args[i]
 			continue
@@ -107,14 +108,19 @@ func runSettings(args []string) error {
 			return fmt.Errorf("usage: wg-guard settings set KEY VALUE (or: echo SECRET | wg-guard settings set KEY -stdin)")
 		}
 		key, value := rest[1], rest[2]
-		if value == "-stdin" {
-			b, err := io.ReadAll(os.Stdin)
+		for _, def := range env.Reg.Definitions() {
+			if def.Key == key && def.Secret && value != "-stdin" && value != "--stdin" {
+				return fmt.Errorf("%s", backupText("secret_stdin"))
+			}
+		}
+		if value == "-stdin" || value == "--stdin" {
+			read, err := readSettingInput(os.Stdin)
 			if err != nil {
 				return fmt.Errorf("read value from stdin: %w", err)
 			}
 			// Strip exactly one trailing newline; the value itself is
 			// untouched (secrets must not pass through argv).
-			value = strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+			value = read
 		}
 		if err := env.Reg.SetRaw(ctx, key, value); err != nil {
 			return err

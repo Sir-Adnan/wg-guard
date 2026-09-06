@@ -65,6 +65,9 @@ func runManage(args []string) error {
 	}
 	m := manager{ui: u, catalog: distribution.NewClient(nil, distribution.Options{})}
 	m.run = func(ctx context.Context, args []string, in io.Reader) error {
+		if args[0] == "backup" || args[0] == "restore" {
+			args = append(append([]string{}, args...), "--lang", string(u.Locale))
+		}
 		u.Text(u.T("manage.working"))
 		// Lifecycle commands stay in-process so SIGINT reaches the engine and its
 		// independent recovery context; a supervising CommandContext must not kill it.
@@ -80,13 +83,10 @@ func runManage(args []string) error {
 		case "core":
 			return runCoreWithHostContext(ctx, args[1:], h, os.Stdout)
 		case "restore":
-			j, err := install.LoadJournal(h)
-			if err != nil {
-				return err
+			if in == nil {
+				in = os.Stdin
 			}
-			if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
-				return fmt.Errorf("%s", u.T("manage.restore_boundary"))
-			}
+			return runRestoreWith(ctx, args[1:], in, os.Stdout, h)
 		}
 		argv := append([]string{exe}, args...)
 		if in != nil {
@@ -220,7 +220,7 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 2:
 			n, err = m.menu("operations", "status", "doctor", "tls", "core", "switch", "restart")
 		case 3:
-			n, err = m.menu("backups", "backup_create", "backup_list", "restore", "schedules", "telegram")
+			n, err = m.ui.Choose(m.ui.T("manage.backups"), []string{m.ui.T("manage.backup_create"), m.ui.T("manage.backup_list"), m.ui.T("manage.restore"), m.ui.T("manage.schedules"), m.ui.T("manage.telegram"), m.ui.T("backup.cli.backup_password"), m.ui.T("backup.cli.recover")}, 0)
 		}
 		if err != nil {
 			return err
@@ -283,74 +283,14 @@ func (m *manager) group(ctx context.Context, group int) error {
 				review = "restart_review"
 			}
 		case 3:
-			switch n {
-			case 1:
-				args = []string{"backup", "create"}
-				review = "backup_review"
-			case 2:
-				args = []string{"backup", "list"}
-			case 3:
-				m.ui.Text(m.ui.T("manage.restore_boundary"))
-				path, e := m.ui.Ask(m.ui.T("manage.archive"), "")
-				if e != nil {
-					return e
-				}
-				if path == "" {
-					continue
-				}
-				args = []string{"restore", path, "--yes"}
-				review = "restore_review"
-				encrypted, e := m.ui.Confirm(m.ui.T("manage.encrypted"))
-				if e != nil {
-					return e
-				}
-				if encrypted {
-					password, e := m.ui.Secret(m.ui.T("manage.password"))
-					if e != nil {
-						return e
-					}
-					input = strings.NewReader(password + "\n")
-					args = append(args, "--password")
-				}
-			case 4:
-				m.ui.Text(m.ui.T("manage.schedule_boundary"))
-				tod, e := m.ui.Ask(m.ui.T("manage.time"), "03:30")
-				if e != nil {
-					return e
-				}
-				args = []string{"backup", "schedule-add", "--kind", "daily", "--time", terminal.Digits(tod)}
-				review = "schedule_review"
-			case 5:
-				action, e := m.menu("telegram", "telegram_test", "telegram_setup")
-				if e != nil {
-					return e
-				}
-				if action == 1 {
-					args = []string{"backup", "telegram-test"}
-					review = "telegram_review"
-				} else {
-					m.ui.Text(m.ui.T("manage.telegram_boundary"))
-					token, e := m.ui.Secret(m.ui.T("manage.token"))
-					if e != nil {
-						return e
-					}
-					chat, e := m.ui.Ask(m.ui.T("manage.chat"), "")
-					if e != nil {
-						return e
-					}
-					ok, e := m.ui.Confirm(m.ui.T("manage.telegram_save"))
-					if e != nil {
-						return e
-					}
-					if !ok {
-						continue
-					}
-					if e := m.run(ctx, []string{"settings", "set", "backup.telegram_token", "-stdin"}, strings.NewReader(token+"\n")); e != nil {
-						return e
-					}
-					args = []string{"settings", "set", "backup.telegram_chat", terminal.Digits(chat)}
-				}
+			err = m.backupAction(ctx, n)
+			if errors.Is(err, terminal.ErrCanceled) {
+				return err
 			}
+			if err != nil && !errors.Is(err, terminal.ErrBack) {
+				m.ui.Result(err)
+			}
+			continue
 		}
 		if review != "" {
 			m.ui.Section(m.ui.T("manage.review"))

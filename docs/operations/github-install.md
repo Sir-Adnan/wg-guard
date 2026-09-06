@@ -27,8 +27,8 @@ replace the bootstrap URL's `main` with the reviewed `codex/installer-lifecycle`
 full commit SHA. Selecting `main` for the binary always means the repository's actual main
 branch; downloading a bootstrap from another ref does not change that selection.
 
-For a convenient single command, supply a reviewed full SHA containing the local-owner
-installer capability. This downloads into a uniquely created private temporary file, propagates
+For a convenient single command, supply a reviewed full SHA containing the local-owner and
+coordinated-restore installer capabilities. This downloads into a uniquely created private temporary file, propagates
 download/install failure and cleans up on exit; it does not pipe a failed download into a shell:
 
 ```bash
@@ -122,8 +122,10 @@ and removes it after consuming the binary. Acquisition never changes an active i
 
 Before dispatching management/install, the bootstrap runs the candidate's `installer-contract` command
 without elevation, with a 15-second deadline and a 4096-byte output cap. Missing/older contracts
-are refused. Revision1 requires prerequisite, recoverable-lifecycle and local-owner capabilities
-plus an explicit data contract. Coordinated restore remains false until M5 verification.
+are refused. Revision1 requires prerequisite, recoverable-lifecycle, local-owner and
+coordinated-restore capabilities plus an explicit data contract. M5 candidates advertise
+coordinated restore; older candidates lacking it are refused. Retained recovery artifacts
+remain governed separately by their recorded identity and data contract.
 The bootstrap passes private build-identity metadata to the installer,
 which validates the candidate and deploys the same binary in Docker and on the host.
 

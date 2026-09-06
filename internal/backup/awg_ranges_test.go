@@ -76,6 +76,9 @@ func TestPre0007AWGRangeBackupRestore(t *testing.T) {
 	if err := svc.DB.Close(); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := svc.Approve(pending.PreviewID()); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := svc.ApplyStaged(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -149,6 +152,9 @@ func TestPost0007AWGRangeBackupRestore(t *testing.T) {
 	assertArchivedAWGState(t, filepath.Join(pending.Dir, DBMember), created.ID, want)
 
 	if err := svc.DB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Approve(pending.PreviewID()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.ApplyStaged(ctx); err != nil {

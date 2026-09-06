@@ -158,7 +158,7 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 // handleBackupRestoreConfirm acknowledges the review; the staged payload
 // applies at the next restart.
 func (s *Server) handleBackupRestoreConfirm(w http.ResponseWriter, r *http.Request) {
-	pending, err := s.Backup.Pending()
+	pending, err := s.Backup.Approve(r.PostFormValue("preview"))
 	if err != nil || pending == nil {
 		s.redirectToast(w, r, "/backups", "backups.toast.no_pending")
 		return
@@ -169,7 +169,13 @@ func (s *Server) handleBackupRestoreConfirm(w http.ResponseWriter, r *http.Reque
 
 // handleBackupRestoreCancel discards the staged restore.
 func (s *Server) handleBackupRestoreCancel(w http.ResponseWriter, r *http.Request) {
-	if err := s.Backup.DiscardPending(); err != nil {
+	var err error
+	if id := r.PostFormValue("preview"); id != "" {
+		err = s.Backup.DiscardPreview(id)
+	} else {
+		err = s.Backup.DiscardPending()
+	}
+	if err != nil {
 		s.backupError(w, r, err)
 		return
 	}

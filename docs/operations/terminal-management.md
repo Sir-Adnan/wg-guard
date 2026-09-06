@@ -17,7 +17,7 @@ The stable numbered groups are:
 |---|---|
 | 1 — Setup / lifecycle | Install, update, rollback, interrupted-update recovery, uninstall with data preserved |
 | 2 — Operations / diagnostics | Status, read-only doctor, TLS verification, installed/recommended/latest-compatible core, controlled core switch, service restart |
-| 3 — Backups / recovery | Create/list archives, existing restore flow, add daily schedule, Telegram settings and explicit delivery test |
+| 3 — Backups / recovery | Create/list archives, coordinated restore, full schedule CRUD, Telegram setup/test/selected-archive send, backup password and original-schema recovery |
 | 4 — Language | Persian / English |
 
 `0` or `back` returns; `q` cancels. Invalid numbered/numeric answers are retried. Persian
@@ -99,16 +99,20 @@ validation and a `restart` journal. A failed/interrupted restart can be retried 
 command. It refuses to replace another pending lifecycle operation. It neither upgrades the
 binary nor pulls a Docker image.
 
-## Backup milestone boundary
+## Backup and recovery workflow
 
-The current menu invokes existing shared backup/restore/settings commands in their owning
-host/container context. Telegram secrets travel via bounded terminal input/stdin; a test
-message is sent only after explicit review. CLI settings edits require a service restart to
-reload the active settings registry.
+The menu invokes shared backup/settings commands in their owning host/container context.
+Restore always stays on the host so the shared lifecycle coordinator can stop/start either
+deployment mode. The actual archive is validated and reviewed before final apply consent.
+Telegram secrets travel through bounded hidden input/stdin. Test files and selected archives
+are delivered only after explicit review; unencrypted off-host archives warn about readable
+node secrets. Schedule forms cover daily/weekly, every 1–168 hours or equivalent 1–7 days,
+retention, enabled state, edit/list/delete and next-run reporting in UTC.
 
-Full schedule list/edit/enable/delete CLI, coordinated database/master-key restore, complete
-Telegram delivery hardening and recovery activation belong to M5. The manager refuses generic
-restore while a lifecycle journal is pending and does not claim that generic restore satisfies
-`restore-required`. See [backup-restore.md](backup-restore.md) and
-[lifecycle-recovery.md](lifecycle-recovery.md). These unit/PTY checks do not establish real
-Docker/native/public-TLS deployment verification; M6 owns those dedicated-VPS drills.
+The running service observes backup settings and schedule edits on its next pass without
+restart. Other settings retain their cached/restart behavior. Pending lifecycle journals block
+generic restore; the explicit recovery action handles `restore-required` with the recorded
+original archive and retained artifact, without forward migration. See
+[backup-restore.md](backup-restore.md) and [lifecycle-recovery.md](lifecycle-recovery.md).
+Automated tests do not establish real Docker/native/public-TLS deployment verification;
+M6 owns the dedicated-VPS drills.

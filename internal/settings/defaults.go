@@ -298,10 +298,9 @@ func Defaults() []Definition {
 				if s == "" {
 					return nil
 				}
-				for _, r := range s {
-					if r < '0' || r > '9' {
-						return fmt.Errorf("chat id must be numeric")
-					}
+				id, err := strconv.ParseInt(s, 10, 64)
+				if err != nil || id == 0 || strings.HasPrefix(s, "+") {
+					return fmt.Errorf("chat id must be a nonzero signed integer")
 				}
 				return nil
 			}},

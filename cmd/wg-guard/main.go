@@ -40,11 +40,12 @@ Commands:
               token list | token revoke ID | token scopes
   backup      Manage archives (docs/operations/backup-restore.md)
               backup create [-password] [-output DIR] [-reason TEXT] | backup list
-              backup schedule-add -kind daily -time 03:30 [-name N] [-retention N]
-              backup telegram-test
-  restore     Restore an archive (verifies, reviews, applies with the
-              service stopped; staged otherwise)
-              restore ARCHIVE [-password] [-yes]
+              backup schedule-add|schedule-update --name N --hours N|--days N
+              backup schedule-list|schedule-enable|schedule-disable|schedule-delete --id ID
+              backup telegram-test | backup send --archive PATH
+  restore     Restore an archive with coordinated service stop/apply/start
+              restore ARCHIVE [-password|-password-file PATH] [-yes] [-retry]
+              restore --recover [-password-file PATH] [-yes]
   settings    Read/write runtime settings (secrets are never printed)
               settings list | settings get KEY | settings set KEY VALUE
               echo SECRET | settings set KEY -stdin   (secret via stdin, not argv)

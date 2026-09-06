@@ -71,7 +71,7 @@ func TestBackupScheduleAdd(t *testing.T) {
 			t.Fatalf("schedule-add: %v", err)
 		}
 	})
-	if !strings.Contains(out, "created") {
+	if !strings.Contains(out, "UTC") || !strings.Contains(out, "installer-daily") {
 		t.Fatalf("output: %q", out)
 	}
 
@@ -94,4 +94,29 @@ func TestBackupScheduleAdd(t *testing.T) {
 	if err := runBackup([]string{"schedule-add", "-config", cfgPath, "-kind", "monthly"}); err == nil {
 		t.Fatal("invalid kind must be refused")
 	}
+}
+
+func TestSettingsRejectsUnboundedStdinAndSecretArgv(t *testing.T) {
+	cfg := testTokenConfig(t)
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	done := make(chan struct{})
+	go func() { defer close(done); _, _ = w.WriteString(strings.Repeat("x", 5000)); w.Close() }()
+	old := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = old }()
+	captureStdout(t, func() {
+		if err := runSettings([]string{"set", "backup.telegram_token", "-stdin", "--config", cfg}); err == nil {
+			t.Error("oversized secret input accepted")
+		}
+	})
+	<-done
+	captureStdout(t, func() {
+		if err := runSettings([]string{"set", "backup.telegram_token", "synthetic-token", "--config", cfg}); err == nil {
+			t.Error("secret in argv accepted")
+		}
+	})
 }

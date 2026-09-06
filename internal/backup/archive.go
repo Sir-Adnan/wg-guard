@@ -41,6 +41,9 @@ func ageDecrypt(r io.Reader, password string) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Match our pinned writer's default without allowing attacker-selected
+	// factors up to age's default maximum (22, approximately 4 GiB).
+	id.SetMaxWorkFactor(18)
 	return age.Decrypt(r, id)
 }
 

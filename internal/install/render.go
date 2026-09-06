@@ -49,7 +49,7 @@ func (p Plan) BootConfigPath() string {
 // a docker-mode host: they act on the compose project, the systemd unit or
 // the host's own state — inside the container they are meaningless.
 var hostCommands = map[string]bool{
-	"manage": true, "owner-bootstrap": true, "restart": true,
+	"manage": true, "owner-bootstrap": true, "restart": true, "restore": true,
 	"core":      true,
 	"tls-check": true,
 	"install":   true,

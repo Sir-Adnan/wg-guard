@@ -110,6 +110,9 @@ func TestArchiveRoundTripPlain(t *testing.T) {
 	if err := svc.DB.Close(); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := svc.Approve(pr.PreviewID()); err != nil {
+		t.Fatal(err)
+	}
 	applied, err := svc.ApplyStaged(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +124,7 @@ func TestArchiveRoundTripPlain(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "restore.pending")); !os.IsNotExist(err) {
 		t.Fatalf("staging dir not cleaned: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "wg-guard.db.pre-restore")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "restore.previous", DBMember)); err != nil {
 		t.Fatalf("safety snapshot missing: %v", err)
 	}
 	restored, err := database.Open(filepath.Join(dir, "wg-guard.db"), database.Options{})
@@ -493,6 +496,9 @@ func TestPendingLifecycle(t *testing.T) {
 	}
 	staged, _, err := svc.Stage(ctx, res.Path, "")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Approve(staged.PreviewID()); err != nil {
 		t.Fatal(err)
 	}
 	pending, err := svc.Pending()

@@ -172,7 +172,11 @@ func TestServeConsumesPendingAWGRangeRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := n.backup.Stage(ctx, archive.Path, ""); err != nil {
+	preview, _, err := n.backup.Stage(ctx, archive.Path, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.backup.Approve(preview.PreviewID()); err != nil {
 		t.Fatal(err)
 	}
 

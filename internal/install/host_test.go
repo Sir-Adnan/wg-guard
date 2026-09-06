@@ -92,7 +92,7 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 		return value, nil
 	}
 	if len(argv) > 0 && argv[len(argv)-1] == "installer-contract" {
-		return `{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false}`, nil
+		return `{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true}`, nil
 	}
 	if len(argv) > 1 && argv[1] == "owner-bootstrap" {
 		return "present\n", nil

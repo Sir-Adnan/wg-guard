@@ -160,7 +160,7 @@ func TestRoute(t *testing.T) {
 		"status":    "host",
 		"doctor":    "host",
 		"backup":    "container",
-		"restore":   "container",
+		"restore":   "host",
 		"settings":  "container",
 		"token":     "container",
 		"secrets":   "container",

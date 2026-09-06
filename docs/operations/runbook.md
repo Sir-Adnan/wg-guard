@@ -89,8 +89,8 @@ wg-guard backup create                          # manual archive to the local si
 wg-guard backup create --password               # prompt for an archive password (age)
 wg-guard backup list                            # local archives + schedule status
 wg-guard backup schedule-add -kind daily -time 03:30 [-name N] [-retention N]
-wg-guard restore /path/to/archive.wgg           # verify + review; applies with the service
-                                                #   stopped, stages for boot otherwise
+wg-guard restore /path/to/archive.wgg           # verify, review, coordinated stop/apply/start
+wg-guard restore --recover --password-file /private/backup-password # original-schema rollback
 echo SECRET | wg-guard settings set backup.telegram_token -stdin   # secret via stdin, not argv
 wg-guard settings set backup.telegram_chat 123456789
 wg-guard backup telegram-test                   # verify delivery

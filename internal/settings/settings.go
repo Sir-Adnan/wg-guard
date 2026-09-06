@@ -141,7 +141,9 @@ func (r *Registry) Get(ctx context.Context, key string) (any, error) {
 		return nil, domain.E(domain.CodeSettingUnknown, "unknown setting %q", key)
 	}
 	r.mu.RLock()
-	if ce, ok := r.cache[key]; ok {
+	// Backup CLI and service are different processes. This small category is
+	// read only per backup/minute, so always observe its persisted settings.
+	if ce, ok := r.cache[key]; ok && def.Category != "backup" {
 		r.mu.RUnlock()
 		return ce.val, nil
 	}

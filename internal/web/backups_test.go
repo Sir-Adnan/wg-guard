@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -191,7 +192,14 @@ func TestBackupRestoreFlow(t *testing.T) {
 	}
 
 	// Confirm → pending banner appears on the page.
-	if rec := e.postForm("/backups/restore/confirm", url.Values{}, cookie); rec.Code != 303 {
+	if p, err := e.srv.Backup.Pending(); err != nil || p != nil {
+		t.Fatal("unconfirmed review exposed to boot")
+	}
+	preview := regexp.MustCompile(`name="preview" value="([^"]+)"`).FindStringSubmatch(rec.Body.String())
+	if len(preview) != 2 {
+		t.Fatal("review identity missing")
+	}
+	if rec := e.postForm("/backups/restore/confirm", url.Values{"preview": {preview[1]}}, cookie); rec.Code != 303 {
 		t.Fatalf("confirm: %d", rec.Code)
 	}
 	body := e.get("/backups", cookie).Body.String()

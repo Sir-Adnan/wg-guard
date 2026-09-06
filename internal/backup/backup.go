@@ -121,9 +121,11 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 	}
 	password := opts.Password
 	if password == "" {
-		// A missing/failed settings read reads as unset — a plain archive
-		// with a warning is the documented default experience (ADR-0008).
-		password, _ = s.Reg.GetSecret(ctx, "backup.password")
+		var err error
+		password, err = s.Reg.GetSecret(ctx, "backup.password")
+		if err != nil {
+			return nil, domain.E(domain.CodeInternal, "backup: stored password could not be read; archive creation aborted")
+		}
 	}
 	if password != "" && len(password) < 8 {
 		return nil, domain.E(domain.CodeSettingInvalid, "backup password must be at least 8 characters")
@@ -149,7 +151,7 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 
 	// 2. Other members (missing master key degrades the archive honestly).
 	configBytes := s.configBytes()
-	keyBytes, err := os.ReadFile(s.Cfg.MasterKeyFile)
+	keyBytes, err := readSmall(s.Cfg.MasterKeyFile, 32)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("backup: read master key: %w", err)
 	}
@@ -248,7 +250,7 @@ type member struct {
 }
 
 func (s *Service) writeArchive(dest, password string, members []member) error {
-	f, err := os.Create(dest)
+	f, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return fmt.Errorf("backup: create archive: %w", err)
 	}
@@ -333,7 +335,7 @@ func (s *Service) snapshotDB(ctx context.Context, dest string) error {
 // works (the warning path).
 func (s *Service) configBytes() []byte {
 	if s.ConfigPath != "" {
-		if b, err := os.ReadFile(s.ConfigPath); err == nil {
+		if b, err := readSmall(s.ConfigPath, maxConfigBytes); err == nil {
 			return b
 		}
 	}
@@ -348,11 +350,16 @@ func (s *Service) configBytes() []byte {
 // become warnings — the local copy is the source of truth.
 func (s *Service) deliver(ctx context.Context, res *Result, password string, warn func(string)) {
 	token, err := s.Reg.GetSecret(ctx, "backup.telegram_token")
-	if err != nil || token == "" {
+	if err != nil {
+		warn("telegram delivery skipped: stored credentials could not be read")
+		return
+	}
+	if token == "" {
 		return
 	}
 	chat, err := s.Reg.Get(ctx, "backup.telegram_chat")
 	if err != nil {
+		warn("telegram delivery skipped: destination could not be read")
 		return
 	}
 	chatID, _ := chat.(string)
@@ -502,7 +509,7 @@ func validArchiveName(name string) bool {
 // --- helpers -----------------------------------------------------------------
 
 func archiveName(now time.Time) string {
-	return ArchivePrefix + now.UTC().Format("20060102-150405") + ArchiveExt
+	return ArchivePrefix + now.UTC().Format("20060102-150405") + "-" + newNonce() + ArchiveExt
 }
 
 func (s *Service) localDir() string {

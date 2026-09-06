@@ -71,8 +71,9 @@ TLS can keep serving the ACME challenge while `wg-guard tls-check` retries certi
 The machine-readable `wg-guard installer-contract` command does not open node data. Revision1
 currently reports `data_contract: schema7-h-ranges-v1`, prerequisites and recoverable lifecycle
 support. `local_owner` is true and required for new candidates: installer-managed setup
-prepares the local owner before listener startup. `coordinated_restore` remains false;
-M5 owns verified, bounded and coordinated database/master-key restoration. Candidate admission
+prepares the local owner before listener startup. M5 implements bounded coordinated
+database/master-key restoration, including original-schema recovery; `coordinated_restore` is
+true and required for new candidates. Candidate admission
 is separate from data compatibility: valid older revision1 records keep their known schema
 identity even if they lack the newer owner-setup capability.
 
@@ -90,14 +91,22 @@ If the candidate fails after swap, it is stopped and the journal keeps the previ
 binary and archive identity. After a healthy upgrade, rollback to the legacy build is refused
 before altering the running candidate. Normal same-contract updates can roll back automatically.
 
-For `restore-required`, keep the service stopped, retain both artifacts and the recorded archive,
-verify its SHA-256, and arrange offline recovery of the database **and matching master key as a
-pair** with a verified restore-capable maintenance tool. Age archives require the original
-backup password via protected input; it is never recovered from this journal or passed in argv.
-Do not merely restart the old image or copy a migrated database over the previous database.
-M3 deliberately provides no automatic acknowledgement/bypass of this gate: M5 must supply and
-verify coordinated restoration before this can become an automatic lifecycle path. The current
-generic restore command is not certified as that coordinator.
+For `restore-required`, retain both artifacts and the recorded archive and run
+`wg-guard restore --recover --password-file /private/backup-password` on the deployment host.
+The file must be private (0600); `--password` also accepts hidden terminal or bounded stdin
+input. Omit password input only for a recorded plaintext archive. The coordinator verifies the
+archive SHA-256/encryption flag and retained binary/immutable image, obtains explicit consent,
+confirms service stop, restores the original database schema and matching key without current
+migrations, then deploys and health-checks the previous build. It then synchronizes install
+state and marks the journal `rolled-back`. Any identity, restore, deployment or health failure
+keeps recovery pending. A shared-volume guard blocks new-code startup during replacement.
+Normal `restore ARCHIVE` performs forward migration and cannot substitute for this route.
+
+An ordinary managed restore uses operation `restore`. If it fails, use `restore ARCHIVE --retry`
+after reviewing the cause. Other operations continue to refuse a pending journal. Originals,
+including WAL and previous-key files, remain recoverable; boot refuses invalid metadata or
+unresolved replacements. Automated SQLite/archive, HTTP and service-manager fixture tests do
+not certify the dedicated-VPS/M6 lifecycle drills.
 
 ## Catalogued core maintenance
 

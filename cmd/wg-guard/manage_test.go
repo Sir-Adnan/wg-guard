@@ -39,8 +39,8 @@ func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 		{"1\n3\nyes\nq\n", []string{"update", "--rollback"}, ""},
 		{"1\n5\nyes\n", []string{"uninstall", "--yes"}, ""},
 		{"3\n1\nyes\nq\n", []string{"backup", "create"}, ""},
-		{"3\n3\n/private/archive.wgg.age\nyes\nsynthetic-archive-password\nyes\nq\n", []string{"restore", "/private/archive.wgg.age", "--yes", "--password"}, "synthetic-archive-password\n"},
-		{"3\n4\n۰۳:۳۰\nyes\nq\n", []string{"backup", "schedule-add", "--kind", "daily", "--time", "03:30"}, ""},
+		{"3\n3\n/private/archive.wgg.age\nyes\nsynthetic-archive-password\nq\n", []string{"restore", "/private/archive.wgg.age", "--password"}, "synthetic-archive-password\n"},
+		{"3\n4\n2\ndaily\n1\n۰۳:۳۰\n0\nyes\nyes\nq\n", []string{"backup", "schedule-add", "--name", "daily", "--kind", "daily", "--time", "03:30", "--retention", "0"}, ""},
 	}
 	for _, tc := range cases {
 		var out bytes.Buffer

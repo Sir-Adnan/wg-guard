@@ -18,10 +18,10 @@ type Contract struct {
 }
 
 func CurrentContract() Contract {
-	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true, LocalOwner: true}
+	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true, LocalOwner: true, CoordinatedRestore: true}
 }
 func CheckContract(c Contract) error {
-	if !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner {
+	if !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore {
 		return terminalError("install.error.contract")
 	}
 	return nil

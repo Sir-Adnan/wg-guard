@@ -31,10 +31,12 @@
   <div class="inline-actions mt-4">
     <form method="post" action="/backups/restore/confirm">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="preview" value="{{.Data.Pending.PreviewID}}">
       <button type="submit" class="btn btn--primary">{{.T "backups.review_confirm"}}</button>
     </form>
     <form method="post" action="/backups/restore/cancel">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="preview" value="{{.Data.Pending.PreviewID}}">
       <button type="submit" class="btn btn--ghost">{{.T "common.cancel"}}</button>
     </form>
   </div>

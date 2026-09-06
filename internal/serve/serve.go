@@ -149,12 +149,15 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	}
 
 	// A staged restore (panel wizard) is consumed BEFORE the database is
-	// opened — never against a live WAL handle. Failures never abort boot.
+	// opened — never against a live WAL handle. Any restore failure aborts boot.
 	n := &Node{cfg: cfg, log: log}
 	n.backup = &backup.Service{
 		Cfg: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: log,
 	}
-	pendingRestoreArchive := n.backup.ConsumePendingRestore()
+	pendingRestoreArchive, err := n.backup.ConsumePendingRestore()
+	if err != nil {
+		return nil, fmt.Errorf("serve: restore must be resolved before startup: %w", err)
+	}
 
 	db, err := database.Open(cfg.DatabasePath, database.Options{})
 	if err != nil {
