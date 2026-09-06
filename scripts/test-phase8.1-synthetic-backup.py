@@ -166,6 +166,31 @@ class SyntheticBackupHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(self.helper.PreflightError, "already exists"):
             self.helper.OwnedWorkspace.create(outside)
 
+    def test_prepare_rejects_work_location_below_other_writable_ancestor(self):
+        candidate, digest = self.candidate()
+        unsafe = self.root / "unsafe"
+        unsafe.mkdir(mode=0o700)
+        private_parent = unsafe / "private"
+        private_parent.mkdir(mode=0o700)
+        unsafe.chmod(0o777)
+        work = private_parent / "owned"
+
+        with self.assertRaisesRegex(self.helper.PreflightError, "unsafe writable ancestor"):
+            self.helper.prepare(self.options(candidate, digest, "--work-dir", str(work)))
+
+        self.assertFalse(work.exists())
+
+    def test_workspace_creation_rechecks_unsafe_parent_and_creates_nothing(self):
+        unsafe = self.root / "unsafe-direct"
+        unsafe.mkdir(mode=0o777)
+        unsafe.chmod(0o777)
+        work = unsafe / "owned"
+
+        with self.assertRaisesRegex(self.helper.PreflightError, "unsafe writable ancestor"):
+            self.helper.OwnedWorkspace.create(work)
+
+        self.assertFalse(work.exists())
+
     def test_workspace_cleanup_refuses_and_preserves_replacement_directory(self):
         work = self.root / "owned"
         moved = self.root / "moved-original"

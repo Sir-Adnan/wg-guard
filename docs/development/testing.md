@@ -23,8 +23,10 @@ The repeatable
 fixture runs a private fake-backend node beside an installed node without reading or mutating the
 installed deployment. Its local regression suite covers candidate/credential preflight,
 same-descriptor validation and private candidate pinning, collision refusal, workspace
-device/inode replacement refusal, owned-child-only shutdown, bounded noisy-service capture,
-error-resilient cleanup and capture redaction. A candidate run covers
+trusted-ancestry refusal for locations writable by a different non-root UID, device/inode
+replacement refusal, owned-child-only shutdown, bounded noisy-service capture, error-resilient
+cleanup and capture redaction. Root/same-UID compromise is outside the documented threat model.
+A candidate run covers
 encrypted create/list/retention and schedule CRUD plus an accelerated actual central-scheduler
 tick. Without the explicit private-credential opt-in it records Telegram as **unverified**; even
 with that opt-in it remains synthetic fixture evidence rather than native/Docker or restore

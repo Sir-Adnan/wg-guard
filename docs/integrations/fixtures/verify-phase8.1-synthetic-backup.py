@@ -78,6 +78,25 @@ class Prepared:
     credentials: TelegramCredentials | None = field(repr=False)
 
 
+def _validate_work_ancestry(parent: Path) -> None:
+    """Reject locations a different non-root user can replace underneath us."""
+    parent = parent.absolute()
+    current_uid = os.geteuid()
+    for component in reversed((parent, *parent.parents)):
+        try:
+            info = component.lstat()
+        except OSError as error:
+            raise PreflightError("work location ancestor is not accessible") from error
+        if not stat.S_ISDIR(info.st_mode) or component.is_symlink():
+            raise PreflightError("work location ancestor must be a non-symlink directory")
+        if info.st_uid not in (0, current_uid):
+            raise PreflightError("work location ancestor has an untrusted owner")
+        mode = stat.S_IMODE(info.st_mode)
+        sticky_boundary = bool(mode & stat.S_ISVTX) and info.st_uid in (0, current_uid)
+        if mode & 0o022 and not sticky_boundary:
+            raise PreflightError("work location has an unsafe writable ancestor")
+
+
 class OwnedWorkspace:
     """One collision-checked directory whose exact path this run may remove."""
 
@@ -89,6 +108,7 @@ class OwnedWorkspace:
     @classmethod
     def create(cls, path: Path) -> "OwnedWorkspace":
         path = Path(path)
+        _validate_work_ancestry(path.parent)
         if path.exists() or path.is_symlink():
             raise PreflightError("requested work directory already exists")
         try:
@@ -103,7 +123,9 @@ class OwnedWorkspace:
 
     @classmethod
     def temporary(cls, parent: Path | None) -> "OwnedWorkspace":
-        value = tempfile.mkdtemp(prefix="wg-guard-phase81-synthetic-", dir=parent)
+        target_parent = Path(parent) if parent else Path(tempfile.gettempdir())
+        _validate_work_ancestry(target_parent)
+        value = tempfile.mkdtemp(prefix="wg-guard-phase81-synthetic-", dir=target_parent)
         path = Path(value)
         path.chmod(0o700)
         return cls(path, path.lstat())
@@ -283,12 +305,13 @@ def prepare(options: argparse.Namespace) -> Prepared:
     if work_dir and work_parent:
         raise PreflightError("use only one of --work-dir and --work-parent")
     if work_dir:
+        _validate_work_ancestry(work_dir.parent)
         if work_dir.exists() or work_dir.is_symlink():
             raise PreflightError("requested work directory already exists")
         if not work_dir.parent.is_dir():
             raise PreflightError("work directory parent does not exist")
-    if work_parent and (not work_parent.is_dir() or work_parent.is_symlink()):
-        raise PreflightError("work parent must be an existing non-symlink directory")
+    if work_parent:
+        _validate_work_ancestry(work_parent)
 
     result = Path(options.result).absolute() if options.result else None
     if result:

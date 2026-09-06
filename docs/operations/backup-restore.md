@@ -113,6 +113,15 @@ Cleanup records the workspace device/inode and refuses to remove a replacement a
 Service output is drained into a 1 MiB bounded capture and stops only the owned child on overflow;
 capture scanning and safe workspace cleanup still run after an earlier cleanup error.
 
+Work locations must have trusted ancestry: every existing component through the requested parent
+must be a non-symlink directory owned by root or the current UID and not group/other-writable. The
+only shared-directory exception is a root/current-owned sticky directory such as `/tmp`; sticky
+ownership prevents a different non-root UID from replacing the helper's entry. This boundary makes
+the pinned-candidate and device/inode cleanup checks meaningful against lesser host accounts.
+Consistent with [the security threat model](security.md#threat-model-documented-limits), the helper
+does not claim protection against root or a malicious process running as the helper's own UID;
+either can read its memory or manipulate any resource it owns.
+
 Real Telegram acceptance is an explicit opt-in. Create an administrator-owned 0600 JSON file
 outside the repository (do not put either value in shell arguments or evidence):
 
