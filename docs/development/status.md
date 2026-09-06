@@ -21,10 +21,15 @@ User-authorized insertion between completed Phase 8 and planned Phase 9. The exi
 | Catalogued core maintenance | M3 lock/journal/impact confirmation and pending-reboot handling unit tested; only the one verified installed bundle can currently be reaffirmed, not an invented version transition |
 | Bounded restore and cross-contract recovery | M5 implemented in `281b607`: streaming private preview/approval, mandatory staged hashes, recoverable DB/key replacement and original-schema recovery before retained-artifact startup. Review fixes `8be8c6f`/`8ce6f99` cover manual openers, canonical managed paths and keyed fa/en safety/crypto boundaries; full/scoped Linux gates pass. Independent review closed; real VPS acceptance M6 |
 | Backup schedule management and Telegram workflow | M5 implementation/review closed; full/scoped automated gates pass. [Real VPS synthetic-node acceptance](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt) on `53f55e2` passed encrypted creation/retention, UTC schedule CRUD, actual accelerated-due central-scheduler execution and two real Telegram archive sends. Original deployment unchanged; this is not managed Docker/native restore certification |
-| Dedicated Ubuntu 24.04 Docker/native lifecycle verification | pending new implementation; prior Phase 7/8 evidence does not certify this change |
+| Dedicated Ubuntu 24.04 Docker/native lifecycle verification | [Sequential native `53f55e2` acceptance passed](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt): install/owner, encrypted backup/key-pair restore, update/rollback, failed-start recovery, uninstall and original-node restoration. Final review found AUD-038 opener concurrency and AUD-039 core retry blockers; corrections and affected checks pending. Docker/fresh ACME/cross-contract recovery remain open; prior Phase 7/8 evidence does not certify this change |
 
 No new REST API is planned; shared CLI/panel services remain authoritative. API/OpenAPI must be
 updated if implementation changes their contract. Full matrix certification remains Phase 11.
+
+Final correction `0578dcc` adds persistent DB/key lifetime ownership (including startup and
+shutdown), core recovery retry and bounded final UX/test fixes. Full Go/build/vet, targeted
+race/integration, Windows ownership, bootstrap and 17 Python checks pass. Its scoped final
+review and affected real-host acceptance remain open; no REST/OpenAPI representation changed.
 
 ## Phase 5 — Web UI (complete, 2026-08-31; two refinement passes same day)
 
@@ -292,6 +297,11 @@ re-verified on the VPS. The phase also rebased the visual system on the shadcn-s
 direction (white light / near-black dark, zinc scale, ink primary — [product/ui-ux.md](../product/ui-ux.md))
 and added content-width tiers so forms/settings render centered on a narrow column while
 tables/dashboards keep the fluid width.
+
+The following table records Phase 6 acceptance, not the later restore contract. Phase 8.1
+supersedes the original staging/boot-failure behavior with explicit preview approval, fail-closed
+recovery and coordinated DB/key replacement. Its current matrix above also records real Telegram
+acceptance; use [backup-restore.md](../operations/backup-restore.md) for current commands.
 
 | Item | Status |
 |---|---|

@@ -239,5 +239,9 @@ release-readiness; AGENTS references only if needed; CI candidate artifacts/boot
 M6 partial evidence (2026-09-06): exact documented GitHub rerun and original-node preservation
 passed; the isolated fake-backend synthetic node passed encrypted backup retention, UTC schedule
 CRUD, real accelerated-due production scheduler execution and two encrypted Telegram archive
-sends. Temporary credentials were removed. Managed native/Docker lifecycle, fresh ACME and
-coordinated original-schema recovery are still pending; do not check those gates from this proof.
+sends. Temporary credentials were removed. Sequential native installation, owner authentication,
+encrypted DB/key restore, update/rollback, failed-start compensation and data-preserving uninstall
+passed on `53f55e2`; original Docker node and foreign interfaces were independently verified after
+restoration. Final review found opener-lifetime and core-retry blockers (AUD-038/039), now in one
+consolidated correction wave. Amended-candidate acceptance, Docker, fresh ACME and coordinated
+original-schema recovery remain pending; do not check those gates from earlier candidate proof.

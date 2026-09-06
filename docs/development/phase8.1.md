@@ -66,6 +66,9 @@ invented or silently substituted with development code.
    and health failure both recover. Binary rollback is not a database downgrade: schema changes
    require explicit coordinated restoration from the recorded pre-update backup. Never report
    automatic recovery when state is incompatible or recovery failed.
+   Active DB/key users retain a separate shared-volume lifetime lease; rotation and replacement
+   require exclusive ownership. Candidate admission requires `data_lease`. Safe custom data
+   directories remain supported, but split DB/key directories require explicit offline migration.
 9. Backup UI calls the shared archive/schedule/Telegram services: create/list/send, encrypted
    off-host recommendation, restore preview/confirmation, schedule list/add/enable/disable/delete,
    daily/weekly/every-N-hours or equivalent days with retention. Keep the single scheduler.
@@ -248,3 +251,23 @@ provenance and documentation and requests explicit approval before public public
   container identity/start and AWG configurations unchanged.
   [Evidence and limits](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt).
   Native/Docker lifecycle, coordinated recovery and fresh ACME remain distinct pending gates.
+- Real sequential native lifecycle on `53f55e2` passed install/loopback/owner login, encrypted
+  backup, declined restore, rotated-key/database pair restore, same-contract update, installed
+  binary rollback, proven failed-start compensation and data-preserving uninstall. Original
+  Docker files/key/schema/settings/container and foreign AWG interfaces were restored and checked
+  independently. [Evidence and limits](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt).
+- Final implementation review of `2f756b9..14d4a19` found two release-blocking corrections:
+  admitted database/key opener lifetime across restore (AUD-038), and core recovery retry after
+  repaired module observation (AUD-039). One consolidated correction wave is active; amended
+  behavior needs scoped review and affected real-host checks. Docker, fresh ACME, cross-contract
+  recovery and final candidate acceptance remain open. Phase8.1 is not complete.
+- Documentation/evidence revision `14d4a19`
+  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34010291233).
+- Consolidated final correction `0578dcc` implements persistent cross-process data ownership,
+  atomic admission/initialization, shutdown-lifetime protection and core recovery retry. It also
+  closes the bounded terminal review/defaults, operation-specific hints, backup warning PRG,
+  archive-fixture, helper-reporting and Python-CI findings. Full Go test/build/vet, Linux arm64
+  build, targeted Linux race/integration, Windows ownership checks, bootstrap fixtures and 17
+  credential-free Python tests pass. Scoped final re-review and corrected-candidate VPS checks
+  remain pending. Pre-lease retained binaries require an explicit no-concurrent-old-process
+  maintenance boundary; their unchanged data format does not imply lease participation.

@@ -82,6 +82,9 @@ the active Phase 8.1 gate; earlier Phase 7 evidence does not certify the redesig
 The [exact GitHub management rerun](docs/integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt)
 and [isolated real Telegram/scheduler acceptance](docs/integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt)
 have passed without changing the existing test node.
+The [sequential native lifecycle drill](docs/integrations/fixtures/verify-phase8.1-native-2026-09-06.txt)
+also passed, including restoration of the original node. Final-review data/key concurrency and
+core-retry corrections, amended-candidate checks, Docker and fresh ACME remain open gates.
 
 ## Documentation
 

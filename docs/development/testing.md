@@ -8,10 +8,10 @@ host-operation failure injection, 48/80/120-column fa/en terminal checks, and de
 
 | Area | Recorded evidence | Still required |
 |---|---|---|
-| GitHub delivery | Real source acquisition/build/help; executable release/error fixtures | Exact final one-command setup/rerun and published-release installation |
+| GitHub delivery | Real source acquisition/build/help; executable release/error fixtures; exact documented management rerun on `53f55e2` with original-node preservation | Corrected final-candidate setup and published-release installation |
 | Terminal | Real read-only Linux PTY at 48/80/120 columns, fa/en, hidden-input cancellation and nonTTY refusal on `234f067` | Final M5 forms and integrated setup/lifecycle; universal Persian client shaping is not claimed |
 | Runtime image | Actual builder/image identity and isolated binary/AWG package checks on `234f067` | Deployment startup, fresh host kernel provisioning and broader OS/architecture cells |
-| Backup/recovery | Actual SQLite/archive/encryption/HTTP fixtures and both-mode Host/CLI boundaries on `281b607`; scoped Linux race/integration pass; [CI passed on the following docs revision `c46f313`](https://github.com/Sir-Adnan/wg-guard/actions/runs/34005864073) | Independent review fixes, actual managed restore, Telegram delivery and production scheduler tick |
+| Backup/recovery | M5 implementation/review closed; actual synthetic encrypted Telegram sends and accelerated production scheduler tick, plus sequential native encrypted DB/key restore on `53f55e2`. [CI passed on evidence revision `14d4a19`](https://github.com/Sir-Adnan/wg-guard/actions/runs/34010291233) | Final-review opener lifetime/core retry corrections, affected candidate checks, Docker and original-schema recovery |
 
 Exact revisions and sanitized records live in [status.md](status.md) and
 [phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle

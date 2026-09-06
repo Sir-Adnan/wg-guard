@@ -1,0 +1,39 @@
+WG-Guard Phase8.1 — actual native lifecycle acceptance
+Date: 2026-09-06 UTC, dedicated Ubuntu24.04 amd64 VPS
+Candidate: 53f55e261f0cdeadfa128eb232fb8731e4719bc7
+SHA256: 36571fcf3a15186b7c98ad84edc0a82c4e35415bec6b252608be8e0229cddb70
+Previous candidate: 9db9016aaa4b5ee4805cc32505c31c1a2aa36852
+Previous SHA256: 8d4f7f5850168b6175ec82d0c8f3b71648b04b3a46d4420c25e945370cc5c848
+Operational script SHA256: e6f45f3cf318a27918f315ada6865e8795c5f6df73cee4fa93755fa1998429b0
+
+PASS: actual install --mode native --yes --tls dev --panel-port18081 (separate argv values),
+explicit public VPN IP, --prerequisites check and protected owner-password file.
+Real systemd service, installed binary/state identity, loopback listener and owner login passed.
+
+Encrypted backup created; declined restore preserved service PID, node data and master key.
+The synthetic node ID was changed and the service stopped for a real master-key rotation.
+Managed restore recovered the earlier database AND key. Readiness, owner authentication and
+another encrypted backup proved the restored pair works, not merely that files exist.
+
+Same-contract update to the distinct previous candidate passed. Owner/data and recorded prior
+artifact were preserved. Rollback invoked through the then-installed binary restored the first
+candidate and owner login worked again.
+
+Intentional failed-start fixture: matching installer contract, fixed protected runtime marker,
+exit42 instead of serve. Marker, new journal ID, operation update and exact fixture hash proved
+the failed candidate actually executed. Update returned nonzero, journal became rolled-back,
+prior binary/data and healthy service returned. This is explicit fault injection, not a claim
+that an unmodified release spontaneously failed.
+
+Managed uninstall removed its unit/binary but kept data. Original Docker node's stopped layout
+was preserved by rename throughout; no original archive was uploaded. Finally original paths,
+binary/config/key/settings and schema0001–0006 were restored, native unit was not-found/inactive,
+original container ID/image were running with trusted HTTPS, awg0/awg1 configurations were
+unchanged and UP, and inetwgguard stayed absent. Controller independently rechecked restored
+paths/hashes/schema/container/HTTPS after the bounded transient unit became inactive.
+
+Limits: check-only prerequisites on an existing configured host, not clean-host DKMS install;
+IP-only native mode, not native ACME; sequential operations, not concurrent CLI/restore safety.
+Final review separately reproduced a native CLI lifetime/key-rotation race. That remains an
+implementation blocker and requires an amended candidate plus affected acceptance after its fix.
+Docker, fresh ACME, cross-contract recovery, other OS and arm64 runtime need separate evidence.
