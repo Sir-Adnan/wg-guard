@@ -81,8 +81,9 @@ class Prepared:
 class OwnedWorkspace:
     """One collision-checked directory whose exact path this run may remove."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, info: os.stat_result):
         self.path = path
+        self._identity = (info.st_dev, info.st_ino)
         self._created = True
 
     @classmethod
@@ -94,17 +95,18 @@ class OwnedWorkspace:
             path.mkdir(mode=0o700, parents=False)
         except FileExistsError as error:
             raise PreflightError("requested work directory already exists") from error
-        if stat.S_IMODE(path.stat().st_mode) & 0o077:
+        info = path.lstat()
+        if stat.S_IMODE(info.st_mode) & 0o077:
             path.rmdir()
             raise PreflightError("work directory is not private")
-        return cls(path)
+        return cls(path, info)
 
     @classmethod
     def temporary(cls, parent: Path | None) -> "OwnedWorkspace":
         value = tempfile.mkdtemp(prefix="wg-guard-phase81-synthetic-", dir=parent)
         path = Path(value)
         path.chmod(0o700)
-        return cls(path)
+        return cls(path, path.lstat())
 
     def cleanup(self) -> None:
         if not self._created:
@@ -116,7 +118,11 @@ class OwnedWorkspace:
         except FileNotFoundError:
             self._created = False
             return
-        if not stat.S_ISDIR(current.st_mode) or self.path.is_symlink():
+        if (
+            not stat.S_ISDIR(current.st_mode)
+            or self.path.is_symlink()
+            or (current.st_dev, current.st_ino) != self._identity
+        ):
             raise AcceptanceError("owned work directory identity changed before cleanup")
         shutil.rmtree(self.path)
         self._created = False
@@ -145,6 +151,10 @@ class OwnedChild:
         except ProcessLookupError:
             self.process.wait(timeout=5)
 
+    def stop_for_overflow(self) -> None:
+        """Bound a noisy child without ever targeting a foreign process."""
+        self.stop(timeout=1)
+
 
 @dataclass
 class CommandResult:
@@ -168,19 +178,37 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _private_regular(path: Path, label: str, executable: bool = False) -> os.stat_result:
+def _open_regular(path: Path, label: str, executable: bool = False) -> tuple[int, os.stat_result]:
+    flags = os.O_RDONLY | os.O_NONBLOCK
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
     try:
-        info = path.lstat()
+        descriptor = os.open(path, flags)
     except OSError as error:
         raise PreflightError(f"{label} is not an accessible regular non-symlink file") from error
-    if not stat.S_ISREG(info.st_mode) or path.is_symlink():
+    info = os.fstat(descriptor)
+    if not stat.S_ISREG(info.st_mode):
+        os.close(descriptor)
         raise PreflightError(f"{label} must be a regular non-symlink file")
     if info.st_uid != os.geteuid():
+        os.close(descriptor)
         raise PreflightError(f"{label} must be owned by the current user")
     mode = stat.S_IMODE(info.st_mode)
     if mode & 0o022 or executable and not mode & 0o100:
+        os.close(descriptor)
         raise PreflightError(f"{label} permissions are unsafe")
-    return info
+    return descriptor, info
+
+
+def _hash_descriptor(descriptor: int) -> str:
+    digest = hashlib.sha256()
+    while True:
+        chunk = os.read(descriptor, 1024 * 1024)
+        if not chunk:
+            return digest.hexdigest()
+        digest.update(chunk)
 
 
 def _hash_file(path: Path) -> str:
@@ -192,15 +220,13 @@ def _hash_file(path: Path) -> str:
 
 
 def _load_credentials(path: Path) -> TelegramCredentials:
-    info = _private_regular(path, "credential")
+    descriptor, info = _open_regular(path, "credential")
     if stat.S_IMODE(info.st_mode) & 0o077:
+        os.close(descriptor)
         raise PreflightError("credential permissions must be 0600 or stricter")
     if info.st_size > CREDENTIAL_LIMIT:
+        os.close(descriptor)
         raise PreflightError("credential file exceeds 16 KiB")
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags)
     try:
         raw = os.read(descriptor, CREDENTIAL_LIMIT + 1)
     finally:
@@ -231,11 +257,14 @@ def prepare(options: argparse.Namespace) -> Prepared:
     if os.name != "posix" or not sys.platform.startswith("linux"):
         raise PreflightError("this acceptance helper requires Linux")
     candidate = Path(options.candidate).absolute()
-    _private_regular(candidate, "candidate", executable=True)
     expected = str(options.expected_sha256).lower()
     if not SHA256_RE.fullmatch(expected):
         raise PreflightError("expected SHA-256 must be 64 lowercase hexadecimal characters")
-    actual = _hash_file(candidate)
+    descriptor, _ = _open_regular(candidate, "candidate", executable=True)
+    try:
+        actual = _hash_descriptor(descriptor)
+    finally:
+        os.close(descriptor)
     if actual != expected:
         raise PreflightError("candidate SHA-256 mismatch")
 
@@ -290,17 +319,30 @@ def assert_secrets_absent(captures: Sequence[bytes], secrets: Sequence[str]) -> 
             raise SecretLeakError()
 
 
-def _drain(pipe: BinaryIO, target: bytearray, overflow: threading.Event) -> None:
+def _drain(
+    pipe: BinaryIO,
+    target: bytearray,
+    limit: int,
+    overflow: threading.Event,
+    on_overflow=None,
+) -> None:
     try:
         while True:
             chunk = pipe.read(8192)
             if not chunk:
                 return
-            room = CAPTURE_LIMIT - len(target)
+            room = limit - len(target)
             if room > 0:
                 target.extend(chunk[:room])
-            if len(chunk) > room:
+            if len(chunk) > room and not overflow.is_set():
                 overflow.set()
+                if on_overflow is not None:
+                    try:
+                        on_overflow()
+                    except Exception:
+                        # The main cleanup path retries the owned-child stop;
+                        # never emit a thread traceback with captured data.
+                        pass
     finally:
         pipe.close()
 
@@ -324,8 +366,12 @@ def run_bounded(
     stdout, stderr = bytearray(), bytearray()
     overflow = threading.Event()
     threads = [
-        threading.Thread(target=_drain, args=(process.stdout, stdout, overflow), daemon=True),
-        threading.Thread(target=_drain, args=(process.stderr, stderr, overflow), daemon=True),
+        threading.Thread(
+            target=_drain, args=(process.stdout, stdout, CAPTURE_LIMIT, overflow), daemon=True
+        ),
+        threading.Thread(
+            target=_drain, args=(process.stderr, stderr, CAPTURE_LIMIT, overflow), daemon=True
+        ),
     ]
     for thread in threads:
         thread.start()
@@ -374,10 +420,14 @@ class AcceptanceRun:
         self.workspace: OwnedWorkspace | None = None
         self.child: OwnedChild | None = None
         self.captures: list[bytes] = []
+        self.log_capture = bytearray()
+        self.log_overflow = threading.Event()
+        self.log_thread: threading.Thread | None = None
+        self.log_limit = LOG_LIMIT
         self.schedule_id = ""
+        self.candidate = Path()
         self.config = Path()
         self.database = Path()
-        self.log = Path()
         self.env: dict[str, str] = {}
         self.password = secrets.token_urlsafe(32)
         self.summary: dict[str, object] = {
@@ -403,9 +453,9 @@ class AcceptanceRun:
         root = self.workspace.path
         for name in ("data", "tmp", "home"):
             (root / name).mkdir(mode=0o700)
+        self._pin_candidate(root / "candidate")
         self.config = root / "wg-guard.toml"
         self.database = root / "data/wg-guard.db"
-        self.log = root / "serve.log"
         port = _reserve_port(self.prepared.listen_port)
         config = "\n".join(
             [
@@ -438,6 +488,30 @@ class AcceptanceRun:
         }
         self.summary["listen"] = "loopback-ephemeral" if self.prepared.listen_port == 0 else "loopback-explicit"
 
+    def _pin_candidate(self, destination: Path) -> None:
+        source, _ = _open_regular(self.prepared.candidate, "candidate", executable=True)
+        output = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o700)
+        digest = hashlib.sha256()
+        try:
+            while True:
+                chunk = os.read(source, 1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+                view = memoryview(chunk)
+                while view:
+                    written = os.write(output, view)
+                    view = view[written:]
+            os.fchmod(output, 0o700)
+            os.fsync(output)
+        finally:
+            os.close(source)
+            os.close(output)
+        if digest.hexdigest() != self.prepared.candidate_sha256:
+            destination.unlink()
+            raise PreflightError("candidate SHA-256 mismatch while pinning private copy")
+        self.candidate = destination
+
     def _command(self, argv: Sequence[str], label: str, input_text: str = "") -> CommandResult:
         result = run_bounded(argv, env=self.env, input_bytes=input_text.encode())
         self.captures.extend([result.stdout, result.stderr])
@@ -445,10 +519,14 @@ class AcceptanceRun:
             raise AcceptanceError(f"{label} failed with exit status {result.returncode}")
         return result
 
+    def _candidate_command(
+        self, args: Sequence[str], label: str, input_text: str = ""
+    ) -> CommandResult:
+        return self._command([str(self.candidate), *args], label, input_text)
+
     def _backup(self, command: str, *args: str, label: str) -> CommandResult:
-        return self._command(
+        return self._candidate_command(
             [
-                str(self.prepared.candidate),
                 "backup",
                 command,
                 *args,
@@ -459,9 +537,8 @@ class AcceptanceRun:
         )
 
     def _setting(self, key: str, value: str) -> None:
-        self._command(
+        self._candidate_command(
             [
-                str(self.prepared.candidate),
                 "settings",
                 "set",
                 key,
@@ -473,23 +550,39 @@ class AcceptanceRun:
             value + "\n",
         )
 
+    def _start_service_process(self, argv: Sequence[str]) -> None:
+        self.child = OwnedChild.start(
+            argv,
+            env=self.env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        assert self.child.process.stdout is not None
+        self.log_thread = threading.Thread(
+            target=_drain,
+            args=(
+                self.child.process.stdout,
+                self.log_capture,
+                self.log_limit,
+                self.log_overflow,
+                self.child.stop_for_overflow,
+            ),
+            daemon=True,
+        )
+        self.log_thread.start()
+
     def _start_node(self) -> None:
-        log_handle = os.open(self.log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(log_handle, "wb") as output:
-            self.child = OwnedChild.start(
-                [
-                    str(self.prepared.candidate),
-                    "serve",
-                    "--config",
-                    str(self.config),
-                    "--backend",
-                    "fake",
-                ],
-                env=self.env,
-                stdin=subprocess.DEVNULL,
-                stdout=output,
-                stderr=subprocess.STDOUT,
-            )
+        self._start_service_process(
+            [
+                str(self.candidate),
+                "serve",
+                "--config",
+                str(self.config),
+                "--backend",
+                "fake",
+            ]
+        )
         deadline = time.monotonic() + READY_TIMEOUT
         listen = _config_listen(self.config)
         while time.monotonic() < deadline:
@@ -701,14 +794,14 @@ class AcceptanceRun:
         self.schedule_id = ""
 
     def _check_child_and_log(self) -> None:
+        if self.log_overflow.is_set():
+            raise AcceptanceError("owned candidate log exceeded 1 MiB")
         if self.child is None or self.child.process.poll() is not None:
             raise AcceptanceError("owned candidate child exited during acceptance")
-        if self.log.stat().st_size > LOG_LIMIT:
-            raise AcceptanceError("owned candidate log exceeded 1 MiB")
 
     def execute(self) -> dict[str, object]:
         self._make_workspace()
-        version = self._command([str(self.prepared.candidate), "version"], "candidate version")
+        version = self._candidate_command(["version"], "candidate version")
         self.summary["candidate_version"] = version.stdout.decode("utf-8", errors="strict").strip()
         self._start_node()
         self._setting("backup.password", self.password)
@@ -720,6 +813,7 @@ class AcceptanceRun:
         return self.summary
 
     def cleanup(self) -> None:
+        cleanup_errors: list[AcceptanceError] = []
         if self.schedule_id and self.child and self.child.process.poll() is None:
             for command in ("schedule-disable", "schedule-delete"):
                 try:
@@ -728,12 +822,17 @@ class AcceptanceRun:
                     pass
             self.schedule_id = ""
         if self.child:
-            self.child.stop()
-        if self.log.exists():
-            size = self.log.stat().st_size
-            if size > LOG_LIMIT:
-                raise AcceptanceError("owned candidate log exceeded 1 MiB")
-            self.captures.append(self.log.read_bytes())
+            try:
+                self.child.stop()
+            except (OSError, subprocess.SubprocessError):
+                cleanup_errors.append(AcceptanceError("could not stop owned candidate child"))
+        if self.log_thread:
+            self.log_thread.join(timeout=3)
+            if self.log_thread.is_alive():
+                cleanup_errors.append(AcceptanceError("owned candidate log drain did not stop"))
+        self.captures.append(bytes(self.log_capture))
+        if self.log_overflow.is_set():
+            cleanup_errors.append(AcceptanceError("owned candidate log exceeded 1 MiB"))
         private_values = [self.password]
         if self.prepared.credentials:
             private_values.extend([self.prepared.credentials.token, self.prepared.credentials.chat_id])
@@ -743,7 +842,14 @@ class AcceptanceRun:
         except SecretLeakError as error:
             leak = error
         if self.workspace:
-            self.workspace.cleanup()
+            try:
+                self.workspace.cleanup()
+            except (AcceptanceError, OSError) as error:
+                cleanup_errors.append(
+                    error
+                    if isinstance(error, AcceptanceError)
+                    else AcceptanceError("could not remove owned work directory")
+                )
         self.summary["cleanup"] = {
             "owned_child_stopped": self.child is None or self.child.process.poll() is not None,
             "owned_workspace_removed": self.workspace is None or not self.workspace.path.exists(),
@@ -753,6 +859,8 @@ class AcceptanceRun:
         }
         if leak:
             raise leak
+        if cleanup_errors:
+            raise cleanup_errors[0]
 
 def _config_listen(path: Path) -> str:
     for line in path.read_text().splitlines():

@@ -105,6 +105,14 @@ then stops only its child and removes only its private workspace. The result cal
 **accelerated due execution**, not elapsed hours. A pass without credentials explicitly records
 Telegram as unverified.
 
+Candidate validation opens without following symlinks and checks permissions, ownership and hash
+on that same descriptor. Before any command runs, the helper repeats those checks while copying
+and hashing the candidate into its 0700 workspace; every command uses that pinned private copy.
+Credential ownership, mode, size and contents are likewise checked from one opened descriptor.
+Cleanup records the workspace device/inode and refuses to remove a replacement at the same path.
+Service output is drained into a 1 MiB bounded capture and stops only the owned child on overflow;
+capture scanning and safe workspace cleanup still run after an earlier cleanup error.
+
 Real Telegram acceptance is an explicit opt-in. Create an administrator-owned 0600 JSON file
 outside the repository (do not put either value in shell arguments or evidence):
 

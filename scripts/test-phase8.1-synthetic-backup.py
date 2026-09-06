@@ -122,6 +122,36 @@ class SyntheticBackupHelperTests(unittest.TestCase):
         self.assertNotIn("synthetic-token", repr(prepared))
         self.assertNotIn("-12345", repr(prepared))
 
+    def test_candidate_replacement_before_pinning_is_refused(self):
+        candidate, digest = self.candidate()
+        prepared = self.helper.prepare(self.options(candidate, digest))
+        candidate.write_bytes(b"replacement candidate\n")
+        candidate.chmod(0o700)
+        run = self.helper.AcceptanceRun(prepared)
+
+        with self.assertRaisesRegex(self.helper.PreflightError, "candidate SHA-256 mismatch"):
+            run._make_workspace()
+
+        run.cleanup()
+        self.assertFalse(run.workspace.path.exists())
+
+    def test_commands_use_private_pinned_candidate_after_source_replacement(self):
+        candidate = self.root / "candidate"
+        candidate.write_text("#!/bin/sh\nprintf 'trusted candidate\\n'\n")
+        candidate.chmod(0o700)
+        digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        prepared = self.helper.prepare(self.options(candidate, digest))
+        run = self.helper.AcceptanceRun(prepared)
+        run._make_workspace()
+        candidate.write_text("#!/bin/sh\nprintf 'replacement candidate\\n'\n")
+        candidate.chmod(0o700)
+
+        result = run._candidate_command([], "pinned candidate")
+
+        self.assertEqual(result.stdout, b"trusted candidate\n")
+        self.assertNotEqual(run.candidate, candidate)
+        run.cleanup()
+
     def test_workspace_cleanup_removes_only_new_owned_directory(self):
         outside = self.root / "outside"
         outside.write_text("preserve")
@@ -135,6 +165,21 @@ class SyntheticBackupHelperTests(unittest.TestCase):
         self.assertEqual(outside.read_text(), "preserve")
         with self.assertRaisesRegex(self.helper.PreflightError, "already exists"):
             self.helper.OwnedWorkspace.create(outside)
+
+    def test_workspace_cleanup_refuses_and_preserves_replacement_directory(self):
+        work = self.root / "owned"
+        moved = self.root / "moved-original"
+        workspace = self.helper.OwnedWorkspace.create(work)
+        (work / "original-secret").write_text("preserve")
+        work.rename(moved)
+        work.mkdir(mode=0o700)
+        (work / "replacement-sentinel").write_text("preserve")
+
+        with self.assertRaisesRegex(self.helper.AcceptanceError, "identity changed"):
+            workspace.cleanup()
+
+        self.assertEqual((work / "replacement-sentinel").read_text(), "preserve")
+        self.assertEqual((moved / "original-secret").read_text(), "preserve")
 
     def test_owned_child_stop_does_not_signal_unrelated_process(self):
         unrelated = subprocess.Popen(
@@ -177,6 +222,33 @@ class SyntheticBackupHelperTests(unittest.TestCase):
         with self.assertRaises(self.helper.SecretLeakError):
             run.cleanup()
 
+        self.assertFalse(work.exists())
+
+    def test_service_log_overflow_stops_child_scans_secret_and_removes_workspace(self):
+        candidate, digest = self.candidate()
+        prepared = self.helper.prepare(self.options(candidate, digest))
+        run = self.helper.AcceptanceRun(prepared)
+        work = self.root / "owned-overflow"
+        run.workspace = self.helper.OwnedWorkspace.create(work)
+        run.log_limit = 4096
+        script = (
+            "import os,sys,time; "
+            "sys.stdout.write(os.environ['PRIVATE'] + '\\n' + 'x' * 32768); "
+            "sys.stdout.flush(); time.sleep(30)"
+        )
+        run.env = {"PATH": os.environ.get("PATH", ""), "PRIVATE": run.password}
+        run._start_service_process([sys.executable, "-c", script])
+
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not run.log_overflow.is_set():
+            time.sleep(0.01)
+        self.assertTrue(run.log_overflow.is_set())
+
+        with self.assertRaises(self.helper.SecretLeakError):
+            run.cleanup()
+
+        self.assertIsNotNone(run.child.process.poll())
+        self.assertLessEqual(len(run.log_capture), run.log_limit)
         self.assertFalse(work.exists())
 
     def test_each_run_generates_a_distinct_private_archive_password(self):
