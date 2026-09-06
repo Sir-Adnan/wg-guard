@@ -129,7 +129,9 @@ readable from schema1; journal records operation stage and previous/current arti
   current selection explicitly; no silently stale local fallback after failed remote fetch.
   Provide a machine-readable installer/build compatibility contract and reject selected builds
   that cannot satisfy it before deployment. Bootstrap must not silently execute an older
-  pre-Phase8.1 install command lacking the new prerequisite/owner/recovery guarantees.
+  pre-Phase8.1 install command lacking the implemented prerequisite/recovery guarantees.
+  Advertise only capabilities actually implemented at this milestone; M4 implements the local
+  owner-before-listener guarantee and tightens the bootstrap/manager contract gate accordingly.
 - [ ] Expose a controlled catalogued-core switch through the same lifecycle lock/journal, with
   explicit impact confirmation, previous/requested bundle identity and package availability checks.
   Do not unload active tunnels or infer loaded correctness from equal version strings. Preserve
@@ -181,6 +183,9 @@ manual Telegram send using existing delivery engine. Existing scheduler remains 
   IDs, every-N-hours/equivalent days, enable/disable/delete/list, explicit archive send, secrets
   absent from argv/output, safe EOF and no scheduler duplication.
   Include real net/http URL-error redaction and token echoes in Telegram response descriptions.
+  Also reproduce stored backup-password read/decryption failure: an explicitly unset password
+  may retain the documented plaintext default, but a failed secret read must abort before archive
+  creation/delivery instead of silently downgrading encryption (AUD-034).
 - [ ] Implement coherent backup CLI/manager forms and flags, all bounded and validated. Ensure
   schedule/settings changes are observed by running service (cache invalidation or documented
   managed restart), show timezone/retention/next run. Warn appropriately for unencrypted off-host
@@ -193,6 +198,11 @@ manual Telegram send using existing delivery engine. Existing scheduler remains 
   Require complete valid staged hash metadata; atomically recover database/key as a coherent
   pair on partial replacement failure. Preview/confirmation must not expose an unapproved
   restore to boot-time auto-apply if the CLI exits or the service restarts during review.
+  Integrate M3's restore-required journal with an explicit offline recovery coordinator using
+  the recorded pre-update archive and retained previous artifact. Verify recorded archive identity
+  and restore the original database schema/key pair before starting old code; normal forward-
+  migrating restore is not a substitute for rollback recovery. Encrypted archives require protected
+  password input. Unknown or unverifiable archive/artifact identity must keep recovery blocked.
 - [ ] Run real SQLite/archive/Telegram HTTP-fixture tests + full suite/build, docs and commit.
 
 ### Task 6: Real-host integration, documentation and delivery (M6)

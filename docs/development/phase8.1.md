@@ -1,6 +1,6 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M2 reviewed, M3 starting**, updated 2026-09-06. Owner approval to implement and push was supplied
+State: **active / M1–M2 reviewed, M3 in progress**, updated 2026-09-06. Owner approval to implement and push was supplied
 in the installer request. Final public release publication remains separately approval-gated.
 
 ## Objective and placement
@@ -147,3 +147,15 @@ provenance and documentation and requests explicit approval before public public
   These checks do not certify fresh installation, image deployment or certificate issuance.
 - Follow-up review item retained for M4: include the last TLS handshake failure in readiness
   diagnostics instead of only the final timeout. Functional pending/retry behavior is implemented.
+- M2 review/status revision `bd40179`: [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33998640840).
+  M3 lifecycle transaction work is in progress, not yet reviewed or real-host verified.
+- Baseline schema follow-up (read-only, 2026-09-06): the existing Phase 7 VPS database contains
+  migrations 0001–0006. Candidate schema 0007 is a real data-contract transition. Integrated
+  drills must preserve and restore the original database/master-key pair before returning to
+  the original Phase 7 image; binary-only rollback is not sufficient proof of safe recovery.
+- M3 (`4b72243`): locked, journaled lifecycle/source integration and core maintenance implemented;
+  full Go tests/build/vet, Linux scoped race/process-death lock/atomic-file tests and executable
+  bootstrap compatibility fixtures passed. Independent review is open; no real deployment drill
+  is claimed. [Recovery contract and limits](../operations/lifecycle-recovery.md) distinguish
+  same-contract rollback from M5's still-pending coordinated original-schema recovery. M4's
+  owner-before-listener hook exists, but account provisioning itself is not yet implemented.

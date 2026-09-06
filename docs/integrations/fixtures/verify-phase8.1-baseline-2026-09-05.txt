@@ -45,3 +45,12 @@ Implications for the execution harness:
   Fresh-install tests must distinguish isolated empty data from upgrade of this existing node.
   Restore the preserved baseline on any failed drill; verify HTTPS and interfaces afterward.
   No host mutation was performed by these checks.
+
+Read-only schema follow-up: 2026-09-06
+  Python standard-library TOML parsing and SQLite URI mode=ro / query_only=ON.
+  Printed migration names only; no raw configuration, user rows or keys.
+  Applied migrations: 0001_init.sql, 0002_speed_limits.sql, 0003_admin_locale.sql,
+    0004_sub_links.sql, 0005_iface_advanced.sql, 0006_backup_schedules.sql.
+  Count: 6. Candidate migration 0007 changes this baseline's data contract.
+  Preserve a consistent original database/master-key pair for original-image recovery.
+  No deployment or database mutation performed.

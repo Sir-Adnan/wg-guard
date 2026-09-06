@@ -32,6 +32,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   userspace integration remains valid protocol/config compatibility evidence.
 
 ### Added
+- **Recoverable lifecycle transactions (M3):** exclusive Linux lock, durable private state and
+  operation journal, immutable previous artifacts, source-aware install/update, mandatory remote
+  fetch semantics, same-data-contract rollback, safe removal targets, and catalog-only core
+  maintenance. Unproven data compatibility retains a visible restore-required state instead of
+  starting old code. Automated tests pass; independent review/VPS certification remain pending.
+  Local first-owner provisioning and coordinated cross-contract restore follow in M4/M5.
 - **Installer prerequisite and core checks:** Ubuntu 24.04 package preparation, explicit manual
   routes on other Linux systems, pinned compatible AWG catalog, loaded/disk build-identity
   reporting, immutable runtime-image preparation and retryable trusted TLS readiness. Explicit
