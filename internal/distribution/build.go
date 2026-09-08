@@ -109,6 +109,17 @@ func extractArchive(ctx context.Context, archive, dest, root string, max int64) 
 		if count > 50000 {
 			return fmt.Errorf("distribution: archive has too many entries")
 		}
+		if h.Typeflag == tar.TypeXGlobalHeader {
+			// GitHub codeload prepends one global PAX commit comment. Bind it
+			// to the selected immutable source root before ignoring metadata.
+			commit := strings.TrimPrefix(root, "wg-guard-")
+			if count != 1 || root != "wg-guard-"+commit || !commitSHA.MatchString(commit) ||
+				h.Name != "pax_global_header" || h.Format != tar.FormatPAX || len(h.Xattrs) != 0 ||
+				len(h.PAXRecords) != 1 || h.PAXRecords["comment"] != commit {
+				return fmt.Errorf("distribution: unsupported archive metadata")
+			}
+			continue
+		}
 		name := strings.TrimSuffix(h.Name, "/")
 		if strings.ContainsAny(name, "\\:\x00") || path.Clean(name) != name || name != root && !strings.HasPrefix(name, root+"/") || seen[name] {
 			return fmt.Errorf("distribution: unsafe archive path")

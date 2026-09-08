@@ -153,3 +153,7 @@ and real script logic for release/list/source/toolchain paths, integrity refusal
 cleanup and candidate checksums. Linux CI runs those fixtures. Neither fixtures nor successful
 cross-compilation claim a clean-VPS install, arm64 execution, a published-release install, or
 complete Docker/native lifecycle verification; those remain later milestone evidence.
+
+The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly
+matches the selected full SHA. Other global metadata and all links, devices, traversal, duplicate
+or cross-root members remain rejected before compilation.

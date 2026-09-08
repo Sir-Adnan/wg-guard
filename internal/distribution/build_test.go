@@ -22,6 +22,8 @@ type sourceRunner struct {
 	calls int
 }
 
+const codeloadFixtureSHA = "0578dccf29335e010ccb2acbd4d47070f0cee08f"
+
 func TestRealCompilerProducesStampedLinuxCandidate(t *testing.T) {
 	var packed bytes.Buffer
 	gz := gzip.NewWriter(&packed)
@@ -108,6 +110,112 @@ func archiveFixture(t *testing.T, name string, kind byte) []byte {
 	gz.Close()
 	return b.Bytes()
 }
+
+func codeloadArchiveFixture(t *testing.T, records map[string]string, root, name string, kind byte) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{
+		Name:       "pax_global_header",
+		Typeflag:   tar.TypeXGlobalHeader,
+		PAXRecords: records,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: root + "/", Typeflag: tar.TypeDir, Mode: 0755}); err != nil {
+		t.Fatal(err)
+	}
+	body := []byte("module github.com/Sir-Adnan/wg-guard\n\ngo 1.25.0\n")
+	size := int64(len(body))
+	if kind != tar.TypeReg {
+		size = 0
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: name, Typeflag: kind, Mode: 0644, Size: size, Linkname: "../../escape"}); err != nil {
+		t.Fatal(err)
+	}
+	if size > 0 {
+		if _, err := tw.Write(body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
+func TestAcquireSourceAcceptsCodeloadPAXGlobalComment(t *testing.T) {
+	root := "wg-guard-" + codeloadFixtureSHA
+	content := codeloadArchiveFixture(t,
+		map[string]string{"comment": codeloadFixtureSHA},
+		root, root+"/go.mod", tar.TypeReg,
+	)
+	c := fixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/commits/") {
+			fmt.Fprintf(w, `{"sha":"%s"}`, codeloadFixtureSHA)
+			return
+		}
+		w.Write(content)
+	})
+	runner := &sourceRunner{t: t}
+	c.options.Runner = runner
+	b, err := c.Acquire(context.Background(), Selection{Channel: "commit", Ref: codeloadFixtureSHA}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runner.calls != 1 || b.Commit != codeloadFixtureSHA {
+		t.Fatalf("codeload source did not reach compilation: calls=%d build=%+v", runner.calls, b)
+	}
+}
+
+func TestAcquireSourceRejectsUnsafePAXGlobalMetadataAndMembers(t *testing.T) {
+	root := "wg-guard-" + codeloadFixtureSHA
+	for _, tc := range []struct {
+		name    string
+		records map[string]string
+		member  string
+		kind    byte
+	}{
+		{"global path", map[string]string{"comment": codeloadFixtureSHA, "path": root + "/metadata"}, root + "/go.mod", tar.TypeReg},
+		{"global linkpath", map[string]string{"comment": codeloadFixtureSHA, "linkpath": root + "/target"}, root + "/go.mod", tar.TypeReg},
+		{"global size", map[string]string{"comment": codeloadFixtureSHA, "size": "1"}, root + "/go.mod", tar.TypeReg},
+		{"wrong global comment", map[string]string{"comment": fixtureSHA}, root + "/go.mod", tar.TypeReg},
+		{"traversal after global comment", map[string]string{"comment": codeloadFixtureSHA}, "../escape", tar.TypeReg},
+		{"link after global comment", map[string]string{"comment": codeloadFixtureSHA}, root + "/go.mod", tar.TypeSymlink},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content := codeloadArchiveFixture(t, tc.records, root, tc.member, tc.kind)
+			c := fixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if strings.Contains(r.URL.Path, "/commits/") {
+					fmt.Fprintf(w, `{"sha":"%s"}`, codeloadFixtureSHA)
+					return
+				}
+				w.Write(content)
+			})
+			runner := &sourceRunner{t: t}
+			c.options.Runner = runner
+			dir := t.TempDir()
+			if _, err := c.Acquire(context.Background(), Selection{Channel: "commit", Ref: codeloadFixtureSHA}, dir); err == nil {
+				t.Fatal("unsafe archive accepted")
+			}
+			if runner.calls != 0 {
+				t.Fatal("unsafe source built")
+			}
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != 0 {
+				t.Fatal("failure left artifact")
+			}
+		})
+	}
+}
+
 func TestAcquireSourceRejectsUnsafeArchivesBeforeBuild(t *testing.T) {
 	for _, tc := range []struct {
 		name string
