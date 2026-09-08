@@ -128,7 +128,15 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := prompt.plan(&o.Plan, h); err != nil {
 		return nil, err
 	}
-	p, err := o.Plan.Resolve()
+	facts, err := InspectExposure(ctx, h, o.Plan.Domain)
+	if err != nil {
+		return nil, err
+	}
+	resolvedExposure, err := ResolveExposure(o.Plan, facts)
+	if err != nil {
+		return nil, err
+	}
+	p, err := resolvedExposure.Resolve()
 	if err != nil {
 		return nil, fmt.Errorf("install: %w", err)
 	}
@@ -185,6 +193,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		ConfigPath: p.BootConfigPath(),
 		DataDir:    p.DataDir,
 		PublicIP:   p.PublicIP,
+		Exposure:   p.ExposureRecord(),
 	}
 	st.BinPath = BinPath
 	if p.Mode == ModeDocker {

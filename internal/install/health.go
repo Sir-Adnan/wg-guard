@@ -179,7 +179,8 @@ func LoadState(h Host) (*State, error) {
 		return nil, err
 	}
 	if _, ok := h.(realHost); ok {
-		for _, p := range append([]string{st.ConfigPath, st.DataDir, st.BinPath, st.ComposePath, st.UnitPath, ArtifactDir}, st.ExtraFiles...) {
+		exposurePaths := []string{st.Exposure.NginxConfigPath, st.Exposure.ACMEWebroot, st.Exposure.CertFile, st.Exposure.KeyFile, st.Exposure.DeployHook}
+		for _, p := range append(append([]string{st.ConfigPath, st.DataDir, st.BinPath, st.ComposePath, st.UnitPath, ArtifactDir}, st.ExtraFiles...), exposurePaths...) {
 			if p != "" {
 				if err := safeHostPath(p); err != nil {
 					return nil, err

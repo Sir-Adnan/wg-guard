@@ -52,6 +52,14 @@ const DefaultImage = "wgguard/wg-guard:latest"
 // Resolve from flags + prompts before use.
 type Plan struct {
 	Mode Mode
+	// Exposure is the public topology; Certificate is its certificate owner.
+	// CloudflareToken is memory-only and must never enter rendered config/state.
+	Exposure            ExposureMode
+	Certificate         CertificateSource
+	PublicPort          int
+	ACMEEmail           string
+	CloudflareToken     string
+	CloudflareTokenFile string
 
 	// TLS surface. Domain non-empty + TLSMode acme is the flagship path;
 	// manual needs cert/key files; proxy/dev are explicit operator choices.
@@ -96,6 +104,9 @@ type Plan struct {
 func Defaults() Plan {
 	return Plan{
 		Mode:         ModeDocker,
+		Exposure:     ExposureAuto,
+		Certificate:  CertificateAuto,
+		PublicPort:   443,
 		TLSMode:      config.TLSModeDev,
 		PanelPort:    8080,
 		ACMEHTTPPort: 80,
@@ -124,6 +135,14 @@ func (p Plan) Resolve() (Plan, error) {
 	}
 	if p.TelegramChat != "" && !validChatID(p.TelegramChat) {
 		return p, terminalError("install.error.plan.4")
+	}
+	if p.Exposure == "" || p.Exposure == ExposureAuto || !p.Exposure.Valid() || p.Certificate == CertificateAuto {
+		facts := ExposureFacts{HTTPPortFree: true, HTTPSPortFree: true, BackendPort: p.PanelPort}
+		var err error
+		p, err = ResolveExposure(p, facts)
+		if err != nil {
+			return p, err
+		}
 	}
 	if p.Domain != "" && p.TLSMode == config.TLSModeDev && !p.TLSModeExplicit {
 		p.TLSMode = config.TLSModeACME
@@ -203,6 +222,9 @@ func (p Plan) BootConfig() *config.Config {
 
 // PanelURL is the scheme://host:port the operator opens (the summary line).
 func (p Plan) PanelURL() string {
+	if public := p.PublicURL(); public != "" {
+		return public
+	}
 	scheme := "http"
 	if p.TLSMode == config.TLSModeACME || p.TLSMode == config.TLSModeManual {
 		scheme = "https"
@@ -265,6 +287,9 @@ func (p Plan) SSHTunnel() string {
 // issuance to the first real request, which must not be triggered by a probe);
 // manual certs are probed with a skip-verify TLS client; proxy/dev plain.
 func (p Plan) HealthProbeURL() (url string, skipVerify bool, err error) {
+	if p.Exposure == ExposureNginx || p.Exposure == ExposureExternalProxy || p.Exposure == ExposurePrivate {
+		return fmt.Sprintf("http://127.0.0.1:%d/healthz", p.PanelPort), false, nil
+	}
 	switch p.TLSMode {
 	case config.TLSModeACME:
 		return fmt.Sprintf("http://127.0.0.1:%d/healthz", p.ACMEHTTPPort), false, nil
@@ -286,6 +311,7 @@ type State struct {
 	Platform          PlatformReport `json:"platform,omitempty"`
 	Core              CoreReport     `json:"core,omitempty"`
 	TLSReadiness      string         `json:"tls_readiness,omitempty"`
+	Exposure          ExposureState  `json:"exposure,omitempty"`
 	PublicIP          string         `json:"public_ip,omitempty"`
 	RepositoryChanges []string       `json:"repository_changes,omitempty"` // retained on uninstall; shared apt sources
 	Schema            int            `json:"schema"`
@@ -303,4 +329,4 @@ type State struct {
 }
 
 // StateSchema is the current install-state schema version.
-const StateSchema = 2
+const StateSchema = 3
