@@ -8,8 +8,8 @@ data paths, so backups and mode-switching are layout-independent.
 
 - **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + pinned `amneziawg-tools` from
   `ppa:amnezia/ppa` + nftables + ca-certificates + the WG-Guard binary
-  ([Dockerfile](../../Dockerfile), amd64/arm64). The registry publication of versioned
-  multi-arch tags is part of the Phase 12 release pipeline; until then build locally
+  ([Dockerfile](../../Dockerfile), amd64). Registry publication of versioned tags is part of
+  the Phase 12 release pipeline; until then build locally
   (`docker build -t wgguard/wg-guard:<tag> .`) and pass `--image` to the installer, which is
   also what `wg-guard update` consumes.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
@@ -25,7 +25,7 @@ data paths, so backups and mode-switching are layout-independent.
   `status`, `doctor`, `version` run on the host;
   `serve` is refused with compose hints. Every CLI command is identical in both modes.
 - **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
-  persistence). On the automatic Ubuntu 24.04 path it installs the exact catalogued DKMS package
+  persistence). On supported Ubuntu it installs the exact catalogued DKMS package
   and matching running-kernel headers when needed, loads the module, and can rebuild only
   `amneziawg/1.0.0` for that kernel. It never unloads active tunnels.
 
@@ -180,8 +180,8 @@ WG-Guard-owned artifacts; data/backups and installer-installed packages are pres
 ## Host requirements
 
 Phase 8.1 prerequisites and selection are implemented, automated-test verified and exercised on
-the dedicated Ubuntu 24.04 node. Clean-image and broader OS/architecture package-provisioning
-certification remain Phase 11:
+the dedicated Ubuntu 24.04 amd64 node. Clean-image and later supported Ubuntu amd64
+package-provisioning certification remain Phase 11:
 
 ```bash
 wg-guard core installed
@@ -195,8 +195,9 @@ Replace `PUBLIC_IP` with the server's real public address; documentation-only ad
 The core commands print bounded JSON metadata. Core errors and new prerequisite/TLS copy have fa/en
 catalog entries; the current CLI retains its English default until M4's language workflow.
 
-Preflight inspects Linux, amd64/arm64, OS identity, running kernel, init, endpoint and TCP ports
-before package/deployment writes. Only Ubuntu 24.04 + systemd has automatic package setup.
+Preflight requires Ubuntu 24.04 or newer on amd64/x86_64 and inspects the running kernel, init,
+endpoint and TCP ports before package/deployment writes. Other distributions, older Ubuntu and
+other architectures stop before acquisition or deployment. Ubuntu 24.04 is the verified target.
 Native mode needs `ip`, `tc`, `nft`, `sysctl`, matching `awg` and systemd. Docker mode checks the
 engine, Compose and daemon while keeping host module management separate. A missing engine uses
 Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendations and removals
@@ -206,25 +207,26 @@ Automatic Ubuntu preparation may install missing repository tooling and add the 
 Amnezia PPA. If any AWG package must be installed, it refreshes signed apt metadata and verifies
 both exact AWG package versions before any AWG install or deployment write. An already installed,
 validated exact bundle can be reused offline without requiring those pins in a remote repository.
-Missing pins when installation is needed fail closed; there is no upstream substitution,
-blind AWG upgrade/downgrade, or PPA suite rewriting. Newly requested installed packages and PPA
+Missing pins when installation is needed fail closed; there is no upstream substitution or
+blind AWG upgrade/downgrade. The PPA helper uses the host Ubuntu suite and then requires both
+exact package versions before installation. Newly requested installed packages and PPA
 preparation are recorded in the returned installation state; PPA sources remain on uninstall.
 Prerequisite preparation can remain after a later failure. The lifecycle journal records package
 and repository intents before commands run, and observed ownership is saved on completion/error.
 Interrupted intents require inspection; they are not automatically treated as owned packages.
 
 `--prerequisites check` requires operator-provisioned prerequisites and makes no package/module
-mutations. Other Linux systems use this checked/manual path; native tools must report the
-catalogued version, and managed modules need observable matching loaded/disk build identity.
-Their source provenance and compatibility remain the operator's responsibility, not an automatic
-support claim. `--skip-module` explicitly delegates host module lifecycle to the operator, but
+mutations. Native tools must report the catalogued version, and managed modules need observable
+matching loaded/disk build identity. `--skip-module` explicitly delegates host module lifecycle
+to the operator, but
 still checks required native AWG tools. It does not enable or certify an automatic userspace
 fallback. A normal managed-core installation fails if the module is absent, different from disk,
 or its loaded build identity cannot be established.
 
-Compatibility targets are Ubuntu 22.04/24.04 and Debian 12 on amd64/arm64; only Ubuntu 24.04
-amd64 has completed the current real-host drills. Root is required. Kernel mode needs DKMS build
-prerequisites (`build-essential`, matching kernel headers). The userspace fallback architecture
+The product target is Ubuntu 24.04 or newer on amd64; Ubuntu 24.04 has completed the current
+real-host drills. Newer releases remain fail-closed when the pinned bundle is unavailable. Root
+is required. Kernel mode needs DKMS build prerequisites (`build-essential`, matching kernel
+headers). The userspace fallback architecture
 is accepted, and its config/runtime adapter is integration-tested, but WG-Guard does not yet
 supervise the daemon automatically. Until Phase 11 closes AUD-019, managed production tunnels
 require the kernel module ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).

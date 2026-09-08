@@ -6,8 +6,8 @@ func init() {
 	catalogFA["install.error.manual_pending"] = "آمادگی گواهی TLS در انتظار است؛ زنجیرهٔ مورد اعتماد، دامنه/IP گواهی و فایل‌های تنظیم‌شده را بررسی و با wg-guard tls-check دوباره تلاش کنید: %v"
 	catalogEN["install.cli.public_ip"] = "public VPN endpoint IP (required behind NAT)"
 	catalogFA["install.cli.public_ip"] = "IP عمومی VPN (پشت NAT الزامی است)"
-	catalogEN["install.cli.prerequisites"] = "auto (Ubuntu 24.04) | check (manual prerequisites)"
-	catalogFA["install.cli.prerequisites"] = "auto (Ubuntu 24.04) | check (پیش‌نیازهای دستی)"
+	catalogEN["install.cli.prerequisites"] = "auto (Ubuntu 24.04+ amd64) | check (manual prerequisites)"
+	catalogFA["install.cli.prerequisites"] = "auto (Ubuntu 24.04+ amd64) | check (پیش‌نیازهای دستی)"
 	catalogEN["install.cli.core"] = "recommended | latest-compatible | exact compatible bundle ID"
 	catalogFA["install.cli.core"] = "recommended | latest-compatible | شناسهٔ دقیق بستهٔ سازگار"
 	catalogEN["install.cli.skip_module"] = "explicit external/manual host module management; AWG tools are still checked"
@@ -43,11 +43,11 @@ func init() {
 		"install.error.core.2":     "install: prerequisite policy must be auto or check",
 		"install.error.core.3":     "install: core must match a catalogued bundle",
 		"install.error.core.4":     "install: installed %s differs from selected bundle; preserve it and resolve compatibility manually",
-		"install.error.core.5":     "install: missing %s; provision prerequisites manually (automatic setup is Ubuntu 24.04 only)",
+		"install.error.core.5":     "install: missing %s; provision prerequisites manually or use automatic setup on Ubuntu 24.04+ amd64",
 		"install.error.core.6":     "install: existing Docker lacks Compose; install its matching Compose plugin manually",
 		"install.error.core.7":     "install: refresh Ubuntu package metadata failed",
 		"install.error.core.8":     "install: exact compatible AWG tools/kernel packages are unavailable after metadata refresh; no core or deployment was installed",
-		"install.error.core.9":     "install: required package %s version %s is unavailable; configure the documented Ubuntu 24.04 repositories and refresh indexes",
+		"install.error.core.9":     "install: required package %s version %s is unavailable for this Ubuntu release; refresh indexes or provision the exact compatible bundle manually",
 		"install.error.core.10":    "install: prerequisite package installation failed: %v",
 		"install.error.core.11":    "install: missing prerequisite %s; repair its package manually",
 		"install.error.core.12":    "install: Docker Compose is unavailable",
@@ -63,15 +63,16 @@ func init() {
 		"install.error.core.22":    "install: loaded module build identity is unknown; inspect loaded and disk srcversion or select explicit external core",
 		"install.error.core.23":    "install: refresh Ubuntu package metadata failed",
 		"install.error.core.24":    "install: Ubuntu repository tooling installation failed",
-		"install.error.core.25":    "install: prepare Amnezia PPA for Ubuntu 24.04 failed",
+		"install.error.core.25":    "install: prepare the Amnezia PPA for this Ubuntu release failed",
 		"install.error.core.26":    "install: refresh Amnezia PPA metadata failed",
 		"install.error.platform.1": "install: Linux is required",
 		"install.error.platform.2": "install: cannot inspect /etc/os-release",
 		"install.error.platform.3": "install: OS identity is incomplete; provision prerequisites manually",
 		"install.error.platform.4": "install: cannot inspect architecture",
-		"install.error.platform.5": "install: supported architectures are amd64 and arm64",
+		"install.error.platform.5": "install: WG-Guard supports amd64/x86_64 only",
 		"install.error.platform.6": "install: cannot inspect running kernel",
 		"install.error.platform.7": "install: no public VPN endpoint detected; supply --public-ip (required behind NAT) or --domain",
+		"install.error.platform.8": "install: WG-Guard requires Ubuntu 24.04 or newer",
 		"install.error.image.1":    "install: runtime image requires a catalogued core bundle",
 		"install.error.image.2":    "install: runtime image requires absolute staging/artifact paths and verified build identity",
 		"install.error.image.3":    "install: runtime staging parent must already exist",
@@ -107,11 +108,11 @@ func init() {
 		"install.error.core.2":     "نصب: روش پیش‌نیازها باید auto یا check باشد",
 		"install.error.core.3":     "نصب: هسته باید با یکی از بسته‌های فهرست سازگار مطابقت داشته باشد",
 		"install.error.core.4":     "نصب: نسخهٔ نصب‌شدهٔ %s با بستهٔ انتخابی متفاوت است؛ آن را حفظ و سازگاری را دستی بررسی کنید",
-		"install.error.core.5":     "نصب: %s موجود نیست؛ پیش‌نیازها را دستی آماده کنید (نصب خودکار فقط برای Ubuntu 24.04 است)",
+		"install.error.core.5":     "نصب: %s موجود نیست؛ آن را دستی آماده کنید یا نصب خودکار Ubuntu 24.04+ amd64 را به‌کار ببرید",
 		"install.error.core.6":     "نصب: Docker موجود افزونهٔ Compose ندارد؛ افزونهٔ سازگار با آن را دستی نصب کنید",
 		"install.error.core.7":     "نصب: به‌روزرسانی فهرست بسته‌های Ubuntu ناموفق بود",
 		"install.error.core.8":     "نصب: نسخه‌های دقیق ابزار و ماژول AWG پس از به‌روزرسانی فهرست موجود نیستند؛ هسته یا سرویس نصب نشد",
-		"install.error.core.9":     "نصب: بستهٔ %s با نسخهٔ %s موجود نیست؛ مخازن مستند Ubuntu 24.04 را تنظیم و فهرست را به‌روز کنید",
+		"install.error.core.9":     "نصب: بستهٔ %s با نسخهٔ %s برای این نسخه Ubuntu موجود نیست؛ فهرست را به‌روز یا بستهٔ دقیق سازگار را دستی آماده کنید",
 		"install.error.core.10":    "نصب: نصب بسته‌های پیش‌نیاز ناموفق بود: %v",
 		"install.error.core.11":    "نصب: پیش‌نیاز %s موجود نیست؛ بستهٔ آن را دستی ترمیم کنید",
 		"install.error.core.12":    "نصب: Docker Compose در دسترس نیست",
@@ -127,15 +128,16 @@ func init() {
 		"install.error.core.22":    "نصب: هویت ساخت ماژول بارگذاری‌شده نامشخص است؛ srcversion حافظه و دیسک را بررسی یا مدیریت خارجی هسته را انتخاب کنید",
 		"install.error.core.23":    "نصب: به‌روزرسانی فهرست بسته‌های Ubuntu ناموفق بود",
 		"install.error.core.24":    "نصب: نصب ابزار مخزن Ubuntu ناموفق بود",
-		"install.error.core.25":    "نصب: آماده‌سازی مخزن Amnezia PPA برای Ubuntu 24.04 ناموفق بود",
+		"install.error.core.25":    "نصب: آماده‌سازی مخزن Amnezia PPA برای این نسخه Ubuntu ناموفق بود",
 		"install.error.core.26":    "نصب: به‌روزرسانی فهرست Amnezia PPA ناموفق بود",
 		"install.error.platform.1": "نصب: Linux لازم است",
 		"install.error.platform.2": "نصب: بررسی /etc/os-release ممکن نیست",
 		"install.error.platform.3": "نصب: هویت سیستم‌عامل ناقص است؛ پیش‌نیازها را دستی آماده کنید",
 		"install.error.platform.4": "نصب: بررسی معماری ممکن نیست",
-		"install.error.platform.5": "نصب: معماری‌های پشتیبانی‌شده amd64 و arm64 هستند",
+		"install.error.platform.5": "نصب: WG-Guard فقط از معماری amd64/x86_64 پشتیبانی می‌کند",
 		"install.error.platform.6": "نصب: بررسی کرنل در حال اجرا ممکن نیست",
 		"install.error.platform.7": "نصب: نشانی عمومی VPN پیدا نشد؛ --public-ip (پشت NAT الزامی است) یا --domain را مشخص کنید",
+		"install.error.platform.8": "نصب: WG-Guard به Ubuntu 24.04 یا جدیدتر نیاز دارد",
 		"install.error.image.1":    "نصب: ساخت ایمیج به یک بستهٔ هسته از فهرست سازگار نیاز دارد",
 		"install.error.image.2":    "نصب: ساخت ایمیج به مسیرهای مطلق آماده‌سازی و فایل و هویت ساخت تأییدشده نیاز دارد",
 		"install.error.image.3":    "نصب: پوشهٔ والد آماده‌سازی ایمیج باید از قبل موجود باشد",

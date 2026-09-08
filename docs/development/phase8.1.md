@@ -1,14 +1,14 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **complete**, 2026-09-08. Implementation and documentation are on
-`codex/installer-lifecycle`. Public release/tag/registry publication remains separately
+State: **complete**, 2026-09-08. Public release/tag/registry publication remains separately
 approval-gated.
 
 ## Objective and placement
 
-Make a Linux VPS installable from GitHub with one command and manageable through the same
-bilingual terminal experience. Phase 8 remains complete; Phase 9 is the next planned phase.
-This phase extended the Phase 7 installer rather than creating a second deployment engine.
+Make a supported Ubuntu VPS installable from GitHub with one command and manageable through the
+same bilingual terminal experience. The product contract is Ubuntu 24.04 or newer on amd64;
+Ubuntu 24.04 is the verified baseline. This phase extended the Phase 7 installer rather than
+creating a second deployment engine.
 
 ## Delivered architecture and behavior
 
@@ -23,8 +23,9 @@ This phase extended the Phase 7 installer rather than creating a second deployme
 - Source builds use a temporary, checksummed Go toolchain when needed. Docker runtime images are
   built from the acquired binary and carry the immutable source/build contract; no mutable image
   tag is trusted for rollback.
-- Preflight classifies OS, architecture, init system, Docker/Compose, tools, exact AWG bundle,
-  ports and TLS prerequisites without blanket upgrades or ownership of foreign resources.
+- Preflight rejects non-Ubuntu, Ubuntu older than 24.04 and non-amd64 hosts before acquisition or
+  deployment, then checks init, Docker/Compose, tools, exact AWG bundle, ports and TLS prerequisites
+  without blanket upgrades or ownership of foreign resources.
   Recommended/latest/explicit AWG choices are limited to the compatibility catalog; unsupported
   arbitrary upstream versions are refused.
 - Domain installs use the existing in-process ACME path. HTTP-01 requires externally reachable
@@ -69,16 +70,14 @@ This phase extended the Phase 7 installer rather than creating a second deployme
 ## Completion and remaining limits
 
 All Phase 8.1 implementation, review, documentation and dedicated Ubuntu 24.04 amd64 gates are
-complete. API/OpenAPI did not change. The branch is ready to merge after owner review; Phase 9
-must not be mixed into this branch.
+complete. API/OpenAPI did not change. Phase 9 implementation is not included.
 
 The following are intentionally not claimed:
 
 - no compatible public release or registry image exists yet, so real published-release install
   remains a Phase 12 gate;
-- arm64 artifacts build and checksum locally, but arm64 runtime behavior is not certified;
-- the full Ubuntu/Debian, amd64/arm64, Docker/native, kernel/userspace matrix and clean-host
-  package-provisioning certification remain Phase 11;
+- later Ubuntu releases require exact-package availability and real-host certification in
+  Phase 11; other distributions and architectures are outside product scope;
 - only the installed catalogued AWG bundle could be reaffirmed; no unsupported version transition
   was invented, and managed userspace lifecycle remains AUD-019 in Phase 11;
 - concurrent `--purge-data` safety remains AUD-040 in Phase 11;
@@ -86,4 +85,4 @@ The following are intentionally not claimed:
 
 Phase 9 consumes the stable lifecycle diagnostics for bounded live metrics and logs. Phase 10
 owns the full web redesign. Phase 11 owns production certification and unresolved operational
-findings. Phase 12 owns signed/checksummed release artifacts and the approval-gated publication.
+findings. Phase 12 owns signed/checksummed amd64 release artifacts and approval-gated publication.

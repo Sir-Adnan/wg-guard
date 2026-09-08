@@ -1,6 +1,6 @@
 # WG-Guard
 
-A lightweight, self-hosted **AmneziaWG** VPN node management panel for Linux VPS servers.
+A lightweight, self-hosted **AmneziaWG** VPN node management panel for Ubuntu VPS servers.
 
 One Go binary. SQLite. A premium bilingual (Persian/English) web panel with full RTL support. A
 stable REST API so Telegram bots, billing systems, and VPN platforms can manage the node
@@ -45,16 +45,43 @@ See [ROADMAP.md](ROADMAP.md) and
 - **Clean deployment** — Docker by default (official image + compose), native systemd supported;
   built-in TLS/ACME, no reverse proxy required
 
-## Installation
+## Quick installation
+
+WG-Guard supports **Ubuntu 24.04 or newer on amd64/x86_64**. Ubuntu 24.04 LTS is the currently
+verified production target. Run this single command as root or as a sudo-capable user:
+
+```bash
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main -- --lang fa'
+```
+
+The command downloads the public [installer](install.sh), builds the exact `main` commit when no
+release is published, installs missing prerequisites, and opens the Persian interactive setup.
+Docker is the default; the wizard handles the domain/IP, ACME TLS, panel port, AWG UDP allocation,
+local owner, compatible core and optional encrypted Telegram backups. Use `--lang en` instead of
+`--lang fa` for English.
+
+For inspection before execution:
+
+```bash
+curl --proto '=https' --tlsv1.2 -fsSLo wg-guard-install.sh https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
+less wg-guard-install.sh
+bash wg-guard-install.sh --commit main -- --lang fa
+```
+
+The source build can take several minutes on a small VPS. Once stable GitHub releases exist, omit
+`--commit main` to select the latest stable checksummed release. An unavailable exact AWG package
+on a newer Ubuntu release fails closed before deployment; it is never replaced with an arbitrary
+upstream version.
+
+## Installation details
 
 The GitHub bootstrap acquires a verified release or builds an explicitly selected commit; it
 does not require a preinstalled Go compiler or a published Docker image. Docker is the default
 deployment mode; native systemd uses the same installation engine and data layout.
 
-**Pre-release:** the new installer is on `codex/installer-lifecycle`, not yet on `main`, and no
-compatible public release is currently available. Select a reviewed, pushed full commit SHA
-from that branch. Do not substitute `main` or assume that downloading a feature-branch bootstrap
-also selects that branch's binary. See the [single-command recipe and inspection-first option](docs/operations/github-install.md).
+No compatible public release is currently available, so the quick command explicitly selects
+`main`. Release, exact-version and exact-commit workflows are documented in the
+[GitHub installation guide](docs/operations/github-install.md).
 
 After installation, use the same bilingual management interface:
 
@@ -85,8 +112,9 @@ The [sequential native lifecycle drill](docs/integrations/fixtures/verify-phase8
 also passed, including restoration of the original node. The
 [final Docker/source drill](docs/integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt)
 then verified strict codeload PAX handling, source install/update, rollback/recovery, coordinated
-restore and fresh ACME while restoring the original node. Published release assets, arm64 runtime
-and the wider OS/backend matrix remain later-phase gates.
+restore and fresh ACME while restoring the original node. Published release assets and validation
+of later Ubuntu versions remain later-phase gates; other distributions and architectures are out
+of product scope.
 
 ## Documentation
 

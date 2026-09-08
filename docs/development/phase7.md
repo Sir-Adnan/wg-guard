@@ -1,10 +1,13 @@
 # Phase 7 — Deployment, installer & production operations
 
-Status: **complete** (2026-08-31). Scope per ROADMAP.md: official multi-arch image, compose,
+Status: **complete** (2026-08-31). Scope per the then-current ROADMAP.md: deployment image, compose,
 interactive installer (Docker default, native secondary), host shim, built-in ACME (ADR-0011),
 update/rollback, uninstall. This file is the verification record; user-facing behavior is
 documented in [../operations/deployment.md](../operations/deployment.md) and
 [../operations/runbook.md](../operations/runbook.md).
+
+The Phase 8.1 support amendment supersedes the original experimental architecture breadth: the
+managed product and release pipeline target Ubuntu 24.04+ on amd64 only.
 
 ## What was built
 
@@ -37,9 +40,9 @@ documented in [../operations/deployment.md](../operations/deployment.md) and
   artifacts (compose, unit, host CLI, boot-persistence file, config, state); data and
   installer-installed packages kept unless `--purge-data` / `--purge-packages`.
 - **`wg-guard status`**: install state, image, container/unit status line, health probe.
-- **Docker image** (`Dockerfile`): multi-stage golang build (CGO_ENABLED=0) onto
+- **Docker image** (`Dockerfile`): multi-stage amd64 Go build (CGO_ENABLED=0) onto
   `ubuntu:24.04` + pinned `amneziawg-tools` from `ppa:amnezia/ppa` + nftables + iproute2;
-  amd64/arm64 buildable; reference compose under `deploy/`.
+  reference compose under `deploy/`.
 - **Module boot persistence + self-heal**: the installer writes
   `/etc/modules-load.d/wg-guard.conf` and, when the DKMS module is registered for a different
   kernel series than the running one (typical after an unattended kernel upgrade), installs
@@ -135,12 +138,10 @@ line printed a garbled future-tense sentence ("uninstalled. will be purged") —
 ## Honest notes
 
 - The official registry image (`wgguard/wg-guard`) is NOT published yet — publishing versioned
-  multi-arch images is the Phase 12 release pipeline. The drills used a locally-built image and
+  amd64 images is the Phase 12 release pipeline. The drills used a locally-built image and
   the documented `--image` override; `update` treats a failed pull as a warning for exactly
   this case.
 - ACME renewal is automatic (autocert) but the 60-day renewal itself was not observed — only
   initial issuance; the cache + challenge path is identical code.
 - Native systemd mode is unit-tested and was exercised on the VPS in a shorter drill (see
-  below); the full Phase 11 matrix (Ubuntu 22.04, Debian 12, arm64) remains open.
-- Debian 12 has no AmneziaWG PPA build; the installer's module step warns and the userspace
-  fallback applies there (untested — Phase 11 matrix).
+  below); later Ubuntu amd64 certification remains open for Phase 11.

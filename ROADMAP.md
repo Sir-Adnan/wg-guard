@@ -20,8 +20,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | ✅ Complete |
 | **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next; design branch preserved |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
-| **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and OS/architecture/deployment compatibility matrix | ⬜ Planned |
-| **12 — Release candidate** | Release pipeline, checksummed/multi-arch artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
+| **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ⬜ Planned |
+| **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
 
 ## Phase gates
 
@@ -67,7 +67,7 @@ Detailed gate: [docs/development/phase10.md](docs/development/phase10.md).
 ### Phase 11 — Production certification
 
 Feature-freeze the product, close material security/audit findings, and test the exact release
-candidate under realistic load, networking, recovery, OS, architecture, backend, and deployment
+candidate under realistic load, networking, recovery, supported-Ubuntu, backend, and deployment
 conditions. Unsupported and unavailable matrix cells must be labeled honestly, never inferred.
 Detailed gate: [docs/development/phase11.md](docs/development/phase11.md).
 

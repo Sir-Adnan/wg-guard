@@ -35,13 +35,13 @@ make tidy         # go mod tidy
 
 - `gofmt` check, `go vet`, unit tests + race tests on Linux — against both the minimum
   supported toolchain (`1.25.x`) and `stable`.
-- Build matrix: `CGO_ENABLED=0` for linux/amd64 and linux/arm64.
+- Production build: `CGO_ENABLED=0` for linux/amd64.
 - `govulncheck` (tool version pinned in the workflow) scans all packages for reachable
   vulnerabilities in dependencies.
 - Release pipeline (Phase 12): checksummed binaries + provenance notes; no signing secrets in
   the repository.
 - Phase 8.1 local candidate/acquisition contract: `bash scripts/build-artifacts.sh --version
-  VERSION --output NEW_DIRECTORY` builds immutable local HEAD for Linux amd64/arm64 with
+  VERSION --output NEW_DIRECTORY` builds immutable local HEAD for Linux amd64 with
   checksums; it never publishes. Linux CI runs `bash scripts/test-bootstrap.sh`. See
   [GitHub acquisition](../operations/github-install.md) for commands and verification limits.
 - Linux CI also runs `python3 scripts/test-phase8.1-synthetic-backup.py`, the credential-free

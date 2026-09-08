@@ -4,7 +4,7 @@ Status: **planned; not implemented**. Starts only after Phase 11 certification c
 
 Phase 8.1 establishes the GitHub acquisition contract and local checksummed candidate builder
 needed by the installer. This phase consumes those foundations, repeats exact-candidate tests,
-and owns the final multi-arch publication workflow, provenance and freeze.
+and owns the final amd64 publication workflow, provenance and freeze.
 
 ## Objective
 
@@ -18,8 +18,8 @@ public publication pending explicit project-owner approval.
   compatibility matrix, API/OpenAPI/examples, screenshots, licensing and third-party notices.
 - Final repository hygiene, history/secret/artifact checks, `.gitignore`, generated-file policy,
   toolchain consistency and concise `AGENTS.md` review.
-- Versioned linux/amd64 and linux/arm64 binaries, checksums, release metadata, multi-arch
-  container build, provenance/SBOM and reproducibility evidence where practical.
+- Versioned linux/amd64 binary, checksums, release metadata, amd64 container build,
+  provenance/SBOM and reproducibility evidence where practical.
 - Manual approval-gated publication workflow; no signing or publication secrets in the repo.
 - Install and upgrade both Docker and native modes from the exact candidate artifacts.
 - Final browser/API/config/QR/metrics/logging/recovery/deployment regression and CI verification.
@@ -29,7 +29,7 @@ public publication pending explicit project-owner approval.
 
 1. Freeze API, data migration, documentation and compatibility claims.
 2. Complete repository, license, secret, dependency and generated-artifact hygiene.
-3. Build/checksum/inspect multi-architecture candidate artifacts from a clean revision.
+3. Build/checksum/inspect amd64 candidate artifacts from a clean revision.
 4. Exercise candidate install, upgrade, rollback and smoke workflows.
 5. Run the final complete verification and CI suite; review the final diff/history.
 6. Push candidate commits, prepare the publication action, issue the readiness report, and stop.
@@ -37,8 +37,8 @@ public publication pending explicit project-owner approval.
 ## Verification
 
 - Clean-clone deterministic builds where practical; checksum and archive-content verification.
-- linux/amd64 and linux/arm64 binary execution/package checks; multi-arch manifest inspection via
-  a local/test registry or CI artifact without final public publication.
+- linux/amd64 binary execution/package checks and amd64 image inspection via a local/test registry
+  or CI artifact without final public publication.
 - Docker/native install, health, upgrade, rollback and data-preservation smoke on real Ubuntu
   24.04 using the exact candidate artifacts.
 - Full formatting, vet, test, race, integration, vulnerability, asset, benchmark, API/OpenAPI,

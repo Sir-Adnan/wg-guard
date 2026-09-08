@@ -13,10 +13,10 @@ implementation is included here. See [phase8.1.md](phase8.1.md) for the gate and
 
 | Item | Status |
 |---|---|
-| Bootstrap, release/commit selection and artifact identity | implemented, reviewed and tested with unit/shell fixtures; local amd64/arm64 artifacts build and checksum. [Real acquisition evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) covers source build/help and empty-release refusal. `d30894a` adds strict commit-bound PAX metadata handling; its real source install/update and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) passed. arm64 runtime remains unverified |
+| Bootstrap, release/commit selection and artifact identity | implemented, reviewed and tested with unit/shell fixtures; the supported linux/amd64 artifact builds and checksums. [Real acquisition evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) covers source build/help and empty-release refusal. `d30894a` adds strict commit-bound PAX metadata handling; its real source install/update and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) passed. Non-amd64 targets are outside the product contract |
 | Terminal installer and management UX | implemented, reviewed and automated-test verified. [Final VPS acceptance](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed 17 PTY and three nonTTY cases across the supported terminal modes |
 | Local owner before public listener | atomic owner creation, protected stdin/file transport and existing-owner preservation are unit tested; owner-before-start passed in real Docker and native installs |
-| OS prerequisites and compatible AWG selection | implemented and reviewed; [installed exact bundle](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt), [package metadata](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt) and [runtime image identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on Ubuntu 24.04. Broader clean-host OS/arch provisioning remains Phase 11 |
+| OS prerequisites and compatible AWG selection | implemented and reviewed for Ubuntu 24.04+ amd64; [installed exact bundle](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt), [package metadata](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt) and [runtime image identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on Ubuntu 24.04 amd64. Later supported Ubuntu releases remain a Phase 11 certification cell and fail closed when the exact pinned AWG bundle is unavailable |
 | Transactional install/update/rollback and safe uninstall | implemented, review/failure-injection verified and passed real Docker/native install, update, two-way rollback, failed-start recovery and data-preserving uninstall |
 | Catalogued core maintenance | lock/journal/impact confirmation, retry and pending-reboot behavior are tested. The installed recommended bundle was reaffirmed; no unsupported version transition is claimed |
 | Bounded restore and cross-contract recovery | streaming preview/approval, mandatory hashes, DB/key-pair ownership and fail-closed recovery are implemented and reviewed; coordinated restore and legacy-schema recovery passed on the VPS |
@@ -29,8 +29,8 @@ updated if implementation changes their contract. Full matrix certification rema
 Final ownership/recovery correction `0578dcc` and PAX acquisition correction `d30894a` passed
 their scoped reviews, targeted regressions and affected real-host checks. The final Docker drill
 also preserved the original deployment through intentionally failing source/start candidates.
-No REST/OpenAPI representation changed. Full release artifacts, arm64 runtime and the complete
-compatibility/security/load matrix remain Phases 11–12.
+No REST/OpenAPI representation changed. Final amd64 release artifacts and the complete
+supported-Ubuntu/security/load matrix remain Phases 11–12.
 
 ## Phase 5 — Web UI (complete, 2026-08-31; two refinement passes same day)
 
@@ -226,7 +226,7 @@ Deferred within Phase 2 scope (honest notes):
 
 - The Phase 2 kernel link path was initially unit-tested only because WSL2 cannot load the
   module. It was subsequently verified on the Ubuntu 24.04 VPS, including netlink dump and
-  advanced setconf behavior; the broader OS/architecture matrix belongs to Phase 11.
+  advanced setconf behavior; later Ubuntu amd64 certification belongs to Phase 11.
 - **Userspace daemon supervision** (spawn/adopt/monitor/stop `amneziawg-go`, restart behavior)
   did not land with serve/installer. The Phase 8 audit confirmed that `backend_mode` is currently
   metadata: boot/reconciliation always use the kernel-link path and node status echoes intent,
@@ -353,7 +353,7 @@ plus the interrupted-update recovery command.
 | `wg-guard update`: pre-upgrade backup in the owning environment (version-tolerant retry for images predating `-reason`), compose-as-source-of-truth image switch + pull (best-effort for local images) + recreate, or staged binary swap with `<bin>.pre-update` kept; health-checked **automatic rollback**; `--rollback` re-deploys the state-recorded artifact after an interrupted update | ✅ implemented + unit tested (update/rollback flows incl. unhealthy rollback paths); **verified live**: docker update recreated the container on the new tag; a broken image triggered automatic rollback; a deliberately killed update was recovered with `--rollback`; native `--binary` swap healthy |
 | `wg-guard uninstall`: `--dry-run` plan, stops the node, removes only state-recorded artifacts (compose/unit/host CLI/modules-load entry/config/state); data + installer-installed packages kept unless `--purge-data`/`--purge-packages` | ✅ implemented + unit tested (dry-run non-mutation, kept/purged data); **verified in both modes on the real VPS** |
 | `wg-guard status`: install state, image, container/unit status line (via new capturing `Host.Output`), mode-aware health probe | ✅ implemented + unit tested; **verified on the real VPS** (docker + native) |
-| Docker image + reference compose: multi-stage CGO_ENABLED=0 build onto ubuntu:24.04 + pinned amneziawg-tools (ppa:amnezia/ppa) + nftables + iproute2; `deploy/compose.yaml` reference; installer-generated compose adds a TLS-mode-aware healthcheck | ✅ built and run on the real VPS (amd64); **registry publication of versioned multi-arch tags is the Phase 12 release pipeline** — `--image` override is the documented path until then |
+| Docker image + reference compose: multi-stage CGO_ENABLED=0 amd64 build onto ubuntu:24.04 + pinned amneziawg-tools (ppa:amnezia/ppa) + nftables + iproute2; `deploy/compose.yaml` reference; installer-generated compose adds a TLS-mode-aware healthcheck | ✅ built and run on the real VPS (amd64); **registry publication of versioned amd64 tags is the Phase 12 release pipeline** — `--image` override is the documented path until then |
 | Kernel module lifecycle: `/etc/modules-load.d/wg-guard.conf` boot persistence; DKMS recovery ladder when the module is registered for a different kernel series (headers for the running kernel → `dkms autoinstall` → `depmod -a` → modprobe) | ✅ implemented + unit tested; **the reboot + kernel-upgrade scenario verified live** (module auto-loaded at boot after the rebuild) |
 | i18n raw-key leak class eliminated: template-vs-catalog audit tests walk every embedded template (constant `.T` keys must resolve in BOTH locales) + lifecycle status labels pinned | ✅ implemented + unit tested (the audit test fails CI on any future leak); all 9 leaked keys fixed in fa+en |
 
@@ -365,9 +365,9 @@ Honest notes within Phase 7 scope:
   window; renewal exercises the same cache + challenge path.
 - The ACME redirect fallback intentionally redirects to the configured domain (not the request
   Host) — plain-HTTP probes with forged Host headers cannot be bounced to third-party origins.
-- Debian 12 has no AmneziaWG PPA build. The installer warns, but automatic userspace lifecycle
-  is not implemented; Debian support therefore remains unverified and blocked on Phase 11
-  AUD-019 rather than silently falling back.
+- The managed installer rejects non-Ubuntu hosts, Ubuntu older than 24.04 and non-amd64
+  architectures before acquisition or deployment. Supported later Ubuntu releases use their host
+  suite and require the exact pinned AWG packages; missing packages fail closed.
 - Browser QA ran through the live ACME deployment (onboarding → dashboard → settings → ops
   screens; fa/en × light/dark × 390/1440/2560): zero horizontal overflow, no raw i18n keys on
   any route. At 2560 px the screenshot pipeline returned stale composited frames, so ultrawide
@@ -405,13 +405,13 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | next; design branch preserved | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
-| 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |
-| 12 — Release candidate | planned; not implemented | Checksummed/multi-arch artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
+| 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
+| 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 
 ## Requires real VPS or client verification (carried forward)
 
 - Phase 9: Docker/native operational logs, retention, live metrics under real traffic.
-- Phase 11: nftables/NAT/firewall coexistence, 1000-shaped-peer tc, Ubuntu 22.04/24.04,
-  Debian 12, amd64/arm64, kernel/userspace, Docker/native, recovery and TLS drills.
+- Phase 11: nftables/NAT/firewall coexistence, 1000-shaped-peer tc, Ubuntu 24.04 and later
+  supported Ubuntu releases on amd64, kernel/userspace, Docker/native, recovery and TLS drills.
 - Phase 12: installation and upgrade from the exact release-candidate artifacts. Public release
   and registry publication remain owner-approval gated.

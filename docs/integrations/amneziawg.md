@@ -17,11 +17,12 @@ behavior is not listed here as verified, WG-Guard code must treat it as unverifi
 | Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
 | Verification environment (kernel) | dedicated VPS, Ubuntu **24.04 LTS** (noble), KVM, kernel `6.8.0-137-generic`, x86_64; PPA packages natively | 2026-08-31 |
 
-Package policy: the automatic installer adapter is limited to Ubuntu 24.04 (`noble`) with
-systemd, on amd64/arm64. It never rewrites another Ubuntu suite or injects an Ubuntu PPA into
-Debian. The historical WSL2 Ubuntu 26.04 source/runtime verification used a local noble-suite
-workaround; that is not an installer policy or evidence of native package support on 26.04,
-22.04 or Debian 12. Those compatibility cells remain unverified.
+Package policy: the installer accepts Ubuntu 24.04 or newer with systemd on amd64/x86_64 only.
+It uses the host Ubuntu suite for `ppa:amnezia/ppa` and requires both exact pinned package
+versions before any core installation. Ubuntu 24.04 (`noble`) is the verified production cell;
+a later Ubuntu release fails closed if its PPA suite does not provide the exact bundle. It never
+injects an Ubuntu PPA into Debian. The historical WSL2 Ubuntu 26.04 source/runtime verification
+used a local noble-suite workaround and is not native package-installation evidence.
 
 The Phase 8.1 catalog currently contains one bundle, `awg-2026-08`; `recommended` and
 `latest-compatible` both resolve to it. The installer checks availability of both exact package
@@ -288,15 +289,15 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
 | **Peer-only syncconf interface preservation** | VPS: reproduce kernel key clearing; fixed backend snapshot/apply/post-verify; repeat full client gate | interface private key and all live interface directives remain byte-identical while peers replace; recommended/randomized handshakes and traffic pass | ✅ **verified (VPS kernel, 2026-09-05)** |
 | **Phase 8 canonical config/QR/client gate** | Exact commit-stamped Ubuntu 24.04 harness run | normalized API/DB/runtime/config/decoded-QR equality; recommended/randomized kernel traffic; recommended userspace traffic; secret scan and cleanup pass | ✅ **verified** — [`fixtures/verify-phase8-vps-2026-09-05.txt`](fixtures/verify-phase8-vps-2026-09-05.txt) |
-| PPA on Ubuntu 22.04 / Debian 12 | requires real VPS matrix | — | ⚠️ Phase 11 |
+| Installer on later Ubuntu amd64 releases | exact package availability plus real-host certification | — | ⚠️ Phase 11 |
 
 Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
 [`fixtures/verify-wsl2-runtime.sh`](fixtures/verify-wsl2-runtime.sh).
 
 ## Known upstream issues respected by design
 
-- arm64 userspace H4 corruption (amneziawg-go #110) — userspace fallback is not the default;
-  arm64 verification is part of the Phase 11 matrix.
+- arm64 userspace H4 corruption (amneziawg-go #110) remains an upstream fact; arm64 is outside
+  WG-Guard's product support contract.
 - iOS rejects I1–I5 configs at startup (#115) — I1–I5 is opt-in per profile with client warnings.
 - `RandomTrailers` panic history (#178) — default `off` (verified default in `showconf` fixture).
 - IPv6-disabled hosts resetting the listen port (#148) — WG-Guard always sets an explicit

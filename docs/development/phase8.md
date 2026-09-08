@@ -28,7 +28,7 @@ Deferred:
 - live monitoring and operational logs (Phase 9);
 - wholesale design-system/page migration and copy audit (Phase 10), except UI fields directly
   required for correct Phase 8 behavior;
-- broad OS/architecture/load/recovery certification (Phase 11);
+- supported-Ubuntu/backend/load/recovery certification (Phase 11);
 - public artifacts and release pipeline (Phase 12).
 
 ## Stage 8.0 — Baseline audit and reproduction

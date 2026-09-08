@@ -32,17 +32,13 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux]
-        goarch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: stable
       - name: Build
-        run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -o wg-guard ./cmd/wg-guard
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o wg-guard ./cmd/wg-guard
 
   vuln:
     runs-on: ubuntu-latest

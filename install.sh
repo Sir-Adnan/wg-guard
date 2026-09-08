@@ -11,6 +11,7 @@ while (($#)); do
     --help|-h)
       printf '%s\n' 'WG-Guard GitHub bootstrap' \
         'Usage: bash install.sh [--release latest|TAG | --commit main|FULL_SHA | --list-releases] [-- INSTALL_FLAGS]' \
+        'Platform: Ubuntu 24.04 or newer on amd64/x86_64.' \
         'Default: latest published stable release. Development source is never selected implicitly.' \
         'Interactive default opens management (fresh nodes enter setup); --lang fa|en is supported.' \
         'Install flags (for example --yes --mode native) are forwarded unchanged.'
@@ -24,7 +25,21 @@ while (($#)); do
   esac
 done
 [[ $(uname -s) == Linux ]] || { printf 'Only Linux is supported\n' >&2; exit 2; }
-case $(uname -m) in x86_64|amd64) arch=amd64;; aarch64|arm64) arch=arm64;; *) printf 'Unsupported architecture\n' >&2; exit 2;; esac
+os_id=
+os_version=
+[[ -r /etc/os-release ]] || { printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2; }
+while IFS='=' read -r key value; do
+  value=${value%$'\r'}
+  value=${value#\"}; value=${value%\"}
+  value=${value#\'}; value=${value%\'}
+  case "$key" in ID) os_id=$value;; VERSION_ID) os_version=$value;; esac
+done < /etc/os-release
+if [[ $os_id != ubuntu || ! $os_version =~ ^([0-9]+)\.([0-9]+)$ ]]; then
+  printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2
+fi
+os_year=$((10#${BASH_REMATCH[1]})); os_month=$((10#${BASH_REMATCH[2]}))
+((os_year > 24 || os_year == 24 && os_month >= 4)) || { printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2; }
+case $(uname -m) in x86_64|amd64) arch=amd64;; *) printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2;; esac
 sudo_cmd=()
 if [[ $(id -u) != 0 ]]; then
   command -v sudo >/dev/null || { printf 'Run as root or install sudo\n' >&2; exit 2; }

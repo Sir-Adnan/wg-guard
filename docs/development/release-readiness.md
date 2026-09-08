@@ -31,7 +31,7 @@ implementation does not cross the active phase boundary.
 | H1–H4 and other range semantics | 8 | Lossless migration, validation, API, setconf, dump, reconcile, and backup round trips |
 | Recommended and randomized profiles | 8 | Relationship-aware generation, property tests, runtime acceptance, client use |
 | GitHub bootstrap, release/commit selection, terminal installer/manager | 8.1 | Checksummed acquisition, exact source identity, width/locale QA, real installation |
-| Prerequisites, compatible AWG bundle selection, domain/IP and TLS setup | 8.1; broad matrix in 11 | Explicit supported combinations; real kernel/tools and certificate evidence |
+| Prerequisites, compatible AWG bundle selection, domain/IP and TLS setup | 8.1; supported-Ubuntu matrix in 11 | Explicit supported combinations; real kernel/tools and certificate evidence |
 | CLI backup/Telegram schedules and transactional lifecycle | 8.1; certification repeated in 11 | Failure injection, bounded restore, real update/rollback/backup/restore |
 | Live CPU/RAM/network/peer/node monitoring | 9; visual finish in 10 | Real-load graphs, hidden-tab pause, measured sampler overhead |
 | Unified CLI operational logs | 9 | Docker/native failure drills, follow/cancel behavior, no secret disclosure |
@@ -42,11 +42,11 @@ implementation does not cross the active phase boundary.
 | fa/en localization and RTL/LTR | 10 | Catalog parity, no raw keys, copy review, correct technical-data direction |
 | Token scope, admin permission, webhook event wording | 10 | Localized human labels/descriptions; stable machine identifiers retained |
 | Security, race, soak, resource and performance hardening | 11 | Recorded tests/benchmarks with no unresolved critical/high finding |
-| OS/architecture/backend/deployment matrix | 11 | Real-host evidence per supported cell; unverified cells not advertised |
+| Supported-Ubuntu/backend/deployment matrix | 11 | Real-host evidence per supported cell; unverified later Ubuntu releases not advertised |
 | Backup/update/rollback/recovery/ACME drills | 11 | Repeatable evidence using the feature-frozen candidate |
 | API/OpenAPI synchronization | Every affected phase; 12 final | Bidirectional route/schema coverage green |
 | Documentation and repository hygiene | Every phase; 12 final | Living docs agree; no secrets or inappropriate artifacts tracked |
-| Release artifacts and publication workflow | Acquisition contract/dry-run artifacts in 8.1; final workflow/freeze in 12 | Checksums/multi-arch metadata verified; publication remains manually gated |
+| Release artifacts and publication workflow | Acquisition contract/dry-run artifacts in 8.1; final workflow/freeze in 12 | Checksums and amd64 metadata verified; publication remains manually gated |
 
 ## Release blockers
 
@@ -59,7 +59,7 @@ implementation does not cross the active phase boundary.
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
-| RB-008 | Versioned checksummed artifacts and official multi-arch workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
+| RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
@@ -104,7 +104,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
 | AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
 | AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`, review closed after `fc2c537`; Docker/native rollback and failed-start recovery passed on the dedicated VPS |
-| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | M2 implemented, unit tested and reviewed; exact installed-bundle/runtime-image readiness passed on Ubuntu 24.04. Clean-host and broader OS/arch package provisioning remain Phase 11 |
+| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | M2 implemented, unit tested and reviewed; exact installed-bundle/runtime-image readiness passed on Ubuntu 24.04 amd64. The installer now rejects unsupported OS/architecture combinations early; later supported Ubuntu amd64 package provisioning remains Phase 11 |
 | AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and reviewed; terminal and real domain/ACME deployment gates passed |
 | AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | M2 installer parsing and M5 missing-flag/signed-chat/interval validation regressions pass; M5 independent review closed |
 | AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; review closed; safe uninstall and node recovery passed in both VPS deployment modes |
@@ -130,14 +130,10 @@ The Phase 11 matrix starts from the honest state below. “Planned” is not sup
 | OS | Arch | Docker | Native | Kernel backend | Userspace fallback | State |
 |---|---|---|---|---|---|---|
 | Ubuntu 24.04 | amd64 | drill verified | drill verified | config/client traffic verified | manual-daemon config/client traffic verified; product lifecycle planned | partial |
-| Ubuntu 24.04 | arm64 | planned | planned | planned | planned | unverified |
-| Ubuntu 22.04 | amd64 | planned | planned | planned | planned | unverified |
-| Ubuntu 22.04 | arm64 | planned | planned | planned | planned | unverified |
-| Debian 12 | amd64 | planned | planned | unavailable/unknown | planned | unverified |
-| Debian 12 | arm64 | planned | planned | unavailable/unknown | planned | unverified |
+| Ubuntu >24.04 | amd64 | planned per release | planned per release | planned per release | planned | unverified |
 
-Containers, cross-compilation, and emulation can validate packaging but do not upgrade a
-real-host kernel or architecture cell to verified.
+Containers and emulation can validate packaging but do not upgrade a real-host Ubuntu release
+or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are out of scope.
 
 ## Discovery workflow
 

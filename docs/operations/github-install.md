@@ -9,7 +9,15 @@ nodes expose [terminal management](terminal-management.md) through `sudo wg-guar
 
 ## Commands
 
-Download the bootstrap from the intended reviewed ref, inspect it, then run it:
+Public interactive installation from `main` (Persian):
+
+```bash
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main -- --lang fa'
+```
+
+This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
+installer input rather than consuming script bytes as answers. For stricter inspect-before-run
+operation, download the entry point first:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -fsSLo install.sh \
@@ -22,24 +30,22 @@ bash install.sh --commit main -- --mode native
 bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --mode native --lang fa
 ```
 
-The tag above is an example, not a claim that a release exists. Before this feature is merged,
-replace the bootstrap URL's `main` with the reviewed `codex/installer-lifecycle` branch or its
-full commit SHA. Selecting `main` for the binary always means the repository's actual main
-branch; downloading a bootstrap from another ref does not change that selection.
+The tag above is an example, not a claim that a release exists. Selecting `main` for the binary
+always resolves GitHub's actual `main` branch to an immutable SHA before acquisition.
 
-For a convenient single command, supply a reviewed full SHA containing the local-owner and
-coordinated-restore installer capabilities. This downloads into a uniquely created private temporary file, propagates
-download/install failure and cleans up on exit; it does not pipe a failed download into a shell:
+For an immutable audit run, supply a reviewed full SHA containing the local-owner and
+coordinated-restore installer capabilities. This downloads into a uniquely created private
+temporary file, propagates failure and cleans up on exit:
 
 ```bash
 bash -c 'set -euo pipefail; umask 077; ref="$1"; script=$(mktemp /tmp/wg-guard-bootstrap.XXXXXXXX); trap '\''rm -f -- "$script"'\'' EXIT; curl --proto "=https" --tlsv1.2 -fsS --connect-timeout 15 --max-time 120 -o "$script" "https://raw.githubusercontent.com/Sir-Adnan/wg-guard/$ref/install.sh"; bash "$script" --commit "$ref" -- --lang en' -- REVIEWED_FULL_40_CHARACTER_SHA
 ```
 
-Before a compatible public release exists, explicitly select the reviewed development SHA;
-the SHA must have been pushed to GitHub. A local unpushed commit cannot be acquired remotely.
-`--commit main` is usable only after main contains this capability. Fresh noninteractive setup
-also needs `--owner-password-file /root/private-file` (0600), optionally `--owner-username`;
-see [owner setup and terminal constraints](terminal-management.md).
+Before a compatible public release exists, use `--commit main` for the current development head
+or select an immutable reviewed SHA that has been pushed to GitHub. A local unpushed commit cannot
+be acquired remotely. Fresh noninteractive setup also needs
+`--owner-password-file /root/private-file` (0600), optionally `--owner-username`; see
+[owner setup and terminal constraints](terminal-management.md).
 
 `--release latest` is the default. The catalog is one bounded page of 30 GitHub releases; drafts,
 prereleases and unpublished entries are excluded. Latest chooses the first stable entry on
@@ -63,14 +69,16 @@ Initial acquisition diagnostics are English; the Go wizard accepts `--lang fa|en
 
 ## Build prerequisites and cost
 
-Supported acquisition targets are Linux amd64 and arm64. Root or `sudo` is required to perform
-installation. Acquisition/build run as the invoking user; privilege elevation occurs for missing
-packages and the acquired management/install command. The script checks curl, CA certificates, Python 3,
+The installer accepts Ubuntu 24.04 or newer on amd64/x86_64 only. Ubuntu 24.04 is the currently
+verified target; later Ubuntu releases must expose the exact catalogued packages or installation
+fails before deployment. Root or `sudo` is required to perform installation. Acquisition/build
+run as the invoking user; privilege elevation occurs for missing packages and the acquired
+management/install command. The script checks curl, CA certificates, Python 3,
 tar and sha256sum. On apt systems it installs only missing packages (`curl`, `ca-certificates`,
 `python3`, `tar`, `coreutils`) after refreshing indexes; it never performs a blanket upgrade.
-Other systems must provision missing tools manually. Python uses only its standard library and
-is an acquisition/build prerequisite, not a panel runtime dependency. Installed missing packages
-are retained; downloaded sources, caches and temporary compiler are removed on exit.
+Python uses only its standard library and is an acquisition/build prerequisite, not a panel
+runtime dependency. Installed missing packages are retained; downloaded sources, caches and
+temporary compiler are removed on exit.
 
 An existing Go compiler is accepted only when its version meets the selected source's `go`
 directive. Otherwise the bootstrap/package select a compatible stable Linux compiler from
@@ -96,7 +104,7 @@ promotion. SIGKILL/power loss can leave an owned temporary directory for manual 
 Production endpoints are limited to `Sir-Adnan/wg-guard`; explicit Go client endpoint overrides
 are trust configuration for tests or deliberately chosen HTTPS mirrors. GitHub responses, JSON,
 asset names, exact download URLs, commit SHAs, checksum lines and archive paths are validated.
-Release assets are `wg-guard_linux_amd64`, `wg-guard_linux_arm64`, and `checksums.txt`, with one
+Release assets are `wg-guard_linux_amd64` and `checksums.txt`, with one
 unambiguous SHA-256 entry for the selected platform. Tags containing paths, whitespace or shell
 syntax are unsupported. The bootstrap disables curl's personal configuration file.
 
@@ -142,7 +150,7 @@ cd /tmp/wg-guard-candidate
 sha256sum --check checksums.txt
 ```
 
-The builder archives immutable local `HEAD`, cross-compiles both Linux targets, stamps the full
+The builder archives immutable local `HEAD`, builds the Linux amd64 target, stamps the full
 commit/version, and writes the exact asset names above. Uncommitted work is excluded. The output
 directory must not already exist. This creates no public tag, release, registry image or upload.
 
@@ -151,7 +159,7 @@ selections, integrity/size/cancellation failures, unsafe archives, toolchain che
 actual minimal source compilation. `bash scripts/test-bootstrap.sh` runs fake external utilities
 and real script logic for release/list/source/toolchain paths, integrity refusal, piped input,
 cleanup and candidate checksums. Linux CI runs those fixtures. Fixtures and cross-compilation do
-not prove clean-host package provisioning, arm64 execution or published-release installation.
+not prove clean-host package provisioning on every later Ubuntu release or published-release installation.
 Separate real Docker/native evidence is linked from [Phase 8.1](../development/phase8.1.md).
 
 The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly

@@ -23,13 +23,11 @@ trap 'rm -rf -- "$stage"' EXIT
 mkdir "$stage/source" "$stage/assets"
 git -C "$root" archive --format=tar "$commit" | tar -x -C "$stage/source"
 flags="-s -w -X github.com/Sir-Adnan/wg-guard/internal/version.Version=$version -X github.com/Sir-Adnan/wg-guard/internal/version.Commit=$commit"
-for arch in amd64 arm64; do
-  CGO_ENABLED=0 GOOS=linux GOARCH=$arch GOENV=off GOWORK=off GOFLAGS= GOSUMDB=sum.golang.org \
-    GONOSUMDB= GOPRIVATE= GONOPROXY= GOPROXY=https://proxy.golang.org,direct \
-    go -C "$stage/source" build -trimpath -buildvcs=false -mod=readonly -ldflags "$flags" \
-      -o "$stage/assets/wg-guard_linux_$arch" ./cmd/wg-guard
-done
-(cd "$stage/assets" && sha256sum wg-guard_linux_amd64 wg-guard_linux_arm64 > checksums.txt)
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOENV=off GOWORK=off GOFLAGS= GOSUMDB=sum.golang.org \
+  GONOSUMDB= GOPRIVATE= GONOPROXY= GOPROXY=https://proxy.golang.org,direct \
+  go -C "$stage/source" build -trimpath -buildvcs=false -mod=readonly -ldflags "$flags" \
+    -o "$stage/assets/wg-guard_linux_amd64" ./cmd/wg-guard
+(cd "$stage/assets" && sha256sum wg-guard_linux_amd64 > checksums.txt)
 mkdir -p "$(dirname "$output")"
 mkdir "$output"
 cp "$stage/assets/"* "$output/"

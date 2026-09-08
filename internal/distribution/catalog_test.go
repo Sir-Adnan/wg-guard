@@ -74,6 +74,14 @@ func TestCatalogHTTPBounds(t *testing.T) {
 	}
 }
 
+func TestAcquireRejectsUnsupportedProductArchitecture(t *testing.T) {
+	c := NewClient(nil, Options{Arch: "arm64"})
+	_, err := c.Acquire(context.Background(), Selection{}, t.TempDir())
+	if err == nil || err.Error() != "distribution: unsupported architecture" {
+		t.Fatalf("Acquire() error = %v, want unsupported architecture", err)
+	}
+}
+
 func TestCatalogBoundAndExactRoute(t *testing.T) {
 	c := fixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/commits/") {

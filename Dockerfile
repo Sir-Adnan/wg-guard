@@ -6,9 +6,9 @@
 # CAP_NET_ADMIN, so links, firewall rules and shaping act on the host's own
 # network namespace with zero hot-path overhead.
 #
-# Build (amd64/arm64):
+# Build (supported amd64 target):
 #   docker build -t wgguard/wg-guard:latest .
-#   docker buildx build --platform linux/amd64,linux/arm64 -t wgguard/wg-guard:latest --push .
+#   docker buildx build --platform linux/amd64 -t wgguard/wg-guard:latest --push .
 
 FROM golang:1.27-alpine AS build
 WORKDIR /src

@@ -20,7 +20,7 @@ const maxSource int64 = 128 << 20
 func (c *Client) Acquire(ctx context.Context, s Selection, dir string) (build Build, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
-	if c.options.Arch != "amd64" && c.options.Arch != "arm64" {
+	if c.options.Arch != "amd64" {
 		return Build{}, fmt.Errorf("distribution: unsupported architecture")
 	}
 	if !filepath.IsAbs(dir) {

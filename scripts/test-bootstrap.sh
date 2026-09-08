@@ -45,7 +45,7 @@ elif url.endswith('wg-guard_linux_amd64'):data=b'x'*(p/'binary').stat().st_size 
 else:sys.exit(22)
 out.write_bytes(data);sys.stdout.write('200')
 ''')
-(p/'bin'/'uname').write_text('#!/bin/sh\ncase "$1" in -s) echo Linux;; -m) echo x86_64;; esac\n')
+(p/'bin'/'uname').write_text('#!/bin/sh\ncase "$1" in -s) echo Linux;; -m) echo "${FIXTURE_ARCH:-x86_64}";; esac\n')
 (p/'bin'/'id').write_text('#!/bin/sh\nif test -e "$FIXTURE_ROOT/nonroot"; then echo 1000; else echo 0; fi\n')
 (p/'bin'/'sudo').write_text('#!/bin/sh\nprintf "used\\n" > "$FIXTURE_ROOT/sudo-used"\nexec "$@"\n')
 (p/'bin'/'git').write_text('''#!/usr/bin/env python3
@@ -60,6 +60,23 @@ for f in (p/'bin').iterdir():f.chmod(0o755)
 PY
 export PATH="$fixture/bin:$PATH"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+request_count() { if [[ -f $fixture/requests ]]; then wc -l < "$fixture/requests"; else printf '0\n'; fi; }
+python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" <<'PY'
+import pathlib,sys
+source,target,os_release=map(pathlib.Path,sys.argv[1:])
+target.write_text(source.read_text().replace('/etc/os-release',str(os_release)))
+target.chmod(0o755)
+PY
+printf 'ID=debian\nVERSION_ID=24.04\n' > "$fixture/os-release"
+before=$(request_count)
+if bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'non-Ubuntu host accepted'; fi
+test "$(request_count)" = "$before" || fail 'unsupported OS performed acquisition'
+printf 'ID=ubuntu\nVERSION_ID=23.10\n' > "$fixture/os-release"
+if bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'old Ubuntu host accepted'; fi
+test "$(request_count)" = "$before" || fail 'old Ubuntu performed acquisition'
+printf 'ID=ubuntu\nVERSION_ID=24.04\n' > "$fixture/os-release"
+if FIXTURE_ARCH=aarch64 bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'arm64 host accepted'; fi
+test "$(request_count)" = "$before" || fail 'arm64 performed acquisition'
 bash "$root/install.sh" --help </dev/null >/dev/null
 test ! -e "$fixture/requests" || fail 'help performed acquisition'
 setsid --wait bash "$root/install.sh" --release v1 </dev/null
@@ -111,5 +128,5 @@ bash "$root/install.sh" --release v1 --yes </dev/null
 test -s "$fixture/sudo-used" || fail 'non-root installation was not elevated'
 bash "$root/scripts/build-artifacts.sh" --version v1 --output "$fixture/artifacts"
 (cd "$fixture/artifacts" && sha256sum --check checksums.txt)
-test -f "$fixture/artifacts/wg-guard_linux_arm64" || fail 'arm64 asset missing'
+test ! -e "$fixture/artifacts/wg-guard_linux_arm64" || fail 'unsupported arm64 asset created'
 printf 'bootstrap fixtures passed\n'

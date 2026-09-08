@@ -10,12 +10,12 @@ host-operation failure injection, 48/80/120-column fa/en terminal checks, and de
 |---|---|---|
 | GitHub delivery | Real source acquisition/build/help, executable release/error fixtures and exact one-command management. `d30894a` passed source install/update through strict commit-bound PAX handling and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) | Published-release install remains Phase 12; no release exists yet |
 | Terminal | Final real Linux acceptance passed 17 PTY plus three nonTTY cases across 48/80/120 columns and supported fa/en/no-color/dumb modes | Universal Persian shaping depends on the terminal emulator and is not claimed |
-| Runtime image | Builder/image/binary/AWG identity, real Docker deployment and fresh ACME passed on Ubuntu 24.04 amd64 | Clean-host and broader OS/architecture cells remain Phase 11 |
+| Runtime image | Builder/image/binary/AWG identity, real Docker deployment and fresh ACME passed on Ubuntu 24.04 amd64 | Later supported Ubuntu amd64 cells remain Phase 11 |
 | Backup/recovery | Encrypted Telegram/scheduler, sequential native and final Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
 
 Exact revisions and sanitized records live in [status.md](status.md) and
 [phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
-code. These checks do not replace Phase 11's full OS/architecture certification or Phase 12's
+code. These checks do not replace Phase 11's supported-Ubuntu/backend certification or Phase 12's
 final published-artifact gate.
 
 The repeatable
@@ -51,7 +51,7 @@ and without a real VPN interface.
 | Tunnel adapter | conf renderer + dump parser against golden fixtures captured from the pinned upstream ([../integrations/fixtures/](../integrations/fixtures/)), exec wrapper against a scripted fake `awg` | plain `go test` |
 | Deployment | the whole install/update/uninstall/rollback flow against an in-memory `Host` seam (fs map + recorded commands), incl. health-checked rollback with real probe endpoints on loopback | plain `go test` (`internal/install`) |
 | Integration (`integration` build tag) | real interface lifecycle, syncconf, reconcile, nftables, sysctls — userspace backend in WSL2/CI | WSL2 Ubuntu / CI runner |
-| Real VPS matrix | kernel module, netlink dump format, NAT/NAT-less paths, firewall coexistence, install/update/uninstall | Ubuntu 22.04/24.04, Debian 12, amd64/arm64 (Phase 11; the 24.04/amd64 slice is Phase-7 drill-verified) |
+| Real VPS matrix | kernel module, netlink dump format, NAT/NAT-less paths, firewall coexistence, install/update/uninstall | Ubuntu 24.04 and later supported Ubuntu releases on amd64 (Phase 11; the 24.04/amd64 slice is drill-verified) |
 
 ## Invariants with dedicated tests
 

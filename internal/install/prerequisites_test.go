@@ -135,6 +135,34 @@ func TestUnsupportedHostStopsBeforeWrites(t *testing.T) {
 	}
 }
 
+func TestPlatformSupportIsUbuntu2404OrNewerAMD64(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		osRelease string
+		arch      string
+		wantErr   bool
+	}{
+		{name: "ubuntu 24.04", osRelease: "ID=ubuntu\nVERSION_ID=24.04\n", arch: "x86_64"},
+		{name: "newer ubuntu", osRelease: "ID=ubuntu\nVERSION_ID=26.04\n", arch: "x86_64"},
+		{name: "ubuntu too old", osRelease: "ID=ubuntu\nVERSION_ID=23.10\n", arch: "x86_64", wantErr: true},
+		{name: "other distribution", osRelease: "ID=debian\nVERSION_ID=24.04\n", arch: "x86_64", wantErr: true},
+		{name: "arm64", osRelease: "ID=ubuntu\nVERSION_ID=24.04\n", arch: "aarch64", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newMemHost()
+			h.files["/etc/os-release"] = memFile{data: []byte(tc.osRelease)}
+			h.output["uname -m"] = tc.arch
+			report, err := InspectPlatform(context.Background(), h)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("InspectPlatform() error = %v, want error %v", err, tc.wantErr)
+			}
+			if err == nil && (!report.AutomaticPackages || report.Arch != "amd64") {
+				t.Fatalf("supported platform report = %+v", report)
+			}
+		})
+	}
+}
+
 func TestEndpointRequiredBeforeWrites(t *testing.T) {
 	h := newMemHost()
 	h.output["ip"] = ""

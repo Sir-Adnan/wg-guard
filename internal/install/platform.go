@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,9 +18,8 @@ type PlatformReport struct {
 	AutomaticPackages bool   `json:"automatic_packages"`
 }
 
-// InspectPlatform is read-only and fails closed on unknown OS/architecture/init.
-// Only Ubuntu 24.04 has an automatic package adapter; other Linux systems can
-// proceed with checked, operator-provisioned prerequisites.
+// InspectPlatform is read-only and fails closed outside the supported product
+// platform: Ubuntu 24.04 or newer on amd64.
 func InspectPlatform(ctx context.Context, h Host) (PlatformReport, error) {
 	var r PlatformReport
 	osname, err := h.Output(ctx, []string{"uname", "-s"}, 10*time.Second)
@@ -46,15 +46,16 @@ func InspectPlatform(ctx context.Context, h Host) (PlatformReport, error) {
 	if r.OS == "" || r.Version == "" {
 		return r, terminalError("install.error.platform.3")
 	}
+	if r.OS != "ubuntu" || !supportedUbuntuVersion(r.Version) {
+		return r, terminalError("install.error.platform.8")
+	}
 	arch, err := h.Output(ctx, []string{"uname", "-m"}, 10*time.Second)
 	if err != nil {
 		return r, terminalError("install.error.platform.4")
 	}
 	switch strings.TrimSpace(arch) {
-	case "x86_64":
+	case "x86_64", "amd64":
 		r.Arch = "amd64"
-	case "aarch64", "arm64":
-		r.Arch = "arm64"
 	default:
 		return r, terminalError("install.error.platform.5")
 	}
@@ -67,8 +68,24 @@ func InspectPlatform(ctx context.Context, h Host) (PlatformReport, error) {
 	if err == nil {
 		r.Init = strings.TrimSpace(string(init))
 	}
-	r.AutomaticPackages = r.OS == "ubuntu" && r.Version == "24.04" && r.Init == "systemd"
+	r.AutomaticPackages = r.Init == "systemd"
 	return r, nil
+}
+
+func supportedUbuntuVersion(value string) bool {
+	parts := strings.Split(value, ".")
+	if len(parts) != 2 {
+		return false
+	}
+	year, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return false
+	}
+	month, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return false
+	}
+	return year > 24 || year == 24 && month >= 4
 }
 
 func safeKernel(s string) bool {

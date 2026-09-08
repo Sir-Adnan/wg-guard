@@ -80,8 +80,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   integration passed; the broader clean-host matrix remains Phase 11.
 - **GitHub build acquisition:** bounded release/commit selection, checksummed private staging,
   immutable source builds with temporary verified Go tooling, a first-entry bootstrap, and local
-  amd64/arm64 candidate artifact generation. Real source acquisition and runtime deployment passed;
-  no published-release installation or arm64 runtime certification is claimed.
+  amd64 candidate artifact generation. Real source acquisition and runtime deployment passed; no
+  published-release installation is claimed.
+- **Supported host contract:** the managed installer, source bootstrap, candidate artifacts and CI
+  now target Ubuntu 24.04+ on amd64 only. Unsupported distributions, older Ubuntu releases and
+  other architectures fail before acquisition or deployment; Ubuntu 24.04 remains the verified
+  production cell.
 - **Bounded build-command output:** configured subprocess execution retains at most 1 MiB per
   output stream while draining the child pipes, covered by an actual oversized-child regression.
 - **Independent QR verification:** test-only `gozxing` v0.1.1 decoding now verifies direct,
@@ -129,8 +133,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
     rollback; `--rollback` recovers interrupted updates from the state-recorded artifact.
   - `wg-guard uninstall --dry-run` (removes only state-recorded artifacts; data and
     installer-installed packages kept unless explicitly purged) and `wg-guard status`.
-  - Multi-stage Dockerfile (Ubuntu 24.04 + pinned `amneziawg-tools` from `ppa:amnezia/ppa`,
-    amd64/arm64) and a reference compose file under `deploy/`.
+  - Multi-stage amd64 Dockerfile (Ubuntu 24.04 + pinned `amneziawg-tools` from
+    `ppa:amnezia/ppa`) and a reference compose file under `deploy/`.
 - **Phase 6 — backup / ops** (tracked in `docs/development/phase6.md`; verification matrix in
   `docs/development/status.md`):
   - `internal/backup` archive engine: `.wgg` archives (manifest + `VACUUM INTO` snapshot +

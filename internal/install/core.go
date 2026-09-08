@@ -119,7 +119,7 @@ func packageAvailable(ctx context.Context, h Host, name, version string) bool {
 
 // EnsurePrerequisites never upgrades/downgrades an installed AWG package or
 // unloads a module. external explicitly leaves host module lifecycle to the
-// operator; native tools remain mandatory. Unknown OS adapters are check-only.
+// operator; native tools remain mandatory.
 func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformReport, b CoreBundle, policy PrerequisitePolicy, external bool, st *State, out io.Writer) (CoreReport, error) {
 	r := InspectCore(ctx, h, b)
 	r.ExternalModule = external
@@ -133,8 +133,8 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	if err != nil || selected != b {
 		return r, terminalError("install.error.core.3")
 	}
-	noble := platform.OS == "ubuntu" && platform.Version == "24.04"
-	automatic := policy == PrerequisitesAuto && platform.AutomaticPackages && noble && platform.Init == "systemd"
+	managedUbuntu := platform.OS == "ubuntu" && supportedUbuntuVersion(platform.Version) && platform.Arch == "amd64"
+	automatic := policy == PrerequisitesAuto && platform.AutomaticPackages && managedUbuntu && platform.Init == "systemd"
 	type dependency struct{ name, version string }
 	var pending []dependency
 	require := func(name, version string) error {
@@ -151,7 +151,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		pending = append(pending, dependency{name, version})
 		return nil
 	}
-	if p.Mode == ModeNative && noble {
+	if p.Mode == ModeNative && managedUbuntu {
 		for _, name := range []string{"iproute2", "nftables", "procps", "ca-certificates"} {
 			if err := require(name, ""); err != nil {
 				return r, err
@@ -168,7 +168,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			}
 		}
 		if err := h.Run(ctx, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
-			// Noble's plugin recommends (does not require) docker.io. Disable
+			// Ubuntu's plugin recommends (does not require) docker.io. Disable
 			// recommends and removals so an existing Docker CE engine is preserved.
 			if !automatic {
 				return r, terminalError("install.error.core.6")
@@ -178,7 +178,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			}
 		}
 	}
-	if !external && noble {
+	if !external && managedUbuntu {
 		if err := require("amneziawg-dkms", b.KernelPackage); err != nil {
 			return r, err
 		}
@@ -258,13 +258,13 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	}
 	r = InspectCore(ctx, h, b)
 	r.ExternalModule = external
-	if p.Mode == ModeNative && (noble && r.ToolsPackage != b.ToolsPackage || !strings.Contains(r.ToolsVersion, b.ToolsVersion)) {
+	if p.Mode == ModeNative && (managedUbuntu && r.ToolsPackage != b.ToolsPackage || !strings.Contains(r.ToolsVersion, b.ToolsVersion)) {
 		return r, terminalError("install.error.core.14")
 	}
 	if external {
 		return r, nil
 	}
-	if noble && r.KernelPackage != b.KernelPackage {
+	if managedUbuntu && r.KernelPackage != b.KernelPackage {
 		return r, terminalError("install.error.core.15")
 	}
 	if r.RebootRequired {
@@ -303,7 +303,8 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 }
 
 func prepareUbuntuRepository(ctx context.Context, h Host, st *State) error {
-	// Only the supported adapter reaches here; never rewrite a PPA suite.
+	// Only the supported Ubuntu adapter reaches here. add-apt-repository selects
+	// the host suite; exact package availability is verified before installation.
 	var missing []string
 	for _, name := range []string{"software-properties-common", "ca-certificates"} {
 		if installedPackage(ctx, h, name) == "" {
@@ -327,7 +328,7 @@ func prepareUbuntuRepository(ctx context.Context, h Host, st *State) error {
 		if err := h.Run(ctx, []string{"add-apt-repository", "-y", "ppa:amnezia/ppa"}, longTimeout); err != nil {
 			return terminalError("install.error.core.25")
 		}
-		st.RepositoryChanges = addUnique(st.RepositoryChanges, "ppa:amnezia/ppa (Ubuntu 24.04 noble; retained on uninstall)")
+		st.RepositoryChanges = addUnique(st.RepositoryChanges, "ppa:amnezia/ppa (host Ubuntu suite; retained on uninstall)")
 	}
 	if err := h.Run(ctx, []string{"apt-get", "update"}, longTimeout); err != nil {
 		return terminalError("install.error.core.26")
