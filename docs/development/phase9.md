@@ -1,9 +1,12 @@
 # Phase 9 — Operational observability
 
-Status: **next; not started**. Initial design began 2026-09-05 after Phase 8 closed RB-001
-through RB-004. The design-only `codex/phase9-observability` branch is preserved. Phase 8.1
-installation/lifecycle verification completed on 2026-09-08; no Phase 9 implementation was
-mixed into that branch.
+Status: **next; design milestone 9.0 complete, implementation not started**. The metric/log
+contracts, ADR, fixtures and resource budgets were designed on 2026-09-05 after Phase 8 closed
+RB-001 through RB-004. Phase 8.1 installation/lifecycle verification completed on 2026-09-08;
+milestone 9.1 is next and no Phase 9 implementation has begun.
+
+Detailed dependency-ordered execution plan:
+[`../superpowers/plans/2026-09-05-phase9-operational-observability.md`](../superpowers/plans/2026-09-05-phase9-operational-observability.md).
 
 ## Objective
 
@@ -28,12 +31,15 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 
 ## Milestones
 
-1. Define the metrics, sampling cadence, bounded history, health semantics, and resource budget.
-2. Implement/test host, network, process, node, and AWG collectors.
-3. Expose dashboard/API data and efficient refresh behavior.
-4. Implement Docker/native/owned-operation log adapters and the CLI contract.
-5. Implement/test retention, rotation, disk bounds, and redaction.
-6. Run real failure drills, measure overhead, and synchronize docs/status.
+- [x] 9.0 — Freeze metric/log/retention contracts, ADR, fixtures, and resource budgets.
+- [ ] 9.1 — Implement host/network/process collectors and the bounded telemetry ring.
+- [ ] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces.
+- [ ] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
+- [ ] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
+- [ ] 9.5 — Install central structured-log redaction and component classification.
+- [ ] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
+- [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
+- [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence.
 
 ## Verification
 
@@ -57,5 +63,5 @@ secrets stay absent, tests/race pass, and measured idle/live overhead fits docum
 
 ## Deferred to Phase 10
 
-Final dashboard styling and the complete visual-system/page migration. Long soak, load, and
-cross-platform certification remain Phase 11.
+Final dashboard styling and the complete visual-system/page migration. Long soak, load, and later
+supported Ubuntu amd64 certification remain Phase 11.
