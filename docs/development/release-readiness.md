@@ -2,17 +2,18 @@
 
 Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase order and gates;
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
-verification state. Phase execution details live in the active phase document.
+verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-06. Active phase: **8.1 — GitHub delivery & lifecycle**.
+Last updated: 2026-09-08. Phase 8.1 is complete; **Phase 9 — Operational observability** is next
+but was not started by the Phase 8.1 work.
 
 ## Program status
 
 | Phase | State | Exit dependency |
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 8.1 — GitHub delivery & lifecycle | active; M1–M5 reviewed, integrated acceptance pending | One-command installation and safe lifecycle verified on the dedicated VPS |
-| 9 — Operational observability | planned; existing design branch paused | Useful live metrics/logs with bounded cost and retention |
+| 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
+| 9 — Operational observability | next; existing design branch preserved | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
@@ -59,7 +60,7 @@ implementation does not cross the active phase boundary.
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed artifacts and official multi-arch workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
-| RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | in progress | Source/version integrity; usable CLI; prerequisites; real Docker/native install and recovery evidence |
+| RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
@@ -102,20 +103,22 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-023 | medium | The panel trusted a hidden generated-profile label without proving values came from its preview; policy validation was broader than generation and S2 used an unbounded retry | Phase 8 | verified |
 | AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
 | AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
-| AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`; independent review closed after `fc2c537`; actual deployment drills pending M6 |
-| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | M2 implemented, unit tested and independently reviewed; fresh prerequisite/runtime deployment verification remains M6 |
-| AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and independently reviewed; integrated real-host setup remains M6 |
+| AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`, review closed after `fc2c537`; Docker/native rollback and failed-start recovery passed on the dedicated VPS |
+| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | M2 implemented, unit tested and reviewed; exact installed-bundle/runtime-image readiness passed on Ubuntu 24.04. Clean-host and broader OS/arch package provisioning remain Phase 11 |
+| AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and reviewed; terminal and real domain/ACME deployment gates passed |
 | AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | M2 installer parsing and M5 missing-flag/signed-chat/interval validation regressions pass; M5 independent review closed |
-| AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; independent review closed; actual removal/recovery drill remains M6 |
+| AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; review closed; safe uninstall and node recovery passed in both VPS deployment modes |
 | AUD-031 | high | Telegram delivery wraps HTTP transport errors containing the token-bearing request URL and echoes remote descriptions without token redaction | Phase 8.1 | M5 actual net/http URL-error/token-echo refusal regressions pass in `281b607`; independent review closed |
-| AUD-032 | high | Restore verification metadata is optional at apply; database/key replacement is not recovered as a pair on failure and boot may continue after partial apply | Phase 8.1 | M5 private preview/approval, complete hashes, recoverable pair and fail-closed boot regressions pass in `281b607`; review closed after opener/layout/crypto fixes; real-host recovery pending |
-| AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | M4 implemented and unit/PTY tested in `e21a87f`/`4c8f07e`; independent task review closed, real deployment gate pending M6 |
+| AUD-032 | high | Restore verification metadata is optional at apply; database/key replacement is not recovered as a pair on failure and boot may continue after partial apply | Phase 8.1 | M5 private preview/approval, complete hashes, recoverable pair and fail-closed boot regressions pass in `281b607`; review closed and coordinated real Docker/native recovery passed |
+| AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | M4 implemented and unit/PTY tested in `e21a87f`/`4c8f07e`; review closed and owner-before-start passed in both real deployment modes |
 | AUD-034 | high | Backup creation ignores stored-password read/decryption errors and may silently create a plaintext archive instead of the intended encrypted backup | Phase 8.1 M5 | Fail-closed secret loading with intentionally unset plaintext preserved; error-path regression passes in `281b607`, review closed |
 | AUD-035 | high | Pinned age reader defaults to accepting scrypt factor22 (~4 GiB transient memory), although WG-Guard writes factor18 (~256 MiB); an archive can request disproportionate KDF work before extraction limits apply | Phase 8.1 M5; resource certification in 11 | Pinned age v1.2.1 source verified; factor18 acceptance cap and specific early-refusal regression pass in `281b607`, review closed |
 | AUD-036 | medium | Two backups created in one second reuse the same archive name and can overwrite the previous archive | Phase 8.1 M5 | Nonce filenames and actual same-second preservation regression pass in `281b607`; independent review closed |
 | AUD-037 | medium | Legacy `secrets rotate --config` indexes a missing value and panics before configuration/database access | Phase 11 legacy CLI hardening; final installer review triage | Reproduced safely on the exact `53f55e2` Linux candidate with no node data opened; require bounded standard flag parsing and malformed-argument regressions. No implementation fix claimed |
-| AUD-038 | high | An already admitted native CLI retains its database/key across managed restore; resuming paused key rotation can make restored encrypted settings unreadable | Phase 8.1 final correction | Reproduced on `14d4a19`; persistent lifetime ownership, safe admission/initialization/shutdown and split-layout refusal implemented in `0578dcc`. Full/focused automated gates pass; scoped final review and affected VPS evidence pending |
-| AUD-039 | medium | Core `recovery-required` remains blocked after a transient unknown module identity is repaired; the suggested update recovery also refuses core operations | Phase 8.1 final correction | Reproduced on `14d4a19`; operation-specific retry, fresh observation and interrupted/state-write regressions pass in `0578dcc`; scoped final review pending |
+| AUD-038 | high | An already admitted native CLI retains its database/key across managed restore; resuming paused key rotation can make restored encrypted settings unreadable | Phase 8.1 final correction | Reproduced on `14d4a19`; persistent lifetime ownership, safe admission/initialization/shutdown and split-layout refusal implemented in `0578dcc`. Automated/review gates and real Docker lease/restore exclusion passed |
+| AUD-039 | medium | Core `recovery-required` remains blocked after a transient unknown module identity is repaired; the suggested update recovery also refuses core operations | Phase 8.1 final correction | Reproduced on `14d4a19`; operation-specific retry, fresh observation and interrupted/state-write regressions pass in `0578dcc`; review closed. The only installed catalog entry was reaffirmed; no unsupported transition was claimed |
+| AUD-040 | medium | Explicit destructive `uninstall --purge-data` removes the data directory without excluding independent admitted data commands | Phase 11 destructive maintenance certification | Existing `uninstall.go` whole-directory removal is outside the final ownership correction; default data-preserving uninstall is distinct. Require all data commands stopped and no concurrent admission before explicit purge; concurrent purge safety is not certified |
+| AUD-041 | high | Real Go-based GitHub source acquisition rejects codeload's standard PAX global metadata as an unsafe filesystem path | Phase 8.1 M6 acceptance correction | Fixed in `d30894a`: one exact commit-bound global metadata record is consumed without materialization while archive safety bounds remain enforced. Focused tests, exact-revision CI and real source install/update through the corrected extractor passed |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
@@ -142,7 +145,7 @@ real-host kernel or architecture cell to verified.
 2. Record impact, severity, affected surface, and likely owning phase.
 3. Fix critical/high findings in the earliest dependency-safe phase.
 4. Add a regression test before the fix and attach real-host evidence when required.
-5. Update this tracker, the active phase document, status matrix, and behavior documentation in
+5. Update this tracker, the current phase document, status matrix, and behavior documentation in
    the same coherent change.
 
 ## Publication boundary

@@ -179,8 +179,9 @@ WG-Guard-owned artifacts; data/backups and installer-installed packages are pres
 
 ## Host requirements
 
-Phase 8.1 prerequisites and selection (implemented + host-seam/pure unit tested; new clean-host
-provisioning and runtime-image execution still require dedicated-VPS verification):
+Phase 8.1 prerequisites and selection are implemented, automated-test verified and exercised on
+the dedicated Ubuntu 24.04 node. Clean-image and broader OS/architecture package-provisioning
+certification remain Phase 11:
 
 ```bash
 wg-guard core installed

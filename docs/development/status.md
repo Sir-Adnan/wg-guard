@@ -5,31 +5,32 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 8.1 — GitHub delivery & lifecycle (active, 2026-09-05)
+## Phase 8.1 — GitHub delivery & lifecycle (complete, 2026-09-08)
 
-User-authorized insertion between completed Phase 8 and planned Phase 9. The existing
-`codex/phase9-observability` design-only branch is preserved and paused. See
-[phase8.1.md](phase8.1.md) for scope and evidence gates.
+The user-authorized insertion between completed Phase 8 and planned Phase 9 is complete. The
+existing `codex/phase9-observability` design-only branch remains preserved; no Phase 9
+implementation is included here. See [phase8.1.md](phase8.1.md) for the gate and limits.
 
 | Item | Status |
 |---|---|
-| Bootstrap, release/commit selection and artifact identity | implemented + unit/shell-fixture tested; independent review closed; local amd64/arm64 candidates built/checksummed. [Real VPS acquisition/build/help and empty-release refusal passed](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) on `3a02c72`; [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149). Full deployment integration and arm64 runtime remain pending |
-| Terminal installer and management UX | M4 implemented in `e21a87f`/`4c8f07e`; full Go test/build/vet, scoped Linux race/PTY and shell fixtures pass; independent task review closed. [Real read-only VPS PTY/nonTTY checks passed](../integrations/fixtures/verify-phase8.1-terminal-readonly-2026-09-06.txt) on `234f067`; final UX items and integrated deployment verification remain M6 |
-| Local owner before public listener | M4 shared admin atomic creation, protected file/stdin transport, existing-owner preservation and both-mode start-order regressions pass; candidate contract requires local_owner. Independent task review closed; M6 deployment gate remains pending |
-| OS prerequisites and compatible AWG selection | M2 implemented + unit tested in `fa74c4a`, special-use IP hardening `da46c00`; independent review closed; [read-only installed/recommended core CLI](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt) and [actual runtime-image preparation/identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on VPS. Fresh host package provisioning and node deployment remain unverified |
-| Transactional install/update/rollback and safe uninstall | M3 implemented in `4b72243`, native interrupted-cleanup fix `fc2c537`; full Go test/build/vet, scoped Linux race/lock/atomic tests and bootstrap rejection fixtures passed; independent review closed; real lifecycle verification remains M6 |
-| Catalogued core maintenance | M3 lock/journal/impact confirmation and pending-reboot handling unit tested; only the one verified installed bundle can currently be reaffirmed, not an invented version transition |
-| Bounded restore and cross-contract recovery | M5 implemented in `281b607`: streaming private preview/approval, mandatory staged hashes, recoverable DB/key replacement and original-schema recovery before retained-artifact startup. Review fixes `8be8c6f`/`8ce6f99` cover manual openers, canonical managed paths and keyed fa/en safety/crypto boundaries; full/scoped Linux gates pass. Independent review closed; real VPS acceptance M6 |
-| Backup schedule management and Telegram workflow | M5 implementation/review closed; full/scoped automated gates pass. [Real VPS synthetic-node acceptance](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt) on `53f55e2` passed encrypted creation/retention, UTC schedule CRUD, actual accelerated-due central-scheduler execution and two real Telegram archive sends. Original deployment unchanged; this is not managed Docker/native restore certification |
-| Dedicated Ubuntu 24.04 Docker/native lifecycle verification | [Sequential native `53f55e2` acceptance passed](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt): install/owner, encrypted backup/key-pair restore, update/rollback, failed-start recovery, uninstall and original-node restoration. Final review found AUD-038 opener concurrency and AUD-039 core retry blockers; corrections and affected checks pending. Docker/fresh ACME/cross-contract recovery remain open; prior Phase 7/8 evidence does not certify this change |
+| Bootstrap, release/commit selection and artifact identity | implemented, reviewed and tested with unit/shell fixtures; local amd64/arm64 artifacts build and checksum. [Real acquisition evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) covers source build/help and empty-release refusal. `d30894a` adds strict commit-bound PAX metadata handling; its real source install/update and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) passed. arm64 runtime remains unverified |
+| Terminal installer and management UX | implemented, reviewed and automated-test verified. [Final VPS acceptance](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed 17 PTY and three nonTTY cases across the supported terminal modes |
+| Local owner before public listener | atomic owner creation, protected stdin/file transport and existing-owner preservation are unit tested; owner-before-start passed in real Docker and native installs |
+| OS prerequisites and compatible AWG selection | implemented and reviewed; [installed exact bundle](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt), [package metadata](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt) and [runtime image identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on Ubuntu 24.04. Broader clean-host OS/arch provisioning remains Phase 11 |
+| Transactional install/update/rollback and safe uninstall | implemented, review/failure-injection verified and passed real Docker/native install, update, two-way rollback, failed-start recovery and data-preserving uninstall |
+| Catalogued core maintenance | lock/journal/impact confirmation, retry and pending-reboot behavior are tested. The installed recommended bundle was reaffirmed; no unsupported version transition is claimed |
+| Bounded restore and cross-contract recovery | streaming preview/approval, mandatory hashes, DB/key-pair ownership and fail-closed recovery are implemented and reviewed; coordinated restore and legacy-schema recovery passed on the VPS |
+| Backup schedule management and Telegram workflow | implemented and reviewed. [Real acceptance](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt) passed encrypted creation/retention, schedule execution and two Telegram sends; Docker/native lifecycle drills also verified backup/restore |
+| Dedicated Ubuntu 24.04 Docker/native lifecycle verification | [Native](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt) and [Docker](../integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt) drills passed, including fresh Docker ACME issuance, lifetime-lease exclusion, cross-contract recovery and restoration of the original node |
 
 No new REST API is planned; shared CLI/panel services remain authoritative. API/OpenAPI must be
 updated if implementation changes their contract. Full matrix certification remains Phase 11.
 
-Final correction `0578dcc` adds persistent DB/key lifetime ownership (including startup and
-shutdown), core recovery retry and bounded final UX/test fixes. Full Go/build/vet, targeted
-race/integration, Windows ownership, bootstrap and 17 Python checks pass. Its scoped final
-review and affected real-host acceptance remain open; no REST/OpenAPI representation changed.
+Final ownership/recovery correction `0578dcc` and PAX acquisition correction `d30894a` passed
+their scoped reviews, targeted regressions and affected real-host checks. The final Docker drill
+also preserved the original deployment through intentionally failing source/start candidates.
+No REST/OpenAPI representation changed. Full release artifacts, arm64 runtime and the complete
+compatibility/security/load matrix remain Phases 11–12.
 
 ## Phase 5 — Web UI (complete, 2026-08-31; two refinement passes same day)
 
@@ -401,8 +402,8 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 
 | Phase | State | Scope |
 |---|---|---|
-| 8.1 — GitHub delivery & lifecycle | active; M1–M5 reviewed, integrated acceptance pending | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
-| 9 — Operational observability | planned; design branch paused | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
+| 9 — Operational observability | next; design branch preserved | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, OS/arch/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed/multi-arch artifacts, repository/docs/API freeze, candidate install/upgrade and final report |

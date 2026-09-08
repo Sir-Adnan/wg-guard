@@ -1,0 +1,19 @@
+Phase8.1 final candidate — real read-only terminal acceptance
+Date: 2026-09-06, dedicated Ubuntu24.04 amd64 VPS
+Commit: 6b9dd63ed9dbb00987068d26381233532611fb87
+Version: 0.0.0-phase8.1-m6-final
+Binary SHA256: 6887d1a3bbc4c195f6acf984d54a37a3203fa8538617ae6b94dd576637d37b16
+
+PASS: 17 actual Linux PTY cases plus3 nonTTY cases. English/Persian at48/80/120 columns;
+NO_COLOR and TERM=dumb emit no ANSI; every measured line fits the selected cell width.
+Invalid/Persian numeric choices, default-no rollback, secret cancel/SIGINT/Ctrl-C, normal
+SIGINT and EOF returned expected statuses. Echo was disabled during synthetic secret input,
+synthetic secret never appeared in captures, and terminal attributes were restored.
+
+Original settings/config/state/hostbinary/container ID/image/start/running snapshot was
+identical before/after. No mutation was confirmed. Bounded transient unit is inactive/dead.
+The harness differs from the reviewed M4 read-only helper only in its exact candidate pin
+and label; the tested M5 menu routes were checked against actual code before execution.
+
+Limits: text-cell width and PTY controls do not certify Persian visual shaping on every
+SSH client. This does not replace fresh install, lifecycle, or TLS acceptance.

@@ -1,8 +1,9 @@
 # Phase 9 — Operational observability
 
-Status: **planned; design branch paused for Phase 8.1**. Initial design began 2026-09-05 after
-Phase 8 closed RB-001 through RB-004. The design-only `codex/phase9-observability` branch is
-preserved. Implementation follows [Phase 8.1](phase8.1.md) installation/lifecycle verification.
+Status: **next; not started**. Initial design began 2026-09-05 after Phase 8 closed RB-001
+through RB-004. The design-only `codex/phase9-observability` branch is preserved. Phase 8.1
+installation/lifecycle verification completed on 2026-09-08; no Phase 9 implementation was
+mixed into that branch.
 
 ## Objective
 

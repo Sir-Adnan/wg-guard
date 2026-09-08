@@ -67,6 +67,10 @@ claim or a missing local file is insufficient. Archive hashing uses bounded memo
 identity evidence, not a replacement for restore verification. These dedicated recovery
 archives are outside the ordinary top-level backup retention/listing and need deliberate
 retention review after the rollback window. `--purge-data` removes them with the data directory.
+Before that explicitly destructive option, stop every independent data command and prevent
+new commands until removal finishes. The existing whole-directory purge is not fenced by the
+data lease; concurrent purge safety remains AUD-040/Phase11. Default uninstall preserves data
+and does not make this destructive-maintenance guarantee.
 
 ## Interrupted operations
 

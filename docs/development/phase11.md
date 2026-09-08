@@ -19,6 +19,9 @@ networking, recovery, operating-system, architecture, backend and deployment ris
 - Ubuntu 22.04/24.04 and Debian 12; amd64/arm64; Docker/native; kernel/userspace matrix.
 - Backup/restore, key rotation, restart/reboot, update/automatic and interrupted rollback,
   uninstall/reinstall, corrupt/missing state, disk pressure, and log growth drills.
+- Explicit purge ownership (AUD-040): exclude independent admitted data commands and prevent
+  admission during whole-directory deletion; verify lock-inode lifecycle and interruption.
+  Current operator-managed quiescence is not evidence of concurrent purge safety.
 - ACME/manual/proxy/dev TLS behavior, cache/reissuance and renewal paths.
 
 ## Milestones

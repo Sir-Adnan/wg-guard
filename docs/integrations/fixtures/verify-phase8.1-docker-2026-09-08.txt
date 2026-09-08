@@ -1,0 +1,48 @@
+Phase 8.1 — real Docker/source/lifecycle acceptance
+Date: 2026-09-08; dedicated Ubuntu 24.04 amd64 VPS
+Coordinator: d30894a45f524c13af1422539b98795ed8b7a5b2
+Coordinator SHA256: 2b7bc12a428f582d4a4ca02299d9f1673d1c435b05b0dfa36d598908bae4a9ec
+
+PASS: real GitHub codeload acquisition installed commit 6b9dd63ed9dbb00987068d26381233532611fb87,
+then updated from GitHub to d30894a45f524c13af1422539b98795ed8b7a5b2. This directly verifies
+the PAX metadata correction. Acquired binary SHA256 values were respectively
+bb39bef8b4272d062cc2386459c3e9b4421d211d46b03addcc40afba18680be2 and
+8fa3fe152e8fe122436489ee0c46b4313e6b22b9eaa63f01832a1cc1bec3106c; host,
+install state, image label and running-container binary identities matched.
+
+PASS: a fresh ACME cache produced a trusted certificate for zedutch.zenmode.ir
+(serial 06E6A52C72A7EE9F2884008CDE3144C04CD6; SHA256
+60e6f78a23f960da8032c1692d765f107f748149b49d81f4505325b0f0384dbb),
+different from the original cached certificate. Owner login succeeded.
+
+PASS: encrypted backup and managed DB/master-key restore; running-container and
+paused host-direct data-lease contention; source update; both directions of retained-artifact
+rollback; unreachable-registry no-mutation failure; executed exit-42 startup failure with
+health-checked rollback and journal identity; data-preserving uninstall.
+
+PASS: targeted legacy-contract continuation used the exact acquired d30894a image/binary.
+An actual schema-6 node migrated to schema 7 inside the failing candidate, entered
+restore-required with an encrypted recovery archive and no running container, then recovered
+schema 6, the original master key, owner login, node setting, encrypted-backup ability and old
+binary. The lifecycle journal ended rolled-back. Its bounded unit exited 0.
+
+The full lifecycle unit passed every non-legacy assertion above, then exited 1 only because the
+acceptance fixture used the new `--stdin` spelling against the deliberately old binary, which
+supports `-stdin`. The corrected targeted continuation covered only the remaining legacy path;
+successful install/update/rollback/lease/failed-start paths were not repeated. An earlier fixture
+attempt also proved automatic original-node recovery after BuildKit rejected a raw image-ID
+`FROM`; the fixture subsequently used an owned, collision-checked temporary tag.
+
+PASS final recovery: original immutable image
+sha256:4de2fb8b241689228af45e9c923e3785fe4cb761e0c1b87dca3601e6f7edd66f is healthy;
+host binary SHA256 a5a1b4167cee41bdb980964d283a5eeb03b9a307fae705eca2453a796bca1903;
+original certificate serial 05CE2141F32165ABBB2EF794F53CA76AD923 and SHA256
+28d7f955471d8b79020c47fbe18f1d1afb78ec6c83f1642f6446a3d425e24f45;
+foreign awg0/awg1 remain UP; no `inet wgguard` table or temporary fault-image tag remains.
+Owned acceptance directories, transient failed-unit state and four unreferenced test images were
+removed after this snapshot; a final health/identity/interface check remained unchanged.
+
+Limits: no public release existed, so release-asset installation was not executed. This is one
+Ubuntu 24.04 amd64 Docker cell, not the Phase 11 OS/architecture matrix. Native, Telegram,
+terminal and protocol/QR evidence are separate prior gates and were not repeated. No public tag,
+release or registry image was published.

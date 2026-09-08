@@ -1,17 +1,17 @@
 # Testing strategy
 
-## Active installer verification
+## Phase 8.1 installer verification
 
 [Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
 host-operation failure injection, 48/80/120-column fa/en terminal checks, and dedicated Ubuntu
 24.04 Docker/native lifecycle drills. The evidence levels are separate:
 
-| Area | Recorded evidence | Still required |
+| Area | Recorded Phase 8.1 evidence | Later-phase limit |
 |---|---|---|
-| GitHub delivery | Real source acquisition/build/help; executable release/error fixtures; exact documented management rerun on `53f55e2` with original-node preservation | Corrected final-candidate setup and published-release installation |
-| Terminal | Real read-only Linux PTY at 48/80/120 columns, fa/en, hidden-input cancellation and nonTTY refusal on `234f067` | Final M5 forms and integrated setup/lifecycle; universal Persian client shaping is not claimed |
-| Runtime image | Actual builder/image identity and isolated binary/AWG package checks on `234f067` | Deployment startup, fresh host kernel provisioning and broader OS/architecture cells |
-| Backup/recovery | M5 implementation/review closed; actual synthetic encrypted Telegram sends and accelerated production scheduler tick, plus sequential native encrypted DB/key restore on `53f55e2`. [CI passed on evidence revision `14d4a19`](https://github.com/Sir-Adnan/wg-guard/actions/runs/34010291233) | Final-review opener lifetime/core retry corrections, affected candidate checks, Docker and original-schema recovery |
+| GitHub delivery | Real source acquisition/build/help, executable release/error fixtures and exact one-command management. `d30894a` passed source install/update through strict commit-bound PAX handling and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) | Published-release install remains Phase 12; no release exists yet |
+| Terminal | Final real Linux acceptance passed 17 PTY plus three nonTTY cases across 48/80/120 columns and supported fa/en/no-color/dumb modes | Universal Persian shaping depends on the terminal emulator and is not claimed |
+| Runtime image | Builder/image/binary/AWG identity, real Docker deployment and fresh ACME passed on Ubuntu 24.04 amd64 | Clean-host and broader OS/architecture cells remain Phase 11 |
+| Backup/recovery | Encrypted Telegram/scheduler, sequential native and final Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
 
 Exact revisions and sanitized records live in [status.md](status.md) and
 [phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
@@ -93,6 +93,15 @@ and without a real VPN interface.
   `docs/integrations/fixtures/verify-phase8-vps-2026-09-05.txt`. A physical optical-camera scan was
   unavailable and is not claimed; actual HTTP PNG decoding and import of those bytes into real AWG
   clients passed.
+
+The corrected Phase 8.1 lifecycle candidate `6b9dd63` repeated the isolated real-host protocol
+gate successfully on 2026-09-06: [evidence and limits](../integrations/fixtures/verify-phase8.1-protocol-2026-09-06.txt).
+Its [final terminal evidence](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt)
+records 17 PTY and three nonTTY cases. The
+[final Docker evidence](../integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt) separately
+proves source-backed acquisition and the affected lifecycle paths after AUD-041. Keep Bash and Go
+acquisition paths independently covered; PAX support must preserve traversal/link/device/root/
+duplicate/member-count/size protections and bind metadata to the exact selected commit.
 
 ## Benchmarks (measured, not guessed)
 

@@ -10,6 +10,8 @@ bench-wgguard/
 /wg-guard.exe
 .vps/
 .worktrees/
+__pycache__/
+*.py[cod]
 
 # Editor/backup copies of the built binary
 *.exe~

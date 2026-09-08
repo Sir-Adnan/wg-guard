@@ -11,18 +11,17 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–8 complete; Phase 8.1 is active.** Phase 8 completed the
+**In active development — Phases 0–8.1 complete; Phase 9 is next.** Phase 8 completed the
 configuration-integrity gate: lossless supported AmneziaWG parameters, canonical recommended and
 randomized profiles, byte-identical config/QR delivery, and independent QR decoding. Both profile
 classes were imported into isolated real kernel clients on Ubuntu 24.04 and passed handshake plus
 bidirectional traffic; the recommended profile also passed through the pinned userspace daemon.
 That gate exposed and fixed a peer-sync path that cleared the live interface private key. Phase 9
-owns operational observability and bounded logs, after the inserted
-[Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). The full compatibility matrix
-remains Phase 11 and final release engineering remains Phase 12. Phase 8.1 implements GitHub
-acquisition, prerequisite/core checks, recoverable lifecycle operations and bilingual terminal
-management and backup/recovery workflows. M1–M5 implementation reviews are closed; integrated
-VPS certification and the final quality gate are still in progress.
+owns operational observability and bounded logs after the completed
+[Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). Phase 8.1 delivered GitHub
+acquisition, prerequisite/core checks, recoverable lifecycle operations, bilingual terminal
+management and backup/recovery workflows, with Docker/native Ubuntu 24.04 verification. The full
+compatibility matrix remains Phase 11 and final release engineering remains Phase 12.
 See [ROADMAP.md](ROADMAP.md) and
 [docs/development/status.md](docs/development/status.md).
 
@@ -77,14 +76,17 @@ implied. The first VPN interface is created in the panel after signing in.
 
 Read [terminal navigation and automation](docs/operations/terminal-management.md),
 [deployment](docs/operations/deployment.md), and [lifecycle recovery limits](docs/operations/lifecycle-recovery.md)
-before unattended changes. Full new Docker/native installation and recovery verification remains
-the active Phase 8.1 gate; earlier Phase 7 evidence does not certify the redesigned installer.
+before unattended changes. Phase 8.1 Docker/native installation and recovery verification is
+complete for the dedicated Ubuntu 24.04 amd64 node; this is not the broader Phase 11 matrix.
 The [exact GitHub management rerun](docs/integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt)
 and [isolated real Telegram/scheduler acceptance](docs/integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt)
 have passed without changing the existing test node.
 The [sequential native lifecycle drill](docs/integrations/fixtures/verify-phase8.1-native-2026-09-06.txt)
-also passed, including restoration of the original node. Final-review data/key concurrency and
-core-retry corrections, amended-candidate checks, Docker and fresh ACME remain open gates.
+also passed, including restoration of the original node. The
+[final Docker/source drill](docs/integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt)
+then verified strict codeload PAX handling, source install/update, rollback/recovery, coordinated
+restore and fresh ACME while restoring the original node. Published release assets, arm64 runtime
+and the wider OS/backend matrix remain later-phase gates.
 
 ## Documentation
 

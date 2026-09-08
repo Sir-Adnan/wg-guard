@@ -26,11 +26,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 - **Public VPN endpoint classification:** reject CGNAT, mapped IPv4 bypasses and relevant
   special-use ranges during explicit input and automatic address selection. Syntax/address
   eligibility checks do not claim real reachability through routing, NAT or firewalls.
-- **Installer delivery phase planned:** inserted Phase 8.1 between completed Phase 8 and
-  operational observability. It owns GitHub acquisition, terminal UX, prerequisites, compatible
-  AWG version policy and lifecycle recovery. The Phase 9 design branch is paused; Phases 9–12
-  retain their scope and final public publication remains owner-approved. No implementation or
-  new compatibility claim is implied by this planning change.
+- **Installer delivery phase complete:** Phase 8.1 now provides GitHub acquisition, bilingual
+  terminal UX, prerequisites, compatible AWG policy, transactional lifecycle recovery and
+  backup/restore management. Docker/native Ubuntu 24.04 drills passed; the Phase 9 design branch
+  remains separate and public release publication remains owner-approved.
+- **Commit-bound codeload metadata:** Go source extraction accepts GitHub's one leading PAX
+  global header only when its sole comment matches the selected commit SHA. Metadata is never
+  materialized, and traversal/link/device/root/duplicate/count/size protections remain active.
 - **Phase 8 configuration integrity complete:** supported AWG values are lossless across storage,
   API/OpenAPI, forms, runtime, reconciliation, backup/restore, configs, subscriptions, and QR.
   The exact Ubuntu 24.04 candidate passed three-surface decode equality, recommended/randomized
@@ -55,29 +57,31 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   Automated full/scoped Linux/HTTP tests pass; independent review closed after all manual
   database openers, canonical managed paths and keyed fa/en crypto safety boundaries were fixed.
   Real isolated VPS acceptance passed encrypted retention, schedule CRUD, an accelerated due
-  execution by the production scheduler and two real Telegram archive sends. Managed native/
-  Docker restore certification remains pending. No new REST API, scheduler or dependency was added.
+  execution by the production scheduler and two real Telegram archive sends. Managed native and
+  Docker backup/restore recovery also passed. No new REST API, scheduler or dependency was added.
 - **Bilingual terminal lifecycle management (M4):** streaming width-aware setup/management,
   bounded cancellable input, actual-terminal-FD hidden secrets, explicit source/impact review,
   and locked service restart. Re-running the default interactive GitHub bootstrap opens existing
   management without reinstalling. Local owner provisioning now precedes listener startup;
   atomic shared owner creation prevents concurrent first-owner claims and preserves existing
-  credentials. Automated/PTY tests pass and independent task review closed; integrated VPS
-  verification remains pending. Backup/Telegram/schedule and coordinated restore are implemented in M5.
+  credentials. Automated/PTY tests and independent review passed; final real PTY/nonTTY and
+  Docker/native setup gates passed. Backup/Telegram/schedule and coordinated restore are in M5.
 - **Recoverable lifecycle transactions (M3):** exclusive Linux lock, durable private state and
   operation journal, immutable previous artifacts, source-aware install/update, mandatory remote
   fetch semantics, same-data-contract rollback, safe removal targets, and catalog-only core
   maintenance. Unproven data compatibility retains a visible restore-required state instead of
-  starting old code. Automated tests and independent review pass; VPS certification remains pending.
-  Local first-owner provisioning is implemented in M4; coordinated cross-contract restore in M5.
+  starting old code. Automated tests and independent review passed, followed by real Docker/native
+  update, rollback, failed-start and cross-contract recovery. Local first-owner provisioning is
+  implemented in M4; coordinated restore is implemented in M5.
 - **Installer prerequisite and core checks:** Ubuntu 24.04 package preparation, explicit manual
   routes on other Linux systems, pinned compatible AWG catalog, loaded/disk build-identity
   reporting, immutable runtime-image preparation and retryable trusted TLS readiness. Explicit
-  TCP ports and IP-only VPN endpoints are preserved. Full lifecycle integration remains in progress.
+  TCP ports and IP-only VPN endpoints are preserved. Ubuntu 24.04 runtime-image and lifecycle
+  integration passed; the broader clean-host matrix remains Phase 11.
 - **GitHub build acquisition:** bounded release/commit selection, checksummed private staging,
   immutable source builds with temporary verified Go tooling, a first-entry bootstrap, and local
-  amd64/arm64 candidate artifact generation. No published-release installation is claimed;
-  runtime deployment integration and the redesigned terminal flow follow in Phase 8.1.
+  amd64/arm64 candidate artifact generation. Real source acquisition and runtime deployment passed;
+  no published-release installation or arm64 runtime certification is claimed.
 - **Bounded build-command output:** configured subprocess execution retains at most 1 MiB per
   output stream while draining the child pipes, covered by an actual oversized-child regression.
 - **Independent QR verification:** test-only `gozxing` v0.1.1 decoding now verifies direct,

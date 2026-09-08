@@ -1,273 +1,89 @@
 # Phase 8.1 — GitHub delivery & lifecycle
 
-State: **active / M1–M5 reviewed, integrated acceptance pending**, updated 2026-09-06. Owner approval to implement and push was supplied
-in the installer request. Final public release publication remains separately approval-gated.
+State: **complete**, 2026-09-08. Implementation and documentation are on
+`codex/installer-lifecycle`. Public release/tag/registry publication remains separately
+approval-gated.
 
 ## Objective and placement
 
-Make a clean Linux VPS installable from GitHub with one entry command, then manageable through
-the same polished terminal experience. Extend the existing Phase 7 engine and shared application
-services. Phase 8 remains complete. Phase 9's design-only branch is paused; its telemetry and
-seven-day unified-log work follows this phase. Phase 10 still owns the web redesign, Phase 11 the
-feature-frozen compatibility/security/load matrix, Phase 12 the final release candidate.
+Make a Linux VPS installable from GitHub with one command and manageable through the same
+bilingual terminal experience. Phase 8 remains complete; Phase 9 is the next planned phase.
+This phase extended the Phase 7 installer rather than creating a second deployment engine.
 
-The insertion avoids renumbering the accepted 9–12 requirement mappings and keeps deployment
-feature development ahead of certification. Artifact format/acquisition work is pulled forward
-from Phase 12 because installing releases requires a real artifact contract. No release is
-invented or silently substituted with development code.
+## Delivered architecture and behavior
 
-## Design decisions
+- A small Bash bootstrap performs first acquisition. The Go binary owns install, update,
+  rollback, backup, restore, core maintenance and uninstall through shared services.
+- Operators can select the latest stable release, a bounded release list, `main`, or an exact
+  full commit SHA. Release assets require SHA-256 metadata; source builds resolve and retain an
+  immutable commit identity. A release request never falls back silently to source.
+- GitHub source extraction keeps strict root, traversal, link/device, duplicate, member-count and
+  size controls. Codeload's single leading PAX global header is accepted only when its sole
+  `comment` record equals the selected commit SHA; it is metadata and is never materialized.
+- Source builds use a temporary, checksummed Go toolchain when needed. Docker runtime images are
+  built from the acquired binary and carry the immutable source/build contract; no mutable image
+  tag is trusted for rollback.
+- Preflight classifies OS, architecture, init system, Docker/Compose, tools, exact AWG bundle,
+  ports and TLS prerequisites without blanket upgrades or ownership of foreign resources.
+  Recommended/latest/explicit AWG choices are limited to the compatibility catalog; unsupported
+  arbitrary upstream versions are refused.
+- Domain installs use the existing in-process ACME path. HTTP-01 requires externally reachable
+  TCP 80; the panel has a configurable TCP/TLS port and each AWG interface owns one UDP port.
+  IP-only installs default to loopback access through the displayed SSH tunnel.
+- The terminal UI supports fa/en, RTL-safe copy, narrow SSH terminals, `NO_COLOR`, `TERM=dumb`,
+  cancellation, EOF and noninteractive automation. Secrets use hidden TTY input, stdin or a
+  protected file and never argv. Fresh installs create the owner before a public listener starts.
+- Lifecycle mutations use an exclusive lock, durable journal, staged artifacts, pre-update
+  backup, candidate admission/health contracts and automatic recovery. DB/master-key users hold
+  a shared lifetime lease; restore or replacement requires exclusive ownership. Binary rollback
+  coordinates schema/data recovery instead of pretending an old binary can read a newer schema.
+- Backup management reuses the single application scheduler and archive/Telegram services:
+  encrypted create/list/send, restore preview and confirmation, retention, and daily/weekly/
+  interval schedules. No resident shell service, cron scheduler or new REST API was introduced.
+- Default uninstall preserves data. Explicit `--purge-data` still requires operator-managed
+  quiescence; concurrent destructive purge fencing is tracked as AUD-040 in Phase 11.
 
-1. A small Bash bootstrap acquires the selected build; the existing Go binary owns installation
-   and lifecycle mutations through `internal/install`. A shared Go distribution package handles
-   catalog, immutable identity and update acquisition. Shell is limited to first acquisition and
-   prerequisite tooling required to run that first binary. A giant shell installer and a second
-   resident management service were considered; both duplicate ownership and recovery logic.
-2. Release selection offers latest stable and a bounded release list; exact release selection
-   requires published compatible assets and SHA-256 verification. Development selection resolves
-   `main` or an explicit full commit SHA before fetching/building. It displays development status,
-   records the exact SHA, and never silently downgrades a release request to a source build.
-   Download checksums provide integrity over the trusted GitHub/TLS channel, not independent
-   publisher authentication. Provenance/signing remains part of Phase 12 release engineering.
-3. Build prerequisites are temporary where practical; a source install can require Go at build
-   time, never a production runtime. Toolchain downloads are platform-specific and checksummed
-   from official Go metadata; module verification stays enabled. Use immutable local Docker image
-   identities or verified release metadata, not a mutable `latest` rollback reference.
-4. The terminal UI has a branded overview, grouped numbered actions, readable steps and review
-   before mutation. It must work at 48/80/120 columns, with `NO_COLOR`, `TERM=dumb`, cancellation,
-   piped input and noninteractive flags. English and Persian copy uses `internal/i18n` catalogs;
-   terminal bidi support is reported honestly. Secret entry is hidden on TTY and never placed in
-   argv, logs or state. Input is bounded; EOF/cancel never means consent.
-5. Domain setup uses existing in-process ACME and validates certificate readiness separately
-   from process health. Panel TCP port is configurable; HTTP-01 needs external TCP 80 even if an
-   internal challenge listener differs. Each AWG interface has its own UDP listen port; the
-   installer configures its allocation range/defaults. IP-only defaults to loopback with a usable
-   SSH tunnel command; manual certificates are available for public TLS. This does not claim
-   that all CAs forbid IP certificates; the current `autocert` integration is domain-oriented.
-6. Prerequisite adapters inspect OS, architecture, init system, Docker/Compose, kernel headers,
-   tools, module and ports before mutation. Install required packages without blanket upgrades,
-   preserve foreign Docker/firewall/SSH resources, and record owned resources. Ubuntu PPA suites
-   are not guessed or injected into Debian. Unsupported automatic setup fails with an actionable
-   manual-prerequisite route. Only evidence-backed OS/architecture cells are advertised verified.
-   A clean supported host may need repository tooling and the documented PPA prepared first;
-   when core packages need installation, both exact AWG versions must then be available before
-   core-package/deployment mutation. An already installed, validated exact bundle satisfies this
-   gate without forced repository refresh. Failed required availability is incomplete prerequisite
-   preparation, never a successful installation.
-7. AWG is a compatibility bundle: tools, kernel source/package and optional userspace daemon are
-   separate versions. Recommended means the pinned verified contract. Latest means latest
-   compatible catalog entry, not arbitrary upstream HEAD. Explicit selection is allowed only
-   for a catalogued compatible bundle. Display installed/requested/loaded versions and reboot
-   requirements. Do not unload active tunnels automatically. Managed userspace fallback remains
-   AUD-019 in Phase 11; no installer path may claim it exists.
-8. Lifecycle operations use exclusive locking, durable operation state, staged artifacts,
-   pre-update backups and health-checked commit/recovery. Keep a previous healthy artifact after
-   successful updates. A failed pull/build/checksum changes no active deployment. Startup failure
-   and health failure both recover. Binary rollback is not a database downgrade: schema changes
-   require explicit coordinated restoration from the recorded pre-update backup. Never report
-   automatic recovery when state is incompatible or recovery failed.
-   Active DB/key users retain a separate shared-volume lifetime lease; rotation and replacement
-   require exclusive ownership. Candidate admission requires `data_lease`. Safe custom data
-   directories remain supported, but split DB/key directories require explicit offline migration.
-9. Backup UI calls the shared archive/schedule/Telegram services: create/list/send, encrypted
-   off-host recommendation, restore preview/confirmation, schedule list/add/enable/disable/delete,
-   daily/weekly/every-N-hours or equivalent days with retention. Keep the single scheduler.
-   Restore streams large allowed members with total/member bounds and rejects corrupt or unsafe
-   archives before swap. No new backup REST API and no cron process.
-10. Fresh installer-managed nodes create the owner locally before starting a public listener.
-    Interactive setup uses hidden password and confirmation; noninteractive public setup needs
-    an explicit protected password file unless an owner already exists. Reuse the admin service
-    with atomic single-owner creation. Existing owners are never reset by install or update.
-    This closes the first-visitor ownership race without changing the panel's visual design.
+## Milestones
 
-## Milestones and deliverables
-
-| Milestone | Deliverable | Verification |
+| Milestone | Deliverable | State |
 |---|---|---|
-| M1 | GitHub catalog/acquisition, bootstrap, local candidate artifact builder | Fake HTTP failure/integrity tests; Linux bootstrap fixture execution; no-release behavior |
-| M2 | Prerequisites, AWG catalog/policy, safe port/TLS/IP setup | Host-seam tests; pinned upstream check; clean-host prerequisite drill |
-| M3 | Locked/recoverable install/update/rollback and catalogued core switch | Failure injection at swap/start/health/state; previous artifact/data recovery; explicit pending-reboot state |
-| M4 | Terminal design system, setup and management navigation | fa/en parity; scripted flows, EOF/secret tests; real 48/80/120-column TTY |
-| M5 | Backup/Telegram/schedule/restore management | Real service/database tests; archive security/bounds; negative group IDs; scheduled execution |
-| M6 | Integrated verification, operator docs and handoff | Docker/native dedicated-VPS lifecycle, TLS, source identity, CI and clean repository |
-
-Implementation detail and progress: [implementation plan](../superpowers/plans/2026-09-05-installer-lifecycle.md).
-
-## Completion criteria
-
-- Every requested major feature maps to M1–M6 and is implemented or has a concrete external
-  blocker recorded; no future roadmap item is marked implemented by this phase.
-- Build, unit tests, vet, race and relevant Linux integration checks pass; GitHub CI is green on
-  the pushed revision. Tests cover malformed input, cancellation, download and mutation failures.
-- A dedicated Ubuntu 24.04 amd64 VPS verifies Docker and native acquisition/install, exact build
-  identity, AWG readiness, ACME certificate, update, successful rollback, failed-update recovery,
-  backup, restore and schedule execution without harming unrelated host resources.
-- Real Telegram send requires an operator-provided bot/chat; without them only service/HTTP
-  integration is marked verified. No credentials or real backup contents enter Git or evidence.
-- Release fixture tests and candidate artifacts do not count as an actual published-release
-  installation. If no public release exists, that path remains explicitly pending publication.
-- README, deployment/runbook, backup docs, architecture, testing/status and this tracker agree;
-  AGENTS stays concise. Commits are coherent and pushed; no public final release is published.
-
-## Deferred work and dependency handoff
-
-Phase 9 consumes lifecycle diagnostic context, adding unified live logs and seven-day retention.
-Phase 10 consumes stable operational semantics for web settings redesign. Phase 11 repeats
-lifecycle drills across all supported OS/architecture cells and owns managed userspace lifecycle,
-security/load/soak certification. Phase 12 freezes candidate artifacts, final release workflow,
-provenance and documentation and requests explicit approval before public publication.
+| M1 | GitHub catalog/acquisition, bootstrap and local candidate artifacts | complete |
+| M2 | Prerequisites, AWG compatibility policy, ports and TLS/IP setup | complete |
+| M3 | Locked install/update/rollback/uninstall and core maintenance | complete |
+| M4 | Bilingual terminal setup/management and local-owner bootstrap | complete |
+| M5 | Bounded backup/Telegram/schedule/restore management | complete |
+| M6 | Integrated VPS verification, documentation and repository handoff | complete |
 
 ## Verification record
 
-- Baseline: clean main `2f756b9`; isolated branch `codex/installer-lifecycle` created.
-- M1 (`5ec46e0`): acquisition package, executable bootstrap and candidate builder implemented.
-  Full Go tests/build/vet, WSL shell fixtures, dual-architecture local checksums and Linux amd64
-  execution passed. [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33995279156)
-  on the exact commit. Independent review closed after output-capture hardening in `899f4e0`;
-  a real subprocess regression verifies the per-stream memory cap. This does not verify Docker
-  integration, clean-host provisioning or published-release installation.
-- Read-only dedicated-VPS baseline:
-  [sanitized record](../integrations/fixtures/verify-phase8.1-baseline-2026-09-05.txt).
-  Existing Docker node, two AWG interfaces and valid cached certificate must be preserved.
-- Managed lifecycle real-host verification remains pending. A dedicated Telegram bot/chat was
-  supplied; isolated real delivery and central-scheduler acceptance subsequently passed below.
-- Acquisition-only VPS probe of `5ec46e0`: bootstrap checksum matched and dependency downloads
-  started, but the SSH connection did not deliver a final result. Build success is **unverified**;
-  the owned remote temporary directory was cleaned, original HTTPS health remained good, and
-  system Go remained unchanged. Repeat with durable bounded evidence during integrated testing.
-- Durable repetition on `3a02c72` **passed**: real GitHub source acquisition, temporary compiler,
-  candidate build and installer help completed in 80.7 seconds; original HTTPS health and system
-  Go were preserved. Latest-release selection failed closed because no release exists.
-  [Sanitized evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt).
-  [Exact-commit CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33996190149).
-- M2 (`fa74c4a`, hardened in `da46c00`): prerequisite/core/TLS and candidate runtime-image helper
-  implemented; full Go tests/build/vet passed, independent review closed. Public endpoint
-  classification rejects CGNAT/mapped and relevant special-use addresses; this is not proof of
-  network reachability. Read-only core CLI commands passed on the
-  actual Docker node ([evidence](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt)).
-  Current exact package availability is also recorded
-  [separately](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt).
-  These checks do not certify fresh installation, image deployment or certificate issuance.
-- TLS diagnostic follow-up: M4 now retains the last classified handshake failure alongside
-  timeout/cancellation, with a regression test. See the M4 review record below.
-- M2 review/status revision `bd40179`: [CI passed](https://github.com/Sir-Adnan/wg-guard/actions/runs/33998640840).
-  M3 was still in progress at that revision; its later review record follows below.
-- Baseline schema follow-up (read-only, 2026-09-06): the existing Phase 7 VPS database contains
-  migrations 0001–0006. Candidate schema 0007 is a real data-contract transition. Integrated
-  drills must preserve and restore the original database/master-key pair before returning to
-  the original Phase 7 image; binary-only rollback is not sufficient proof of safe recovery.
-- M3 (`4b72243`): locked, journaled lifecycle/source integration and core maintenance implemented;
-  full Go tests/build/vet, Linux scoped race/process-death lock/atomic-file tests and executable
-  bootstrap compatibility fixtures passed. Independent review closed after the native cleanup
-  fix in `fc2c537`; no real deployment drill
-  is claimed. [Recovery contract and limits](../operations/lifecycle-recovery.md) distinguish
-  same-contract rollback from M5's still-pending coordinated original-schema recovery. M4's
-  owner-before-listener hook was provided for the later M4 provisioning implementation below.
-- M3 native cleanup review fix: complete systemd load/activity observations distinguish a
-  genuinely absent inactive unit from failed/ambiguous queries. Partial install cleanup and
-  interrupted uninstall retry tests pass while genuine stop failures still preserve data.
-  Scoped re-review found no remaining Important/Critical issue. The `2a65933` implementation/
-  status revision [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34000616493);
-  CI on the subsequent cleanup fix must be observed separately.
-- Cleanup fix and closing status revision `e041875` subsequently
-  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34001185021).
-- M4 (`e21a87f`, bootstrap rerun follow-up `4c8f07e`): bilingual terminal/setup/management,
-  actual-FD hidden input, local owner-before-listener provisioning, atomic single-owner creation,
-  shared locked restart and candidate capability gating implemented. Full Go suite/build/vet,
-  scoped Linux race/PTY and executable bootstrap fixtures passed. Independent task review closed
-  with no Important/Critical finding; M6 real-deployment certification remains pending. Bootstrap default
-  interactive entry starts fresh setup with the acquired build or opens an existing node's menu
-  without reinstalling. [Operator guide](../operations/terminal-management.md).
-- Two minor M4 review items remain for M6 final review: show customized pool/MTU/DNS in the final
-  setup review, and make recovery hints operation-specific (restart journals need restart retry,
-  not update recovery). They do not waive the final product-quality gate.
-- M5 (`281b607`) implements complete backup/schedule/Telegram management, streaming private
-  restore preview/explicit approval and recoverable database/master-key replacement. Shared
-  host-side restoration coordinates stop/apply/start in both modes; original-schema recovery
-  verifies the journal's archive and retained artifact before old-code startup. Full test/build/
-  vet, scoped Linux race/integration and bootstrap fixture gates pass; independent review is
-  pending. Actual VPS lifecycle, Telegram delivery and scheduler-tick acceptance remain M6.
-  No REST route/wire representation changed; internal web restore forms carry preview identity.
-- M5 also closes implementation gaps found during execution: secret-read failure cannot
-  downgrade encryption, Telegram transport errors do not echo credential URLs, same-second
-  archives have unique names, and excessive age/scrypt work factors are refused before costly
-  derivation. The existing factor18 crypto cost (~256 MiB transient) is documented. These are
-  automated implementation results, not a completed phase or VPS recovery claim.
-- M5 review identified three Important gaps: recovery markers were not checked by every manual
-  database opener, managed configuration could redirect data away from the lifecycle guard,
-  and new substantive safety messages bypassed Persian localization. Fix `8be8c6f` adds opener
-  refusal before database access, canonical managed-path validation before preparation/stop and
-  keyed safe fa/en CLI/panel conditions. Focused regressions, full test/build/vet and scoped Linux
-  race/integration pass; scoped re-review is pending. Original implementation/docs revision
-  `c46f313` [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34005864073);
-  the fix requires its own CI result.
-- Crypto-localization follow-up `8ce6f99` covers missing/short passwords, invalid or damaged
-  encrypted inputs, streaming crypto failures and excessive KDF work with safe keyed fa/en
-  messages while retaining internal error causes. Focused and full local gates pass; the
-  scoped re-review closed the residual finding with no new Important/Critical issue. M5's
-  implementation review is complete; actual Telegram, schedule and lifecycle acceptance remain M6.
-- Exact revision `9db9016` [failed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34006644053)
-  in the stable-Go download cancellation test: a canceled response was reported as a size
-  mismatch. Minimum-Go tests, both architecture builds and vulnerability checks passed.
-  Correction `f47d92c` checks cancellation after response/file cleanup; a deterministic body
-  fixture reproduces canceled clean EOF before the fix. Focused repeated/race and full local
-  test/build/vet gates pass. Scoped review closed with no findings. The subsequent `53f55e2`
-  CI run passed distribution but failed a separate TLS diagnostic test, corrected below.
-- M4 implementation/status revision `99b9338`
-  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003509985).
-  Closing-review revision `234f067` also
-  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34003707951).
-- Real read-only management/input verification on candidate `234f067` passed 17 Linux PTY
-  cases and three nonTTY checks; original settings, deployment identity and trusted HTTPS health
-  were preserved ([sanitized evidence](../integrations/fixtures/verify-phase8.1-terminal-readonly-2026-09-06.txt)).
-  This does not certify new installation, lifecycle mutation or universal Persian client shaping.
-  Legacy install-state displays missing TLS/core fields as blank; final UX review should use an
-  explicit unknown/not-recorded state. The bounded exact-candidate harness is retained with the evidence.
-- Real runtime-image preparation on `234f067` passed after one identical bounded retry of an
-  external Launchpad signing-key API 504. Actual image labels, binary digest, installer contract
-  and pinned AWG tools/package were verified in network-isolated, read-only containers;
-  original deployment and interfaces remained unchanged. Only the exact owned probe image and
-  private staging directory were removed. [Evidence and limits](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt).
-  This verifies image preparation, not node installation, clean-host DKMS provisioning or ACME.
-- Exact documented one-command installed-node rerun on `53f55e2` passed in 75.4 seconds:
-  GitHub acquisition/build opened management in a real PTY, exit was selected, and original
-  settings/config/state/binary/container identity remained unchanged. Terminal attributes and
-  original trusted HTTPS health were verified afterward; owned probe files were removed.
-  [Evidence and limits](../integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt).
-- `53f55e2` [CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34007605722) passed minimum-Go,
-  both builds and vulnerability checks; stable-Go race failed
-  `TestWaitCertificatePreservesLastHandshakeCause` before any classified certificate error
-  was observed within its 100ms test window. Correction `0911250` separates the actual TLS
-  error from deterministic wait-loop cancellation; it proves retained certificate/context
-  causes without that timing assumption. Focused Linux race and full test/build/vet pass;
-  scoped review closed with no findings and exact revision `0911250`
-  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34008831152).
-  Production TLS trust, hostname checks, deadlines and diagnostics are unchanged.
-- Real isolated backup/scheduler/Telegram acceptance on candidate `53f55e2` passed using
-  helper `6470928`: three encrypted manual archives, count retention, UTC schedule CRUD and
-  an actual production scheduler tick after advancing only the owned test row's due time.
-  The API accepted the connectivity probe and exactly two encrypted synthetic archive sends.
-  Child/workspace cleanup passed; an independent snapshot proved original settings, files,
-  container identity/start and AWG configurations unchanged.
-  [Evidence and limits](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt).
-  Native/Docker lifecycle, coordinated recovery and fresh ACME remain distinct pending gates.
-- Real sequential native lifecycle on `53f55e2` passed install/loopback/owner login, encrypted
-  backup, declined restore, rotated-key/database pair restore, same-contract update, installed
-  binary rollback, proven failed-start compensation and data-preserving uninstall. Original
-  Docker files/key/schema/settings/container and foreign AWG interfaces were restored and checked
-  independently. [Evidence and limits](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt).
-- Final implementation review of `2f756b9..14d4a19` found two release-blocking corrections:
-  admitted database/key opener lifetime across restore (AUD-038), and core recovery retry after
-  repaired module observation (AUD-039). One consolidated correction wave is active; amended
-  behavior needs scoped review and affected real-host checks. Docker, fresh ACME, cross-contract
-  recovery and final candidate acceptance remain open. Phase8.1 is not complete.
-- Documentation/evidence revision `14d4a19`
-  [passed CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34010291233).
-- Consolidated final correction `0578dcc` implements persistent cross-process data ownership,
-  atomic admission/initialization, shutdown-lifetime protection and core recovery retry. It also
-  closes the bounded terminal review/defaults, operation-specific hints, backup warning PRG,
-  archive-fixture, helper-reporting and Python-CI findings. Full Go test/build/vet, Linux arm64
-  build, targeted Linux race/integration, Windows ownership checks, bootstrap fixtures and 17
-  credential-free Python tests pass. Scoped final re-review and corrected-candidate VPS checks
-  remain pending. Pre-lease retained binaries require an explicit no-concurrent-old-process
-  maintenance boundary; their unchanged data format does not imply lease participation.
+| Area | Evidence and result |
+|---|---|
+| Automated and review gates | Package, command, shell-fixture, PTY, failure-injection, restore-security, race and integration gates passed during M1–M5. Final PAX correction `d30894a` passed targeted acquisition tests plus `go test ./...`, build and vet. [CI passed on the exact code revision](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598). |
+| GitHub acquisition | [Real source acquisition/build/help, empty-release refusal](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) and the [one-command management rerun](../integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt) passed. The final Docker drill acquired both `6b9dd63` and `d30894a` through the corrected Go extractor. |
+| Terminal UX | [17 PTY and three nonTTY checks](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed across supported widths/modes without exposing secrets. |
+| Backup and Telegram | [Isolated real Bot API and scheduler acceptance](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt) passed with encrypted archives, retention, schedule execution and two real sends. Credentials and backup contents are not recorded. |
+| Native lifecycle | [Sequential Ubuntu 24.04 drill](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt) passed install, owner creation, encrypted backup/restore, update, rollback, failed-start recovery, safe uninstall and restoration of the original node. |
+| Docker lifecycle | [Final Ubuntu 24.04 drill](../integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt) passed source install/update, immutable identity, fresh ACME issuance, encrypted DB/key restore, lifetime-lease exclusion, rollback in both directions, unreachable-source preservation, failed-start recovery and safe uninstall. A legacy-fixture flag mismatch was isolated; only that remaining cross-contract cell was rerun with the historical `-stdin` spelling and passed. The original node, certificate and AWG interfaces were restored. |
+| AWG/config regression | [Corrected-candidate protocol evidence](../integrations/fixtures/verify-phase8.1-protocol-2026-09-06.txt) confirms real config/QR/client behavior and traffic remained intact. Existing exact core/package/runtime-image observations are recorded in the linked integration fixtures. |
+
+## Completion and remaining limits
+
+All Phase 8.1 implementation, review, documentation and dedicated Ubuntu 24.04 amd64 gates are
+complete. API/OpenAPI did not change. The branch is ready to merge after owner review; Phase 9
+must not be mixed into this branch.
+
+The following are intentionally not claimed:
+
+- no compatible public release or registry image exists yet, so real published-release install
+  remains a Phase 12 gate;
+- arm64 artifacts build and checksum locally, but arm64 runtime behavior is not certified;
+- the full Ubuntu/Debian, amd64/arm64, Docker/native, kernel/userspace matrix and clean-host
+  package-provisioning certification remain Phase 11;
+- only the installed catalogued AWG bundle could be reaffirmed; no unsupported version transition
+  was invented, and managed userspace lifecycle remains AUD-019 in Phase 11;
+- concurrent `--purge-data` safety remains AUD-040 in Phase 11;
+- no public release was published.
+
+Phase 9 consumes the stable lifecycle diagnostics for bounded live metrics and logs. Phase 10
+owns the full web redesign. Phase 11 owns production certification and unresolved operational
+findings. Phase 12 owns signed/checksummed release artifacts and the approval-gated publication.

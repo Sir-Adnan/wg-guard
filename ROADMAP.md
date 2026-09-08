@@ -17,8 +17,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **6 — Backup, settings & operations** | Backup/restore, schedules and Telegram, settings, administrators, tokens, webhooks, audit, and doctor | ✅ Complete |
 | **7 — Deployment & installer** | Docker/native installation, ACME, host shim, update/rollback, uninstall, and deployment drills | ✅ Complete |
 | **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
-| **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | 🚧 Active |
-| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Planned; design branch preserved |
+| **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | ✅ Complete |
+| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next; design branch preserved |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and OS/architecture/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed/multi-arch artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
@@ -39,17 +39,16 @@ sanitized evidence linked from [docs/development/phase8.md](docs/development/pha
 Inserted after completed Phase 8 by the 2026-09-05 installer request. Extend Phase 7's engine
 with a GitHub bootstrap and cohesive terminal management, source/version provenance, prerequisite
 and AWG compatibility checks, safe update/rollback, and backup/restore scheduling. This is an
-independent delivery phase, not a reopening of Phase 8. Phase 9's design-only branch is paused;
+independent delivery phase, not a reopening of Phase 8. Phase 9's design-only branch is preserved;
 its metrics/log-retention implementation remains separate. Artifact acquisition contracts move
 forward from Phase 12; public publication still requires owner approval. Complete only with
 automated failure tests, terminal QA, and Docker/native lifecycle evidence on the dedicated VPS.
-Detailed gate: [docs/development/phase8.1.md](docs/development/phase8.1.md).
-M1–M5 implementation reviews are closed. M6 integrated acceptance and final review remain;
-this does not mark Phase 8.1 complete or certify the latest CI revision.
-M6 has verified the exact GitHub management rerun, isolated real encrypted Telegram delivery/
-central-scheduler execution and sequential native lifecycle with original-node restoration.
-Final-review data/key concurrency and core retry corrections remain blockers; amended-candidate
-checks, managed Docker, cross-contract recovery and fresh TLS issuance remain gates.
+Completed 2026-09-08. M1–M6 are implemented, reviewed and documented. Dedicated Ubuntu 24.04
+evidence covers real GitHub source acquisition, terminal modes, Telegram scheduling, native and
+Docker install/update/rollback/recovery, coordinated restore, fresh ACME, and original-node
+restoration. The PAX codeload metadata correction passed the exact-revision CI gate. Published
+release artifacts, the broader compatibility matrix and public publication remain Phases 11–12.
+Detailed gate and limits: [docs/development/phase8.1.md](docs/development/phase8.1.md).
 
 ### Phase 9 — Operational observability
 

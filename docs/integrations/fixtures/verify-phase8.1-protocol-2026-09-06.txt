@@ -1,0 +1,37 @@
+Phase8.1 — corrected lifecycle candidate protocol regression acceptance
+Date: 2026-09-06; real dedicated Ubuntu24.04 amd64 VPS, kernel6.8.0-138-generic
+Candidate: 6b9dd63ed9dbb00987068d26381233532611fb87 / 0.0.0-phase8.1-m6-final
+Binary SHA256: 6887d1a3bbc4c195f6acf984d54a37a3203fa8538617ae6b94dd576637d37b16
+Harness: existing verify-phase8-vps.sh; independent qrcheck decoder
+qrcheck SHA256: d12f8727a33e6a615fb7c75d570126c69817ce372e5e90ed83b43d2a374b953c
+
+PASS: recommended/randomized profile equality across API, database, runtime and config;
+canonical config and independently decoded QR bytes across REST/admin/subscription;
+actual recommended/randomized kernel clients, bidirectional ICMP/TCP/UDP;
+recommended manually supervised userspace daemon traffic and kernel return;
+secret-safe harness diagnostics and owned namespace/interface/socket cleanup. Exit0.
+
+Recommended profile SHA256: c78885dea8e6b0cb7f0e0025bbb384d533176e3c37af0a1024a557c2a79d3941
+Recommended config SHA256: e1ccf792ec46f8d55d6fe7cc58d677eabd97001134b41e8a16d27ca1541b379f
+Randomized profile SHA256: 309a0809a2c75f94a034ce57a17d4a480c0634f7c67ad3479596a9bcbda94e58
+Randomized config SHA256: 127897fc493d73575ba382d0a59840047244b032e0ca973fb316b42ff8635324
+Tools package: 1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1
+DKMS package: 1.0.0-0~202608282205+3c38e16~ubuntu24.04.1
+Userspace module: v3.1.20260828, b5928efb6ca19f0153958460c3d141f04abc5c2e
+Userspace SHA256: a9e774c4e84c1498da2d4c20814da62b3c41f66ad7aa6fbdeaf076eed5a687fa
+
+Original settings, config/state/key/binary, container ID/image/start/running state and
+foreign AWG configurations were identical before/after; trusted HTTPS remained healthy.
+The bounded transient unit ended inactive/dead with ExecMainStatus0.
+
+An initial preflight failed because amneziawg-go was absent from host PATH, before any
+network fixture creation. The matching existing WSL binary was inspected for exact module/
+commit and staged privately on the VPS for the retry's PATH only; no host core installation
+or module replacement occurred. That first failure remains in private evidence.
+A transient ConnectionRefusedError came from the harness's bounded relay-readiness probe
+before startup; the retry reached readiness and all subsequent traffic assertions passed.
+
+Limits: this is isolated protocol/config/QR evidence, not Docker/native lifecycle or fresh
+ACME acceptance. No optical camera scan, arm64 execution, arbitrary client/version parity,
+automatic userspace lifecycle or public release is claimed. A later acquisition-only fix
+must receive its own source-backed lifecycle checks; this evidence stays pinned to6b9dd63.

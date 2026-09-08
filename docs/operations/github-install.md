@@ -150,9 +150,9 @@ directory must not already exist. This creates no public tag, release, registry 
 selections, integrity/size/cancellation failures, unsafe archives, toolchain checksums and an
 actual minimal source compilation. `bash scripts/test-bootstrap.sh` runs fake external utilities
 and real script logic for release/list/source/toolchain paths, integrity refusal, piped input,
-cleanup and candidate checksums. Linux CI runs those fixtures. Neither fixtures nor successful
-cross-compilation claim a clean-VPS install, arm64 execution, a published-release install, or
-complete Docker/native lifecycle verification; those remain later milestone evidence.
+cleanup and candidate checksums. Linux CI runs those fixtures. Fixtures and cross-compilation do
+not prove clean-host package provisioning, arm64 execution or published-release installation.
+Separate real Docker/native evidence is linked from [Phase 8.1](../development/phase8.1.md).
 
 The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly
 matches the selected full SHA. Other global metadata and all links, devices, traversal, duplicate
