@@ -37,8 +37,9 @@ creating a second deployment engine.
   are supported. Secrets use hidden TTY input, stdin or a protected file and never argv. Fresh
   installs create the owner before a public listener starts.
 - `sudo wg-guard` is the zero-download daily entry. Re-running the GitHub one-liner downloads only
-  its small bootstrap, validates the owned installation and opens that local manager; it never
-  implies an update.
+  its small bootstrap, validates the owned binary and its Phase 8.1 management contract, then opens
+  that local manager. Older host CLIs acquire a compatible manager instead; neither path implies
+  an update.
 - Lifecycle mutations use an exclusive lock, durable journal, staged artifacts, pre-update
   backup, candidate admission/health contracts and automatic recovery. DB/master-key users hold
   a shared lifetime lease; restore or replacement requires exclusive ownership. Binary rollback
@@ -66,7 +67,7 @@ creating a second deployment engine.
 |---|---|
 | Automated and review gates | Package, command, shell-fixture, PTY, failure-injection, restore-security, race and integration gates passed during M1–M5. Final PAX correction `d30894a` passed targeted acquisition tests plus `go test ./...`, build and vet. [CI passed on the exact code revision](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598). |
 | GitHub acquisition | [Real source acquisition/build/help, empty-release refusal](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) and the [one-command management rerun](../integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt) passed. The final Docker drill acquired both `6b9dd63` and `d30894a` through the corrected Go extractor. |
-| Terminal UX | [17 PTY and three nonTTY checks](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed across supported widths/modes without exposing secrets. The final English-only/recommended-path correction is covered by command, prompt, terminal-layout and bootstrap fast-path regressions; it does not change deployment or wire behavior. |
+| Terminal UX | [17 PTY and three nonTTY checks](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed across supported widths/modes without exposing secrets. The final English-only/recommended-path correction is covered by command, prompt, terminal-layout and contract-gated bootstrap fast-path regressions; it does not change deployment or wire behavior. |
 | Backup and Telegram | [Isolated real Bot API and scheduler acceptance](../integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt) passed with encrypted archives, retention, schedule execution and two real sends. Credentials and backup contents are not recorded. |
 | Native lifecycle | [Sequential Ubuntu 24.04 drill](../integrations/fixtures/verify-phase8.1-native-2026-09-06.txt) passed install, owner creation, encrypted backup/restore, update, rollback, failed-start recovery, safe uninstall and restoration of the original node. |
 | Docker lifecycle | [Final Ubuntu 24.04 drill](../integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt) passed source install/update, immutable identity, fresh ACME issuance, encrypted DB/key restore, lifetime-lease exclusion, rollback in both directions, unreachable-source preservation, failed-start recovery and safe uninstall. A legacy-fixture flag mismatch was isolated; only that remaining cross-contract cell was rerun with the historical `-stdin` spelling and passed. The original node, certificate and AWG interfaces were restored. |

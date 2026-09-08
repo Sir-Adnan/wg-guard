@@ -66,9 +66,10 @@ sudo wg-guard
 ```
 
 This starts immediately and does **not** contact GitHub or download WG-Guard again. The explicit
-form `sudo wg-guard manage` is equivalent. Running the one-line installer again on a valid managed
-installation also detects the local copy and opens it, but `sudo wg-guard` is the normal daily
-command.
+form `sudo wg-guard manage` is equivalent. Running the one-line installer again on a compatible
+managed installation also detects the local copy and opens it, but `sudo wg-guard` is the normal
+daily command. Older installations acquire a verified current manager instead of invoking an
+unsupported local command.
 
 Useful read-only checks:
 

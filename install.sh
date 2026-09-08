@@ -84,12 +84,23 @@ if ((list == 0 && management_entry)) && command -v stat >/dev/null &&
   state_mode=$("${sudo_cmd[@]}" stat -c '%a' "$installed_state")
   if [[ $bin_owner == 0 && $state_owner == 0 && $bin_mode =~ ^[0-7]{3}$ && $state_mode =~ ^[0-7]{3}$ ]] &&
      (( (8#$bin_mode & 0022) == 0 && (8#$state_mode & 0022) == 0 )); then
-    ui_ok 'Existing managed installation detected'
-    ui_step 'LOCAL' 'Opening the installed WG-Guard manager'
-    if { true </dev/tty; } 2>/dev/null; then
-      exec "${sudo_cmd[@]}" "$installed_bin" manage --lang en </dev/tty
+    installed_contract=
+    if installed_contract=$("${sudo_cmd[@]}" "$installed_bin" installer-contract 2>/dev/null) &&
+       (( ${#installed_contract} <= 4096 )) &&
+       [[ $installed_contract == *'"revision":1'* &&
+          $installed_contract == *'"prerequisites":true'* &&
+          $installed_contract == *'"recovery":true'* &&
+          $installed_contract == *'"local_owner":true'* &&
+          $installed_contract == *'"coordinated_restore":true'* &&
+          $installed_contract == *'"data_lease":true'* ]]; then
+      ui_ok 'Existing managed installation detected'
+      ui_step 'LOCAL' 'Opening the installed WG-Guard manager'
+      if { true </dev/tty; } 2>/dev/null; then
+        exec "${sudo_cmd[@]}" "$installed_bin" manage --lang en </dev/tty
+      fi
+      exec "${sudo_cmd[@]}" "$installed_bin" manage --lang en </dev/null
     fi
-    exec "${sudo_cmd[@]}" "$installed_bin" manage --lang en </dev/null
+    ui_note 'The installed host CLI predates local management; acquiring a compatible manager.'
   fi
 fi
 ((list)) || ui_step '2/4' 'Preparing prerequisites'

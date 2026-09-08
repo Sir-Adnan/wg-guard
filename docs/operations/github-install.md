@@ -18,8 +18,10 @@ bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://
 This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
 installer input rather than consuming script bytes as answers. After installation, run
 `sudo wg-guard`; it opens the local manager immediately without GitHub access. Re-running the
-one-line command downloads only the small bootstrap, detects the owned installation and opens
-the same local manager. It does not rebuild or update the node.
+one-line command downloads only the small bootstrap, verifies the owned binary's Phase 8.1
+management contract and opens the same local manager. It does not rebuild or update the node.
+An older host CLI that lacks that contract goes through verified acquisition once so the current
+manager can open; acquisition alone still does not update the installed service.
 
 For stricter inspect-before-run operation, download the entry point first:
 

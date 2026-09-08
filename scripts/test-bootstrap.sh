@@ -74,7 +74,13 @@ import pathlib,sys
 source,target,os_release,installed_bin,installed_state=map(pathlib.Path,sys.argv[1:])
 target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)))
 target.chmod(0o755)
-installed_bin.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/local-argv"\n')
+installed_bin.write_text('''#!/bin/sh
+if test "$1" = installer-contract; then
+  printf '%s\n' '{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true}'
+  exit 0
+fi
+printf "%s\n" "$@" > "$FIXTURE_ROOT/local-argv"
+''')
 installed_bin.chmod(0o755)
 installed_state.write_text('{"schema":2,"mode":"docker"}\n')
 PY
@@ -91,18 +97,27 @@ test "$(request_count)" = "$before" || fail 'arm64 performed acquisition'
 setsid --wait bash "$fixture/bootstrap" --commit main -- --lang fa </dev/null
 test "$(tr '\n' ' ' < "$fixture/local-argv")" = 'manage --lang en ' || fail 'installed node did not open the local English manager'
 test "$(request_count)" = "$before" || fail 'installed-node rerun performed acquisition'
-rm "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/local-argv"
+printf '#!/bin/sh\nexit 2\n' > "$fixture/installed-wg-guard"
+chmod 0755 "$fixture/installed-wg-guard"
+rm "$fixture/local-argv"
+before=$(request_count)
+legacy_output=$(setsid --wait bash "$fixture/bootstrap" --release v1 </dev/null 2>&1)
+test "$(request_count)" -gt "$before" || fail 'legacy installed CLI incorrectly used the local fast path'
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy installed CLI did not acquire a compatible manager'
+case "$legacy_output" in *'Acquiring verified build'*) :;; *) fail 'legacy installed CLI acquisition was not explained';; esac
+rm "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/argv"
+before=$(request_count)
 help=$(bash "$root/install.sh" --help </dev/null)
 case "$help" in *'After installation: sudo wg-guard'*) :;; *) fail 'help omitted the local manager command';; esac
 case "$help" in *'Terminal UI: English only.'*) :;; *) fail 'help did not declare the English-only terminal contract';; esac
-test ! -e "$fixture/requests" || fail 'help performed acquisition'
+test "$(request_count)" = "$before" || fail 'help performed acquisition'
 bootstrap_output=$(setsid --wait bash "$root/install.sh" --release v1 </dev/null 2>&1)
 case "$bootstrap_output" in *'Checking system compatibility'*'Acquiring verified build'*'Opening WG-Guard setup'*) :;; *) fail 'bootstrap progress hierarchy missing';; esac
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'default interactive management entry'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'management build identity forwarding'
 setsid --wait bash "$root/install.sh" --release v1 -- --lang fa </dev/null
-test "$(head -n 1 "$fixture/argv")" = manage || fail 'localized management entry'
-test "$(tail -n 1 "$fixture/argv")" = fa || fail 'management locale forwarding'
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy language management entry'
+test "$(tail -n 1 "$fixture/argv")" = fa || fail 'legacy language flag forwarding'
 setsid --wait bash "$root/install.sh" --release v1 -- --mode native </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'explicit setup flags lost'
 bash "$root/install.sh" --release v1 -- --yes --mode native </dev/null
