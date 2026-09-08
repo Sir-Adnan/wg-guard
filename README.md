@@ -11,19 +11,12 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–8.1 complete; Phase 9 is next.** Phase 8 completed the
-configuration-integrity gate: lossless supported AmneziaWG parameters, canonical recommended and
-randomized profiles, byte-identical config/QR delivery, and independent QR decoding. Both profile
-classes were imported into isolated real kernel clients on Ubuntu 24.04 and passed handshake plus
-bidirectional traffic; the recommended profile also passed through the pinned userspace daemon.
-That gate exposed and fixed a peer-sync path that cleared the live interface private key. Phase 9
-owns operational observability and bounded logs after the completed
-[Phase 8.1 installer/lifecycle work](docs/development/phase8.1.md). Phase 8.1 delivered GitHub
-acquisition, prerequisite/core checks, recoverable lifecycle operations, bilingual terminal
-management and backup/recovery workflows, with Docker/native Ubuntu 24.04 verification. The full
-compatibility matrix remains Phase 11 and final release engineering remains Phase 12.
-See [ROADMAP.md](ROADMAP.md) and
-[docs/development/status.md](docs/development/status.md).
+**In active development — Phases 0–8.1 are complete; Phase 9 implementation is next.**
+Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
+GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
+with Docker and native verification on Ubuntu 24.04 amd64. Broader compatibility and public
+release work remain in later phases. See [ROADMAP.md](ROADMAP.md) and the
+[development status](docs/development/status.md).
 
 ## Features
 
@@ -42,79 +35,67 @@ See [ROADMAP.md](ROADMAP.md) and
 - **Safe Linux integration** — namespaced nftables table (never touches foreign firewall rules),
   kernel-module AmneziaWG, drift reconciliation, and `doctor` diagnostics; pinned userspace
   runtime compatibility is tested, while automatic fallback lifecycle remains a Phase 11 gate
-- **Clean deployment** — Docker by default (official image + compose), native systemd supported;
-  built-in TLS/ACME, no reverse proxy required
+- **Clean deployment** — Docker by default (verified runtime image + Compose), native systemd
+  supported; built-in TLS/ACME, no reverse proxy required
 
-## Quick installation
+## Install
 
 WG-Guard supports **Ubuntu 24.04 or newer on amd64/x86_64**. Ubuntu 24.04 LTS is the currently
-verified production target. Run this single command as root or as a sudo-capable user:
+verified target. Until the first stable release is published, run:
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main -- --lang fa'
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 ```
 
-The command downloads the public [installer](install.sh), builds the exact `main` commit when no
-release is published, installs missing prerequisites, and opens the Persian interactive setup.
-Docker is the default; the wizard handles the domain/IP, ACME TLS, panel port, AWG UDP allocation,
-local owner, compatible core and optional encrypted Telegram backups. Use `--lang en` instead of
-`--lang fa` for English.
+The terminal is English-only. The recommended setup asks for an optional domain, then uses safe
+defaults for everything else: Docker deployment, the compatible AmneziaWG bundle, automatic HTTPS
+when a domain is supplied, or private SSH access when it is not. Press **Enter** to accept each
+recommended answer. Choose advanced settings only when you need custom ports, native systemd,
+manual TLS, network defaults or Telegram backup setup.
+
+The first development-source build can take several minutes. A published release installs much
+faster because it uses a verified prebuilt binary. When stable releases exist, the default command
+becomes the same command without `--commit main`.
+
+## Open WG-Guard again
+
+After installation, use the local manager:
+
+```bash
+sudo wg-guard
+```
+
+This starts immediately and does **not** contact GitHub or download WG-Guard again. The explicit
+form `sudo wg-guard manage` is equivalent. Running the one-line installer again on a valid managed
+installation also detects the local copy and opens it, but `sudo wg-guard` is the normal daily
+command.
+
+Useful read-only checks:
+
+```bash
+sudo wg-guard status
+sudo wg-guard doctor
+```
+
+Updates, rollback, recovery, backups and uninstall are available from the local manager. Updates
+ask for a stable release or an explicitly selected development commit; installation is never
+silently replaced just because the bootstrap is run again.
+
+## Inspect before running
 
 For inspection before execution:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fsSLo wg-guard-install.sh https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
+curl --proto '=https' -fsSLo wg-guard-install.sh https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
 less wg-guard-install.sh
-bash wg-guard-install.sh --commit main -- --lang fa
+bash wg-guard-install.sh --commit main
 ```
 
-The source build can take several minutes on a small VPS. Once stable GitHub releases exist, omit
-`--commit main` to select the latest stable checksummed release. An unavailable exact AWG package
-on a newer Ubuntu release fails closed before deployment; it is never replaced with an arbitrary
-upstream version.
-
-## Installation details
-
-The GitHub bootstrap acquires a verified release or builds an explicitly selected commit; it
-does not require a preinstalled Go compiler or a published Docker image. Docker is the default
-deployment mode; native systemd uses the same installation engine and data layout.
-
-No compatible public release is currently available, so the quick command explicitly selects
-`main`. Release, exact-version and exact-commit workflows are documented in the
-[GitHub installation guide](docs/operations/github-install.md).
-
-After installation, use the same bilingual management interface:
-
-```bash
-sudo wg-guard manage --lang fa
-sudo wg-guard manage --lang en
-```
-
-Setup reviews the domain or public VPN IP, panel TCP/TLS settings, per-interface AWG UDP
-allocation, compatible core and optional backup settings before deployment. Domain ACME needs
-external TCP80; IP-only defaults to loopback access with an SSH tunnel. TLS readiness is checked
-separately from service health.
-
-The owner is created locally **before the public listener starts**, using hidden password input;
-automation requires a private password file unless an owner already exists. Existing owners are
-never reset. The installer writes `/etc/wg-guard/wg-guard.toml`, uses `/var/lib/wg-guard`, and
-builds a Docker runtime image from the selected binary when needed. No registry publication is
-implied. The first VPN interface is created in the panel after signing in.
-
-Read [terminal navigation and automation](docs/operations/terminal-management.md),
-[deployment](docs/operations/deployment.md), and [lifecycle recovery limits](docs/operations/lifecycle-recovery.md)
-before unattended changes. Phase 8.1 Docker/native installation and recovery verification is
-complete for the dedicated Ubuntu 24.04 amd64 node; this is not the broader Phase 11 matrix.
-The [exact GitHub management rerun](docs/integrations/fixtures/verify-phase8.1-one-command-rerun-2026-09-06.txt)
-and [isolated real Telegram/scheduler acceptance](docs/integrations/fixtures/verify-phase8.1-synthetic-backup-2026-09-06.txt)
-have passed without changing the existing test node.
-The [sequential native lifecycle drill](docs/integrations/fixtures/verify-phase8.1-native-2026-09-06.txt)
-also passed, including restoration of the original node. The
-[final Docker/source drill](docs/integrations/fixtures/verify-phase8.1-docker-2026-09-08.txt)
-then verified strict codeload PAX handling, source install/update, rollback/recovery, coordinated
-restore and fresh ACME while restoring the original node. Published release assets and validation
-of later Ubuntu versions remain later-phase gates; other distributions and architectures are out
-of product scope.
+The bootstrap verifies releases and checksums, or resolves `main` to an immutable commit before
+building it. It installs only missing prerequisites and refuses unsupported platforms, unknown
+AmneziaWG packages and unsafe artifacts. See the [GitHub installation guide](docs/operations/github-install.md)
+for exact releases/commits and automation, or [terminal management](docs/operations/terminal-management.md)
+for lifecycle and backup commands.
 
 ## Documentation
 

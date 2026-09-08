@@ -18,6 +18,7 @@ import (
 var usage = `wg-guard — lightweight AmneziaWG VPN node management panel
 
 Usage:
+  wg-guard                 Open the local manager
   wg-guard <command> [flags]
 
 Commands:

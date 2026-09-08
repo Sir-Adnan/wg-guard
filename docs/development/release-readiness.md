@@ -4,7 +4,7 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-08. Phase 8.1 is complete; **Phase 9 — Operational observability** is next
+Last updated: 2026-09-09. Phase 8.1 is complete; **Phase 9 — Operational observability** is next
 but was not started by the Phase 8.1 work.
 
 ## Program status
@@ -13,7 +13,7 @@ but was not started by the Phase 8.1 work.
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
-| 9 — Operational observability | next; existing design branch preserved | Useful live metrics/logs with bounded cost and retention |
+| 9 — Operational observability | next; implementation not started | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
@@ -30,7 +30,7 @@ implementation does not cross the active phase boundary.
 | Client config correctness and AWG parity | 8 | DB/runtime/download/QR/subscription equality plus real handshake and traffic |
 | H1–H4 and other range semantics | 8 | Lossless migration, validation, API, setconf, dump, reconcile, and backup round trips |
 | Recommended and randomized profiles | 8 | Relationship-aware generation, property tests, runtime acceptance, client use |
-| GitHub bootstrap, release/commit selection, terminal installer/manager | 8.1 | Checksummed acquisition, exact source identity, width/locale QA, real installation |
+| GitHub bootstrap, release/commit selection, terminal installer/manager | 8.1 | Checksummed acquisition, exact source identity, English/narrow-width QA, real installation |
 | Prerequisites, compatible AWG bundle selection, domain/IP and TLS setup | 8.1; supported-Ubuntu matrix in 11 | Explicit supported combinations; real kernel/tools and certificate evidence |
 | CLI backup/Telegram schedules and transactional lifecycle | 8.1; certification repeated in 11 | Failure injection, bounded restore, real update/rollback/backup/restore |
 | Live CPU/RAM/network/peer/node monitoring | 9; visual finish in 10 | Real-load graphs, hidden-tab pause, measured sampler overhead |

@@ -8,21 +8,33 @@ import (
 	"testing"
 )
 
-func TestWizardLocalizedReviewAndSafeBlank(t *testing.T) {
+func TestWizardReviewIsEnglishAndEnterProceeds(t *testing.T) {
 	var out strings.Builder
 	q := newPrompt(strings.NewReader("\n"), &out, false)
 	q.ui.Locale = i18n.Fa
 	p := Defaults()
 	p.TelegramToken = "synthetic-hidden-token"
-	if err := q.confirm(p); !errors.Is(err, terminal.ErrCanceled) {
-		t.Fatalf("blank review permitted: %v", err)
+	if err := q.confirm(p); err != nil {
+		t.Fatalf("recommended review default did not proceed: %v", err)
 	}
-	if strings.Contains(out.String(), "synthetic-hidden-token") || !strings.Contains(out.String(), "بررسی") {
-		t.Fatal("review secret/locale failure")
+	if strings.Contains(out.String(), "synthetic-hidden-token") || strings.Contains(out.String(), "بررسی") {
+		t.Fatal("review exposed a secret or non-English terminal copy")
 	}
 	q = newPrompt(strings.NewReader("back\n"), &out, false)
 	if _, err := q.askChoice("menu", []string{"one"}, 1); !errors.Is(err, terminal.ErrBack) {
 		t.Fatal(err)
+	}
+}
+
+func TestAdvancedOverrideDetectionIncludesACMEPort(t *testing.T) {
+	p := Defaults()
+	p.Mode = ""
+	if advancedSettingsRequested(&p) {
+		t.Fatal("default interactive plan should use the recommended path")
+	}
+	p.ACMEHTTPPort = 8081
+	if !advancedSettingsRequested(&p) {
+		t.Fatal("custom ACME challenge port must open advanced setup")
 	}
 }
 
@@ -39,6 +51,7 @@ func TestWizardReviewEffectiveNetworkDefaults(t *testing.T) {
 			}
 			var out strings.Builder
 			q := newPrompt(strings.NewReader("yes\n"), &out, false)
+			q.advanced = true
 			q.ui.Locale = locale
 			if err := q.confirm(p); err != nil {
 				t.Fatal(err)

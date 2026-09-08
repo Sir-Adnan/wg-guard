@@ -1,4 +1,4 @@
-// Package terminal provides a small, streaming bilingual terminal interface.
+// Package terminal provides a small, streaming English terminal interface.
 // It owns presentation and input only; callers own actions and persistence.
 package terminal
 
@@ -27,12 +27,13 @@ type Options struct {
 	TTY, Color bool
 }
 type UI struct {
-	Context context.Context
-	In      io.Reader
-	Out     io.Writer
-	Locale  i18n.Locale
-	width   int
-	color   bool
+	Context  context.Context
+	In       io.Reader
+	Out      io.Writer
+	Locale   i18n.Locale
+	width    int
+	color    bool
+	inputTTY bool
 }
 
 // Detect uses the actual input/output files; redirected output is always plain.
@@ -82,7 +83,7 @@ func New(in io.Reader, out io.Writer, o Options) *UI {
 	if o.Context == nil {
 		o.Context = context.Background()
 	}
-	return &UI{Context: o.Context, In: in, Out: out, Locale: o.Locale, width: o.Width, color: o.Color && o.TTY && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb"}
+	return &UI{Context: o.Context, In: in, Out: out, Locale: o.Locale, width: o.Width, color: o.Color && o.TTY && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb", inputTTY: IsTerminal(in)}
 }
 func (u *UI) T(key string, args ...any) string { return i18n.T(u.Locale, key, args...) }
 
@@ -151,6 +152,31 @@ func (u *UI) Text(s string) {
 		fmt.Fprintln(u.Out, string(runes))
 	}
 }
+
+// Header renders a compact product identity that remains readable in narrow
+// SSH terminals and degrades to plain text when color is unavailable.
+func (u *UI) Header(title, subtitle string) {
+	fmt.Fprintln(u.Out)
+	if u.color {
+		fmt.Fprint(u.Out, "\x1b[36;1m")
+	}
+	u.Text(title)
+	if u.color {
+		fmt.Fprint(u.Out, "\x1b[0;2m")
+	}
+	if strings.TrimSpace(subtitle) != "" {
+		u.Text(subtitle)
+	}
+	if u.color {
+		fmt.Fprint(u.Out, "\x1b[0m")
+	}
+	measure := u.width
+	if measure > 72 {
+		measure = 72
+	}
+	fmt.Fprintln(u.Out, strings.Repeat("─", measure))
+}
+
 func (u *UI) Section(title string) {
 	fmt.Fprintln(u.Out)
 	if u.color {
@@ -160,9 +186,19 @@ func (u *UI) Section(title string) {
 	if u.color {
 		fmt.Fprint(u.Out, "\x1b[0m")
 	}
-	fmt.Fprintln(u.Out, strings.Repeat("─", u.width))
+	measure := u.width
+	if measure > 72 {
+		measure = 72
+	}
+	fmt.Fprintln(u.Out, strings.Repeat("─", measure))
 }
-func (u *UI) Field(label, value string) { u.Text(Clean(label)); u.Text("  " + Clean(value)) }
+func (u *UI) Field(label, value string) {
+	if strings.TrimSpace(label) == "" {
+		u.Text(Clean(value))
+		return
+	}
+	u.Text(Clean(label) + ": " + Clean(value))
+}
 func (u *UI) Result(err error) {
 	if err == nil {
 		u.Text(u.T("terminal.done"))
@@ -224,13 +260,25 @@ func readLine(ctx context.Context, in io.Reader, raw bool) (string, error) {
 	}
 	return "", errors.New("terminal: input exceeds 4096 bytes")
 }
-func (u *UI) Ask(label, def string) (string, error) {
-	u.Text(label)
+func (u *UI) writePrompt(label, def string) {
+	prompt := Clean(label)
 	if def != "" {
-		u.Text("  [" + Clean(def) + "]")
+		prompt += " [" + Clean(def) + "]"
 	}
-	fmt.Fprint(u.Out, "> ")
+	prompt += ": "
+	if utf8.RuneCountInString(prompt) <= u.width {
+		fmt.Fprint(u.Out, prompt)
+	} else {
+		u.Text(strings.TrimSpace(prompt))
+		fmt.Fprint(u.Out, "> ")
+	}
+}
+func (u *UI) Ask(label, def string) (string, error) {
+	u.writePrompt(label, def)
 	v, err := readLine(u.Context, u.In, false)
+	if !u.inputTTY {
+		fmt.Fprintln(u.Out)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -247,11 +295,20 @@ func (u *UI) Ask(label, def string) (string, error) {
 	return v, nil
 }
 func (u *UI) Choose(label string, options []string, def int) (int, error) {
+	return u.choose(label, options, def, "terminal.back")
+}
+
+// ChooseRoot renders a top-level menu where 0 exits rather than navigating up.
+func (u *UI) ChooseRoot(label string, options []string, def int) (int, error) {
+	return u.choose(label, options, def, "terminal.exit")
+}
+
+func (u *UI) choose(label string, options []string, def int, footer string) (int, error) {
 	u.Section(label)
 	for i, v := range options {
 		u.Text(fmt.Sprintf("  %d  %s", i+1, v))
 	}
-	u.Text(u.T("terminal.back"))
+	u.Text(u.T(footer))
 	for {
 		d := ""
 		if def > 0 {
@@ -273,8 +330,19 @@ func (u *UI) Choose(label string, options []string, def int) (int, error) {
 	}
 }
 func (u *UI) Confirm(label string) (bool, error) {
+	return u.ConfirmDefault(label, false)
+}
+
+// ConfirmDefault is for reversible or already-reviewed choices where Enter
+// has a meaningful recommendation. Destructive actions continue using
+// Confirm, whose default is always no.
+func (u *UI) ConfirmDefault(label string, def bool) (bool, error) {
+	defaultAnswer := "no"
+	if def {
+		defaultAnswer = "yes"
+	}
 	for {
-		v, err := u.Ask(label+" "+u.T("terminal.yes_no"), "no")
+		v, err := u.Ask(label+" "+u.T("terminal.yes_no"), defaultAnswer)
 		if err != nil {
 			return false, err
 		}
@@ -299,12 +367,12 @@ func (u *UI) Secret(label string) (string, error) {
 		var labelText strings.Builder
 		labelUI := *u
 		labelUI.Out = &labelText
-		labelUI.Text(label)
+		labelUI.writePrompt(label, "")
 		fmt.Fprint(u.Out, strings.ReplaceAll(labelText.String(), "\n", "\r\n"))
-		fmt.Fprint(u.Out, "> ")
 		return readLine(u.Context, u.In, true)
 	}
-	u.Text(label)
-	fmt.Fprint(u.Out, "> ")
-	return readLine(u.Context, u.In, false)
+	u.writePrompt(label, "")
+	value, err := readLine(u.Context, u.In, false)
+	fmt.Fprintln(u.Out)
+	return value, err
 }

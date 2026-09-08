@@ -22,7 +22,7 @@ or chat history.
 | [integrations/webhooks.md](integrations/webhooks.md) | Event catalog, HMAC signature scheme, durable delivery semantics |
 | [operations/deployment.md](operations/deployment.md) | Docker (default) and native installation, TLS modes, ports, updates |
 | [operations/github-install.md](operations/github-install.md) | GitHub bootstrap, release/source acquisition, trust boundary and local candidate artifacts |
-| [operations/terminal-management.md](operations/terminal-management.md) | Bilingual terminal navigation, local owner setup, cancellation and automation |
+| [operations/terminal-management.md](operations/terminal-management.md) | English terminal navigation, recommended setup, local owner, lifecycle and automation |
 | [operations/lifecycle-recovery.md](operations/lifecycle-recovery.md) | Durable lifecycle state, safe rollback, interrupted operations and recovery limits |
 | [operations/backup-restore.md](operations/backup-restore.md) | Backup archives, schedules, Telegram delivery, restore and server migration |
 | [operations/runbook.md](operations/runbook.md) | Operational procedures: install/update/uninstall, DR, doctor, incidents |
@@ -33,7 +33,7 @@ or chat history.
 | [development/release-readiness.md](development/release-readiness.md) | Active Phase 8–12 program: requirement ownership, blockers, audit findings, compatibility state |
 | [development/phase8.md](development/phase8.md) | Completed Phase 8 execution checklist and verification log |
 | [development/phase8.1.md](development/phase8.1.md) | Completed GitHub delivery and terminal lifecycle phase |
-| [development/phase9.md](development/phase9.md) | Next operational-observability gate; design branch preserved |
+| [development/phase9.md](development/phase9.md) | Next operational-observability gate; design complete, implementation not started |
 | [development/phase10.md](development/phase10.md) through [phase12.md](development/phase12.md) | Planned UI/UX, production-certification, and release-candidate gates |
 | [decisions/](decisions/) | Architecture Decision Records (ADRs) |
 

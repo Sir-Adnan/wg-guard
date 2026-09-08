@@ -5,16 +5,15 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 8.1 — GitHub delivery & lifecycle (complete, 2026-09-08)
+## Phase 8.1 — GitHub delivery & lifecycle (complete, 2026-09-09)
 
-The user-authorized insertion between completed Phase 8 and planned Phase 9 is complete. The
-existing `codex/phase9-observability` design-only branch remains preserved; no Phase 9
-implementation is included here. See [phase8.1.md](phase8.1.md) for the gate and limits.
+The user-authorized insertion between completed Phase 8 and planned Phase 9 is complete. No Phase
+9 implementation is included here. See [phase8.1.md](phase8.1.md) for the gate and limits.
 
 | Item | Status |
 |---|---|
 | Bootstrap, release/commit selection and artifact identity | implemented, reviewed and tested with unit/shell fixtures; the supported linux/amd64 artifact builds and checksums. [Real acquisition evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) covers source build/help and empty-release refusal. `d30894a` adds strict commit-bound PAX metadata handling; its real source install/update and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) passed. Non-amd64 targets are outside the product contract |
-| Terminal installer and management UX | implemented, reviewed and automated-test verified. [Final VPS acceptance](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed 17 PTY and three nonTTY cases across the supported terminal modes |
+| Terminal installer and management UX | English-only compact UI implemented and automated-test verified. Recommended setup asks only for optional domain and the advanced-settings gate; Enter accepts safe defaults, while disruptive actions remain explicit. `sudo wg-guard` opens locally without download. [VPS acceptance](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed 17 PTY and three nonTTY cases; follow-up regressions cover language normalization, compact widths and bootstrap fast-path behavior |
 | Local owner before public listener | atomic owner creation, protected stdin/file transport and existing-owner preservation are unit tested; owner-before-start passed in real Docker and native installs |
 | OS prerequisites and compatible AWG selection | implemented and reviewed for Ubuntu 24.04+ amd64; [installed exact bundle](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt), [package metadata](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt) and [runtime image identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on Ubuntu 24.04 amd64. Later supported Ubuntu releases remain a Phase 11 certification cell and fail closed when the exact pinned AWG bundle is unavailable |
 | Transactional install/update/rollback and safe uninstall | implemented, review/failure-injection verified and passed real Docker/native install, update, two-way rollback, failed-start recovery and data-preserving uninstall |
@@ -403,7 +402,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | Phase | State | Scope |
 |---|---|---|
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
-| 9 — Operational observability | next; design branch preserved | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 9 — Operational observability | next; implementation not started | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |

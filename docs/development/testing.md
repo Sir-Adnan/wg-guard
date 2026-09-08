@@ -3,13 +3,13 @@
 ## Phase 8.1 installer verification
 
 [Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
-host-operation failure injection, 48/80/120-column fa/en terminal checks, and dedicated Ubuntu
+host-operation failure injection, narrow/wide English terminal checks, and dedicated Ubuntu
 24.04 Docker/native lifecycle drills. The evidence levels are separate:
 
 | Area | Recorded Phase 8.1 evidence | Later-phase limit |
 |---|---|---|
 | GitHub delivery | Real source acquisition/build/help, executable release/error fixtures and exact one-command management. `d30894a` passed source install/update through strict commit-bound PAX handling and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) | Published-release install remains Phase 12; no release exists yet |
-| Terminal | Final real Linux acceptance passed 17 PTY plus three nonTTY cases across 48/80/120 columns and supported fa/en/no-color/dumb modes | Universal Persian shaping depends on the terminal emulator and is not claimed |
+| Terminal | Final real Linux acceptance passed 17 PTY plus three nonTTY cases across 48/80/120 columns and no-color/dumb modes. Follow-up regressions verify the current English-only contract, compact recommended path, Enter defaults and installed-node fast path | Feature-frozen terminal regression is repeated in Phase 11 |
 | Runtime image | Builder/image/binary/AWG identity, real Docker deployment and fresh ACME passed on Ubuntu 24.04 amd64 | Later supported Ubuntu amd64 cells remain Phase 11 |
 | Backup/recovery | Encrypted Telegram/scheduler, sequential native and final Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
 

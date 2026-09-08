@@ -118,12 +118,8 @@ func TestRestoreCryptoFailuresLocalizedBeforeServiceMutation(t *testing.T) {
 				}
 				var out bytes.Buffer
 				err := runRestoreWithServiceFactory(context.Background(), args, strings.NewReader(input), &out, h, func(*config.Config) *backup.Service { return svc })
-				want := "password"
-				if locale == "fa" {
-					want = "گذرواژه"
-				}
-				if err == nil || !strings.Contains(err.Error(), want) {
-					t.Fatalf("untranslated restore crypto error: %v", err)
+				if err == nil || !strings.Contains(err.Error(), "password") || containsRTLScript(err.Error()) {
+					t.Fatalf("restore crypto error is not English: %v", err)
 				}
 				if strings.Contains(err.Error(), "synthetic-sensitive") || strings.Contains(err.Error(), "wrong-password") {
 					t.Fatal("secret/header echoed")

@@ -1,6 +1,6 @@
-# GitHub acquisition and local candidate artifacts
+# GitHub installation and verified builds
 
-The Bash entry point obtains a Linux executable and opens its bilingual management entry.
+The Bash entry point obtains a Linux executable and opens its English management entry.
 On a fresh node that entry starts installation with the exact acquired build identity; on an
 installed node it opens management without reinstalling or implicitly applying an update.
 The shared distribution/installer engine verifies build identity and builds the Docker runtime
@@ -9,25 +9,29 @@ nodes expose [terminal management](terminal-management.md) through `sudo wg-guar
 
 ## Commands
 
-Public interactive installation from `main` (Persian):
+Public interactive installation from `main` while no stable release exists:
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main -- --lang fa'
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 ```
 
 This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
-installer input rather than consuming script bytes as answers. For stricter inspect-before-run
-operation, download the entry point first:
+installer input rather than consuming script bytes as answers. After installation, run
+`sudo wg-guard`; it opens the local manager immediately without GitHub access. Re-running the
+one-line command downloads only the small bootstrap, detects the owned installation and opens
+the same local manager. It does not rebuild or update the node.
+
+For stricter inspect-before-run operation, download the entry point first:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fsSLo install.sh \
+curl --proto '=https' -fsSLo install.sh \
   https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
 bash install.sh --help
 bash install.sh --list-releases
 bash install.sh --release latest -- --mode native
 bash install.sh --release v0.1.0 -- --mode native
 bash install.sh --commit main -- --mode native
-bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --mode native --lang fa
+bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --mode native
 ```
 
 The tag above is an example, not a claim that a release exists. Selecting `main` for the binary
@@ -38,7 +42,7 @@ coordinated-restore installer capabilities. This downloads into a uniquely creat
 temporary file, propagates failure and cleans up on exit:
 
 ```bash
-bash -c 'set -euo pipefail; umask 077; ref="$1"; script=$(mktemp /tmp/wg-guard-bootstrap.XXXXXXXX); trap '\''rm -f -- "$script"'\'' EXIT; curl --proto "=https" --tlsv1.2 -fsS --connect-timeout 15 --max-time 120 -o "$script" "https://raw.githubusercontent.com/Sir-Adnan/wg-guard/$ref/install.sh"; bash "$script" --commit "$ref" -- --lang en' -- REVIEWED_FULL_40_CHARACTER_SHA
+bash -c 'set -euo pipefail; umask 077; ref="$1"; script=$(mktemp /tmp/wg-guard-bootstrap.XXXXXXXX); trap '\''rm -f -- "$script"'\'' EXIT; curl --proto "=https" -fsS --connect-timeout 15 --max-time 120 -o "$script" "https://raw.githubusercontent.com/Sir-Adnan/wg-guard/$ref/install.sh"; bash "$script" --commit "$ref"' -- REVIEWED_FULL_40_CHARACTER_SHA
 ```
 
 Before a compatible public release exists, use `--commit main` for the current development head
@@ -57,15 +61,18 @@ manifest. The list command is read-only except for missing local acquisition pre
 `--commit main` and exact SHA selections resolve through GitHub before fetching the immutable
 source tarball. The development version is `0.0.0-dev.<first-12-SHA-characters>`, and the full
 commit is stamped into the binary. No branch name or unvalidated external text enters build
-arguments. The bootstrap displays the version, full commit and binary SHA-256.
+arguments. The compact bootstrap shows the selected version and short commit; full build identity
+is retained for lifecycle verification and diagnostics.
 
-With no forwarded flags (or only `--lang fa|en`), the bootstrap calls `wg-guard manage`.
+With no forwarded setup flags (or only a legacy language flag), the bootstrap calls
+`wg-guard manage`.
 Explicit setup flags such as `--mode native` select `wg-guard install`; all arguments after `--`
 and unrecognized bootstrap flags are forwarded unchanged. `--yes` always selects install with
 noninteractive flags/defaults, including the existing installed-node refusal. Interactive
 input is reopened from `/dev/tty` when available, otherwise `/dev/null`. A piped script is never
 read as installer answers. `--help` works without a terminal or any acquisition prerequisite.
-Initial acquisition diagnostics are English; the Go wizard accepts `--lang fa|en`.
+The bootstrap, setup wizard, manager and command diagnostics are English-only. Legacy `--lang`
+values remain accepted so existing automation does not break, but they no longer change output.
 
 ## Build prerequisites and cost
 

@@ -12,12 +12,66 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode"
 )
 
+func containsRTLScript(s string) bool {
+	return strings.IndexFunc(s, func(r rune) bool {
+		return unicode.In(r, unicode.Arabic) || unicode.In(r, unicode.Hebrew)
+	}) >= 0
+}
+
+func TestTerminalCommandsAlwaysSelectEnglish(t *testing.T) {
+	t.Setenv("WGG_LANG", "fa")
+	t.Setenv("LANG", "fa_IR.UTF-8")
+	if got := terminalLocale(); got != "en" {
+		t.Fatalf("terminal locale = %q, want en", got)
+	}
+
+	o, err := parseInstallOptions([]string{"--yes", "--lang", "fa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.Locale != i18n.En {
+		t.Fatalf("legacy install language selected %q", o.Locale)
+	}
+	b, err := parseBackupFlags("list", []string{"--lang", "fa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.lang != string(i18n.En) {
+		t.Fatalf("legacy backup language selected %q", b.lang)
+	}
+}
+
+func TestTerminalManagerHasNoLanguageSwitcher(t *testing.T) {
+	var out bytes.Buffer
+	m := manager{
+		ui:      terminal.New(strings.NewReader("q\n"), &out, terminal.Options{Locale: i18n.Fa}),
+		catalog: menuCatalog{},
+		run:     func(context.Context, []string, io.Reader) error { return nil },
+	}
+	if err := m.loop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if containsRTLScript(out.String()) {
+		t.Fatalf("terminal manager exposed a non-English language option:\n%s", out.String())
+	}
+}
+
+func TestCommandHelpPresentsEnglishOnlyTerminal(t *testing.T) {
+	if strings.Contains(usage, "--lang fa") || strings.Contains(usage, "fa|en") || containsRTLScript(usage) {
+		t.Fatalf("command help advertises a non-English terminal mode:\n%s", usage)
+	}
+	if !strings.Contains(usage, "wg-guard                 Open the local manager") {
+		t.Fatalf("command help does not foreground the rerun command:\n%s", usage)
+	}
+}
+
 func TestBootstrapManagementEntryPreservesAcquiredBuild(t *testing.T) {
-	want := []string{"--build-metadata", "/private/build.json", "--lang", "fa"}
+	want := []string{"--build-metadata", "/private/build.json", "--lang", "en"}
 	if got := managementSetup(nil, "/private/build.json", "fa"); !reflect.DeepEqual(got, want) {
-		t.Fatalf("fresh bootstrap source/locale lost: %v", got)
+		t.Fatalf("fresh bootstrap source identity or terminal language lost: %v", got)
 	}
 	if got := managementSetup(&install.State{Mode: install.ModeDocker}, "/private/build.json", "fa"); got != nil {
 		t.Fatal("installed bootstrap tried reinstall")
@@ -118,7 +172,7 @@ func TestSourcePickerMetadataAndExplicitDevelopment(t *testing.T) {
 		script       string
 		empty        bool
 		channel, ref string
-	}{{"1\nyes\n", false, "release", "v1.2.3"}, {"2\n1\nyes\n", false, "release", "v1.2.3"}, {"3\nyes\n", true, "commit", strings.Repeat("a", 40)}, {"4\n" + strings.Repeat("a", 40) + "\nyes\n", true, "commit", strings.Repeat("a", 40)}} {
+	}{{"\n\n", false, "release", "v1.2.3"}, {"2\n1\nyes\n", false, "release", "v1.2.3"}, {"3\nyes\n", true, "commit", strings.Repeat("a", 40)}, {"4\n" + strings.Repeat("a", 40) + "\nyes\n", true, "commit", strings.Repeat("a", 40)}} {
 		var out bytes.Buffer
 		u := terminal.New(strings.NewReader(tc.script), &out, terminal.Options{Locale: i18n.En})
 		s, err := pickSource(context.Background(), u, menuCatalog{tc.empty}, "installed-v0")

@@ -26,10 +26,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 - **Public VPN endpoint classification:** reject CGNAT, mapped IPv4 bypasses and relevant
   special-use ranges during explicit input and automatic address selection. Syntax/address
   eligibility checks do not claim real reachability through routing, NAT or firewalls.
-- **Installer delivery phase complete:** Phase 8.1 now provides GitHub acquisition, bilingual
-  terminal UX, prerequisites, compatible AWG policy, transactional lifecycle recovery and
-  backup/restore management. Docker/native Ubuntu 24.04 drills passed; the Phase 9 design branch
-  remains separate and public release publication remains owner-approved.
+- **Installer delivery phase complete:** Phase 8.1 now provides GitHub acquisition, an English-only
+  compact terminal UX, prerequisites, compatible AWG policy, transactional lifecycle recovery and
+  backup/restore management. Setup uses a short recommended path with Enter defaults and an
+  advanced-settings gate; `sudo wg-guard` reopens local management without a download. Docker/native
+  Ubuntu 24.04 drills passed; Phase 9 remains separate and public release publication is owner-approved.
 - **Commit-bound codeload metadata:** Go source extraction accepts GitHub's one leading PAX
   global header only when its sole comment matches the selected commit SHA. Metadata is never
   materialized, and traversal/link/device/root/duplicate/count/size protections remain active.
@@ -59,10 +60,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   Real isolated VPS acceptance passed encrypted retention, schedule CRUD, an accelerated due
   execution by the production scheduler and two real Telegram archive sends. Managed native and
   Docker backup/restore recovery also passed. No new REST API, scheduler or dependency was added.
-- **Bilingual terminal lifecycle management (M4):** streaming width-aware setup/management,
+- **English terminal lifecycle management (M4):** streaming width-aware setup/management,
   bounded cancellable input, actual-terminal-FD hidden secrets, explicit source/impact review,
-  and locked service restart. Re-running the default interactive GitHub bootstrap opens existing
-  management without reinstalling. Local owner provisioning now precedes listener startup;
+  recommended Enter defaults, an advanced-settings gate and locked service restart. Re-running the
+  default interactive GitHub bootstrap opens existing management without rebuilding or reinstalling;
+  `sudo wg-guard` is the local fast path. Local owner provisioning now precedes listener startup;
   atomic shared owner creation prevents concurrent first-owner claims and preserves existing
   credentials. Automated/PTY tests and independent review passed; final real PTY/nonTTY and
   Docker/native setup gates passed. Backup/Telegram/schedule and coordinated restore are in M5.

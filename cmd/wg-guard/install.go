@@ -100,7 +100,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 		localImage    = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
 		ownerName     = fs.String("owner-username", "owner", i18n.T(i18n.En, "owner.username"))
 		ownerFile     = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
-		locale        = fs.String("lang", terminalLocale(), "fa | en")
+		locale        = fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return install.InstallOptions{}, err
@@ -108,7 +108,8 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	if fs.NArg() != 0 {
 		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.arguments"))
 	}
-	if !i18n.Locale(*locale).Valid() {
+	terminalLang, ok := terminalLanguage(*locale)
+	if !ok {
 		return install.InstallOptions{}, lifecycleArgsError()
 	}
 	selection, err := sourceSelection(*release, *commit)
@@ -151,7 +152,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	plan.PublicIP = *publicIP
 
 	return install.InstallOptions{
-		Owner: install.OwnerOptions{Username: *ownerName, PasswordFile: *ownerFile}, Locale: i18n.Locale(*locale),
+		Owner: install.OwnerOptions{Username: *ownerName, PasswordFile: *ownerFile}, Locale: terminalLang,
 		Selection: selection, BuildMetadata: *metadata, LocalImage: *localImage,
 		Plan:          plan,
 		Yes:           *yes,

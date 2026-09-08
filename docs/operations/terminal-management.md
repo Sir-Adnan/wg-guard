@@ -1,62 +1,75 @@
 # Terminal management
 
-Run `sudo wg-guard manage --lang fa` or `sudo wg-guard manage --lang en` on the Linux
-host. `wg-guard` without arguments opens management only when stdin is a terminal;
-otherwise it prints help and exits without starting setup. Opening the menu reads the
-installation record, health endpoint, TLS/core readiness and lifecycle journal; it performs
-no deployment mutation. `WGG_LANG=fa|en` selects the default language, with `LANG=fa…`
-also recognized. The language action switches the current menu session.
+Run the host manager with:
 
-The [one-command GitHub entry](github-install.md) opens this manager on installed nodes.
-On fresh nodes it starts setup using the exact acquired build; rerunning it does not imply an
-update. Forwarded setup flags or `--yes` explicitly retain install-only behavior.
+```bash
+sudo wg-guard
+```
 
-The stable numbered groups are:
+`sudo wg-guard manage` is the explicit equivalent. The terminal experience is English-only;
+legacy language flags and locale environment variables no longer change terminal output. The web
+panel remains bilingual Persian/English with RTL support.
+
+Opening the manager reads installation, health, TLS/core readiness and lifecycle state without
+changing the deployment. The [GitHub installer](github-install.md) opens this same local manager
+when it detects a valid installed node, but the local command is faster and performs no download.
+
+## Navigation
+
+The main menu has three stable groups:
 
 | Group | Actions |
 |---|---|
-| 1 — Setup / lifecycle | Install, update, rollback, interrupted-update recovery, uninstall with data preserved |
-| 2 — Operations / diagnostics | Status, read-only doctor, TLS verification, installed/recommended/latest-compatible core, controlled core switch, service restart |
-| 3 — Backups / recovery | Create/list archives, coordinated restore, full schedule CRUD, Telegram setup/test/selected-archive send, backup password and original-schema recovery |
-| 4 — Language | Persian / English |
+| Install & updates | Install, update, rollback, interrupted-operation recovery and uninstall with data preserved |
+| System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
+| Backups & recovery | Create/list/send archives, coordinated restore, schedules and Telegram settings/tests |
 
-`0` or `back` returns; `q` cancels. Invalid numbered/numeric answers are retried. Persian
-and Arabic numerals are accepted for numeric fields; paths, passwords and tokens are not
-normalized. Disruptive operations show impact and require explicit confirmation. Blank
-confirmation means **no**; EOF, a partial line at EOF and interrupted input never grant
-consent. Core switching only admits the documented verified catalog: currently the existing
-bundle can be reaffirmed, not an invented package transition.
+Enter the displayed number, use `0` to go back or `q` to cancel. Invalid input is retried. Menus
+and prompts use a compact single-column layout that remains readable in narrow SSH terminals.
 
-Install/update source selection shows the installed version, the actual latest stable tag
-and publication date, a bounded page of at most 30 stable releases, or explicit development
-`main`/full SHA. Development is resolved to an immutable commit before review. An empty
-release catalog does not select development automatically. Source metadata and the final
-install review show build identity and impact, never credentials.
+Defaults follow two rules:
 
-The final setup review shows the effective first-interface pool, MTU and DNS values,
-including defaults when customization is skipped. Legacy schema1 records with absent TLS
-readiness or core bundle show localized “Unknown / not recorded” values rather than blank
-fields. Recovery hints follow the journal's operation: restart and core retry their own
-commands; ordinary restore uses `--retry`; coordinated original-schema recovery uses
-`restore --recover`; interrupted updates use `update --recover`.
+- Setup and other reversible choices: **Enter accepts the recommended value**.
+- Destructive or disruptive operations: **Enter does not grant consent**; type the explicit
+  confirmation shown by the prompt.
 
-Setup groups the public VPN endpoint, panel/TLS TCP settings, per-interface AWG UDP allocation,
-and optional Telegram/daily backup settings. The default UDP range is 30000–50000, allocated
-one port per interface; it is not the panel TCP port. HTTP-01 always requires external TCP80
-to reach its challenge listener. A loopback panel URL is distinct from the public VPN endpoint.
+EOF, partial input and interruption never grant consent.
 
-## Owner before public access
+## Recommended setup
 
-Installer-managed setup creates or reuses the local owner after settings are seeded and
-before Docker starts or systemd enables the service, inside the lifecycle lock. It calls
-the host-local `owner-bootstrap` command against the shared data volume and existing admin
-service. Existing owners are detected without resetting credentials. Both web bootstrap and
-direct owner creation use a single conditional SQLite insert, preventing concurrent creation
-of multiple owners.
+Fresh interactive setup intentionally starts with only two decisions:
 
-Interactive fresh setup asks for a hidden password and confirmation. The shared password
-policy is at least 10 bytes. For automation, supply a regular private password file (0600)
-containing one password, at most 4096 bytes including its optional newline:
+1. Optional domain for automatic HTTPS. Leave it blank to keep the panel on loopback and access it
+   through the displayed SSH tunnel.
+2. Whether to customize advanced settings. Press Enter for the recommended setup.
+
+The recommended path uses Docker, detects the public VPN address, selects the compatible pinned
+AmneziaWG bundle, allocates per-interface UDP ports from 30000–50000 and uses the documented
+network defaults. A domain enables ACME HTTPS; external TCP ports 80 and 443 must reach the VPS.
+Without a domain the panel TCP listener remains private. The VPN UDP port is separate from the
+panel/HTTPS TCP ports.
+
+Advanced setup exposes native systemd, TLS mode and ports, network/MTU/DNS settings, container
+image and Telegram backup setup. It does not permit arbitrary or unverified AmneziaWG versions.
+
+Before any public listener starts, setup securely creates or reuses the administrator account.
+Password input is hidden, existing credentials are never reset, and a failed account check prevents
+listener startup. After setup, sign in and create the first interface (`awg0`) in the web panel.
+
+## Build selection and updates
+
+When stable releases exist, Enter selects the latest published stable release. The bounded release
+list can also select an exact tag. Development builds require an explicit `main` or full 40-character
+commit selection; `main` is resolved to an immutable commit before review. An empty release catalog
+never falls back to development automatically.
+
+Update, rollback, recovery and restart use the shared lifecycle lock, health checks and recovery
+journal. Do not repeatedly interrupt recovery; after a power loss or forced termination, inspect
+`sudo wg-guard status` and follow [lifecycle recovery](lifecycle-recovery.md).
+
+## Automation and secrets
+
+Non-interactive fresh setup requires a private regular password file with mode `0600`:
 
 ```bash
 sudo wg-guard install --commit FULL_40_CHARACTER_LOWERCASE_SHA \
@@ -64,62 +77,17 @@ sudo wg-guard install --commit FULL_40_CHARACTER_LOWERCASE_SHA \
   --owner-username owner --owner-password-file /root/wg-guard-owner-password
 ```
 
-Prepare that file with a trusted password manager/editor, not a shell command containing the
-password. The installer reads it with a size bound, transports credentials to the owner
-command through stdin, and never copies its contents into lifecycle records or summaries.
-Remove the supplied file when it is no longer needed. A preserved existing owner skips password
-file input altogether. Failure to verify/create an owner prevents listener startup; the
-partial-install journal remains available for preservation-aware cleanup and retry.
+Create the file with a trusted password manager/editor. Never place passwords, bot tokens or backup
+keys in command arguments. The installer reads bounded secret input and does not store it in logs,
+summaries or lifecycle records. Remove the supplied password file when it is no longer needed.
 
-After setup, sign in using the supplied credentials and create the first interface in the
-panel. Installer contract revision1 now requires `local_owner=true` for newly selected
-candidates. Older artifacts' known data contracts remain recognizable for same-schema
-rollback even when they lack this setup capability.
+## Terminal behavior
 
-Manual, uninstalled `wg-guard serve` retains its existing web onboarding posture. This is not
-certified for unattended fresh public exposure; restrict access until an owner exists. Broader
-manual-deployment hardening remains Phase11 review.
+The UI uses no full-screen framework, animation or presentation polling. It is tested at narrow and
+wide terminal widths. Color is automatically disabled for redirected output, `TERM=dumb` or
+`NO_COLOR`; dynamic values are stripped of terminal control and bidi characters. Hidden input uses
+the real terminal descriptor and restores terminal state after Ctrl-C/Ctrl-D.
 
-## Terminal constraints and interruption
-
-The interface streams a single column, stacks labels/values and wraps long dynamic data.
-48/80/120-column scripted layouts are tested. ANSI color is disabled with `NO_COLOR`,
-`TERM=dumb` or redirected output; no full-screen terminal, animation or polling loop is used
-for presentation. Dynamic display values are stripped of terminal escape/control sequences
-and bidi overrides. Technical values keep Latin digits. Persian shaping and bidi rendering
-depend on the SSH client/font; text tests do not certify every client.
-
-Input is bounded and performs no read-ahead. Hidden secrets use the actual input terminal FD,
-not an assumed stdin descriptor. Linux PTY tests verify pasted-answer sequencing, secret
-echo suppression, Ctrl-C/SIGINT cancellation and restoration of terminal state. Linux input
-uses a blocking poll with a bounded cancellation check, without reader goroutines. Password
-editing supports backspace and Ctrl-U; Ctrl-C/Ctrl-D cancel. Native package tools and detailed
-legacy diagnostics can retain their own output language and formatting.
-
-Acquisition and lifecycle actions receive cancellation contexts. Management runs lifecycle
-actions in-process so cancellation cannot kill a supervising child before its independent
-recovery context finishes. Wait for the recovery result after Ctrl-C; do not repeatedly
-interrupt recovery. SIGKILL/power loss still requires journal inspection.
-
-`sudo wg-guard restart --yes` uses the shared lifecycle lock, stop/start helpers, health
-validation and a `restart` journal. A failed/interrupted restart can be retried with the same
-command. It refuses to replace another pending lifecycle operation. It neither upgrades the
-binary nor pulls a Docker image.
-
-## Backup and recovery workflow
-
-The menu invokes shared backup/settings commands in their owning host/container context.
-Restore always stays on the host so the shared lifecycle coordinator can stop/start either
-deployment mode. The actual archive is validated and reviewed before final apply consent.
-Telegram secrets travel through bounded hidden input/stdin. Test files and selected archives
-are delivered only after explicit review; unencrypted off-host archives warn about readable
-node secrets. Schedule forms cover daily/weekly, every 1–168 hours or equivalent 1–7 days,
-retention, enabled state, edit/list/delete and next-run reporting in UTC.
-
-The running service observes backup settings and schedule edits on its next pass without
-restart. Other settings retain their cached/restart behavior. Pending lifecycle journals block
-generic restore; the explicit recovery action handles `restore-required` with the recorded
-original archive and retained artifact, without forward migration. See
-[backup-restore.md](backup-restore.md) and [lifecycle-recovery.md](lifecycle-recovery.md).
-Automated tests do not establish real Docker/native/public-TLS deployment verification;
-M6 owns the dedicated-VPS drills.
+The running service picks up backup schedules/settings on its next scheduler pass. Coordinated
+restore stays on the host so it can safely stop and restart either deployment mode. See
+[backup and restore](backup-restore.md) for encryption, Telegram delivery and schedule details.

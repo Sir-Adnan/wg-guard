@@ -143,10 +143,10 @@ Run its safe local regressions with:
 python3 scripts/test-phase8.1-synthetic-backup.py
 ```
 
-Safety errors and warnings retain catalog identities through the shared engine and are
-translated at the CLI/panel boundary, including the substantive Persian plaintext-secret and
-password-read-failure messages. Missing/short archive passwords, failed encryption, wrong
-passwords and malformed/damaged age input also use keyed fa/en messages. Low-level parser
+Safety errors and warnings retain catalog identities through the shared engine. The terminal
+boundary renders them in English; the web panel remains localized in Persian and English.
+Missing/short archive passwords, failed encryption, wrong passwords and malformed/damaged age
+input use the same keyed messages. Low-level parser
 details are not echoed; sentinel/cancellation causes remain available internally. Excessive
 scrypt work factors retain their specific pre-KDF refusal rather than a generic password error.
 Completed panel backups always redirect after creation (POST/Redirect/GET), preserving safe

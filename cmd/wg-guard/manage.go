@@ -33,30 +33,31 @@ type manager struct {
 
 func runManage(args []string) error {
 	fs := flag.NewFlagSet("manage", flag.ContinueOnError)
-	lang := fs.String("lang", terminalLocale(), "fa | en")
+	lang := fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
 	metadata := fs.String("build-metadata", "", "private bootstrap build identity")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() != 0 || !i18n.Locale(*lang).Valid() {
+	locale, ok := terminalLanguage(*lang)
+	if fs.NArg() != 0 || !ok {
 		return lifecycleArgsError()
 	}
 	if !terminal.IsTerminal(os.Stdin) {
-		return fmt.Errorf("%s", i18n.T(i18n.Locale(*lang), "manage.tty"))
+		return fmt.Errorf("%s", i18n.T(locale, "manage.tty"))
 	}
 	if os.Getenv("WGG_IN_CONTAINER") == "1" {
-		return fmt.Errorf("%s", i18n.T(i18n.Locale(*lang), "manage.host"))
+		return fmt.Errorf("%s", i18n.T(locale, "manage.host"))
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
-	u := terminal.New(os.Stdin, os.Stdout, terminal.Detect(os.Stdin, os.Stdout, i18n.Locale(*lang)))
+	u := terminal.New(os.Stdin, os.Stdout, terminal.Detect(os.Stdin, os.Stdout, locale))
 	u.Context = ctx
 	h := install.NewRealHost()
 	st, err := install.LoadState(h)
 	if err != nil {
 		return err
 	}
-	if setup := managementSetup(st, *metadata, *lang); setup != nil {
+	if setup := managementSetup(st, *metadata, string(locale)); setup != nil {
 		return runInstall(setup)
 	}
 	exe, err := os.Executable()
@@ -99,8 +100,7 @@ func runManage(args []string) error {
 		if err != nil {
 			return err
 		}
-		u.Section("WG-Guard")
-		u.Text(u.T("manage.subtitle"))
+		u.Header("WG-GUARD", u.T("manage.subtitle"))
 		u.Field(u.T("manage.build"), version.String())
 		if st == nil {
 			u.Text(u.T("manage.absent"))
@@ -169,16 +169,19 @@ func managementSetup(st *install.State, metadata, locale string) []string {
 	if st != nil || metadata == "" {
 		return nil
 	}
-	return []string{"--build-metadata", metadata, "--lang", locale}
+	return []string{"--build-metadata", metadata, "--lang", string(i18n.En)}
 }
 func terminalLocale() string {
-	if v := os.Getenv("WGG_LANG"); v == "fa" || v == "en" {
-		return v
-	}
-	if strings.HasPrefix(os.Getenv("LANG"), "fa") {
-		return "fa"
-	}
 	return "en"
+}
+
+// terminalLanguage keeps the old --lang fa spelling non-breaking while the
+// terminal product surface is English-only. The web panel remains bilingual.
+func terminalLanguage(value string) (i18n.Locale, bool) {
+	if value != string(i18n.En) && value != string(i18n.Fa) {
+		return i18n.En, false
+	}
+	return i18n.En, true
 }
 func (m *manager) menu(key string, items ...string) (int, error) {
 	labels := make([]string, len(items))
@@ -187,7 +190,17 @@ func (m *manager) menu(key string, items ...string) (int, error) {
 	}
 	return m.ui.Choose(m.ui.T("manage."+key), labels, 0)
 }
+func (m *manager) rootMenu(key string, items ...string) (int, error) {
+	labels := make([]string, len(items))
+	for i, v := range items {
+		labels[i] = m.ui.T("manage." + v)
+	}
+	return m.ui.ChooseRoot(m.ui.T("manage."+key), labels, 0)
+}
 func (m *manager) loop(ctx context.Context) error {
+	// Terminal presentation is intentionally English-only. Locale selection
+	// remains a web-panel preference, not a host-terminal capability.
+	m.ui.Locale = i18n.En
 	for {
 		if ctx.Err() != nil {
 			return terminal.ErrCanceled
@@ -197,20 +210,12 @@ func (m *manager) loop(ctx context.Context) error {
 				m.ui.Result(err)
 			}
 		}
-		n, err := m.menu("menu", "lifecycle", "operations", "backups", "language")
+		n, err := m.rootMenu("menu", "lifecycle", "operations", "backups")
 		if errors.Is(err, terminal.ErrCanceled) || errors.Is(err, terminal.ErrBack) {
 			return nil
 		}
 		if err != nil {
 			return err
-		}
-		if n == 4 {
-			if m.ui.Locale == i18n.En {
-				m.ui.Locale = i18n.Fa
-			} else {
-				m.ui.Locale = i18n.En
-			}
-			continue
 		}
 		err = m.group(ctx, n)
 		if errors.Is(err, terminal.ErrCanceled) {
@@ -340,7 +345,11 @@ func pickSource(ctx context.Context, u *terminal.UI, c sourceCatalog, installed 
 		} else {
 			u.Text(u.T("source.empty"))
 		}
-		n, err := u.Choose(u.T("source.title"), labels, 0)
+		defaultSource := 0
+		if len(releases) > 0 {
+			defaultSource = 1
+		}
+		n, err := u.Choose(u.T("source.title"), labels, defaultSource)
 		if err != nil {
 			return distribution.Selection{}, err
 		}
@@ -359,7 +368,7 @@ func pickSource(ctx context.Context, u *terminal.UI, c sourceCatalog, installed 
 			for _, r := range releases {
 				labels = append(labels, r.Tag+" · "+r.PublishedAt)
 			}
-			n, err = u.Choose(u.T("source.list"), labels, 0)
+			n, err = u.Choose(u.T("source.list"), labels, 1)
 			if errors.Is(err, terminal.ErrBack) {
 				continue
 			}
@@ -394,7 +403,7 @@ func pickSource(ctx context.Context, u *terminal.UI, c sourceCatalog, installed 
 			selection.Ref = build.Commit
 			u.Text(u.T("source.development"))
 		}
-		ok, err := u.Confirm(u.T("source.confirm"))
+		ok, err := u.ConfirmDefault(u.T("source.confirm"), true)
 		if err != nil {
 			return selection, err
 		}

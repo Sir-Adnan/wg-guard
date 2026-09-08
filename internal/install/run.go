@@ -138,9 +138,22 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := resolveEndpoint(ctx, h, &p); err != nil {
 		return nil, err
 	}
-	prompt.ui.Field(prompt.ui.T("manage.build"), o.Build.Version)
-	prompt.ui.Field("Commit", o.Build.Commit)
-	prompt.ui.Field("SHA-256", o.Build.SHA256)
+	buildLabel := o.Build.Version
+	if o.Build.Commit != "" {
+		commit := o.Build.Commit
+		if len(commit) > 12 {
+			commit = commit[:12]
+		}
+		if buildLabel == "" {
+			buildLabel = commit
+		} else {
+			buildLabel += " · " + commit
+		}
+	}
+	prompt.ui.Field(prompt.ui.T("manage.build"), buildLabel)
+	if prompt.advanced && o.Build.SHA256 != "" {
+		prompt.ui.Field("SHA-256", o.Build.SHA256)
+	}
 	if err := prompt.confirm(p); err != nil {
 		return nil, err
 	}

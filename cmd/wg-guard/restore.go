@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
-	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
@@ -49,15 +48,16 @@ func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Read
 	if os.Getenv("WGG_IN_CONTAINER") == "1" {
 		return fmt.Errorf("%s", backupText("host"))
 	}
-	if !i18n.Locale(*lang).Valid() {
+	locale, ok := terminalLanguage(*lang)
+	if !ok {
 		return lifecycleArgsError()
 	}
-	printer := backupPrinter{i18n.Locale(*lang)}
-	defer func() { resultErr = backup.InLocale(resultErr, printer.locale) }()
+	printer := backupPrinter{locale}
+	defer func() { resultErr = backup.InLocale(resultErr, printer.language()) }()
 	if *configPath != install.ConfigPath {
 		return fmt.Errorf("%s", printer.text("layout"))
 	}
-	u := terminal.New(os.Stdin, out, terminal.Detect(os.Stdin, out, printer.locale))
+	u := terminal.New(os.Stdin, out, terminal.Detect(os.Stdin, out, printer.language()))
 	u.Context = ctx
 	var svc *backup.Service
 	var preview *backup.PendingRestore
@@ -103,7 +103,7 @@ func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Read
 			u.Text(fmt.Sprintf("%s · %d · %s", f.Name, f.Port, f.Subnet))
 		}
 		for _, w := range report.Warnings {
-			u.Text(printer.text("warning", w.Localized(printer.locale)))
+			u.Text(printer.text("warning", w.Localized(printer.language())))
 		}
 		u.Text(printer.text("config_review"))
 		if id != nil {

@@ -48,6 +48,14 @@ out.write_bytes(data);sys.stdout.write('200')
 (p/'bin'/'uname').write_text('#!/bin/sh\ncase "$1" in -s) echo Linux;; -m) echo "${FIXTURE_ARCH:-x86_64}";; esac\n')
 (p/'bin'/'id').write_text('#!/bin/sh\nif test -e "$FIXTURE_ROOT/nonroot"; then echo 1000; else echo 0; fi\n')
 (p/'bin'/'sudo').write_text('#!/bin/sh\nprintf "used\\n" > "$FIXTURE_ROOT/sudo-used"\nexec "$@"\n')
+(p/'bin'/'stat').write_text('''#!/bin/sh
+case "$1:$2:$3" in
+  -c:%u:*) printf '0\\n';;
+  -c:%a:*installed-wg-guard) printf '755\\n';;
+  -c:%a:*install-state.json) printf '644\\n';;
+  *) exec /usr/bin/stat "$@";;
+esac
+''')
 (p/'bin'/'git').write_text('''#!/usr/bin/env python3
 import io,sys,tarfile
 if 'rev-parse' in sys.argv:print('0123456789abcdef0123456789abcdef01234567')
@@ -61,11 +69,14 @@ PY
 export PATH="$fixture/bin:$PATH"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 request_count() { if [[ -f $fixture/requests ]]; then wc -l < "$fixture/requests"; else printf '0\n'; fi; }
-python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" <<'PY'
+python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" <<'PY'
 import pathlib,sys
-source,target,os_release=map(pathlib.Path,sys.argv[1:])
-target.write_text(source.read_text().replace('/etc/os-release',str(os_release)))
+source,target,os_release,installed_bin,installed_state=map(pathlib.Path,sys.argv[1:])
+target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)))
 target.chmod(0o755)
+installed_bin.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/local-argv"\n')
+installed_bin.chmod(0o755)
+installed_state.write_text('{"schema":2,"mode":"docker"}\n')
 PY
 printf 'ID=debian\nVERSION_ID=24.04\n' > "$fixture/os-release"
 before=$(request_count)
@@ -77,9 +88,16 @@ test "$(request_count)" = "$before" || fail 'old Ubuntu performed acquisition'
 printf 'ID=ubuntu\nVERSION_ID=24.04\n' > "$fixture/os-release"
 if FIXTURE_ARCH=aarch64 bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'arm64 host accepted'; fi
 test "$(request_count)" = "$before" || fail 'arm64 performed acquisition'
-bash "$root/install.sh" --help </dev/null >/dev/null
+setsid --wait bash "$fixture/bootstrap" --commit main -- --lang fa </dev/null
+test "$(tr '\n' ' ' < "$fixture/local-argv")" = 'manage --lang en ' || fail 'installed node did not open the local English manager'
+test "$(request_count)" = "$before" || fail 'installed-node rerun performed acquisition'
+rm "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/local-argv"
+help=$(bash "$root/install.sh" --help </dev/null)
+case "$help" in *'After installation: sudo wg-guard'*) :;; *) fail 'help omitted the local manager command';; esac
+case "$help" in *'Terminal UI: English only.'*) :;; *) fail 'help did not declare the English-only terminal contract';; esac
 test ! -e "$fixture/requests" || fail 'help performed acquisition'
-setsid --wait bash "$root/install.sh" --release v1 </dev/null
+bootstrap_output=$(setsid --wait bash "$root/install.sh" --release v1 </dev/null 2>&1)
+case "$bootstrap_output" in *'Checking system compatibility'*'Acquiring verified build'*'Opening WG-Guard setup'*) :;; *) fail 'bootstrap progress hierarchy missing';; esac
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'default interactive management entry'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'management build identity forwarding'
 setsid --wait bash "$root/install.sh" --release v1 -- --lang fa </dev/null

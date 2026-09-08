@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestBackupShortExplicitPasswordLocalized(t *testing.T) {
+func TestBackupShortExplicitPasswordIsEnglish(t *testing.T) {
 	for _, lang := range []string{"fa", "en"} {
 		t.Run(lang, func(t *testing.T) {
 			in, out, err := os.Pipe()
@@ -26,36 +26,25 @@ func TestBackupShortExplicitPasswordLocalized(t *testing.T) {
 			}
 			out.Close()
 			err = runBackup([]string{"create", "--password", "--lang", lang, "--config", "must-not-open-config"})
-			want := "at least 8"
-			if lang == "fa" {
-				want = "دست‌کم 8"
-			}
-			if err == nil || !strings.Contains(err.Error(), want) {
-				t.Fatalf("short password safety error not localized: %v", err)
+			if err == nil || !strings.Contains(err.Error(), "at least 8") || containsRTLScript(err.Error()) {
+				t.Fatalf("short password safety error is not English: %v", err)
 			}
 		})
 	}
 }
 
-func TestBackupPlaintextWarningLocalizedAtCLIBoundary(t *testing.T) {
+func TestBackupPlaintextWarningIsEnglishAtCLIBoundary(t *testing.T) {
 	for _, locale := range []i18n.Locale{i18n.Fa, i18n.En} {
 		out := captureStdout(t, func() {
 			backupPrinter{locale}.printBackupResult(&backup.Result{Warnings: []backup.Message{{Key: "plaintext"}}})
 		})
-		want := "readable node secrets"
-		if locale == i18n.Fa {
-			want = "اسرار خواندنی"
-			if strings.Contains(out, "readable node secrets") {
-				t.Fatal("English body in Persian warning")
-			}
-		}
-		if !strings.Contains(out, want) {
-			t.Fatalf("missing substantive warning: %s", out)
+		if !strings.Contains(out, "readable node secrets") || containsRTLScript(out) {
+			t.Fatalf("terminal warning is not English: %s", out)
 		}
 	}
 }
 
-func TestBackupPasswordFailureIsSubstantivelyLocalized(t *testing.T) {
+func TestBackupPasswordFailureIsSubstantivelyEnglish(t *testing.T) {
 	cfg := testTokenConfig(t)
 	env, err := loadCLIEnv(cfg)
 	if err != nil {
@@ -73,11 +62,8 @@ func TestBackupPasswordFailureIsSubstantivelyLocalized(t *testing.T) {
 		if err == nil {
 			t.Fatal("corrupt password accepted")
 		}
-		if lang == "fa" && !strings.Contains(err.Error(), "گذرواژه") {
-			t.Fatalf("Persian safety error is not translated: %v", err)
-		}
-		if lang == "en" && !strings.Contains(err.Error(), "password") {
-			t.Fatal("English safety error missing")
+		if !strings.Contains(err.Error(), "password") || containsRTLScript(err.Error()) {
+			t.Fatalf("English safety error missing: %v", err)
 		}
 	}
 }

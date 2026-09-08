@@ -25,9 +25,10 @@ func renderBootConfig(p Plan) ([]byte, error) {
 }
 
 type prompt struct {
-	yes bool
-	ui  *terminal.UI
-	out io.Writer
+	yes      bool
+	advanced bool
+	ui       *terminal.UI
+	out      io.Writer
 }
 
 func newPrompt(in io.Reader, out io.Writer, yes bool) *prompt {
@@ -72,22 +73,7 @@ func (q *prompt) askYesNo(label string, def bool) (bool, error) {
 	if q.yes {
 		return def, nil
 	}
-	if !def {
-		return q.ui.Confirm(label)
-	}
-	for {
-		v, err := q.ask(label+" "+q.ui.T("terminal.yes_no"), "yes")
-		if err != nil {
-			return false, err
-		}
-		switch strings.ToLower(v) {
-		case "y", "yes":
-			return true, nil
-		case "n", "no":
-			return false, nil
-		}
-		q.ui.Text(q.ui.T("terminal.yes_no"))
-	}
+	return q.ui.ConfirmDefault(label, def)
 }
 
 // plan uses one streaming input object for every field, including hidden secrets.
@@ -96,9 +82,37 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	if q.yes {
 		return nil
 	}
-	q.ui.Section("WG-Guard")
+	q.ui.Locale = i18n.En
+	q.ui.Header("WG-GUARD", q.t("subtitle"))
 	q.ui.Text(q.t("intro"))
 	var err error
+	q.ui.Section(q.t("address"))
+	p.Domain, err = q.ask(q.t("domain"), p.Domain)
+	if err != nil {
+		return err
+	}
+
+	// The normal path applies the secure recommended profile and asks no
+	// infrastructure questions. Supplying an expert flag enters the detailed
+	// path automatically; otherwise the operator opts in explicitly.
+	q.advanced = advancedSettingsRequested(p)
+	if !q.advanced {
+		q.advanced, err = q.askYesNo(q.t("advanced"), false)
+		if err != nil {
+			return err
+		}
+	}
+	if !q.advanced {
+		p.Mode = ModeDocker
+		if !p.TLSModeExplicit {
+			p.TLSMode = config.TLSModeProxy
+			if p.Domain != "" {
+				p.TLSMode = config.TLSModeACME
+			}
+		}
+		return nil
+	}
+
 	if !p.Mode.Valid() {
 		n, e := q.askChoice(q.t("mode"), []string{q.t("docker"), q.t("native")}, 1)
 		if e != nil {
@@ -108,11 +122,6 @@ func (q *prompt) plan(p *Plan, h Host) error {
 		if n == 2 {
 			p.Mode = ModeNative
 		}
-	}
-	q.ui.Section(q.t("address"))
-	p.Domain, err = q.ask(q.t("domain"), p.Domain)
-	if err != nil {
-		return err
 	}
 	if p.Domain == "" {
 		p.PublicIP, err = q.ask(q.t("ip"), p.PublicIP)
@@ -178,6 +187,12 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	}
 	return err
 }
+
+func advancedSettingsRequested(p *Plan) bool {
+	return p.Mode.Valid() || p.TLSModeExplicit || p.PanelPortExplicit || p.ACMEHTTPPort != 80 ||
+		p.PublicIP != "" || p.CertFile != "" || p.KeyFile != "" || p.Image != DefaultImage
+}
+
 func (q *prompt) planNetwork(p *Plan) error {
 	q.ui.Section(q.t("network"))
 	q.ui.Text(q.t("network_defaults"))
@@ -271,13 +286,18 @@ func (q *prompt) confirm(p Plan) error {
 	if q.yes {
 		return nil
 	}
+	q.ui.Locale = i18n.En
 	q.ui.Section(q.t("review"))
-	for _, field := range []struct{ k, v string }{
-		{"mode", string(p.Mode)}, {"panel", p.PanelURL()}, {"endpoint", p.VPNEndpoint()}, {"tls", string(p.TLSMode)}, {"config", p.BootConfigPath()}, {"data", p.DataDir},
-	} {
+	fields := []struct{ k, v string }{
+		{"mode", string(p.Mode)}, {"panel", p.PanelURL()}, {"endpoint", p.VPNEndpoint()}, {"tls", string(p.TLSMode)},
+	}
+	if q.advanced {
+		fields = append(fields, struct{ k, v string }{"config", p.BootConfigPath()}, struct{ k, v string }{"data", p.DataDir})
+	}
+	for _, field := range fields {
 		q.ui.Field(q.t(field.k), field.v)
 	}
-	if p.Mode == ModeDocker {
+	if q.advanced && p.Mode == ModeDocker {
 		q.ui.Field(q.t("image"), p.Image)
 	}
 	lo, hi := p.PortMin, p.PortMax
@@ -287,7 +307,9 @@ func (q *prompt) confirm(p Plan) error {
 	if hi == 0 {
 		hi = 50000
 	}
-	q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
+	if q.advanced {
+		q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
+	}
 	pool, mtu, dns := p.VPNSubnet, p.MTU, p.ClientDNS
 	if pool == "" {
 		pool = "10.8.0.0/24"
@@ -298,20 +320,21 @@ func (q *prompt) confirm(p Plan) error {
 	if dns == "" {
 		dns = "1.1.1.1, 1.0.0.1"
 	}
-	q.ui.Field(q.t("pool"), pool)
-	q.ui.Field(q.t("mtu"), strconv.Itoa(mtu))
-	q.ui.Field(q.t("dns"), dns)
+	if q.advanced {
+		q.ui.Field(q.t("pool"), pool)
+		q.ui.Field(q.t("mtu"), strconv.Itoa(mtu))
+		q.ui.Field(q.t("dns"), dns)
+	}
 	if p.TLSMode == config.TLSModeACME {
 		q.ui.Text(q.t("http01"))
 	}
 	if p.TelegramToken != "" {
 		q.ui.Field(q.t("backup"), q.t("backup_set", p.TelegramChat, p.TelegramTime))
-	} else {
+	} else if q.advanced {
 		q.ui.Text(q.t("backup_later"))
 	}
 	q.ui.Text(q.t("impact"))
-	q.ui.Text(q.t("owner"))
-	ok, err := q.ui.Confirm(q.t("proceed"))
+	ok, err := q.askYesNo(q.t("proceed"), true)
 	if err != nil {
 		return err
 	}

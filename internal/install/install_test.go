@@ -500,31 +500,26 @@ func TestUpdateNativeRequiresBinary(t *testing.T) {
 	}
 }
 
-// TestPromptWizardScripted: scripted stdin drives the full wizard to the
-// same plan flags would produce (the optional sections default to skip).
-func TestPromptWizardScripted(t *testing.T) {
+// TestPromptWizardRecommendedPath keeps the normal install to three concise
+// decisions: optional domain, advanced-settings gate, and final confirmation.
+func TestPromptWizardRecommendedPath(t *testing.T) {
 	h := newMemHost()
+	var out strings.Builder
 	q := newPrompt(strings.NewReader(
-		"1\n"+ // mode: docker
-			"vpn.example.com\n"+ // domain
-			"1\n"+ // tls: acme
-			"\n"+ // panel port: default 443
-			"\n"+ // acme port: default 80
-			"\n"+ // network defaults gate: skip
-			"\n"+ // telegram gate: skip
-			"\n"+ // image: default
-			"yes\n"), // confirm
-		&strings.Builder{}, false)
+		"vpn.example.com\n"+ // optional domain
+			"\n"+ // advanced settings: no
+			"\n"), // install: yes
+		&out, false)
 	p := Defaults()
-	p.Mode = "" // force the mode prompt
+	p.Mode = ""
 	if err := q.plan(&p, h); err != nil {
-		t.Fatal(err)
-	}
-	if err := q.confirm(p); err != nil {
 		t.Fatal(err)
 	}
 	res, err := p.Resolve()
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.confirm(res); err != nil {
 		t.Fatal(err)
 	}
 	if res.TLSMode != config.TLSModeACME || res.Domain != "vpn.example.com" ||
@@ -533,6 +528,26 @@ func TestPromptWizardScripted(t *testing.T) {
 	}
 	if res.PortMin != 0 || res.MTU != 0 || res.TelegramToken != "" {
 		t.Fatalf("skipped sections must leave the plan untouched: %+v", res)
+	}
+	for _, noisy := range []string{"Docker (recommended)", "Manual certificate files", "Panel TCP port", "Container image", "Optional backups"} {
+		if strings.Contains(out.String(), noisy) {
+			t.Fatalf("recommended path exposed advanced prompt %q:\n%s", noisy, out.String())
+		}
+	}
+}
+
+func TestPromptWizardBlankPathUsesSafeRecommendedDefaults(t *testing.T) {
+	q := newPrompt(strings.NewReader("\n\n\n"), &strings.Builder{}, false)
+	p := Defaults()
+	p.Mode = ""
+	if err := q.plan(&p, newMemHost()); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.confirm(p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Mode != ModeDocker || p.TLSMode != config.TLSModeProxy || p.Domain != "" {
+		t.Fatalf("blank path defaults = %+v", p)
 	}
 }
 
@@ -544,8 +559,9 @@ func TestPromptWizardCustomSettings(t *testing.T) {
 	var out strings.Builder
 	const token = "777000:AAE_test_token_not_real"
 	q := newPrompt(strings.NewReader(
-		"1\n"+ // mode: docker
-			"vpn.example.com\n"+ // domain
+		"vpn.example.com\n"+ // domain
+			"y\n"+ // advanced settings
+			"1\n"+ // mode: docker
 			"1\n"+ // tls: acme
 			"\n"+ // panel port
 			"\n"+ // acme port
@@ -586,8 +602,9 @@ func TestPromptWizardCustomSettings(t *testing.T) {
 func TestPromptWizardEmptyTokenSkips(t *testing.T) {
 	h := newMemHost()
 	q := newPrompt(strings.NewReader(
-		"1\n"+ // mode
-			"vpn.example.com\n"+ // domain
+		"vpn.example.com\n"+ // domain
+			"y\n"+ // advanced settings
+			"1\n"+ // mode
 			"1\n"+ // tls: acme
 			"\n"+ // panel port
 			"\n"+ // acme port

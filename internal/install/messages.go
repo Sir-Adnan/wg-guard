@@ -22,7 +22,7 @@ func progress(out io.Writer, key string, args ...any) {
 	u.Text(u.T("progress."+key, args...))
 }
 
-// TerminalError keeps a catalog key and cause for the bilingual terminal UI.
+// TerminalError keeps a catalog key and cause for the terminal UI.
 // Error retains the existing CLI's English default; Localized renders fa/en.
 type TerminalError struct {
 	Key   string

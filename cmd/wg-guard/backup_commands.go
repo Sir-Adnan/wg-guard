@@ -16,8 +16,9 @@ import (
 
 type backupPrinter struct{ locale i18n.Locale }
 
+func (p backupPrinter) language() i18n.Locale { return i18n.En }
 func (p backupPrinter) text(key string, args ...any) string {
-	return i18n.T(p.locale, "backup.cli."+key, args...)
+	return i18n.T(p.language(), "backup.cli."+key, args...)
 }
 func backupText(key string, args ...any) string {
 	return i18n.T(i18n.Locale(terminalLocale()), "backup.cli."+key, args...)
@@ -75,9 +76,11 @@ func parseBackupFlags(command string, args []string) (backupFlags, error) {
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
 		return o, fmt.Errorf("%s", backupText("flags"))
 	}
-	if !i18n.Locale(o.lang).Valid() {
+	locale, ok := terminalLanguage(o.lang)
+	if !ok {
 		return o, fmt.Errorf("%s", backupText("flags"))
 	}
+	o.lang = string(locale)
 	if o.password && o.passwordFile != "" || len(o.reason) > 64 {
 		return o, fmt.Errorf("%s", backupText("flags"))
 	}
@@ -121,7 +124,7 @@ func runBackup(args []string) (resultErr error) {
 		return err
 	}
 	printer := backupPrinter{i18n.Locale(o.lang)}
-	defer func() { resultErr = backup.InLocale(resultErr, printer.locale) }()
+	defer func() { resultErr = backup.InLocale(resultErr, printer.language()) }()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	password := ""
@@ -211,7 +214,7 @@ func runBackup(args []string) (resultErr error) {
 func (printer backupPrinter) printBackupResult(r *backup.Result) {
 	fmt.Println(printer.text("result", r.Encrypted, strings.Join(r.Delivered, ", ")))
 	for _, w := range r.Warnings {
-		fmt.Println(printer.text("warning", terminal.Clean(w.Localized(printer.locale))))
+		fmt.Println(printer.text("warning", terminal.Clean(w.Localized(printer.language()))))
 	}
 }
 func (printer backupPrinter) printSchedules(ctx context.Context, s *backup.Service) error {

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, codex/installer-lifecycle]
+    branches: [main]
   pull_request:
 
 jobs:

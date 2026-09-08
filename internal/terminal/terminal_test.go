@@ -57,6 +57,19 @@ func TestInputRetryBackAndCancellation(t *testing.T) {
 	}
 }
 
+func TestRootMenuUsesExitFooter(t *testing.T) {
+	var out bytes.Buffer
+	ui := New(strings.NewReader("0\n"), &out, Options{Locale: i18n.En})
+	_, err := ui.ChooseRoot("Management", []string{"Install & updates"}, 0)
+	if !errors.Is(err, ErrBack) {
+		t.Fatalf("exit choice: %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "0  Exit") || strings.Contains(text, "0  Back") {
+		t.Fatalf("root footer is ambiguous:\n%s", text)
+	}
+}
+
 func TestWidthColorAndUntrustedDisplay(t *testing.T) {
 	for _, width := range []int{48, 80, 120} {
 		for _, locale := range []i18n.Locale{i18n.En, i18n.Fa} {
@@ -97,9 +110,55 @@ func TestSecretDoesNotPrefetchOrEcho(t *testing.T) {
 	if strings.Contains(out.String(), "synthetic-secret") {
 		t.Fatal("secret echoed")
 	}
+	if !strings.Contains(out.String(), "password: ") || strings.Contains(out.String(), "password\n> ") {
+		t.Fatalf("secret prompt is not compact:\n%s", out.String())
+	}
 	_, err = New(strings.NewReader(strings.Repeat("x", 4097)+"\n"), &out, Options{}).Ask("bounded", "")
 	if err == nil {
 		t.Fatal("unbounded input")
+	}
+}
+
+func TestCompactPromptAndSummaryLayout(t *testing.T) {
+	var out bytes.Buffer
+	ui := New(strings.NewReader("\n"), &out, Options{Locale: i18n.En, Width: 80})
+	got, err := ui.Ask("Panel domain", "auto-detect")
+	if err != nil || got != "auto-detect" {
+		t.Fatalf("default answer = %q, %v", got, err)
+	}
+	ui.Field("Panel", "https://vpn.example.com")
+	text := out.String()
+	if !strings.Contains(text, "Panel domain [auto-detect]: ") || strings.Contains(text, "\n> ") {
+		t.Fatalf("prompt is not compact:\n%s", text)
+	}
+	if !strings.Contains(text, "Panel: https://vpn.example.com\n") {
+		t.Fatalf("summary field is not compact:\n%s", text)
+	}
+}
+
+func TestWideSectionUsesReadableMeasure(t *testing.T) {
+	var out bytes.Buffer
+	New(strings.NewReader(""), &out, Options{Width: 120}).Section("Connection")
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("section lines = %q", lines)
+	}
+	if got := utf8.RuneCountInString(lines[1]); got > 72 {
+		t.Fatalf("divider is %d columns; want at most 72", got)
+	}
+}
+
+func TestHeaderKeepsBrandAndPurposeTogether(t *testing.T) {
+	var out bytes.Buffer
+	New(strings.NewReader(""), &out, Options{Width: 80}).Header("WG-GUARD", "Secure AmneziaWG node setup")
+	text := out.String()
+	if !strings.Contains(text, "WG-GUARD\nSecure AmneziaWG node setup\n") {
+		t.Fatalf("header hierarchy missing:\n%s", text)
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if utf8.RuneCountInString(line) > 72 {
+			t.Fatalf("header line exceeds readable measure: %q", line)
+		}
 	}
 }
 

@@ -6,30 +6,24 @@ this file is the "type this, expect that" reference.
 ## Install
 
 ```bash
-wg-guard install --commit main        # explicit development source; interactive wizard
-wg-guard install --mode docker --domain vpn.example.com --yes --owner-password-file /root/private-owner-password
-wg-guard install --mode native --tls proxy --panel-port 8080 --yes --owner-password-file /root/private-owner-password
-wg-guard manage --lang fa                   # host management menus
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
+sudo wg-guard                              # reopen local management; no download
 ```
 
-The wizard asks for: mode (Docker default / native systemd), domain (blank = IP-only),
-TLS mode (ACME automatic with a domain; manual certs; proxy; dev), panel port, ACME challenge
-port (default 80), and the container image (Docker mode). Two optional sections follow, both
-defaulting to skip. Installation confirmation requires an explicit yes, and a fresh owner
-requires a local password before the public listener starts:
+The terminal is English-only. The recommended wizard asks for an optional domain and whether to
+open advanced settings; Enter accepts the recommended answer. It uses Docker, the verified AWG
+bundle and default networking. A domain selects automatic HTTPS; a blank domain keeps the panel
+private on loopback and prints an SSH tunnel. The final fresh-install confirmation defaults to
+install, while destructive lifecycle confirmations always default to no.
 
-- *VPN network defaults*: AWG listen-port allocation range, the VPN pool offered to the
-  first interface (awg0), client MTU, client DNS resolvers. Per-interface values remain
-  hot-editable in the panel.
-- *Telegram backups*: bot token (hidden input on terminals, transported via stdin — never
-  argv or logs), chat ID and a daily UTC backup time (creates an enabled `installer-daily`
-  schedule).
+Advanced setup exposes native systemd, TLS and panel ports, container image, AWG UDP allocation,
+first-interface pool, MTU/DNS and optional Telegram backups. The AWG UDP range is not a panel or
+HTTPS port. Automatic HTTPS requires external TCP 80 and 443.
 
-The panel domain is also seeded as the client-facing endpoint (`node.endpoint`), so the
-first exported config works without a Settings visit. All collected values are applied
-before the service first boots (the settings registry caches in memory) and remain editable
-in the panel: Settings → Backups/Networking. `--yes` skips every prompt (flags + defaults;
-it never reads stdin) and never overrides an explicit `--tls` flag.
+The panel domain is also seeded as the client-facing endpoint (`node.endpoint`). All collected
+values are applied before first boot and remain editable in Settings. `--yes` skips every prompt
+(flags + defaults; it never reads stdin) and never overrides an explicit `--tls` flag. Automation
+must supply `--owner-password-file` as a private regular file with mode 0600.
 
 What it writes: `/etc/wg-guard/wg-guard.toml` (0600), `/var/lib/wg-guard/`, the compose
 project (`/etc/wg-guard/compose.yaml`) or the hardened systemd unit, the host CLI at
@@ -39,8 +33,8 @@ refused with compose hints), and `/etc/modules-load.d/wg-guard.conf` so the Amne
 loads at boot. Preflight refuses busy ports and completed installs; a domain that does not
 resolve yet is a loud warning (ACME will fail until DNS points at the host).
 
-Verify: `wg-guard status` → container/unit healthy; open the printed panel URL and sign in with
-the locally supplied owner credentials. Diagnostics: `wg-guard doctor`. See
+Verify: `sudo wg-guard status` → container/unit healthy; open the printed panel URL and sign in
+with the locally supplied administrator credentials. Diagnostics: `sudo wg-guard doctor`. See
 [terminal management](terminal-management.md) for navigation, restart, secrets and cancellation.
 
 ## Update and recovery

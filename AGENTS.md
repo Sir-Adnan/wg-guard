@@ -29,8 +29,10 @@ guessing, and update them in the same change when behavior changes.
 - **Security-sensitive code** (auth, secrets, subprocess, firewall, configs): follow
   docs/operations/security.md. Never log keys, tokens, passwords, raw configs, or webhook
   secrets. Secrets via argv are forbidden where stdin/file (0600) works.
-- **Bilingual UI**: all user-visible strings go through `internal/i18n` catalogs (fa + en, key
-  parity tested). CSS uses logical properties (RTL-safe). Data (IPs/keys/numbers) renders LTR.
+- **Localization contract**: the web UI is bilingual; its user-visible strings use
+  `internal/i18n` catalogs (fa + en, key parity tested), logical CSS and LTR technical data. The
+  installer/host terminal is English-only and must not switch from environment or legacy language
+  flags.
 - **Two phases never mix.** Follow the phase in ROADMAP.md; a phase ends with tests green,
   docs updated, a coherent commit, and an honest verification report.
 - Distinguish clearly: designed / implemented / unit tested / integration tested /
