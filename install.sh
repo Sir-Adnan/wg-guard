@@ -17,22 +17,25 @@ ui_note() { printf '%s%s%s\n' "$ui_dim" "$1" "$ui_reset" >&2; }
 channel=release
 ref=latest
 list=0
+refresh=0
 args=()
 while (($#)); do
   case "$1" in
     --help|-h)
       printf '%s\n' 'WG-Guard GitHub bootstrap' \
-        'Usage: bash install.sh [--release latest|TAG | --commit main|FULL_SHA | --list-releases] [-- INSTALL_FLAGS]' \
+        'Usage: bash install.sh [--release latest|TAG | --commit main|FULL_SHA | --refresh | --list-releases] [-- INSTALL_FLAGS]' \
         'Platform: Ubuntu 24.04 or newer on amd64/x86_64.' \
         'Default: latest published stable release. Development source is never selected implicitly.' \
         'Terminal UI: English only.' \
-        'After installation: sudo wg-guard' \
+        'Everyday command after the first download: sudo wg-guard' \
+        '--refresh explicitly reacquires the selected GitHub build.' \
         'Advanced install flags (for example --yes --mode native) are forwarded unchanged.'
       exit 0 ;;
     --release|--commit)
       (($# >= 2)) || { printf 'Missing selection value\n' >&2; exit 2; }
       channel=${1#--}; ref=$2; shift 2 ;;
     --list-releases) list=1; shift ;;
+    --refresh) refresh=1; shift ;;
     --) shift; args+=("$@"); break ;;
     *) args+=("$1"); shift ;;
   esac
@@ -74,31 +77,41 @@ for ((i=0; i<${#args[@]}; i++)); do
 done
 installed_bin=/usr/local/bin/wg-guard
 installed_state=/etc/wg-guard/install-state.json
-if ((list == 0 && management_entry)) && command -v stat >/dev/null && command -v timeout >/dev/null &&
+manager_receipt=/var/cache/wg-guard/manager-build.json
+managed_marker=
+if "${sudo_cmd[@]}" test -f "$installed_state" && "${sudo_cmd[@]}" test ! -L "$installed_state"; then
+  managed_marker=$installed_state
+elif "${sudo_cmd[@]}" test -f "$manager_receipt" && "${sudo_cmd[@]}" test ! -L "$manager_receipt"; then
+  managed_marker=$manager_receipt
+fi
+if ((list == 0 && refresh == 0 && management_entry)) && [[ -n $managed_marker ]] && command -v stat >/dev/null && command -v timeout >/dev/null &&
    "${sudo_cmd[@]}" test -f "$installed_bin" && "${sudo_cmd[@]}" test -x "$installed_bin" &&
-   "${sudo_cmd[@]}" test ! -L "$installed_bin" && "${sudo_cmd[@]}" test -f "$installed_state" &&
-   "${sudo_cmd[@]}" test ! -L "$installed_state"; then
+   "${sudo_cmd[@]}" test ! -L "$installed_bin"; then
   bin_owner=$("${sudo_cmd[@]}" stat -c '%u' "$installed_bin")
   bin_mode=$("${sudo_cmd[@]}" stat -c '%a' "$installed_bin")
-  state_owner=$("${sudo_cmd[@]}" stat -c '%u' "$installed_state")
-  state_mode=$("${sudo_cmd[@]}" stat -c '%a' "$installed_state")
-  if [[ $bin_owner == 0 && $state_owner == 0 && $bin_mode =~ ^[0-7]{3}$ && $state_mode =~ ^[0-7]{3}$ ]] &&
-     (( (8#$bin_mode & 0022) == 0 && (8#$state_mode & 0022) == 0 )); then
+  marker_owner=$("${sudo_cmd[@]}" stat -c '%u' "$managed_marker")
+  marker_mode=$("${sudo_cmd[@]}" stat -c '%a' "$managed_marker")
+  if [[ $bin_owner == 0 && $marker_owner == 0 && $bin_mode =~ ^[0-7]{3}$ && $marker_mode =~ ^[0-7]{3}$ ]] &&
+     (( (8#$bin_mode & 0022) == 0 && (8#$marker_mode & 0022) == 0 )); then
     installed_contract=
     if installed_contract=$(timeout 5 "${sudo_cmd[@]}" "$installed_bin" installer-contract </dev/null 2>/dev/null) &&
        (( ${#installed_contract} <= 4096 )) &&
-       [[ $installed_contract == *'"revision":1'* &&
+       [[ $installed_contract == *'"revision":2'* &&
           $installed_contract == *'"prerequisites":true'* &&
           $installed_contract == *'"recovery":true'* &&
           $installed_contract == *'"local_owner":true'* &&
           $installed_contract == *'"coordinated_restore":true'* &&
-          $installed_contract == *'"data_lease":true'* ]]; then
-      ui_ok 'Existing managed installation detected'
-      ui_step 'LOCAL' 'Opening the installed WG-Guard manager'
+          $installed_contract == *'"data_lease":true'* &&
+          $installed_contract == *'"persistent_manager":true'* &&
+          $installed_contract == *'"secure_exposure":true'* ]]; then
+      ui_ok 'Local WG-Guard manager ready'
+      ui_step 'LOCAL' 'Opening WG-Guard manager'
+      manager_args=(manage --lang en)
+      [[ $managed_marker == "$manager_receipt" ]] && manager_args=(manage --build-metadata "$manager_receipt" --lang en)
       if { true </dev/tty; } 2>/dev/null; then
-        exec "${sudo_cmd[@]}" "$installed_bin" manage --lang en </dev/tty
+        exec "${sudo_cmd[@]}" "$installed_bin" "${manager_args[@]}" </dev/tty
       fi
-      exec "${sudo_cmd[@]}" "$installed_bin" manage --lang en </dev/null
+      exec "${sudo_cmd[@]}" "$installed_bin" "${manager_args[@]}" </dev/null
     fi
     ui_note 'The installed host CLI predates local management; acquiring a compatible manager.'
   fi
@@ -285,7 +298,7 @@ try:
     with contract_path.open('wb') as contract_output:
         subprocess.run([str(stage/'wg-guard'),'installer-contract'],stdin=subprocess.DEVNULL,stdout=contract_output,stderr=subprocess.DEVNULL,timeout=15,check=True,preexec_fn=contract_limits)
     contract=json.loads(contract_path.read_bytes())
-    require(contract.get('revision')==1 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.1 owner/restore/data-ownership installer contract; choose a compatible build')
+    require(contract.get('revision')==2 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and contract.get('persistent_manager') is True and contract.get('secure_exposure') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.2 persistent-manager/secure-exposure installer contract; choose a compatible build')
     (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=ref if channel=='release' else sha,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
     (stage/'build.json').chmod(0o600)
 except subprocess.SubprocessError:
@@ -304,7 +317,41 @@ print(build['Version'],build['Commit'][:12])
 PY
 )
 ui_ok "Build ready: $selected_version · $selected_commit"
-ui_step '4/4' 'Opening WG-Guard setup'
+run_bin="$stage/wg-guard"
+run_metadata="$stage/build.json"
+# On a fresh host the verified build becomes a durable local manager before
+# setup. A canceled or failed installation can therefore be retried locally.
+if ! "${sudo_cmd[@]}" test -f "$installed_state"; then
+  if "${sudo_cmd[@]}" test -e "$installed_bin" && ! "${sudo_cmd[@]}" test -f "$manager_receipt"; then
+    printf 'Refusing to replace an unmanaged %s; move it explicitly and retry\n' "$installed_bin" >&2
+    exit 2
+  fi
+  manager_dir=${manager_receipt%/*}
+  "${sudo_cmd[@]}" install -d -m 0700 "$manager_dir"
+  bin_tmp=$("${sudo_cmd[@]}" mktemp "${installed_bin}.new.XXXXXXXX")
+  receipt_tmp=$("${sudo_cmd[@]}" mktemp "${manager_dir}/.manager-build.new.XXXXXXXX")
+  persist_cleanup() {
+    "${sudo_cmd[@]}" rm -f -- "$bin_tmp" "$receipt_tmp"
+  }
+  trap 'persist_cleanup; cleanup' EXIT
+  "${sudo_cmd[@]}" install -m 0755 "$stage/wg-guard" "$bin_tmp"
+  python3 -I - "$stage/build.json" "$stage/manager-build.json" "$installed_bin" <<'PY'
+import json,pathlib,sys
+source,target,binary=map(pathlib.Path,sys.argv[1:])
+build=json.loads(source.read_bytes())
+build['BinaryPath']=str(binary)
+target.write_text(json.dumps(build,separators=(',',':'))+'\n')
+target.chmod(0o600)
+PY
+  "${sudo_cmd[@]}" install -m 0600 "$stage/manager-build.json" "$receipt_tmp"
+  "${sudo_cmd[@]}" mv -f -- "$receipt_tmp" "$manager_receipt"
+  "${sudo_cmd[@]}" mv -f -- "$bin_tmp" "$installed_bin"
+  trap cleanup EXIT
+  run_bin="$installed_bin"
+  run_metadata="$manager_receipt"
+  ui_ok 'Local manager installed · rerun with sudo wg-guard'
+fi
+ui_step '4/4' 'Opening WG-Guard manager'
 # A piped script is never an answer stream. Reopen the controlling terminal
 # only for interactive entry; noninteractive flags remain usable without it.
 interactive=1
@@ -321,7 +368,7 @@ for ((i=0; i<${#args[@]}; i++)); do
 done
 ((interactive)) || entry=install
 if ((interactive)) && { true </dev/tty; } 2>/dev/null; then
-  "${sudo_cmd[@]}" "$stage/wg-guard" "$entry" --build-metadata "$stage/build.json" "${args[@]}" </dev/tty
+  "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${args[@]}" </dev/tty
 else
-  "${sudo_cmd[@]}" "$stage/wg-guard" "$entry" --build-metadata "$stage/build.json" "${args[@]}" </dev/null
+  "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${args[@]}" </dev/null
 fi

@@ -9,7 +9,7 @@ export FIXTURE_ROOT="$fixture" TMPDIR="$fixture/tmp"
 python3 - "$fixture" <<'PY'
 import hashlib,io,json,pathlib,sys,tarfile
 p=pathlib.Path(sys.argv[1])
-binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "${FIXTURE_MODE:-}" == owner-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false,"coordinated_restore":true,"data_lease":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == restore-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false,"data_lease":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == lease-unsafe ]]; then printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":false}\\n\'; exit 0; fi; [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
+binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "${FIXTURE_MODE:-}" == owner-unsafe ]]; then printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false,"coordinated_restore":true,"data_lease":true,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == restore-unsafe ]]; then printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false,"data_lease":true,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == lease-unsafe ]]; then printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":false,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi; [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
 (p/'binary').write_bytes(binary)
 (p/'sums').write_text(hashlib.sha256(binary).hexdigest()+'  wg-guard_linux_amd64\n')
 go_script='''#!/usr/bin/env python3
@@ -69,14 +69,14 @@ PY
 export PATH="$fixture/bin:$PATH"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 request_count() { if [[ -f $fixture/requests ]]; then wc -l < "$fixture/requests"; else printf '0\n'; fi; }
-python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" <<'PY'
+python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/manager-build.json" <<'PY'
 import pathlib,sys
-source,target,os_release,installed_bin,installed_state=map(pathlib.Path,sys.argv[1:])
-target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)))
+source,target,os_release,installed_bin,installed_state,manager_receipt=map(pathlib.Path,sys.argv[1:])
+target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)))
 target.chmod(0o755)
 installed_bin.write_text('''#!/bin/sh
 if test "$1" = installer-contract; then
-  printf '%s\n' '{"revision":1,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true}'
+  printf '%s\n' '{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true,"persistent_manager":true,"secure_exposure":true}'
   exit 0
 fi
 printf "%s\n" "$@" > "$FIXTURE_ROOT/local-argv"
@@ -107,57 +107,76 @@ test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy installed CLI did n
 case "$legacy_output" in *'Acquiring verified build'*) :;; *) fail 'legacy installed CLI acquisition was not explained';; esac
 rm "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/argv"
 before=$(request_count)
-help=$(bash "$root/install.sh" --help </dev/null)
-case "$help" in *'After installation: sudo wg-guard'*) :;; *) fail 'help omitted the local manager command';; esac
+help=$(bash "$fixture/bootstrap" --help </dev/null)
+case "$help" in *'Everyday command after the first download: sudo wg-guard'*) :;; *) fail 'help omitted the local manager command';; esac
 case "$help" in *'Terminal UI: English only.'*) :;; *) fail 'help did not declare the English-only terminal contract';; esac
 test "$(request_count)" = "$before" || fail 'help performed acquisition'
-bootstrap_output=$(setsid --wait bash "$root/install.sh" --release v1 </dev/null 2>&1)
-case "$bootstrap_output" in *'Checking system compatibility'*'Acquiring verified build'*'Opening WG-Guard setup'*) :;; *) fail 'bootstrap progress hierarchy missing';; esac
+bootstrap_output=$(setsid --wait bash "$fixture/bootstrap" --release v1 </dev/null 2>&1)
+case "$bootstrap_output" in *'Checking system compatibility'*'Acquiring verified build'*'Opening WG-Guard manager'*) :;; *) fail 'bootstrap progress hierarchy missing';; esac
+test -x "$fixture/installed-wg-guard" || fail 'verified manager was not persisted'
+test -f "$fixture/manager-build.json" || fail 'private manager receipt was not persisted'
+test "$(/usr/bin/stat -c '%a' "$fixture/manager-build.json")" = 600 || fail 'manager receipt permissions'
+python3 - "$fixture/manager-build.json" "$fixture/installed-wg-guard" <<'PY'
+import json,pathlib,sys
+receipt=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert receipt['BinaryPath']==sys.argv[2]
+PY
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'default interactive management entry'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'management build identity forwarding'
-setsid --wait bash "$root/install.sh" --release v1 -- --lang fa </dev/null
+rm "$fixture/argv"
+before=$(request_count)
+setsid --wait bash "$fixture/bootstrap" --release v1 </dev/null
+test "$(request_count)" = "$before" || fail 'cached fresh manager rerun performed acquisition'
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'cached fresh manager did not reopen'
+test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'cached receipt was not forwarded'
+rm "$fixture/argv"
+before=$(request_count)
+setsid --wait bash "$fixture/bootstrap" --refresh --release v1 </dev/null
+test "$(request_count)" -gt "$before" || fail 'explicit manager refresh did not reacquire'
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'refreshed manager did not reopen'
+setsid --wait bash "$fixture/bootstrap" --release v1 -- --lang fa </dev/null
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy language management entry'
-test "$(tail -n 1 "$fixture/argv")" = fa || fail 'legacy language flag forwarding'
-setsid --wait bash "$root/install.sh" --release v1 -- --mode native </dev/null
+test "$(tail -n 1 "$fixture/argv")" = en || fail 'legacy language alias did not normalize to English'
+setsid --wait bash "$fixture/bootstrap" --release v1 -- --mode native </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'explicit setup flags lost'
-bash "$root/install.sh" --release v1 -- --yes --mode native </dev/null
+bash "$fixture/bootstrap" --release v1 -- --yes --mode native </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'install dispatch'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'build identity forwarding'
 test "$(sed -n '4p' "$fixture/argv")" = --yes || fail 'argument forwarding'
 test "$(tail -n 1 "$fixture/argv")" = native || fail 'argument value forwarding'
 test -z "$(ls -A "$fixture/tmp")" || fail 'success cleanup'
 rm "$fixture/argv"
-if FIXTURE_MODE=old-installer bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'old installer accepted'; fi
+if FIXTURE_MODE=old-installer bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'old installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'old installer deployment ran'
-if FIXTURE_MODE=owner-unsafe bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'owner-unsafe installer accepted'; fi
+if FIXTURE_MODE=owner-unsafe bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'owner-unsafe installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'owner-unsafe deployment ran'
-if FIXTURE_MODE=restore-unsafe bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'restore-unsafe installer accepted'; fi
+if FIXTURE_MODE=restore-unsafe bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'restore-unsafe installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'restore-unsafe deployment ran'
-if FIXTURE_MODE=lease-unsafe bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'lease-unsafe installer accepted'; fi
+if FIXTURE_MODE=lease-unsafe bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'lease-unsafe installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'lease-unsafe deployment ran'
-if FIXTURE_MODE=corrupt bash "$root/install.sh" --release v1 --yes </dev/null; then fail 'corrupt binary accepted'; fi
+if FIXTURE_MODE=corrupt bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'corrupt binary accepted'; fi
 test ! -e "$fixture/argv" || fail 'corrupt executable ran'
 test -z "$(ls -A "$fixture/tmp")" || fail 'failure cleanup'
-if FIXTURE_MODE=empty bash "$root/install.sh" --release latest --yes </dev/null; then fail 'empty release accepted'; fi
-if bash "$root/install.sh" --commit abc --yes </dev/null; then fail 'short commit accepted'; fi
-bash "$root/install.sh" --list-releases </dev/null > "$fixture/list"
+if FIXTURE_MODE=empty bash "$fixture/bootstrap" --release latest --yes </dev/null; then fail 'empty release accepted'; fi
+if bash "$fixture/bootstrap" --commit abc --yes </dev/null; then fail 'short commit accepted'; fi
+bash "$fixture/bootstrap" --list-releases </dev/null > "$fixture/list"
 test "$(cat "$fixture/list")" = v1 || fail 'list dispatch'
-cat "$root/install.sh" | bash -s -- --release v1 --yes
+cat "$fixture/bootstrap" | bash -s -- --release v1 --yes
 test ! -e "$fixture/input" || fail 'piped script consumed as answers'
 test -z "$(ls -A "$fixture/tmp")" || fail 'piped cleanup'
-bash "$root/install.sh" --commit main --yes </dev/null
+bash "$fixture/bootstrap" --commit main --yes </dev/null
 test -s "$fixture/build-args" || fail 'source build did not execute'
 rm "$fixture/build-args"
 touch "$fixture/old-go"
-bash "$root/install.sh" --commit 0123456789abcdef0123456789abcdef01234567 --yes </dev/null
+bash "$fixture/bootstrap" --commit 0123456789abcdef0123456789abcdef01234567 --yes </dev/null
 test -s "$fixture/build-args" || fail 'toolchain build did not execute'
 test -z "$(ls -A "$fixture/tmp")" || fail 'toolchain cleanup'
 rm "$fixture/argv"
-if FIXTURE_MODE=bad-toolchain bash "$root/install.sh" --commit main --yes </dev/null; then fail 'corrupt toolchain accepted'; fi
+if FIXTURE_MODE=bad-toolchain bash "$fixture/bootstrap" --commit main --yes </dev/null; then fail 'corrupt toolchain accepted'; fi
 test ! -e "$fixture/argv" || fail 'corrupt toolchain produced executable'
 test -z "$(ls -A "$fixture/tmp")" || fail 'corrupt toolchain cleanup'
 touch "$fixture/nonroot"
-bash "$root/install.sh" --release v1 --yes </dev/null
+bash "$fixture/bootstrap" --release v1 --yes </dev/null
 test -s "$fixture/sudo-used" || fail 'non-root installation was not elevated'
 bash "$root/scripts/build-artifacts.sh" --version v1 --output "$fixture/artifacts"
 (cd "$fixture/artifacts" && sha256sum --check checksums.txt)

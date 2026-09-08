@@ -68,17 +68,46 @@ func TestCommandHelpPresentsEnglishOnlyTerminal(t *testing.T) {
 	}
 }
 
-func TestBootstrapManagementEntryPreservesAcquiredBuild(t *testing.T) {
-	want := []string{"--build-metadata", "/private/build.json", "--lang", "en"}
-	if got := managementSetup(nil, "/private/build.json", "fa"); !reflect.DeepEqual(got, want) {
-		t.Fatalf("fresh bootstrap source identity or terminal language lost: %v", got)
+func TestFreshManagerUsesCachedBuildOnlyAfterInstallSelection(t *testing.T) {
+	var out bytes.Buffer
+	calls := 0
+	m := manager{
+		ui:                terminal.New(strings.NewReader("1\n1\nq\n"), &out, terminal.Options{Locale: i18n.En}),
+		catalog:           panicCatalog{},
+		bootstrapMetadata: "/var/cache/wg-guard/manager-build.json",
+		run: func(_ context.Context, args []string, _ io.Reader) error {
+			calls++
+			want := []string{"install", "--build-metadata", "/var/cache/wg-guard/manager-build.json", "--lang", "en"}
+			if !reflect.DeepEqual(args, want) {
+				t.Fatalf("install args = %v, want %v", args, want)
+			}
+			return nil
+		},
 	}
-	if got := managementSetup(&install.State{Mode: install.ModeDocker}, "/private/build.json", "fa"); got != nil {
-		t.Fatal("installed bootstrap tried reinstall")
+	if err := m.loop(context.Background()); err != nil && !errors.Is(err, terminal.ErrCanceled) {
+		t.Fatal(err)
 	}
-	if got := managementSetup(nil, "", "en"); got != nil {
-		t.Fatal("ordinary management opening started setup")
+	if calls != 1 {
+		t.Fatalf("manager performed %d mutations; want one explicit Install", calls)
 	}
+
+	calls = 0
+	m.ui = terminal.New(strings.NewReader("q\n"), &out, terminal.Options{Locale: i18n.En})
+	if err := m.loop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatal("fresh manager auto-started installation")
+	}
+}
+
+type panicCatalog struct{}
+
+func (panicCatalog) Releases(context.Context) ([]distribution.Release, error) {
+	panic("fresh cached install contacted the release catalog")
+}
+func (panicCatalog) Resolve(context.Context, distribution.Selection) (distribution.Build, error) {
+	panic("fresh cached install resolved a network build")
 }
 
 func TestManagerLegacyReadinessIsExplicitlyUnknown(t *testing.T) {

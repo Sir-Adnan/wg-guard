@@ -24,11 +24,12 @@ type sourceCatalog interface {
 	Resolve(context.Context, distribution.Selection) (distribution.Build, error)
 }
 type manager struct {
-	ui        *terminal.UI
-	catalog   sourceCatalog
-	run       func(context.Context, []string, io.Reader) error
-	overview  func() error
-	installed string
+	ui                *terminal.UI
+	catalog           sourceCatalog
+	run               func(context.Context, []string, io.Reader) error
+	overview          func() error
+	installed         string
+	bootstrapMetadata string
 }
 
 func runManage(args []string) error {
@@ -57,14 +58,19 @@ func runManage(args []string) error {
 	if err != nil {
 		return err
 	}
-	if setup := managementSetup(st, *metadata, string(locale)); setup != nil {
-		return runInstall(setup)
+	if st == nil && *metadata == "" {
+		if _, statErr := os.Stat(install.ManagerBuildPath); statErr == nil {
+			*metadata = install.ManagerBuildPath
+		}
 	}
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	m := manager{ui: u, catalog: distribution.NewClient(nil, distribution.Options{})}
+	m := manager{
+		ui: u, catalog: distribution.NewClient(nil, distribution.Options{}),
+		bootstrapMetadata: *metadata,
+	}
 	m.run = func(ctx context.Context, args []string, in io.Reader) error {
 		if args[0] == "backup" || args[0] == "restore" {
 			args = append(append([]string{}, args...), "--lang", string(u.Locale))
@@ -163,14 +169,6 @@ func showRecordedReadiness(u *terminal.UI, st *install.State) {
 	u.Field(u.T("manage.core"), core)
 }
 
-// Only the acquisition entry auto-starts fresh setup. An installed node opens
-// management without reinstalling or implicitly adopting the acquired build.
-func managementSetup(st *install.State, metadata, locale string) []string {
-	if st != nil || metadata == "" {
-		return nil
-	}
-	return []string{"--build-metadata", metadata, "--lang", string(i18n.En)}
-}
 func terminalLocale() string {
 	return "en"
 }
@@ -247,7 +245,13 @@ func (m *manager) group(ctx context.Context, group int) error {
 		switch group {
 		case 1:
 			switch n {
-			case 1, 2:
+			case 1:
+				if m.installed == "" && m.bootstrapMetadata != "" {
+					args = []string{"install", "--build-metadata", m.bootstrapMetadata, "--lang", string(m.ui.Locale)}
+					break
+				}
+				fallthrough
+			case 2:
 				selection, e := pickSource(ctx, m.ui, m.catalog, m.installed)
 				if errors.Is(e, terminal.ErrBack) {
 					continue

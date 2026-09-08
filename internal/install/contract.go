@@ -16,13 +16,19 @@ type Contract struct {
 	LocalOwner         bool   `json:"local_owner"`
 	CoordinatedRestore bool   `json:"coordinated_restore"`
 	DataLease          bool   `json:"data_lease"`
+	PersistentManager  bool   `json:"persistent_manager"`
+	SecureExposure     bool   `json:"secure_exposure"`
 }
 
 func CurrentContract() Contract {
-	return Contract{Revision: 1, DataContract: "schema7-h-ranges-v1", Prerequisites: true, Recovery: true, LocalOwner: true, CoordinatedRestore: true, DataLease: true}
+	return Contract{
+		Revision: 2, DataContract: "schema7-h-ranges-v1", Prerequisites: true,
+		Recovery: true, LocalOwner: true, CoordinatedRestore: true, DataLease: true,
+		PersistentManager: true, SecureExposure: true,
+	}
 }
 func CheckContract(c Contract) error {
-	if !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore || !c.DataLease {
+	if c.Revision != 2 || !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore || !c.DataLease || !c.PersistentManager || !c.SecureExposure {
 		return terminalError("install.error.contract")
 	}
 	return nil
@@ -37,7 +43,9 @@ func inspectContract(ctx context.Context, h Host, args []string) (Contract, erro
 
 // Data compatibility and candidate admission are distinct: old artifacts can
 // understand the same schema while lacking today's fresh-install capabilities.
-func knownDataContract(c Contract) bool { return c.Revision == 1 && c.DataContract != "" }
+func knownDataContract(c Contract) bool {
+	return (c.Revision == 1 || c.Revision == 2) && c.DataContract != ""
+}
 func readContract(ctx context.Context, h Host, args []string) (Contract, error) {
 	raw, err := h.Output(ctx, append(args, "installer-contract"), 15*time.Second)
 	if err != nil {
