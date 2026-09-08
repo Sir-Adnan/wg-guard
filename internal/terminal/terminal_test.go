@@ -162,6 +162,26 @@ func TestHeaderKeepsBrandAndPurposeTogether(t *testing.T) {
 	}
 }
 
+func TestStatusCardIsCompactAtSupportedSSHWidths(t *testing.T) {
+	for _, width := range []int{40, 48, 80} {
+		var out bytes.Buffer
+		ui := New(strings.NewReader(""), &out, Options{Locale: i18n.En, Width: width})
+		ui.StatusCard("READY", "Local manager", []StatusField{
+			{Label: "Build", Value: "v1.2.3 · 0123456789ab"},
+			{Label: "Next", Value: "Choose Install to configure this server"},
+		})
+		text := out.String()
+		if !strings.Contains(text, "READY · Local manager") || !strings.Contains(text, "Build") {
+			t.Fatalf("width %d card hierarchy missing:\n%s", width, text)
+		}
+		for _, line := range strings.Split(text, "\n") {
+			if utf8.RuneCountInString(line) > width {
+				t.Fatalf("width %d overflow: %q", width, line)
+			}
+		}
+	}
+}
+
 func ExampleUI_Section() {
 	var out bytes.Buffer
 	New(strings.NewReader(""), &out, Options{Width: 48}).Section("WG-Guard")

@@ -36,6 +36,12 @@ type UI struct {
 	inputTTY bool
 }
 
+// StatusField is one compact, sanitized value in a manager status card.
+type StatusField struct {
+	Label string
+	Value string
+}
+
 // Detect uses the actual input/output files; redirected output is always plain.
 func Detect(in io.Reader, out io.Writer, locale i18n.Locale) Options {
 	o := Options{Locale: locale, Width: 80, Color: true}
@@ -198,6 +204,19 @@ func (u *UI) Field(label, value string) {
 		return
 	}
 	u.Text(Clean(label) + ": " + Clean(value))
+}
+
+// StatusCard keeps the current state and the next useful facts together. It
+// intentionally uses the same streaming/wrapping primitives as the rest of
+// the UI so it remains legible in narrow and non-color SSH terminals.
+func (u *UI) StatusCard(status, title string, fields []StatusField) {
+	u.Section(strings.ToUpper(Clean(status)) + " · " + Clean(title))
+	for _, field := range fields {
+		if strings.TrimSpace(field.Value) == "" {
+			continue
+		}
+		u.Field("  "+field.Label, field.Value)
+	}
 }
 func (u *UI) Result(err error) {
 	if err == nil {

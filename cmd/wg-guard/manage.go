@@ -30,6 +30,33 @@ type manager struct {
 	overview          func() error
 	installed         string
 	bootstrapMetadata string
+	view              managerView
+	journalOperation  string
+}
+
+type managerView uint8
+
+const (
+	managerFresh managerView = iota
+	managerInstalled
+	managerRecovery
+)
+
+type managerMenu struct {
+	key         string
+	items       []string
+	defaultItem int
+}
+
+func managerRootMenu(view managerView) managerMenu {
+	switch view {
+	case managerInstalled:
+		return managerMenu{key: "menu", items: []string{"lifecycle", "access", "backups", "operations", "uninstall"}, defaultItem: 1}
+	case managerRecovery:
+		return managerMenu{key: "recovery_menu", items: []string{"recover_now", "lifecycle", "access", "backups", "operations"}, defaultItem: 1}
+	default:
+		return managerMenu{key: "fresh_menu", items: []string{"install_cached", "install_choose", "readiness", "help_short"}, defaultItem: 1}
+	}
 }
 
 func runManage(args []string) error {
@@ -106,20 +133,38 @@ func runManage(args []string) error {
 		if err != nil {
 			return err
 		}
+		j, err := install.LoadJournal(h)
+		if err != nil {
+			return err
+		}
+		m.view = managerFresh
+		m.installed = ""
+		m.journalOperation = ""
+		if st != nil {
+			m.view = managerInstalled
+			m.installed = st.Version
+		}
+		if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
+			m.view = managerRecovery
+			m.journalOperation = j.Operation
+		}
 		u.Header("WG-GUARD", u.T("manage.subtitle"))
-		u.Field(u.T("manage.build"), version.String())
 		if st == nil {
-			u.Text(u.T("manage.absent"))
+			status := u.T("manage.ready")
+			title := u.T("manage.fresh_title")
+			if m.view == managerRecovery {
+				status = u.T("manage.action_required")
+				title = u.T("manage.recovery_title")
+			}
+			fields := []terminal.StatusField{
+				{Label: u.T("manage.build"), Value: version.String()},
+				{Label: u.T("manage.next"), Value: u.T("manage.fresh_next")},
+			}
+			if j != nil {
+				fields = append(fields, terminal.StatusField{Label: u.T("manage.journal"), Value: j.Operation + " · " + j.Stage})
+			}
+			u.StatusCard(status, title, fields)
 			return nil
-		}
-		m.installed = st.Version
-		u.Field(u.T("manage.installed"), string(st.Mode)+" · "+st.Version)
-		showRecordedReadiness(u, st)
-		if st.Core.RebootRequired {
-			u.Text(u.T("manage.reboot"))
-		}
-		if st.Recovery != "" {
-			u.Field(u.T("manage.recovery"), st.Recovery)
 		}
 		cfg, err := install.ReadBootConfig(h, st.ConfigPath)
 		if err != nil {
@@ -134,23 +179,34 @@ func runManage(args []string) error {
 		if err != nil {
 			return err
 		}
-		u.Field(u.T("manage.panel"), p.PanelURL())
-		u.Field(u.T("manage.endpoint"), p.VPNEndpoint())
 		url, skip, err := p.HealthProbeURL()
 		if err == nil {
 			err = install.ProbeHealth(ctx, url, skip)
 		}
+		status := u.T("manage.healthy")
 		health := u.T("manage.healthy")
 		if err != nil {
+			status = u.T("manage.attention")
 			health = u.T("manage.unhealthy")
 		}
-		u.Field(u.T("manage.health"), health)
-		j, err := install.LoadJournal(h)
-		if err != nil {
-			return err
+		if m.view == managerRecovery {
+			status = u.T("manage.action_required")
+		}
+		fields := []terminal.StatusField{
+			{Label: u.T("manage.installed"), Value: string(st.Mode) + " · " + st.Version},
+			{Label: u.T("manage.panel"), Value: p.PanelURL()},
+			{Label: u.T("manage.health"), Value: health},
+			{Label: u.T("manage.core"), Value: st.Core.Requested.ID},
 		}
 		if j != nil {
-			u.Field(u.T("manage.journal"), j.Operation+" · "+j.Stage)
+			fields = append(fields, terminal.StatusField{Label: u.T("manage.journal"), Value: j.Operation + " · " + j.Stage})
+		}
+		u.StatusCard(status, u.T("manage.node_title"), fields)
+		if st.Core.RebootRequired {
+			u.Text(u.T("manage.reboot"))
+		}
+		if st.Recovery != "" {
+			u.Field(u.T("manage.recovery"), st.Recovery)
 		}
 		return nil
 	}
@@ -188,12 +244,12 @@ func (m *manager) menu(key string, items ...string) (int, error) {
 	}
 	return m.ui.Choose(m.ui.T("manage."+key), labels, 0)
 }
-func (m *manager) rootMenu(key string, items ...string) (int, error) {
+func (m *manager) rootMenu(key string, def int, items ...string) (int, error) {
 	labels := make([]string, len(items))
 	for i, v := range items {
 		labels[i] = m.ui.T("manage." + v)
 	}
-	return m.ui.ChooseRoot(m.ui.T("manage."+key), labels, 0)
+	return m.ui.ChooseRoot(m.ui.T("manage."+key), labels, def)
 }
 func (m *manager) loop(ctx context.Context) error {
 	// Terminal presentation is intentionally English-only. Locale selection
@@ -208,14 +264,15 @@ func (m *manager) loop(ctx context.Context) error {
 				m.ui.Result(err)
 			}
 		}
-		n, err := m.rootMenu("menu", "lifecycle", "operations", "backups")
+		root := managerRootMenu(m.view)
+		n, err := m.rootMenu(root.key, root.defaultItem, root.items...)
 		if errors.Is(err, terminal.ErrCanceled) || errors.Is(err, terminal.ErrBack) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		err = m.group(ctx, n)
+		err = m.rootAction(ctx, n)
 		if errors.Is(err, terminal.ErrCanceled) {
 			return err
 		}
@@ -224,17 +281,113 @@ func (m *manager) loop(ctx context.Context) error {
 		}
 	}
 }
+
+func (m *manager) rootAction(ctx context.Context, n int) error {
+	switch m.view {
+	case managerFresh:
+		return m.freshAction(ctx, n)
+	case managerRecovery:
+		switch n {
+		case 1:
+			args := []string{"update", "--recover"}
+			if m.journalOperation == "restore" {
+				args = []string{"restore", "--recover"}
+			}
+			_, err := m.reviewedAction(ctx, "recover_review", args, nil)
+			return err
+		case 2:
+			return m.group(ctx, 1)
+		case 3:
+			return m.group(ctx, 4)
+		case 4:
+			return m.group(ctx, 3)
+		case 5:
+			return m.group(ctx, 2)
+		}
+	case managerInstalled:
+		switch n {
+		case 1:
+			return m.group(ctx, 1)
+		case 2:
+			return m.group(ctx, 4)
+		case 3:
+			return m.group(ctx, 3)
+		case 4:
+			return m.group(ctx, 2)
+		case 5:
+			executed, err := m.reviewedAction(ctx, "uninstall_review", []string{"uninstall", "--yes"}, nil)
+			if err != nil {
+				return err
+			}
+			if executed {
+				return terminal.ErrCanceled
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func (m *manager) freshAction(ctx context.Context, n int) error {
+	switch n {
+	case 1, 2:
+		var args []string
+		if n == 1 && m.bootstrapMetadata != "" {
+			args = []string{"install", "--build-metadata", m.bootstrapMetadata, "--lang", string(m.ui.Locale)}
+		} else {
+			selection, err := pickSource(ctx, m.ui, m.catalog, "")
+			if err != nil {
+				return err
+			}
+			args = []string{"install", "--" + selection.Channel, selection.Ref, "--lang", string(m.ui.Locale)}
+		}
+		err := m.run(ctx, args, nil)
+		m.ui.Result(err)
+		if ctx.Err() != nil {
+			return terminal.ErrCanceled
+		}
+		return nil
+	case 3:
+		err := m.run(ctx, []string{"doctor"}, nil)
+		m.ui.Result(err)
+		return nil
+	case 4:
+		m.ui.Section(m.ui.T("manage.help_short"))
+		m.ui.Text(m.ui.T("manage.help_body"))
+	}
+	return nil
+}
+
+func (m *manager) reviewedAction(ctx context.Context, review string, args []string, input io.Reader) (bool, error) {
+	m.ui.Section(m.ui.T("manage.review"))
+	ok, err := m.ui.Confirm(m.ui.T("manage." + review))
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, nil
+	}
+	err = m.run(ctx, args, input)
+	m.ui.Result(err)
+	if ctx.Err() != nil {
+		return true, terminal.ErrCanceled
+	}
+	return err == nil, nil
+}
+
 func (m *manager) group(ctx context.Context, group int) error {
 	for {
 		var n int
 		var err error
 		switch group {
 		case 1:
-			n, err = m.menu("lifecycle", "install", "update", "rollback", "recover", "uninstall")
+			n, err = m.menu("lifecycle", "update", "rollback", "recover", "restart")
 		case 2:
-			n, err = m.menu("operations", "status", "doctor", "tls", "core", "switch", "restart")
+			n, err = m.menu("operations", "status", "doctor", "tls", "core", "switch")
 		case 3:
 			n, err = m.ui.Choose(m.ui.T("manage.backups"), []string{m.ui.T("manage.backup_create"), m.ui.T("manage.backup_list"), m.ui.T("manage.restore"), m.ui.T("manage.schedules"), m.ui.T("manage.telegram"), m.ui.T("backup.cli.backup_password"), m.ui.T("backup.cli.recover")}, 0)
+		case 4:
+			n, err = m.menu("access", "access_status", "tls")
 		}
 		if err != nil {
 			return err
@@ -246,12 +399,6 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 1:
 			switch n {
 			case 1:
-				if m.installed == "" && m.bootstrapMetadata != "" {
-					args = []string{"install", "--build-metadata", m.bootstrapMetadata, "--lang", string(m.ui.Locale)}
-					break
-				}
-				fallthrough
-			case 2:
 				selection, e := pickSource(ctx, m.ui, m.catalog, m.installed)
 				if errors.Is(e, terminal.ErrBack) {
 					continue
@@ -259,24 +406,17 @@ func (m *manager) group(ctx context.Context, group int) error {
 				if e != nil {
 					return e
 				}
-				cmd := "install"
-				if n == 2 {
-					cmd = "update"
-					review = "update_review"
-				}
-				args = []string{cmd, "--" + selection.Channel, selection.Ref}
-				if n == 1 {
-					args = append(args, "--lang", string(m.ui.Locale))
-				}
-			case 3:
+				args = []string{"update", "--" + selection.Channel, selection.Ref}
+				review = "update_review"
+			case 2:
 				args = []string{"update", "--rollback"}
 				review = "rollback_review"
-			case 4:
+			case 3:
 				args = []string{"update", "--recover"}
 				review = "recover_review"
-			case 5:
-				args = []string{"uninstall", "--yes"}
-				review = "uninstall_review"
+			case 4:
+				args = []string{"restart", "--yes"}
+				review = "restart_review"
 			}
 		case 2:
 			switch n {
@@ -298,9 +438,6 @@ func (m *manager) group(ctx context.Context, group int) error {
 				}
 				args = []string{"core", "switch", "recommended", "--confirm-impact"}
 				review = "core_review"
-			case 6:
-				args = []string{"restart", "--yes"}
-				review = "restart_review"
 			}
 		case 3:
 			err = m.backupAction(ctx, n)
@@ -311,6 +448,13 @@ func (m *manager) group(ctx context.Context, group int) error {
 				m.ui.Result(err)
 			}
 			continue
+		case 4:
+			switch n {
+			case 1:
+				args = []string{"status"}
+			case 2:
+				args = []string{"tls-check"}
+			}
 		}
 		if review != "" {
 			m.ui.Section(m.ui.T("manage.review"))
@@ -325,10 +469,6 @@ func (m *manager) group(ctx context.Context, group int) error {
 		err = m.run(ctx, args, input)
 		m.ui.Result(err)
 		if ctx.Err() != nil {
-			return terminal.ErrCanceled
-		}
-		// Uninstall removes the host executable: don't present further actions.
-		if group == 1 && n == 5 && err == nil {
 			return terminal.ErrCanceled
 		}
 	}
