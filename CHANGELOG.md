@@ -31,8 +31,9 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   backup/restore management. Setup uses a short recommended path with Enter defaults and an
   advanced-settings gate; `sudo wg-guard` reopens local management without a download. The GitHub
   fast path verifies the installed management contract and safely acquires a current manager for
-  older host CLIs. Docker/native Ubuntu 24.04 drills passed; Phase 9 remains separate and public
-  release publication is owner-approved.
+  older host CLIs; the bounded compatibility probe cannot consume piped script input. Docker/native
+  Ubuntu 24.04 drills passed; Phase 9 remains separate and public release publication is
+  owner-approved.
 - **Commit-bound codeload metadata:** Go source extraction accepts GitHub's one leading PAX
   global header only when its sole comment matches the selected commit SHA. Metadata is never
   materialized, and traversal/link/device/root/duplicate/count/size protections remain active.

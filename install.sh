@@ -74,7 +74,7 @@ for ((i=0; i<${#args[@]}; i++)); do
 done
 installed_bin=/usr/local/bin/wg-guard
 installed_state=/etc/wg-guard/install-state.json
-if ((list == 0 && management_entry)) && command -v stat >/dev/null &&
+if ((list == 0 && management_entry)) && command -v stat >/dev/null && command -v timeout >/dev/null &&
    "${sudo_cmd[@]}" test -f "$installed_bin" && "${sudo_cmd[@]}" test -x "$installed_bin" &&
    "${sudo_cmd[@]}" test ! -L "$installed_bin" && "${sudo_cmd[@]}" test -f "$installed_state" &&
    "${sudo_cmd[@]}" test ! -L "$installed_state"; then
@@ -85,7 +85,7 @@ if ((list == 0 && management_entry)) && command -v stat >/dev/null &&
   if [[ $bin_owner == 0 && $state_owner == 0 && $bin_mode =~ ^[0-7]{3}$ && $state_mode =~ ^[0-7]{3}$ ]] &&
      (( (8#$bin_mode & 0022) == 0 && (8#$state_mode & 0022) == 0 )); then
     installed_contract=
-    if installed_contract=$("${sudo_cmd[@]}" "$installed_bin" installer-contract 2>/dev/null) &&
+    if installed_contract=$(timeout 5 "${sudo_cmd[@]}" "$installed_bin" installer-contract </dev/null 2>/dev/null) &&
        (( ${#installed_contract} <= 4096 )) &&
        [[ $installed_contract == *'"revision":1'* &&
           $installed_contract == *'"prerequisites":true'* &&

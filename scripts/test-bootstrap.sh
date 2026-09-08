@@ -97,11 +97,11 @@ test "$(request_count)" = "$before" || fail 'arm64 performed acquisition'
 setsid --wait bash "$fixture/bootstrap" --commit main -- --lang fa </dev/null
 test "$(tr '\n' ' ' < "$fixture/local-argv")" = 'manage --lang en ' || fail 'installed node did not open the local English manager'
 test "$(request_count)" = "$before" || fail 'installed-node rerun performed acquisition'
-printf '#!/bin/sh\nexit 2\n' > "$fixture/installed-wg-guard"
+printf '#!/bin/sh\ncat >/dev/null\nexit 2\n' > "$fixture/installed-wg-guard"
 chmod 0755 "$fixture/installed-wg-guard"
 rm "$fixture/local-argv"
 before=$(request_count)
-legacy_output=$(setsid --wait bash "$fixture/bootstrap" --release v1 </dev/null 2>&1)
+legacy_output=$(cat "$fixture/bootstrap" | setsid --wait bash -s -- --release v1 2>&1)
 test "$(request_count)" -gt "$before" || fail 'legacy installed CLI incorrectly used the local fast path'
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy installed CLI did not acquire a compatible manager'
 case "$legacy_output" in *'Acquiring verified build'*) :;; *) fail 'legacy installed CLI acquisition was not explained';; esac

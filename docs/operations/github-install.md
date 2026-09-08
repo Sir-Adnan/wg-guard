@@ -21,7 +21,9 @@ installer input rather than consuming script bytes as answers. After installatio
 one-line command downloads only the small bootstrap, verifies the owned binary's Phase 8.1
 management contract and opens the same local manager. It does not rebuild or update the node.
 An older host CLI that lacks that contract goes through verified acquisition once so the current
-manager can open; acquisition alone still does not update the installed service.
+manager can open; acquisition alone still does not update the installed service. The compatibility
+probe is bounded to five seconds and reads from `/dev/null`, so an old host shim cannot consume the
+piped bootstrap or block indefinitely.
 
 For stricter inspect-before-run operation, download the entry point first:
 
