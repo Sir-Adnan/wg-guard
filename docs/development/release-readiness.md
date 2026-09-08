@@ -4,8 +4,8 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-09. Phase 8.1 is complete; **Phase 9 — Operational observability** is next
-but was not started by the Phase 8.1 work.
+Last updated: 2026-09-09. Phase 8.1 is complete; **Phase 8.2 — Secure access & persistent
+manager** is active. Phase 9 remains designed but implementation has not started.
 
 ## Program status
 
@@ -13,7 +13,8 @@ but was not started by the Phase 8.1 work.
 |---|---|---|
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
-| 9 — Operational observability | next; implementation not started | Useful live metrics/logs with bounded cost and retention |
+| 8.2 — Secure access & persistent manager | active | Cached retry, honest secure exposure, certificate renewal and proxy rollback verified |
+| 9 — Operational observability | next after 8.2; implementation not started | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
@@ -31,7 +32,8 @@ implementation does not cross the active phase boundary.
 | H1–H4 and other range semantics | 8 | Lossless migration, validation, API, setconf, dump, reconcile, and backup round trips |
 | Recommended and randomized profiles | 8 | Relationship-aware generation, property tests, runtime acceptance, client use |
 | GitHub bootstrap, release/commit selection, terminal installer/manager | 8.1 | Checksummed acquisition, exact source identity, English/narrow-width QA, real installation |
-| Prerequisites, compatible AWG bundle selection, domain/IP and TLS setup | 8.1; supported-Ubuntu matrix in 11 | Explicit supported combinations; real kernel/tools and certificate evidence |
+| Prerequisites and compatible AWG bundle selection | 8.1; supported-Ubuntu matrix in 11 | Explicit supported combinations and real kernel/tools evidence |
+| Persistent manager, domain/IP TLS, DNS-01 and reverse-proxy coexistence | 8.2; certification repeated in 11 | Zero-network retry, protected DNS credential, certificate identity/renewal, rollback and real VPS evidence |
 | CLI backup/Telegram schedules and transactional lifecycle | 8.1; certification repeated in 11 | Failure injection, bounded restore, real update/rollback/backup/restore |
 | Live CPU/RAM/network/peer/node monitoring | 9; visual finish in 10 | Real-load graphs, hidden-tab pause, measured sampler overhead |
 | Unified CLI operational logs | 9 | Docker/native failure drills, follow/cancel behavior, no secret disclosure |
@@ -61,6 +63,7 @@ implementation does not cross the active phase boundary.
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
+| RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | in progress | Cached manager entry; public-HTTP refusal; Nginx/DNS/IP certificate lifecycle, renewal and rollback pass targeted real-host gates |
 
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
@@ -91,7 +94,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-011 | medium | API JSON decoding accepts unknown fields and trailing values, hiding configuration typos | Phase 8 | verified |
 | AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 8.1; recertify in 11 | M5 streaming/member/total bounds and unsafe archive regressions pass in `281b607`; independent review closed |
 | AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 8.1 | M5 4096-byte stdin bound and secret-argv refusal regressions pass in `281b607`; independent review closed |
-| AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 11 | planned |
+| AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 8.2 ownership/header implementation; recertify in 11 | in progress |
 | AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 8.1 inventory correction; full distribution review in 12 | Active age/ACME and terminal/system pins/imports/license files checked; Go/runtime-image distinction corrected. Complete transitive/frontend notices and release-source obligations remain Phase 12 |
 | AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, ordinary dump cannot observe it, and kernel `showconf` synthesizes a phantom peer line | Phase 8 | verified |
 | AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
@@ -119,6 +122,9 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-039 | medium | Core `recovery-required` remains blocked after a transient unknown module identity is repaired; the suggested update recovery also refuses core operations | Phase 8.1 final correction | Reproduced on `14d4a19`; operation-specific retry, fresh observation and interrupted/state-write regressions pass in `0578dcc`; review closed. The only installed catalog entry was reaffirmed; no unsupported transition was claimed |
 | AUD-040 | medium | Explicit destructive `uninstall --purge-data` removes the data directory without excluding independent admitted data commands | Phase 11 destructive maintenance certification | Existing `uninstall.go` whole-directory removal is outside the final ownership correction; default data-preserving uninstall is distinct. Require all data commands stopped and no concurrent admission before explicit purge; concurrent purge safety is not certified |
 | AUD-041 | high | Real Go-based GitHub source acquisition rejects codeload's standard PAX global metadata as an unsafe filesystem path | Phase 8.1 M6 acceptance correction | Fixed in `d30894a`: one exact commit-bound global metadata record is consumed without materialization while archive safety bounds remain enforced. Focused tests, exact-revision CI and real source install/update through the corrected extractor passed |
+| AUD-042 | high | A first interactive bootstrap keeps its verified build only in a temporary directory and immediately enters setup; cancellation/failure requires another acquisition instead of reopening a durable local manager | Phase 8.2 | in progress; persist a private verified manager/build receipt before showing the fresh-host menu and prove repeat entry makes zero network requests |
+| AUD-043 | high | Domain ACME currently fails whenever 80/443 are owned by another service, and no transactional standard-Nginx/shared-webroot or DNS-01 route exists | Phase 8.2 | in progress; conservative listener ownership, Nginx config test/reload rollback, scoped Cloudflare DNS token and real coexistence evidence required |
+| AUD-044 | high | Trusted public-IP certificates are now available but the installer exposes only private SSH/manual files; short-lived renewal and reload are absent | Phase 8.2 | in progress; Certbot 5.4+ shortlived issuance, deploy hook, expiry diagnostics and production-IP VPS proof required |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

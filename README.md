@@ -11,11 +11,13 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–8.1 are complete; Phase 9 implementation is next.**
+**In active development — Phases 0–8.1 are complete; Phase 8.2 is active.**
 Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
 GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
-with Docker and native verification on Ubuntu 24.04 amd64. Broader compatibility and public
-release work remain in later phases. See [ROADMAP.md](ROADMAP.md) and the
+with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 is adding persistent local
+manager acquisition, existing-Nginx coexistence, DNS-01, trusted public-IP HTTPS, and safe
+post-install access changes. Broader compatibility and public release work remain later. See
+[ROADMAP.md](ROADMAP.md) and the
 [development status](docs/development/status.md).
 
 ## Features

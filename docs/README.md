@@ -21,6 +21,7 @@ or chat history.
 | [integrations/amneziawg.md](integrations/amneziawg.md) | Pinned AmneziaWG upstream: verified facts, CLI behavior, fixtures, verification log |
 | [integrations/webhooks.md](integrations/webhooks.md) | Event catalog, HMAC signature scheme, durable delivery semantics |
 | [operations/deployment.md](operations/deployment.md) | Docker (default) and native installation, TLS modes, ports, updates |
+| [development/phase8.2.md](development/phase8.2.md) | Active secure-access, certificate-lifecycle, and persistent-manager phase |
 | [operations/github-install.md](operations/github-install.md) | GitHub bootstrap, release/source acquisition, trust boundary and local candidate artifacts |
 | [operations/terminal-management.md](operations/terminal-management.md) | English terminal navigation, recommended setup, local owner, lifecycle and automation |
 | [operations/lifecycle-recovery.md](operations/lifecycle-recovery.md) | Durable lifecycle state, safe rollback, interrupted operations and recovery limits |

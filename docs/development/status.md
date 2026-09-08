@@ -5,6 +5,27 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
+## Phase 8.2 — Secure access & persistent manager (active, 2026-09-09)
+
+The owner-approved insertion before Phase 9 is architecturally frozen and implementation has
+started. The validated design and exact gates are in [phase8.2.md](phase8.2.md); no Phase 9 code is
+included.
+
+| Item | Status |
+|---|---|
+| Persistent verified bootstrap manager and state-aware menu | designed; implementation in progress; not yet verified |
+| Exposure/certificate intent and busy-port discovery | designed; not yet implemented |
+| Standard Nginx + shared HTTP-01 webroot | designed; not yet implemented |
+| Cloudflare DNS-01 with scoped protected token | designed; not yet implemented |
+| Let's Encrypt public-IP short-lived certificate and renewal hook | designed; not yet implemented |
+| Post-install panel-access reconfiguration and rollback | designed; not yet implemented |
+| Ubuntu 24.04 amd64 secure-exposure matrix | requires real VPS after implementation |
+
+Research confirmed that DNS-01 needs no inbound validation port and can issue wildcard
+certificates, but WG-Guard will request only its exact hostname. Cloudflare Origin CA is an
+explicit proxied-origin path, not browser-trusted direct TLS. Public-IP certificates require
+Certbot 5.4+ and the 160-hour `shortlived` profile. No REST/OpenAPI change is planned.
+
 ## Phase 8.1 — GitHub delivery & lifecycle (complete, 2026-09-09)
 
 The user-authorized insertion between completed Phase 8 and planned Phase 9 is complete. No Phase

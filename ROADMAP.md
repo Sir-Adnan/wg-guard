@@ -18,7 +18,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **7 — Deployment & installer** | Docker/native installation, ACME, host shim, update/rollback, uninstall, and deployment drills | ✅ Complete |
 | **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
 | **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | ✅ Complete |
-| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next; implementation not started |
+| **8.2 — Secure access & persistent manager** | Cached local manager, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | 🚧 Active |
+| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next after 8.2; implementation not started |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
@@ -49,6 +50,16 @@ Docker install/update/rollback/recovery, coordinated restore, fresh ACME, and or
 restoration. The PAX codeload metadata correction passed the exact-revision CI gate. Published
 release artifacts, the broader compatibility matrix and public publication remain Phases 11–12.
 Detailed gate and limits: [docs/development/phase8.1.md](docs/development/phase8.1.md).
+
+### Phase 8.2 — Secure access & persistent manager
+
+Inserted before Phase 9 by the 2026-09-09 secure-installer request. Persist the first verified
+GitHub acquisition as the local manager, make its menu state-aware, and let operators configure
+or later change private, direct HTTPS, standard-Nginx, Cloudflare DNS-01, public-IP certificate,
+and manual/external certificate paths without exposing public plaintext or stealing foreign
+ports. Complete only when cached retry needs no network, proxy/certificate changes roll back
+safely, short-lived IP renewal works, and the targeted Ubuntu 24.04 amd64 VPS matrix passes.
+Detailed design and gate: [docs/development/phase8.2.md](docs/development/phase8.2.md).
 
 ### Phase 9 — Operational observability
 

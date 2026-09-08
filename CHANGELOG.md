@@ -7,6 +7,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ## [Unreleased]
 
+### Planned
+- **Phase 8.2 secure access and persistent manager:** active work adds a durable verified local
+  manager before setup, state-aware terminal navigation, safe standard-Nginx coexistence,
+  shared-webroot and Cloudflare DNS-01 validation, trusted short-lived public-IP HTTPS, and
+  rollback-safe post-install panel-access changes. Public plaintext remains forbidden; these
+  items are not marked implemented until their automated and real-VPS gates pass.
+
 ### Changed
 - **DB/key lifetime ownership:** native and Docker data commands and server startup now
   coordinate shared/exclusive kernel leases across the shared volume. Rotation holds
