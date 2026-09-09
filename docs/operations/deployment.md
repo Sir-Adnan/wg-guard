@@ -45,8 +45,9 @@ Spec compliance: Docker is never *required*.
 
 ## Interactive installer
 
-The verified GitHub entry persists `/usr/local/bin/wg-guard` and a private build receipt, then
-opens the manager. Selecting **Install** runs `wg-guard install` with that exact build; a canceled
+The verified GitHub entry stores the independent manager and private receipt under
+`/var/cache/wg-guard`, places the fresh-host command at `/usr/local/bin/wg-guard`, and opens the
+manager. Selecting **Install** runs `wg-guard install` with that exact build; a canceled
 or failed setup resumes locally through `sudo wg-guard` without another acquisition. Defaults are
 Docker, no domain → private loopback HTTP, or a usable domain → safe automatic HTTPS. `--yes`
 uses flags and defaults; legacy explicit `--tls` remains compatible but cannot conflict with the

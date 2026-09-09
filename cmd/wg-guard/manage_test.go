@@ -270,6 +270,7 @@ func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 	}{
 		{"4\n1\nq\n", []string{"status"}, ""},
 		{"4\n2\nq\n", []string{"doctor"}, ""},
+		{"1\n1\nq\n", []string{"update"}, ""},
 		{"1\n4\nyes\nq\n", []string{"restart", "--yes"}, ""},
 		{"1\n2\nyes\nq\n", []string{"update", "--rollback"}, ""},
 		{"5\nyes\n", []string{"uninstall", "--yes"}, ""},

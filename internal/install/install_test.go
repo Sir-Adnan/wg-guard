@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 )
 
 // TestMain shrinks the health-check windows so rollback tests fail fast.
@@ -244,6 +246,31 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	// Data dir created, state records the shim path.
 	if !h.dirs[DataDir] {
 		t.Error("data dir not created")
+	}
+}
+
+type managerSelfHost struct{ *memHost }
+
+func (managerSelfHost) SelfExe() (string, error) { return ManagerBinaryPath, nil }
+
+func TestFreshInstallAcceptsBootstrapCopyWhileRunningIndependentManager(t *testing.T) {
+	base := newMemHost()
+	base.files["/src/wg-guard"] = memFile{data: []byte("verified manager"), perm: 0o755}
+	base.files[ManagerBinaryPath] = memFile{data: []byte("verified manager"), perm: 0o755}
+	base.files[BinPath] = memFile{data: []byte("verified manager"), perm: 0o755}
+	digest := sha256.Sum256([]byte("verified manager"))
+	h := managerSelfHost{base}
+	p := Defaults()
+	p.Mode = ModeDocker
+	p.TLSMode = config.TLSModeProxy
+	p.PanelPort = healthServer(t, http.StatusOK)
+	b := distribution.Build{
+		Channel: "commit", Ref: strings.Repeat("a", 40), Commit: strings.Repeat("a", 40),
+		Version: "0.0.0-dev.aaaaaaaaaaaa", SHA256: fmt.Sprintf("%x", digest), BinaryPath: ManagerBinaryPath,
+	}
+
+	if _, err := Install(context.Background(), h, InstallOptions{Plan: p, Build: b, Yes: true, Version: b.Version, Stdout: io.Discard}); err != nil {
+		t.Fatalf("fresh install from independent manager: %v", err)
 	}
 }
 

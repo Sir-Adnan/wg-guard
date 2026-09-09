@@ -107,6 +107,40 @@ func TestCoreSwitchRejectsUnknownTransition(t *testing.T) {
 		t.Fatal("unknown transition installed packages")
 	}
 }
+
+func TestCoreSwitchUpdatesRecordedCompatibleBundleToRecommendedSource(t *testing.T) {
+	h := installedFixture(t, ModeNative)
+	legacy, _ := SelectCore("awg-2026-08")
+	recommended, _ := SelectCore("recommended")
+	st, err := LoadState(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Core = CoreReport{
+		Requested: legacy, ToolsPackage: legacy.ToolsPackage, KernelPackage: legacy.KernelPackage,
+		ToolsVersion: legacy.ToolsVersion, ModuleLoaded: true, ModuleIdentity: "matches-disk",
+		LoadedSource: "MATCHINGBUILD", DiskSource: "MATCHINGBUILD", ToolsLocation: "host",
+	}
+	if err = saveState(h, st); err != nil {
+		t.Fatal(err)
+	}
+	delete(h.files, ManagedAWGBinaryPath)
+	delete(h.files, toolsInstalledMarker(recommended))
+	delete(h.files, kernelInstalledMarker(recommended))
+	h.commands = nil
+
+	r, err := SwitchCore(context.Background(), h, CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true, Stdout: io.Discard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Requested != recommended || !h.ran("make", "-C", coreCheckoutPath(recommended, "tools")+"/src") || !h.ran("dkms", "install", "-m", "amneziawg") {
+		t.Fatalf("recommended source was not provisioned: %+v, commands=%v", r, h.ranCommands())
+	}
+	stored, err := LoadState(h)
+	if err != nil || stored.Core.Requested != recommended || stored.Recovery != "" {
+		t.Fatalf("updated core state = %+v, err %v", stored, err)
+	}
+}
 func TestCoreSwitchPreservesPendingReboot(t *testing.T) {
 	h := installedFixture(t, ModeNative)
 	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("OLDLOADEDBUILD")}

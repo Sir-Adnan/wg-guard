@@ -39,7 +39,7 @@ while (($#)); do
         'Default: latest published stable release. Development source is never selected implicitly.' \
         'Terminal UI: English only.' \
         'Everyday command after the first download: sudo wg-guard' \
-        '--refresh explicitly reacquires the selected GitHub build.' \
+        '--refresh strictly reacquires the selected GitHub build; ordinary runs reuse a verified current manager.' \
         'Advanced install flags (for example --yes --mode native) are forwarded unchanged.'
       exit 0 ;;
     --release|--commit)
@@ -75,9 +75,8 @@ if [[ $(id -u) != 0 ]]; then
   sudo_cmd=(sudo)
 fi
 
-# The GitHub entry is an acquisition path, not the day-to-day manager. If an
-# owned installation already exists and no setup flags were supplied, avoid
-# all network/build work and open the installed English manager immediately.
+# The GitHub entry checks the selected release/branch before opening the local
+# manager. The active service binary is never replaced by this bootstrap.
 management_entry=1
 for ((i=0; i<${#args[@]}; i++)); do
   case "${args[i]}" in
@@ -89,44 +88,7 @@ done
 installed_bin=/usr/local/bin/wg-guard
 installed_state=/etc/wg-guard/install-state.json
 manager_receipt=/var/cache/wg-guard/manager-build.json
-managed_marker=
-if "${sudo_cmd[@]}" test -f "$installed_state" && "${sudo_cmd[@]}" test ! -L "$installed_state"; then
-  managed_marker=$installed_state
-elif "${sudo_cmd[@]}" test -f "$manager_receipt" && "${sudo_cmd[@]}" test ! -L "$manager_receipt"; then
-  managed_marker=$manager_receipt
-fi
-if ((list == 0 && refresh == 0 && management_entry)) && [[ -n $managed_marker ]] && command -v stat >/dev/null && command -v timeout >/dev/null &&
-   "${sudo_cmd[@]}" test -f "$installed_bin" && "${sudo_cmd[@]}" test -x "$installed_bin" &&
-   "${sudo_cmd[@]}" test ! -L "$installed_bin"; then
-  bin_owner=$("${sudo_cmd[@]}" stat -c '%u' "$installed_bin")
-  bin_mode=$("${sudo_cmd[@]}" stat -c '%a' "$installed_bin")
-  marker_owner=$("${sudo_cmd[@]}" stat -c '%u' "$managed_marker")
-  marker_mode=$("${sudo_cmd[@]}" stat -c '%a' "$managed_marker")
-  if [[ $bin_owner == 0 && $marker_owner == 0 && $bin_mode =~ ^[0-7]{3}$ && $marker_mode =~ ^[0-7]{3}$ ]] &&
-     (( (8#$bin_mode & 0022) == 0 && (8#$marker_mode & 0022) == 0 )); then
-    installed_contract=
-    if installed_contract=$(timeout 5 "${sudo_cmd[@]}" "$installed_bin" installer-contract </dev/null 2>/dev/null) &&
-       (( ${#installed_contract} <= 4096 )) &&
-       [[ $installed_contract == *'"revision":2'* &&
-          $installed_contract == *'"prerequisites":true'* &&
-          $installed_contract == *'"recovery":true'* &&
-          $installed_contract == *'"local_owner":true'* &&
-          $installed_contract == *'"coordinated_restore":true'* &&
-          $installed_contract == *'"data_lease":true'* &&
-          $installed_contract == *'"persistent_manager":true'* &&
-          $installed_contract == *'"secure_exposure":true'* ]]; then
-      ui_ok 'Local WG-Guard manager ready'
-      ui_step 'LOCAL' 'Opening WG-Guard manager'
-      manager_args=(manage --lang en)
-      [[ $managed_marker == "$manager_receipt" ]] && manager_args=(manage --build-metadata "$manager_receipt" --lang en)
-      if { true </dev/tty; } 2>/dev/null; then
-        exec "${sudo_cmd[@]}" "$installed_bin" "${manager_args[@]}" </dev/tty
-      fi
-      exec "${sudo_cmd[@]}" "$installed_bin" "${manager_args[@]}" </dev/null
-    fi
-    ui_note 'The installed host CLI predates local management; acquiring a compatible manager.'
-  fi
-fi
+manager_bin=/var/cache/wg-guard/manager
 ((list)) || ui_step '2/4' 'Preparing prerequisites'
 missing=()
 for pair in curl:curl python3:python3 tar:tar sha256sum:coreutils; do
@@ -144,15 +106,87 @@ cleanup() { rm -rf -- "$stage"; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-if ((list == 0)); then
-  ui_step '3/4' 'Acquiring verified build'
-  if [[ $channel == commit ]]; then
-    ui_warn 'Development source selected. The first verified build can take several minutes; future runs use the local manager.'
+
+# A manager receipt is trusted only when the complete root-owned chain, digest
+# and installer contract agree. Legacy Phase 8.2 receipts may point at the
+# active host binary; a successful check migrates them to manager_bin later.
+cache_trusted=0
+cache_channel= cache_ref= cache_commit= cache_version= cache_digest= cache_bin=
+if ((list == 0)) &&
+   "${sudo_cmd[@]}" test -f "$manager_receipt" && "${sudo_cmd[@]}" test ! -L "$manager_receipt"; then
+  cache_record=$("${sudo_cmd[@]}" python3 -I - "$manager_receipt" "$manager_bin" "$installed_bin" <<'PY' 2>/dev/null || true
+import json,pathlib,re,sys
+receipt=pathlib.Path(sys.argv[1])
+manager,installed=sys.argv[2:]
+raw=receipt.read_bytes()
+if len(raw)>8192:raise ValueError('oversized receipt')
+b=json.loads(raw)
+required=('Channel','Ref','Commit','Version','SHA256','BinaryPath')
+if any(not isinstance(b.get(k),str) for k in required):raise ValueError('invalid receipt')
+sha=re.compile(r'[0-9a-f]{40}\Z');digest=re.compile(r'[0-9a-f]{64}\Z');tag=re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z')
+if b['Channel'] not in ('release','commit') or not sha.fullmatch(b['Commit']) or not digest.fullmatch(b['SHA256']) or not (0<len(b['Version'])<=160) or any(c in b['Version'] for c in '\r\n\t'):
+    raise ValueError('invalid receipt')
+if b['Channel']=='commit' and b['Ref']!=b['Commit'] or b['Channel']=='release' and not tag.fullmatch(b['Ref']):
+    raise ValueError('invalid receipt')
+if b['BinaryPath'] not in (manager,installed):raise ValueError('invalid manager path')
+print('\n'.join(b[k] for k in required))
+PY
+)
+  mapfile -t cache_fields <<<"$cache_record"
+  if ((${#cache_fields[@]} == 6)); then
+    cache_channel=${cache_fields[0]}; cache_ref=${cache_fields[1]}; cache_commit=${cache_fields[2]}
+    cache_version=${cache_fields[3]}; cache_digest=${cache_fields[4]}; cache_bin=${cache_fields[5]}
+    cache_dir=${manager_receipt%/*}
+    if "${sudo_cmd[@]}" test -d "$cache_dir" && "${sudo_cmd[@]}" test ! -L "$cache_dir" &&
+       "${sudo_cmd[@]}" test -f "$cache_bin" && "${sudo_cmd[@]}" test -x "$cache_bin" && "${sudo_cmd[@]}" test ! -L "$cache_bin"; then
+      receipt_owner=$("${sudo_cmd[@]}" stat -c '%u' "$manager_receipt")
+      receipt_mode=$("${sudo_cmd[@]}" stat -c '%a' "$manager_receipt")
+      dir_owner=$("${sudo_cmd[@]}" stat -c '%u' "$cache_dir")
+      dir_mode=$("${sudo_cmd[@]}" stat -c '%a' "$cache_dir")
+      bin_owner=$("${sudo_cmd[@]}" stat -c '%u' "$cache_bin")
+      bin_mode=$("${sudo_cmd[@]}" stat -c '%a' "$cache_bin")
+      observed_digest=$("${sudo_cmd[@]}" sha256sum "$cache_bin" 2>/dev/null || true)
+      observed_digest=${observed_digest%% *}
+      cache_contract=$(timeout 5 "${sudo_cmd[@]}" "$cache_bin" installer-contract </dev/null 2>/dev/null || true)
+      if [[ $receipt_owner == 0 && $dir_owner == 0 && $bin_owner == 0 &&
+            $receipt_mode =~ ^[0-7]{3}$ && $dir_mode =~ ^[0-7]{3}$ && $bin_mode =~ ^[0-7]{3}$ ]] &&
+         (( (8#$receipt_mode & 0022) == 0 && (8#$dir_mode & 0022) == 0 && (8#$bin_mode & 0022) == 0 )) &&
+         [[ $observed_digest == "$cache_digest" ]] && (( ${#cache_contract} <= 4096 )) &&
+         CACHE_CONTRACT=$cache_contract python3 -I - <<'PY' >/dev/null 2>&1
+import json,os
+c=json.loads(os.environ['CACHE_CONTRACT'])
+assert c.get('revision')==2 and c.get('prerequisites') is True and c.get('recovery') is True
+assert c.get('local_owner') is True and c.get('coordinated_restore') is True and c.get('data_lease') is True
+assert c.get('persistent_manager') is True and c.get('secure_exposure') is True
+assert isinstance(c.get('data_contract'),str) and c['data_contract']
+PY
+      then
+        cache_trusted=1
+      fi
+    fi
   fi
 fi
-if ! python3 -I - "$channel" "$ref" "$arch" "$stage" "$list" <<'PY'
+cache_reuse=$((cache_trusted && management_entry))
+
+open_cached_manager() {
+  ui_step 'LOCAL' 'Opening verified local manager'
+  cleanup
+  trap - EXIT
+  if { true </dev/tty; } 2>/dev/null; then
+    exec "${sudo_cmd[@]}" "$cache_bin" manage --build-metadata "$manager_receipt" --lang en </dev/tty
+  fi
+  exec "${sudo_cmd[@]}" "$cache_bin" manage --build-metadata "$manager_receipt" --lang en </dev/null
+}
+
+if ((list == 0)); then
+  ui_step '3/4' 'Checking for manager updates'
+  if [[ $channel == commit ]]; then
+    ui_warn 'Development source selected. A changed revision may take several minutes to build.'
+  fi
+fi
+if ! python3 -I - "$channel" "$ref" "$arch" "$stage" "$list" "$refresh" "$cache_reuse" "$cache_channel" "$cache_ref" "$cache_commit" "$cache_version" "$cache_digest" "$cache_bin" <<'PY'
 import gzip,hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,threading,time,urllib.parse
-channel,ref,arch,stage,list_only=sys.argv[1:]
+channel,ref,arch,stage,list_only,refresh,cache_trusted,cache_channel,cache_ref,cache_commit,cache_version,cache_digest,cache_bin=sys.argv[1:]
 stage=pathlib.Path(stage)
 API='https://api.github.com/repos/Sir-Adnan/wg-guard'
 REPO='https://github.com/Sir-Adnan/wg-guard'
@@ -271,18 +305,32 @@ try:
     if list_only=='1':
         for r in releases():print(r['tag_name'])
         sys.exit(0)
-    candidate=stage/'candidate.part'
+    release=None
     if channel=='release':
         if ref=='latest':
             rows=releases();require(rows,'No published stable release exists; use --commit main explicitly for development')
             ref=rows[0]['tag_name']
         require(TAG.fullmatch(ref),'Invalid release tag')
-        r=metadata(API+'/releases/tags/'+ref)
-        require(stable(r) and r['tag_name']==ref,'Release is not published stable')
+        release=metadata(API+'/releases/tags/'+ref)
+        require(stable(release) and release['tag_name']==ref,'Release is not published stable')
         sha=immutable(ref);version=ref
+        selected_ref=ref
+    else:
+        require(ref=='main' or SHA.fullmatch(ref),'Commit must be main or a full lowercase 40-character SHA')
+        sha=immutable(ref);version='0.0.0-dev.'+sha[:12]
+        selected_ref=sha
+
+    if refresh!='1' and cache_trusted=='1' and cache_channel==channel and cache_ref==selected_ref and cache_commit==sha and cache_version==version:
+        (stage/'build.json').write_text(json.dumps(dict(Channel=cache_channel,Ref=cache_ref,Commit=cache_commit,Version=cache_version,SHA256=cache_digest,BinaryPath=cache_bin)))
+        (stage/'build.json').chmod(0o600)
+        (stage/'cache-hit').touch(mode=0o600)
+        sys.exit(0)
+
+    candidate=stage/'candidate.part'
+    if channel=='release':
         name='wg-guard_linux_'+arch
         def asset(name,limit):
-            values=[a for a in r.get('assets',[]) if a.get('name')==name]
+            values=[a for a in release.get('assets',[]) if a.get('name')==name]
             require(len(values)==1,'Missing or duplicate release asset')
             a=values[0]
             require(a.get('browser_download_url')==REPO+'/releases/download/'+ref+'/'+name and 0<a.get('size',0)<=limit,'Unsafe release asset')
@@ -299,8 +347,6 @@ try:
         digest=download(binary['browser_download_url'],candidate,256<<20,binary['size'])
         require(digest==seen[name],'Binary SHA-256 mismatch')
     else:
-        require(ref=='main' or SHA.fullmatch(ref),'Commit must be main or a full lowercase 40-character SHA')
-        sha=immutable(ref);version='0.0.0-dev.'+sha[:12]
         archive=stage/'source.tar.gz';download('https://codeload.github.com/Sir-Adnan/wg-guard/tar.gz/'+sha,archive,128<<20)
         source=stage/'source';extract(archive,source,'wg-guard-'+sha,512<<20)
         mod=(source/'go.mod').read_text();match=re.search(r'^go (1\.[0-9]+(?:\.[0-9]+)?)\s*$',mod,re.M)
@@ -326,10 +372,11 @@ try:
         subprocess.run([str(stage/'wg-guard'),'installer-contract'],stdin=subprocess.DEVNULL,stdout=contract_output,stderr=subprocess.DEVNULL,timeout=15,check=True,preexec_fn=contract_limits)
     contract=json.loads(contract_path.read_bytes())
     require(contract.get('revision')==2 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and contract.get('persistent_manager') is True and contract.get('secure_exposure') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.2 persistent-manager/secure-exposure installer contract; choose a compatible build')
-    (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=ref if channel=='release' else sha,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
+    (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=selected_ref,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
     (stage/'build.json').chmod(0o600)
 except subprocess.SubprocessError:
     # CalledProcessError includes argv; redirect URLs may contain temporary tokens.
+    (stage/'fallback-ok').touch(mode=0o600)
     print('WG-Guard acquisition failed: download or compiler command failed/timed out',file=sys.stderr)
     sys.exit(1)
 except (ValueError,KeyError,TypeError,OSError,tarfile.TarError) as error:
@@ -340,35 +387,40 @@ finally:
     if heartbeat_thread is not None:heartbeat_thread.join(timeout=1)
 PY
 then
+  if ((management_entry && refresh == 0 && cache_trusted)) && [[ -f $stage/fallback-ok ]]; then
+    ui_warn 'GitHub update check unavailable; opening the verified local manager.'
+    open_cached_manager
+  fi
   ui_error 'Verified build acquisition did not complete. Review the message above and retry.'
   exit 1
 fi
 ((list)) && exit 0
-read -r selected_version selected_commit < <(python3 -I - "$stage/build.json" <<'PY'
+read -r selected_version selected_commit run_bin < <(python3 -I - "$stage/build.json" <<'PY'
 import json,sys
 build=json.load(open(sys.argv[1],'rb'))
-print(build['Version'],build['Commit'][:12])
+print(build['Version'],build['Commit'][:12],build['BinaryPath'])
 PY
 )
 ui_ok "Build ready: $selected_version · $selected_commit"
-run_bin="$stage/wg-guard"
-run_metadata="$stage/build.json"
-# On a fresh host the verified build becomes a durable local manager before
-# setup. A canceled or failed installation can therefore be retried locally.
-if ! "${sudo_cmd[@]}" test -f "$installed_state"; then
-  if "${sudo_cmd[@]}" test -e "$installed_bin" && ! "${sudo_cmd[@]}" test -f "$manager_receipt"; then
-    die "Refusing to replace an unmanaged $installed_bin; move it explicitly and retry"
-  fi
-  manager_dir=${manager_receipt%/*}
-  "${sudo_cmd[@]}" install -d -m 0700 "$manager_dir"
-  bin_tmp=$("${sudo_cmd[@]}" mktemp "${installed_bin}.new.XXXXXXXX")
+# Every accepted build lives in a separate manager cache. This keeps bootstrap
+# refreshes from changing the binary used by an active native/Docker service.
+manager_dir=${manager_receipt%/*}
+if "${sudo_cmd[@]}" test -L "$manager_dir"; then
+  die "Refusing unsafe manager cache path: $manager_dir"
+fi
+"${sudo_cmd[@]}" install -d -m 0700 "$manager_dir"
+if ! "${sudo_cmd[@]}" test -f "$installed_state" && "${sudo_cmd[@]}" test -e "$installed_bin" && ((cache_trusted == 0)); then
+  die "Refusing to replace an unmanaged $installed_bin; move it explicitly and retry"
+fi
+cache_hit=0
+[[ -f $stage/cache-hit ]] && cache_hit=1
+if ((cache_hit == 0)) || [[ $run_bin != "$manager_bin" ]]; then
+  manager_tmp=$("${sudo_cmd[@]}" mktemp "${manager_dir}/.manager.new.XXXXXXXX")
   receipt_tmp=$("${sudo_cmd[@]}" mktemp "${manager_dir}/.manager-build.new.XXXXXXXX")
-  persist_cleanup() {
-    "${sudo_cmd[@]}" rm -f -- "$bin_tmp" "$receipt_tmp"
-  }
+  persist_cleanup() { "${sudo_cmd[@]}" rm -f -- "$manager_tmp" "$receipt_tmp"; }
   trap 'persist_cleanup; cleanup' EXIT
-  "${sudo_cmd[@]}" install -m 0755 "$stage/wg-guard" "$bin_tmp"
-  python3 -I - "$stage/build.json" "$stage/manager-build.json" "$installed_bin" <<'PY'
+  "${sudo_cmd[@]}" install -m 0755 "$run_bin" "$manager_tmp"
+  python3 -I - "$stage/build.json" "$stage/manager-build.json" "$manager_bin" <<'PY'
 import json,pathlib,sys
 source,target,binary=map(pathlib.Path,sys.argv[1:])
 build=json.loads(source.read_bytes())
@@ -377,12 +429,24 @@ target.write_text(json.dumps(build,separators=(',',':'))+'\n')
 target.chmod(0o600)
 PY
   "${sudo_cmd[@]}" install -m 0600 "$stage/manager-build.json" "$receipt_tmp"
+  "${sudo_cmd[@]}" mv -f -- "$manager_tmp" "$manager_bin"
   "${sudo_cmd[@]}" mv -f -- "$receipt_tmp" "$manager_receipt"
+  trap cleanup EXIT
+fi
+run_bin=$manager_bin
+run_metadata=$manager_receipt
+if ! "${sudo_cmd[@]}" test -f "$installed_state"; then
+  bin_tmp=$("${sudo_cmd[@]}" mktemp "${installed_bin}.new.XXXXXXXX")
+  persist_cleanup() { "${sudo_cmd[@]}" rm -f -- "$bin_tmp"; }
+  trap 'persist_cleanup; cleanup' EXIT
+  "${sudo_cmd[@]}" install -m 0755 "$manager_bin" "$bin_tmp"
   "${sudo_cmd[@]}" mv -f -- "$bin_tmp" "$installed_bin"
   trap cleanup EXIT
-  run_bin="$installed_bin"
-  run_metadata="$manager_receipt"
-  ui_ok 'Local manager installed · rerun with sudo wg-guard'
+fi
+if ((cache_hit)); then
+  ui_ok 'Local manager is current'
+else
+  ui_ok 'Local manager updated · service version unchanged'
 fi
 ui_step '4/4' 'Opening WG-Guard manager'
 # A piped script is never an answer stream. Reopen the controlling terminal
@@ -400,8 +464,10 @@ for ((i=0; i<${#args[@]}; i++)); do
   esac
 done
 ((interactive)) || entry=install
+dispatch_args=("${args[@]}")
+[[ $entry == manage ]] && dispatch_args=(--lang en)
 if ((interactive)) && { true </dev/tty; } 2>/dev/null; then
-  "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${args[@]}" </dev/tty
+  "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${dispatch_args[@]}" </dev/tty
 else
-  "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${args[@]}" </dev/null
+  "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${dispatch_args[@]}" </dev/null
 fi

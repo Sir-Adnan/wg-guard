@@ -50,11 +50,12 @@ vendored into the Go binary.
 ### Persistent acquisition and manager
 
 The GitHub bootstrap performs compatibility and integrity checks, acquires one immutable build,
-then atomically installs that verified binary as `/usr/local/bin/wg-guard` and stores a private,
-bounded build receipt under `/var/cache/wg-guard`. It opens the manager instead of starting an
-installation. The cached build becomes the default fresh-install candidate. A canceled or failed
-install keeps the manager and receipt, so `sudo wg-guard` resumes locally without another GitHub
-download. Explicit release/commit selection still refreshes the manager intentionally.
+then atomically stores the manager and bounded receipt under root-only `/var/cache/wg-guard`.
+On a fresh host it also places the command at `/usr/local/bin/wg-guard`; after installation that
+path belongs to the service lifecycle and manager refresh never overwrites it. A canceled or failed
+install resumes locally with `sudo wg-guard`. Re-running the GitHub entry resolves the selected
+identity: current builds skip acquisition, changed builds refresh the independent manager, and
+temporary acquisition failure can use only the last fully verified cache.
 
 The main menu is state-aware:
 
@@ -140,6 +141,9 @@ and runtime config.
   post-install reconfiguration from the manager.
 - [x] **8.2.6** — Complete automated/race/CI gates, normal and narrow-terminal QA, and targeted
   Ubuntu 24.04 amd64 VPS drills; synchronize permanent documentation and repository state.
+- [ ] **8.2.7 maintenance** — Correct branch/release update discovery, separate manager/service
+  binaries, add the component-scoped Update Center, retain catalog-only AmneziaWG updates, and
+  close the targeted Docker VPS gate.
 
 Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-09-09-phase8.2-secure-access-manager.md).
 
@@ -148,8 +152,9 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
 - Test-first coverage passes for derivation, occupied listeners, Nginx conflict/refusal and
   rollback, rendered runtime files, protected secret transport, schema migration, lineage sync,
   uninstall cleanup, manager dispatch and Docker/native reconfiguration seams.
-- Bootstrap fixtures prove atomic private manager/receipt persistence, zero-network repeated
-  entry, deliberate refresh, failure cleanup and exact source/release identity. PTY tests cover
+- Bootstrap fixtures prove atomic private manager/receipt persistence, metadata-only current-build
+  checks, one-build changed-commit refresh, verified-cache network fallback, strict refresh,
+  failure cleanup and exact source/release identity. PTY tests cover
   40/48/80 columns, plain/no-color output, cancellation and English-only terminal text.
 - The final formatting, complete Go test, vet, Linux amd64 build, bootstrap and Linux race gates
   passed on the closing revision; API/OpenAPI did not change.
@@ -176,8 +181,10 @@ per required identity. Secrets and private certificate material are never commit
 
 ## Completion
 
-The one-line entry now opens a durable cached local manager after its first verified acquisition;
-failed or canceled setup can resume locally. Every advertised exposure is explicit, public
+The one-line entry now checks its selected immutable identity and opens a durable independently
+cached manager; failed or canceled setup can resume locally, and `sudo wg-guard` remains the
+offline daily entry. The Update Center separates manager, panel, reviewed core and ordered full
+updates without turning an installer refresh into a silent service restart. Every advertised exposure is explicit, public
 plaintext is unrepresentable, certificate/proxy changes are journaled and reversible, short-lived
 IP issuance/renewal and standard-Nginx coexistence passed the real Docker gate, and the repository,
 documentation and verification records are synchronized. Phase 9 remains untouched.
@@ -186,6 +193,8 @@ documentation and verification records are synchronized. Phase 9 remains untouch
 
 - General provider-neutral DNS plugin automation; Cloudflare is the only managed DNS provider.
 - Automatic edits to nonstandard Nginx, Caddy, Apache, Traefik, or container proxy layouts.
+- Arbitrary AmneziaWG upstream versions or blanket Ubuntu/OS-kernel upgrades; only reviewed
+  compatibility bundles are eligible for managed core maintenance.
 - Cloudflare account/proxy-mode changes and automatic Origin CA issuance; operators supply Origin
   CA files and enable Full (strict) themselves.
 - Wildcard certificates unless a later product requirement names a concrete WG-Guard consumer.

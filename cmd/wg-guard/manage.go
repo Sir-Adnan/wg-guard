@@ -118,7 +118,9 @@ func runManage(args []string) error {
 		if args[0] == "backup" || args[0] == "restore" {
 			args = append(append([]string{}, args...), "--lang", string(u.Locale))
 		}
-		u.Text(u.T("manage.working"))
+		if args[0] != "update" || len(args) != 1 {
+			u.Text(u.T("manage.working"))
+		}
 		// Lifecycle commands stay in-process so SIGINT reaches the engine and its
 		// independent recovery context; a supervising CommandContext must not kill it.
 		switch args[0] {
@@ -448,15 +450,7 @@ func (m *manager) group(ctx context.Context, group int) error {
 						return e
 					}
 				}
-				selection, e := pickSource(ctx, m.ui, m.catalog, m.installed)
-				if errors.Is(e, terminal.ErrBack) {
-					continue
-				}
-				if e != nil {
-					return e
-				}
-				args = []string{"update", "--" + selection.Channel, selection.Ref}
-				review = "update_review"
+				args = []string{"update"}
 			case 2:
 				args = []string{"update", "--rollback"}
 				review = "rollback_review"

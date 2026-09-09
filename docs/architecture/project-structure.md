@@ -55,7 +55,8 @@ internal/
                          immutable source build identity and temporary toolchain (Phase 8.1)
   terminal/              single-column English presentation, bounded/cancellable input and actual-FD
                          hidden secrets; no deployment or database business logic (Phase 8.1)
-  install/               deployment layer: install plan + wizard, compose/systemd renderers,
+  install/               deployment layer: install plan + wizard, independent verified manager cache,
+                         compose/systemd renderers,
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
                          update/rollback, coordinated offline restore and uninstall,
                          versioned state/artifact contract,
@@ -87,7 +88,8 @@ migrations/              numbered SQL migrations (embedded; 0004 sub_links,
 deploy/                  reference compose for Docker mode (installer generates the tailored one)
 Dockerfile               official image: multi-stage build onto ubuntu:24.04 + pinned
                          amneziawg-tools (ppa:amnezia/ppa) + nftables (Phase 7 ✅)
-install.sh               GitHub first acquisition only; delegates host lifecycle to the Go binary
+install.sh               GitHub bootstrap/update check; refreshes only the verified manager cache
+                         and delegates host lifecycle to the Go binary
 scripts/                 dev helpers, immutable candidate builder and executable bootstrap fixtures
 docs/                    this documentation tree
 .github/workflows/       CI

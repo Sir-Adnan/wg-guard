@@ -180,8 +180,11 @@ not certify the dedicated-VPS/M6 lifecycle drills.
 recommended bundle is source-backed `awg-2026-09`; recommended and latest-compatible resolve to
 it. Exact upstream tags/commits, the versioned DKMS identity and cached source ownership are
 verified before readiness. Package-backed `awg-2026-08` remains recognizable for legacy
-installation/update compatibility. No arbitrary upstream branch or unreviewed version is accepted.
-An unknown installed combination is refused with a manual migration requirement.
+native-install transition compatibility. Owned catalogued source can be repaired or moved to the
+recommended entry; no arbitrary upstream branch or unreviewed version is accepted. An unknown or
+unowned installed combination is refused with a manual migration requirement. Docker core changes
+that require a different userspace tool bundle must travel through the panel/runtime update path;
+WG-Guard never rewrites only half of that compatibility pair.
 
 For manual migration, retain the panel backup and existing core identity, review the pinned
 integration contract, verify the selected source or legacy exact packages are available, and plan

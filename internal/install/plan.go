@@ -39,8 +39,9 @@ const (
 	UnitPath   = "/etc/systemd/system/wg-guard.service"
 	BinPath    = "/usr/local/bin/wg-guard"
 	// ManagerBuildPath records the verified build cached before setup starts.
-	ManagerBuildPath = "/var/cache/wg-guard/manager-build.json"
-	Container        = "wg-guard"
+	ManagerBuildPath  = "/var/cache/wg-guard/manager-build.json"
+	ManagerBinaryPath = "/var/cache/wg-guard/manager"
+	Container         = "wg-guard"
 )
 
 // DefaultImage is the official image reference. The Phase 12 release pipeline

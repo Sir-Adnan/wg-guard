@@ -73,11 +73,12 @@ After installation, use the local manager:
 sudo wg-guard
 ```
 
-This starts immediately and does **not** contact GitHub or download WG-Guard again. The explicit
-form `sudo wg-guard manage` is equivalent. Running the one-line installer again on a compatible
-managed installation also detects the local copy and opens it, but `sudo wg-guard` is the normal
-daily command. Older installations acquire a verified current manager instead of invoking an
-unsupported local command.
+This starts immediately and does **not** contact GitHub. The explicit form
+`sudo wg-guard manage` is equivalent. The one-line GitHub command is different: it checks the
+selected release or `main` revision, reuses the manager when current, and downloads/builds only
+when that revision changed. A verified manager update is cached separately and never silently
+restarts or replaces the active panel service. If GitHub is temporarily unavailable, an ordinary
+check opens the last verified manager with a warning; `--refresh` remains strict and fails.
 
 Useful read-only checks:
 
@@ -86,9 +87,18 @@ sudo wg-guard status
 sudo wg-guard doctor
 ```
 
-Updates, rollback, recovery, backups and uninstall are available from the local manager. Updates
-ask for a stable release or an explicitly selected development commit; installation is never
-silently replaced just because the bootstrap is run again.
+Updates, rollback, recovery, backups and uninstall are available from the local manager. Open its
+**Update center** with:
+
+```bash
+sudo wg-guard update
+```
+
+Press Enter for **Update everything**, or choose panel + manager, manager only, AmneziaWG core,
+or current versions. Automation uses explicit commands such as
+`sudo wg-guard update all --commit main --yes`. Panel updates create a backup and require a healthy
+restart; core updates accept only the exact WG-Guard compatibility catalog and never force-unload
+active tunnels. WG-Guard does not perform a blanket Ubuntu package or OS-kernel upgrade.
 
 The manager's **Panel access & HTTPS** section can later move a private installation to domain
 HTTPS, a standard existing Nginx, Cloudflare DNS-01, trusted public-IP HTTPS, manual/Origin CA, or

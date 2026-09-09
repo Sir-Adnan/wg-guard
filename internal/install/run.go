@@ -182,8 +182,21 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 	if _, err := h.Stat(BinPath); err == nil {
 		self, e := h.SelfExe()
-		if e != nil || self != BinPath {
+		if e != nil {
 			return nil, terminalError("install.error.state")
+		}
+		if self != BinPath {
+			// The GitHub bootstrap executes the independently cached manager,
+			// while placing an identical convenience copy at BinPath so the
+			// operator can rerun `wg-guard`. Accept only that exact verified
+			// build; an unrelated pre-existing binary remains a hard refusal.
+			if self != ManagerBinaryPath || o.Build.BinaryPath != ManagerBinaryPath {
+				return nil, terminalError("install.error.state")
+			}
+			currentDigest, _, digestErr := fileDigest(ctx, h, BinPath, 256<<20)
+			if digestErr != nil || currentDigest != o.Build.SHA256 {
+				return nil, terminalError("install.error.state")
+			}
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return nil, err

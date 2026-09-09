@@ -1,9 +1,10 @@
 # GitHub installation and verified builds
 
-The Bash entry point obtains a Linux executable, atomically persists it as the local manager and
+The Bash entry point obtains a Linux executable, atomically persists it as an independent local manager and
 opens its English management menu. On a fresh node, **Install** consumes that exact cached build;
 canceling or failing setup leaves the manager available through `sudo wg-guard` without another
-download. On an installed node it opens management without reinstalling or implicitly updating.
+build. On an installed node it refreshes management independently without implicitly updating the
+running service.
 The shared distribution/installer engine verifies build identity and builds the Docker runtime
 image from the selected binary when needed. No published official image is assumed. Installed
 nodes expose [terminal management](terminal-management.md) through `sudo wg-guard manage`.
@@ -18,13 +19,14 @@ bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsS
 
 This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
 installer input rather than consuming script bytes as answers. After installation, run
-`sudo wg-guard`; it opens the local manager immediately without GitHub access. Re-running the
-one-line command downloads only the small bootstrap, verifies the owned binary's current
-management contract and opens the same local manager. It does not rebuild or update the node.
-An older host CLI that lacks that contract goes through verified acquisition once so the current
-manager can open; acquisition alone still does not update the installed service. The compatibility
-probe is bounded to five seconds and reads from `/dev/null`, so an old host shim cannot consume the
-piped bootstrap or block indefinitely.
+`sudo wg-guard`; it opens the verified local manager immediately without GitHub access. Re-running
+the one-line command downloads the small bootstrap and resolves the selected release/commit. If
+the immutable identity matches the private receipt, no binary/source/toolchain is downloaded and
+no build runs. A changed identity is acquired, contract-checked and atomically promoted to
+`/var/cache/wg-guard/manager`; `/usr/local/bin/wg-guard` remains the active service/host shim.
+Temporary GitHub or compiler failure falls back only to a valid cached manager and emits a warning;
+invalid selections and integrity/contract failures do not. `--refresh` always reacquires and never
+falls back. Manager refresh alone does not restart or update the installed service.
 
 For stricter inspect-before-run operation, download the entry point first:
 
@@ -156,10 +158,13 @@ coordinated-restore, `data_lease`, persistent-manager and secure-exposure capabi
 explicit data contract. Revision 1 remains known for retained artifacts, but cannot become the
 current bootstrap manager. Candidates lacking shared-volume lifetime data ownership are refused. Retained recovery artifacts
 remain governed separately by their recorded identity and data contract.
-The bootstrap stores a bounded mode-0600 receipt at `/var/cache/wg-guard/manager-build.json` and
+The bootstrap stores the mode-0755 manager at `/var/cache/wg-guard/manager` and a bounded
+mode-0600 receipt at `/var/cache/wg-guard/manager-build.json`, both below a root-only directory, and
 passes that private identity to the manager/installer, which validates and deploys the same binary
-in Docker and on the host. An explicit release/commit refresh replaces manager and receipt only
-after integrity and contract verification.
+in Docker and on the host. A fresh host also receives a convenience copy at
+`/usr/local/bin/wg-guard`; after installation that path belongs exclusively to the transactional
+service lifecycle. Manager and receipt are replaced only after identity, digest and contract
+verification.
 
 The Go install/update flags share `internal/distribution`: `--release TAG|latest` and
 `--commit main|FULL_SHA` are mutually exclusive. Docker uses a runtime image built from the

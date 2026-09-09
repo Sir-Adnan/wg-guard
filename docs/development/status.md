@@ -12,7 +12,7 @@ The owner-approved insertion before Phase 9 is complete. Results and honest limi
 
 | Item | Status |
 |---|---|
-| Persistent verified bootstrap manager and state-aware menu | implemented + unit/shell/PTY tested; private receipt and local retry make no repeat acquisition. Semantic TTY colors, y/n confirmations, bounded long-operation heartbeats and real 40-column cached SSH rerun passed |
+| Persistent verified bootstrap manager, Update Center and state-aware menu | implemented + unit/shell/PTY tested; `sudo wg-guard` is offline, while the GitHub entry performs a metadata-only identity check and builds once only when the selected commit changes. Manager/service binaries are separated; manager, panel, reviewed core and ordered full-update paths are automated-test verified. Semantic TTY colors, y/n confirmations and 40-column rendering pass; targeted post-correction Docker VPS verification is pending |
 | Exposure/certificate intent and busy-port discovery | implemented + unit tested; public plaintext is unrepresentable; real occupied-port request failed with unchanged state/container |
 | Standard Nginx + shared HTTP-01 webroot | implemented + failure-injection tested + real Docker verified with public domain issuance, loopback backend, canonical headers and config/reload rollback |
 | Cloudflare DNS-01 with scoped protected token | implemented + unit tested for official plugin commands, 0600 file transport and non-disclosure; real issuance unverified because no scoped Cloudflare test token was available |

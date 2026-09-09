@@ -9,9 +9,12 @@ export FIXTURE_ROOT="$fixture" TMPDIR="$fixture/tmp"
 python3 - "$fixture" <<'PY'
 import hashlib,io,json,pathlib,sys,tarfile
 p=pathlib.Path(sys.argv[1])
+sha1='0123456789abcdef0123456789abcdef01234567'
+sha2='89abcdef0123456789abcdef0123456789abcdef'
 binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "${FIXTURE_MODE:-}" == owner-unsafe ]]; then printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":false,"coordinated_restore":true,"data_lease":true,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == restore-unsafe ]]; then printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":false,"data_lease":true,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi; if [[ "${FIXTURE_MODE:-}" == lease-unsafe ]]; then printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":false,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi; [[ "${FIXTURE_MODE:-}" != old-installer ]] || exit 2; printf \'{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true,"persistent_manager":true,"secure_exposure":true}\\n\'; exit 0; fi\nprintf "%s\\n" "$@" > "$FIXTURE_ROOT/argv"\nif read -r answer; then printf "%s" "$answer" > "$FIXTURE_ROOT/input"; fi\n'
 (p/'binary').write_bytes(binary)
 (p/'sums').write_text(hashlib.sha256(binary).hexdigest()+'  wg-guard_linux_amd64\n')
+(p/'current-sha').write_text(sha1+'\n')
 go_script='''#!/usr/bin/env python3
 import os,pathlib,sys,time
 p=pathlib.Path(%r)
@@ -23,7 +26,8 @@ print('SYNTHETIC COMPILER NOISE',file=sys.stderr)
 pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_bytes((p/'binary').read_bytes())
 ''' % str(p)
 (p/'bin'/'go').write_text(go_script)
-for name,member,body,mode in [('source','wg-guard-0123456789abcdef0123456789abcdef01234567/go.mod',b'module github.com/Sir-Adnan/wg-guard\n\ngo 1.25.0\n',0o600),('toolchain','go/bin/go',go_script.encode(),0o700)]:
+archives=[('source-'+sha1,'wg-guard-'+sha1+'/go.mod',b'module github.com/Sir-Adnan/wg-guard\n\ngo 1.25.0\n',0o600),('source-'+sha2,'wg-guard-'+sha2+'/go.mod',b'module github.com/Sir-Adnan/wg-guard\n\ngo 1.25.0\n',0o600),('toolchain','go/bin/go',go_script.encode(),0o700)]
+for name,member,body,mode in archives:
  with tarfile.open(p/name,'w:gz') as archive:
   h=tarfile.TarInfo(member);h.size=len(body);h.mode=mode;archive.addfile(h,io.BytesIO(body))
 (p/'bin'/'curl').write_text('''#!/usr/bin/env python3
@@ -32,12 +36,15 @@ p=pathlib.Path(os.environ['FIXTURE_ROOT']);a=sys.argv[1:];url=a[-1]
 with (p/'requests').open('a') as f:f.write(url+'\\n')
 out=pathlib.Path(a[a.index('--output')+1]);header=pathlib.Path(a[a.index('--dump-header')+1]);header.write_text('HTTP/1.1 200 OK\\r\\n\\r\\n')
 mode=os.environ.get('FIXTURE_MODE','valid')
+if mode=='offline' and 'api.github.com' in url:sys.exit(22)
 if url=='https://go.dev/dl/?mode=json':
  import hashlib
  data=json.dumps([{'version':'go1.99.0','stable':True,'files':[{'filename':'go1.99.0.linux-amd64.tar.gz','os':'linux','arch':'amd64','kind':'archive','size':(p/'toolchain').stat().st_size,'sha256':hashlib.sha256((p/'toolchain').read_bytes()).hexdigest()}]}]).encode()
 elif url=='https://go.dev/dl/go1.99.0.linux-amd64.tar.gz':data=b'x'*(p/'toolchain').stat().st_size if mode=='bad-toolchain' else (p/'toolchain').read_bytes()
-elif '/tar.gz/' in url:data=(p/'source').read_bytes()
-elif '/commits/' in url:data=json.dumps({'sha':'0123456789abcdef0123456789abcdef01234567'}).encode()
+elif '/tar.gz/' in url:data=(p/('source-'+url.rsplit('/',1)[-1])).read_bytes()
+elif '/commits/' in url:
+ ref=url.rsplit('/',1)[-1]
+ data=json.dumps({'sha':ref if len(ref)==40 else (p/'current-sha').read_text().strip()}).encode()
 elif '/releases?' in url:data=b'[]' if mode=='empty' else json.dumps([{'tag_name':'v1','published_at':'2026-01-01','draft':False,'prerelease':False}]).encode()
 elif '/releases/tags/' in url:
  base='https://github.com/Sir-Adnan/wg-guard/releases/download/v1/'
@@ -71,10 +78,13 @@ PY
 export PATH="$fixture/bin:$PATH"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 request_count() { if [[ -f $fixture/requests ]]; then wc -l < "$fixture/requests"; else printf '0\n'; fi; }
-python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/manager-build.json" <<'PY'
+source_request_count() { if [[ -f $fixture/requests ]]; then grep -c '/tar.gz/' "$fixture/requests" || true; else printf '0\n'; fi; }
+build_count() { if [[ -f $fixture/build-args ]]; then wc -l < "$fixture/build-args"; else printf '0\n'; fi; }
+python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/manager-build.json" "$fixture/manager-bin" <<'PY'
 import pathlib,sys
-source,target,os_release,installed_bin,installed_state,manager_receipt=map(pathlib.Path,sys.argv[1:])
-target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)).replace('HEARTBEAT=15.0','HEARTBEAT=0.05'))
+source,target,os_release,installed_bin,installed_state,manager_receipt,manager_bin=map(pathlib.Path,sys.argv[1:])
+text=source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)).replace('/var/cache/wg-guard/manager',str(manager_bin)).replace('HEARTBEAT=15.0','HEARTBEAT=0.05')
+target.write_text(text)
 target.chmod(0o755)
 installed_bin.write_text('''#!/bin/sh
 if test "$1" = installer-contract; then
@@ -85,6 +95,10 @@ printf "%s\n" "$@" > "$FIXTURE_ROOT/local-argv"
 ''')
 installed_bin.chmod(0o755)
 installed_state.write_text('{"schema":2,"mode":"docker"}\n')
+import hashlib,json
+sha='0123456789abcdef0123456789abcdef01234567'
+manager_receipt.write_text(json.dumps({'Channel':'commit','Ref':sha,'Commit':sha,'Version':'0.0.0-dev.'+sha[:12],'SHA256':hashlib.sha256(installed_bin.read_bytes()).hexdigest(),'BinaryPath':str(installed_bin)})+'\n')
+manager_receipt.chmod(0o600)
 PY
 printf 'ID=debian\nVERSION_ID=24.04\n' > "$fixture/os-release"
 before=$(request_count)
@@ -100,16 +114,45 @@ printf 'ID=ubuntu\nVERSION_ID=24.04\n' > "$fixture/os-release"
 if FIXTURE_ARCH=aarch64 bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'arm64 host accepted'; fi
 test "$(request_count)" = "$before" || fail 'arm64 performed acquisition'
 setsid --wait bash "$fixture/bootstrap" --commit main -- --lang fa </dev/null
-test "$(tr '\n' ' ' < "$fixture/local-argv")" = 'manage --lang en ' || fail 'installed node did not open the local English manager'
-test "$(request_count)" = "$before" || fail 'installed-node rerun performed acquisition'
+test "$(head -n 1 "$fixture/local-argv")" = manage || fail 'installed node did not open the local manager'
+test "$(sed -n '2p' "$fixture/local-argv")" = --build-metadata || fail 'installed node manager omitted its verified receipt'
+test "$(tail -n 1 "$fixture/local-argv")" = en || fail 'installed node did not open the English manager'
+test "$(request_count)" -gt "$before" || fail 'installed-node rerun did not check the selected GitHub revision'
+test "$(source_request_count)" = 0 || fail 'current installed manager downloaded source'
+test "$(build_count)" = 0 || fail 'current installed manager rebuilt source'
+installed_digest=$(sha256sum "$fixture/installed-wg-guard" | awk '{print $1}')
+printf '%s\n' 89abcdef0123456789abcdef0123456789abcdef > "$fixture/current-sha"
+before_sources=$(source_request_count)
+before_builds=$(build_count)
+rm "$fixture/local-argv"
+setsid --wait bash "$fixture/bootstrap" --commit main </dev/null
+test "$(source_request_count)" = "$((before_sources+1))" || fail 'new main revision was not acquired exactly once'
+test "$(build_count)" = "$((before_builds+1))" || fail 'new main revision was not built exactly once'
+test -x "$fixture/manager-bin" || fail 'updated manager was not persisted independently'
+test "$(sha256sum "$fixture/installed-wg-guard" | awk '{print $1}')" = "$installed_digest" || fail 'manager refresh replaced the active service binary'
+python3 - "$fixture/manager-build.json" "$fixture/manager-bin" <<'PY'
+import json,pathlib,sys
+receipt=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert receipt['Commit']=='89abcdef0123456789abcdef0123456789abcdef'
+assert receipt['BinaryPath']==sys.argv[2]
+PY
+before_sources=$(source_request_count)
+before_builds=$(build_count)
+setsid --wait bash "$fixture/bootstrap" --commit main </dev/null
+test "$(source_request_count)" = "$before_sources" || fail 'current cached manager downloaded source again'
+test "$(build_count)" = "$before_builds" || fail 'current cached manager rebuilt source again'
+offline_output=$(FIXTURE_MODE=offline setsid --wait bash "$fixture/bootstrap" --commit main </dev/null 2>&1)
+case "$offline_output" in *'GitHub update check unavailable'*'verified local manager'*) :;; *) fail 'offline manager fallback was not explained';; esac
+if FIXTURE_MODE=offline setsid --wait bash "$fixture/bootstrap" --refresh --commit main </dev/null; then fail 'explicit refresh fell back while GitHub was unavailable'; fi
+if setsid --wait bash "$fixture/bootstrap" --commit abc </dev/null; then fail 'invalid manager selection fell back to the cache'; fi
 printf '#!/bin/sh\ncat >/dev/null\nexit 2\n' > "$fixture/installed-wg-guard"
 chmod 0755 "$fixture/installed-wg-guard"
-rm "$fixture/local-argv"
+rm -f "$fixture/local-argv" "$fixture/manager-bin" "$fixture/manager-build.json"
 before=$(request_count)
 legacy_output=$(cat "$fixture/bootstrap" | setsid --wait bash -s -- --release v1 2>&1)
 test "$(request_count)" -gt "$before" || fail 'legacy installed CLI incorrectly used the local fast path'
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy installed CLI did not acquire a compatible manager'
-case "$legacy_output" in *'Acquiring verified build'*) :;; *) fail 'legacy installed CLI acquisition was not explained';; esac
+case "$legacy_output" in *'Checking for manager updates'*) :;; *) fail 'legacy installed CLI acquisition was not explained';; esac
 rm "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/argv"
 before=$(request_count)
 help=$(bash "$fixture/bootstrap" --help </dev/null)
@@ -117,21 +160,21 @@ case "$help" in *'Everyday command after the first download: sudo wg-guard'*) :;
 case "$help" in *'Terminal UI: English only.'*) :;; *) fail 'help did not declare the English-only terminal contract';; esac
 test "$(request_count)" = "$before" || fail 'help performed acquisition'
 bootstrap_output=$(setsid --wait bash "$fixture/bootstrap" --release v1 </dev/null 2>&1)
-case "$bootstrap_output" in *'Checking system compatibility'*'Acquiring verified build'*'Opening WG-Guard manager'*) :;; *) fail 'bootstrap progress hierarchy missing';; esac
+case "$bootstrap_output" in *'Checking system compatibility'*'Checking for manager updates'*'Opening WG-Guard manager'*) :;; *) fail 'bootstrap progress hierarchy missing';; esac
 test -x "$fixture/installed-wg-guard" || fail 'verified manager was not persisted'
 test -f "$fixture/manager-build.json" || fail 'private manager receipt was not persisted'
 test "$(/usr/bin/stat -c '%a' "$fixture/manager-build.json")" = 600 || fail 'manager receipt permissions'
 python3 - "$fixture/manager-build.json" "$fixture/installed-wg-guard" <<'PY'
 import json,pathlib,sys
 receipt=json.loads(pathlib.Path(sys.argv[1]).read_text())
-assert receipt['BinaryPath']==sys.argv[2]
+assert receipt['BinaryPath']!=sys.argv[2]
 PY
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'default interactive management entry'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'management build identity forwarding'
 rm "$fixture/argv"
 before=$(request_count)
 setsid --wait bash "$fixture/bootstrap" --release v1 </dev/null
-test "$(request_count)" = "$before" || fail 'cached fresh manager rerun performed acquisition'
+test "$(request_count)" -gt "$before" || fail 'cached fresh manager rerun skipped the GitHub update check'
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'cached fresh manager did not reopen'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'cached receipt was not forwarded'
 rm "$fixture/argv"

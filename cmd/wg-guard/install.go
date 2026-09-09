@@ -251,7 +251,7 @@ func runUninstall(args []string) error {
 	return err
 }
 
-func runUpdate(args []string) error {
+func runPanelUpdate(args []string) error {
 	o, err := parseUpdateOptions(args)
 	if err != nil {
 		return err
@@ -275,6 +275,9 @@ func runUpdate(args []string) error {
 		o.Build = build
 		o.BinaryPath = build.BinaryPath
 		u.Success("Verified build ready.")
+		if err := install.UpdateManager(ctx, h, install.ManagerUpdateOptions{Build: build, Stdout: os.Stdout}); err != nil {
+			return fmt.Errorf("cache verified manager before panel update: %w", err)
+		}
 		st, err := install.LoadState(h)
 		if err != nil {
 			return err

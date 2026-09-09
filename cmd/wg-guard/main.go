@@ -32,8 +32,10 @@ Commands:
                       [--cloudflare-token-file PRIVATE_FILE] [--acme-email EMAIL]
                       [--cert-file F --key-file F]
                       [--image REF] [--skip-module] [--yes]
-  update      Explicit update: pre-upgrade backup, swap, health-checked rollback
-              update [--image REF] (docker) | update --binary PATH (native)
+  update      Open the update center or update one safe component boundary
+              update manager|panel|core|all|status [flags]
+              legacy panel flags remain accepted: update --release TAG,
+              update --commit SHA, update --rollback, update --recover
   recover-install  Safely clear a pre-runtime interrupted initial setup
               recover-install --yes
   uninstall   Remove WG-Guard (data kept unless --purge-data)
@@ -86,6 +88,7 @@ func main() {
 		}
 		return
 	}
+	maybeDelegateManager()
 	// Docker-mode host shim: on a docker-mode install the host binary routes
 	// panel/data commands into the container (ADR-0006). No-op otherwise.
 	routeDockerMode()

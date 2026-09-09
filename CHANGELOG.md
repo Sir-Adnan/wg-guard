@@ -12,6 +12,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   operational logs and seven-day retention. Implementation has not started.
 
 ### Changed
+- **Update-aware manager and unified Update Center:** re-running the GitHub entry now resolves the
+  selected release/commit, skips artifact acquisition when current, and atomically refreshes an
+  independent root-only manager cache when changed without replacing the active service binary.
+  `wg-guard update` exposes manager, panel, reviewed AmneziaWG core, current-status and ordered
+  all-component paths; panel updates retain backup/health/rollback, active modules are never
+  force-unloaded, and blanket Ubuntu upgrades remain outside WG-Guard ownership.
 - **Fresh installer reliability:** the recommended `awg-2026-09` core and Docker runtime now
   build exact reviewed AmneziaWG GitHub tags/commits instead of depending on retention of a PPA
   binary. Ubuntu package-lock contention waits safely, quiet builds emit bounded progress,
@@ -65,7 +71,7 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ### Added
 - **Phase 8.2 secure access and persistent manager:** the verified GitHub build is atomically
-  retained as `/usr/local/bin/wg-guard` with a private receipt before setup; the state-aware
+  retained as a root-only manager cache (plus the fresh-host command copy) with a private receipt before setup; the state-aware
   English manager resumes locally without another acquisition. Installer-owned exposure now
   covers private SSH, direct domain ACME, transactional standard-Nginx/shared-webroot,
   Cloudflare DNS-01, short-lived public-IP certificates, manual/Origin CA and external proxies.

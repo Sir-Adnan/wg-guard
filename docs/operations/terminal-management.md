@@ -21,7 +21,7 @@ promotes its matching recovery action; a healthy installed node shows these grou
 
 | Group | Actions |
 |---|---|
-| Install & updates | Build selection, install, update, rollback and interrupted-operation recovery |
+| Install & updates | Update center, build selection, install, rollback and interrupted-operation recovery |
 | Panel access & HTTPS | Access overview, reversible configuration, certificate renewal check and private fallback |
 | Backups & recovery | Create/list/send archives, coordinated restore, schedules and Telegram settings/tests |
 | System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
@@ -99,6 +99,27 @@ When stable releases exist, Enter selects the latest published stable release. T
 list can also select an exact tag. Development builds require an explicit `main` or full 40-character
 commit selection; `main` is resolved to an immutable commit before review. An empty release catalog
 never falls back to development automatically.
+
+`sudo wg-guard update` opens a compact update center. Its default is **Update everything**; the
+other choices are **panel + manager**, **manager only**, **AmneziaWG core**, and **current
+versions**. Direct equivalents are:
+
+```bash
+sudo wg-guard update status
+sudo wg-guard update manager --commit main
+sudo wg-guard update panel --commit main
+sudo wg-guard update core --bundle recommended --yes
+sudo wg-guard update all --commit main --bundle recommended --yes
+```
+
+Use `--release latest|TAG` after stable releases exist. Manager-only update resolves the remote
+identity and skips acquisition when the cached build is current. Panel update also synchronizes
+the manager, then uses the existing mandatory backup, restart, health check and rollback path.
+Core update accepts only exact reviewed catalog entries; `recommended` and `latest-compatible`
+never mean an arbitrary upstream latest branch. Active modules are not force-unloaded and a disk
+change can finish as `pending-reboot`. Update-all stops at the first failed component boundary and
+reports which earlier boundaries completed. It does not run a blanket `apt upgrade` or update the
+Ubuntu OS kernel.
 
 Update, rollback, recovery and restart use the shared lifecycle lock, health checks and recovery
 journal. Do not repeatedly interrupt recovery; after a power loss or forced termination, inspect

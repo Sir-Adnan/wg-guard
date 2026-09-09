@@ -18,7 +18,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **7 — Deployment & installer** | Docker/native installation, ACME, host shim, update/rollback, uninstall, and deployment drills | ✅ Complete |
 | **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
 | **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | ✅ Complete |
-| **8.2 — Secure access & persistent manager** | Cached local manager, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | ✅ Complete |
+| **8.2 — Secure access & persistent manager** | Independently cached/update-aware manager, unified update center, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | ✅ Complete |
 | **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next; implementation not started |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ⬜ Planned |
@@ -57,7 +57,8 @@ Inserted before Phase 9 by the 2026-09-09 secure-installer request. Persist the 
 GitHub acquisition as the local manager, make its menu state-aware, and let operators configure
 or later change private, direct HTTPS, standard-Nginx, Cloudflare DNS-01, public-IP certificate,
 and manual/external certificate paths without exposing public plaintext or stealing foreign
-ports. Complete only when cached retry needs no network, proxy/certificate changes roll back
+ports. Complete only when local retry needs no network, GitHub entry checks avoid repeat builds,
+proxy/certificate changes roll back
 safely, short-lived IP renewal works, and the targeted Ubuntu 24.04 amd64 VPS matrix passes.
 Completed 2026-09-09. The persistent manager, state migration, safe access models, protected
 certificate workflows and rollback/diagnostics are automated-test verified. The dedicated Docker
@@ -72,6 +73,12 @@ PPA package pin: the recommended `awg-2026-09` bundle now builds exact reviewed 
 APT lock contention waits safely, interrupted prerequisite ownership carries into retry, Docker
 service/socket recovery is automatic, and install/purge passed on Ubuntu 24.04.4 amd64. Phase 9
 remains the next phase; this correction added no Phase 9 or REST/OpenAPI work.
+
+A post-completion maintenance correction makes the one-line entry resolve its selected GitHub
+revision before opening management. An unchanged revision uses the verified manager cache; a
+changed revision atomically refreshes the independent manager without touching the active service.
+The same manager now exposes component-scoped manager, panel, compatible AmneziaWG and ordered
+all-component updates. Phase 9 and the REST/OpenAPI contract remain unchanged.
 
 ### Phase 9 — Operational observability
 

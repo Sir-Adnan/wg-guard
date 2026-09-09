@@ -5,6 +5,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -80,5 +81,56 @@ func TestUpdateSelectionIsFreshAndExplicit(t *testing.T) {
 	}
 	if _, err = parseUpdateOptions([]string{"--rollback", "--commit", "main"}); err == nil {
 		t.Fatal("rollback mixed with acquisition")
+	}
+}
+
+func TestUpdateCommandClassificationKeepsLegacyPanelFlags(t *testing.T) {
+	cases := []struct {
+		args        []string
+		interactive bool
+		kind        string
+		rest        []string
+	}{
+		{nil, true, "menu", nil},
+		{nil, false, "panel", nil},
+		{[]string{"manager", "--commit", "main"}, false, "manager", []string{"--commit", "main"}},
+		{[]string{"panel", "--release", "v1"}, false, "panel", []string{"--release", "v1"}},
+		{[]string{"core", "--yes"}, false, "core", []string{"--yes"}},
+		{[]string{"all", "--commit", "main", "--yes"}, false, "all", []string{"--commit", "main", "--yes"}},
+		{[]string{"status"}, false, "status", nil},
+		{[]string{"--rollback"}, false, "panel", []string{"--rollback"}},
+	}
+	for _, tc := range cases {
+		kind, rest, err := classifyUpdateCommand(tc.args, tc.interactive)
+		if err != nil || kind != tc.kind || !reflect.DeepEqual(rest, tc.rest) {
+			t.Fatalf("args %v interactive=%v => %q %v, %v", tc.args, tc.interactive, kind, rest, err)
+		}
+	}
+	if _, _, err := classifyUpdateCommand([]string{"everything"}, false); err == nil {
+		t.Fatal("unknown update component accepted")
+	}
+}
+
+func TestComponentUpdateOptionsAreExplicitAndSafe(t *testing.T) {
+	manager, err := parseManagerUpdateOptions([]string{"--commit", "main", "--refresh"})
+	if err != nil || manager.Selection != (distribution.Selection{Channel: "commit", Ref: "main"}) || !manager.Refresh {
+		t.Fatalf("manager options = %+v, %v", manager, err)
+	}
+	manager, err = parseManagerUpdateOptions(nil)
+	if err != nil || manager.Selection != (distribution.Selection{Channel: "release", Ref: "latest"}) {
+		t.Fatalf("manager default = %+v, %v", manager, err)
+	}
+	core, err := parseCoreUpdateOptions([]string{"--bundle", "recommended", "--yes"})
+	if err != nil || core.Bundle != "recommended" || !core.Yes {
+		t.Fatalf("core options = %+v, %v", core, err)
+	}
+	all, err := parseAllUpdateOptions([]string{"--commit", "main", "--bundle", "latest-compatible", "--yes"})
+	if err != nil || all.Selection.Ref != "main" || all.Bundle != "latest-compatible" || !all.Yes {
+		t.Fatalf("all options = %+v, %v", all, err)
+	}
+	for _, args := range [][]string{{"--release", "v1", "--commit", "main"}, {"unexpected"}} {
+		if _, err := parseManagerUpdateOptions(args); err == nil {
+			t.Fatalf("unsafe manager options accepted: %v", args)
+		}
 	}
 }
