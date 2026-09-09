@@ -96,8 +96,14 @@ func TestHealthyUpdateThenRollbackRetainsPrevious(t *testing.T) {
 			m := installedFixture(t, mode)
 			contractFixture(m)
 			old := string(m.files[BinPath].data)
-			if err := Update(context.Background(), m, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
+			var out strings.Builder
+			if err := Update(context.Background(), m, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: &out}); err != nil {
 				t.Fatal(err)
+			}
+			for _, want := range []string{"Preparing lifecycle change", "Applying selected build", "Update complete"} {
+				if !strings.Contains(out.String(), want) {
+					t.Fatalf("successful update omitted %q progress:\n%s", want, out.String())
+				}
 			}
 			if string(m.files[BinPath].data) != "candidate" {
 				t.Fatal("host binary not synchronized")

@@ -259,12 +259,14 @@ func runUpdate(args []string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	h := install.NewRealHost()
+	u := terminal.New(nil, os.Stdout, terminal.Detect(nil, os.Stdout, i18n.En))
 	if !o.Recover {
 		if err := install.CheckLifecycleReady(h); err != nil {
 			return err
 		}
 	}
 	if o.Selection.Channel != "" {
+		u.Info("Acquiring and verifying the selected WG-Guard build…")
 		build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "")
 		if err != nil {
 			return err
@@ -272,11 +274,13 @@ func runUpdate(args []string) error {
 		defer cleanup()
 		o.Build = build
 		o.BinaryPath = build.BinaryPath
+		u.Success("Verified build ready.")
 		st, err := install.LoadState(h)
 		if err != nil {
 			return err
 		}
 		if st != nil && st.Mode == install.ModeDocker {
+			u.Info("Building the local Docker runtime…")
 			bundle, err := install.SelectCore(st.Core.Requested.ID)
 			if err != nil {
 				return err
@@ -286,6 +290,7 @@ func runUpdate(args []string) error {
 				return err
 			}
 			o.LocalImage = true
+			u.Success("Docker runtime ready.")
 		}
 	}
 	return install.Update(ctx, h, o)

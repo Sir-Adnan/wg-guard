@@ -15,6 +15,11 @@ import (
 // Update verifies before changing the active deployment. Every step after
 // swap-pending is recoverable, including state persistence and cancellation.
 func Update(ctx context.Context, h Host, o UpdateOptions) error {
+	out := o.Stdout
+	if out == nil {
+		out = io.Discard
+	}
+	o.Stdout = out
 	if !h.IsRoot() {
 		return terminalError("install.error.root")
 	}
@@ -46,9 +51,8 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	if err := migrateLegacyExposure(h, st); err != nil {
 		return err
 	}
-	if o.Stdout == nil {
-		o.Stdout = io.Discard
-	}
+	step(out, "Update")
+	progress(out, "update_prepare")
 	j = &Journal{Schema: 1, ID: transactionID(), Operation: "update", Before: st}
 	previous, err := retainCurrent(ctx, h, st)
 	if err != nil {
@@ -109,6 +113,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	if err = j.save(h, "swap-pending"); err != nil {
 		return err
 	}
+	step(out, "Applying update")
 	fail := func(cause error) error {
 		return errors.Join(cause, recoverTransaction(h, j, o.Stdout), terminalError("install.error.update_failed"))
 	}
@@ -136,6 +141,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 			removeArtifact(h, old)
 		}
 	}
+	progress(out, "update_complete")
 	return nil
 }
 
