@@ -366,6 +366,8 @@ type ExposureState struct {
 	CertFile        string            `json:"cert_file,omitempty"`
 	KeyFile         string            `json:"key_file,omitempty"`
 	DeployHook      string            `json:"deploy_hook,omitempty"`
+	Lineage         string            `json:"lineage,omitempty"`
+	CredentialsFile string            `json:"credentials_file,omitempty"`
 }
 
 func (p Plan) ExposureRecord() ExposureState {
@@ -379,6 +381,21 @@ func (p Plan) ExposureRecord() ExposureState {
 	switch p.Certificate {
 	case CertificateWebroot, CertificateCloudflareDNS, CertificateIP:
 		s.CertFile, s.KeyFile, s.DeployHook = ManagedCertPath, ManagedKeyPath, CertbotDeployHookPath
+		s.Lineage = CertificateLineage(firstNonempty(p.Domain, p.PublicIP))
+		if p.Certificate == CertificateCloudflareDNS {
+			s.CredentialsFile = CloudflareTokenPath
+		}
+	case CertificateManual, CertificateCloudflareOrigin:
+		s.CertFile, s.KeyFile = ManagedCertPath, ManagedKeyPath
 	}
 	return s
+}
+
+func firstNonempty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }

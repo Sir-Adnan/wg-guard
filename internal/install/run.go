@@ -230,6 +230,25 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err != nil {
 		return st, err
 	}
+	certificate, certificateCleanup, err := PrepareCertificate(ctx, journalHost{Host: h, j: j}, p, st, out)
+	if err != nil {
+		return st, err
+	}
+	defer func() {
+		if resultErr != nil && certificateCleanup != nil {
+			certificateCleanup()
+		}
+	}()
+	if certificate.Managed {
+		p.CertFile, p.KeyFile = certificate.CertFile, certificate.KeyFile
+		st.Exposure = p.ExposureRecord()
+		st.Exposure.Lineage = certificate.Lineage
+		if p.Certificate == CertificateCloudflareDNS {
+			st.Exposure.CredentialsFile = CloudflareTokenPath
+		}
+	}
+	p.CloudflareToken = ""
+	o.Plan.CloudflareToken = ""
 	if err := j.save(h, "prepared"); err != nil {
 		return st, err
 	}
@@ -295,8 +314,12 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	progress(out, "healthy", p.HealthProbeLabel())
 
 	st.TLSReadiness = "not-applicable"
-	if p.TLSMode == "acme" || p.TLSMode == "manual" {
+	if p.PublicURL() != "" && p.Certificate != CertificateExternal && p.Certificate != CertificateCloudflareOrigin {
 		st.TLSReadiness = "pending"
+	} else if p.Certificate == CertificateExternal {
+		st.TLSReadiness = "external-unverified"
+	} else if p.Certificate == CertificateCloudflareOrigin {
+		st.TLSReadiness = "origin-proxy-unverified"
 	}
 	if err := saveState(h, st); err != nil {
 		return st, fmt.Errorf("install: write state: %w", err)
@@ -450,7 +473,7 @@ func markModuleBootPersistence(h Host, st *State, out io.Writer) error {
 // warns on DNS problems the operator must fix for ACME.
 func preflight(ctx context.Context, h Host, p Plan, out io.Writer) error {
 	step(out, "Preflight")
-	if p.TLSMode == "manual" {
+	if p.TLSMode == "manual" && (p.Certificate == CertificateManual || p.Certificate == CertificateCloudflareOrigin || p.Certificate == CertificateAuto || p.Certificate == "") {
 		cert, certErr := h.ReadFile(p.CertFile)
 		key, keyErr := h.ReadFile(p.KeyFile)
 		if certErr != nil || keyErr != nil {

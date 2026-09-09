@@ -56,7 +56,11 @@ func probeCertificate(ctx context.Context, p Plan, roots *x509.CertPool) error {
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 	dialer := tls.Dialer{NetDialer: &net.Dialer{}, Config: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: name, RootCAs: roots}}
-	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(p.PanelPort)))
+	port := p.PanelPort
+	if p.Exposure == ExposureNginx || p.Exposure == ExposureExternalProxy {
+		port = p.PublicPort
+	}
+	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		return err
 	}
@@ -88,7 +92,10 @@ func CheckInstalledTLS(ctx context.Context, h Host, within time.Duration) error 
 	p.PublicIP = st.PublicIP
 	p.PanelPort = portOf(cfg.HTTPListen)
 	p.ACMEHTTPPort = cfg.TLS.ACMEHTTPPort
-	if p.TLSMode != config.TLSModeACME && p.TLSMode != config.TLSModeManual {
+	p.Exposure = st.Exposure.Mode
+	p.Certificate = st.Exposure.Certificate
+	p.PublicPort = st.Exposure.PublicPort
+	if p.Exposure == ExposurePrivate || p.Certificate == CertificateExternal {
 		return terminalError("install.error.health.4")
 	}
 	if err := WaitCertificate(ctx, p, within); err != nil {
@@ -179,7 +186,7 @@ func LoadState(h Host) (*State, error) {
 		return nil, err
 	}
 	if _, ok := h.(realHost); ok {
-		exposurePaths := []string{st.Exposure.NginxConfigPath, st.Exposure.ACMEWebroot, st.Exposure.CertFile, st.Exposure.KeyFile, st.Exposure.DeployHook}
+		exposurePaths := []string{st.Exposure.NginxConfigPath, st.Exposure.ACMEWebroot, st.Exposure.CertFile, st.Exposure.KeyFile, st.Exposure.DeployHook, st.Exposure.CredentialsFile}
 		for _, p := range append(append([]string{st.ConfigPath, st.DataDir, st.BinPath, st.ComposePath, st.UnitPath, ArtifactDir}, st.ExtraFiles...), exposurePaths...) {
 			if p != "" {
 				if err := safeHostPath(p); err != nil {

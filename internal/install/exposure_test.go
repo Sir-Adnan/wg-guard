@@ -158,7 +158,8 @@ func TestStateSchemaThreeValidatesExposureWithoutSecrets(t *testing.T) {
 		Exposure: ExposureState{Mode: ExposureNginx, Certificate: CertificateWebroot,
 			PublicURL: "https://panel.example.com", BackendPort: 8080, PublicPort: 443,
 			NginxConfigPath: NginxConfigPath, ACMEWebroot: ACMEWebrootPath,
-			CertFile: ManagedCertPath, KeyFile: ManagedKeyPath, DeployHook: CertbotDeployHookPath},
+			CertFile: ManagedCertPath, KeyFile: ManagedKeyPath, DeployHook: CertbotDeployHookPath,
+			Lineage: CertificateLineage("panel.example.com")},
 	}
 	if err := validateState(base); err != nil {
 		t.Fatal(err)
