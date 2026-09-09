@@ -14,6 +14,7 @@ deployment; native systemd is fully supported. Decisions and their rationale liv
  external bots ─▶ api/ /api/v1 (token auth, scopes, idempotency)   ├▶ domain services           │
                   webhook/ (durable delivery, HMAC)                │   user/device/plan/        │
                   scheduler/ (one goroutine, due-heap)             │   interface/admin          │
+                  telemetry/ (10 s bounded live ring)              │        │                   │
                   accounting/ (delta pipeline)                     │        │                   │
                   backup/ (UI+CLI only)                            ▼        ▼                   │
                   reconcile/ (DB vs kernel state)              database/  tunnel.TunnelBackend │
@@ -54,8 +55,10 @@ No cycles; no `utils` packages. Package responsibilities:
 `wg-guard serve` composes the whole node (internal/serve): boot config → DB + migrations →
 master key → settings → domain services → boot bring-up → HTTP(S) listener → the central
 scheduler. All periodic work runs on the one scheduler goroutine: accounting cycle + expiry
-(`accounting.interval_seconds`, live-reloadable), sample flush, webhook delivery pass (5 s),
-housekeeping (10 min prunes + rate-limit reload). Reconcile passes are serialized behind one
+(`accounting.interval_seconds`, live-reloadable), sample flush, webhook delivery pass (5 s), live
+telemetry (10 s), and housekeeping (10 min prunes + rate-limit reload). The telemetry source runs
+one bounded `/proc` pass and one aggregate SQLite statement; API, metrics, and browser readers
+consume immutable ring copies and never sample the host. Reconcile passes are serialized behind one
 mutex shared by boot, the accounting/enforcement paths and API-triggered reconciles —
 concurrent AWG operations on one interface are the race verify-after-apply exists to catch.
 Graceful shutdown drains HTTP (both the TLS listener and, in ACME mode, the port-80 challenge
@@ -95,8 +98,9 @@ sysctls, shaper, disk, endpoint DNS, cert expiry, DB integrity).
 See the budgets and design levers in
 [archive/ARCHITECTURE_V2_PROPOSAL.md §8](../archive/ARCHITECTURE_V2_PROPOSAL.md) — single
 scheduler goroutine (due-heap, no busy loops), one dump per interface per cycle with one SQLite
-transaction, bounded queues/caches, cursor pagination everywhere, capped SQLite page cache,
-dashboard auto-refresh paused on hidden tabs. Measured by `scripts/bench-idle.sh` and Go
+transaction, bounded queues/caches, cursor pagination everywhere, capped SQLite page cache, one
+preallocated 180-point telemetry ring, and dashboard auto-refresh paused on hidden tabs. Measured
+by `scripts/bench-idle.sh` and Go
 benchmarks; results recorded in [../development/status.md](../development/status.md).
 
 Archive staging streams database members instead of allocating their declared size. This does

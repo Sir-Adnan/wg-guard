@@ -47,6 +47,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
+	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
@@ -78,10 +79,12 @@ const (
 // real AmneziaWG backend (dev/benchmark mode: no host networking is touched
 // and boot bring-up is skipped).
 type Options struct {
-	Config     *config.Config
-	ConfigPath string         // source boot config path (archived by backups)
-	Backend    tunnel.Backend // nil = real AmneziaWG CLI backend
-	Log        *slog.Logger   // nil = slog.Default()
+	Config           *config.Config
+	ConfigPath       string           // source boot config path (archived by backups)
+	Backend          tunnel.Backend   // nil = real AmneziaWG CLI backend
+	Log              *slog.Logger     // nil = slog.Default()
+	TelemetrySource  telemetry.Source // nil = bounded production collectors
+	TelemetryCadence time.Duration    // zero = telemetry.DefaultCadence
 }
 
 // Node is one running WG-Guard instance: services, HTTP server, scheduler.
@@ -98,6 +101,7 @@ type Node struct {
 	acmeServer    *http.Server // ACME HTTP-01 sidecar (tls.mode=acme only)
 	acmeListener  net.Listener
 	metrics       *metrics.Collector
+	telemetry     *telemetry.Sampler
 	accounting    *accounting.Service
 	backup        *backup.Service
 	apiServer     *api.Server
@@ -277,6 +281,26 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.sessions = auth.NewSessionStore(db, n.sessionIdleTTL(ctx), n.sessionAbsoluteTTL(ctx))
 	admins := admin.NewService(db, n.sessions)
 
+	telemetrySource := o.TelemetrySource
+	if telemetrySource == nil {
+		telemetrySource = &nodeTelemetrySource{
+			db:   db,
+			host: hoststats.New(cfg.DataDir),
+			onlineWindow: func(ctx context.Context) time.Duration {
+				if seconds, err := n.reg.GetInt(ctx, "accounting.online_window_seconds"); err == nil && seconds > 0 {
+					return time.Duration(seconds) * time.Second
+				}
+				return defaultOnlineWindow
+			},
+			ready: n.ready,
+			accounting: func(now time.Time) (bool, bool) {
+				return n.metrics.AccountingStatus(now, recentAccountingWindow)
+			},
+		}
+	}
+	n.telemetry = telemetry.New(telemetrySource, o.TelemetryCadence)
+	n.metrics.SetTelemetry(n.telemetry, time.Now)
+
 	nodeID, _ := n.reg.GetString(ctx, "node.id")
 	tokens := token.NewService(db)
 	n.apiServer = api.New(api.Deps{
@@ -366,6 +390,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.sched.Every("webhooks", webhookPassInterval, n.jobWebhooks)
 	n.sched.Every("housekeeping", housekeepingEvery, n.jobHousekeeping)
 	n.sched.Every("backups", time.Minute, n.jobBackups)
+	n.sched.Every("telemetry", telemetryCadence(o.TelemetryCadence), n.jobTelemetry)
 	n.sched.Start(ctx)
 
 	serveErr := make(chan error, 1)
@@ -382,6 +407,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	default:
 	}
 	n.booted.Store(true)
+	if err := n.jobTelemetry(ctx); err != nil {
+		log.Warn("initial telemetry sample failed", "err", err)
+	}
 
 	// node.started is a best-effort lifecycle event, emitted once the node
 	// is actually serving. Failures are logged, never fatal.
@@ -585,9 +613,14 @@ func (n *Node) Shutdown(ctx context.Context) error {
 // scheduler anchors the next run at finish+newInterval — no hot loop).
 func (n *Node) jobAccounting(ctx context.Context) error {
 	if rep, err := n.accounting.RunCycle(ctx); err != nil {
+		n.metrics.SetAccountingError(time.Now())
 		n.log.Warn("accounting cycle failed", "err", err)
 	} else if rep != nil {
-		n.metrics.SetLastCycle(rep.Duration, time.Now(), rep.Deltas)
+		at := time.Now()
+		n.metrics.SetLastCycle(rep.Duration, at, rep.Deltas)
+		if len(rep.Errors) > 0 || rep.ShaperError != "" {
+			n.metrics.SetAccountingError(at)
+		}
 		if rep.Deltas > 0 || rep.Activated > 0 || rep.QuotaTripped > 0 || len(rep.Errors) > 0 {
 			n.log.Debug("accounting cycle",
 				"devices", rep.Deltas, "rx", rep.RX, "tx", rep.TX,
@@ -602,12 +635,25 @@ func (n *Node) jobAccounting(ctx context.Context) error {
 		}
 	}
 	if rep, err := n.accounting.EnforceExpiry(ctx); err != nil {
+		n.metrics.SetAccountingError(time.Now())
 		n.log.Warn("expiry pass failed", "err", err)
 	} else if rep != nil && rep.Expired > 0 {
 		n.log.Info("expiry pass", "expired", rep.Expired)
 	}
 	n.sched.SetInterval("accounting", n.accountingInterval(ctx))
 	return nil
+}
+
+func telemetryCadence(configured time.Duration) time.Duration {
+	if configured <= 0 {
+		return telemetry.DefaultCadence
+	}
+	return configured
+}
+
+func (n *Node) jobTelemetry(ctx context.Context) error {
+	_, err := n.telemetry.Sample(ctx, time.Now().UTC())
+	return err
 }
 
 // jobSamples flushes the in-memory sample accumulator (bucket-aligned

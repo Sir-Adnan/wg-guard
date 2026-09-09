@@ -29,7 +29,8 @@ and [`../../development/phase9.md`](../../development/phase9.md).
 
 Execution status: Phase 9.0 contracts are accepted. Phase 9.1 completed on 2026-09-10 from clean
 revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures moved
-with Task 2 because no standalone fixture files were committed during design. Task 3 is active.
+with Task 2 because no standalone fixture files were committed during design. Tasks 2–3 are
+complete and Task 4 is active.
 
 ---
 
@@ -158,7 +159,7 @@ Verification: focused tests, `go test -race ./internal/telemetry ./internal/host
 
 Checkpoint: `feat(telemetry): add bounded node sampler`.
 
-### Task 3 — Compose telemetry into the one scheduler
+### Task 3 — Compose telemetry into the one scheduler (complete)
 
 Files:
 

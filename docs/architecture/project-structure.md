@@ -45,6 +45,8 @@ internal/
   scheduler/             one centralized scheduler (due-heap): expiry, accounting, webhooks,
                          backups, housekeeping — no per-user goroutines (Phase 3 ✅; jobs
                          composed into serve in Phase 4)
+  telemetry/             fixed 180-point live host/VPN/process/activity ring; derives safe rates
+                         and health without topology or its own goroutine (Phase 9)
   webhook/               durable event delivery: events table, recorder (in-txn emit),
                          worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
   backup/                archive builder, bounded private preview/explicit approval, recoverable
@@ -68,8 +70,8 @@ internal/
   metrics/               healthz/readyz + optional hand-written /metrics (Phase 4 ✅)
   i18n/                  fa/en catalogs (embedded) with key-parity test, locale helpers,
                          Jalali dates (Phase 5 ✅)
-  hoststats/             on-demand /proc readers for the dashboard host card: CPU% (counter
-                         deltas), mem/disk/load/uptime; OK=false off Linux (Phase 5 ✅)
+  hoststats/             bounded /proc readers: CPU, mem/disk/load/uptime, process RSS,
+                         default-route and explicitly owned-interface counters; OK=false off Linux
   clientconf/            client config + QR rendering shared by API and web (bounded payload;
                          manual QR raster) (Phase 5 ✅)
   api/                   REST /api/v1: handlers, middleware (request id, security headers,
