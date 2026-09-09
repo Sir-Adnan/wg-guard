@@ -48,4 +48,3 @@ diagnosed but never rewritten.
   binary; invoking the optional official host tool keeps that surface isolated.
 - Request wildcard certificates by default: the panel needs one exact hostname and least
   privilege is the better product default.
-
