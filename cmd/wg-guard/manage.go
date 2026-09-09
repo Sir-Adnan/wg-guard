@@ -436,6 +436,9 @@ func (m *manager) group(ctx context.Context, group int) error {
 			n, err = m.menu("access", "access_status", "access_configure", "access_renew", "access_private", "tls")
 		}
 		if err != nil {
+			if errors.Is(err, terminal.ErrCanceled) && ctx.Err() == nil {
+				return nil
+			}
 			return err
 		}
 		var args []string
@@ -518,7 +521,9 @@ func (m *manager) group(ctx context.Context, group int) error {
 			}
 		}
 		err = m.run(ctx, args, input)
-		m.ui.Result(err)
+		if err != nil || !(group == 1 && n == 1 && len(args) == 1 && args[0] == "update") {
+			m.ui.Result(err)
+		}
 		if ctx.Err() != nil {
 			return terminal.ErrCanceled
 		}

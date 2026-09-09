@@ -333,6 +333,23 @@ func TestManagerNavigationNoStartupMutationAndSafeReview(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedManagerCancelReturnsWithoutTechnicalErrorOrFalseSuccess(t *testing.T) {
+	for _, script := range []string{"1\nq\nq\n", "1\n1\nq\nq\n"} {
+		var out bytes.Buffer
+		m := manager{
+			ui:   terminal.New(strings.NewReader(script), &out, terminal.Options{Locale: i18n.En}),
+			view: managerInstalled,
+			run:  func(context.Context, []string, io.Reader) error { return nil },
+		}
+		if err := m.loop(context.Background()); err != nil {
+			t.Fatalf("script %q returned technical cancellation: %v", script, err)
+		}
+		if strings.Contains(out.String(), "Done.") {
+			t.Fatalf("script %q printed false success after opening/canceling a menu:\n%s", script, out.String())
+		}
+	}
+}
 func TestSourcePickerMetadataAndExplicitDevelopment(t *testing.T) {
 	for _, tc := range []struct {
 		script       string
