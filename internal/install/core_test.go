@@ -445,6 +445,35 @@ func TestDockerMissingDependenciesUseUbuntuAdapter(t *testing.T) {
 	}
 }
 
+type inactiveDockerHost struct {
+	*packageHost
+	started bool
+}
+
+func (h *inactiveDockerHost) Run(ctx context.Context, argv []string, timeout time.Duration) error {
+	if len(argv) > 1 && argv[0] == "docker" && argv[1] == "info" && !h.started {
+		return fmt.Errorf("daemon inactive")
+	}
+	if len(argv) > 2 && argv[0] == "systemctl" && argv[1] == "start" && argv[2] == "docker.service" {
+		h.started = true
+	}
+	return h.packageHost.Run(ctx, argv, timeout)
+}
+
+func TestDockerModeStartsInactiveSystemdDaemon(t *testing.T) {
+	h := &inactiveDockerHost{packageHost: newPackageHost()}
+	h.installed["docker.io"] = "system"
+	h.installed["docker-compose-v2"] = "system"
+	b, _ := SelectCore("recommended")
+	r, _ := InspectPlatform(context.Background(), h)
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !h.started || !h.ran("systemctl", "start", "docker.service") {
+		t.Fatal("inactive Docker daemon was not started")
+	}
+}
+
 func TestUbuntuPackageSetupUsesQuietInstallerRunner(t *testing.T) {
 	h := &quietMissingDockerHost{missingDockerHost: &missingDockerHost{newPackageHost()}}
 	h.available["docker.io"] = "system"

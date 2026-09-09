@@ -315,7 +315,16 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			return r, terminalError("install.error.core.12")
 		}
 		if err := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); err != nil {
-			return r, terminalError("install.error.core.13")
+			if !automatic {
+				return r, terminalError("install.error.core.13")
+			}
+			progress(out, "docker_start")
+			if startErr := runQuiet(ctx, h, []string{"systemctl", "start", "docker.service"}, time.Minute); startErr != nil {
+				return r, terminalError("install.error.core.13")
+			}
+			if retryErr := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); retryErr != nil {
+				return r, terminalError("install.error.core.13")
+			}
 		}
 	}
 	r = InspectCore(ctx, h, b)
