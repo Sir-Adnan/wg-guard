@@ -1,9 +1,10 @@
 # Phase 9 — Operational observability
 
-Status: **next; design milestone 9.0 complete, implementation not started**. The metric/log
-contracts, ADR, fixtures and resource budgets were designed on 2026-09-05 after Phase 8 closed
-RB-001 through RB-004. Phase 8.1 installation/lifecycle verification completed on 2026-09-08;
-milestone 9.1 is next and no Phase 9 implementation has begun.
+Status: **active; milestone 9.1 in progress**. The metric/log contracts, ADR and resource budgets
+were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
+completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
+`main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
+`/proc` fixtures are part of milestone 9.1 rather than completed 9.0 evidence.
 
 Detailed dependency-ordered execution plan:
 [`../superpowers/plans/2026-09-05-phase9-operational-observability.md`](../superpowers/plans/2026-09-05-phase9-operational-observability.md).
@@ -31,8 +32,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 
 ## Milestones
 
-- [x] 9.0 — Freeze metric/log/retention contracts, ADR, fixtures, and resource budgets.
-- [ ] 9.1 — Implement host/network/process collectors and the bounded telemetry ring.
+- [x] 9.0 — Freeze metric/log/retention contracts, ADR, and resource budgets.
+- [ ] 9.1 — Implement host/network/process collectors and the bounded telemetry ring. **Active.**
 - [ ] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces.
 - [ ] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
 - [ ] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.

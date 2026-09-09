@@ -1,8 +1,37 @@
 # Phase 9 operational observability — implementation plan
 
-> Status: approved roadmap gate; execution started 2026-09-05 from Phase 8 verified head
-> `2f756b9`. Implement test-first, commit at the checkpoints below, and do not mix Phase 10
-> visual-system work into this phase.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or
+> superpowers:executing-plans to implement this plan task-by-task. Implement test-first at the
+> checkpoints below and do not mix Phase 10 visual-system work into this phase.
+
+**Goal:** Give operators bounded live node/AWG telemetry and one safe Docker/native log workflow.
+
+**Architecture:** One scheduler-owned sampler writes immutable snapshots to a preallocated ring
+shared by API, dashboard and metrics readers. Deployment-native log storage remains authoritative;
+a single host CLI normalizes access, while central redaction protects every production log sink.
+
+**Tech stack:** Go 1.25+, standard library, SQLite, net/http, slog, HTMX, Docker local logging and
+systemd journal namespaces. No new production dependency or frontend runtime.
+
+**Spec:** [`../specs/2026-08-31-release-readiness-roadmap-design.md`](../specs/2026-08-31-release-readiness-roadmap-design.md),
+[`../../decisions/ADR-0013-operational-observability.md`](../../decisions/ADR-0013-operational-observability.md)
+and [`../../development/phase9.md`](../../development/phase9.md).
+
+## Global constraints
+
+- Ubuntu 24.04 and later on amd64 only; non-Ubuntu and non-amd64 are out of scope.
+- Preserve one Go process, one scheduler goroutine, SQLite WAL and the pinned CLI AWG backend.
+- Keep the telemetry ring at 180 points/30 minutes and below 128 KiB; no per-browser sampling.
+- Never log credentials, keys, tokens, raw configurations, capability URLs or subprocess output.
+- Keep web i18n parity, RTL-safe presentation and LTR technical values.
+- Synchronize additive REST behavior with OpenAPI in the same commit.
+- Phase 10 owns visual-system redesign; Phase 11 owns soak/load/certification.
+
+Execution status: Phase 9.0 contracts are accepted. Phase 9.1 began on 2026-09-10 from clean
+revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures move
+with Task 2 because no standalone fixture files were committed during design.
+
+---
 
 ## Outcome
 
@@ -81,23 +110,20 @@ the logging boundary.
 
 ## Dependency order and commit checkpoints
 
-### Task 1 — Freeze contracts and test fixtures
+### Task 1 — Freeze contracts (complete in milestone 9.0)
 
 Files:
 
-- Modify `docs/development/phase9.md`
-- Add `docs/decisions/ADR-0013-operational-observability.md`
-- Add representative `/proc` fixtures under `internal/hoststats/testdata/`
+- `docs/development/phase9.md`
+- `docs/decisions/ADR-0013-operational-observability.md`
 
 Work:
 
 1. Record metric definitions, units, nullable semantics, health codes, cadence/history bounds,
    log CLI grammar, retention behavior, and Docker time-retention limitation.
-2. Capture sanitized deterministic fixtures for `/proc/stat`, `meminfo`, `loadavg`, `uptime`,
-   `net/dev`, `net/route`, `/proc/self/status`, and counter-reset cases.
-3. Mark only Task 1 active in the phase checklist.
+2. Accept the scheduler-owned sampler and deployment-native retention decision.
 
-Verification: Markdown links, fixture secret scan, `go test ./internal/hoststats` baseline.
+Verification: Markdown links and architecture review.
 
 Checkpoint: `docs(phase9): define observability contracts`.
 
@@ -109,6 +135,7 @@ Files:
 - Modify `internal/hoststats/hoststats_linux.go`
 - Modify `internal/hoststats/hoststats_other.go`
 - Modify `internal/hoststats/*_test.go`
+- Add representative `/proc` fixtures under `internal/hoststats/testdata/`
 - Add `internal/telemetry/telemetry.go`
 - Add `internal/telemetry/source.go`
 - Add `internal/telemetry/telemetry_test.go`
@@ -118,6 +145,8 @@ Tests first:
 
 1. Parse default-route and per-interface counters, process RSS, malformed/partial fixtures, and
    unavailable non-Linux state.
+   Fixtures cover `/proc/stat`, `meminfo`, `loadavg`, `uptime`, `net/dev`, `net/route`, and
+   `/proc/self/status`; counter-reset behavior uses literal samples in telemetry tests.
 2. Prove first-sample/reset/gap rate semantics, ring wrap/order/copy isolation, concurrent readers,
    fixed capacity, online-user/peer distinctions, and health transitions.
 3. Benchmark one append/snapshot and assert allocations/capacity in a resource test.

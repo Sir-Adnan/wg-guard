@@ -34,7 +34,7 @@ or chat history.
 | [development/release-readiness.md](development/release-readiness.md) | Active Phase 8–12 program: requirement ownership, blockers, audit findings, compatibility state |
 | [development/phase8.md](development/phase8.md) | Completed Phase 8 execution checklist and verification log |
 | [development/phase8.1.md](development/phase8.1.md) | Completed GitHub delivery and terminal lifecycle phase |
-| [development/phase9.md](development/phase9.md) | Next operational-observability gate; design complete, implementation not started |
+| [development/phase9.md](development/phase9.md) | Active operational-observability gate; milestone 9.1 collectors and bounded telemetry |
 | [development/phase10.md](development/phase10.md) through [phase12.md](development/phase12.md) | Planned UI/UX, production-certification, and release-candidate gates |
 | [decisions/](decisions/) | Architecture Decision Records (ADRs) |
 
