@@ -3,8 +3,11 @@
 package hoststats
 
 import (
+	"io"
+	"math/bits"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,6 +18,8 @@ import (
 var procRoot = "/proc"
 
 const snapshotOKOnThisPlatform = true
+
+const maxProcFileBytes = 1 << 20
 
 // sample fills platform-dependent fields from /proc and statfs.
 func (r *Reader) sample(_ time.Time) (Snapshot, cpuTimes) {
@@ -33,6 +38,12 @@ func (r *Reader) sample(_ time.Time) (Snapshot, cpuTimes) {
 	if up, ok := readUptime(r.root); ok {
 		s.Uptime = up
 	}
+	if rss, ok := readProcessRSS(r.root); ok {
+		s.ProcessRSSBytes = rss
+	}
+	if counters, ok := readDefaultRouteCounters(r.root); ok {
+		s.HostNetwork = counters
+	}
 	if total, free, ok := statfsUsage(r.diskPath); ok {
 		s.DiskTotal, s.DiskFree = total, free
 	}
@@ -44,8 +55,8 @@ func (r *Reader) sample(_ time.Time) (Snapshot, cpuTimes) {
 // non-guest fields (guest time already runs inside user, counting both
 // double-counts it).
 func readProcStat(root string) (cpuTimes, bool) {
-	data, err := os.ReadFile(filepath.Join(root, "stat"))
-	if err != nil {
+	data, ok := readProcFile(filepath.Join(root, "stat"))
+	if !ok {
 		return cpuTimes{}, false
 	}
 	line, _, ok := strings.Cut(string(data), "\n")
@@ -76,8 +87,8 @@ func readProcStat(root string) (cpuTimes, bool) {
 
 // readMemInfo returns MemTotal and MemAvailable in bytes.
 func readMemInfo(root string) (uint64, uint64, bool) {
-	data, err := os.ReadFile(filepath.Join(root, "meminfo"))
-	if err != nil {
+	data, ok := readProcFile(filepath.Join(root, "meminfo"))
+	if !ok {
 		return 0, 0, false
 	}
 	var total, avail uint64
@@ -118,8 +129,8 @@ func cutMeminfo(line string) (string, uint64, bool) {
 
 // readLoadAvg parses "0.52 0.58 0.59 3/987 12345".
 func readLoadAvg(root string) (float64, float64, float64, bool) {
-	data, err := os.ReadFile(filepath.Join(root, "loadavg"))
-	if err != nil {
+	data, ok := readProcFile(filepath.Join(root, "loadavg"))
+	if !ok {
 		return 0, 0, 0, false
 	}
 	fields := strings.Fields(string(data))
@@ -139,8 +150,8 @@ func readLoadAvg(root string) (float64, float64, float64, bool) {
 
 // readUptime parses seconds-since-boot from /proc/uptime.
 func readUptime(root string) (time.Duration, bool) {
-	data, err := os.ReadFile(filepath.Join(root, "uptime"))
-	if err != nil {
+	data, ok := readProcFile(filepath.Join(root, "uptime"))
+	if !ok {
 		return 0, false
 	}
 	up, _, ok := strings.Cut(strings.TrimSpace(string(data)), " ")
@@ -166,4 +177,126 @@ func statfsUsage(path string) (uint64, uint64, bool) {
 		return 0, 0, false
 	}
 	return total, free, true
+}
+
+// readDefaultRouteCounters selects the lowest-metric active IPv4 default
+// route and returns its counters without exposing the interface publicly.
+func readDefaultRouteCounters(root string) (NetworkCounters, bool) {
+	data, ok := readProcFile(filepath.Join(root, "net", "route"))
+	if !ok {
+		return NetworkCounters{}, false
+	}
+	iface := ""
+	bestMetric := uint64(^uint32(0))
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 8 || fields[1] != "00000000" {
+			continue
+		}
+		flags, err := strconv.ParseUint(fields[3], 16, 32)
+		if err != nil || flags&1 == 0 {
+			continue
+		}
+		metric, err := strconv.ParseUint(fields[6], 10, 32)
+		if err != nil || (iface != "" && metric >= bestMetric) {
+			continue
+		}
+		iface, bestMetric = fields[0], metric
+	}
+	if iface == "" {
+		return NetworkCounters{}, false
+	}
+	got := readInterfaceCounters(root, []string{iface})
+	return got, got.Available
+}
+
+func readInterfaceCounters(root string, requested []string) NetworkCounters {
+	wanted := make(map[string]struct{}, len(requested))
+	for _, name := range requested {
+		if name != "" {
+			wanted[name] = struct{}{}
+		}
+	}
+	if len(wanted) == 0 {
+		return NetworkCounters{}
+	}
+	data, ok := readProcFile(filepath.Join(root, "net", "dev"))
+	if !ok {
+		return NetworkCounters{}
+	}
+	var names []string
+	var rxTotal, txTotal uint64
+	for _, line := range strings.Split(string(data), "\n") {
+		left, right, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		name := strings.TrimSpace(left)
+		if _, ok := wanted[name]; !ok {
+			continue
+		}
+		fields := strings.Fields(right)
+		if len(fields) < 9 {
+			continue
+		}
+		rx, errRX := strconv.ParseUint(fields[0], 10, 64)
+		tx, errTX := strconv.ParseUint(fields[8], 10, 64)
+		if errRX != nil || errTX != nil {
+			continue
+		}
+		var carry uint64
+		rxTotal, carry = bits.Add64(rxTotal, rx, 0)
+		if carry != 0 {
+			return NetworkCounters{}
+		}
+		txTotal, carry = bits.Add64(txTotal, tx, 0)
+		if carry != 0 {
+			return NetworkCounters{}
+		}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return NetworkCounters{}
+	}
+	sort.Strings(names)
+	return NetworkCounters{
+		Identity:   strings.Join(names, "\x00"),
+		RXBytes:    rxTotal,
+		TXBytes:    txTotal,
+		Interfaces: len(names),
+		Available:  true,
+	}
+}
+
+func readProcessRSS(root string) (uint64, bool) {
+	data, ok := readProcFile(filepath.Join(root, "self", "status"))
+	if !ok {
+		return 0, false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		key, value, ok := cutMeminfo(line)
+		if ok && key == "VmRSS" {
+			return value, true
+		}
+	}
+	return 0, false
+}
+
+// InterfaceCounters aggregates only the explicitly requested interface
+// names. Unknown links are omitted and reflected in Interfaces.
+func (r *Reader) InterfaceCounters(names []string) NetworkCounters {
+	return readInterfaceCounters(r.root, names)
+}
+
+func readProcFile(path string) ([]byte, bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, false
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxProcFileBytes+1))
+	if err != nil || len(data) > maxProcFileBytes {
+		return nil, false
+	}
+	return data, true
 }

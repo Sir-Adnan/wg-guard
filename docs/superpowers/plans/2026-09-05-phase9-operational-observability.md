@@ -27,9 +27,9 @@ and [`../../development/phase9.md`](../../development/phase9.md).
 - Synchronize additive REST behavior with OpenAPI in the same commit.
 - Phase 10 owns visual-system redesign; Phase 11 owns soak/load/certification.
 
-Execution status: Phase 9.0 contracts are accepted. Phase 9.1 began on 2026-09-10 from clean
-revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures move
-with Task 2 because no standalone fixture files were committed during design.
+Execution status: Phase 9.0 contracts are accepted. Phase 9.1 completed on 2026-09-10 from clean
+revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures moved
+with Task 2 because no standalone fixture files were committed during design. Task 3 is active.
 
 ---
 
@@ -127,7 +127,7 @@ Verification: Markdown links and architecture review.
 
 Checkpoint: `docs(phase9): define observability contracts`.
 
-### Task 2 — Build the bounded telemetry core
+### Task 2 — Build the bounded telemetry core (complete)
 
 Files:
 

@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.1 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **active; milestone 9.2 in progress**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -33,8 +33,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 ## Milestones
 
 - [x] 9.0 — Freeze metric/log/retention contracts, ADR, and resource budgets.
-- [ ] 9.1 — Implement host/network/process collectors and the bounded telemetry ring. **Active.**
-- [ ] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces.
+- [x] 9.1 — Implement host/network/process collectors and the bounded telemetry ring.
+- [ ] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces. **Active.**
 - [ ] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
 - [ ] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
 - [ ] 9.5 — Install central structured-log redaction and component classification.
@@ -51,6 +51,12 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - Secret-corpus tests over errors and output; race and resource-overhead benchmarks.
 - Real Ubuntu 24.04 Docker and native drills: service crash, bad AWG apply, firewall/network
   error, installer/update failure, follow behavior, retention policy, and traffic graphs.
+
+Milestone 9.1 uses deterministic Linux `/proc` fixtures for host/default-route/owned-interface
+counters and process RSS. Counter continuity, reset/replacement/gap handling, partial sources,
+fixed ring capacity, chronological copy snapshots, health transitions and concurrent readers pass
+focused tests and the race detector in WSL2 Ubuntu amd64. This is implementation evidence, not the
+real-VPS telemetry gate.
 
 ## Documentation
 

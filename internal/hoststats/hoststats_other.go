@@ -13,3 +13,8 @@ const snapshotOKOnThisPlatform = false
 func (r *Reader) sample(_ time.Time) (Snapshot, cpuTimes) {
 	return Snapshot{OK: false}, cpuTimes{}
 }
+
+// InterfaceCounters reports no counters off Linux.
+func (r *Reader) InterfaceCounters(_ []string) NetworkCounters {
+	return NetworkCounters{}
+}

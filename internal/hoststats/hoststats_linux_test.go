@@ -5,6 +5,7 @@ package hoststats
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -91,5 +92,80 @@ func TestMissingProcDir(t *testing.T) {
 	s := r.Snapshot(time.Now())
 	if s.MemTotal != 0 || s.Load1 != nil || s.Uptime != 0 || s.CPUPercent != nil {
 		t.Fatal("missing /proc must yield no metrics")
+	}
+}
+
+func TestReadDefaultRouteCountersFromFixture(t *testing.T) {
+	root := filepath.Join("testdata", "proc")
+	got, ok := readDefaultRouteCounters(root)
+	if !ok {
+		t.Fatal("default-route counters must be available")
+	}
+	if got.Identity != "eth0" || got.RXBytes != 1_234_567 || got.TXBytes != 7_654_321 {
+		t.Fatalf("default-route counters = %+v", got)
+	}
+}
+
+func TestReadInterfaceCountersAggregatesRequestedLinks(t *testing.T) {
+	root := filepath.Join("testdata", "proc")
+	got := readInterfaceCounters(root, []string{"awg1", "missing0", "awg0", "awg0"})
+	if !got.Available {
+		t.Fatal("requested interface counters must be available")
+	}
+	if got.Identity != "awg0\x00awg1" {
+		t.Fatalf("identity = %q", got.Identity)
+	}
+	if got.Interfaces != 2 || got.RXBytes != 10_000 || got.TXBytes != 20_000 {
+		t.Fatalf("owned counters = %+v", got)
+	}
+}
+
+func TestReadInterfaceCountersRejectsMalformedOrAbsentData(t *testing.T) {
+	root := fakeProc(t, map[string]string{
+		"net/dev": "headers only\nmissing colon\neth0: not-a-number 1 2\n",
+	})
+	if got := readInterfaceCounters(root, []string{"eth0"}); got.Available {
+		t.Fatalf("malformed counters must be unavailable: %+v", got)
+	}
+	if got := readInterfaceCounters(filepath.Join(t.TempDir(), "missing"), []string{"eth0"}); got.Available {
+		t.Fatalf("missing counters must be unavailable: %+v", got)
+	}
+}
+
+func TestReadProcessRSSFromFixture(t *testing.T) {
+	got, ok := readProcessRSS(filepath.Join("testdata", "proc"))
+	if !ok || got != 32_768*1024 {
+		t.Fatalf("process RSS = %d, %v", got, ok)
+	}
+}
+
+func TestSnapshotIncludesProcessAndDefaultRouteCounters(t *testing.T) {
+	r := New(t.TempDir()).withRoot(filepath.Join("testdata", "proc"))
+	s := r.Snapshot(time.Unix(1_700_000_000, 0))
+	if s.ProcessRSSBytes != 32_768*1024 {
+		t.Fatalf("process RSS = %d", s.ProcessRSSBytes)
+	}
+	if !s.HostNetwork.Available || s.HostNetwork.Identity != "eth0" {
+		t.Fatalf("host network = %+v", s.HostNetwork)
+	}
+	if s.HostNetwork.RXBytes != 1_234_567 || s.HostNetwork.TXBytes != 7_654_321 {
+		t.Fatalf("host counters = %+v", s.HostNetwork)
+	}
+}
+
+func TestReaderInterfaceCounters(t *testing.T) {
+	r := New(t.TempDir()).withRoot(filepath.Join("testdata", "proc"))
+	got := r.InterfaceCounters([]string{"awg0", "awg1"})
+	if !got.Available || got.Interfaces != 2 || got.RXBytes != 10_000 || got.TXBytes != 20_000 {
+		t.Fatalf("interface counters = %+v", got)
+	}
+}
+
+func TestOversizedProcInputIsUnavailable(t *testing.T) {
+	root := fakeProc(t, map[string]string{
+		"net/dev": "eth0:" + strings.Repeat(" 1", maxProcFileBytes),
+	})
+	if got := readInterfaceCounters(root, []string{"eth0"}); got.Available {
+		t.Fatalf("oversized /proc input must be unavailable: %+v", got)
 	}
 }

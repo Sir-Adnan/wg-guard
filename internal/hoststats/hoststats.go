@@ -25,8 +25,24 @@ type Snapshot struct {
 	Load5      *float64
 	Load15     *float64
 	Uptime     time.Duration // 0 = unavailable
+	// ProcessRSSBytes is the resident memory of this WG-Guard process.
+	ProcessRSSBytes uint64
+	// HostNetwork is the counter source for the active default route. Its
+	// Identity is continuity metadata and must not be returned publicly.
+	HostNetwork NetworkCounters
 
 	OK bool // host metrics readable at all (Linux)
+}
+
+// NetworkCounters is an aggregate from one or more kernel interfaces.
+// Identity is internal continuity metadata; callers must not expose interface
+// names through public telemetry surfaces.
+type NetworkCounters struct {
+	Identity   string
+	RXBytes    uint64
+	TXBytes    uint64
+	Interfaces int
+	Available  bool
 }
 
 // MemUsed is the memory in use (0 when memory metrics are unavailable).
