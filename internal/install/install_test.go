@@ -562,9 +562,10 @@ func TestPromptWizardCustomSettings(t *testing.T) {
 		"vpn.example.com\n"+ // domain
 			"y\n"+ // advanced settings
 			"1\n"+ // mode: docker
-			"1\n"+ // tls: acme
+			"1\n"+ // keep detected direct HTTPS
 			"\n"+ // panel port
 			"\n"+ // acme port
+			"\n"+ // optional ACME email
 			"y\n"+ // network gate
 			"40000\n"+ // port range start
 			"40500\n"+ // port range end
@@ -605,9 +606,10 @@ func TestPromptWizardEmptyTokenSkips(t *testing.T) {
 		"vpn.example.com\n"+ // domain
 			"y\n"+ // advanced settings
 			"1\n"+ // mode
-			"1\n"+ // tls: acme
+			"1\n"+ // keep detected direct HTTPS
 			"\n"+ // panel port
 			"\n"+ // acme port
+			"\n"+ // optional ACME email
 			"\n"+ // network gate: skip
 			"y\n"+ // telegram gate
 			"\n"+ // empty token → skip
@@ -669,15 +671,16 @@ func TestPromptExplicitTLSNotReasked(t *testing.T) {
 	h := newMemHost()
 	q := newPrompt(strings.NewReader(
 		"vpn.example.com\n"+ // domain
-			"\n"+ // panel port: default 443
 			"/etc/certs/fullchain.pem\n"+ // cert file
 			"/etc/certs/key.pem\n"+ // key file
+			"\n"+ // panel port: default 443
 			"\n"+ // network gate: skip
 			"\n"+ // telegram gate: skip
 			"\n"), // image: default
 		&strings.Builder{}, false)
 	p := Defaults()
 	p.TLSMode = config.TLSModeManual
+	p.TLSModeExplicit = true
 	if err := q.plan(&p, h); err != nil {
 		t.Fatal(err)
 	}

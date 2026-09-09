@@ -179,7 +179,8 @@ func TestPromptExplicitTLS8080SurvivesResolve(t *testing.T) {
 	p := Defaults()
 	p.Domain = "panel.example.com"
 	p.TLSMode = config.TLSModeACME
-	q := newPrompt(strings.NewReader("\n8080\n80\nn\nn\n\n"), io.Discard, false)
+	p.TLSModeExplicit = true
+	q := newPrompt(strings.NewReader("\n8080\n80\n\nn\nn\n\n"), io.Discard, false)
 	if err := q.plan(&p, newMemHost()); err != nil {
 		t.Fatal(err)
 	}

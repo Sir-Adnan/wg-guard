@@ -25,8 +25,12 @@ Commands:
   version     Print version information
   install     Interactive installer (Docker default, native systemd secondary;
               --yes for non-interactive installs)
-              install [--mode docker|native] [--domain D] [--tls acme|manual|proxy|dev]
-                      [--panel-port N] [--acme-http-port N] [--cert-file F --key-file F]
+              install [--mode docker|native] [--domain D]
+                      [--exposure auto|private|direct|nginx|external-proxy]
+                      [--certificate auto|builtin|webroot|cloudflare-dns|ip|manual|cloudflare-origin|external]
+                      [--panel-port N] [--https-port N] [--acme-http-port N]
+                      [--cloudflare-token-file PRIVATE_FILE] [--acme-email EMAIL]
+                      [--cert-file F --key-file F]
                       [--image REF] [--skip-module] [--yes]
   update      Explicit update: pre-upgrade backup, swap, health-checked rollback
               update [--image REF] (docker) | update --binary PATH (native)

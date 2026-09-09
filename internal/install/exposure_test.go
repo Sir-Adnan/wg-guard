@@ -180,3 +180,18 @@ func TestStateSchemaThreeValidatesExposureWithoutSecrets(t *testing.T) {
 		t.Fatalf("schema-two state lost compatibility: %v", err)
 	}
 }
+
+func TestCloudflareTokenFileMustBePrivateAndNeverAppearsInErrors(t *testing.T) {
+	h := newMemHost()
+	const token = "synthetic_cloudflare_token_123456"
+	h.files["/root/cf-token"] = memFile{data: []byte(token + "\n"), perm: 0o600}
+	got, err := ReadCloudflareToken(h, "/root/cf-token")
+	if err != nil || got != token {
+		t.Fatalf("protected token read = %q, %v", got, err)
+	}
+	h.files["/root/cf-token"] = memFile{data: []byte(token), perm: 0o644}
+	_, err = ReadCloudflareToken(h, "/root/cf-token")
+	if err == nil || strings.Contains(err.Error(), token) {
+		t.Fatalf("unsafe token file accepted or leaked: %v", err)
+	}
+}

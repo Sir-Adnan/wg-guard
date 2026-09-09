@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/mail"
 	"os"
 	"os/signal"
 	"strings"
@@ -81,26 +82,31 @@ func runInstall(args []string) error {
 func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	var (
-		mode          = fs.String("mode", "", "docker (default) | native")
-		domain        = fs.String("domain", "", "panel domain (enables ACME TLS)")
-		tlsMode       = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
-		panelPort     = fs.Int("panel-port", 0, "panel port (default 443 with TLS, 8080 plain)")
-		acmePort      = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
-		image         = fs.String("image", install.DefaultImage, "container image (docker mode)")
-		certFile      = fs.String("cert-file", "", "TLS certificate file (manual mode)")
-		keyFile       = fs.String("key-file", "", "TLS key file (manual mode)")
-		yes           = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
-		skipMod       = fs.Bool("skip-module", false, i18n.T(i18n.En, "install.cli.skip_module"))
-		publicIP      = fs.String("public-ip", "", i18n.T(i18n.En, "install.cli.public_ip"))
-		prerequisites = fs.String("prerequisites", "auto", i18n.T(i18n.En, "install.cli.prerequisites"))
-		core          = fs.String("core", "recommended", i18n.T(i18n.En, "install.cli.core"))
-		release       = fs.String("release", "", i18n.T(i18n.En, "install.cli.release"))
-		commit        = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
-		metadata      = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
-		localImage    = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
-		ownerName     = fs.String("owner-username", "owner", i18n.T(i18n.En, "owner.username"))
-		ownerFile     = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
-		locale        = fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
+		mode           = fs.String("mode", "", "docker (default) | native")
+		domain         = fs.String("domain", "", "panel domain (enables ACME TLS)")
+		tlsMode        = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
+		exposure       = fs.String("exposure", "auto", "auto | private | direct | nginx | external-proxy")
+		certificate    = fs.String("certificate", "auto", "auto | builtin | webroot | cloudflare-dns | ip | manual | cloudflare-origin | external")
+		panelPort      = fs.Int("panel-port", 0, "panel port (default 443 with TLS, 8080 plain)")
+		httpsPort      = fs.Int("https-port", 443, "public HTTPS port for Nginx/external proxy")
+		acmePort       = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
+		acmeEmail      = fs.String("acme-email", "", "optional ACME account email")
+		cloudflareFile = fs.String("cloudflare-token-file", "", "private 0600 file containing a scoped Cloudflare API token")
+		image          = fs.String("image", install.DefaultImage, "container image (docker mode)")
+		certFile       = fs.String("cert-file", "", "TLS certificate file (manual mode)")
+		keyFile        = fs.String("key-file", "", "TLS key file (manual mode)")
+		yes            = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
+		skipMod        = fs.Bool("skip-module", false, i18n.T(i18n.En, "install.cli.skip_module"))
+		publicIP       = fs.String("public-ip", "", i18n.T(i18n.En, "install.cli.public_ip"))
+		prerequisites  = fs.String("prerequisites", "auto", i18n.T(i18n.En, "install.cli.prerequisites"))
+		core           = fs.String("core", "recommended", i18n.T(i18n.En, "install.cli.core"))
+		release        = fs.String("release", "", i18n.T(i18n.En, "install.cli.release"))
+		commit         = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
+		metadata       = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
+		localImage     = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
+		ownerName      = fs.String("owner-username", "owner", i18n.T(i18n.En, "owner.username"))
+		ownerFile      = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
+		locale         = fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return install.InstallOptions{}, err
@@ -125,6 +131,28 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	if _, err := install.SelectCore(*core); err != nil {
 		return install.InstallOptions{}, err
 	}
+	validExposure := map[string]bool{"auto": true, "private": true, "direct": true, "nginx": true, "external-proxy": true}
+	validCertificate := map[string]bool{"auto": true, "builtin": true, "webroot": true, "cloudflare-dns": true, "ip": true, "manual": true, "cloudflare-origin": true, "external": true}
+	if !validExposure[*exposure] || !validCertificate[*certificate] {
+		return install.InstallOptions{}, lifecycleArgsError()
+	}
+	if *httpsPort < 1 || *httpsPort > 65535 {
+		return install.InstallOptions{}, lifecycleArgsError()
+	}
+	if *acmeEmail != "" {
+		address, parseErr := mail.ParseAddress(*acmeEmail)
+		if parseErr != nil || address.Address != *acmeEmail || !strings.Contains(*acmeEmail, "@") {
+			return install.InstallOptions{}, lifecycleArgsError()
+		}
+	}
+	visited := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { visited[f.Name] = true })
+	if visited["tls"] && (visited["exposure"] || visited["certificate"]) {
+		return install.InstallOptions{}, fmt.Errorf("install: legacy --tls cannot be combined with --exposure or --certificate")
+	}
+	if *cloudflareFile != "" && *certificate != string(install.CertificateCloudflareDNS) {
+		return install.InstallOptions{}, fmt.Errorf("install: --cloudflare-token-file requires --certificate cloudflare-dns")
+	}
 
 	plan := install.Defaults()
 	switch {
@@ -135,16 +163,27 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 		plan.Mode = ""
 	} // --yes without --mode keeps the Docker default
 	plan.Domain = *domain
+	plan.Exposure = install.ExposureMode(*exposure)
+	plan.Certificate = install.CertificateSource(*certificate)
+	plan.ExposureExplicit = visited["exposure"]
+	plan.CertificateExplicit = visited["certificate"]
+	plan.PublicPort = *httpsPort
+	plan.ACMEEmail = *acmeEmail
+	plan.CloudflareTokenFile = *cloudflareFile
+	if *cloudflareFile != "" {
+		plan.CloudflareToken, err = install.ReadCloudflareToken(install.NewRealHost(), *cloudflareFile)
+		if err != nil {
+			return install.InstallOptions{}, err
+		}
+	}
 	if *tlsMode != "" {
 		plan.TLSMode = config.TLSMode(*tlsMode)
 		plan.TLSModeExplicit = true
 	}
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "panel-port" {
-			plan.PanelPort = *panelPort
-			plan.PanelPortExplicit = true
-		}
-	})
+	if visited["panel-port"] {
+		plan.PanelPort = *panelPort
+		plan.PanelPortExplicit = true
+	}
 	plan.ACMEHTTPPort = *acmePort
 	plan.Image = *image
 	plan.CertFile = *certFile

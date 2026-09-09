@@ -144,8 +144,8 @@ func (m *memHost) ReadFile(path string) ([]byte, error) {
 }
 
 func (m *memHost) Stat(path string) (fs.FileInfo, error) {
-	if _, ok := m.files[path]; ok {
-		return statInfo{}, nil
+	if file, ok := m.files[path]; ok {
+		return statInfo{perm: file.perm}, nil
 	}
 	if m.dirs[path] {
 		return statInfo{dir: true}, nil
@@ -153,11 +153,19 @@ func (m *memHost) Stat(path string) (fs.FileInfo, error) {
 	return nil, fs.ErrNotExist
 }
 
-type statInfo struct{ dir bool }
+type statInfo struct {
+	dir  bool
+	perm fs.FileMode
+}
 
-func (s statInfo) Name() string       { return "x" }
-func (s statInfo) Size() int64        { return 0 }
-func (s statInfo) Mode() fs.FileMode  { return 0o600 }
+func (s statInfo) Name() string { return "x" }
+func (s statInfo) Size() int64  { return 0 }
+func (s statInfo) Mode() fs.FileMode {
+	if s.perm == 0 {
+		return 0o600
+	}
+	return s.perm
+}
 func (s statInfo) ModTime() time.Time { return time.Time{} }
 func (s statInfo) IsDir() bool        { return s.dir }
 func (s statInfo) Sys() any           { return nil }

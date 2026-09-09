@@ -64,3 +64,76 @@ func TestWizardReviewEffectiveNetworkDefaults(t *testing.T) {
 		}
 	}
 }
+
+func TestWizardRecommendedAccessUsesHostFactsAndEnterDefaults(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		host  func() *memHost
+		mode  ExposureMode
+		cert  CertificateSource
+	}{
+		{"blank domain private", "\n\n", newMemHost, ExposurePrivate, ""},
+		{"free domain direct ACME", "panel.example.com\n\n", newMemHost, ExposureDirect, CertificateBuiltin},
+		{"existing nginx webroot", "panel.example.com\n\n", func() *memHost {
+			h := newMemHost()
+			h.portFree = func(addr string) bool { return addr == "127.0.0.1:8081" }
+			h.output["systemctl is-active nginx.service"] = "active\n"
+			h.output["nginx -T"] = "http { include /etc/nginx/conf.d/*.conf; }\n"
+			return h
+		}, ExposureNginx, CertificateWebroot},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out strings.Builder
+			q := newPrompt(strings.NewReader(tc.input), &out, false)
+			p := Defaults()
+			p.Mode = ""
+			if err := q.plan(&p, tc.host()); err != nil {
+				t.Fatal(err)
+			}
+			if p.Mode != ModeDocker || p.Exposure != tc.mode || p.Certificate != tc.cert {
+				t.Fatalf("recommended plan = %+v", p)
+			}
+			if containsNonEnglishTerminalScript(out.String()) {
+				t.Fatalf("wizard rendered non-English text:\n%s", out.String())
+			}
+		})
+	}
+}
+
+func TestWizardAdvancedPublicIPAndCloudflareSecrets(t *testing.T) {
+	// Blank domain, customize, Docker, public-IP HTTPS, IP, panel port,
+	// challenge port, optional email, network defaults, Telegram later.
+	var out strings.Builder
+	q := newPrompt(strings.NewReader("\nyes\n\n2\n8.8.8.8\n\n\n\n\n\n\n\n"), &out, false)
+	p := Defaults()
+	p.Mode = ""
+	if err := q.plan(&p, newMemHost()); err != nil {
+		t.Fatal(err)
+	}
+	if p.Exposure != ExposureDirect || p.Certificate != CertificateIP || p.PublicIP != "8.8.8.8" {
+		t.Fatalf("IP HTTPS choice lost: %+v", p)
+	}
+
+	const token = "synthetic_cloudflare_token_123456"
+	out.Reset()
+	q = newPrompt(strings.NewReader("panel.example.com\nyes\n\n3\n2\n"+token+"\n\n\n\n\n\n\n\n\n"), &out, false)
+	p = Defaults()
+	p.Mode = ""
+	if err := q.plan(&p, newMemHost()); err != nil {
+		t.Fatal(err)
+	}
+	if p.Certificate != CertificateCloudflareDNS || p.CloudflareToken != token || strings.Contains(out.String(), token) {
+		t.Fatalf("Cloudflare secret flow failed: %+v\n%s", p, out.String())
+	}
+}
+
+func containsNonEnglishTerminalScript(s string) bool {
+	for _, r := range s {
+		if r >= '\u0600' && r <= '\u06ff' {
+			return true
+		}
+	}
+	return false
+}

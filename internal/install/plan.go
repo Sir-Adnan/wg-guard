@@ -56,6 +56,8 @@ type Plan struct {
 	// CloudflareToken is memory-only and must never enter rendered config/state.
 	Exposure            ExposureMode
 	Certificate         CertificateSource
+	ExposureExplicit    bool
+	CertificateExplicit bool
 	PublicPort          int
 	ACMEEmail           string
 	CloudflareToken     string
@@ -132,6 +134,12 @@ func (p Plan) Resolve() (Plan, error) {
 	}
 	if p.PublicIP != "" && !validPublicIP(p.PublicIP) {
 		return p, terminalError("install.error.plan.3")
+	}
+	if p.ACMEEmail != "" && !validACMEEmail(p.ACMEEmail) {
+		return p, fmt.Errorf("installer: ACME email must be one bare valid address")
+	}
+	if p.Certificate == CertificateCloudflareDNS && !cloudflareAPIToken.MatchString(p.CloudflareToken) {
+		return p, fmt.Errorf("installer: Cloudflare DNS-01 requires a valid scoped API token")
 	}
 	if p.TelegramChat != "" && !validChatID(p.TelegramChat) {
 		return p, terminalError("install.error.plan.4")

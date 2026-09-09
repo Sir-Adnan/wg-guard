@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
@@ -85,17 +84,37 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	q.ui.Locale = i18n.En
 	q.ui.Header("WG-GUARD", q.t("subtitle"))
 	q.ui.Text(q.t("intro"))
+	q.advanced = advancedSettingsRequested(p)
+	explicitAccess := p.ExposureExplicit || p.CertificateExplicit || p.TLSModeExplicit
 	var err error
-	q.ui.Section(q.t("address"))
+	q.ui.Section(q.t("access"))
 	p.Domain, err = q.ask(q.t("domain"), p.Domain)
 	if err != nil {
 		return err
 	}
-
-	// The normal path applies the secure recommended profile and asks no
-	// infrastructure questions. Supplying an expert flag enters the detailed
-	// path automatically; otherwise the operator opts in explicitly.
-	q.advanced = advancedSettingsRequested(p)
+	facts, err := InspectExposure(q.ui.Context, h, p.Domain)
+	if err != nil {
+		return err
+	}
+	recommended, recommendationErr := ResolveExposure(*p, facts)
+	if recommendationErr == nil {
+		*p = recommended
+		q.ui.Field(q.t("recommended"), q.t("access_"+string(p.Exposure)))
+	} else {
+		if explicitAccess {
+			return recommendationErr
+		}
+		q.ui.Text(q.t("conflict"))
+		fallback := *p
+		fallback.Exposure = ExposurePrivate
+		fallback.Certificate = CertificateAuto
+		fallback, err = ResolveExposure(fallback, facts)
+		if err != nil {
+			return recommendationErr
+		}
+		*p = fallback
+		q.advanced = true
+	}
 	if !q.advanced {
 		q.advanced, err = q.askYesNo(q.t("advanced"), false)
 		if err != nil {
@@ -104,12 +123,6 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	}
 	if !q.advanced {
 		p.Mode = ModeDocker
-		if !p.TLSModeExplicit {
-			p.TLSMode = config.TLSModeProxy
-			if p.Domain != "" {
-				p.TLSMode = config.TLSModeACME
-			}
-		}
 		return nil
 	}
 
@@ -123,58 +136,8 @@ func (q *prompt) plan(p *Plan, h Host) error {
 			p.Mode = ModeNative
 		}
 	}
-	if p.Domain == "" {
-		p.PublicIP, err = q.ask(q.t("ip"), p.PublicIP)
-		if err != nil {
-			return err
-		}
-	}
-	if p.TLSMode == config.TLSModeDev && !p.TLSModeExplicit {
-		if p.Domain == "" {
-			n, e := q.askChoice(q.t("tls"), []string{q.t("proxy"), q.t("dev")}, 1)
-			if e != nil {
-				return e
-			}
-			p.TLSMode = config.TLSModeProxy
-			if n == 2 {
-				p.TLSMode = config.TLSModeDev
-			}
-		} else {
-			n, e := q.askChoice(q.t("tls"), []string{q.t("acme"), q.t("manual")}, 1)
-			if e != nil {
-				return e
-			}
-			p.TLSMode = config.TLSModeACME
-			if n == 2 {
-				p.TLSMode = config.TLSModeManual
-			}
-		}
-	}
-	def := p.PanelPort
-	if (p.TLSMode == config.TLSModeACME || p.TLSMode == config.TLSModeManual) && !p.PanelPortExplicit {
-		def = 443
-	}
-	p.PanelPort, err = q.askInt(q.t("panel_port"), def, 1, 65535)
-	if err != nil {
+	if err := q.planAccess(p, facts, explicitAccess); err != nil {
 		return err
-	}
-	p.PanelPortExplicit = true
-	if p.TLSMode == config.TLSModeACME {
-		q.ui.Text(q.t("http01"))
-		p.ACMEHTTPPort, err = q.askInt(q.t("acme_port"), p.ACMEHTTPPort, 1, 65535)
-		if err != nil {
-			return err
-		}
-	}
-	if p.TLSMode == config.TLSModeManual {
-		p.CertFile, err = q.ask(q.t("cert"), p.CertFile)
-		if err != nil {
-			return err
-		}
-		p.KeyFile, err = q.ask(q.t("key"), p.KeyFile)
-		if err != nil {
-			return err
-		}
 	}
 	if err := q.planNetwork(p); err != nil {
 		return err
@@ -188,8 +151,122 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	return err
 }
 
+func (q *prompt) planAccess(p *Plan, facts ExposureFacts, explicit bool) error {
+	var err error
+	if !explicit {
+		if p.Domain == "" {
+			n, e := q.askChoice(q.t("access_method"), []string{q.t("private"), q.t("ip_https")}, 1)
+			if e != nil {
+				return e
+			}
+			if n == 1 {
+				p.Exposure, p.Certificate = ExposurePrivate, ""
+			} else {
+				p.Exposure, p.Certificate = ExposureDirect, CertificateIP
+				p.PublicIP, err = q.ask(q.t("ip"), p.PublicIP)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			n, e := q.askChoice(q.t("access_method"), []string{q.t("keep_recommended"), q.t("private"), q.t("direct"), q.t("managed_nginx"), q.t("external_proxy")}, 1)
+			if e != nil {
+				return e
+			}
+			switch n {
+			case 2:
+				p.Exposure, p.Certificate = ExposurePrivate, ""
+			case 3:
+				p.Exposure, p.Certificate = ExposureDirect, CertificateAuto
+			case 4:
+				p.Exposure, p.Certificate = ExposureNginx, CertificateAuto
+			case 5:
+				p.Exposure, p.Certificate = ExposureExternalProxy, CertificateExternal
+			}
+		}
+	}
+
+	if p.Exposure == ExposureDirect && p.Certificate == CertificateAuto {
+		n, e := q.askChoice(q.t("certificate"), []string{q.t("cert_builtin"), q.t("cert_cloudflare"), q.t("cert_manual")}, 1)
+		if e != nil {
+			return e
+		}
+		p.Certificate = []CertificateSource{CertificateBuiltin, CertificateCloudflareDNS, CertificateManual}[n-1]
+	}
+	if p.Exposure == ExposureNginx && p.Certificate == CertificateAuto {
+		n, e := q.askChoice(q.t("certificate"), []string{q.t("cert_webroot"), q.t("cert_cloudflare"), q.t("cert_manual"), q.t("cert_origin")}, 1)
+		if e != nil {
+			return e
+		}
+		p.Certificate = []CertificateSource{CertificateWebroot, CertificateCloudflareDNS, CertificateManual, CertificateCloudflareOrigin}[n-1]
+	}
+	if p.Certificate == CertificateCloudflareDNS && p.CloudflareToken == "" {
+		p.CloudflareToken, err = q.askSecret(q.t("cloudflare_token"))
+		if err != nil {
+			return err
+		}
+		if !cloudflareAPIToken.MatchString(p.CloudflareToken) {
+			return fmt.Errorf("%s", q.t("cloudflare_invalid"))
+		}
+	}
+	if p.Certificate == CertificateManual || p.Certificate == CertificateCloudflareOrigin {
+		p.CertFile, err = q.ask(q.t("cert"), p.CertFile)
+		if err != nil {
+			return err
+		}
+		p.KeyFile, err = q.ask(q.t("key"), p.KeyFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	switch p.Exposure {
+	case ExposureDirect:
+		def := p.PanelPort
+		if !p.PanelPortExplicit && def == 8080 {
+			def = 443
+		}
+		p.PanelPort, err = q.askInt(q.t("https_port"), def, 1, 65535)
+		p.PublicPort = p.PanelPort
+		p.PanelPortExplicit = true
+		if err == nil && (p.Certificate == CertificateBuiltin || p.Certificate == CertificateIP) {
+			q.ui.Text(q.t("http01"))
+			p.ACMEHTTPPort, err = q.askInt(q.t("acme_port"), p.ACMEHTTPPort, 1, 65535)
+		}
+	case ExposurePrivate:
+		p.PanelPort, err = q.askInt(q.t("backend_port"), p.PanelPort, 1, 65535)
+		p.PanelPortExplicit = true
+	case ExposureNginx, ExposureExternalProxy:
+		backend := p.PanelPort
+		if !p.PanelPortExplicit && facts.BackendPort != 0 {
+			backend = facts.BackendPort
+		}
+		p.PanelPort, err = q.askInt(q.t("backend_port"), backend, 1, 65535)
+		p.PanelPortExplicit = true
+		if err == nil {
+			p.PublicPort, err = q.askInt(q.t("public_https_port"), p.PublicPort, 1, 65535)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	if p.Certificate == CertificateBuiltin || p.Certificate == CertificateWebroot || p.Certificate == CertificateCloudflareDNS || p.Certificate == CertificateIP {
+		p.ACMEEmail, err = q.ask(q.t("acme_email"), p.ACMEEmail)
+		if err != nil {
+			return err
+		}
+	}
+	resolved, err := ResolveExposure(*p, facts)
+	if err != nil {
+		return err
+	}
+	*p = resolved
+	return nil
+}
+
 func advancedSettingsRequested(p *Plan) bool {
 	return p.Mode.Valid() || p.TLSModeExplicit || p.PanelPortExplicit || p.ACMEHTTPPort != 80 ||
+		p.ExposureExplicit || p.CertificateExplicit || p.PublicPort != 443 || p.ACMEEmail != "" || p.CloudflareTokenFile != "" ||
 		p.PublicIP != "" || p.CertFile != "" || p.KeyFile != "" || p.Image != DefaultImage
 }
 
@@ -288,8 +365,13 @@ func (q *prompt) confirm(p Plan) error {
 	}
 	q.ui.Locale = i18n.En
 	q.ui.Section(q.t("review"))
+	certificate := string(p.Certificate)
+	if certificate == "" {
+		certificate = q.t("not_applicable")
+	}
 	fields := []struct{ k, v string }{
-		{"mode", string(p.Mode)}, {"panel", p.PanelURL()}, {"endpoint", p.VPNEndpoint()}, {"tls", string(p.TLSMode)},
+		{"mode", string(p.Mode)}, {"access_method", string(p.Exposure)}, {"certificate", certificate},
+		{"panel", p.PanelURL()}, {"endpoint", p.VPNEndpoint()},
 	}
 	if q.advanced {
 		fields = append(fields, struct{ k, v string }{"config", p.BootConfigPath()}, struct{ k, v string }{"data", p.DataDir})
@@ -309,6 +391,10 @@ func (q *prompt) confirm(p Plan) error {
 	}
 	if q.advanced {
 		q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
+		q.ui.Field(q.t("backend_port"), strconv.Itoa(p.PanelPort))
+		if p.PublicURL() != "" {
+			q.ui.Field(q.t("public_https_port"), strconv.Itoa(p.PublicPort))
+		}
 	}
 	pool, mtu, dns := p.VPNSubnet, p.MTU, p.ClientDNS
 	if pool == "" {
@@ -325,7 +411,7 @@ func (q *prompt) confirm(p Plan) error {
 		q.ui.Field(q.t("mtu"), strconv.Itoa(mtu))
 		q.ui.Field(q.t("dns"), dns)
 	}
-	if p.TLSMode == config.TLSModeACME {
+	if p.Certificate == CertificateBuiltin || p.Certificate == CertificateWebroot || p.Certificate == CertificateIP {
 		q.ui.Text(q.t("http01"))
 	}
 	if p.TelegramToken != "" {
