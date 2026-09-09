@@ -469,7 +469,7 @@ func TestDockerModeStartsInactiveSystemdDaemon(t *testing.T) {
 	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if !h.started || !h.ran("systemctl", "start", "docker.service") {
+	if !h.started || !h.ran("systemctl", "daemon-reload") || !h.ran("systemctl", "restart", "docker.socket") || !h.ran("systemctl", "start", "docker.service") {
 		t.Fatal("inactive Docker daemon was not started")
 	}
 }

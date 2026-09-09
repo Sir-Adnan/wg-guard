@@ -71,6 +71,25 @@ func TestSourceCorePurgeDryRunIsCompleteAndReadOnly(t *testing.T) {
 	}
 }
 
+func TestPackagePurgeStopsInstallerOwnedDockerSocket(t *testing.T) {
+	h := installedFixture(t, ModeDocker)
+	st, err := LoadState(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.PackagesInstalled = []string{"docker.io"}
+	if err := saveState(h, st); err != nil {
+		t.Fatal(err)
+	}
+	h.commands = nil
+	if _, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, PurgePackages: true, Stdout: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if !h.ran("systemctl", "stop", "docker.service", "docker.socket") {
+		t.Fatalf("installer-owned Docker socket remained active: %v", h.ranCommands())
+	}
+}
+
 func (h *nativeCleanupHost) Run(ctx context.Context, args []string, d time.Duration) error {
 	if h.failSeed && len(args) > 1 && args[0] == BinPath && args[1] == "settings" {
 		return errors.New("seed failed before unit creation")

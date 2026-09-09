@@ -177,6 +177,15 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 			rep.PurgedPkgs = append(rep.PurgedPkgs, "github-source:"+st.Core.Requested.ID)
 		}
 		if len(st.PackagesInstalled) > 0 {
+			dockerOwned := false
+			for _, name := range st.PackagesInstalled {
+				dockerOwned = dockerOwned || name == "docker.io"
+			}
+			if dockerOwned {
+				if err := runQuiet(ctx, h, []string{"systemctl", "stop", "docker.service", "docker.socket"}, time.Minute); err != nil {
+					return rep, err
+				}
+			}
 			pkgs := append([]string{"apt-get", "remove", "-y"}, st.PackagesInstalled...)
 			if err := runQuiet(ctx, h, pkgs, longTimeout); err != nil {
 				return rep, err

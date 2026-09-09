@@ -319,6 +319,12 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 				return r, terminalError("install.error.core.13")
 			}
 			progress(out, "docker_start")
+			if reloadErr := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, time.Minute); reloadErr != nil {
+				return r, terminalError("install.error.core.13")
+			}
+			if socketErr := runQuiet(ctx, h, []string{"systemctl", "restart", "docker.socket"}, time.Minute); socketErr != nil {
+				return r, terminalError("install.error.core.13")
+			}
 			if startErr := runQuiet(ctx, h, []string{"systemctl", "start", "docker.service"}, time.Minute); startErr != nil {
 				return r, terminalError("install.error.core.13")
 			}
