@@ -266,8 +266,9 @@ func runPanelUpdate(args []string) error {
 		}
 	}
 	if o.Selection.Channel != "" {
-		u.Info("Acquiring and verifying the selected WG-Guard build…")
+		stopHeartbeat := startUpdateHeartbeat(ctx, os.Stdout, "Acquiring and verifying the selected WG-Guard build…")
 		build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "")
+		stopHeartbeat()
 		if err != nil {
 			return err
 		}
