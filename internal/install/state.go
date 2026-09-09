@@ -19,7 +19,12 @@ func validateState(st *State) error {
 	if st.Mode == ModeDocker && st.ComposePath != ComposePth || st.Mode == ModeNative && (st.BinPath != BinPath || st.UnitPath != UnitPath) {
 		return terminalError("install.error.state")
 	}
-	if st.Schema >= 3 {
+	// An empty exposure record is the bounded migration sentinel written by the
+	// first schema-three updater when it upgraded a schema-one/two install. Keep
+	// it readable so a corrected update or access reconfiguration can recover
+	// from the live boot configuration. Any partially populated record remains
+	// strict and is rejected rather than guessed into shape.
+	if st.Schema >= 3 && st.Exposure != (ExposureState{}) {
 		if err := validateExposureState(st.Exposure); err != nil {
 			return err
 		}

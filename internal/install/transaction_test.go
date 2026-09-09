@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/config"
 )
 
 func TestLifecycleLockContention(t *testing.T) {
@@ -336,6 +338,72 @@ func TestLegacyInstallHealthyUpgradeRetainsCoordinatedRestoreRequirement(t *test
 		t.Fatal("rollback refusal mutated active binary")
 	}
 }
+
+func TestUpdateMigratesLegacyDirectACMEExposure(t *testing.T) {
+	m := installedFixture(t, ModeDocker)
+	contractFixture(m)
+
+	legacy, err := LoadState(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentConfig, err := ReadBootConfig(m, ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := Defaults()
+	p.Mode = ModeDocker
+	p.Exposure = ExposureDirect
+	p.Certificate = CertificateBuiltin
+	p.TLSMode = config.TLSModeACME
+	p.Domain = "panel.example.com"
+	p.PanelPort = 4443
+	p.ACMEHTTPPort = portOf(currentConfig.HTTPListen)
+	rawConfig, err := renderBootConfig(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.files[ConfigPath] = memFile{data: rawConfig, perm: 0o600}
+	legacy.Schema = 1
+	legacy.Exposure = ExposureState{}
+	legacy.TLSReadiness = ""
+	if err := saveState(m, legacy); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Update(context.Background(), m, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := LoadState(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upgraded.Schema != StateSchema || upgraded.Exposure.Mode != ExposureDirect || upgraded.Exposure.Certificate != CertificateBuiltin || upgraded.Exposure.PublicURL != "https://panel.example.com:4443" || upgraded.TLSReadiness != "pending" {
+		t.Fatalf("legacy exposure migration incomplete: schema=%d exposure=%+v tls=%q", upgraded.Schema, upgraded.Exposure, upgraded.TLSReadiness)
+	}
+}
+
+func TestLoadStateAcceptsInterruptedExposureMigrationSentinel(t *testing.T) {
+	h := installedFixture(t, ModeDocker)
+	st, err := LoadState(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Schema = StateSchema
+	st.Exposure = ExposureState{}
+	if err := saveState(h, st); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := LoadState(h)
+	if err != nil || loaded == nil {
+		t.Fatalf("interrupted migration became unreadable: state=%+v err=%v", loaded, err)
+	}
+	if loaded.Exposure != (ExposureState{}) {
+		t.Fatalf("read-only load rewrote migration sentinel: %+v", loaded.Exposure)
+	}
+}
+
 func TestIncompatibleUpdateCannotSkipBackup(t *testing.T) {
 	m := installedFixture(t, ModeNative)
 	contractFixture(m)

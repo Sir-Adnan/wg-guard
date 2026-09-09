@@ -43,6 +43,9 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	if st == nil {
 		return terminalError("install.error.no_state")
 	}
+	if err := migrateLegacyExposure(h, st); err != nil {
+		return err
+	}
 	if o.Stdout == nil {
 		o.Stdout = io.Discard
 	}
@@ -132,6 +135,33 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 		if old != nil && old.Binary != previous.Binary && old.Binary != j.Candidate.Binary {
 			removeArtifact(h, old)
 		}
+	}
+	return nil
+}
+
+// migrateLegacyExposure upgrades only topology that can be reconstructed
+// exactly from the authoritative boot configuration. It intentionally does
+// not claim ownership of arbitrary legacy manual-certificate paths.
+func migrateLegacyExposure(h Host, st *State) error {
+	if st.Exposure != (ExposureState{}) {
+		return nil
+	}
+	p, err := installedPlan(h, st)
+	if err != nil {
+		return err
+	}
+	if p.Certificate == CertificateManual || p.Certificate == CertificateCloudflareOrigin {
+		if p.CertFile != ManagedCertPath || p.KeyFile != ManagedKeyPath {
+			return nil
+		}
+	}
+	record := p.ExposureRecord()
+	if err := validateExposureState(record); err != nil {
+		return err
+	}
+	st.Exposure = record
+	if st.TLSReadiness == "" {
+		st.TLSReadiness = exposureTLSReadiness(p)
 	}
 	return nil
 }
