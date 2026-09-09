@@ -57,8 +57,8 @@ func ensurePinnedCheckout(ctx context.Context, h Host, b CoreBundle, component, 
 	if err := h.MkdirAll(path.Dir(destination), 0o750); err != nil {
 		return "", err
 	}
-	clone := []string{"git", "clone", "--quiet", "--depth", "1", "--branch", version, "--single-branch", repository, staging}
-	if err := h.Run(ctx, clone, longTimeout); err != nil {
+	clone := []string{"git", "-c", "advice.detachedHead=false", "clone", "--quiet", "--depth", "1", "--branch", version, "--single-branch", repository, staging}
+	if err := runQuiet(ctx, h, clone, longTimeout); err != nil {
 		return "", fmt.Errorf("install: download reviewed %s source: %w", component, err)
 	}
 	observed, err := h.Output(ctx, []string{"git", "-C", staging, "rev-parse", "HEAD"}, 15*time.Second)
@@ -102,10 +102,10 @@ func ensurePinnedTools(ctx context.Context, h Host, b CoreBundle) error {
 	if err != nil {
 		return err
 	}
-	if err := h.Run(ctx, []string{"make", "-C", path.Join(source, "src"), "clean"}, time.Minute); err != nil {
+	if err := runQuiet(ctx, h, []string{"make", "-C", path.Join(source, "src"), "clean"}, time.Minute); err != nil {
 		return fmt.Errorf("install: clean reviewed AWG tools build: %w", err)
 	}
-	if err := h.Run(ctx, []string{"make", "-C", path.Join(source, "src")}, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, []string{"make", "-C", path.Join(source, "src")}, longTimeout); err != nil {
 		return fmt.Errorf("install: build reviewed AWG tools: %w", err)
 	}
 	built := path.Join(source, "src", "wg")
@@ -124,7 +124,7 @@ func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle
 		return nil
 	}
 	if raw, err := h.Output(ctx, []string{"dkms", "status", "-m", "amneziawg", "-v", b.KernelDKMSVersion}, 15*time.Second); err == nil && strings.TrimSpace(raw) != "" {
-		if err := h.Run(ctx, []string{"dkms", "remove", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
+		if err := runQuiet(ctx, h, []string{"dkms", "remove", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
 			return fmt.Errorf("install: remove incomplete reviewed AWG module: %w", err)
 		}
 	}
@@ -138,17 +138,17 @@ func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle
 		return err
 	}
 	makeArgs := []string{"make", "-C", path.Join(source, "src"), "WIREGUARD_VERSION=" + b.KernelDKMSVersion, "DKMSDIR=" + dkmsSource, "dkms-install"}
-	if err := h.Run(ctx, makeArgs, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, makeArgs, longTimeout); err != nil {
 		return fmt.Errorf("install: prepare reviewed AWG DKMS source: %w", err)
 	}
-	dkmsConfig := fmt.Sprintf("PACKAGE_NAME=\"amneziawg\"\nPACKAGE_VERSION=\"%s\"\nAUTOINSTALL=yes\nREMAKE_INITRD=yes\n\nBUILT_MODULE_NAME=\"amneziawg\"\nDEST_MODULE_LOCATION=\"/kernel/net\"\n", b.KernelDKMSVersion)
+	dkmsConfig := fmt.Sprintf("PACKAGE_NAME=\"amneziawg\"\nPACKAGE_VERSION=\"%s\"\nAUTOINSTALL=yes\n\nBUILT_MODULE_NAME=\"amneziawg\"\nDEST_MODULE_LOCATION=\"/kernel/net\"\n", b.KernelDKMSVersion)
 	if err := h.WriteFile(path.Join(dkmsSource, "dkms.conf"), []byte(dkmsConfig), 0o644); err != nil {
 		return err
 	}
-	if err := h.Run(ctx, []string{"dkms", "add", "-m", "amneziawg", "-v", b.KernelDKMSVersion}, time.Minute); err != nil {
+	if err := runQuiet(ctx, h, []string{"dkms", "add", "-m", "amneziawg", "-v", b.KernelDKMSVersion}, time.Minute); err != nil {
 		return fmt.Errorf("install: register reviewed AWG module with DKMS: %w", err)
 	}
-	if err := h.Run(ctx, []string{"dkms", "install", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "-k", kernel}, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, []string{"dkms", "install", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "-k", kernel}, longTimeout); err != nil {
 		return fmt.Errorf("install: build reviewed AWG module for kernel %s: %w", kernel, err)
 	}
 	if !dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
@@ -183,7 +183,7 @@ func purgePinnedSourceCore(ctx context.Context, h Host, r CoreReport) error {
 		if !sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) || r.KernelDKMS != b.KernelDKMSVersion {
 			return fmt.Errorf("uninstall: managed AWG module ownership marker is missing")
 		}
-		if err := h.Run(ctx, []string{"dkms", "remove", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
+		if err := runQuiet(ctx, h, []string{"dkms", "remove", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
 			return fmt.Errorf("uninstall: remove reviewed AWG module: %w", err)
 		}
 		if err := h.RemoveAll(path.Join("/usr/src", "amneziawg-"+b.KernelDKMSVersion)); err != nil {

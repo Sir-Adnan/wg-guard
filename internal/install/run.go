@@ -235,6 +235,8 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		return nil, err
 	}
 	st.Platform = platform
+	step(out, "System prerequisites")
+	progress(out, "quiet_log", InstallerLogPath)
 	st.Core, err = EnsurePrerequisites(ctx, journalHost{Host: h, j: j}, p, platform, bundle, o.Prerequisites, o.SkipModule, st, out)
 	if err != nil {
 		return st, err
@@ -293,6 +295,8 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		return st, err
 	}
 	if o.StageParent != "" && p.Mode == ModeDocker && p.Image == DefaultImage {
+		step(out, "Runtime image")
+		progress(out, "runtime_build")
 		p.Image, err = BuildRuntimeImage(ctx, h, o.Build, bundle, o.StageParent)
 		if err != nil {
 			return st, err
@@ -393,7 +397,7 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	if _, err := h.LookPath("docker"); err != nil {
 		return fmt.Errorf("install: docker not found — install docker first (https://docs.docker.com/engine/install/) or use --mode native")
 	}
-	if err := h.Run(ctx, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+	if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
 		return fmt.Errorf("install: docker compose plugin missing (%v) — install docker-compose-plugin", err)
 	}
 
@@ -433,7 +437,7 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 			return err
 		}
 	}
-	if err := h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "up", "-d"}, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, []string{"docker", "compose", "-f", ComposePth, "up", "-d"}, longTimeout); err != nil {
 		return fmt.Errorf("install: docker compose up: %w", err)
 	}
 	return nil
@@ -472,7 +476,7 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 		return fmt.Errorf("install: write unit: %w", err)
 	}
 	st.UnitPath = UnitPath
-	if err := h.Run(ctx, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
+	if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
 		return fmt.Errorf("install: daemon-reload: %w", err)
 	}
 	if beforeStart != nil {
@@ -480,7 +484,7 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 			return err
 		}
 	}
-	if err := h.Run(ctx, []string{"systemctl", "enable", "--now", "wg-guard"}, 60*time.Second); err != nil {
+	if err := runQuiet(ctx, h, []string{"systemctl", "enable", "--now", "wg-guard"}, 60*time.Second); err != nil {
 		return fmt.Errorf("install: enable service: %w", err)
 	}
 	progress(out, "started")

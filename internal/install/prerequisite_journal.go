@@ -13,6 +13,14 @@ type journalHost struct {
 }
 
 func (h journalHost) Run(ctx context.Context, args []string, timeout time.Duration) error {
+	return h.run(ctx, args, timeout, false)
+}
+
+func (h journalHost) RunQuiet(ctx context.Context, args []string, timeout time.Duration) error {
+	return h.run(ctx, args, timeout, true)
+}
+
+func (h journalHost) run(ctx context.Context, args []string, timeout time.Duration, quiet bool) error {
 	if len(args) > 1 && args[0] == "apt-get" && args[1] == "install" {
 		for _, arg := range args[2:] {
 			if strings.HasPrefix(arg, "-") {
@@ -28,7 +36,12 @@ func (h journalHost) Run(ctx context.Context, args []string, timeout time.Durati
 	if err := h.j.save(h.Host, "prerequisites"); err != nil {
 		return err
 	}
-	err := h.Host.Run(ctx, args, timeout)
+	var err error
+	if quiet {
+		err = runQuiet(ctx, h.Host, args, timeout)
+	} else {
+		err = h.Host.Run(ctx, args, timeout)
+	}
 	if saveErr := h.j.save(h.Host, "prerequisites"); saveErr != nil {
 		return saveErr
 	}

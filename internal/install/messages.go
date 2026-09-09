@@ -21,7 +21,7 @@ func progress(out io.Writer, key string, args ...any) {
 	u := progressUI(out)
 	message := u.T("progress."+key, args...)
 	switch key {
-	case "healthy", "started", "port_free", "dns", "certificate", "nginx_challenge", "nginx":
+	case "healthy", "started", "port_free", "dns", "certificate", "nginx_challenge", "nginx", "core_ready":
 		u.Success(message)
 	case "persistence", "dns_pending":
 		u.Warning(message)

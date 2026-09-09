@@ -205,7 +205,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 				return r, err
 			}
 		}
-		if err := h.Run(ctx, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+		if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
 			// Ubuntu's plugin recommends (does not require) docker.io. Disable
 			// recommends and removals so an existing Docker CE engine is preserved.
 			if !automatic {
@@ -240,7 +240,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	// On the explicit Ubuntu adapter, source preparation is a prerequisite
 	// mutation. Core/deployment writes still wait for BOTH exact package pins.
 	if len(pending) > 0 && automatic {
-		if err := h.Run(ctx, []string{"apt-get", "update"}, longTimeout); err != nil {
+		if err := runQuiet(ctx, h, []string{"apt-get", "update"}, longTimeout); err != nil {
 			return r, terminalError("install.error.core.7")
 		}
 		needCore := false
@@ -273,7 +273,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			}
 			args = append(args, arg)
 		}
-		installErr := h.Run(ctx, args, longTimeout)
+		installErr := runQuiet(ctx, h, args, longTimeout)
 		for _, dep := range pending {
 			if installedPackage(ctx, h, dep.name) != "" {
 				st.PackagesInstalled = addUnique(st.PackagesInstalled, dep.name)
@@ -284,6 +284,8 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 	}
 	if b.Source == coreSourceGitHub && automatic {
+		step(out, "AmneziaWG core")
+		progress(out, "core_source", b.ID)
 		if p.Mode == ModeNative {
 			if err := ensurePinnedTools(ctx, h, b); err != nil {
 				return r, err
@@ -294,6 +296,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 				return r, err
 			}
 		}
+		progress(out, "core_ready", b.ID)
 	}
 	requiredTools := []string{}
 	if p.Mode == ModeNative {
@@ -308,10 +311,10 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 	}
 	if p.Mode == ModeDocker {
-		if err := h.Run(ctx, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+		if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
 			return r, terminalError("install.error.core.12")
 		}
-		if err := h.Run(ctx, []string{"docker", "info"}, 30*time.Second); err != nil {
+		if err := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); err != nil {
 			return r, terminalError("install.error.core.13")
 		}
 	}
@@ -342,10 +345,10 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			if b.KernelDKMSVersion != "" {
 				dkmsVersion = b.KernelDKMSVersion
 			}
-			if err := h.Run(ctx, []string{"dkms", "install", "-m", "amneziawg", "-v", dkmsVersion, "-k", platform.Kernel}, longTimeout); err != nil {
+			if err := runQuiet(ctx, h, []string{"dkms", "install", "-m", "amneziawg", "-v", dkmsVersion, "-k", platform.Kernel}, longTimeout); err != nil {
 				return r, terminalError("install.error.core.18")
 			}
-			if err := h.Run(ctx, []string{"depmod", "-a", platform.Kernel}, time.Minute); err != nil {
+			if err := runQuiet(ctx, h, []string{"depmod", "-a", platform.Kernel}, time.Minute); err != nil {
 				return r, terminalError("install.error.core.19")
 			}
 			if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err != nil {
@@ -379,7 +382,7 @@ func prepareUbuntuRepository(ctx context.Context, h Host, st *State) error {
 	}
 	if len(missing) > 0 {
 		args := append([]string{"apt-get", "install", "-y", "--no-install-recommends", "--no-upgrade", "--no-remove"}, missing...)
-		err := h.Run(ctx, args, longTimeout)
+		err := runQuiet(ctx, h, args, longTimeout)
 		for _, name := range missing {
 			if installedPackage(ctx, h, name) != "" {
 				st.PackagesInstalled = addUnique(st.PackagesInstalled, name)
@@ -391,12 +394,12 @@ func prepareUbuntuRepository(ctx context.Context, h Host, st *State) error {
 	}
 	policy, _ := h.Output(ctx, []string{"apt-cache", "policy"}, 15*time.Second)
 	if !strings.Contains(policy, "ppa.launchpadcontent.net/amnezia/ppa/ubuntu") && !strings.Contains(policy, "ppa.launchpad.net/amnezia/ppa/ubuntu") {
-		if err := h.Run(ctx, []string{"add-apt-repository", "-y", "ppa:amnezia/ppa"}, longTimeout); err != nil {
+		if err := runQuiet(ctx, h, []string{"add-apt-repository", "-y", "ppa:amnezia/ppa"}, longTimeout); err != nil {
 			return terminalError("install.error.core.25")
 		}
 		st.RepositoryChanges = addUnique(st.RepositoryChanges, "ppa:amnezia/ppa (host Ubuntu suite; retained on uninstall)")
 	}
-	if err := h.Run(ctx, []string{"apt-get", "update"}, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, []string{"apt-get", "update"}, longTimeout); err != nil {
 		return terminalError("install.error.core.26")
 	}
 	return nil

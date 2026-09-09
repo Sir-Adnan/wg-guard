@@ -3,16 +3,19 @@
 set -euo pipefail
 umask 077
 
-ui_cyan= ui_green= ui_dim= ui_reset=
+ui_cyan= ui_green= ui_yellow= ui_red= ui_dim= ui_reset=
 if [[ -t 2 && ${TERM:-dumb} != dumb && -z ${NO_COLOR:-} ]]; then
-  ui_cyan=$'\033[36;1m'; ui_green=$'\033[32;1m'; ui_dim=$'\033[2m'; ui_reset=$'\033[0m'
+  ui_cyan=$'\033[36;1m'; ui_green=$'\033[32;1m'; ui_yellow=$'\033[33;1m'; ui_red=$'\033[31;1m'; ui_dim=$'\033[2m'; ui_reset=$'\033[0m'
 fi
 ui_header() {
   printf '\n%sWG-GUARD%s\n%sSecure AmneziaWG node setup%s\n%s\n' "$ui_cyan" "$ui_reset" "$ui_dim" "$ui_reset" '------------------------------------------------------------------------' >&2
 }
 ui_step() { printf '\n%s[%s]%s %s\n' "$ui_cyan" "$1" "$ui_reset" "$2" >&2; }
 ui_ok() { printf '%sOK%s  %s\n' "$ui_green" "$ui_reset" "$1" >&2; }
+ui_warn() { printf '%sWARN%s  %s\n' "$ui_yellow" "$ui_reset" "$1" >&2; }
+ui_error() { printf '%sERROR%s  %s\n' "$ui_red" "$ui_reset" "$1" >&2; }
 ui_note() { printf '%s%s%s\n' "$ui_dim" "$1" "$ui_reset" >&2; }
+die() { ui_error "$1"; exit "${2:-2}"; }
 
 channel=release
 ref=latest
@@ -32,7 +35,7 @@ while (($#)); do
         'Advanced install flags (for example --yes --mode native) are forwarded unchanged.'
       exit 0 ;;
     --release|--commit)
-      (($# >= 2)) || { printf 'Missing selection value\n' >&2; exit 2; }
+      (($# >= 2)) || die 'Missing selection value'
       channel=${1#--}; ref=$2; shift 2 ;;
     --list-releases) list=1; shift ;;
     --refresh) refresh=1; shift ;;
@@ -41,10 +44,10 @@ while (($#)); do
   esac
 done
 ((list)) || { ui_header; ui_step '1/4' 'Checking system compatibility'; }
-[[ $(uname -s) == Linux ]] || { printf 'Only Linux is supported\n' >&2; exit 2; }
+[[ $(uname -s) == Linux ]] || die 'Only Linux is supported'
 os_id=
 os_version=
-[[ -r /etc/os-release ]] || { printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2; }
+[[ -r /etc/os-release ]] || die 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64'
 while IFS='=' read -r key value; do
   value=${value%$'\r'}
   value=${value#\"}; value=${value%\"}
@@ -52,15 +55,15 @@ while IFS='=' read -r key value; do
   case "$key" in ID) os_id=$value;; VERSION_ID) os_version=$value;; esac
 done < /etc/os-release
 if [[ $os_id != ubuntu || ! $os_version =~ ^([0-9]+)\.([0-9]+)$ ]]; then
-  printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2
+  die 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64'
 fi
 os_year=$((10#${BASH_REMATCH[1]})); os_month=$((10#${BASH_REMATCH[2]}))
-((os_year > 24 || os_year == 24 && os_month >= 4)) || { printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2; }
-case $(uname -m) in x86_64|amd64) arch=amd64;; *) printf 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64\n' >&2; exit 2;; esac
+((os_year > 24 || os_year == 24 && os_month >= 4)) || die 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64'
+case $(uname -m) in x86_64|amd64) arch=amd64;; *) die 'WG-Guard requires Ubuntu 24.04 or newer on amd64/x86_64';; esac
 ((list)) || ui_ok "Ubuntu $os_version · $arch"
 sudo_cmd=()
 if [[ $(id -u) != 0 ]]; then
-  command -v sudo >/dev/null || { printf 'Run as root or install sudo\n' >&2; exit 2; }
+  command -v sudo >/dev/null || die 'Run as root or install sudo'
   sudo_cmd=(sudo)
 fi
 
@@ -123,7 +126,7 @@ for pair in curl:curl python3:python3 tar:tar sha256sum:coreutils; do
 done
 [[ -s /etc/ssl/certs/ca-certificates.crt ]] || missing+=(ca-certificates)
 if ((${#missing[@]})); then
-  command -v apt-get >/dev/null || { printf 'Install prerequisites: %s\n' "${missing[*]}" >&2; exit 2; }
+  command -v apt-get >/dev/null || die "Install prerequisites: ${missing[*]}"
   "${sudo_cmd[@]}" apt-get update
   "${sudo_cmd[@]}" apt-get install -y --no-install-recommends "${missing[@]}"
 fi
@@ -136,10 +139,10 @@ trap 'exit 143' TERM
 if ((list == 0)); then
   ui_step '3/4' 'Acquiring verified build'
   if [[ $channel == commit ]]; then
-    ui_note 'A development source build can take several minutes. Future runs use the installed manager.'
+    ui_warn 'Development source selected. The first verified build can take several minutes; future runs use the local manager.'
   fi
 fi
-python3 -I - "$channel" "$ref" "$arch" "$stage" "$list" <<'PY'
+if ! python3 -I - "$channel" "$ref" "$arch" "$stage" "$list" <<'PY'
 import gzip,hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,urllib.parse
 channel,ref,arch,stage,list_only=sys.argv[1:]
 stage=pathlib.Path(stage)
@@ -284,7 +287,8 @@ try:
         env.update(HOME=str(stage),TMPDIR=str(stage),GOCACHE=str(stage/'cache'),GOMODCACHE=str(stage/'modules'),GOPATH=str(stage/'gopath'),GOENV='off',GOWORK='off',GOTOOLCHAIN='local',CGO_ENABLED='0',GOOS='linux',GOARCH=arch,GOPROXY='https://proxy.golang.org,direct',GOSUMDB='sum.golang.org')
         go=compiler(go_version('go'+match[1]),env)
         flags='-s -w -X github.com/Sir-Adnan/wg-guard/internal/version.Version='+version+' -X github.com/Sir-Adnan/wg-guard/internal/version.Commit='+sha
-        subprocess.run([go,'build','-trimpath','-buildvcs=false','-mod=readonly','-modcacherw','-ldflags',flags,'-o',str(candidate),'./cmd/wg-guard'],cwd=source,env=env,check=True,timeout=900)
+        with (stage/'build.log').open('ab') as build_log:
+            subprocess.run([go,'build','-trimpath','-buildvcs=false','-mod=readonly','-modcacherw','-ldflags',flags,'-o',str(candidate),'./cmd/wg-guard'],cwd=source,env=env,stdout=build_log,stderr=build_log,check=True,timeout=900)
         require(candidate.is_file() and 0<candidate.stat().st_size<=256<<20,'Invalid compiler output')
         h=hashlib.sha256()
         with candidate.open('rb') as f:
@@ -309,6 +313,10 @@ except (ValueError,KeyError,TypeError,OSError,tarfile.TarError) as error:
     print('WG-Guard acquisition failed: '+str(error),file=sys.stderr)
     sys.exit(1)
 PY
+then
+  ui_error 'Verified build acquisition did not complete. Review the message above and retry.'
+  exit 1
+fi
 ((list)) && exit 0
 read -r selected_version selected_commit < <(python3 -I - "$stage/build.json" <<'PY'
 import json,sys
@@ -323,8 +331,7 @@ run_metadata="$stage/build.json"
 # setup. A canceled or failed installation can therefore be retried locally.
 if ! "${sudo_cmd[@]}" test -f "$installed_state"; then
   if "${sudo_cmd[@]}" test -e "$installed_bin" && ! "${sudo_cmd[@]}" test -f "$manager_receipt"; then
-    printf 'Refusing to replace an unmanaged %s; move it explicitly and retry\n' "$installed_bin" >&2
-    exit 2
+    die "Refusing to replace an unmanaged $installed_bin; move it explicitly and retry"
   fi
   manager_dir=${manager_receipt%/*}
   "${sudo_cmd[@]}" install -d -m 0700 "$manager_dir"

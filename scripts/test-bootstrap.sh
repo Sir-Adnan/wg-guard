@@ -18,6 +18,7 @@ p=pathlib.Path(%r)
 if sys.argv[1]=='version':
  print('go version '+('go1.20.0' if (p/'old-go').exists() else 'go1.99.0')+' linux/amd64');sys.exit(0)
 with (p/'build-args').open('a') as f:f.write(' '.join(sys.argv[1:])+'\\n')
+print('SYNTHETIC COMPILER NOISE',file=sys.stderr)
 pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_bytes((p/'binary').read_bytes())
 ''' % str(p)
 (p/'bin'/'go').write_text(go_script)
@@ -164,7 +165,8 @@ test "$(cat "$fixture/list")" = v1 || fail 'list dispatch'
 cat "$fixture/bootstrap" | bash -s -- --release v1 --yes
 test ! -e "$fixture/input" || fail 'piped script consumed as answers'
 test -z "$(ls -A "$fixture/tmp")" || fail 'piped cleanup'
-bash "$fixture/bootstrap" --commit main --yes </dev/null
+source_output=$(bash "$fixture/bootstrap" --commit main --yes </dev/null 2>&1)
+case "$source_output" in *'SYNTHETIC COMPILER NOISE'*) fail 'successful source build leaked compiler noise';; esac
 test -s "$fixture/build-args" || fail 'source build did not execute'
 rm "$fixture/build-args"
 touch "$fixture/old-go"

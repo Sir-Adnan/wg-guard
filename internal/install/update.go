@@ -282,7 +282,7 @@ func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (re
 			return nil, terminalError("install.error.image_identity")
 		}
 		if !o.LocalImage {
-			if err := h.Run(ctx, []string{"docker", "pull", o.Image}, longTimeout); err != nil {
+			if err := runQuiet(ctx, h, []string{"docker", "pull", o.Image}, longTimeout); err != nil {
 				return nil, err
 			}
 		}
@@ -372,9 +372,9 @@ func deployArtifact(h Host, st *State, a *Artifact) error {
 }
 func startService(ctx context.Context, h Host, st *State) error {
 	if st.Mode == ModeDocker {
-		return h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "up", "-d", "--pull", "never"}, longTimeout)
+		return runQuiet(ctx, h, []string{"docker", "compose", "-f", ComposePth, "up", "-d", "--pull", "never"}, longTimeout)
 	}
-	return h.Run(ctx, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second)
+	return runQuiet(ctx, h, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second)
 }
 func stopService(ctx context.Context, h Host, st *State) error {
 	if st.Mode == ModeDocker {
@@ -382,7 +382,7 @@ func stopService(ctx context.Context, h Host, st *State) error {
 			if err != nil {
 				return err
 			}
-			if err := h.Run(ctx, []string{"docker", "compose", "-f", ComposePth, "down"}, longTimeout); err != nil {
+			if err := runQuiet(ctx, h, []string{"docker", "compose", "-f", ComposePth, "down"}, longTimeout); err != nil {
 				return err
 			}
 		}
@@ -459,7 +459,7 @@ func stopNativeService(ctx context.Context, h Host) (bool, error) {
 	if s.absent() {
 		return true, nil
 	}
-	if err := h.Run(ctx, []string{"systemctl", "stop", "wg-guard"}, 60*time.Second); err != nil {
+	if err := runQuiet(ctx, h, []string{"systemctl", "stop", "wg-guard"}, 60*time.Second); err != nil {
 		return false, err
 	}
 	s, err = inspectNativeUnit(ctx, h)

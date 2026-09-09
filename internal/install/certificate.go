@@ -132,7 +132,7 @@ func prepareCertificate(ctx context.Context, h Host, p Plan, st *State, out io.W
 			clear(credentials)
 		}
 		args := certbotIssueArgs(p, identifier, lineage)
-		if err := h.Run(ctx, args, longTimeout); err != nil {
+		if err := runQuiet(ctx, h, args, longTimeout); err != nil {
 			return fail(fmt.Errorf("installer: automatic certificate issuance failed: %w", err))
 		}
 		sourceCert = CertbotLivePath(lineage) + "/fullchain.pem"
@@ -196,16 +196,16 @@ func ensureCertbotWithPolicy(ctx context.Context, h Host, cloudflare, automaticP
 			if platformErr != nil || platform.OS != "ubuntu" || !supportedUbuntuVersion(platform.Version) || platform.Arch != "amd64" || platform.Init != "systemd" {
 				return fmt.Errorf("installer: automatic snapd preparation requires supported Ubuntu 24.04+ amd64 with systemd")
 			}
-			if runErr := h.Run(ctx, []string{"apt-get", "update"}, longTimeout); runErr != nil {
+			if runErr := runQuiet(ctx, h, []string{"apt-get", "update"}, longTimeout); runErr != nil {
 				return fmt.Errorf("installer: refresh packages for snapd: %w", runErr)
 			}
-			if runErr := h.Run(ctx, []string{"apt-get", "install", "-y", "--no-install-recommends", "--no-upgrade", "--no-remove", "snapd"}, longTimeout); runErr != nil {
+			if runErr := runQuiet(ctx, h, []string{"apt-get", "install", "-y", "--no-install-recommends", "--no-upgrade", "--no-remove", "snapd"}, longTimeout); runErr != nil {
 				return fmt.Errorf("installer: install shared snapd prerequisite: %w", runErr)
 			}
-			if runErr := h.Run(ctx, []string{"systemctl", "enable", "--now", "snapd.socket"}, time.Minute); runErr != nil {
+			if runErr := runQuiet(ctx, h, []string{"systemctl", "enable", "--now", "snapd.socket"}, time.Minute); runErr != nil {
 				return fmt.Errorf("installer: activate snapd socket: %w", runErr)
 			}
-			if runErr := h.Run(ctx, []string{"snap", "wait", "system", "seed.loaded"}, longTimeout); runErr != nil {
+			if runErr := runQuiet(ctx, h, []string{"snap", "wait", "system", "seed.loaded"}, longTimeout); runErr != nil {
 				return fmt.Errorf("installer: wait for snapd initialization: %w", runErr)
 			}
 			if _, lookErr = h.LookPath("snap"); lookErr != nil {
@@ -223,7 +223,7 @@ func ensureCertbotWithPolicy(ctx context.Context, h Host, cloudflare, automaticP
 			commands = append(commands, []string{"snap", "install", "--classic", "certbot"})
 		}
 		for _, args := range commands {
-			if runErr := h.Run(ctx, args, longTimeout); runErr != nil {
+			if runErr := runQuiet(ctx, h, args, longTimeout); runErr != nil {
 				return fmt.Errorf("installer: prepare official Certbot snap: %w", runErr)
 			}
 		}
@@ -234,10 +234,10 @@ func ensureCertbotWithPolicy(ctx context.Context, h Host, cloudflare, automaticP
 	}
 	if cloudflare {
 		if !snapPackageInstalled(ctx, h, "certbot-dns-cloudflare") {
-			if err := h.Run(ctx, []string{"snap", "set", "certbot", "trust-plugin-with-root=ok"}, 30*time.Second); err != nil {
+			if err := runQuiet(ctx, h, []string{"snap", "set", "certbot", "trust-plugin-with-root=ok"}, 30*time.Second); err != nil {
 				return fmt.Errorf("installer: authorize Certbot DNS plugin: %w", err)
 			}
-			if err := h.Run(ctx, []string{"snap", "install", "certbot-dns-cloudflare"}, longTimeout); err != nil {
+			if err := runQuiet(ctx, h, []string{"snap", "install", "certbot-dns-cloudflare"}, longTimeout); err != nil {
 				return fmt.Errorf("installer: install Certbot Cloudflare plugin: %w", err)
 			}
 		}

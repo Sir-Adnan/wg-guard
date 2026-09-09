@@ -98,7 +98,7 @@ func seedSettings(ctx context.Context, h Host, p Plan, out io.Writer) error {
 		if s.stdin != "" {
 			err = h.RunWithInput(ctx, s.argv, strings.NewReader(s.stdin+"\n"), seedTimeout)
 		} else {
-			err = h.Run(ctx, s.argv, seedTimeout)
+			err = runQuiet(ctx, h, s.argv, seedTimeout)
 		}
 		if err != nil {
 			return fmt.Errorf("install: apply %s: %w", s.label, err)

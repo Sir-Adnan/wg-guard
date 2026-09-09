@@ -75,7 +75,7 @@ func RenewManagedCertificate(ctx context.Context, h Host) error {
 	unlock()
 
 	args := []string{CertbotPath, "renew", "--cert-name", st.Exposure.Lineage, "--no-random-sleep-on-renew"}
-	if err := h.Run(ctx, args, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, args, longTimeout); err != nil {
 		return fmt.Errorf("installer: certificate renewal check failed: %w", err)
 	}
 	return nil

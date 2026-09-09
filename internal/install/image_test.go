@@ -15,11 +15,17 @@ import (
 
 type imageHost struct {
 	*memHost
-	t         *testing.T
-	identity  string
-	fail      bool
-	builds    int
-	buildArgs []string
+	t           *testing.T
+	identity    string
+	fail        bool
+	builds      int
+	quietBuilds int
+	buildArgs   []string
+}
+
+func (h *imageHost) RunQuiet(ctx context.Context, a []string, d time.Duration) error {
+	h.quietBuilds++
+	return h.Run(ctx, a, d)
 }
 
 func (h *imageHost) Run(ctx context.Context, a []string, d time.Duration) error {
@@ -65,7 +71,7 @@ func TestRuntimeImageUsesAcquiredBinaryAndPrivateContext(t *testing.T) {
 	h := &imageHost{memHost: newMemHost(), t: t, identity: "sha256:" + strings.Repeat("b", 64)}
 	b, _ := SelectCore("recommended")
 	got, err := BuildRuntimeImage(context.Background(), h, build, b, parent)
-	if err != nil || got != h.identity || h.builds != 1 {
+	if err != nil || got != h.identity || h.builds != 1 || h.quietBuilds != 1 {
 		t.Fatalf("image identity %q: %v", got, err)
 	}
 	if !contains(h.buildArgs, "io.wg-guard.awg-tools.commit="+b.ToolsCommit) {

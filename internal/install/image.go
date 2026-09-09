@@ -60,7 +60,7 @@ func BuildRuntimeImage(ctx context.Context, h Host, build distribution.Build, b 
 	}
 	iid := filepath.Join(dir, "image-id")
 	args := []string{"docker", "build", "--iidfile", iid, "--label", "org.opencontainers.image.revision=" + build.Commit, "--label", "io.wg-guard.binary.sha256=" + build.SHA256, "--label", "io.wg-guard.core.bundle=" + b.ID, "--label", "io.wg-guard.awg-tools.commit=" + b.ToolsCommit, dir}
-	if err := h.Run(ctx, args, longTimeout); err != nil {
+	if err := runQuiet(ctx, h, args, longTimeout); err != nil {
 		return "", terminalError("install.error.image.6", err)
 	}
 	file, err := os.Open(iid)
@@ -93,7 +93,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates git build-essential \
  && rm -rf /var/lib/apt/lists/*
-RUN git clone --quiet --depth 1 --branch ` + b.ToolsVersion + ` --single-branch ` + b.ToolsRepository + ` /src/amneziawg-tools \
+RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch ` + b.ToolsVersion + ` --single-branch ` + b.ToolsRepository + ` /src/amneziawg-tools \
  && test "$(git -C /src/amneziawg-tools rev-parse HEAD)" = "` + b.ToolsCommit + `" \
  && git -C /src/amneziawg-tools diff --quiet ` + b.ToolsCommit + ` -- \
  && make -C /src/amneziawg-tools/src

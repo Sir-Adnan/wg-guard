@@ -178,7 +178,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		}
 		if len(st.PackagesInstalled) > 0 {
 			pkgs := append([]string{"apt-get", "remove", "-y"}, st.PackagesInstalled...)
-			if err := h.Run(ctx, pkgs, longTimeout); err != nil {
+			if err := runQuiet(ctx, h, pkgs, longTimeout); err != nil {
 				return rep, err
 			}
 			rep.PurgedPkgs = append(rep.PurgedPkgs, st.PackagesInstalled...)

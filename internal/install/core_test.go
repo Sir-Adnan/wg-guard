@@ -144,6 +144,16 @@ type sourceCoreHost struct {
 	dkmsInstalled bool
 }
 
+type quietSourceCoreHost struct {
+	*sourceCoreHost
+	quiet [][]string
+}
+
+func (h *quietSourceCoreHost) RunQuiet(ctx context.Context, a []string, d time.Duration) error {
+	h.quiet = append(h.quiet, append([]string(nil), a...))
+	return h.Run(ctx, a, d)
+}
+
 func newSourceCoreHost() *sourceCoreHost {
 	h := &sourceCoreHost{packageHost: newPackageHost(), revision: "4569c4c67f3a57414969260cafbbd04694fbaae0"}
 	delete(h.available, "amneziawg-tools")
@@ -191,13 +201,13 @@ func TestMissingAWGPackagesUsePinnedGitHubSource(t *testing.T) {
 	if h.ran("add-apt-repository") {
 		t.Fatal("mutable PPA remained on the critical installation path")
 	}
-	if !h.ran("git", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260906") {
+	if !h.ran("git", "-c", "advice.detachedHead=false", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260906") {
 		t.Fatalf("kernel source was not fetched from the reviewed tag: %v", h.ranCommands())
 	}
 	if !h.ran("dkms", "install", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "-k", r.Kernel) {
 		t.Fatalf("reviewed module was not installed with DKMS: %v", h.ranCommands())
 	}
-	if !h.ran("git", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260812") {
+	if !h.ran("git", "-c", "advice.detachedHead=false", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260812") {
 		t.Fatalf("tools source was not fetched from the reviewed tag: %v", h.ranCommands())
 	}
 	if got := string(h.files[ManagedAWGBinaryPath].data); got != "reviewed awg binary" {
@@ -206,6 +216,31 @@ func TestMissingAWGPackagesUsePinnedGitHubSource(t *testing.T) {
 	for _, arg := range h.installedArgs {
 		if strings.HasPrefix(arg, "amneziawg-") {
 			t.Fatalf("AWG package unexpectedly installed from PPA: %q", arg)
+		}
+	}
+	dkmsConfig := string(h.files["/usr/src/amneziawg-"+b.KernelDKMSVersion+"/dkms.conf"].data)
+	if strings.Contains(dkmsConfig, "REMAKE_INITRD") || !strings.Contains(dkmsConfig, `PACKAGE_VERSION="`+b.KernelDKMSVersion+`"`) {
+		t.Fatalf("managed DKMS config is noisy or unversioned:\n%s", dkmsConfig)
+	}
+}
+
+func TestSourceCoreKeepsNoisyBuildCommandsOutOfTheTerminal(t *testing.T) {
+	h := &quietSourceCoreHost{sourceCoreHost: newSourceCoreHost()}
+	b, _ := SelectCore("recommended")
+	r, _ := InspectPlatform(context.Background(), h)
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, false, &State{}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{"git", "make", "dkms"} {
+		found := false
+		for _, argv := range h.quiet {
+			if len(argv) > 0 && argv[0] == command {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("%s did not use the quiet installer runner: %v", command, h.quiet)
 		}
 	}
 }
@@ -369,6 +404,16 @@ func TestOtherLinuxExternalCoreChecksToolsWithoutUbuntuPackages(t *testing.T) {
 
 type missingDockerHost struct{ *packageHost }
 
+type quietMissingDockerHost struct {
+	*missingDockerHost
+	quiet [][]string
+}
+
+func (h *quietMissingDockerHost) RunQuiet(ctx context.Context, a []string, d time.Duration) error {
+	h.quiet = append(h.quiet, append([]string(nil), a...))
+	return h.Run(ctx, a, d)
+}
+
 func (h *missingDockerHost) LookPath(name string) (string, error) {
 	if name == "docker" && h.installed["docker.io"] == "" {
 		return "", fmt.Errorf("missing")
@@ -397,6 +442,28 @@ func TestDockerMissingDependenciesUseUbuntuAdapter(t *testing.T) {
 	}
 	if !h.ran("docker", "info") {
 		t.Fatal("daemon not checked")
+	}
+}
+
+func TestUbuntuPackageSetupUsesQuietInstallerRunner(t *testing.T) {
+	h := &quietMissingDockerHost{missingDockerHost: &missingDockerHost{newPackageHost()}}
+	h.available["docker.io"] = "system"
+	h.available["docker-compose-v2"] = "system"
+	b, _ := SelectCore("recommended")
+	r, _ := InspectPlatform(context.Background(), h)
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	for _, subcommand := range []string{"update", "install"} {
+		found := false
+		for _, argv := range h.quiet {
+			if len(argv) > 1 && argv[0] == "apt-get" && argv[1] == subcommand {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("apt-get %s bypassed quiet runner: %v", subcommand, h.quiet)
+		}
 	}
 }
 

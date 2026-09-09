@@ -262,11 +262,11 @@ func replaceNginxConfig(ctx context.Context, h Host, candidate []byte, before fi
 }
 
 func validateReloadNginx(ctx context.Context, h Host, active bool) error {
-	if err := h.Run(ctx, []string{"nginx", "-q", "-t"}, 30*time.Second); err != nil {
+	if err := runQuiet(ctx, h, []string{"nginx", "-q", "-t"}, 30*time.Second); err != nil {
 		return fmt.Errorf("installer: Nginx configuration check failed: %w", err)
 	}
 	if active {
-		if err := h.Run(ctx, []string{"systemctl", "reload", "nginx.service"}, 30*time.Second); err != nil {
+		if err := runQuiet(ctx, h, []string{"systemctl", "reload", "nginx.service"}, 30*time.Second); err != nil {
 			return fmt.Errorf("installer: Nginx reload failed: %w", err)
 		}
 	}
