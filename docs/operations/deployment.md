@@ -45,13 +45,16 @@ Spec compliance: Docker is never *required*.
 
 ## Interactive installer
 
-`wg-guard install` walks a short wizard. Defaults are Docker, no domain → loopback HTTP, or
-domain → ACME on 443. A public VPN endpoint and usable prerequisites are required; hosts behind
-NAT must supply `--public-ip` or a domain. `--yes` skips prompting and uses flags + defaults.
-Explicit `--tls`, `--panel-port` (including TLS on 8080) and challenge port choices are preserved.
+The verified GitHub entry persists `/usr/local/bin/wg-guard` and a private build receipt, then
+opens the manager. Selecting **Install** runs `wg-guard install` with that exact build; a canceled
+or failed setup resumes locally through `sudo wg-guard` without another acquisition. Defaults are
+Docker, no domain → private loopback HTTP, or a usable domain → safe automatic HTTPS. `--yes`
+uses flags and defaults; legacy explicit `--tls` remains compatible but cannot conflict with the
+new `--exposure`/`--certificate` choices.
 
-1. Mode (Docker default / native), domain, TLS mode, panel + ACME challenge ports.
-2. *Optional* — **VPN network defaults** (Enter keeps the recommended defaults):
+1. Optional domain and a conservative access recommendation based on actual 80/443 ownership.
+2. *Optional advanced settings* — Docker/native mode, certificate strategy, panel/public/challenge
+   ports and **VPN network defaults** (Enter keeps the recommendation):
    AWG listen-port allocation range (`network.port_min/port_max`), the VPN pool offered to
    the first interface (`network.default_pool`), client MTU (`network.mtu`), client DNS
    resolvers (`network.dns_servers`).
@@ -86,42 +89,47 @@ Negative Telegram group IDs are accepted as signed nonzero integers. In Docker m
 file exists, so the shim executes host-direct against the bind-mounted data dir (same DB the
 container will use).
 
-## Listening & TLS (built-in; no reverse proxy required)
+## Panel exposure and TLS
 
 `wg-guard serve` loads boot config from `/etc/wg-guard/wg-guard.toml` (override with
 `-config PATH` or the `WGG_*` environment variables listed in `internal/config`). Every
 runtime-tunable knob (accounting cadence, rate limits, node identity, webhooks…) lives in the
 Settings registry and hot-applies; only paths, the listener and the TLS mode require a restart.
 
-| Mode | Behavior | Status |
-|---|---|---|
-| Domain + ACME | Built-in `autocert`: HTTP-01 on the challenge port (`tls.acme_http_port`, default 80 — must stay reachable for issuance/renewal), TLS served on the configured panel port — any port works (e.g. `https://sub.example.com:34562`); certificates cached under `<data_dir>/acme`; the challenge listener also redirects plain-HTTP visitors to the real HTTPS URL | implemented + verified on a public domain ([phase7.md](../development/phase7.md)) |
-| Manual certs | `tls.mode = "manual"` with `cert_file`/`key_file`; TLS 1.2 minimum | implemented |
-| Behind reverse proxy | `tls.mode = "proxy"`: HTTP bound to loopback/private interface (explicit, documented choice) | implemented |
-| Development | `tls.mode = "dev"`: loopback-only HTTP with loud warnings | implemented |
+The runtime still has `acme`, `manual`, loopback `proxy`, and loopback-only development modes.
+The installer adds an ownership-aware exposure layer so operators choose the product outcome:
 
-The installer never silently exposes plaintext management to the public internet.
+| Exposure | Listener | Certificate owner | Verified use |
+|---|---|---|---|
+| Private | `127.0.0.1` HTTP | none | SSH tunnel; default without a domain |
+| Direct | public HTTPS | built-in domain ACME, managed/manual files, or short-lived public-IP Certbot | free required ports |
+| Managed Nginx | `127.0.0.1` HTTP backend | standard host Nginx + webroot/DNS/manual certificate | multi-service host already using 80/443 |
+| External proxy | `127.0.0.1` HTTP backend | operator | custom Nginx/Caddy/Apache/Traefik/container proxy |
 
-IP-only loopback setup reports `http://127.0.0.1:8080` and an SSH command such as
-`ssh -N -L 8080:127.0.0.1:8080 root@PUBLIC_IP` (replace `PUBLIC_IP` with the server address);
-open the local URL while that tunnel runs.
-Public TLS without a domain can use a trusted manual certificate for the supplied IP. The
-current `autocert` implementation uses domain identifiers/SNI; this is not a claim that all
-certificate authorities prohibit IP certificates.
+Automatic domain selection uses direct built-in ACME only when the required ports are free. A
+standard active Ubuntu Nginx with the normal `conf.d` include can instead receive one atomic
+WG-Guard virtual host and shared HTTP-01 webroot. Exact-host conflicts and nonstandard proxies are
+never edited. Cloudflare DNS-01 needs no validation port and stores its scoped token only in a
+root-private file; it does not request a wildcard. Cloudflare Origin CA is accepted only as a
+manual proxied-origin certificate and is not browser-trusted when Cloudflare is bypassed.
 
-The panel and challenge TCP listeners must use different ports. HTTP-01 always needs external
-TCP 80 reaching the configured challenge listener even when that listener is on another local
-port. Unsafe DNS names are rejected before deployment writes. Manual certificate/key files are
-validated before installation and mounted read-only into Docker.
+Public-IP HTTPS uses official Certbot 5.4+ with Let's Encrypt's `shortlived` profile (160 hours),
+standalone HTTP-01 and public TCP 80. It is explicit, not the blank-domain default. When a public
+proxy already owns the ports, use a hostname through that proxy or DNS-01; WG-Guard does not stop
+the owner or expose public HTTP as a fallback.
 
-Process liveness and certificate readiness are distinct. After liveness, installation saves
-`tls_readiness=pending` and performs a bounded trusted TLS handshake to the local listener with
-the intended domain/IP. It verifies the hostname and chain, including for manual certificates;
-locally issued certificates need a trusted root in the host's trust store. Failure retains the
-running installation and pending state with DNS/port/CA guidance. After correcting the issue,
-run `wg-guard tls-check` to verify and persist `verified` without reinstalling. Success can use
-a cached certificate and must not be described as new issuance. M3 owns broader operation
-journaling/recovery; M4 owns the complete terminal workflow.
+Managed Certbot material is copied to `/etc/wg-guard/tls` (certificate 0644, key 0600). A fixed
+0700 deploy hook accepts only the recorded deterministic lineage, refreshes both files under the
+lifecycle lock, reloads Nginx or restarts the correct Docker/native service, then proves health and
+certificate identity. `wg-guard exposure status`/`doctor` report SAN, issuer class, expiry, timer,
+hook, credential permissions, Nginx drift and listener drift without printing secrets.
+
+Process liveness and certificate readiness remain distinct. A new certificate path starts as
+`pending`; a trusted handshake persists `verified`. Built-in ACME can be retried with
+`wg-guard tls-check`; managed paths use `wg-guard exposure renew`. Every public response is HTTPS,
+and HSTS is emitted only for direct TLS or HTTPS asserted by a trusted private/loopback proxy peer.
+See [terminal management](terminal-management.md#panel-access--https) and
+[lifecycle recovery](lifecycle-recovery.md).
 
 ### Scheduler & background work
 
@@ -152,8 +160,9 @@ the Phase 11 production matrix.
 
 | Setting | Recommended default | Editable later |
 |---|---|---|
-| Panel HTTP | 8080 | yes (boot config + Settings) |
-| Panel TLS | 443 (any port supported) | yes |
+| Loopback panel/backend | TCP 8080 | yes; remains private behind SSH/proxy |
+| Public panel HTTPS | TCP 443 | yes; only with a valid certificate path |
+| HTTP-01 validation | TCP 80 | yes; external CA validation still reaches public port 80 |
 | AWG listen ports | allocated randomly from `network.port_min`–`port_max` (30000–50000); the range is promptable at install | yes (Settings, hot-applied) |
 | MTU | 1420 (promptable at install) | yes (global default + per interface) |
 | VPN pool | first interface honors `network.default_pool` (promptable at install; empty = `10.8.0.0/24`), later interfaces continue the `10.8.N.0/24` ladder | yes (Settings + per interface, validated) |
@@ -192,8 +201,8 @@ wg-guard install --mode native --yes --public-ip PUBLIC_IP --prerequisites auto 
 ```
 
 Replace `PUBLIC_IP` with the server's real public address; documentation-only addresses are rejected.
-The core commands print bounded JSON metadata. Core errors and new prerequisite/TLS copy have fa/en
-catalog entries; the current CLI retains its English default until M4's language workflow.
+The core commands print bounded JSON metadata. The host terminal is English-only; shared web-panel
+messages retain fa/en catalog parity.
 
 Preflight requires Ubuntu 24.04 or newer on amd64/x86_64 and inspects the running kernel, init,
 endpoint and TCP ports before package/deployment writes. Other distributions, older Ubuntu and

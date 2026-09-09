@@ -1,0 +1,47 @@
+Phase 8.2 — secure access and persistent-manager acceptance
+Date: 2026-09-09; dedicated Ubuntu 24.04.4 LTS amd64 VPS
+Final candidate: 13a549293962cc172e9dde53fff8f6da3ce81ff8
+
+PASS: exact-commit GitHub source update built the Docker runtime and recovered the
+schema-three empty-exposure migration sentinel left by the preceding candidate. The
+live boot configuration was reconstructed as direct built-in ACME without claiming
+certificate readiness; `tls-check` then proved the trusted domain certificate and
+persisted `verified`. The container remained healthy.
+
+PASS: post-install direct -> private -> managed-Nginx/webroot transitions were
+transactional. Private mode bound only 127.0.0.1. Managed Nginx retained public TCP
+80/443 and proxied to 127.0.0.1:8080. A production Let's Encrypt domain certificate
+was issued (SAN zedutch.zenmode.ir, expiry 2026-12-08), the managed key was 0600,
+the deploy hook was 0700, the renewal timer was enabled/active, and every access
+check in `doctor` passed. HTTPS returned one canonical HSTS header.
+
+PASS: while Nginx owned 80/443, an explicit direct built-in request failed before
+mutation; both the container identity and install-state digest remained unchanged.
+The ordinary renewal command correctly skipped a certificate that was not due. A
+Certbot staging dry-run with deploy hooks completed successfully and the service
+remained healthy, without successful-hook output being mislabeled as an error.
+
+PASS: Let's Encrypt staging and production public-IP issuance both succeeded with
+the mandatory short-lived profile (critical SAN IP Address:178.105.13.15; production
+expiry 2026-09-15). Direct HTTPS on 443 was browser-trusted by the host, returned one
+HSTS header, and recorded the deterministic lineage. Renewal dry-run invoked the
+locked Docker reload hook and the recreated container returned healthy.
+
+PASS: the installed `sudo wg-guard` manager opened locally at a real 40-column SSH
+width with the state-aware English menu. `exposure configure --help` displayed its
+options and exited successfully. Existing Phase 8.1 zero-network bootstrap, native,
+Telegram, QR/config/client and lifecycle evidence was not repeated because those
+paths were unaffected.
+
+Automated only: Cloudflare DNS-01 secret transport/plugin commands, Origin CA,
+manual certificate, external proxy, Native runtime rendering, rollback/failure
+injection, state/path validation and 40/48/80-column terminal cases. No scoped
+Cloudflare test token was available, so no real DNS mutation or DNS-01 issuance is
+claimed. Native secure-exposure recertification remains part of the Phase 11 matrix.
+
+PASS cleanup: the original immutable phase7v4 Docker deployment and host binary were
+restored and healthy. Test Nginx packages, Certbot certificates/snaps/snapshot,
+managed hook/webroot, uploaded binaries and private test snapshots were removed.
+No public tag, release, registry image or final artifact was published. No token,
+private key, certificate body, password or raw WG-Guard configuration is recorded
+in this evidence.

@@ -1,7 +1,6 @@
 # Phase 8.2 — Secure access & persistent manager
 
-Status: **active; architecture and execution plan approved, implementation in progress**.
-Phase 9 remains designed but has not started.
+Status: **complete (2026-09-09)**. Phase 9 is next, designed but not started.
 
 ## Objective and placement
 
@@ -27,8 +26,9 @@ deployment engine, a resident shell scheduler, a public-HTTP production mode, or
   one and broader authorization would violate least privilege.
 - **Public IP HTTPS** uses Certbot 5.4 or newer and Let's Encrypt's mandatory `shortlived`
   profile. The certificate is valid for 160 hours, so successful automatic renewal, deploy-hook
-  reload, and expiry diagnostics are release blockers for this path. HTTP-01 still needs public
-  TCP 80, either through standalone mode while free or the managed Nginx webroot.
+  reload, and expiry diagnostics are release blockers for this path. WG-Guard uses standalone
+  HTTP-01 and therefore requires public TCP 80 to be free; a busy multi-service host should use
+  domain HTTPS through managed Nginx/webroot or DNS-01 instead.
 - **Cloudflare Origin CA** is accepted as an explicitly labelled manual-origin certificate for
   an orange-cloud hostname in Full (strict) mode. It is not browser-trusted when Cloudflare is
   bypassed, cannot contain an IP SAN, and is never advertised as direct public HTTPS.
@@ -96,8 +96,10 @@ Managed Nginx integration is limited to Ubuntu's standard host service with the 
 only `/etc/nginx/conf.d/wg-guard.conf` and `/var/www/wg-guard-acme`. It renders the ACME location,
 HTTP-to-HTTPS redirect, TLS 1.2/1.3 endpoint, security headers, forwarded headers, and loopback
 proxy. Every write is atomic and followed by `nginx -t`; reload failure restores the previous
-state. Existing Caddy, Apache, Traefik, containerized, or custom Nginx layouts are detected but
-not edited; the manager displays a minimal generated upstream target and operator guidance.
+state. Successful tests run quietly (`nginx -q -t`), and upstream security headers are hidden
+before Nginx emits one canonical edge copy. Existing Caddy, Apache, Traefik, containerized, or
+custom Nginx layouts are detected but not edited; the manager displays a minimal generated
+upstream target and operator guidance.
 
 ### Certificates, renewal, and secrets
 
@@ -126,48 +128,50 @@ and runtime config.
 
 - [x] **8.2.0** — Validate certificate/proxy options; freeze architecture, roadmap, risks, and
   verification plan.
-- [ ] **8.2.1** — Persist the verified bootstrap manager/build receipt; replace implicit setup
+- [x] **8.2.1** — Persist the verified bootstrap manager/build receipt; replace implicit setup
   with the state-aware premium main menu and retry-without-download flow.
-- [ ] **8.2.2** — Add exposure/certificate models, listener discovery, bounded port selection,
+- [x] **8.2.2** — Add exposure/certificate models, listener discovery, bounded port selection,
   CLI flags, concise context-aware wizard, and fail-closed public-HTTP rules.
-- [ ] **8.2.3** — Implement optional pinned-path Certbot preparation, Cloudflare DNS-01, shared
+- [x] **8.2.3** — Implement optional pinned-path Certbot preparation, Cloudflare DNS-01, shared
   webroot, short-lived IP certificates, secure credential handling, and certificate validation.
-- [ ] **8.2.4** — Implement transactional standard-Nginx configuration, forwarded-header/security
+- [x] **8.2.4** — Implement transactional standard-Nginx configuration, forwarded-header/security
   policy, coexistence refusal, and safe cleanup.
-- [ ] **8.2.5** — Add renewal sync, certificate/exposure status and doctor checks, and rollback-safe
+- [x] **8.2.5** — Add renewal sync, certificate/exposure status and doctor checks, and rollback-safe
   post-install reconfiguration from the manager.
-- [ ] **8.2.6** — Complete automated/race/CI gates, normal and narrow-terminal QA, and targeted
+- [x] **8.2.6** — Complete automated/race/CI gates, normal and narrow-terminal QA, and targeted
   Ubuntu 24.04 amd64 VPS drills; synchronize permanent documentation and repository state.
 
 Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-09-09-phase8.2-secure-access-manager.md).
 
-## Verification requirements
+## Verification results
 
-- Test-first unit coverage for plan derivation, occupied listeners, port selection, Nginx
-  conflict/refusal, rendered configuration, secret transport, state validation, hook lineage
-  checks, atomic rollback, uninstall, and cached manager dispatch.
-- Shell fixtures prove first acquisition persists a private local manager/receipt; repeated
-  one-line and `sudo wg-guard` entry make zero network requests; explicit refresh does acquire.
-- PTY coverage at 40/48/80 columns verifies first-run, installed, recovery, TLS configuration,
-  cancellation, no-color, and secret non-disclosure.
-- Final automated gate: formatting, complete Go tests, vet, Linux amd64 build, bootstrap fixtures,
-  and race tests in Linux/CI.
-- Dedicated Ubuntu 24.04 amd64 VPS, reusing valid Phase 8.1 evidence where code is unaffected:
-  fresh cached-manager entry and retry; Docker private→Nginx/webroot HTTPS; Cloudflare DNS-01 when
-  a scoped test token is available; direct IP staging then production issuance; renewal dry-run
-  plus deploy hook; certificate identity/expiry; occupied-port coexistence; rollback and cleanup.
-  Native is rerun only for shared reconfiguration/restart behavior changed by this phase.
+- Test-first coverage passes for derivation, occupied listeners, Nginx conflict/refusal and
+  rollback, rendered runtime files, protected secret transport, schema migration, lineage sync,
+  uninstall cleanup, manager dispatch and Docker/native reconfiguration seams.
+- Bootstrap fixtures prove atomic private manager/receipt persistence, zero-network repeated
+  entry, deliberate refresh, failure cleanup and exact source/release identity. PTY tests cover
+  40/48/80 columns, plain/no-color output, cancellation and English-only terminal text.
+- The final formatting, complete Go test, vet, Linux amd64 build, bootstrap and Linux race gates
+  passed on the closing revision; API/OpenAPI did not change.
+- The dedicated Ubuntu 24.04.4 amd64 Docker drill passed legacy-state migration, private access,
+  real Nginx/webroot domain issuance, occupied-port no-mutation refusal, renewal/deploy-hook,
+  staging and production short-lived public-IP issuance, 40-column manager QA and complete
+  cleanup/restoration. [Sanitized evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
+- No scoped Cloudflare token was available. DNS-01 token handling and command/plugin behavior are
+  automated-test verified, but real Cloudflare mutation/issuance is explicitly unverified.
+  Native secure-exposure real-host recertification remains a Phase 11 matrix cell; unchanged
+  Phase 8/8.1 native, Telegram, QR/config/client and one-command drills were not repeated.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.
 
-## Completion criteria
+## Completion
 
-Phase 8.2 completes only when the one-line entry opens a durable cached local manager after its first
-verified acquisition, failed setup retries without acquisition, every advertised secure exposure
-mode is honest and reversible, public plaintext is impossible, short-lived IP renewal is proven,
-standard Nginx coexistence is transactional, docs/status agree, CI is green, and the dedicated
-VPS evidence is sanitized and linked.
+The one-line entry now opens a durable cached local manager after its first verified acquisition;
+failed or canceled setup can resume locally. Every advertised exposure is explicit, public
+plaintext is unrepresentable, certificate/proxy changes are journaled and reversible, short-lived
+IP issuance/renewal and standard-Nginx coexistence passed the real Docker gate, and the repository,
+documentation and verification records are synchronized. Phase 9 remains untouched.
 
 ## Explicitly deferred
 
@@ -178,4 +182,3 @@ VPS evidence is sanitized and linked.
 - Wildcard certificates unless a later product requirement names a concrete WG-Guard consumer.
 - Broader load/soak, supported-later-Ubuntu, firewall matrix, and release-candidate repetition in
   Phase 11; public artifact publication remains Phase 12 and owner-approved.
-

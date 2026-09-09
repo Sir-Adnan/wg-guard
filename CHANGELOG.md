@@ -8,11 +8,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 8.2 secure access and persistent manager:** active work adds a durable verified local
-  manager before setup, state-aware terminal navigation, safe standard-Nginx coexistence,
-  shared-webroot and Cloudflare DNS-01 validation, trusted short-lived public-IP HTTPS, and
-  rollback-safe post-install panel-access changes. Public plaintext remains forbidden; these
-  items are not marked implemented until their automated and real-VPS gates pass.
+- **Phase 9 operational observability:** bounded live node/AWG metrics, unified Docker/native
+  operational logs and seven-day retention. Implementation has not started.
 
 ### Changed
 - **DB/key lifetime ownership:** native and Docker data commands and server startup now
@@ -60,6 +57,16 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   userspace integration remains valid protocol/config compatibility evidence.
 
 ### Added
+- **Phase 8.2 secure access and persistent manager:** the verified GitHub build is atomically
+  retained as `/usr/local/bin/wg-guard` with a private receipt before setup; the state-aware
+  English manager resumes locally without another acquisition. Installer-owned exposure now
+  covers private SSH, direct domain ACME, transactional standard-Nginx/shared-webroot,
+  Cloudflare DNS-01, short-lived public-IP certificates, manual/Origin CA and external proxies.
+  Post-install changes use one lifecycle lock, private snapshots, certificate/health proof,
+  deterministic renewal hooks, diagnostics and rollback; public plaintext and foreign-listener
+  takeover are rejected. Automated gates and real Ubuntu 24.04 amd64 Docker domain/IP issuance,
+  renewal, occupied-port and 40-column SSH drills passed. Cloudflare real issuance remains
+  explicitly unverified without a scoped token; no API/OpenAPI contract changed.
 - **Backup and coordinated restore workflows (M5):** complete terminal schedule/Telegram/archive
   management, bounded secret inputs, live backup settings, streaming private restore previews,
   explicit approval, recoverable database/key replacement and original-schema legacy recovery.

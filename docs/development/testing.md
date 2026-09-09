@@ -18,6 +18,17 @@ Exact revisions and sanitized records live in [status.md](status.md) and
 code. These checks do not replace Phase 11's supported-Ubuntu/backend certification or Phase 12's
 final published-artifact gate.
 
+## Phase 8.2 secure-access verification
+
+Test-first Go coverage owns exposure derivation, state-schema migration, secret transport,
+certificate identity/expiry, deterministic renewal lineages, Nginx rendering/reload rollback,
+Docker/native runtime rewrites, post-install rollback and HSTS/proxy trust. Bootstrap fixtures
+cover atomic manager/receipt persistence and zero-network retry; PTY tests cover 40/48/80-column
+English menus. The [dedicated Ubuntu 24.04.4 amd64 Docker record](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt)
+adds real webroot-domain and short-lived-IP issuance, renewal hooks, occupied-port refusal,
+state migration and cleanup. Cloudflare DNS-01 is automated-test verified only because no scoped
+test token was available; Native secure-exposure recertification stays in Phase 11.
+
 The repeatable
 [`verify-phase8.1-synthetic-backup.py`](../integrations/fixtures/verify-phase8.1-synthetic-backup.py)
 fixture runs a private fake-backend node beside an installed node without reading or mutating the

@@ -5,26 +5,25 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 8.2 — Secure access & persistent manager (active, 2026-09-09)
+## Phase 8.2 — Secure access & persistent manager (complete, 2026-09-09)
 
-The owner-approved insertion before Phase 9 is architecturally frozen and implementation has
-started. The validated design and exact gates are in [phase8.2.md](phase8.2.md); no Phase 9 code is
-included.
+The owner-approved insertion before Phase 9 is complete. Results and honest limits are in
+[phase8.2.md](phase8.2.md); no Phase 9 code is included.
 
 | Item | Status |
 |---|---|
-| Persistent verified bootstrap manager and state-aware menu | designed; implementation in progress; not yet verified |
-| Exposure/certificate intent and busy-port discovery | designed; not yet implemented |
-| Standard Nginx + shared HTTP-01 webroot | designed; not yet implemented |
-| Cloudflare DNS-01 with scoped protected token | designed; not yet implemented |
-| Let's Encrypt public-IP short-lived certificate and renewal hook | designed; not yet implemented |
-| Post-install panel-access reconfiguration and rollback | designed; not yet implemented |
-| Ubuntu 24.04 amd64 secure-exposure matrix | requires real VPS after implementation |
+| Persistent verified bootstrap manager and state-aware menu | implemented + unit/shell/PTY tested; private receipt and local retry make no repeat acquisition. Real 40-column SSH manager passed |
+| Exposure/certificate intent and busy-port discovery | implemented + unit tested; public plaintext is unrepresentable; real occupied-port request failed with unchanged state/container |
+| Standard Nginx + shared HTTP-01 webroot | implemented + failure-injection tested + real Docker verified with public domain issuance, loopback backend, canonical headers and config/reload rollback |
+| Cloudflare DNS-01 with scoped protected token | implemented + unit tested for official plugin commands, 0600 file transport and non-disclosure; real issuance unverified because no scoped Cloudflare test token was available |
+| Let's Encrypt public-IP short-lived certificate and renewal hook | implemented + unit tested + real staging/production verified; critical IP SAN, 160-hour lifetime, timer, quiet deploy hook and healthy Docker reload passed |
+| Post-install panel-access reconfiguration and rollback | implemented + unit/failure-injection tested; real direct/private/Nginx transitions, state migration, health/certificate proof and cleanup passed |
+| Ubuntu 24.04 amd64 secure-exposure matrix | Docker production verified on Ubuntu 24.04.4 amd64; Native rendering/restart is automated-test verified and real recertification remains Phase 11 |
 
-Research confirmed that DNS-01 needs no inbound validation port and can issue wildcard
-certificates, but WG-Guard will request only its exact hostname. Cloudflare Origin CA is an
-explicit proxied-origin path, not browser-trusted direct TLS. Public-IP certificates require
-Certbot 5.4+ and the 160-hour `shortlived` profile. No REST/OpenAPI change is planned.
+Evidence: [dedicated-VPS acceptance](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
+DNS-01 needs no inbound validation port, but WG-Guard requests only the exact panel hostname.
+Cloudflare Origin CA remains a proxied-origin path, not browser-trusted direct TLS. Public-IP
+certificates use Certbot 5.4+ and the 160-hour `shortlived` profile. No REST/OpenAPI contract changed.
 
 ## Phase 8.1 — GitHub delivery & lifecycle (complete, 2026-09-09)
 

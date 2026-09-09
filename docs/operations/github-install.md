@@ -1,8 +1,9 @@
 # GitHub installation and verified builds
 
-The Bash entry point obtains a Linux executable and opens its English management entry.
-On a fresh node that entry starts installation with the exact acquired build identity; on an
-installed node it opens management without reinstalling or implicitly applying an update.
+The Bash entry point obtains a Linux executable, atomically persists it as the local manager and
+opens its English management menu. On a fresh node, **Install** consumes that exact cached build;
+canceling or failing setup leaves the manager available through `sudo wg-guard` without another
+download. On an installed node it opens management without reinstalling or implicitly updating.
 The shared distribution/installer engine verifies build identity and builds the Docker runtime
 image from the selected binary when needed. No published official image is assumed. Installed
 nodes expose [terminal management](terminal-management.md) through `sudo wg-guard manage`.
@@ -18,7 +19,7 @@ bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://
 This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
 installer input rather than consuming script bytes as answers. After installation, run
 `sudo wg-guard`; it opens the local manager immediately without GitHub access. Re-running the
-one-line command downloads only the small bootstrap, verifies the owned binary's Phase 8.1
+one-line command downloads only the small bootstrap, verifies the owned binary's current
 management contract and opens the same local manager. It does not rebuild or update the node.
 An older host CLI that lacks that contract goes through verified acquisition once so the current
 manager can open; acquisition alone still does not update the installed service. The compatibility
@@ -141,12 +142,15 @@ and removes it after consuming the binary. Acquisition never changes an active i
 
 Before dispatching management/install, the bootstrap runs the candidate's `installer-contract` command
 without elevation, with a 15-second deadline and a 4096-byte output cap. Missing/older contracts
-are refused. Revision1 requires prerequisite, recoverable-lifecycle, local-owner,
-coordinated-restore and `data_lease` capabilities plus an explicit data contract. Candidates
-lacking shared-volume lifetime data ownership are refused. Retained recovery artifacts
+are refused. Revision 2 requires prerequisite, recoverable-lifecycle, local-owner,
+coordinated-restore, `data_lease`, persistent-manager and secure-exposure capabilities plus an
+explicit data contract. Revision 1 remains known for retained artifacts, but cannot become the
+current bootstrap manager. Candidates lacking shared-volume lifetime data ownership are refused. Retained recovery artifacts
 remain governed separately by their recorded identity and data contract.
-The bootstrap passes private build-identity metadata to the installer,
-which validates the candidate and deploys the same binary in Docker and on the host.
+The bootstrap stores a bounded mode-0600 receipt at `/var/cache/wg-guard/manager-build.json` and
+passes that private identity to the manager/installer, which validates and deploys the same binary
+in Docker and on the host. An explicit release/commit refresh replaces manager and receipt only
+after integrity and contract verification.
 
 The Go install/update flags share `internal/distribution`: `--release TAG|latest` and
 `--commit main|FULL_SHA` are mutually exclusive. Docker uses a runtime image built from the

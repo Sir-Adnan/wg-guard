@@ -59,8 +59,15 @@ dump`) is parsed, never logged, and never embedded in errors.
 - Authorization is centralized: a permission registry checked server-side per handler; the UI
   never hides what the server doesn't enforce; the Owner role cannot remove itself.
 - Strict request size limits, timeouts, panic recovery returning the standard error envelope.
-- Transport modes per [deployment.md](deployment.md): ACME, manual certs, loopback-behind-proxy,
-  dev-only loopback HTTP — never silent public plaintext.
+- Transport modes per [deployment.md](deployment.md): direct ACME/managed certificate,
+  loopback-behind-proxy, and private/dev loopback HTTP — never silent public plaintext.
+- HSTS is emitted only after actual TLS or a trusted `X-Forwarded-Proto: https` assertion from a
+  loopback/private proxy peer. Public clients cannot enable it by spoofing the header; managed
+  Nginx hides upstream copies and emits one canonical edge header.
+- Listener/proxy discovery never stops an unknown owner or overwrites a foreign virtual host.
+  Exposure changes use a private snapshot, lifecycle journal, health/certificate proof and
+  rollback. Cloudflare tokens are bounded hidden input or 0600 files, never argv/state/output;
+  managed certificate keys are 0600 and deploy hooks accept only the recorded lineage.
 
 ## Linux/network security
 

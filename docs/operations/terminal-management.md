@@ -16,13 +16,16 @@ when it detects a valid installed node, but the local command is faster and perf
 
 ## Navigation
 
-The main menu has three stable groups:
+The root menu is state-aware. A fresh host promotes installation; an interrupted operation
+promotes its matching recovery action; a healthy installed node shows these groups:
 
 | Group | Actions |
 |---|---|
-| Install & updates | Install, update, rollback, interrupted-operation recovery and uninstall with data preserved |
-| System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
+| Install & updates | Build selection, install, update, rollback and interrupted-operation recovery |
+| Panel access & HTTPS | Access overview, reversible configuration, certificate renewal check and private fallback |
 | Backups & recovery | Create/list/send archives, coordinated restore, schedules and Telegram settings/tests |
+| System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
+| Uninstall | Data-preserving removal by default; purge remains an explicit destructive choice |
 
 Enter the displayed number, use `0` to go back or `q` to cancel. Invalid input is retried. Menus
 and prompts use a compact single-column layout that remains readable in narrow SSH terminals.
@@ -37,10 +40,12 @@ EOF, partial input and interruption never grant consent.
 
 ## Recommended setup
 
-Fresh interactive setup intentionally starts with only two decisions:
+The first verified GitHub acquisition opens the manager and persists it before setup. Choose
+**Install WG-Guard**; canceling or failing later leaves `sudo wg-guard` ready for a local retry.
+Fresh interactive setup then starts with only two decisions:
 
 1. Optional domain for automatic HTTPS. Leave it blank to keep the panel on loopback and access it
-   through the displayed SSH tunnel.
+   through the displayed SSH tunnel. This can be changed after installation.
 2. Whether to customize advanced settings. Press Enter for the recommended setup.
 
 The recommended path uses Docker, detects the public VPN address, selects the compatible pinned
@@ -55,6 +60,37 @@ image and Telegram backup setup. It does not permit arbitrary or unverified Amne
 Before any public listener starts, setup securely creates or reuses the administrator account.
 Password input is hidden, existing credentials are never reset, and a failed account check prevents
 listener startup. After setup, sign in and create the first interface (`awg0`) in the web panel.
+
+## Panel access & HTTPS
+
+The recommended post-install wizard presents product choices rather than raw TLS modes:
+
+| Choice | Use when | Requirement |
+|---|---|---|
+| Private SSH tunnel | safest default or no hostname | no public panel port |
+| Automatic domain HTTPS | 80/443 are free | WG-Guard built-in ACME |
+| Existing standard Nginx | Nginx already owns 80/443 | unused hostname; shared webroot or DNS-01 |
+| Cloudflare DNS-01 | validation ports cannot be opened | scoped token supplied as hidden input/private file |
+| Public-IP HTTPS | no hostname is available | public TCP 80 free; short-lived Certbot certificate |
+| Existing proxy/manual/Origin CA | operator owns the edge/PKI | trust and renewal remain explicit operator duties |
+
+Unknown listeners and conflicting virtual hosts are diagnosed but never stopped or overwritten.
+There is no public-HTTP option. Direct IP HTTPS is intentionally not offered behind a busy public
+proxy; use a hostname through that proxy or DNS-01 instead.
+
+Useful direct commands mirror the menu:
+
+```bash
+sudo wg-guard exposure status
+sudo wg-guard exposure configure
+sudo wg-guard exposure renew
+sudo wg-guard exposure private --yes
+```
+
+`configure` shows an English guided flow; `--help` lists automation flags. Managed changes use
+the lifecycle lock, private snapshots, certificate identity/health proof and rollback. If an
+interruption leaves an exposure journal, use the promoted menu action or
+`sudo wg-guard exposure recover`.
 
 ## Build selection and updates
 

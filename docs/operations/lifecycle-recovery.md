@@ -2,8 +2,9 @@
 
 Phase 8.1 M3 uses one host lifecycle lock, `/run/lock/wg-guard-lifecycle.lock`.
 The Linux kernel releases it when the process exits or dies; do not delete the lock file
-to bypass another operator. Install/update/uninstall/restart/core selection and TLS-state writes
-share this lock. The application remains one binary with one scheduler.
+to bypass another operator. Install/update/uninstall/restart/core selection, panel-exposure
+changes and certificate synchronization share this lock. The application remains one binary
+with one scheduler.
 
 DB/key access also uses `/var/lib/wg-guard/.wg-guard-data.lock`, a separate persistent
 inode shared by native commands and Docker's bind-mounted data volume. Every data CLI and
@@ -40,8 +41,11 @@ Managed restore retains its separate canonical-filename/layout requirement.
 
 ## State and retained resources
 
-`/etc/wg-guard/install-state.json` is schema2 and mode 0600. Schema1 remains readable when
-its paths match the managed layout. Missing state is distinct from unreadable, corrupt or
+`/etc/wg-guard/install-state.json` is schema3 and mode 0600. Schema1/2 remain readable when
+their paths match the managed layout. Schema3 adds non-secret exposure/certificate ownership;
+the corrected updater can conservatively reconstruct an empty migration sentinel from the live
+boot configuration without claiming arbitrary manual-certificate paths or unproven readiness.
+Missing state is distinct from unreadable, corrupt or
 unsupported state; the latter cases stop lifecycle commands. Manual/custom layouts need
 explicit migration, not editing deletion targets to arbitrary paths.
 
@@ -74,8 +78,9 @@ and does not make this destructive-maintenance guarantee.
 
 ## Interrupted operations
 
-For interrupted updates, run `wg-guard update --recover` using a Phase8.1 binary. If the installed host command predates
-that command, use an acquired compatible candidate directly. Do not start old code manually
+For interrupted updates, run `wg-guard update --recover` using a current contract-compatible
+manager. If the installed host command predates that command, use an acquired compatible
+candidate directly. Do not start old code manually
 just because a health endpoint responds.
 
 | Journal stage | Meaning and action |
@@ -103,11 +108,19 @@ failed queries, incomplete properties and inconsistent states do not establish a
 Certificate readiness is separate from process health. A healthy installation with pending
 TLS can keep serving the ACME challenge while `wg-guard tls-check` retries certificate proof.
 
+Panel access changes use journal operation `exposure` plus a bounded private snapshot of only the
+managed boot/Compose/systemd/Nginx files. The candidate certificate/proxy is prepared before the
+minimum required stop; commit follows runtime health and certificate identity proof. Failure
+restores the exact prior files and service. An interrupted record blocks unrelated lifecycle
+work and is resumed with `wg-guard exposure recover` (also promoted by the manager). Certificate
+renewal uses operation `certificate`; only the recorded Certbot lineage can refresh the managed
+copies, and failure rolls both files and the service back together.
+
 ## Database compatibility and legacy migration
 
-The machine-readable `wg-guard installer-contract` command does not open node data. Revision1
-currently reports `data_contract: schema7-h-ranges-v1`, prerequisites and recoverable lifecycle
-support. `local_owner` is true and required for new candidates: installer-managed setup
+The machine-readable `wg-guard installer-contract` command does not open node data. Revision 2
+currently reports `data_contract: schema7-h-ranges-v1`, prerequisites, recoverable lifecycle,
+persistent-manager and secure-exposure support. `local_owner` is true and required for new candidates: installer-managed setup
 prepares the local owner before listener startup. M5 implements bounded coordinated
 database/master-key restoration, including original-schema recovery; `coordinated_restore` is
 true and required for new candidates. `data_lease=true` is also required by both the
@@ -175,5 +188,7 @@ handles interrupted or failed state/journal writes; another pending operation is
 overwritten. `update --recover` points core/restart/restore operators to their own recovery
 commands rather than treating those records as updates.
 
-These transaction and failure paths are unit/Linux-fixture tested, not yet certified by the
-Phase8.1 dedicated Docker/native VPS lifecycle and legacy-upgrade drill.
+Phase 8.1 certified the base transaction paths on the dedicated Docker/native VPS. Phase 8.2
+added automated exposure/certificate failure coverage and a real Docker state-migration,
+Nginx/webroot, public-IP renewal and restoration drill. Native secure-exposure recertification
+remains in the Phase 11 matrix.

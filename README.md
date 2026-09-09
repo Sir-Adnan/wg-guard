@@ -11,12 +11,13 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–8.1 are complete; Phase 8.2 is active.**
+**In active development — Phases 0–8.2 are complete; Phase 9 is next and has not started.**
 Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
 GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
-with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 is adding persistent local
-manager acquisition, existing-Nginx coexistence, DNS-01, trusted public-IP HTTPS, and safe
-post-install access changes. Broader compatibility and public release work remain later. See
+with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 added a persistent local
+manager, existing-Nginx coexistence, DNS-01, trusted short-lived public-IP HTTPS, certificate
+renewal diagnostics and safe post-install access changes. Broader compatibility and public
+release work remain later. See
 [ROADMAP.md](ROADMAP.md) and the
 [development status](docs/development/status.md).
 
@@ -38,7 +39,8 @@ post-install access changes. Broader compatibility and public release work remai
   kernel-module AmneziaWG, drift reconciliation, and `doctor` diagnostics; pinned userspace
   runtime compatibility is tested, while automatic fallback lifecycle remains a Phase 11 gate
 - **Clean deployment** — Docker by default (verified runtime image + Compose), native systemd
-  supported; built-in TLS/ACME, no reverse proxy required
+  supported; private SSH access, built-in domain ACME, standard-Nginx/webroot, Cloudflare DNS-01,
+  trusted public-IP HTTPS and operator-owned proxy/certificate paths
 
 ## Install
 
@@ -49,11 +51,11 @@ verified target. Until the first stable release is published, run:
 bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 ```
 
-The terminal is English-only. The recommended setup asks for an optional domain, then uses safe
-defaults for everything else: Docker deployment, the compatible AmneziaWG bundle, automatic HTTPS
-when a domain is supplied, or private SSH access when it is not. Press **Enter** to accept each
-recommended answer. Choose advanced settings only when you need custom ports, native systemd,
-manual TLS, network defaults or Telegram backup setup.
+The first run verifies and stores the local manager, then opens its menu; it does not begin setup
+without your choice. Select **Install WG-Guard**. The terminal is English-only and **Enter** accepts
+the safest recommended answer: Docker, the compatible AmneziaWG bundle, automatic HTTPS for a
+usable domain, or private SSH access when no domain is supplied. Advanced settings contain custom
+ports, native systemd, network defaults and Telegram backup setup.
 
 The first development-source build can take several minutes. A published release installs much
 faster because it uses a verified prebuilt binary. When stable releases exist, the default command
@@ -83,6 +85,11 @@ sudo wg-guard doctor
 Updates, rollback, recovery, backups and uninstall are available from the local manager. Updates
 ask for a stable release or an explicitly selected development commit; installation is never
 silently replaced just because the bootstrap is run again.
+
+The manager's **Panel access & HTTPS** section can later move a private installation to domain
+HTTPS, a standard existing Nginx, Cloudflare DNS-01, trusted public-IP HTTPS, manual/Origin CA, or
+an operator-owned proxy. Unknown port owners are never stopped, public plaintext is never offered,
+and an interrupted change has a dedicated recovery action.
 
 ## Inspect before running
 

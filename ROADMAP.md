@@ -18,8 +18,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **7 — Deployment & installer** | Docker/native installation, ACME, host shim, update/rollback, uninstall, and deployment drills | ✅ Complete |
 | **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
 | **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | ✅ Complete |
-| **8.2 — Secure access & persistent manager** | Cached local manager, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | 🚧 Active |
-| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next after 8.2; implementation not started |
+| **8.2 — Secure access & persistent manager** | Cached local manager, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | ✅ Complete |
+| **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ⬜ Next; implementation not started |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⬜ Planned |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
@@ -59,7 +59,13 @@ or later change private, direct HTTPS, standard-Nginx, Cloudflare DNS-01, public
 and manual/external certificate paths without exposing public plaintext or stealing foreign
 ports. Complete only when cached retry needs no network, proxy/certificate changes roll back
 safely, short-lived IP renewal works, and the targeted Ubuntu 24.04 amd64 VPS matrix passes.
-Detailed design and gate: [docs/development/phase8.2.md](docs/development/phase8.2.md).
+Completed 2026-09-09. The persistent manager, state migration, safe access models, protected
+certificate workflows and rollback/diagnostics are automated-test verified. The dedicated Docker
+VPS gate passed real Nginx/webroot domain and short-lived public-IP issuance, renewal hooks,
+occupied-port refusal, narrow SSH QA and original-node restoration. Cloudflare DNS-01 is
+implemented and test-verified but not real-issued because no scoped test token was available;
+Native secure-exposure recertification remains Phase 11. Detailed results and evidence:
+[docs/development/phase8.2.md](docs/development/phase8.2.md).
 
 ### Phase 9 — Operational observability
 
