@@ -67,3 +67,32 @@ Docker service/socket were inactive and the uninstall journal was complete.
 Unchanged Phase 8/8.1 native, Telegram, QR/config/client, backup/restore and two-way
 update/rollback evidence was reused rather than repeated. No API/OpenAPI contract or
 public release was changed.
+
+Update-aware manager maintenance acceptance (same date; final code candidate
+63194d0ac037ad6dd40fad23d45014058de5d4b2):
+
+PASS: a fresh exact-commit Docker install from candidate b69ff859c3fd completed with
+the source-backed awg-2026-09 bundle, private panel health and separate root-owned
+manager/receipt paths (0700 directory, 0755 binary, 0600 receipt). Re-running the
+same GitHub entry performed the identity check, reported the manager current and did
+not rebuild. `update all` created one lifecycle backup, built/deployed a new immutable
+Docker image, returned HTTP health, synchronized host/container versions and closed
+the core journal complete with module identity matches-disk.
+
+PASS: the GitHub entry then advanced only the manager from b69ff859c3fd to
+9045ead43048; the installed panel version and service-binary SHA-256 remained
+unchanged. From that independently cached manager, `update manager --commit
+63194d0ac037ad6dd40fad23d45014058de5d4b2` emitted 15-second heartbeats, promoted
+the new manager, and a repeat reported current without acquisition. Update status
+honestly showed manager 63194d0ac037, panel b69ff859c3fd and core awg-2026-09
+matches-disk. The real nested-menu cancel returned to management without false
+success or a technical cancellation error.
+
+Automated fixtures additionally changed simulated `main` twice and proved exactly
+one source build, metadata-only subsequent checks, strict invalid-selection and
+`--refresh` refusal, and verified-cache fallback on transport failure. No stable
+release existed, so published-release update was not claimed. No alternate core
+bundle exists beyond the recognized legacy entry; a real cross-bundle core transition
+was not claimed. Native, Telegram, TLS, QR/config/client and unrelated lifecycle
+drills were not repeated. Final purge removed the test container, state, data, host
+binary and manager/core cache.

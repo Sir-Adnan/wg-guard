@@ -141,7 +141,7 @@ and runtime config.
   post-install reconfiguration from the manager.
 - [x] **8.2.6** — Complete automated/race/CI gates, normal and narrow-terminal QA, and targeted
   Ubuntu 24.04 amd64 VPS drills; synchronize permanent documentation and repository state.
-- [ ] **8.2.7 maintenance** — Correct branch/release update discovery, separate manager/service
+- [x] **8.2.7 maintenance** — Correct branch/release update discovery, separate manager/service
   binaries, add the component-scoped Update Center, retain catalog-only AmneziaWG updates, and
   close the targeted Docker VPS gate.
 
@@ -175,6 +175,12 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
 - Quiet acquisition/build commands keep verbose output in a root-only bounded log while emitting
   a short 15-second heartbeat. Success/information/warning/failure tones are green/cyan/yellow/red
   on capable TTYs and remain identical plain text when redirected or color is disabled.
+- The targeted maintenance drill verified one real Docker full update plus independent manager
+  advancement across three exact commits. Service identity stayed fixed during manager-only
+  refresh, repeated selection skipped acquisition, update status exposed the intentional version
+  difference, and the VPS was purged afterward. The `main`-tracking change/repeat behavior and
+  offline/invalid-selection boundaries are executable shell-fixture verified; no stable release or
+  real cross-bundle core transition is claimed.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.
