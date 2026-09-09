@@ -80,6 +80,11 @@ changed revision atomically refreshes the independent manager without touching t
 The same manager now exposes component-scoped manager, panel, compatible AmneziaWG and ordered
 all-component updates. Phase 9 and the REST/OpenAPI contract remain unchanged.
 
+The final terminal-maintenance correction removes the redundant `q` shortcut, makes `0` the sole
+menu navigation key, and gives interrupted uninstall its own config-independent recovery view.
+Installed and recovery flows now expose an explicit data-preserving removal or confirmed full
+WG-Guard reset without touching unrelated host resources. Phase 9 remains unchanged and unstarted.
+
 ### Phase 9 — Operational observability
 
 Add one bounded scheduler-driven telemetry pipeline and a mode-aware diagnostic log workflow.

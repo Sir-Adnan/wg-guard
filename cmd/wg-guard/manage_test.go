@@ -47,7 +47,7 @@ func TestTerminalCommandsAlwaysSelectEnglish(t *testing.T) {
 func TestTerminalManagerHasNoLanguageSwitcher(t *testing.T) {
 	var out bytes.Buffer
 	m := manager{
-		ui:      terminal.New(strings.NewReader("q\n"), &out, terminal.Options{Locale: i18n.Fa}),
+		ui:      terminal.New(strings.NewReader("0\n"), &out, terminal.Options{Locale: i18n.Fa}),
 		catalog: menuCatalog{},
 		run:     func(context.Context, []string, io.Reader) error { return nil },
 	}
@@ -68,6 +68,7 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 		{managerFresh, "install_cached", []string{"install_cached", "install_choose", "readiness", "help_short"}},
 		{managerInstalled, "lifecycle", []string{"lifecycle", "access", "backups", "operations", "uninstall"}},
 		{managerInstallRecovery, "cleanup_install", []string{"cleanup_install", "readiness"}},
+		{managerUninstallRecovery, "uninstall_resume", []string{"uninstall_resume"}},
 		{managerRecovery, "recover_now", []string{"recover_now", "lifecycle", "access", "backups", "operations"}},
 	}
 	for _, tc := range cases {
@@ -75,6 +76,31 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 		if len(menu.items) != len(tc.want) || menu.items[0] != tc.first || !reflect.DeepEqual(menu.items, tc.want) {
 			t.Fatalf("state %d menu = %+v, want %v", tc.state, menu, tc.want)
 		}
+	}
+}
+
+func TestInterruptedUninstallGetsDedicatedRecoveryView(t *testing.T) {
+	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
+	j := &install.Journal{Schema: 1, Operation: "uninstall", Stage: "recovery-required", Before: st}
+	if got := classifyManagerView(st, j); got != managerUninstallRecovery {
+		t.Fatalf("interrupted uninstall view = %v", got)
+	}
+	if got := classifyManagerView(nil, j); got != managerUninstallRecovery {
+		t.Fatalf("interrupted uninstall after state removal view = %v", got)
+	}
+}
+
+func TestInterruptedUninstallOverviewDoesNotReadMissingBootConfig(t *testing.T) {
+	var out bytes.Buffer
+	m := manager{ui: terminal.New(strings.NewReader(""), &out, terminal.Options{Locale: i18n.En})}
+	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
+	j := &install.Journal{Schema: 1, Operation: "uninstall", Stage: "recovery-required", Before: st}
+	if handled := m.prepareOverview(st, j); !handled {
+		t.Fatal("uninstall recovery fell through to runtime config and health probing")
+	}
+	text := out.String()
+	if !strings.Contains(text, "Uninstall did not finish") || !strings.Contains(text, "Continue removal or choose a full reset") {
+		t.Fatalf("uninstall recovery guidance missing:\n%s", text)
 	}
 }
 
@@ -108,11 +134,11 @@ func TestInterruptedInitialSetupGetsOnlySafeCleanupAndDiagnostics(t *testing.T) 
 
 func TestManagerRootMenusFitNarrowEnglishTerminalsWithoutMutation(t *testing.T) {
 	for _, width := range []int{40, 48, 80} {
-		for _, view := range []managerView{managerFresh, managerInstalled, managerRecovery} {
+		for _, view := range []managerView{managerFresh, managerInstalled, managerUninstallRecovery, managerRecovery} {
 			var out bytes.Buffer
 			calls := 0
 			m := manager{
-				ui:   terminal.New(strings.NewReader("q\n"), &out, terminal.Options{Locale: i18n.Fa, Width: width}),
+				ui:   terminal.New(strings.NewReader("0\n"), &out, terminal.Options{Locale: i18n.Fa, Width: width}),
 				view: view,
 				run:  func(context.Context, []string, io.Reader) error { calls++; return nil },
 			}
@@ -128,6 +154,35 @@ func TestManagerRootMenusFitNarrowEnglishTerminalsWithoutMutation(t *testing.T) 
 				}
 			}
 		}
+	}
+}
+
+func TestInterruptedUninstallRecoveryOffersSafeRemovalOrFullReset(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		script string
+		want   []string
+	}{
+		{name: "keep data", script: "1\ny\n", want: []string{"uninstall", "--yes"}},
+		{name: "full reset", script: "2\ny\n", want: []string{"uninstall", "--purge-data", "--purge-packages", "--yes"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			m := manager{
+				ui:   terminal.New(strings.NewReader(tc.script), io.Discard, terminal.Options{Locale: i18n.En}),
+				view: managerUninstallRecovery,
+				run: func(_ context.Context, args []string, _ io.Reader) error {
+					got = append([]string(nil), args...)
+					return nil
+				},
+			}
+			if err := m.rootAction(context.Background(), 1); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("uninstall args = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -182,7 +237,7 @@ func TestFreshManagerUsesCachedBuildOnlyAfterInstallSelection(t *testing.T) {
 	var out bytes.Buffer
 	calls := 0
 	m := manager{
-		ui:                terminal.New(strings.NewReader("\nq\n"), &out, terminal.Options{Locale: i18n.En}),
+		ui:                terminal.New(strings.NewReader("\n0\n"), &out, terminal.Options{Locale: i18n.En}),
 		catalog:           panicCatalog{},
 		bootstrapMetadata: "/var/cache/wg-guard/manager-build.json",
 		run: func(_ context.Context, args []string, _ io.Reader) error {
@@ -202,7 +257,7 @@ func TestFreshManagerUsesCachedBuildOnlyAfterInstallSelection(t *testing.T) {
 	}
 
 	calls = 0
-	m.ui = terminal.New(strings.NewReader("q\n"), &out, terminal.Options{Locale: i18n.En})
+	m.ui = terminal.New(strings.NewReader("0\n"), &out, terminal.Options{Locale: i18n.En})
 	if err := m.loop(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +269,7 @@ func TestFreshManagerUsesCachedBuildOnlyAfterInstallSelection(t *testing.T) {
 func TestPendingLifecycleStopsUpdateBeforeSourceCatalog(t *testing.T) {
 	calls := 0
 	m := manager{
-		ui:      terminal.New(strings.NewReader("1\n1\nq\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		ui:      terminal.New(strings.NewReader("1\n1\n0\n0\n"), io.Discard, terminal.Options{Locale: i18n.En}),
 		catalog: panicCatalog{}, view: managerInstalled,
 		lifecycleReady: func() error {
 			calls++
@@ -268,19 +323,19 @@ func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 		args   []string
 		secret string
 	}{
-		{"4\n1\nq\n", []string{"status"}, ""},
-		{"4\n2\nq\n", []string{"doctor"}, ""},
-		{"1\n1\nq\n", []string{"update"}, ""},
-		{"1\n4\nyes\nq\n", []string{"restart", "--yes"}, ""},
-		{"1\n2\nyes\nq\n", []string{"update", "--rollback"}, ""},
-		{"5\nyes\n", []string{"uninstall", "--yes"}, ""},
-		{"3\n1\nyes\nq\n", []string{"backup", "create"}, ""},
-		{"3\n3\n/private/archive.wgg.age\nyes\nsynthetic-archive-password\nq\n", []string{"restore", "/private/archive.wgg.age", "--password"}, "synthetic-archive-password\n"},
-		{"3\n4\n2\ndaily\n1\n۰۳:۳۰\n0\nyes\nyes\nq\n", []string{"backup", "schedule-add", "--name", "daily", "--kind", "daily", "--time", "03:30", "--retention", "0"}, ""},
-		{"2\n1\nq\n", []string{"exposure", "status"}, ""},
-		{"2\n2\nq\n", []string{"exposure", "configure"}, ""},
-		{"2\n3\nyes\nq\n", []string{"exposure", "renew"}, ""},
-		{"2\n4\nyes\nq\n", []string{"exposure", "private", "--yes"}, ""},
+		{"4\n1\n0\n0\n", []string{"status"}, ""},
+		{"4\n2\n0\n0\n", []string{"doctor"}, ""},
+		{"1\n1\n0\n0\n", []string{"update"}, ""},
+		{"1\n4\nyes\n0\n0\n", []string{"restart", "--yes"}, ""},
+		{"1\n2\nyes\n0\n0\n", []string{"update", "--rollback"}, ""},
+		{"5\n1\ny\n0\n", []string{"uninstall", "--yes"}, ""},
+		{"3\n1\nyes\n0\n0\n", []string{"backup", "create"}, ""},
+		{"3\n3\n/private/archive.wgg.age\nyes\nsynthetic-archive-password\n0\n0\n", []string{"restore", "/private/archive.wgg.age", "--password"}, "synthetic-archive-password\n"},
+		{"3\n4\n2\ndaily\n1\n۰۳:۳۰\n0\nyes\nyes\n0\n0\n", []string{"backup", "schedule-add", "--name", "daily", "--kind", "daily", "--time", "03:30", "--retention", "0"}, ""},
+		{"2\n1\n0\n0\n", []string{"exposure", "status"}, ""},
+		{"2\n2\n0\n0\n", []string{"exposure", "configure"}, ""},
+		{"2\n3\nyes\n0\n0\n", []string{"exposure", "renew"}, ""},
+		{"2\n4\nyes\n0\n0\n", []string{"exposure", "private", "--yes"}, ""},
 	}
 	for _, tc := range cases {
 		var out bytes.Buffer
@@ -321,7 +376,7 @@ func (c menuCatalog) Resolve(_ context.Context, s distribution.Selection) (distr
 }
 
 func TestManagerNavigationNoStartupMutationAndSafeReview(t *testing.T) {
-	for _, script := range []string{"q\n", "0\n", "", "1\n0\nq\n", "1\n3\n\n0\nq\n"} {
+	for _, script := range []string{"0\n", "", "1\n0\n0\n", "1\n3\n\n0\n0\n"} {
 		var out bytes.Buffer
 		calls := 0
 		m := manager{ui: terminal.New(strings.NewReader(script), &out, terminal.Options{Locale: i18n.En}), catalog: menuCatalog{}, view: managerInstalled, installed: "v1", run: func(context.Context, []string, io.Reader) error { calls++; return nil }}
@@ -334,8 +389,8 @@ func TestManagerNavigationNoStartupMutationAndSafeReview(t *testing.T) {
 	}
 }
 
-func TestNestedManagerCancelReturnsWithoutTechnicalErrorOrFalseSuccess(t *testing.T) {
-	for _, script := range []string{"1\nq\nq\n", "1\n1\nq\nq\n"} {
+func TestNestedManagerBackReturnsWithoutTechnicalErrorOrFalseSuccess(t *testing.T) {
+	for _, script := range []string{"1\n0\n0\n", "1\n1\n0\n0\n"} {
 		var out bytes.Buffer
 		m := manager{
 			ui:   terminal.New(strings.NewReader(script), &out, terminal.Options{Locale: i18n.En}),
@@ -367,7 +422,7 @@ func TestSourcePickerMetadataAndExplicitDevelopment(t *testing.T) {
 		}
 	}
 	var out bytes.Buffer
-	if _, err := pickSource(context.Background(), terminal.New(strings.NewReader("1\nq\n"), &out, terminal.Options{}), menuCatalog{true}, ""); !errors.Is(err, terminal.ErrCanceled) {
+	if _, err := pickSource(context.Background(), terminal.New(strings.NewReader("1\n0\n"), &out, terminal.Options{}), menuCatalog{true}, ""); !errors.Is(err, terminal.ErrBack) {
 		t.Fatalf("empty stable silently fell back: %v", err)
 	}
 }

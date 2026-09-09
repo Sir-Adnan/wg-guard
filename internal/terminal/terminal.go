@@ -342,9 +342,6 @@ func (u *UI) Ask(label, def string) (string, error) {
 		return "", err
 	}
 	v = strings.TrimSpace(v)
-	if v == "q" {
-		return "", ErrCanceled
-	}
 	if v == "back" {
 		return "", ErrBack
 	}
@@ -373,6 +370,10 @@ func (u *UI) choose(label string, options []string, def int, footer string) (int
 		}
 	}
 	u.Text(u.T(footer))
+	invalid := "terminal.invalid"
+	if footer == "terminal.exit" {
+		invalid = "terminal.invalid_exit"
+	}
 	for {
 		d := ""
 		if def > 0 {
@@ -390,7 +391,7 @@ func (u *UI) choose(label string, options []string, def int, footer string) (int
 		if e == nil && n >= 1 && n <= len(options) {
 			return n, nil
 		}
-		u.Text(u.T("terminal.invalid", len(options)))
+		u.Text(u.T(invalid, len(options)))
 	}
 }
 func (u *UI) Confirm(label string) (bool, error) {
@@ -415,9 +416,6 @@ func (u *UI) ConfirmDefault(label string, def bool) (bool, error) {
 			return false, err
 		}
 		v = strings.TrimSpace(v)
-		if v == "q" {
-			return false, ErrCanceled
-		}
 		if v == "back" {
 			return false, ErrBack
 		}

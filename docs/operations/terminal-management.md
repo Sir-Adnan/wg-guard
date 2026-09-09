@@ -27,7 +27,7 @@ promotes its matching recovery action; a healthy installed node shows these grou
 | System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
 | Uninstall | Data-preserving removal by default; purge remains an explicit destructive choice |
 
-Enter the displayed number, use `0` to go back or `q` to cancel. Invalid input is retried. Menus
+Enter the displayed number and use `0` to go back or exit. Press `Ctrl+C` to cancel safely. Invalid input is retried. Menus
 and prompts use a compact single-column layout that remains readable in narrow SSH terminals.
 Confirmations use `[Y/n]` or `[y/N]`; `y`, `yes`, `n`, `no` and their case variants are accepted.
 
@@ -38,6 +38,25 @@ Defaults follow two rules:
   confirmation shown by the prompt.
 
 EOF, partial input and interruption never grant consent.
+
+## Uninstall and clean reset
+
+Choose **Uninstall / reset WG-Guard** from an installed node. The short submenu keeps the two
+outcomes explicit:
+
+1. **Remove app · keep data and backups** is the recommended, recoverable choice.
+2. **Full reset** also permanently removes WG-Guard data, keys, backups and packages recorded as
+   installer-owned. The confirmation defaults to no. Stop independent WG-Guard data commands
+   before choosing this destructive path.
+
+Neither choice takes ownership of unrelated Nginx sites, proxy files or host packages. The
+verified manager cache stays outside the service removal, allowing the current session to return
+to fresh setup; after exiting, use the GitHub one-line entry again.
+
+An interrupted uninstall has its own minimal recovery view. It does not require the already
+removed boot config, and **Continue uninstall / reset** resumes `uninstall` rather than incorrectly
+dispatching update recovery. Repeating the operation is safe: the lifecycle journal retains the
+original fixed-layout ownership record.
 
 ## Recommended setup
 

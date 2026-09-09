@@ -42,6 +42,7 @@ const (
 	managerFresh managerView = iota
 	managerInstalled
 	managerInstallRecovery
+	managerUninstallRecovery
 	managerRecovery
 )
 
@@ -57,6 +58,8 @@ func managerRootMenu(view managerView) managerMenu {
 		return managerMenu{key: "menu", items: []string{"lifecycle", "access", "backups", "operations", "uninstall"}, defaultItem: 1}
 	case managerInstallRecovery:
 		return managerMenu{key: "setup_recovery_menu", items: []string{"cleanup_install", "readiness"}, defaultItem: 1}
+	case managerUninstallRecovery:
+		return managerMenu{key: "uninstall_recovery_menu", items: []string{"uninstall_resume"}, defaultItem: 1}
 	case managerRecovery:
 		return managerMenu{key: "recovery_menu", items: []string{"recover_now", "lifecycle", "access", "backups", "operations"}, defaultItem: 1}
 	default:
@@ -67,6 +70,9 @@ func managerRootMenu(view managerView) managerMenu {
 func classifyManagerView(st *install.State, j *install.Journal) managerView {
 	pending := j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted"
 	if pending {
+		if j.Operation == "uninstall" {
+			return managerUninstallRecovery
+		}
 		if j.Operation == "install" && j.Before == nil && j.After != nil && !j.DataMayHaveChanged && !j.PrerequisitesComplete && (j.After.Recovery == "" || j.After.Recovery == "install-incomplete") {
 			return managerInstallRecovery
 		}
@@ -161,49 +167,7 @@ func runManage(args []string) error {
 		if err != nil {
 			return err
 		}
-		m.view = classifyManagerView(st, j)
-		m.installed = ""
-		m.journalOperation = ""
-		m.recoveryLineage = ""
-		if st != nil {
-			m.installed = st.Version
-			if st.Exposure.Lineage != "" {
-				m.recoveryLineage = install.CertbotLivePath(st.Exposure.Lineage)
-			}
-		}
-		if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
-			m.journalOperation = j.Operation
-		}
-		u.Header("WG-GUARD", u.T("manage.subtitle"))
-		if m.view == managerInstallRecovery {
-			mode := ""
-			if j != nil && j.After != nil {
-				mode = string(j.After.Mode)
-			}
-			fields := []terminal.StatusField{
-				{Label: u.T("manage.build"), Value: version.String()},
-				{Label: u.T("manage.installed"), Value: mode + " · " + u.T("manage.setup_incomplete")},
-				{Label: u.T("manage.journal"), Value: "install · recovery-required"},
-				{Label: u.T("manage.next"), Value: u.T("manage.cleanup_next")},
-			}
-			u.StatusCard(u.T("manage.action_required"), u.T("manage.setup_recovery_title"), fields)
-			return nil
-		}
-		if st == nil {
-			status := u.T("manage.ready")
-			title := u.T("manage.fresh_title")
-			if m.view == managerRecovery {
-				status = u.T("manage.action_required")
-				title = u.T("manage.recovery_title")
-			}
-			fields := []terminal.StatusField{
-				{Label: u.T("manage.build"), Value: version.String()},
-				{Label: u.T("manage.next"), Value: u.T("manage.fresh_next")},
-			}
-			if j != nil {
-				fields = append(fields, terminal.StatusField{Label: u.T("manage.journal"), Value: j.Operation + " · " + j.Stage})
-			}
-			u.StatusCard(status, title, fields)
+		if m.prepareOverview(st, j) {
 			return nil
 		}
 		p, err := install.InstalledPlan(h, st)
@@ -243,6 +207,67 @@ func runManage(args []string) error {
 		return nil
 	}
 	return m.loop(ctx)
+}
+
+// prepareOverview renders lifecycle states that do not need a boot config or
+// health probe. In particular, an interrupted uninstall may already have
+// removed wg-guard.toml; recovery must remain usable in that expected state.
+func (m *manager) prepareOverview(st *install.State, j *install.Journal) bool {
+	m.view = classifyManagerView(st, j)
+	m.installed = ""
+	m.journalOperation = ""
+	m.recoveryLineage = ""
+	if st != nil {
+		m.installed = st.Version
+		if st.Exposure.Lineage != "" {
+			m.recoveryLineage = install.CertbotLivePath(st.Exposure.Lineage)
+		}
+	}
+	if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
+		m.journalOperation = j.Operation
+	}
+	m.ui.Header("WG-GUARD", m.ui.T("manage.subtitle"))
+	if m.view == managerInstallRecovery {
+		mode := ""
+		if j != nil && j.After != nil {
+			mode = string(j.After.Mode)
+		}
+		fields := []terminal.StatusField{
+			{Label: m.ui.T("manage.build"), Value: version.String()},
+			{Label: m.ui.T("manage.installed"), Value: mode + " · " + m.ui.T("manage.setup_incomplete")},
+			{Label: m.ui.T("manage.journal"), Value: "install · recovery-required"},
+			{Label: m.ui.T("manage.next"), Value: m.ui.T("manage.cleanup_next")},
+		}
+		m.ui.StatusCard(m.ui.T("manage.action_required"), m.ui.T("manage.setup_recovery_title"), fields)
+		return true
+	}
+	if m.view == managerUninstallRecovery {
+		fields := []terminal.StatusField{
+			{Label: m.ui.T("manage.build"), Value: version.String()},
+			{Label: m.ui.T("manage.journal"), Value: "uninstall · " + j.Stage},
+			{Label: m.ui.T("manage.next"), Value: m.ui.T("manage.uninstall_recovery_next")},
+		}
+		m.ui.StatusCard(m.ui.T("manage.action_required"), m.ui.T("manage.uninstall_recovery_title"), fields)
+		return true
+	}
+	if st == nil {
+		status := m.ui.T("manage.ready")
+		title := m.ui.T("manage.fresh_title")
+		if m.view == managerRecovery {
+			status = m.ui.T("manage.action_required")
+			title = m.ui.T("manage.recovery_title")
+		}
+		fields := []terminal.StatusField{
+			{Label: m.ui.T("manage.build"), Value: version.String()},
+			{Label: m.ui.T("manage.next"), Value: m.ui.T("manage.fresh_next")},
+		}
+		if j != nil {
+			fields = append(fields, terminal.StatusField{Label: m.ui.T("manage.journal"), Value: j.Operation + " · " + j.Stage})
+		}
+		m.ui.StatusCard(status, title, fields)
+		return true
+	}
+	return false
 }
 
 func showRecordedReadiness(u *terminal.UI, st *install.State) {
@@ -328,6 +353,10 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 			m.ui.Result(err)
 			return nil
 		}
+	case managerUninstallRecovery:
+		if n == 1 {
+			return m.uninstallAction(ctx)
+		}
 	case managerRecovery:
 		switch n {
 		case 1:
@@ -361,17 +390,28 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 		case 4:
 			return m.group(ctx, 2)
 		case 5:
-			executed, err := m.reviewedAction(ctx, "uninstall_review", []string{"uninstall", "--yes"}, nil)
-			if err != nil {
-				return err
-			}
-			if executed {
-				return terminal.ErrCanceled
-			}
-			return nil
+			return m.uninstallAction(ctx)
 		}
 	}
 	return nil
+}
+
+func (m *manager) uninstallAction(ctx context.Context) error {
+	n, err := m.menu("uninstall_menu", "uninstall_keep", "uninstall_reset")
+	if errors.Is(err, terminal.ErrBack) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	review := "uninstall_review"
+	args := []string{"uninstall", "--yes"}
+	if n == 2 {
+		review = "uninstall_reset_review"
+		args = []string{"uninstall", "--purge-data", "--purge-packages", "--yes"}
+	}
+	_, err = m.reviewedAction(ctx, review, args, nil)
+	return err
 }
 
 func (m *manager) freshAction(ctx context.Context, n int) error {

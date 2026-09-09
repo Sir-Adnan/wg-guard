@@ -101,6 +101,10 @@ installation recovery records its partial ownership and stops a possibly started
 inspect prerequisites, then use managed uninstall (data preserved) before reinstalling.
 Uninstall resumes its own interrupted record, confirms stop before deleting anything and
 removes only constrained paths. A failed service-stop command prevents deletion.
+The local manager recognizes an uninstall journal before reading the possibly removed boot config
+and promotes **Continue uninstall / reset**. Its safe choice preserves data; its separately
+confirmed full reset passes the existing data/package purge boundaries. It never dispatches
+update recovery for an uninstall record.
 Native cleanup first validates systemd's load and activity properties. Confirmed
 `LoadState=not-found` with `ActiveState=inactive` permits cleanup without stop/disable, including
 installation before unit creation or uninstall retried after unit removal. Missing unit files,

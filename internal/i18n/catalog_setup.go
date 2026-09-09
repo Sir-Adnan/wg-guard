@@ -13,6 +13,10 @@ func init() {
 		"network": "پیش‌فرض‌های شبکه VPN", "network_defaults": "هر رابط AWG یک درگاه UDP در بازه 30000–50000 می‌گیرد. شبکه: 10.8.0.0/24؛ MTU: 1420؛ DNS: 1.1.1.1, 1.0.0.1.", "custom_network": "این پیش‌فرض‌ها تغییر کنند؟", "port_min": "بازه تخصیص UDP برای AWG · ابتدا", "port_max": "بازه تخصیص UDP برای AWG · انتها", "port_order": "انتهای بازه باید بزرگ‌تر یا برابر ابتدای آن باشد.", "pool": "شبکه VPN برای نخستین رابط", "cidr_invalid": "یک CIDR معتبر IPv4 وارد کنید؛ مانند 10.8.0.0/24.", "mtu": "MTU کاربر", "dns": "سرورهای DNS کاربر (IPها با ویرگول جدا شوند)", "dns_invalid": "هر مقدار DNS باید یک نشانی IP باشد.",
 		"backup": "پشتیبان اختیاری", "telegram": "ارسال تلگرام و برنامه روزانه اکنون تنظیم شوند؟", "token": "توکن ربات تلگرام (مخفی)", "token_skipped": "توکنی وارد نشد؛ ارسال را بعداً در بخش پشتیبان تنظیم کنید.", "chat": "شناسه گفت‌وگوی تلگرام (شناسه منفی گروه پذیرفته می‌شود)", "chat_invalid": "شناسه عددی غیرصفر وارد کنید.", "time": "زمان روزانه پشتیبان (UTC، HH:MM)", "time_invalid": "زمان HH:MM بین 00:00 و 23:59 وارد کنید.", "review": "بررسی نصب", "panel": "نشانی دسترسی پنل", "endpoint": "نشانی عمومی VPN", "config": "تنظیمات راه‌اندازی", "data": "پوشه داده", "udp": "بازه تخصیص UDP هر رابط AWG", "backup_set": "گفت‌وگوی %s · روزانه %s UTC", "backup_later": "تلگرام تنظیم نشده است؛ بعداً از بخش پشتیبان مدیریت کنید.", "impact": "نصب، پیش‌نیازها و تنظیمات مدیریت‌شده را آماده و سرویس را شروع می‌کند. منابع نامرتبط موجود حفظ می‌شوند.", "owner": "پیش از شروع سرویس عمومی مالک محلی باید آماده باشد. اطلاعات ورود مالک موجود حفظ می‌شود.", "proceed": "نصب انجام شود؟",
 	}
+	// The host terminal is English-only. Keep the legacy catalog free of a
+	// hidden single-letter exit command as well, so every rendering is clear.
+	en["intro"] = "Press Enter to accept safe defaults. Type n only when you need advanced setup; Ctrl+C cancels safely."
+	fa["intro"] = en["intro"]
 	for k, v := range en {
 		catalogs[En]["setup."+k] = v
 	}

@@ -12,6 +12,11 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   operational logs and seven-day retention. Implementation has not started.
 
 ### Changed
+- **Uninstall recovery and terminal navigation:** menus now use only numbered choices plus `0` for
+  back/exit and `Ctrl+C` for cancellation; `q` is ordinary input rather than a hidden command.
+  Installed nodes expose concise data-preserving and full-reset removal choices. An interrupted
+  uninstall no longer probes a missing boot config or dispatches update recovery; its dedicated
+  view resumes the recorded uninstall while preserving fixed-layout ownership safeguards.
 - **Update-aware manager and unified Update Center:** re-running the GitHub entry now resolves the
   selected release/commit, skips artifact acquisition when current, and atomically refreshes an
   independent root-only manager cache when changed without replacing the active service binary.

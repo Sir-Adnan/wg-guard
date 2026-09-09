@@ -100,6 +100,14 @@ or current versions. Automation uses explicit commands such as
 restart; core updates accept only the exact WG-Guard compatibility catalog and never force-unload
 active tunnels. WG-Guard does not perform a blanket Ubuntu package or OS-kernel upgrade.
 
+For removal, open `sudo wg-guard` and choose **Uninstall / reset WG-Guard**. The recommended
+choice removes the application while keeping node data and backups. **Full reset** additionally
+deletes WG-Guard data, keys, backups and packages recorded as installer-owned; it never removes
+unrelated host services or proxy configuration. If an uninstall was interrupted, rerun the
+one-line GitHub command: the manager detects that journal, avoids the missing-config health probe,
+and promotes **Continue uninstall / reset**. The cached manager remains available during that
+session so a clean reinstall can start immediately.
+
 The manager's **Panel access & HTTPS** section can later move a private installation to domain
 HTTPS, a standard existing Nginx, Cloudflare DNS-01, trusted public-IP HTTPS, manual/Origin CA, or
 an operator-owned proxy. Unknown port owners are never stopped, public plaintext is never offered,

@@ -144,6 +144,9 @@ and runtime config.
 - [x] **8.2.7 maintenance** — Correct branch/release update discovery, separate manager/service
   binaries, add the component-scoped Update Center, retain catalog-only AmneziaWG updates, and
   close the targeted Docker VPS gate.
+- [x] **8.2.8 maintenance** — Remove the redundant `q` shortcut, add a clear data-preserving/full
+  reset menu, and route an interrupted uninstall through its own config-independent recovery
+  screen instead of update recovery.
 
 Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-09-09-phase8.2-secure-access-manager.md).
 
@@ -181,6 +184,10 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
   difference, and the VPS was purged afterward. The `main`-tracking change/repeat behavior and
   offline/invalid-selection boundaries are executable shell-fixture verified; no stable release or
   real cross-bundle core transition is claimed.
+- A user-provided interrupted-uninstall transcript reproduced the stale recovery dispatch and
+  missing-config presentation failure. Focused terminal/manager tests now cover zero-only menu
+  navigation, ordinary `q` input, dedicated uninstall recovery with or without install-state,
+  and the exact safe-removal/full-reset command boundaries. No API/OpenAPI contract changed.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.

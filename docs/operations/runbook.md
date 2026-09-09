@@ -73,6 +73,9 @@ the CLI itself — run it from the installed path and expect the command to disa
 State-derived paths are restricted to the fixed managed layout. Stop failure or an unconfirmed
 stopped service prevents artifact/data deletion. Corrupt or unsupported state refuses the
 operation. Interrupted removal can be retried from its journal; shared apt sources are retained.
+The interactive manager presents this as **Uninstall / reset WG-Guard**: its recommended choice
+keeps data/backups, while Full reset adds both purge flags behind a default-no confirmation. An
+interrupted uninstall reopens in a dedicated view even when the boot config was already removed.
 
 ## Backup / restore / migration
 

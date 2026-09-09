@@ -33,7 +33,7 @@ func TestInputRetryBackAndCancellation(t *testing.T) {
 			t.Fatalf("localized number: %d %v", n, err)
 		}
 	}
-	for _, ending := range []string{"0\n", "q\n", "", "1"} {
+	for _, ending := range []string{"0\n", "", "1"} {
 		ui := New(strings.NewReader(ending), &bytes.Buffer{}, Options{Locale: i18n.En})
 		_, err := ui.Choose("menu", []string{"one"}, 0)
 		if ending == "0\n" {
@@ -44,8 +44,21 @@ func TestInputRetryBackAndCancellation(t *testing.T) {
 			t.Fatalf("%q: %v", ending, err)
 		}
 	}
+	var quitOut bytes.Buffer
+	ui := New(strings.NewReader("q\n0\n"), &quitOut, Options{Locale: i18n.En})
+	_, err := ui.Choose("menu", []string{"one"}, 0)
+	if !errors.Is(err, ErrBack) {
+		t.Fatalf("q should be ordinary invalid menu input before 0 goes back: %v", err)
+	}
+	if strings.Contains(quitOut.String(), "q  ") || strings.Contains(quitOut.String(), "q to") {
+		t.Fatalf("menu still advertises q:\n%s", quitOut.String())
+	}
+	ui = New(strings.NewReader("q\n"), &bytes.Buffer{}, Options{Locale: i18n.En})
+	if got, err := ui.Ask("value", ""); err != nil || got != "q" {
+		t.Fatalf("q remained a hidden cancel command: %q, %v", got, err)
+	}
 	var out bytes.Buffer
-	ui := New(strings.NewReader("bad\n9\n2\n"), &out, Options{Locale: i18n.En})
+	ui = New(strings.NewReader("bad\n9\n2\n"), &out, Options{Locale: i18n.En})
 	n, err := ui.Choose("menu", []string{"one", "two"}, 0)
 	if err != nil || n != 2 || !strings.Contains(out.String(), "1–2") {
 		t.Fatalf("%d %v %s", n, err, out.String())
@@ -84,6 +97,17 @@ func TestConfirmationUsesCompactYNDefaultsAndAcceptsCommonForms(t *testing.T) {
 		if !strings.Contains(out.String(), tc.hint) || strings.Contains(out.String(), "yes/no") {
 			t.Fatalf("input %q rendered a verbose confirmation:\n%s", tc.input, out.String())
 		}
+	}
+}
+
+func TestConfirmationDoesNotTreatQAsCancellation(t *testing.T) {
+	var out bytes.Buffer
+	got, err := New(strings.NewReader("q\nn\n"), &out, Options{Locale: i18n.En}).Confirm("Continue?")
+	if err != nil || got {
+		t.Fatalf("q should retry a y/n confirmation: %v, %v", got, err)
+	}
+	if strings.Count(out.String(), "Enter y or n.") != 1 {
+		t.Fatalf("q did not produce one validation retry:\n%s", out.String())
 	}
 }
 
@@ -150,13 +174,13 @@ func TestMenuHighlightsOnlyTheRecommendedDefault(t *testing.T) {
 
 func TestRootMenuUsesExitFooter(t *testing.T) {
 	var out bytes.Buffer
-	ui := New(strings.NewReader("0\n"), &out, Options{Locale: i18n.En})
+	ui := New(strings.NewReader("q\n0\n"), &out, Options{Locale: i18n.En})
 	_, err := ui.ChooseRoot("Management", []string{"Install & updates"}, 0)
 	if !errors.Is(err, ErrBack) {
 		t.Fatalf("exit choice: %v", err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "0  Exit") || strings.Contains(text, "0  Back") {
+	if !strings.Contains(text, "0  Exit") || !strings.Contains(text, "0 to exit") || strings.Contains(text, "0  Back") || strings.Contains(text, "q to") || strings.Contains(text, "q  ") {
 		t.Fatalf("root footer is ambiguous:\n%s", text)
 	}
 }
