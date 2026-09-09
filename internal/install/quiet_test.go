@@ -2,6 +2,7 @@ package install
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -32,5 +33,20 @@ func TestQuietCommandReportsProgressWhileWaiting(t *testing.T) {
 	}
 	if heartbeats == 0 {
 		t.Fatal("long quiet command produced no progress heartbeat")
+	}
+}
+
+func TestAptCommandsWaitForPackageManagerLock(t *testing.T) {
+	input := []string{"apt-get", "install", "-y", "docker.io"}
+	want := []string{"apt-get", "-o", "DPkg::Lock::Timeout=300", "install", "-y", "docker.io"}
+	if got := withAptLockWait(input); !reflect.DeepEqual(got, want) {
+		t.Fatalf("apt command = %v, want %v", got, want)
+	}
+	if !reflect.DeepEqual(input, []string{"apt-get", "install", "-y", "docker.io"}) {
+		t.Fatalf("input command mutated: %v", input)
+	}
+	nonApt := []string{"docker", "info"}
+	if got := withAptLockWait(nonApt); !reflect.DeepEqual(got, nonApt) {
+		t.Fatalf("non-apt command changed: %v", got)
 	}
 }

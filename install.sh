@@ -135,8 +135,8 @@ done
 [[ -s /etc/ssl/certs/ca-certificates.crt ]] || missing+=(ca-certificates)
 if ((${#missing[@]})); then
   command -v apt-get >/dev/null || die "Install prerequisites: ${missing[*]}"
-  "${sudo_cmd[@]}" apt-get update
-  "${sudo_cmd[@]}" apt-get install -y --no-install-recommends "${missing[@]}"
+  "${sudo_cmd[@]}" apt-get -o DPkg::Lock::Timeout=300 update
+  "${sudo_cmd[@]}" apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends "${missing[@]}"
 fi
 ((list)) || ui_ok 'Prerequisites ready'
 stage=$(mktemp -d -t wg-guard-bootstrap.XXXXXXXX)

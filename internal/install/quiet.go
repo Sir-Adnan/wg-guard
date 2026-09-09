@@ -87,6 +87,7 @@ func (realHost) RunQuiet(ctx context.Context, argv []string, timeout time.Durati
 		runCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
+	argv = withAptLockWait(argv)
 	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) //nolint:gosec // explicit installer-controlled argv
 	cmd.Stdout = output
 	cmd.Stderr = output

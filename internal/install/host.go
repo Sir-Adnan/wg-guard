@@ -59,6 +59,23 @@ type realHost struct{}
 // NewRealHost returns the host seam backed by the real machine.
 func NewRealHost() Host { return realHost{} }
 
+// withAptLockWait lets Ubuntu's unattended updater finish instead of turning
+// a healthy first install into a recovery case. It returns a copy so journaled
+// installer intent and caller-owned argv remain unchanged.
+func withAptLockWait(argv []string) []string {
+	if len(argv) == 0 || filepath.Base(argv[0]) != "apt-get" {
+		return argv
+	}
+	for _, arg := range argv[1:] {
+		if arg == "DPkg::Lock::Timeout=300" {
+			return argv
+		}
+	}
+	result := make([]string, 0, len(argv)+2)
+	result = append(result, argv[0], "-o", "DPkg::Lock::Timeout=300")
+	return append(result, argv[1:]...)
+}
+
 func (realHost) Run(ctx context.Context, argv []string, timeout time.Duration) error {
 	runCtx := ctx
 	var cancel context.CancelFunc
@@ -66,6 +83,7 @@ func (realHost) Run(ctx context.Context, argv []string, timeout time.Duration) e
 		runCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
+	argv = withAptLockWait(argv)
 	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) //nolint:gosec // explicit argv, installer-controlled
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -80,6 +98,7 @@ func (realHost) RunWithInput(ctx context.Context, argv []string, stdin io.Reader
 		runCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
+	argv = withAptLockWait(argv)
 	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...) //nolint:gosec // explicit argv, installer-controlled
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -89,6 +108,7 @@ func (realHost) RunWithInput(ctx context.Context, argv []string, stdin io.Reader
 
 func (realHost) Output(ctx context.Context, argv []string, timeout time.Duration) (string, error) {
 	runner := &subprocess.System{Timeout: timeout}
+	argv = withAptLockWait(argv)
 	result, err := runner.RunConfigured(ctx, argv, "", os.Environ())
 	return string(result.Stdout), err
 }
