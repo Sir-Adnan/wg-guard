@@ -85,6 +85,13 @@ menu navigation key, and gives interrupted uninstall its own config-independent 
 Installed and recovery flows now expose an explicit data-preserving removal or confirmed full
 WG-Guard reset without touching unrelated host resources. Phase 9 remains unchanged and unstarted.
 
+A final account-provisioning correction before Phase 9 makes the interactive username explicit
+(`admin` on Enter), retries invalid passwords before leaving the wizard, and offers a
+cryptographically generated password with a show-once post-health credential card. Interrupted
+initial setup now opens guided reset choices, and uninstall distinguishes recoverable node reset
+from complete removal of the local manager/cache/logs. This remains Phase 8.2 maintenance; it does
+not add Phase 9 or API/OpenAPI scope.
+
 ### Phase 9 — Operational observability
 
 Add one bounded scheduler-driven telemetry pipeline and a mode-aware diagnostic log workflow.

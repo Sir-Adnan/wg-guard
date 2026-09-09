@@ -9,6 +9,11 @@ The shared distribution/installer engine verifies build identity and builds the 
 image from the selected binary when needed. No published official image is assumed. Installed
 nodes expose [terminal management](terminal-management.md) through `sudo wg-guard manage`.
 
+Fresh interactive setup prompts for the administrator username (`admin` on Enter) and password.
+Enter at the password prompt creates a 24-character cryptographic password and shows it once after
+the node is healthy; invalid manual credentials stay in the prompt instead of leaving partial
+setup. Existing installations retain their current administrator identity.
+
 ## Commands
 
 Public interactive installation from `main` while no stable release exists:

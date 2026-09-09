@@ -102,8 +102,8 @@ func (s *Service) Create(ctx context.Context, username, password string, role au
 	} else if err := auth.ValidateScopes(permissions); err != nil {
 		return nil, domain.E(domain.CodeInvalidRequest, "permissions: %v", err)
 	}
-	if !validUsername(username) {
-		return nil, domain.E(domain.CodeInvalidRequest, "username must be 3-32 chars: letters, digits, '_' or '-'")
+	if err := ValidateUsername(username); err != nil {
+		return nil, err
 	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
@@ -312,18 +312,20 @@ func (s *Service) get(ctx context.Context, id string) (*Admin, error) {
 	return &a, nil
 }
 
-func validUsername(u string) bool {
+// ValidateUsername applies the shared administrator identity policy. The
+// installer calls this before sending credentials to the bootstrap command.
+func ValidateUsername(u string) error {
 	if len(u) < 3 || len(u) > 32 {
-		return false
+		return domain.E(domain.CodeInvalidRequest, "username must be 3-32 chars: letters, digits, '_' or '-'")
 	}
 	for _, r := range u {
 		switch {
 		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
 		default:
-			return false
+			return domain.E(domain.CodeInvalidRequest, "username must be 3-32 chars: letters, digits, '_' or '-'")
 		}
 	}
-	return true
+	return nil
 }
 
 // errOwnerProtected guards the single-owner invariant.

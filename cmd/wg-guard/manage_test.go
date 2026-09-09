@@ -111,14 +111,15 @@ func TestInterruptedInitialSetupGetsOnlySafeCleanupAndDiagnostics(t *testing.T) 
 		t.Fatalf("safe interrupted setup view = %v", got)
 	}
 	j.DataMayHaveChanged = true
-	if got := classifyManagerView(st, j); got != managerRecovery {
-		t.Fatalf("possibly mutated setup was offered automatic cleanup: %v", got)
+	if got := classifyManagerView(st, j); got != managerInstallRecovery {
+		t.Fatalf("interrupted initial setup lost its guided reset view: %v", got)
 	}
 
 	var got []string
 	m := manager{
-		ui:   terminal.New(strings.NewReader("y\n"), io.Discard, terminal.Options{Locale: i18n.En}),
-		view: managerInstallRecovery,
+		ui:                 terminal.New(strings.NewReader("y\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		view:               managerInstallRecovery,
+		installCleanupSafe: true,
 		run: func(_ context.Context, args []string, _ io.Reader) error {
 			got = append([]string(nil), args...)
 			return nil
@@ -129,6 +130,16 @@ func TestInterruptedInitialSetupGetsOnlySafeCleanupAndDiagnostics(t *testing.T) 
 	}
 	if want := []string{"recover-install", "--yes"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("safe cleanup args = %v, want %v", got, want)
+	}
+
+	got = nil
+	m.installCleanupSafe = false
+	m.ui = terminal.New(strings.NewReader("1\ny\n"), io.Discard, terminal.Options{Locale: i18n.En})
+	if err := m.rootAction(context.Background(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"uninstall", "--yes"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("mutated setup reset args = %v, want %v", got, want)
 	}
 }
 
@@ -165,6 +176,7 @@ func TestInterruptedUninstallRecoveryOffersSafeRemovalOrFullReset(t *testing.T) 
 	}{
 		{name: "keep data", script: "1\ny\n", want: []string{"uninstall", "--yes"}},
 		{name: "full reset", script: "2\ny\n", want: []string{"uninstall", "--purge-data", "--purge-packages", "--yes"}},
+		{name: "complete removal", script: "3\ny\n", want: []string{"uninstall", "--purge-all", "--yes"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []string
@@ -183,6 +195,32 @@ func TestInterruptedUninstallRecoveryOffersSafeRemovalOrFullReset(t *testing.T) 
 				t.Fatalf("uninstall args = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestCompleteRemovalExitsManagerAfterDeletingItsCache(t *testing.T) {
+	var got []string
+	overviews := 0
+	m := manager{
+		ui: terminal.New(strings.NewReader("5\n3\ny\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		overview: func() error {
+			overviews++
+			return nil
+		},
+		view: managerInstalled,
+		run: func(_ context.Context, args []string, _ io.Reader) error {
+			got = append([]string(nil), args...)
+			return nil
+		},
+	}
+	if err := m.loop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"uninstall", "--purge-all", "--yes"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("complete removal args = %v, want %v", got, want)
+	}
+	if overviews != 1 {
+		t.Fatalf("manager reopened %d times after deleting itself", overviews)
 	}
 }
 

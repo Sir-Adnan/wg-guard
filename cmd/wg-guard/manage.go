@@ -24,16 +24,18 @@ type sourceCatalog interface {
 	Resolve(context.Context, distribution.Selection) (distribution.Build, error)
 }
 type manager struct {
-	ui                *terminal.UI
-	catalog           sourceCatalog
-	run               func(context.Context, []string, io.Reader) error
-	overview          func() error
-	installed         string
-	bootstrapMetadata string
-	lifecycleReady    func() error
-	view              managerView
-	journalOperation  string
-	recoveryLineage   string
+	ui                 *terminal.UI
+	catalog            sourceCatalog
+	run                func(context.Context, []string, io.Reader) error
+	overview           func() error
+	installed          string
+	bootstrapMetadata  string
+	lifecycleReady     func() error
+	view               managerView
+	journalOperation   string
+	recoveryLineage    string
+	installCleanupSafe bool
+	stop               bool
 }
 
 type managerView uint8
@@ -73,7 +75,7 @@ func classifyManagerView(st *install.State, j *install.Journal) managerView {
 		if j.Operation == "uninstall" {
 			return managerUninstallRecovery
 		}
-		if j.Operation == "install" && j.Before == nil && j.After != nil && !j.DataMayHaveChanged && !j.PrerequisitesComplete && (j.After.Recovery == "" || j.After.Recovery == "install-incomplete") {
+		if j.Operation == "install" && j.Before == nil && j.After != nil {
 			return managerInstallRecovery
 		}
 		return managerRecovery
@@ -217,6 +219,7 @@ func (m *manager) prepareOverview(st *install.State, j *install.Journal) bool {
 	m.installed = ""
 	m.journalOperation = ""
 	m.recoveryLineage = ""
+	m.installCleanupSafe = false
 	if st != nil {
 		m.installed = st.Version
 		if st.Exposure.Lineage != "" {
@@ -225,6 +228,7 @@ func (m *manager) prepareOverview(st *install.State, j *install.Journal) bool {
 	}
 	if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
 		m.journalOperation = j.Operation
+		m.installCleanupSafe = j.Operation == "install" && j.Before == nil && j.After != nil && !j.DataMayHaveChanged && !j.PrerequisitesComplete && (j.After.Recovery == "" || j.After.Recovery == "install-incomplete")
 	}
 	m.ui.Header("WG-GUARD", m.ui.T("manage.subtitle"))
 	if m.view == managerInstallRecovery {
@@ -330,6 +334,9 @@ func (m *manager) loop(ctx context.Context) error {
 			return err
 		}
 		err = m.rootAction(ctx, n)
+		if m.stop {
+			return nil
+		}
 		if errors.Is(err, terminal.ErrCanceled) {
 			return err
 		}
@@ -346,8 +353,11 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 	case managerInstallRecovery:
 		switch n {
 		case 1:
-			_, err := m.reviewedAction(ctx, "cleanup_install_review", []string{"recover-install", "--yes"}, nil)
-			return err
+			if m.installCleanupSafe {
+				_, err := m.reviewedAction(ctx, "cleanup_install_review", []string{"recover-install", "--yes"}, nil)
+				return err
+			}
+			return m.uninstallAction(ctx)
 		case 2:
 			err := m.run(ctx, []string{"doctor"}, nil)
 			m.ui.Result(err)
@@ -397,7 +407,7 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 }
 
 func (m *manager) uninstallAction(ctx context.Context) error {
-	n, err := m.menu("uninstall_menu", "uninstall_keep", "uninstall_reset")
+	n, err := m.menu("uninstall_menu", "uninstall_keep", "uninstall_reset", "uninstall_all")
 	if errors.Is(err, terminal.ErrBack) {
 		return nil
 	}
@@ -409,8 +419,14 @@ func (m *manager) uninstallAction(ctx context.Context) error {
 	if n == 2 {
 		review = "uninstall_reset_review"
 		args = []string{"uninstall", "--purge-data", "--purge-packages", "--yes"}
+	} else if n == 3 {
+		review = "uninstall_all_review"
+		args = []string{"uninstall", "--purge-all", "--yes"}
 	}
-	_, err = m.reviewedAction(ctx, review, args, nil)
+	done, err := m.reviewedAction(ctx, review, args, nil)
+	if done && n == 3 {
+		m.stop = true
+	}
 	return err
 }
 

@@ -18,7 +18,7 @@ access). Principles: least privilege, secure defaults, standard primitives only,
 
 | Secret | Storage |
 |---|---|
-| Admin passwords | argon2id (OWASP parameter baseline), never plaintext, never logged |
+| Admin passwords | Argon2id (OWASP parameter baseline), never persisted/logged as plaintext; an installer-generated password is displayed once on the interactive terminal after successful lifecycle/health completion |
 | Admin sessions | random tokens, stored hashed; HttpOnly, Secure, SameSite=Lax cookies; absolute + idle expiry; rotation on login |
 | API tokens | `wg_` + 32 chars crypto/rand; stored as SHA-256 with indexed prefix; scopes, expiry, optional CIDR allowlist; revocable |
 | Device private keys / preshared keys | AES-256-GCM encrypted with the node-local master key (32 B, file 0600 outside the DB); required for config re-download; rotation procedure below + loss consequence documented |

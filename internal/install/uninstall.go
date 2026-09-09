@@ -13,12 +13,14 @@ import (
 
 // UninstallReport lists what uninstall did or would do (--dry-run).
 type UninstallReport struct {
-	Mode       Mode
-	Stopped    bool
-	Artifacts  []string // removed files
-	KeptData   string   // non-empty when the data dir was preserved
-	PurgedData bool
-	PurgedPkgs []string
+	Mode          Mode
+	Stopped       bool
+	Artifacts     []string // removed files
+	KeptData      string   // non-empty when the data dir was preserved
+	PurgedData    bool
+	PurgedPkgs    []string
+	PurgedManager bool
+	PurgedLogs    bool
 }
 
 // UninstallOptions selects what uninstall removes. Data and the packages the
@@ -28,6 +30,7 @@ type UninstallOptions struct {
 	DryRun         bool
 	PurgeData      bool
 	PurgePackages  bool
+	PurgeAll       bool
 	Yes            bool
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
@@ -49,6 +52,10 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	out := o.Stdout
 	if out == nil {
 		out = io.Discard
+	}
+	if o.PurgeAll {
+		o.PurgeData = true
+		o.PurgePackages = true
 	}
 	st, err := LoadState(h)
 	if err != nil {
@@ -194,13 +201,32 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		}
 	}
 
+	if err := h.Remove(StatePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return rep, err
+	}
+	if o.PurgeAll {
+		step(out, "Removing local manager and logs")
+		if err := h.RemoveAll(ManagerCacheDir); err != nil {
+			return rep, fmt.Errorf("uninstall: purge manager: %w", err)
+		}
+		rep.PurgedManager = true
+		if err := h.RemoveAll(InstallerLogDir); err != nil {
+			return rep, fmt.Errorf("uninstall: purge logs: %w", err)
+		}
+		rep.PurgedLogs = true
+		if err := j.save(h, "complete"); err != nil {
+			return rep, err
+		}
+		if err := h.RemoveAll(EtcDir); err != nil {
+			return rep, fmt.Errorf("uninstall: purge configuration directory: %w", err)
+		}
+		fmt.Fprintln(out, "\nWG-Guard completely removed. Run the GitHub install command to use it again.")
+		return rep, nil
+	}
 	if o.PurgeData {
 		fmt.Fprintf(out, "\nWG-Guard uninstalled. Data purged (%s).\n", st.DataDir)
 	} else {
 		fmt.Fprintf(out, "\nWG-Guard uninstalled. Data kept at %s — delete manually when sure.\n", st.DataDir)
-	}
-	if err := h.Remove(StatePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return rep, err
 	}
 	return rep, j.save(h, "complete")
 }
@@ -230,6 +256,10 @@ func dataFate(purge bool, dir string) string {
 }
 
 func printPlan(out io.Writer, st *State, rep *UninstallReport, o UninstallOptions) {
+	if o.PurgeAll {
+		o.PurgeData = true
+		o.PurgePackages = true
+	}
 	fmt.Fprintf(out, "  mode: %s\n", st.Mode)
 	for _, a := range rep.Artifacts {
 		fmt.Fprintf(out, "  remove:   %s\n", a)
@@ -246,5 +276,10 @@ func printPlan(out io.Writer, st *State, rep *UninstallReport, o UninstallOption
 	}
 	if o.PurgePackages && st.Core.Requested.Source == coreSourceGitHub {
 		fmt.Fprintf(out, "  purge:    github-source:%s (AWG tool, DKMS module and cache)\n", st.Core.Requested.ID)
+	}
+	if o.PurgeAll {
+		fmt.Fprintf(out, "  purge:    %s (verified manager and download cache)\n", ManagerCacheDir)
+		fmt.Fprintf(out, "  purge:    %s (installer logs)\n", InstallerLogDir)
+		fmt.Fprintf(out, "  purge:    %s (remaining WG-Guard configuration and lifecycle records)\n", EtcDir)
 	}
 }

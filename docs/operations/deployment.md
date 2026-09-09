@@ -15,6 +15,11 @@ data paths, so backups and mode-switching are layout-independent.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
   `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups,
   ACME cache). The generated compose file adds a TLS-mode-aware healthcheck.
+- **Host layout**: no `/opt` application directory is needed. Docker owns immutable image layers
+  in its configured engine data root (commonly `/var/lib/docker`, but operator-configurable).
+  WG-Guard's stable host artifacts are `/etc/wg-guard/compose.yaml`, `/etc/wg-guard`,
+  `/var/lib/wg-guard`, `/usr/local/bin/wg-guard`, and the verified manager under
+  `/var/cache/wg-guard`.
 - **Why this split**: the AmneziaWG kernel module and forwarding run on the **host** — the VPN
   data plane never traverses the container, so Docker adds zero hot-path overhead. The panel and
   AWG tooling run in the container with host networking (interfaces appear on the host, nftables
@@ -63,8 +68,10 @@ new `--exposure`/`--certificate` choices.
    (input is hidden on terminals and travels via stdin — never argv, logs or state),
    chat ID, and a daily UTC backup time that creates an enabled `installer-daily` schedule.
 4. Container image (Docker mode) and a final plan confirmation.
-5. Create the first local owner with a hidden password and confirmation before starting the
-   public listener; reuse an existing owner without changing its credentials. Fresh `--yes`
+5. Create the first local owner before starting the public listener. Username defaults to `admin`;
+   a blank hidden password generates a 24-character value shown once after final success, while
+   invalid/mismatched manual input is retried. Reuse an existing owner without changing its
+   credentials. Fresh `--yes`
    setup requires a private `--owner-password-file`. See [terminal management](terminal-management.md)
    for menus, locale, input bounds, automation and the manual-serve posture.
 
@@ -185,7 +192,9 @@ restoration, not just restarting old code. See [lifecycle-recovery.md](lifecycle
 
 `wg-guard uninstall --dry-run` first: stops services and removes only the state-recorded
 WG-Guard-owned artifacts; data/backups and installer-installed packages are preserved unless
-`--purge-data` / `--purge-packages` is passed.
+`--purge-data` / `--purge-packages` is passed. `--purge-all` implies both and additionally removes
+the fixed WG-Guard manager/cache, log and remaining configuration/lifecycle directories. It does
+not remove unrelated proxy sites, shared certificate lineages or unowned packages.
 
 ## Host requirements
 

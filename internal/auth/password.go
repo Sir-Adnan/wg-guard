@@ -27,10 +27,19 @@ const (
 // installer and panel; configurable UX later, never below this).
 const MinPasswordLength = 10
 
+// ValidatePassword applies the account password policy without hashing. CLI
+// setup uses the same guard before it starts a privileged bootstrap attempt.
+func ValidatePassword(password string) error {
+	if len(password) < MinPasswordLength {
+		return domain.E(domain.CodeInvalidRequest, "password must be at least %d characters", MinPasswordLength)
+	}
+	return nil
+}
+
 // HashPassword returns a PHC-format argon2id hash ($argon2id$v=19$m=19456,t=2,p=1$salt$hash).
 func HashPassword(password string) (string, error) {
-	if len(password) < MinPasswordLength {
-		return "", domain.E(domain.CodeInvalidRequest, "password must be at least %d characters", MinPasswordLength)
+	if err := ValidatePassword(password); err != nil {
+		return "", err
 	}
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {

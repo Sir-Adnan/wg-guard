@@ -26,6 +26,16 @@ func TestParseLifecycleSources(t *testing.T) {
 	}
 }
 
+func TestInteractiveInstallLeavesAdministratorUsernameForThePrompt(t *testing.T) {
+	o, err := parseInstallOptions(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.Owner.Username != "" {
+		t.Fatalf("interactive install silently selected username %q", o.Owner.Username)
+	}
+}
+
 func TestParseSecureExposureFlagsAndProtectedCloudflareToken(t *testing.T) {
 	dir := t.TempDir()
 	tokenFile := filepath.Join(dir, "cloudflare-token")

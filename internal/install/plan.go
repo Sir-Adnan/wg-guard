@@ -39,8 +39,9 @@ const (
 	UnitPath   = "/etc/systemd/system/wg-guard.service"
 	BinPath    = "/usr/local/bin/wg-guard"
 	// ManagerBuildPath records the verified build cached before setup starts.
-	ManagerBuildPath  = "/var/cache/wg-guard/manager-build.json"
-	ManagerBinaryPath = "/var/cache/wg-guard/manager"
+	ManagerCacheDir   = "/var/cache/wg-guard"
+	ManagerBuildPath  = ManagerCacheDir + "/manager-build.json"
+	ManagerBinaryPath = ManagerCacheDir + "/manager"
 	Container         = "wg-guard"
 )
 

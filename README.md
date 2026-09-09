@@ -60,6 +60,17 @@ usable domain, or private SSH access when no domain is supplied. Advanced settin
 ports, native systemd, network defaults and Telegram backup setup. Confirmations display `[Y/n]`
 or `[y/N]`; `y`, `yes`, `n`, `no` and case variants are accepted.
 
+Fresh setup asks for an administrator username; Enter selects `admin`. At the password prompt,
+enter a password of at least 10 characters or press Enter to generate a strong one. Invalid or
+mismatched passwords are retried in place. A generated password is shown once in the final success
+card after the node is healthy; it is never stored as readable text.
+
+Docker mode does not install an application tree under `/opt`. Docker stores image layers in its
+own engine data directory; WG-Guard keeps only operator-managed state in stable host paths:
+`/etc/wg-guard/compose.yaml` and boot/TLS configuration under `/etc/wg-guard`, persistent database,
+keys and backups under `/var/lib/wg-guard`, and the host manager command at
+`/usr/local/bin/wg-guard`.
+
 The first development-source build can take several minutes. A published release installs much
 faster because it uses a verified prebuilt binary. When stable releases exist, the default command
 becomes the same command without `--commit main`. Long quiet operations emit a short progress
@@ -101,12 +112,13 @@ restart; core updates accept only the exact WG-Guard compatibility catalog and n
 active tunnels. WG-Guard does not perform a blanket Ubuntu package or OS-kernel upgrade.
 
 For removal, open `sudo wg-guard` and choose **Uninstall / reset WG-Guard**. The recommended
-choice removes the application while keeping node data and backups. **Full reset** additionally
-deletes WG-Guard data, keys, backups and packages recorded as installer-owned; it never removes
+choice removes the application while keeping node data and backups. **Reset node** additionally
+deletes WG-Guard data, keys, backups and packages recorded as installer-owned while retaining the
+local manager for a quick reinstall. **Remove everything** also deletes the manager cache and
+installer logs, then exits; use the GitHub command to install again. None of these choices removes
 unrelated host services or proxy configuration. If an uninstall was interrupted, rerun the
 one-line GitHub command: the manager detects that journal, avoids the missing-config health probe,
-and promotes **Continue uninstall / reset**. The cached manager remains available during that
-session so a clean reinstall can start immediately.
+and promotes **Continue uninstall / reset**.
 
 The manager's **Panel access & HTTPS** section can later move a private installation to domain
 HTTPS, a standard existing Nginx, Cloudflare DNS-01, trusted public-IP HTTPS, manual/Origin CA, or

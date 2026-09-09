@@ -125,7 +125,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 		commit         = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
 		metadata       = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
 		localImage     = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
-		ownerName      = fs.String("owner-username", "owner", i18n.T(i18n.En, "owner.username"))
+		ownerName      = fs.String("owner-username", "", i18n.T(i18n.En, "owner.username"))
 		ownerFile      = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
 		locale         = fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
 	)
@@ -232,6 +232,7 @@ func runUninstall(args []string) error {
 		dryRun    = fs.Bool("dry-run", false, "print the plan without changing anything")
 		purgeData = fs.Bool("purge-data", false, "also delete /var/lib/wg-guard (database, keys, backups) — default keeps it")
 		purgePkgs = fs.Bool("purge-packages", false, "also remove packages the installer installed (kernel module)")
+		purgeAll  = fs.Bool("purge-all", false, "remove all exclusively owned WG-Guard files, data, packages, manager cache and logs")
 		yes       = fs.Bool("yes", false, "do not ask for confirmation")
 	)
 	if err := fs.Parse(args); err != nil {
@@ -243,6 +244,7 @@ func runUninstall(args []string) error {
 		DryRun:        *dryRun,
 		PurgeData:     *purgeData,
 		PurgePackages: *purgePkgs,
+		PurgeAll:      *purgeAll,
 		Yes:           *yes,
 		Stdin:         os.Stdin,
 		Stdout:        os.Stdout,

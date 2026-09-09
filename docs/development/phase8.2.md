@@ -147,6 +147,10 @@ and runtime config.
 - [x] **8.2.8 maintenance** — Remove the redundant `q` shortcut, add a clear data-preserving/full
   reset menu, and route an interrupted uninstall through its own config-independent recovery
   screen instead of update recovery.
+- [x] **8.2.9 maintenance** — Make first-administrator identity explicit, retry invalid credentials
+  without abandoning setup, generate blank passwords securely with a post-health show-once card,
+  route all interrupted initial installs to guided cleanup/reset, and add a separately confirmed
+  complete-removal path for fixed WG-Guard data/cache/log/config ownership.
 
 Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-09-09-phase8.2-secure-access-manager.md).
 
@@ -192,6 +196,13 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
   config opened the dedicated view, Full reset removed the test data/host command, committed the
   journal and returned to fresh setup. Temporary test cache was removed. No API/OpenAPI contract
   changed.
+- A second user transcript exposed two coupled account-provisioning defects: interactive setup
+  silently selected `owner`, so attempts with the assumed `admin` username failed, and the backend
+  first rejected a short password after deployment files/data had already been prepared. Focused
+  tests now prove the explicit `admin` default, shared backend policy, short/mismatch retry,
+  generated-secret non-disclosure before success, post-health/lifecycle credential handoff,
+  guided interrupted-install reset and the three distinct uninstall outcomes. Updated real Docker
+  acceptance is pending before this maintenance correction is marked production verified.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.

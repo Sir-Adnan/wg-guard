@@ -13,7 +13,10 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
-const InstallerLogPath = "/var/log/wg-guard/installer.log"
+const (
+	InstallerLogDir  = "/var/log/wg-guard"
+	InstallerLogPath = InstallerLogDir + "/installer.log"
+)
 
 const installerLogLimit = int64(4 << 20)
 const quietHeartbeatInterval = 15 * time.Second

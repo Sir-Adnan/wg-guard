@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/Sir-Adnan/wg-guard/internal/distribution"
-	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"io"
 	"io/fs"
 	"strings"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/distribution"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
 // longTimeout bounds package installs and image pulls; everything else runs
@@ -75,6 +77,10 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		prompt.ui.Locale = i18n.En
 	}
 	out = &progressOutput{Writer: out, ui: prompt.ui}
+	ownerResult := o.Owner.Result
+	if ownerResult == nil {
+		ownerResult = &OwnerResult{}
+	}
 	if o.BeforeStart == nil {
 		o.BeforeStart = func(ctx context.Context, h Host, p Plan, _ *State) error {
 			owner := o.Owner
@@ -82,6 +88,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 			owner.Stdin = o.Stdin
 			owner.Stdout = out
 			owner.Locale = o.Locale
+			owner.Result = ownerResult
 			return BootstrapLocalOwner(ctx, h, p, owner)
 		}
 	}
@@ -401,10 +408,12 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		}
 	}
 
-	printSummaryLocale(out, p, st, o.Locale)
 	if err := j.save(h, "complete"); err != nil {
 		return st, err
 	}
+	printSummaryLocale(out, p, st, o.Locale)
+	printOwnerSummary(out, p, *ownerResult)
+	ownerResult.GeneratedPassword = ""
 	return st, nil
 }
 
@@ -621,6 +630,23 @@ func printSummaryLocale(out io.Writer, p Plan, st *State, locale i18n.Locale) {
 	}
 	u.Text(u.T("owner.ready"))
 	u.Text(u.T("setup.next"))
+}
+
+func printOwnerSummary(out io.Writer, p Plan, result OwnerResult) {
+	if !result.Created || result.Username == "" {
+		return
+	}
+	u := progressUI(out)
+	if result.GeneratedPassword == "" {
+		u.Field("Administrator", result.Username)
+		return
+	}
+	u.StatusCard(u.T("owner.credentials_status"), u.T("owner.credentials_title"), []terminal.StatusField{
+		{Label: u.T("manage.panel"), Value: p.PanelURL()},
+		{Label: "Username", Value: result.Username},
+		{Label: "Password", Value: result.GeneratedPassword},
+	})
+	u.Warning(u.T("owner.credentials_notice"))
 }
 
 func step(out io.Writer, name string) { u := progressUI(out); u.Section(u.T("progress." + name)) }

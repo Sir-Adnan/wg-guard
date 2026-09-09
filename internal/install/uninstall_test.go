@@ -55,6 +55,28 @@ func TestExplicitPackagePurgeRemovesManagedGitHubCore(t *testing.T) {
 	}
 }
 
+func TestCompleteRemovalPurgesAllExclusiveWGGuardState(t *testing.T) {
+	base := installedFixture(t, ModeDocker)
+	base.files[ManagerBinaryPath] = memFile{data: []byte("manager"), perm: 0o755}
+	base.files[ManagerBuildPath] = memFile{data: []byte("receipt"), perm: 0o600}
+	base.files[InstallerLogPath] = memFile{data: []byte("log"), perm: 0o600}
+	base.dirs["/var/cache/wg-guard"] = true
+	base.dirs["/var/log/wg-guard"] = true
+	h := &sourcePurgeHost{memHost: base}
+	report, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, PurgeAll: true, Stdout: io.Discard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{DataDir, EtcDir, "/var/cache/wg-guard", "/var/log/wg-guard"} {
+		if !contains(h.removedAll, want) {
+			t.Fatalf("complete removal did not purge %q: %v", want, h.removedAll)
+		}
+	}
+	if !report.PurgedData || !report.PurgedManager || !report.PurgedLogs {
+		t.Fatalf("complete removal report = %+v", report)
+	}
+}
+
 func TestSourceCorePurgeDryRunIsCompleteAndReadOnly(t *testing.T) {
 	h := installedFixture(t, ModeDocker)
 	h.commands = nil

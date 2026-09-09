@@ -39,7 +39,7 @@ Commands:
   recover-install  Safely clear a pre-runtime interrupted initial setup
               recover-install --yes
   uninstall   Remove WG-Guard (data kept unless --purge-data)
-              uninstall [--dry-run] [--purge-data] [--purge-packages] [--yes]
+              uninstall [--dry-run] [--purge-data] [--purge-packages] [--purge-all] [--yes]
   status      Install state, service state and health
   exposure    Show or change panel access and HTTPS after installation
               exposure status|configure|renew|private|recover

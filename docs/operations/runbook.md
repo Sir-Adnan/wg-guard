@@ -25,6 +25,11 @@ values are applied before first boot and remain editable in Settings. `--yes` sk
 (flags + defaults; it never reads stdin) and never overrides an explicit `--tls` flag. Automation
 must supply `--owner-password-file` as a private regular file with mode 0600.
 
+Fresh interactive setup asks for the username (`admin` on Enter). Entering no password generates a
+24-character password and prints it once after successful health/lifecycle completion. A manual
+password must be at least 10 characters; short or mismatched input is retried without leaving the
+installer. Older completed installations keep their existing username (historically `owner`).
+
 What it writes: `/etc/wg-guard/wg-guard.toml` (0600), `/var/lib/wg-guard/`, the compose
 project (`/etc/wg-guard/compose.yaml`) or the hardened systemd unit, the host CLI at
 `/usr/local/bin/wg-guard` (in Docker mode it is the mode-aware shim: panel commands exec into
@@ -32,6 +37,10 @@ the container, `install|update|uninstall|status|doctor|version` run on the host,
 refused with compose hints), and `/etc/modules-load.d/wg-guard.conf` so the AmneziaWG module
 loads at boot. Preflight refuses busy ports and completed installs; a domain that does not
 resolve yet is a loud warning (ACME will fail until DNS points at the host).
+
+Docker image layers belong to Docker's engine storage and are not copied into `/opt`. The stable
+operator-visible deployment is the Compose file under `/etc/wg-guard`; `/etc/wg-guard` and
+`/var/lib/wg-guard` are bind-mounted into the container.
 
 Verify: `sudo wg-guard status` → container/unit healthy; open the printed panel URL and sign in
 with the locally supplied administrator credentials. Diagnostics: `sudo wg-guard doctor`. See
@@ -74,8 +83,11 @@ State-derived paths are restricted to the fixed managed layout. Stop failure or 
 stopped service prevents artifact/data deletion. Corrupt or unsupported state refuses the
 operation. Interrupted removal can be retried from its journal; shared apt sources are retained.
 The interactive manager presents this as **Uninstall / reset WG-Guard**: its recommended choice
-keeps data/backups, while Full reset adds both purge flags behind a default-no confirmation. An
-interrupted uninstall reopens in a dedicated view even when the boot config was already removed.
+keeps data/backups; **Reset node** adds both purge flags but keeps the cached manager for immediate
+reinstall; **Remove everything** uses `wg-guard uninstall --purge-all --yes` to additionally remove
+the manager cache, installer logs and remaining WG-Guard lifecycle/config directory, then exits.
+Destructive choices default to no. An interrupted install or uninstall reopens its matching guided
+cleanup view even when the boot config was already removed.
 
 ## Backup / restore / migration
 

@@ -12,6 +12,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   operational logs and seven-day retention. Implementation has not started.
 
 ### Changed
+- **Administrator setup and complete removal:** fresh interactive installation now asks for the
+  username with `admin` as the Enter default, retries invalid/mismatched passwords in place, and
+  generates a 24-character cryptographic password when the field is blank. Generated credentials
+  appear only in a show-once success card after lifecycle and health completion. Interrupted
+  initial setup receives guided cleanup/reset choices. Uninstall now separates data-preserving
+  removal, quick-reinstall node reset and `--purge-all` removal of exclusively owned data,
+  packages, manager cache, logs and lifecycle files. REST/OpenAPI is unchanged.
 - **Uninstall recovery and terminal navigation:** menus now use only numbered choices plus `0` for
   back/exit and `Ctrl+C` for cancellation; `q` is ordinary input rather than a hidden command.
   Installed nodes expose concise data-preserving and full-reset removal choices. An interrupted

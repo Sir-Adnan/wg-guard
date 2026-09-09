@@ -25,7 +25,7 @@ promotes its matching recovery action; a healthy installed node shows these grou
 | Panel access & HTTPS | Access overview, reversible configuration, certificate renewal check and private fallback |
 | Backups & recovery | Create/list/send archives, coordinated restore, schedules and Telegram settings/tests |
 | System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
-| Uninstall | Data-preserving removal by default; purge remains an explicit destructive choice |
+| Uninstall | Data-preserving removal, quick-reinstall reset, or separately confirmed complete removal |
 
 Enter the displayed number and use `0` to go back or exit. Press `Ctrl+C` to cancel safely. Invalid input is retried. Menus
 and prompts use a compact single-column layout that remains readable in narrow SSH terminals.
@@ -41,17 +41,19 @@ EOF, partial input and interruption never grant consent.
 
 ## Uninstall and clean reset
 
-Choose **Uninstall / reset WG-Guard** from an installed node. The short submenu keeps the two
+Choose **Uninstall / reset WG-Guard** from an installed node. The short submenu keeps three
 outcomes explicit:
 
 1. **Remove app · keep data and backups** is the recommended, recoverable choice.
-2. **Full reset** also permanently removes WG-Guard data, keys, backups and packages recorded as
-   installer-owned. The confirmation defaults to no. Stop independent WG-Guard data commands
-   before choosing this destructive path.
+2. **Reset node · keep manager for quick reinstall** permanently removes WG-Guard data, keys,
+   backups and packages recorded as installer-owned.
+3. **Remove everything · app, data, manager and logs** also removes the verified manager cache,
+   installer logs and remaining WG-Guard lifecycle/config directory, then exits. Reinstallation
+   requires the GitHub command.
 
-Neither choice takes ownership of unrelated Nginx sites, proxy files or host packages. The
-verified manager cache stays outside the service removal, allowing the current session to return
-to fresh setup; after exiting, use the GitHub one-line entry again.
+Both destructive confirmations default to no. Stop independent WG-Guard data commands first.
+No choice takes ownership of unrelated Nginx sites, proxy files, shared certificate lineages or
+packages that were not recorded as installer-owned.
 
 An interrupted uninstall has its own minimal recovery view. It does not require the already
 removed boot config, and **Continue uninstall / reset** resumes `uninstall` rather than incorrectly
@@ -78,8 +80,12 @@ Advanced setup exposes native systemd, TLS mode and ports, network/MTU/DNS setti
 image and Telegram backup setup. It does not permit arbitrary or unverified AmneziaWG versions.
 
 Before any public listener starts, setup securely creates or reuses the administrator account.
-Password input is hidden, existing credentials are never reset, and a failed account check prevents
-listener startup. After setup, sign in and create the first interface (`awg0`) in the web panel.
+The username prompt defaults to `admin`. Password input is hidden: enter at least 10 characters,
+or leave it blank for a cryptographically generated 24-character password. Short passwords and
+confirmation mismatches are retried in place. Generated credentials are shown once only after
+health and lifecycle completion and are not written to installer logs, argv, state or journals.
+Existing credentials are never reset. After setup, sign in and create the first interface (`awg0`)
+in the web panel.
 
 ## Panel access & HTTPS
 
@@ -151,12 +157,14 @@ Non-interactive fresh setup requires a private regular password file with mode `
 ```bash
 sudo wg-guard install --commit FULL_40_CHARACTER_LOWERCASE_SHA \
   --mode native --domain vpn.example.com --yes \
-  --owner-username owner --owner-password-file /root/wg-guard-owner-password
+  --owner-username admin --owner-password-file /root/wg-guard-owner-password
 ```
 
 Create the file with a trusted password manager/editor. Never place passwords, bot tokens or backup
-keys in command arguments. The installer reads bounded secret input and does not store it in logs,
-summaries or lifecycle records. Remove the supplied password file when it is no longer needed.
+keys in command arguments. The installer reads bounded secret input and does not store supplied
+passwords in logs, summaries or lifecycle records. A generated interactive password is displayed
+once in the terminal success card because the operator must save it; only its Argon2id hash is
+stored. Remove a supplied password file when it is no longer needed.
 
 ## Terminal behavior
 
