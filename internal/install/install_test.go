@@ -153,18 +153,19 @@ func TestRenderUnitHardening(t *testing.T) {
 
 func TestRoute(t *testing.T) {
 	cases := map[string]string{
-		"serve":     "refuse",
-		"install":   "host",
-		"update":    "host",
-		"uninstall": "host",
-		"status":    "host",
-		"doctor":    "host",
-		"backup":    "container",
-		"restore":   "host",
-		"settings":  "container",
-		"token":     "container",
-		"secrets":   "container",
-		"reconcile": "container",
+		"serve":            "refuse",
+		"install":          "host",
+		"update":           "host",
+		"uninstall":        "host",
+		"status":           "host",
+		"doctor":           "host",
+		"certificate-sync": "host",
+		"backup":           "container",
+		"restore":          "host",
+		"settings":         "container",
+		"token":            "container",
+		"secrets":          "container",
+		"reconcile":        "container",
 	}
 	for cmd, want := range cases {
 		if got := Route(cmd); got != want {

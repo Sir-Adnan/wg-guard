@@ -32,6 +32,7 @@ type manager struct {
 	bootstrapMetadata string
 	view              managerView
 	journalOperation  string
+	recoveryLineage   string
 }
 
 type managerView uint8
@@ -116,6 +117,8 @@ func runManage(args []string) error {
 			return runRestart(args[1:])
 		case "core":
 			return runCoreWithHostContext(ctx, args[1:], h, os.Stdout)
+		case "certificate-sync":
+			return runCertificateSync(args[1:])
 		case "restore":
 			if in == nil {
 				in = os.Stdin
@@ -140,9 +143,13 @@ func runManage(args []string) error {
 		m.view = managerFresh
 		m.installed = ""
 		m.journalOperation = ""
+		m.recoveryLineage = ""
 		if st != nil {
 			m.view = managerInstalled
 			m.installed = st.Version
+			if st.Exposure.Lineage != "" {
+				m.recoveryLineage = install.CertbotLivePath(st.Exposure.Lineage)
+			}
 		}
 		if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
 			m.view = managerRecovery
@@ -292,6 +299,8 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 			args := []string{"update", "--recover"}
 			if m.journalOperation == "restore" {
 				args = []string{"restore", "--recover"}
+			} else if m.journalOperation == "certificate" && m.recoveryLineage != "" {
+				args = []string{"certificate-sync", "--lineage", m.recoveryLineage}
 			}
 			_, err := m.reviewedAction(ctx, "recover_review", args, nil)
 			return err

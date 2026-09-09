@@ -65,3 +65,12 @@ func runTLSCheck(args []string) error {
 	}
 	return install.CheckInstalledTLS(context.Background(), install.NewRealHost(), 90*time.Second)
 }
+
+func runCertificateSync(args []string) error {
+	if len(args) != 2 || args[0] != "--lineage" || args[1] == "" {
+		return fmt.Errorf("certificate-sync requires one --lineage path")
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	return install.SyncManagedCertificate(ctx, install.NewRealHost(), args[1])
+}

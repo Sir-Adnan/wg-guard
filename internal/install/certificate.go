@@ -18,6 +18,13 @@ import (
 
 const CertbotPath = "/snap/bin/certbot"
 
+const certbotDeployHook = `#!/bin/sh
+set -eu
+lineage="${RENEWED_LINEAGE:-}"
+[ -n "$lineage" ] || exit 0
+exec ` + BinPath + ` certificate-sync --lineage "$lineage"
+`
+
 var certbotVersion = regexp.MustCompile(`(?i)certbot\s+([0-9]+)\.([0-9]+)(?:\.[0-9]+)?`)
 
 type CertificateResult struct {
@@ -31,6 +38,27 @@ type CertificateResult struct {
 func CertificateLineage(identifier string) string {
 	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(identifier))))
 	return "wg-guard-" + hex.EncodeToString(sum[:6])
+}
+
+// PrepareCertificateHook installs the fixed, root-only Certbot callback for
+// automatically renewed material. It contains no credentials or identifiers.
+func PrepareCertificateHook(h Host, p Plan) (func() error, error) {
+	switch p.Certificate {
+	case CertificateWebroot, CertificateCloudflareDNS, CertificateIP:
+	default:
+		return func() error { return nil }, nil
+	}
+	before, err := captureFile(h, CertbotDeployHookPath, 64<<10)
+	if err != nil {
+		return nil, fmt.Errorf("installer: snapshot Certbot deploy hook: %w", err)
+	}
+	if err := h.MkdirAll("/etc/letsencrypt/renewal-hooks/deploy", 0o755); err != nil {
+		return nil, err
+	}
+	if err := atomicWrite(h, CertbotDeployHookPath, []byte(certbotDeployHook), 0o700); err != nil {
+		return nil, err
+	}
+	return func() error { return restoreCapturedFile(h, CertbotDeployHookPath, before) }, nil
 }
 
 func CertbotLivePath(lineage string) string { return "/etc/letsencrypt/live/" + lineage }
@@ -293,4 +321,14 @@ func restoreFile(h Host, filename string, snapshot fileSnapshot, fallback fs.Fil
 		mode = fallback
 	}
 	_ = atomicWrite(h, filename, snapshot.data, mode)
+}
+
+func restoreCapturedFile(h Host, filename string, snapshot fileSnapshot) error {
+	if !snapshot.exists {
+		if err := h.Remove(filename); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+	return atomicWrite(h, filename, snapshot.data, snapshot.mode)
 }

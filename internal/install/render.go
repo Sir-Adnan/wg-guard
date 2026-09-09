@@ -50,17 +50,18 @@ func (p Plan) BootConfigPath() string {
 // the host's own state — inside the container they are meaningless.
 var hostCommands = map[string]bool{
 	"manage": true, "owner-bootstrap": true, "restart": true, "restore": true,
-	"core":      true,
-	"tls-check": true,
-	"install":   true,
-	"update":    true,
-	"uninstall": true,
-	"status":    true,
-	"doctor":    true,
-	"version":   true,
-	"help":      true,
-	"-h":        true,
-	"--help":    true,
+	"core":             true,
+	"tls-check":        true,
+	"certificate-sync": true,
+	"install":          true,
+	"update":           true,
+	"uninstall":        true,
+	"status":           true,
+	"doctor":           true,
+	"version":          true,
+	"help":             true,
+	"-h":               true,
+	"--help":           true,
 }
 
 // Route returns how the binary should run one command in docker mode:

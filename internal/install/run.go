@@ -259,6 +259,15 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 			st.Exposure.CredentialsFile = CloudflareTokenPath
 		}
 	}
+	hookCleanup, err := PrepareCertificateHook(h, p)
+	if err != nil {
+		return st, err
+	}
+	defer func() {
+		if resultErr != nil && hookCleanup != nil {
+			resultErr = errors.Join(resultErr, hookCleanup())
+		}
+	}()
 	p.CloudflareToken = ""
 	o.Plan.CloudflareToken = ""
 	if p.Exposure == ExposureNginx {

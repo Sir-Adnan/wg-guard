@@ -112,6 +112,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "certificate-sync":
+		if err := runCertificateSync(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "version":
 		fmt.Println(version.String())
 	case "help", "-h", "--help":

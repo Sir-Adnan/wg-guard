@@ -102,6 +102,26 @@ func TestManagerRootMenusFitNarrowEnglishTerminalsWithoutMutation(t *testing.T) 
 	}
 }
 
+func TestCertificateRecoveryUsesTheRecordedLineage(t *testing.T) {
+	var got []string
+	m := manager{
+		ui:   terminal.New(strings.NewReader("yes\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		view: managerRecovery, journalOperation: "certificate",
+		recoveryLineage: "/etc/letsencrypt/live/wg-guard-123456789abc",
+		run: func(_ context.Context, args []string, _ io.Reader) error {
+			got = append([]string(nil), args...)
+			return nil
+		},
+	}
+	if err := m.rootAction(context.Background(), 1); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"certificate-sync", "--lineage", "/etc/letsencrypt/live/wg-guard-123456789abc"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("recovery args = %v, want %v", got, want)
+	}
+}
+
 func TestCommandHelpPresentsEnglishOnlyTerminal(t *testing.T) {
 	if strings.Contains(usage, "--lang fa") || strings.Contains(usage, "fa|en") || containsRTLScript(usage) {
 		t.Fatalf("command help advertises a non-English terminal mode:\n%s", usage)
