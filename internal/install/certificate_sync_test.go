@@ -69,7 +69,7 @@ func TestPrepareCertificateHookIsFixedPrivateAndReversible(t *testing.T) {
 		t.Fatal(err)
 	}
 	hook := h.files[CertbotDeployHookPath]
-	if hook.perm != 0o700 || !strings.Contains(string(hook.data), BinPath+" certificate-sync") || !strings.Contains(string(hook.data), `"${RENEWED_LINEAGE:-}"`) {
+	if hook.perm != 0o700 || !strings.Contains(string(hook.data), BinPath+" certificate-sync") || !strings.Contains(string(hook.data), `"${RENEWED_LINEAGE:-}"`) || !strings.Contains(string(hook.data), ">/dev/null 2>&1") || !strings.Contains(string(hook.data), "certificate synchronization failed") {
 		t.Fatalf("unsafe deploy hook: mode=%o\n%s", hook.perm, hook.data)
 	}
 	if err := cleanup(); err != nil {

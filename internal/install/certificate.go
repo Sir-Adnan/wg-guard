@@ -22,7 +22,10 @@ const certbotDeployHook = `#!/bin/sh
 set -eu
 lineage="${RENEWED_LINEAGE:-}"
 [ -n "$lineage" ] || exit 0
-exec ` + BinPath + ` certificate-sync --lineage "$lineage"
+if ! ` + BinPath + ` certificate-sync --lineage "$lineage" >/dev/null 2>&1; then
+    echo "WG-Guard certificate synchronization failed; run sudo wg-guard exposure status." >&2
+    exit 1
+fi
 `
 
 var certbotVersion = regexp.MustCompile(`(?i)certbot\s+([0-9]+)\.([0-9]+)(?:\.[0-9]+)?`)

@@ -46,6 +46,10 @@ func TestNginxConfigurationsKeepThePanelPrivateAndCanonical(t *testing.T) {
 		"ssl_certificate " + ManagedCertPath + ";",
 		"ssl_certificate_key " + ManagedKeyPath + ";",
 		`add_header Strict-Transport-Security "max-age=31536000" always;`,
+		"proxy_hide_header Strict-Transport-Security;",
+		"proxy_hide_header X-Content-Type-Options;",
+		"proxy_hide_header X-Frame-Options;",
+		"proxy_hide_header Referrer-Policy;",
 		"proxy_pass http://127.0.0.1:8087;",
 		"proxy_set_header Host panel.example.com;",
 		"proxy_set_header X-Forwarded-For $remote_addr;",
@@ -71,7 +75,7 @@ func TestPrepareAndFinalizeNginxAreTransactional(t *testing.T) {
 	if got := string(h.files[NginxConfigPath].data); got != renderNginxChallenge(p) {
 		t.Fatalf("challenge configuration mismatch:\n%s", got)
 	}
-	if !h.dirs[ACMEWebrootPath] || !h.ran("nginx", "-t") || !h.ran("systemctl", "reload", "nginx.service") {
+	if !h.dirs[ACMEWebrootPath] || !h.ran("nginx", "-q", "-t") || !h.ran("systemctl", "reload", "nginx.service") {
 		t.Fatal("challenge configuration was not validated and activated")
 	}
 	if err := FinalizeNginx(context.Background(), h, p, io.Discard); err != nil {
@@ -118,7 +122,7 @@ func TestPrepareNginxRefusesExistingOrConflictingOwnership(t *testing.T) {
 }
 
 func TestNginxActivationFailureRestoresExactPriorState(t *testing.T) {
-	for _, failure := range []string{"nginx -t", "systemctl reload nginx.service"} {
+	for _, failure := range []string{"nginx -q -t", "systemctl reload nginx.service"} {
 		t.Run(failure, func(t *testing.T) {
 			base := nginxFixture()
 			h := &faultHost{memHost: base, failRun: failure}
@@ -140,7 +144,7 @@ func TestFinalizeNginxFailureRestoresChallengeConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = cleanup() }()
-	h := &faultHost{memHost: base, failRun: "nginx -t"}
+	h := &faultHost{memHost: base, failRun: "nginx -q -t"}
 	if err := FinalizeNginx(context.Background(), h, p, io.Discard); err == nil {
 		t.Fatal("invalid final configuration accepted")
 	}

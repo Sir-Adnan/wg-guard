@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -65,9 +66,15 @@ func runExposureWith(ctx context.Context, args []string, h install.Host, in io.R
 		return install.RenewManagedCertificate(ctx, h)
 	case "private":
 		fs := flag.NewFlagSet("exposure private", flag.ContinueOnError)
-		fs.SetOutput(io.Discard)
+		fs.SetOutput(out)
 		yes := fs.Bool("yes", false, "apply without confirmation")
-		if err := fs.Parse(args[1:]); err != nil || fs.NArg() != 0 {
+		if err := fs.Parse(args[1:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return nil
+			}
+			return lifecycleArgsError()
+		}
+		if fs.NArg() != 0 {
 			return lifecycleArgsError()
 		}
 		if !*yes {
@@ -88,8 +95,11 @@ func runExposureWith(ctx context.Context, args []string, h install.Host, in io.R
 		_, err = install.ReconfigureExposure(ctx, h, install.ReconfigureOptions{Plan: candidate, Stdout: out})
 		return err
 	case "configure":
-		candidate, yes, err := accessOptions(args[1:], h, current)
+		candidate, yes, err := accessOptions(args[1:], h, current, out)
 		if err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return nil
+			}
 			return err
 		}
 		if !yes {
@@ -106,9 +116,12 @@ func runExposureWith(ctx context.Context, args []string, h install.Host, in io.R
 	}
 }
 
-func accessOptions(args []string, h install.Host, current install.Plan) (install.Plan, bool, error) {
+func accessOptions(args []string, h install.Host, current install.Plan, out io.Writer) (install.Plan, bool, error) {
 	fs := flag.NewFlagSet("exposure configure", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+	if out == nil {
+		out = io.Discard
+	}
+	fs.SetOutput(out)
 	currentCertificate := string(current.Certificate)
 	if currentCertificate == "" {
 		currentCertificate = string(install.CertificateAuto)
@@ -129,7 +142,13 @@ func accessOptions(args []string, h install.Host, current install.Plan) (install
 	keyFile := fs.String("key-file", current.KeyFile, "private-key source file")
 	cloudflareFile := fs.String("cloudflare-token-file", "", "root-private Cloudflare token file")
 	yes := fs.Bool("yes", false, "non-interactive")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return install.Plan{}, false, flag.ErrHelp
+		}
+		return install.Plan{}, false, lifecycleArgsError()
+	}
+	if fs.NArg() != 0 {
 		return install.Plan{}, false, lifecycleArgsError()
 	}
 	validExposure := map[string]bool{"auto": true, "private": true, "direct": true, "nginx": true, "external-proxy": true}

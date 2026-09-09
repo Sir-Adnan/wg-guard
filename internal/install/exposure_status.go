@@ -292,7 +292,7 @@ func checkManagedNginx(ctx context.Context, h Host, p Plan, report *ExposureHeal
 		report.add("nginx", ExposureHealthFail, "Nginx is not active", "restore the host Nginx service, then recheck")
 		return
 	}
-	if err := h.Run(ctx, []string{"nginx", "-t"}, 30*time.Second); err != nil {
+	if err := h.Run(ctx, []string{"nginx", "-q", "-t"}, 30*time.Second); err != nil {
 		report.add("nginx", ExposureHealthFail, "Nginx configuration test failed", "fix Nginx without deleting foreign virtual hosts")
 		return
 	}

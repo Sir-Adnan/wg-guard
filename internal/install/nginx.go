@@ -78,6 +78,10 @@ server {
     ssl_session_timeout 1d;
     ssl_session_tickets off;
 
+    proxy_hide_header Strict-Transport-Security;
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header X-Frame-Options;
+    proxy_hide_header Referrer-Policy;
     add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
@@ -258,7 +262,7 @@ func replaceNginxConfig(ctx context.Context, h Host, candidate []byte, before fi
 }
 
 func validateReloadNginx(ctx context.Context, h Host, active bool) error {
-	if err := h.Run(ctx, []string{"nginx", "-t"}, 30*time.Second); err != nil {
+	if err := h.Run(ctx, []string{"nginx", "-q", "-t"}, 30*time.Second); err != nil {
 		return fmt.Errorf("installer: Nginx configuration check failed: %w", err)
 	}
 	if active {

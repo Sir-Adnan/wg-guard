@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
+	"io"
 	"io/fs"
 	"strings"
 	"testing"
@@ -80,9 +83,20 @@ func TestAccessWizardEnterKeepsCurrentSettings(t *testing.T) {
 }
 
 func TestInteractiveAccessOptionsAcceptPrivateStateDefaults(t *testing.T) {
-	p, yes, err := accessOptions(nil, accessPromptHost{}, privateAccessPlan())
+	p, yes, err := accessOptions(nil, accessPromptHost{}, privateAccessPlan(), io.Discard)
 	if err != nil || yes || p.Certificate != install.CertificateAuto || p.ACMEHTTPPort != 80 {
 		t.Fatalf("private access defaults = %+v yes=%t err=%v", p, yes, err)
+	}
+}
+
+func TestAccessOptionsHelpIsVisibleAndDistinctFromInvalidArguments(t *testing.T) {
+	var out strings.Builder
+	_, _, err := accessOptions([]string{"--help"}, accessPromptHost{}, privateAccessPlan(), &out)
+	if !errors.Is(err, flag.ErrHelp) {
+		t.Fatalf("configure help error = %v", err)
+	}
+	if !strings.Contains(out.String(), "-exposure") || !strings.Contains(out.String(), "-certificate") {
+		t.Fatalf("configure help was hidden:\n%s", out.String())
 	}
 }
 
