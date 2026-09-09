@@ -104,6 +104,34 @@ func TestFreshPrerequisiteFailureReturnsToSetupWithoutRecoveryLoop(t *testing.T)
 	}
 }
 
+func TestRetryCarriesForwardSafeAbortedPrerequisiteOwnership(t *testing.T) {
+	prior := &Journal{
+		Operation: "install",
+		Stage:     "aborted",
+		After: &State{
+			PackagesInstalled: []string{"docker.io", "dkms"},
+			RepositoryChanges: []string{"retained repository"},
+		},
+	}
+	next := &State{PackagesInstalled: []string{"ca-certificates"}}
+	inheritSafePrerequisiteOwnership(next, prior)
+	for _, name := range []string{"ca-certificates", "docker.io", "dkms"} {
+		if !contains(next.PackagesInstalled, name) {
+			t.Fatalf("retry lost installer ownership of %s: %v", name, next.PackagesInstalled)
+		}
+	}
+	if !contains(next.RepositoryChanges, "retained repository") {
+		t.Fatalf("retry lost repository ownership: %v", next.RepositoryChanges)
+	}
+
+	unsafe := &State{}
+	prior.DataMayHaveChanged = true
+	inheritSafePrerequisiteOwnership(unsafe, prior)
+	if len(unsafe.PackagesInstalled) != 0 || len(unsafe.RepositoryChanges) != 0 {
+		t.Fatalf("runtime-changing journal was inherited: %+v", unsafe)
+	}
+}
+
 func TestSkipModuleDoesNotMutateHostModule(t *testing.T) {
 	h := newMemHost()
 	p := Defaults()

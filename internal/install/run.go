@@ -98,6 +98,10 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := noPending(h); err != nil {
 		return nil, err
 	}
+	priorJournal, err := LoadJournal(h)
+	if err != nil {
+		return nil, err
+	}
 	if o.Build.BinaryPath == "" {
 		o.Build.BinaryPath, err = h.SelfExe()
 		if err != nil {
@@ -202,6 +206,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	} else {
 		st.UnitPath = UnitPath
 	}
+	inheritSafePrerequisiteOwnership(st, priorJournal)
 	if err := h.MkdirAll(EtcDir, 0700); err != nil {
 		return st, err
 	}
@@ -388,6 +393,22 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		return st, err
 	}
 	return st, nil
+}
+
+// inheritSafePrerequisiteOwnership preserves the uninstall contract when a
+// previous first-install attempt changed only host prerequisites and then
+// safely closed its journal. Runtime/data-changing attempts never reach this
+// path; they require normal recovery instead.
+func inheritSafePrerequisiteOwnership(st *State, prior *Journal) {
+	if prior == nil || prior.Operation != "install" || prior.Stage != "aborted" || prior.Before != nil || prior.After == nil || prior.DataMayHaveChanged || prior.PrerequisitesComplete {
+		return
+	}
+	for _, name := range prior.After.PackagesInstalled {
+		st.PackagesInstalled = addUnique(st.PackagesInstalled, name)
+	}
+	for _, change := range prior.After.RepositoryChanges {
+		st.RepositoryChanges = addUnique(st.RepositoryChanges, change)
+	}
 }
 
 // installDocker writes the compose project and brings the container up. It
