@@ -89,6 +89,9 @@ printf 'ID=debian\nVERSION_ID=24.04\n' > "$fixture/os-release"
 before=$(request_count)
 if bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'non-Ubuntu host accepted'; fi
 test "$(request_count)" = "$before" || fail 'unsupported OS performed acquisition'
+narrow_output=$(COLUMNS=40 bash "$fixture/bootstrap" --release v1 --yes </dev/null 2>&1 || true)
+narrow_rule=$(printf '%s\n' "$narrow_output" | awk '/^-+$/{print length; exit}')
+test "$narrow_rule" = 40 || fail "bootstrap divider ignored narrow terminal width ($narrow_rule)"
 printf 'ID=ubuntu\nVERSION_ID=23.10\n' > "$fixture/os-release"
 if bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'old Ubuntu host accepted'; fi
 test "$(request_count)" = "$before" || fail 'old Ubuntu performed acquisition'

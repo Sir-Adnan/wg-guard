@@ -4,11 +4,19 @@ set -euo pipefail
 umask 077
 
 ui_cyan= ui_green= ui_yellow= ui_red= ui_dim= ui_reset=
+ui_width=${COLUMNS:-72}
+if [[ -t 2 ]] && ui_size=$(stty size </dev/tty 2>/dev/null); then
+  ui_width=${ui_size##* }
+fi
+[[ $ui_width =~ ^[0-9]+$ ]] || ui_width=72
+((ui_width < 20)) && ui_width=20
+((ui_width > 72)) && ui_width=72
 if [[ -t 2 && ${TERM:-dumb} != dumb && -z ${NO_COLOR:-} ]]; then
   ui_cyan=$'\033[36;1m'; ui_green=$'\033[32;1m'; ui_yellow=$'\033[33;1m'; ui_red=$'\033[31;1m'; ui_dim=$'\033[2m'; ui_reset=$'\033[0m'
 fi
 ui_header() {
-  printf '\n%sWG-GUARD%s\n%sSecure AmneziaWG node setup%s\n%s\n' "$ui_cyan" "$ui_reset" "$ui_dim" "$ui_reset" '------------------------------------------------------------------------' >&2
+  local rule='------------------------------------------------------------------------'
+  printf '\n%sWG-GUARD%s\n%sSecure AmneziaWG node setup%s\n%s\n' "$ui_cyan" "$ui_reset" "$ui_dim" "$ui_reset" "${rule:0:ui_width}" >&2
 }
 ui_step() { printf '\n%s[%s]%s %s\n' "$ui_cyan" "$1" "$ui_reset" "$2" >&2; }
 ui_ok() { printf '%sOK%s  %s\n' "$ui_green" "$ui_reset" "$1" >&2; }
