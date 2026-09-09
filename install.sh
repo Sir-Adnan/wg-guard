@@ -151,7 +151,7 @@ if ((list == 0)); then
   fi
 fi
 if ! python3 -I - "$channel" "$ref" "$arch" "$stage" "$list" <<'PY'
-import gzip,hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,urllib.parse
+import gzip,hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,threading,time,urllib.parse
 channel,ref,arch,stage,list_only=sys.argv[1:]
 stage=pathlib.Path(stage)
 API='https://api.github.com/repos/Sir-Adnan/wg-guard'
@@ -159,6 +159,21 @@ REPO='https://github.com/Sir-Adnan/wg-guard'
 SHA=re.compile(r'[0-9a-f]{40}\Z')
 TAG=re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z')
 HEX=re.compile(r'[0-9a-f]{64}\Z')
+HEARTBEAT=15.0
+
+heartbeat_stop=threading.Event()
+heartbeat_thread=None
+def heartbeat():
+    started=time.monotonic()
+    color=sys.stderr.isatty() and os.environ.get('NO_COLOR','')=='' and os.environ.get('TERM','dumb')!='dumb'
+    prefix='\x1b[36;1mINFO\x1b[0m' if color else 'INFO'
+    while not heartbeat_stop.wait(HEARTBEAT):
+        elapsed=int(time.monotonic()-started)
+        print(f'{prefix}  Still working · {elapsed}s elapsed',file=sys.stderr,flush=True)
+
+if list_only!='1':
+    heartbeat_thread=threading.Thread(target=heartbeat,daemon=True)
+    heartbeat_thread.start()
 
 def require(value,message):
     if not value: raise ValueError(message)
@@ -320,6 +335,9 @@ except subprocess.SubprocessError:
 except (ValueError,KeyError,TypeError,OSError,tarfile.TarError) as error:
     print('WG-Guard acquisition failed: '+str(error),file=sys.stderr)
     sys.exit(1)
+finally:
+    heartbeat_stop.set()
+    if heartbeat_thread is not None:heartbeat_thread.join(timeout=1)
 PY
 then
   ui_error 'Verified build acquisition did not complete. Review the message above and retry.'

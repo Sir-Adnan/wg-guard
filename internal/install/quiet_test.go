@@ -3,6 +3,7 @@ package install
 import (
 	"bytes"
 	"testing"
+	"time"
 )
 
 func TestInstallerLogWriterIsHardBounded(t *testing.T) {
@@ -16,5 +17,20 @@ func TestInstallerLogWriterIsHardBounded(t *testing.T) {
 	}
 	if got := dst.String(); got != "12345" {
 		t.Fatalf("bounded log = %q", got)
+	}
+}
+
+func TestQuietCommandReportsProgressWhileWaiting(t *testing.T) {
+	done := make(chan error, 1)
+	go func() {
+		time.Sleep(25 * time.Millisecond)
+		done <- nil
+	}()
+	heartbeats := 0
+	if err := waitQuietCommand(done, 5*time.Millisecond, func(time.Duration) { heartbeats++ }); err != nil {
+		t.Fatal(err)
+	}
+	if heartbeats == 0 {
+		t.Fatal("long quiet command produced no progress heartbeat")
 	}
 }

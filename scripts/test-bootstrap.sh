@@ -13,11 +13,12 @@ binary=b'#!/usr/bin/env bash\nif [[ "$1" == installer-contract ]]; then if [[ "$
 (p/'binary').write_bytes(binary)
 (p/'sums').write_text(hashlib.sha256(binary).hexdigest()+'  wg-guard_linux_amd64\n')
 go_script='''#!/usr/bin/env python3
-import os,pathlib,sys
+import os,pathlib,sys,time
 p=pathlib.Path(%r)
 if sys.argv[1]=='version':
  print('go version '+('go1.20.0' if (p/'old-go').exists() else 'go1.99.0')+' linux/amd64');sys.exit(0)
 with (p/'build-args').open('a') as f:f.write(' '.join(sys.argv[1:])+'\\n')
+if os.environ.get('FIXTURE_SLOW_BUILD'):time.sleep(.15)
 print('SYNTHETIC COMPILER NOISE',file=sys.stderr)
 pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_bytes((p/'binary').read_bytes())
 ''' % str(p)
@@ -73,7 +74,7 @@ request_count() { if [[ -f $fixture/requests ]]; then wc -l < "$fixture/requests
 python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/manager-build.json" <<'PY'
 import pathlib,sys
 source,target,os_release,installed_bin,installed_state,manager_receipt=map(pathlib.Path,sys.argv[1:])
-target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)))
+target.write_text(source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)).replace('HEARTBEAT=15.0','HEARTBEAT=0.05'))
 target.chmod(0o755)
 installed_bin.write_text('''#!/bin/sh
 if test "$1" = installer-contract; then
@@ -168,8 +169,9 @@ test "$(cat "$fixture/list")" = v1 || fail 'list dispatch'
 cat "$fixture/bootstrap" | bash -s -- --release v1 --yes
 test ! -e "$fixture/input" || fail 'piped script consumed as answers'
 test -z "$(ls -A "$fixture/tmp")" || fail 'piped cleanup'
-source_output=$(bash "$fixture/bootstrap" --commit main --yes </dev/null 2>&1)
+source_output=$(FIXTURE_SLOW_BUILD=1 bash "$fixture/bootstrap" --commit main --yes </dev/null 2>&1)
 case "$source_output" in *'SYNTHETIC COMPILER NOISE'*) fail 'successful source build leaked compiler noise';; esac
+case "$source_output" in *'Still working'*'elapsed'*) :;; *) fail 'long source build omitted progress heartbeat';; esac
 test -s "$fixture/build-args" || fail 'source build did not execute'
 rm "$fixture/build-args"
 touch "$fixture/old-go"

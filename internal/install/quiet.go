@@ -8,11 +8,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
 const InstallerLogPath = "/var/log/wg-guard/installer.log"
 
 const installerLogLimit = int64(4 << 20)
+const quietHeartbeatInterval = 15 * time.Second
 
 type boundedLogWriter struct {
 	io.Writer
@@ -91,10 +95,32 @@ func (realHost) RunQuiet(ctx context.Context, argv []string, timeout time.Durati
 	if name == "apt-get" {
 		cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive", "NEEDRESTART_MODE=a")
 	}
-	if err := cmd.Run(); err != nil {
+	done := make(chan error, 1)
+	go func() { done <- cmd.Run() }()
+	u := terminal.New(nil, os.Stderr, terminal.Detect(nil, os.Stderr, i18n.En))
+	if err := waitQuietCommand(done, quietHeartbeatInterval, func(elapsed time.Duration) {
+		u.Info(i18n.T(i18n.En, "progress.still_working", int(elapsed.Seconds())))
+	}); err != nil {
 		return fmt.Errorf("%s failed; details: %s: %w", name, InstallerLogPath, err)
 	}
 	return nil
+}
+
+func waitQuietCommand(done <-chan error, interval time.Duration, heartbeat func(time.Duration)) error {
+	if interval <= 0 {
+		return <-done
+	}
+	started := time.Now()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ticker.C:
+			heartbeat(time.Since(started).Round(time.Second))
+		}
+	}
 }
 
 func rotateInstallerLog() error {
