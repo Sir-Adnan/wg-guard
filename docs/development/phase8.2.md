@@ -201,14 +201,15 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
   first rejected a short password after deployment files/data had already been prepared. Focused
   tests now prove the explicit `admin` default, shared backend policy, short/mismatch retry,
   generated-secret non-disclosure before success, post-health/lifecycle credential handoff,
-  guided interrupted-install reset and the three distinct uninstall outcomes. Updated real Docker
-  acceptance is pending before this maintenance correction is marked production verified.
+  guided interrupted-install reset and the three distinct uninstall outcomes. Real Docker then
+  confirmed the `admin` default, in-place short-password retry and complete removal; generated
+  credentials were intentionally not captured in host evidence.
 - That acceptance run exposed an independent private-login defect: the recommended loopback HTTP
   listener was labelled proxy transport, so the server correctly emitted a `Secure` cookie that an
   HTTP SSH tunnel could not return. The real login POST accepted the new `admin` credentials but
   redirected back to login after cookie loss. Private exposure now resolves to loopback-only dev
-  transport; actual Nginx/external proxies remain proxy mode. Focused topology tests pass and an
-  updated real login drill is pending.
+  transport; actual Nginx/external proxies remain proxy mode. Focused topology tests pass, and the
+  exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.

@@ -96,3 +96,37 @@ bundle exists beyond the recognized legacy entry; a real cross-bundle core trans
 was not claimed. Native, Telegram, TLS, QR/config/client and unrelated lifecycle
 drills were not repeated. Final purge removed the test container, state, data, host
 binary and manager/core cache.
+
+Administrator/recovery maintenance acceptance (2026-09-10; final candidate
+29d26220d8c9eec66215c15f6ece2df656846880):
+
+PASS: a clean Ubuntu 24.04.4 amd64 host acquired the exact GitHub commit and
+completed the recommended source-backed Docker installation. An intentionally
+short password stayed in the administrator prompt and displayed the bounded retry
+message; no failed owner attempt or recovery journal was created. The explicit
+username prompt selected `admin` on Enter, and the shared database contained one
+enabled `admin` account with the internal protected `owner` role. No password or
+hash is recorded here.
+
+PASS: Docker used its configured `/var/lib/docker` image store rather than an
+application copy under `/opt`. The generated Compose file was
+`/etc/wg-guard/compose.yaml`; read-only config and persistent data bind mounts were
+`/etc/wg-guard/wg-guard.toml` and `/var/lib/wg-guard` respectively.
+
+The first candidate exposed AUD-049: credentials were accepted, but private
+loopback HTTP had been labelled proxy TLS, producing a Secure session cookie that
+could not return over the documented SSH tunnel. The final candidate resolved
+private exposure to loopback-only dev transport. Its container was running and
+healthy; an HTTP login using secret stdin finished at `/` with status 200 and one
+session cookie. Real Nginx/external-proxy behavior was not repeated because those
+paths remain proxy mode and their earlier HTTPS acceptance evidence is unchanged.
+
+PASS: **Remove everything** stopped the container, removed the state-recorded
+deployment, data, keys/backups, reviewed AWG source/DKMS ownership, installer-owned
+Docker package, `/etc/wg-guard`, `/var/lib/wg-guard`, `/var/cache/wg-guard`,
+`/var/log/wg-guard`, `/usr/local/bin/wg-guard`, and the module-load entry. The
+manager exited cleanly and the final stage label contained no internal catalog key.
+APT-managed shared dependencies were not autoremove-purged. The generated-password
+show-once path remains automated lifecycle-tested rather than captured in this
+artifact, so no credential is disclosed. API/OpenAPI was unchanged and Phase 9 was
+not started.
