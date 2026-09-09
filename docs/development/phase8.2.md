@@ -187,7 +187,11 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
 - A user-provided interrupted-uninstall transcript reproduced the stale recovery dispatch and
   missing-config presentation failure. Focused terminal/manager tests now cover zero-only menu
   navigation, ordinary `q` input, dedicated uninstall recovery with or without install-state,
-  and the exact safe-removal/full-reset command boundaries. No API/OpenAPI contract changed.
+  and the exact safe-removal/full-reset command boundaries. The pushed `b3db404` build then passed
+  a targeted Ubuntu 24.04.4 amd64 VPS drill: a valid synthetic uninstall journal with no boot
+  config opened the dedicated view, Full reset removed the test data/host command, committed the
+  journal and returned to fresh setup. Temporary test cache was removed. No API/OpenAPI contract
+  changed.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.
