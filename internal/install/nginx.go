@@ -101,32 +101,83 @@ server {
 `
 }
 
+func renderNginxTransition(candidate, previous Plan) string {
+	current := renderNginxProxy(previous)
+	if candidate.Domain == previous.Domain {
+		// The live proxy already exposes the dedicated ACME webroot.
+		return current
+	}
+	return current + "\n" + renderNginxChallenge(candidate)
+}
+
 // PrepareNginx creates only a challenge route. It never proxies plaintext to
 // the panel. FinalizeNginx is called only after certificate validation.
 func PrepareNginx(ctx context.Context, h Host, p Plan, st *State, out io.Writer) (func() error, error) {
+	return prepareNginx(ctx, h, p, nil, st, out)
+}
+
+// PrepareNginxReplacement replaces a state-owned proxy during a locked access
+// transition and returns a callback that restores its exact previous bytes.
+func PrepareNginxReplacement(ctx context.Context, h Host, p, previous Plan, st *State, out io.Writer) (func() error, error) {
+	if err := validateNginxPlan(previous); err != nil {
+		return nil, fmt.Errorf("installer: invalid prior managed Nginx plan: %w", err)
+	}
+	return prepareNginx(ctx, h, p, &previous, st, out)
+}
+
+func prepareNginx(ctx context.Context, h Host, p Plan, previous *Plan, st *State, out io.Writer) (func() error, error) {
 	if err := validateNginxPlan(p); err != nil {
 		return nil, err
 	}
-	for _, path := range []string{NginxConfigPath, ACMEWebrootPath} {
-		if _, err := h.Stat(path); err == nil {
-			return nil, fmt.Errorf("installer: %s already exists without WG-Guard install ownership", path)
-		} else if !errors.Is(err, fs.ErrNotExist) {
+	before := fileSnapshot{}
+	webrootCreated := false
+	if previous == nil {
+		for _, path := range []string{NginxConfigPath, ACMEWebrootPath} {
+			if _, err := h.Stat(path); err == nil {
+				return nil, fmt.Errorf("installer: %s already exists without WG-Guard install ownership", path)
+			} else if !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+		}
+		webrootCreated = true
+	} else {
+		var err error
+		before, err = captureFile(h, NginxConfigPath, 1<<20)
+		if err != nil {
 			return nil, err
+		}
+		if !before.exists || !strings.HasPrefix(string(before.data), nginxManagedMarker+"\n") {
+			return nil, fmt.Errorf("installer: prior Nginx configuration is no longer WG-Guard-managed")
+		}
+		info, statErr := h.Stat(ACMEWebrootPath)
+		switch {
+		case errors.Is(statErr, fs.ErrNotExist):
+			webrootCreated = true
+		case statErr != nil:
+			return nil, statErr
+		case !info.IsDir():
+			return nil, fmt.Errorf("installer: managed ACME webroot is not a directory")
 		}
 	}
 	facts, err := InspectExposure(ctx, h, p.Domain)
 	if err != nil {
 		return nil, err
 	}
-	if !facts.NginxInstalled || !facts.NginxActive || !facts.NginxStandard || facts.NginxDomainConflict {
+	ownedConflict := previous != nil && previous.Domain == p.Domain
+	if !facts.NginxInstalled || !facts.NginxActive || !facts.NginxStandard || facts.NginxDomainConflict && !ownedConflict {
 		return nil, fmt.Errorf("installer: managed Nginx needs an active standard Ubuntu configuration and an unused hostname")
 	}
 	if err := h.MkdirAll(ACMEWebrootPath, 0o755); err != nil {
 		return nil, err
 	}
-	before := fileSnapshot{}
-	if err := replaceNginxConfig(ctx, h, []byte(renderNginxChallenge(p)), before, true); err != nil {
-		_ = h.RemoveAll(ACMEWebrootPath)
+	challenge := renderNginxChallenge(p)
+	if previous != nil {
+		challenge = renderNginxTransition(p, *previous)
+	}
+	if err := replaceNginxConfig(ctx, h, []byte(challenge), before, true); err != nil {
+		if webrootCreated {
+			_ = h.RemoveAll(ACMEWebrootPath)
+		}
 		return nil, err
 	}
 	if st != nil {
@@ -142,9 +193,34 @@ func PrepareNginx(ctx context.Context, h Host, p Plan, st *State, out io.Writer)
 		if err := restoreNginxConfig(rollbackCtx, h, before, true); err != nil {
 			return err
 		}
-		return h.RemoveAll(ACMEWebrootPath)
+		if webrootCreated {
+			return h.RemoveAll(ACMEWebrootPath)
+		}
+		return nil
 	}
 	return cleanup, nil
+}
+
+// FinalizeNginxReplacement promotes a no-downtime transition configuration
+// after the candidate certificate is ready.
+func FinalizeNginxReplacement(ctx context.Context, h Host, p, previous Plan, out io.Writer) error {
+	if err := validateNginxPlan(p); err != nil {
+		return err
+	}
+	before, err := captureFile(h, NginxConfigPath, 1<<20)
+	if err != nil {
+		return err
+	}
+	if !before.exists || string(before.data) != renderNginxTransition(p, previous) {
+		return fmt.Errorf("installer: managed Nginx transition configuration changed unexpectedly")
+	}
+	if err := replaceNginxConfig(ctx, h, []byte(renderNginxProxy(p)), before, true); err != nil {
+		return err
+	}
+	if out != nil {
+		progress(out, "nginx", p.PublicURL())
+	}
+	return nil
 }
 
 // FinalizeNginx atomically promotes the active challenge-only server to the
@@ -204,6 +280,39 @@ func restoreNginxConfig(ctx context.Context, h Host, before fileSnapshot, active
 		return fmt.Errorf("installer: restore Nginx configuration: %w", restoreErr)
 	}
 	return validateReloadNginx(ctx, h, active)
+}
+
+// DetachManagedNginx removes the state-owned server from the active Nginx
+// configuration without deleting its webroot. The callback restores it.
+func DetachManagedNginx(ctx context.Context, h Host, exposure ExposureState) (func() error, error) {
+	if exposure.NginxConfigPath != NginxConfigPath || exposure.ACMEWebroot != ACMEWebrootPath {
+		return nil, fmt.Errorf("installer: unsafe managed Nginx state")
+	}
+	before, err := captureFile(h, NginxConfigPath, 1<<20)
+	if err != nil {
+		return nil, err
+	}
+	if !before.exists || !strings.HasPrefix(string(before.data), nginxManagedMarker+"\n") {
+		return nil, fmt.Errorf("installer: %s is no longer WG-Guard-managed; leaving it unchanged", NginxConfigPath)
+	}
+	active := false
+	if status, statusErr := h.Output(ctx, []string{"systemctl", "is-active", "nginx.service"}, 10*time.Second); statusErr == nil {
+		active = strings.TrimSpace(status) == "active"
+	}
+	if err := h.Remove(NginxConfigPath); err != nil {
+		return nil, err
+	}
+	if err := validateReloadNginx(ctx, h, active); err != nil {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		return nil, errors.Join(err, restoreNginxConfig(rollbackCtx, h, before, active))
+	}
+	cleanup := func() error {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		return restoreNginxConfig(rollbackCtx, h, before, active)
+	}
+	return cleanup, nil
 }
 
 // RemoveManagedNginx removes only a state-recorded WG-Guard configuration.

@@ -25,7 +25,7 @@ func (s *Server) subBaseURL(r *http.Request) string {
 		return strings.TrimRight(base, "/")
 	}
 	scheme := "http"
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+	if requestIsHTTPS(r) {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host

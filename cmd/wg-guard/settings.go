@@ -6,11 +6,13 @@ import (
 	"os"
 	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/doctor"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
@@ -193,6 +195,22 @@ func runDoctor(args []string) error {
 		Shaper: shaper.New(subprocess.NewSystem()),
 		Fix:    fix, ServiceUp: serviceUp,
 	})
+	if report != nil {
+		if state, stateErr := install.LoadState(install.NewRealHost()); stateErr != nil {
+			report.Checks = append(report.Checks, doctor.Check{Name: "panel-access", Status: doctor.StatusFail, Detail: "install state is unreadable", Remedy: "recover the installer lifecycle state before changing access"})
+		} else if state != nil && state.ConfigPath == configPath {
+			exposure, exposureErr := install.DiagnoseExposure(ctx, install.NewRealHost(), state, time.Now())
+			if exposureErr != nil {
+				report.Checks = append(report.Checks, doctor.Check{Name: "panel-access", Status: doctor.StatusFail, Detail: exposureErr.Error(), Remedy: "run sudo wg-guard and review Panel access & HTTPS"})
+			} else {
+				for _, check := range exposure.Checks {
+					report.Checks = append(report.Checks, doctor.Check{
+						Name: "access-" + check.Name, Status: doctorExposureStatus(check.Status), Detail: check.Detail, Remedy: check.Remedy,
+					})
+				}
+			}
+		}
+	}
 	if err != nil {
 		printReport(report)
 		return err
@@ -202,6 +220,19 @@ func runDoctor(args []string) error {
 		return fmt.Errorf("%d check(s) failed", report.Failures())
 	}
 	return nil
+}
+
+func doctorExposureStatus(status install.ExposureHealthStatus) doctor.Status {
+	switch status {
+	case install.ExposureHealthPass:
+		return doctor.StatusPass
+	case install.ExposureHealthWarn:
+		return doctor.StatusWarn
+	case install.ExposureHealthFail:
+		return doctor.StatusFail
+	default:
+		return doctor.StatusSkip
+	}
 }
 
 func printReport(report *doctor.Report) {

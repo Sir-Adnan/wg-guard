@@ -119,6 +119,8 @@ func runManage(args []string) error {
 			return runCoreWithHostContext(ctx, args[1:], h, os.Stdout)
 		case "certificate-sync":
 			return runCertificateSync(args[1:])
+		case "exposure":
+			return runExposureWith(ctx, args[1:], h, os.Stdin, os.Stdout)
 		case "restore":
 			if in == nil {
 				in = os.Stdin
@@ -173,16 +175,7 @@ func runManage(args []string) error {
 			u.StatusCard(status, title, fields)
 			return nil
 		}
-		cfg, err := install.ReadBootConfig(h, st.ConfigPath)
-		if err != nil {
-			return err
-		}
-		p := install.Defaults()
-		p.TLSMode = cfg.TLS.Mode
-		p.Domain = cfg.TLS.Domain
-		p.PublicIP = st.PublicIP
-		p.ACMEHTTPPort = cfg.TLS.ACMEHTTPPort
-		_, p.PanelPort, err = splitListen(cfg.HTTPListen)
+		p, err := install.InstalledPlan(h, st)
 		if err != nil {
 			return err
 		}
@@ -202,6 +195,7 @@ func runManage(args []string) error {
 		fields := []terminal.StatusField{
 			{Label: u.T("manage.installed"), Value: string(st.Mode) + " · " + st.Version},
 			{Label: u.T("manage.panel"), Value: p.PanelURL()},
+			{Label: u.T("manage.access"), Value: string(p.Exposure) + " · " + firstNonemptyString(st.TLSReadiness, "unknown")},
 			{Label: u.T("manage.health"), Value: health},
 			{Label: u.T("manage.core"), Value: st.Core.Requested.ID},
 		}
@@ -301,6 +295,8 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 				args = []string{"restore", "--recover"}
 			} else if m.journalOperation == "certificate" && m.recoveryLineage != "" {
 				args = []string{"certificate-sync", "--lineage", m.recoveryLineage}
+			} else if m.journalOperation == "exposure" {
+				args = []string{"exposure", "recover"}
 			}
 			_, err := m.reviewedAction(ctx, "recover_review", args, nil)
 			return err
@@ -396,7 +392,7 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 3:
 			n, err = m.ui.Choose(m.ui.T("manage.backups"), []string{m.ui.T("manage.backup_create"), m.ui.T("manage.backup_list"), m.ui.T("manage.restore"), m.ui.T("manage.schedules"), m.ui.T("manage.telegram"), m.ui.T("backup.cli.backup_password"), m.ui.T("backup.cli.recover")}, 0)
 		case 4:
-			n, err = m.menu("access", "access_status", "tls")
+			n, err = m.menu("access", "access_status", "access_configure", "access_renew", "access_private", "tls")
 		}
 		if err != nil {
 			return err
@@ -460,8 +456,16 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 4:
 			switch n {
 			case 1:
-				args = []string{"status"}
+				args = []string{"exposure", "status"}
 			case 2:
+				args = []string{"exposure", "configure"}
+			case 3:
+				args = []string{"exposure", "renew"}
+				review = "access_renew_review"
+			case 4:
+				args = []string{"exposure", "private", "--yes"}
+				review = "access_private_review"
+			case 5:
 				args = []string{"tls-check"}
 			}
 		}

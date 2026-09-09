@@ -12,6 +12,75 @@ import (
 
 var proveExposureCertificate = WaitCertificate
 
+func managedCertificateSource(source CertificateSource) bool {
+	switch source {
+	case CertificateWebroot, CertificateCloudflareDNS, CertificateIP:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateCertificateHook(h Host) error {
+	hook, err := captureFile(h, CertbotDeployHookPath, 64<<10)
+	if err != nil {
+		return fmt.Errorf("installer: inspect Certbot deploy hook: %w", err)
+	}
+	if !hook.exists || hook.mode.Perm() != 0o700 || string(hook.data) != certbotDeployHook {
+		return fmt.Errorf("installer: managed certificate deploy hook is missing or changed; reconfigure panel access before renewal")
+	}
+	return nil
+}
+
+// RenewManagedCertificate asks Certbot to check only WG-Guard's recorded
+// lineage. It deliberately omits --force-renewal so an operator action cannot
+// burn CA rate limits. Certbot invokes the fixed deploy hook only when renewal
+// is due; that hook performs the locked copy, restart and health proof.
+func RenewManagedCertificate(ctx context.Context, h Host) error {
+	if !h.IsRoot() {
+		return terminalError("manage.root")
+	}
+	st, err := LoadState(h)
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		return fmt.Errorf("installer: WG-Guard is not installed")
+	}
+	if !managedCertificateSource(st.Exposure.Certificate) || st.Exposure.Lineage == "" {
+		return fmt.Errorf("installer: the current certificate is not managed by Certbot")
+	}
+	identity, err := certificateIdentity(st)
+	if err != nil {
+		return err
+	}
+	if st.Exposure.Lineage != CertificateLineage(identity) {
+		return fmt.Errorf("installer: recorded certificate lineage does not match panel identity")
+	}
+	if err := validateCertificateHook(h); err != nil {
+		return err
+	}
+
+	// Do not hold WG-Guard's lifecycle lock while Certbot runs: a successful
+	// renewal synchronously invokes the deploy hook, which acquires that lock.
+	// The preflight still refuses any already-pending lifecycle transaction.
+	unlock, err := h.LockLifecycle()
+	if err != nil {
+		return err
+	}
+	if err := noPending(h); err != nil {
+		unlock()
+		return err
+	}
+	unlock()
+
+	args := []string{CertbotPath, "renew", "--cert-name", st.Exposure.Lineage, "--no-random-sleep-on-renew"}
+	if err := h.Run(ctx, args, longTimeout); err != nil {
+		return fmt.Errorf("installer: certificate renewal check failed: %w", err)
+	}
+	return nil
+}
+
 // installedPlan reconstructs non-secret runtime intent from the authoritative
 // state and boot configuration. Legacy state is inferred conservatively.
 func installedPlan(h Host, st *State) (Plan, error) {
@@ -33,6 +102,12 @@ func installedPlan(h Host, st *State) (Plan, error) {
 	p.Exposure = st.Exposure.Mode
 	p.Certificate = st.Exposure.Certificate
 	p.PublicPort = st.Exposure.PublicPort
+	if p.CertFile == "" {
+		p.CertFile = st.Exposure.CertFile
+	}
+	if p.KeyFile == "" {
+		p.KeyFile = st.Exposure.KeyFile
+	}
 	if !p.Exposure.Valid() {
 		switch cfg.TLS.Mode {
 		case config.TLSModeACME:
@@ -85,9 +160,7 @@ func SyncManagedCertificate(ctx context.Context, h Host, renewedLineage string) 
 	if st == nil {
 		return terminalError("install.error.health.3")
 	}
-	switch st.Exposure.Certificate {
-	case CertificateWebroot, CertificateCloudflareDNS, CertificateIP:
-	default:
+	if !managedCertificateSource(st.Exposure.Certificate) {
 		return nil
 	}
 	expected := CertbotLivePath(st.Exposure.Lineage)

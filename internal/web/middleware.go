@@ -175,8 +175,26 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
+		if requestIsHTTPS(r) {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// requestIsHTTPS trusts proxy metadata only from a local/private peer. Proxy
+// mode is loopback-bound on the host; Docker NAT presents the host gateway as
+// a private address inside the container. An arbitrary public client cannot
+// turn spoofed X-Forwarded-Proto into trusted scheme information.
+func requestIsHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if !strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https") {
+		return false
+	}
+	ip := net.ParseIP(clientIP(r))
+	return ip != nil && (ip.IsLoopback() || ip.IsPrivate())
 }
 
 // bodyCap bounds panel request bodies (forms are tiny; bulk payloads are

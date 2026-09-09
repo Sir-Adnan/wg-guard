@@ -242,7 +242,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 			}
 		}()
 	}
-	certificate, certificateCleanup, err := PrepareCertificate(ctx, journalHost{Host: h, j: j}, p, st, out)
+	certificate, certificateCleanup, err := prepareCertificate(ctx, journalHost{Host: h, j: j}, p, st, out, o.Prerequisites != PrerequisitesCheck)
 	if err != nil {
 		return st, err
 	}

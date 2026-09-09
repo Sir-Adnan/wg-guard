@@ -149,6 +149,80 @@ func TestFinalizeNginxFailureRestoresChallengeConfiguration(t *testing.T) {
 	}
 }
 
+func TestNginxReplacementAndDetachRestoreThePreviousProxy(t *testing.T) {
+	h := nginxFixture()
+	previous := nginxPlan()
+	previous.Certificate = CertificateManual
+	priorConfig := renderNginxProxy(previous)
+	h.files[NginxConfigPath] = memFile{data: []byte(priorConfig), perm: 0o640}
+	h.dirs[ACMEWebrootPath] = true
+	h.output["nginx -T"] += "\nserver { server_name " + previous.Domain + "; }\n"
+
+	next := nginxPlan()
+	next.Domain = "new.example.com"
+	cleanup, err := PrepareNginxReplacement(context.Background(), h, next, previous, &State{}, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := FinalizeNginxReplacement(context.Background(), h, next, previous, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.files[NginxConfigPath]; string(got.data) != priorConfig || got.perm != 0o640 {
+		t.Fatal("replacement cleanup did not restore the exact prior proxy")
+	}
+
+	detachCleanup, err := DetachManagedNginx(context.Background(), h, previous.ExposureRecord())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := h.files[NginxConfigPath]; exists {
+		t.Fatal("detach retained the managed proxy")
+	}
+	if err := detachCleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(h.files[NginxConfigPath].data); got != priorConfig {
+		t.Fatal("detach cleanup did not restore the prior proxy")
+	}
+}
+
+func TestNginxReplacementKeepsThePreviousEndpointUntilPromotion(t *testing.T) {
+	h := nginxFixture()
+	previous := nginxPlan()
+	previous.Certificate = CertificateManual
+	candidate := previous
+	candidate.Domain = "admin.example.com"
+	h.files[NginxConfigPath] = memFile{data: []byte(renderNginxProxy(previous)), perm: 0o644}
+	h.dirs[ACMEWebrootPath] = true
+	cleanup, err := PrepareNginxReplacement(context.Background(), h, candidate, previous, &State{}, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transition := string(h.files[NginxConfigPath].data)
+	if !strings.Contains(transition, "server_name panel.example.com;") || !strings.Contains(transition, "proxy_pass http://127.0.0.1:8087;") || !strings.Contains(transition, "server_name admin.example.com;") {
+		t.Fatalf("transition did not retain the live endpoint and new challenge:\n%s", transition)
+	}
+	if strings.Count(transition, "proxy_pass") != 1 {
+		t.Fatalf("candidate was proxied before certificate readiness:\n%s", transition)
+	}
+	if err := FinalizeNginxReplacement(context.Background(), h, candidate, previous, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	final := string(h.files[NginxConfigPath].data)
+	if strings.Contains(final, "server_name panel.example.com;") || !strings.Contains(final, "server_name admin.example.com;") {
+		t.Fatalf("candidate was not promoted cleanly:\n%s", final)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(h.files[NginxConfigPath].data); got != renderNginxProxy(previous) {
+		t.Fatal("replacement cleanup did not restore the exact previous proxy")
+	}
+}
+
 func TestRemoveManagedNginxRestoresConfigWhenReloadFails(t *testing.T) {
 	base := nginxFixture()
 	p := nginxPlan()

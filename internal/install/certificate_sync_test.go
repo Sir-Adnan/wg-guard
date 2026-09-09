@@ -14,6 +14,53 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 )
 
+func TestRenewManagedCertificateChecksOnlyRecordedLineageWithoutForcing(t *testing.T) {
+	h, _, _, _ := installedDirectCertificateFixture(t)
+	h.files[CertbotDeployHookPath] = memFile{data: []byte(certbotDeployHook), perm: 0o700}
+	h.commands = nil
+
+	if err := RenewManagedCertificate(context.Background(), h); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := LoadState(h)
+	want := []string{CertbotPath, "renew", "--cert-name", st.Exposure.Lineage, "--no-random-sleep-on-renew"}
+	commands := h.ranCommands()
+	if len(commands) != 1 || strings.Join(commands[0], "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("renew command = %v, want %v", commands, want)
+	}
+	if strings.Contains(strings.Join(commands[0], " "), "force") {
+		t.Fatal("interactive renewal bypassed the CA-safe due check")
+	}
+}
+
+func TestRenewManagedCertificateRefusesMissingHookAndPendingLifecycle(t *testing.T) {
+	t.Run("missing hook", func(t *testing.T) {
+		h, _, _, _ := installedDirectCertificateFixture(t)
+		h.commands = nil
+		if err := RenewManagedCertificate(context.Background(), h); err == nil {
+			t.Fatal("renewal without the deploy hook was accepted")
+		}
+		if len(h.commands) != 0 {
+			t.Fatalf("renewal mutated host before safety check: %v", h.ranCommands())
+		}
+	})
+
+	t.Run("pending lifecycle", func(t *testing.T) {
+		h, _, _, _ := installedDirectCertificateFixture(t)
+		h.files[CertbotDeployHookPath] = memFile{data: []byte(certbotDeployHook), perm: 0o700}
+		if err := (&Journal{Schema: 1, ID: "pending", Operation: "update"}).save(h, "started"); err != nil {
+			t.Fatal(err)
+		}
+		h.commands = nil
+		if err := RenewManagedCertificate(context.Background(), h); err == nil {
+			t.Fatal("renewal raced a pending lifecycle operation")
+		}
+		if len(h.commands) != 0 {
+			t.Fatalf("pending renewal ran Certbot: %v", h.ranCommands())
+		}
+	})
+}
+
 func TestPrepareCertificateHookIsFixedPrivateAndReversible(t *testing.T) {
 	h := newMemHost()
 	p := Plan{Certificate: CertificateCloudflareDNS}

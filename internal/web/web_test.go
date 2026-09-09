@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -325,6 +326,39 @@ func TestSecurityHeadersAndAssets(t *testing.T) {
 	e.handler.ServeHTTP(w2, req2)
 	if w2.Code != http.StatusNotModified {
 		t.Fatalf("conditional asset fetch: %d", w2.Code)
+	}
+}
+
+func TestHSTSRequiresTLSOrATrustedProxyPeer(t *testing.T) {
+	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	for _, tc := range []struct {
+		name, remote string
+		forwarded    bool
+		tls          bool
+		want         bool
+	}{
+		{name: "public spoof", remote: "192.0.2.10:1234", forwarded: true},
+		{name: "loopback proxy", remote: "127.0.0.1:1234", forwarded: true, want: true},
+		{name: "docker host gateway", remote: "172.18.0.1:1234", forwarded: true, want: true},
+		{name: "direct tls", remote: "192.0.2.10:1234", tls: true, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://panel.example.test/", nil)
+			req.RemoteAddr = tc.remote
+			if tc.forwarded {
+				req.Header.Set("X-Forwarded-Proto", "https")
+			}
+			if tc.tls {
+				req.TLS = &tls.ConnectionState{}
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if got := rec.Header().Get("Strict-Transport-Security") != ""; got != tc.want {
+				t.Fatalf("HSTS present = %t, want %t", got, tc.want)
+			}
+		})
 	}
 }
 

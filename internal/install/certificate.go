@@ -56,7 +56,7 @@ func PrepareCertificateHook(h Host, p Plan) (func() error, error) {
 		return nil, err
 	}
 	if err := atomicWrite(h, CertbotDeployHookPath, []byte(certbotDeployHook), 0o700); err != nil {
-		return nil, err
+		return nil, errors.Join(err, restoreCapturedFile(h, CertbotDeployHookPath, before))
 	}
 	return func() error { return restoreCapturedFile(h, CertbotDeployHookPath, before) }, nil
 }
@@ -67,6 +67,10 @@ func CertbotLivePath(lineage string) string { return "/etc/letsencrypt/live/" + 
 // copies. The returned cleanup restores the exact prior copies if a later
 // install step fails. Secrets are written only to a 0600 file, never argv.
 func PrepareCertificate(ctx context.Context, h Host, p Plan, st *State, out io.Writer) (CertificateResult, func(), error) {
+	return prepareCertificate(ctx, h, p, st, out, true)
+}
+
+func prepareCertificate(ctx context.Context, h Host, p Plan, st *State, out io.Writer, automaticPrerequisites bool) (CertificateResult, func(), error) {
 	identifier := p.Domain
 	if identifier == "" {
 		identifier = p.PublicIP
@@ -109,7 +113,7 @@ func PrepareCertificate(ctx context.Context, h Host, p Plan, st *State, out io.W
 	case CertificateManual, CertificateCloudflareOrigin:
 		// The source files remain operator-owned; WG-Guard owns stable copies.
 	case CertificateWebroot, CertificateCloudflareDNS, CertificateIP:
-		if err := ensureCertbot(ctx, h, p.Certificate == CertificateCloudflareDNS); err != nil {
+		if err := ensureCertbotWithPolicy(ctx, h, p.Certificate == CertificateCloudflareDNS, automaticPrerequisites); err != nil {
 			return fail(err)
 		}
 		lineage = CertificateLineage(identifier)
@@ -175,10 +179,35 @@ func PrepareCertificate(ctx context.Context, h Host, p Plan, st *State, out io.W
 }
 
 func ensureCertbot(ctx context.Context, h Host, cloudflare bool) error {
+	return ensureCertbotWithPolicy(ctx, h, cloudflare, true)
+}
+
+func ensureCertbotWithPolicy(ctx context.Context, h Host, cloudflare, automaticPrerequisites bool) error {
 	version, err := h.Output(ctx, []string{CertbotPath, "--version"}, 15*time.Second)
 	if err != nil || !certbotAtLeast(version, 5, 4) {
 		if _, lookErr := h.LookPath("snap"); lookErr != nil {
-			return fmt.Errorf("installer: Certbot 5.4+ is required and snap is unavailable")
+			if !automaticPrerequisites {
+				return fmt.Errorf("installer: Certbot 5.4+ requires snapd; install it first or use automatic prerequisite preparation")
+			}
+			platform, platformErr := InspectPlatform(ctx, h)
+			if platformErr != nil || platform.OS != "ubuntu" || !supportedUbuntuVersion(platform.Version) || platform.Arch != "amd64" || platform.Init != "systemd" {
+				return fmt.Errorf("installer: automatic snapd preparation requires supported Ubuntu 24.04+ amd64 with systemd")
+			}
+			if runErr := h.Run(ctx, []string{"apt-get", "update"}, longTimeout); runErr != nil {
+				return fmt.Errorf("installer: refresh packages for snapd: %w", runErr)
+			}
+			if runErr := h.Run(ctx, []string{"apt-get", "install", "-y", "--no-install-recommends", "--no-upgrade", "--no-remove", "snapd"}, longTimeout); runErr != nil {
+				return fmt.Errorf("installer: install shared snapd prerequisite: %w", runErr)
+			}
+			if runErr := h.Run(ctx, []string{"systemctl", "enable", "--now", "snapd.socket"}, time.Minute); runErr != nil {
+				return fmt.Errorf("installer: activate snapd socket: %w", runErr)
+			}
+			if runErr := h.Run(ctx, []string{"snap", "wait", "system", "seed.loaded"}, longTimeout); runErr != nil {
+				return fmt.Errorf("installer: wait for snapd initialization: %w", runErr)
+			}
+			if _, lookErr = h.LookPath("snap"); lookErr != nil {
+				return fmt.Errorf("installer: snapd installed but the snap command is unavailable")
+			}
 		}
 		var commands [][]string
 		if !snapPackageInstalled(ctx, h, "core") {

@@ -37,6 +37,8 @@ Commands:
   uninstall   Remove WG-Guard (data kept unless --purge-data)
               uninstall [--dry-run] [--purge-data] [--purge-packages] [--yes]
   status      Install state, service state and health
+  exposure    Show or change panel access and HTTPS after installation
+              exposure status|configure|renew|private|recover
   reconcile   Bring tunnels, peers, and firewall to DB state (boot bring-up)
   serve       Run the WG-Guard service (API + scheduler)
               -config PATH   boot config (default /etc/wg-guard/wg-guard.toml)
@@ -139,6 +141,11 @@ func main() {
 	case "status":
 		if err := runStatus(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "wg-guard: status: %v\n", err)
+			os.Exit(1)
+		}
+	case "exposure":
+		if err := runExposure(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: exposure: %v\n", err)
 			os.Exit(1)
 		}
 	case "reconcile":

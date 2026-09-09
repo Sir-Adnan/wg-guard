@@ -53,6 +53,7 @@ var hostCommands = map[string]bool{
 	"core":             true,
 	"tls-check":        true,
 	"certificate-sync": true,
+	"exposure":         true,
 	"install":          true,
 	"update":           true,
 	"uninstall":        true,

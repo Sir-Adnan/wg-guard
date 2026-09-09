@@ -344,20 +344,9 @@ func runStatus(args []string) error {
 		fmt.Println("active")
 	}
 
-	cfg, err := install.ReadBootConfig(h, st.ConfigPath)
+	p, err := install.InstalledPlan(h, st)
 	if err != nil {
 		return err
-	}
-	p := install.Plan{
-		TLSMode:      cfg.TLS.Mode,
-		Domain:       cfg.TLS.Domain,
-		ACMEHTTPPort: cfg.TLS.ACMEHTTPPort,
-	}
-	if _, port, err := splitListen(cfg.HTTPListen); err == nil {
-		p.PanelPort = port
-	}
-	if p.ACMEHTTPPort == 0 {
-		p.ACMEHTTPPort = 80
 	}
 	url, skipVerify, err := p.HealthProbeURL()
 	if err != nil {
@@ -368,6 +357,7 @@ func runStatus(args []string) error {
 	} else {
 		fmt.Printf("health:      ok (%s)\n", p.PanelURL())
 	}
+	fmt.Printf("access:      %s (%s)\n", p.Exposure, st.TLSReadiness)
 	return nil
 }
 

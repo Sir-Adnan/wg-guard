@@ -88,7 +88,7 @@ func LoadJournal(h Host) (*Journal, error) {
 		return nil, terminalError("install.error.journal")
 	}
 	switch j.Stage {
-	case "prepared", "swap-pending", "started", "complete", "rolled-back", "aborted", "recovery-required", "restore-required", "prerequisites", "pending-reboot":
+	case "prepared", "snapshot-ready", "swap-pending", "started", "complete", "rolled-back", "aborted", "recovery-required", "restore-required", "prerequisites", "pending-reboot":
 	default:
 		return nil, terminalError("install.error.journal")
 	}

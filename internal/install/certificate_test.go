@@ -13,6 +13,7 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,25 @@ type certbotPreparationHost struct {
 }
 
 type issuanceFailureHost struct{ *memHost }
+
+type missingSnapHost struct {
+	*certbotPreparationHost
+	snapReady bool
+}
+
+func (h *missingSnapHost) LookPath(name string) (string, error) {
+	if name == "snap" && !h.snapReady {
+		return "", exec.ErrNotFound
+	}
+	return h.certbotPreparationHost.LookPath(name)
+}
+
+func (h *missingSnapHost) Run(ctx context.Context, argv []string, timeout time.Duration) error {
+	if strings.Join(argv, " ") == "apt-get install -y --no-install-recommends --no-upgrade --no-remove snapd" {
+		h.snapReady = true
+	}
+	return h.certbotPreparationHost.Run(ctx, argv, timeout)
+}
 
 func (h *issuanceFailureHost) Run(ctx context.Context, argv []string, timeout time.Duration) error {
 	if len(argv) > 1 && argv[0] == CertbotPath && argv[1] == "certonly" {
@@ -221,6 +241,29 @@ func TestEnsureCertbotRefreshesExistingSnapWithoutReinstallingIt(t *testing.T) {
 	if strings.Contains(all, "snap install core") || strings.Contains(all, "snap install --classic certbot") {
 		t.Fatalf("existing snaps were needlessly reinstalled:\n%s", all)
 	}
+}
+
+func TestEnsureCertbotInstallsSharedSnapdOnlyWhenAutomaticPreparationIsAllowed(t *testing.T) {
+	t.Run("automatic", func(t *testing.T) {
+		h := &missingSnapHost{certbotPreparationHost: &certbotPreparationHost{memHost: newMemHost()}}
+		if err := ensureCertbotWithPolicy(context.Background(), h, false, true); err != nil {
+			t.Fatal(err)
+		}
+		if !h.ran("apt-get", "install", "-y", "--no-install-recommends", "--no-upgrade", "--no-remove", "snapd") ||
+			!h.ran("systemctl", "enable", "--now", "snapd.socket") || !h.ran("snap", "wait", "system", "seed.loaded") {
+			t.Fatalf("snapd was not prepared safely: %v", h.ranCommands())
+		}
+	})
+
+	t.Run("check only", func(t *testing.T) {
+		h := &missingSnapHost{certbotPreparationHost: &certbotPreparationHost{memHost: newMemHost()}}
+		if err := ensureCertbotWithPolicy(context.Background(), h, false, false); err == nil {
+			t.Fatal("check-only certificate preparation installed snapd")
+		}
+		if h.ran("apt-get") || h.ran("systemctl") {
+			t.Fatalf("check-only mode mutated prerequisites: %v", h.ranCommands())
+		}
+	})
 }
 
 func TestPrepareCertificateErasesCloudflareCredentialAfterIssuanceFailure(t *testing.T) {

@@ -122,6 +122,24 @@ func TestCertificateRecoveryUsesTheRecordedLineage(t *testing.T) {
 	}
 }
 
+func TestExposureRecoveryUsesTheDedicatedRecoveryCommand(t *testing.T) {
+	var got []string
+	m := manager{
+		ui:   terminal.New(strings.NewReader("yes\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		view: managerRecovery, journalOperation: "exposure",
+		run: func(_ context.Context, args []string, _ io.Reader) error {
+			got = append([]string(nil), args...)
+			return nil
+		},
+	}
+	if err := m.rootAction(context.Background(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"exposure", "recover"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("recovery args = %v, want %v", got, want)
+	}
+}
+
 func TestCommandHelpPresentsEnglishOnlyTerminal(t *testing.T) {
 	if strings.Contains(usage, "--lang fa") || strings.Contains(usage, "fa|en") || containsRTLScript(usage) {
 		t.Fatalf("command help advertises a non-English terminal mode:\n%s", usage)
@@ -207,6 +225,10 @@ func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 		{"3\n1\nyes\nq\n", []string{"backup", "create"}, ""},
 		{"3\n3\n/private/archive.wgg.age\nyes\nsynthetic-archive-password\nq\n", []string{"restore", "/private/archive.wgg.age", "--password"}, "synthetic-archive-password\n"},
 		{"3\n4\n2\ndaily\n1\n۰۳:۳۰\n0\nyes\nyes\nq\n", []string{"backup", "schedule-add", "--name", "daily", "--kind", "daily", "--time", "03:30", "--retention", "0"}, ""},
+		{"2\n1\nq\n", []string{"exposure", "status"}, ""},
+		{"2\n2\nq\n", []string{"exposure", "configure"}, ""},
+		{"2\n3\nyes\nq\n", []string{"exposure", "renew"}, ""},
+		{"2\n4\nyes\nq\n", []string{"exposure", "private", "--yes"}, ""},
 	}
 	for _, tc := range cases {
 		var out bytes.Buffer
