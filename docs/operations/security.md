@@ -61,6 +61,8 @@ dump`) is parsed, never logged, and never embedded in errors.
 - Strict request size limits, timeouts, panic recovery returning the standard error envelope.
 - Transport modes per [deployment.md](deployment.md): direct ACME/managed certificate,
   loopback-behind-proxy, and private/dev loopback HTTP — never silent public plaintext.
+- Session cookies are `Secure` on direct/proxied HTTPS. Only the explicitly private, loopback-only
+  dev listener omits `Secure` so authentication works through its documented local SSH tunnel.
 - HSTS is emitted only after actual TLS or a trusted `X-Forwarded-Proto: https` assertion from a
   loopback/private proxy peer. Public clients cannot enable it by spoofing the header; managed
   Nginx hides upstream copies and emits one canonical edge header.

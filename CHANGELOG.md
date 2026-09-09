@@ -18,7 +18,9 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   appear only in a show-once success card after lifecycle and health completion. Interrupted
   initial setup receives guided cleanup/reset choices. Uninstall now separates data-preserving
   removal, quick-reinstall node reset and `--purge-all` removal of exclusively owned data,
-  packages, manager cache, logs and lifecycle files. REST/OpenAPI is unchanged.
+  packages, manager cache, logs and lifecycle files. The recommended private SSH-tunnel topology
+  now uses loopback-only dev transport rather than proxy transport, so its HTTP session cookie is
+  usable while public/proxied HTTPS cookies remain `Secure`. REST/OpenAPI is unchanged.
 - **Uninstall recovery and terminal navigation:** menus now use only numbered choices plus `0` for
   back/exit and `Ctrl+C` for cancellation; `q` is ordinary input rather than a hidden command.
   Installed nodes expose concise data-preserving and full-reset removal choices. An interrupted

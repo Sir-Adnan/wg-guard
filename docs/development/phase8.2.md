@@ -203,6 +203,12 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
   generated-secret non-disclosure before success, post-health/lifecycle credential handoff,
   guided interrupted-install reset and the three distinct uninstall outcomes. Updated real Docker
   acceptance is pending before this maintenance correction is marked production verified.
+- That acceptance run exposed an independent private-login defect: the recommended loopback HTTP
+  listener was labelled proxy transport, so the server correctly emitted a `Secure` cookie that an
+  HTTP SSH tunnel could not return. The real login POST accepted the new `admin` credentials but
+  redirected back to login after cookie loss. Private exposure now resolves to loopback-only dev
+  transport; actual Nginx/external proxies remain proxy mode. Focused topology tests pass and an
+  updated real login drill is pending.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.

@@ -208,7 +208,7 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	port := healthServer(t, http.StatusOK)
 	p := Defaults()
 	p.Mode = ModeDocker
-	p.TLSMode = config.TLSModeProxy // plain-HTTP probe on the health port
+	p.TLSMode = config.TLSModeProxy // legacy input resolves to private loopback dev mode
 	p.PanelPort = port
 
 	st, err := Install(context.Background(), h, InstallOptions{
@@ -226,7 +226,7 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	if cfg.perm != 0o600 {
 		t.Errorf("config perm = %o, want 600", cfg.perm)
 	}
-	if !strings.Contains(string(cfg.data), `mode = "proxy"`) {
+	if !strings.Contains(string(cfg.data), `mode = "dev"`) {
 		t.Errorf("config missing tls mode:\n%s", cfg.data)
 	}
 	if !strings.Contains(string(cfg.data), `http_listen = "127.0.0.1:`+fmt.Sprint(port)+`"`) {
@@ -579,7 +579,7 @@ func TestPromptWizardBlankPathUsesSafeRecommendedDefaults(t *testing.T) {
 	if err := q.confirm(p); err != nil {
 		t.Fatal(err)
 	}
-	if p.Mode != ModeDocker || p.TLSMode != config.TLSModeProxy || p.Domain != "" {
+	if p.Mode != ModeDocker || p.TLSMode != config.TLSModeDev || p.Domain != "" {
 		t.Fatalf("blank path defaults = %+v", p)
 	}
 }

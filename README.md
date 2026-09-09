@@ -71,6 +71,10 @@ own engine data directory; WG-Guard keeps only operator-managed state in stable 
 keys and backups under `/var/lib/wg-guard`, and the host manager command at
 `/usr/local/bin/wg-guard`.
 
+Private installs are reachable only through the displayed SSH tunnel. Their loopback HTTP session
+cookie is intentionally non-`Secure` so login works through that tunnel; every public or
+reverse-proxied panel path remains HTTPS and uses a `Secure` session cookie.
+
 The first development-source build can take several minutes. A published release installs much
 faster because it uses a verified prebuilt binary. When stable releases exist, the default command
 becomes the same command without `--commit main`. Long quiet operations emit a short progress

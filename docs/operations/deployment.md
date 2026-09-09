@@ -42,6 +42,11 @@ the caller's staging parent is preserved. Acquisition-to-lifecycle plumbing and 
 ID as the active/previous artifact are implemented by the shared lifecycle engine. No official
 public image publication is implied.
 
+Private mode uses the config's loopback-only `dev` transport because no reverse proxy terminates
+TLS; this permits its session cookie over the documented local SSH tunnel. Managed Nginx and
+operator-proxy modes use `proxy` transport and keep `Secure` cookies because the browser-facing
+connection is HTTPS.
+
 ## Native mode (secondary, fully supported)
 
 Same binary as a hardened systemd service (`NoNewPrivileges`, `ProtectSystem=strict`,

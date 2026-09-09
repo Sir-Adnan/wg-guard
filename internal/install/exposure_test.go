@@ -24,7 +24,7 @@ func TestResolveExposureSelectsOnlySafeTopologies(t *testing.T) {
 		{
 			name: "blank domain stays private",
 			plan: Defaults(), facts: ExposureFacts{BackendPort: 8080},
-			mode: ExposurePrivate, tls: config.TLSModeProxy, listen: "127.0.0.1:8080",
+			mode: ExposurePrivate, tls: config.TLSModeDev, listen: "127.0.0.1:8080",
 		},
 		{
 			name:  "free domain uses built in ACME",

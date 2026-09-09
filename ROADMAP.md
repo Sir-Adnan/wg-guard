@@ -89,8 +89,9 @@ A final account-provisioning correction before Phase 9 makes the interactive use
 (`admin` on Enter), retries invalid passwords before leaving the wizard, and offers a
 cryptographically generated password with a show-once post-health credential card. Interrupted
 initial setup now opens guided reset choices, and uninstall distinguishes recoverable node reset
-from complete removal of the local manager/cache/logs. This remains Phase 8.2 maintenance; it does
-not add Phase 9 or API/OpenAPI scope.
+from complete removal of the local manager/cache/logs. Private loopback installation also uses the
+correct non-proxy transport so SSH-tunnel login can retain its session cookie. This remains Phase
+8.2 maintenance; it does not add Phase 9 or API/OpenAPI scope.
 
 ### Phase 9 — Operational observability
 

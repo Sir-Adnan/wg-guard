@@ -252,7 +252,11 @@ func ResolveExposure(p Plan, facts ExposureFacts) (Plan, error) {
 			return p, fmt.Errorf("installer: private access does not use a certificate")
 		}
 		p.Certificate = ""
-		p.TLSMode = config.TLSModeProxy
+		// Private access is direct loopback HTTP, not HTTPS terminated by a
+		// reverse proxy. Dev mode keeps session cookies usable through the
+		// documented SSH tunnel while config validation still forbids a public
+		// plaintext bind.
+		p.TLSMode = config.TLSModeDev
 		p.PanelPort = backend
 		p.PublicPort = 0
 	case ExposureDirect:
