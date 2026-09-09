@@ -63,7 +63,8 @@ func TestCompleteRemovalPurgesAllExclusiveWGGuardState(t *testing.T) {
 	base.dirs["/var/cache/wg-guard"] = true
 	base.dirs["/var/log/wg-guard"] = true
 	h := &sourcePurgeHost{memHost: base}
-	report, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, PurgeAll: true, Stdout: io.Discard})
+	var out strings.Builder
+	report, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, PurgeAll: true, Stdout: &out})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +75,9 @@ func TestCompleteRemovalPurgesAllExclusiveWGGuardState(t *testing.T) {
 	}
 	if !report.PurgedData || !report.PurgedManager || !report.PurgedLogs {
 		t.Fatalf("complete removal report = %+v", report)
+	}
+	if !strings.Contains(out.String(), "Removing local manager and logs") || strings.Contains(out.String(), "progress.") {
+		t.Fatalf("complete removal rendered an internal message key:\n%s", out.String())
 	}
 }
 
