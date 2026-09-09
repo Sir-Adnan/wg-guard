@@ -94,6 +94,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 			}
 		}
 	}
+	for _, path := range managedExposureArtifacts(st.Exposure) {
+		artifacts = addUnique(artifacts, path)
+	}
 	rep.Artifacts = append(append([]string{}, artifacts...), StatePath)
 
 	if o.DryRun {
@@ -139,9 +142,15 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 	if err := j.save(h, "swap-pending"); err != nil {
 		return rep, err
 	}
+	if err := RemoveManagedNginx(ctx, h, st.Exposure); err != nil {
+		return rep, err
+	}
 
 	step(out, "Removing artifacts")
 	for _, path := range artifacts {
+		if path == st.Exposure.NginxConfigPath || path == st.Exposure.ACMEWebroot {
+			continue
+		}
 		if err := h.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return rep, err
 		} else {
@@ -177,6 +186,23 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		return rep, err
 	}
 	return rep, j.save(h, "complete")
+}
+
+func managedExposureArtifacts(exposure ExposureState) []string {
+	var paths []string
+	for _, path := range []string{
+		exposure.NginxConfigPath,
+		exposure.ACMEWebroot,
+		exposure.CertFile,
+		exposure.KeyFile,
+		exposure.DeployHook,
+		exposure.CredentialsFile,
+	} {
+		if path != "" {
+			paths = addUnique(paths, path)
+		}
+	}
+	return paths
 }
 
 func dataFate(purge bool, dir string) string {

@@ -230,6 +230,18 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err != nil {
 		return st, err
 	}
+	var nginxCleanup func() error
+	if p.Exposure == ExposureNginx {
+		nginxCleanup, err = PrepareNginx(ctx, journalHost{Host: h, j: j}, p, st, out)
+		if err != nil {
+			return st, err
+		}
+		defer func() {
+			if resultErr != nil && nginxCleanup != nil {
+				resultErr = errors.Join(resultErr, nginxCleanup())
+			}
+		}()
+	}
 	certificate, certificateCleanup, err := PrepareCertificate(ctx, journalHost{Host: h, j: j}, p, st, out)
 	if err != nil {
 		return st, err
@@ -249,6 +261,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 	p.CloudflareToken = ""
 	o.Plan.CloudflareToken = ""
+	if p.Exposure == ExposureNginx {
+		if err := FinalizeNginx(ctx, journalHost{Host: h, j: j}, p, out); err != nil {
+			return st, err
+		}
+	}
 	if err := j.save(h, "prepared"); err != nil {
 		return st, err
 	}
