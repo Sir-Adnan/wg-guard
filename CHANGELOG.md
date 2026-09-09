@@ -12,6 +12,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   operational logs and seven-day retention. Implementation has not started.
 
 ### Changed
+- **Fresh installer reliability:** the recommended `awg-2026-09` core and Docker runtime now
+  build exact reviewed AmneziaWG GitHub tags/commits instead of depending on retention of a PPA
+  binary. Ubuntu package-lock contention waits safely, quiet builds emit bounded progress,
+  aborted prerequisite ownership survives retry, and installer-owned Docker service/socket
+  teardown and restart are coherent. A clean Ubuntu 24.04.4 amd64 Docker install, cached
+  40-column rerun, health/source-identity checks and package/core purge passed; API/OpenAPI is
+  unchanged.
 - **DB/key lifetime ownership:** native and Docker data commands and server startup now
   coordinate shared/exclusive kernel leases across the shared volume. Rotation holds
   exclusive ownership through confirmation; restore refuses an already admitted data

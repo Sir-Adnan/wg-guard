@@ -13,7 +13,7 @@ nodes expose [terminal management](terminal-management.md) through `sudo wg-guar
 Public interactive installation from `main` while no stable release exists:
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 ```
 
 This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
@@ -78,6 +78,9 @@ input is reopened from `/dev/tty` when available, otherwise `/dev/null`. A piped
 read as installer answers. `--help` works without a terminal or any acquisition prerequisite.
 The bootstrap, setup wizard, manager and command diagnostics are English-only. Legacy `--lang`
 values remain accepted so existing automation does not break, but they no longer change output.
+Boolean prompts display `[Y/n]` or `[y/N]`, accept `y/yes/n/no` case-insensitively, and use the
+displayed default on Enter. Capable TTYs use cyan information, green success, yellow warning and
+red failure; redirected output, `TERM=dumb` and `NO_COLOR` remain plain.
 
 ## Build prerequisites and cost
 
@@ -91,6 +94,12 @@ tar and sha256sum. On apt systems it installs only missing packages (`curl`, `ca
 Python uses only its standard library and is an acquisition/build prerequisite, not a panel
 runtime dependency. Installed missing packages are retained; downloaded sources, caches and
 temporary compiler are removed on exit.
+
+Ubuntu package commands wait up to five minutes for the standard dpkg lock, allowing
+`unattended-upgrades` to finish without creating a false recovery case. Source acquisition and
+other quiet build steps emit a concise heartbeat every 15 seconds. Detailed package/compiler/
+Docker output is bounded in root-only `/var/log/wg-guard/installer.log` (mode 0600, one rotated
+generation); command arguments are not logged.
 
 An existing Go compiler is accepted only when its version meets the selected source's `go`
 directive. Otherwise the bootstrap/package select a compatible stable Linux compiler from
@@ -174,7 +183,8 @@ selections, integrity/size/cancellation failures, unsafe archives, toolchain che
 actual minimal source compilation. `bash scripts/test-bootstrap.sh` runs fake external utilities
 and real script logic for release/list/source/toolchain paths, integrity refusal, piped input,
 cleanup and candidate checksums. Linux CI runs those fixtures. Fixtures and cross-compilation do
-not prove clean-host package provisioning on every later Ubuntu release or published-release installation.
+not prove clean-host source/DKMS provisioning on every later Ubuntu release or
+published-release installation.
 Separate real Docker/native evidence is linked from [Phase 8.1](../development/phase8.1.md).
 
 The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly

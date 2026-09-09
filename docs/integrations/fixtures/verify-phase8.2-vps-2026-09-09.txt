@@ -45,3 +45,25 @@ managed hook/webroot, uploaded binaries and private test snapshots were removed.
 No public tag, release, registry image or final artifact was published. No token,
 private key, certificate body, password or raw WG-Guard configuration is recorded
 in this evidence.
+
+Corrective installer acceptance (same date; candidate 5d622275b0d57c39f6af828b87e09670ec1a3d07):
+
+PASS: an exact-commit GitHub one-line source acquisition on Ubuntu 24.04.4 amd64
+emitted bounded 15-second progress, persisted the manager, and completed Docker
+installation with the recommended source-backed `awg-2026-09` bundle. The host
+module came from kernel tag v3.1.20260906 / commit 4569c4c67f3a57414969260cafbbd04694fbaae0;
+the container tool came from v3.1.20260812 / commit ee0f0a9aa34ff0a0da4b3433b9512781cfe02843.
+No Amnezia PPA was present. DKMS, image labels, binary revision and HTTP health all
+matched the selected identities.
+
+PASS: real unattended-upgrades lock contention stopped the first package attempt
+without state/data mutation. The correction uses the official APT lock wait; the
+next exact retry carried observed package ownership through the safe aborted state,
+repaired the inactive/stale Docker systemd socket, and completed. Re-running the one-line entry at
+40 columns used the cached manager with no acquisition. Explicit data/package purge
+removed state, data, binary, source cache, managed AWG tool and versioned DKMS source;
+Docker service/socket were inactive and the uninstall journal was complete.
+
+Unchanged Phase 8/8.1 native, Telegram, QR/config/client, backup/restore and two-way
+update/rollback evidence was reused rather than repeated. No API/OpenAPI contract or
+public release was changed.

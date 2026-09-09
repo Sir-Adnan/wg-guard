@@ -53,8 +53,9 @@ explicit migration, not editing deletion targets to arbitrary paths.
 It records the stage, before/after state, previous/candidate artifact paths, prerequisite
 package intents, observed ownership and repository preparation. Package intents mean an
 interrupted apt command may have changed those packages; inspect `dpkg-query` before deciding
-ownership. Shared PPA configuration is retained on uninstall. No password, token, raw boot
-configuration or archive content belongs in state, the journal or diagnostic evidence.
+ownership. The recommended source-backed core adds no PPA; shared PPA configuration from a legacy
+package-backed installation is retained on uninstall. No password, token, raw boot configuration
+or archive content belongs in state, the journal or diagnostic evidence.
 
 Retained binaries and Compose snapshots live in random private directories under
 `/etc/wg-guard/lifecycle/`. Their exact paths and binary SHA-256 are recorded. Successful
@@ -104,6 +105,14 @@ Native cleanup first validates systemd's load and activity properties. Confirmed
 `LoadState=not-found` with `ActiveState=inactive` permits cleanup without stop/disable, including
 installation before unit creation or uninstall retried after unit removal. Missing unit files,
 failed queries, incomplete properties and inconsistent states do not establish absence.
+
+A first-install failure before runtime/data mutation closes as `aborted`, leaves the verified
+local manager available, and returns to normal setup on `sudo wg-guard`; observed prerequisite
+ownership is inherited by the next attempt. Older safe `recovery-required` records with no prior
+install, no completed prerequisites and no possible data change can be closed with the manager's
+**Continue required recovery** action or `wg-guard recover-install --yes`. That command refuses
+any record that might have started a service or changed node data. Ubuntu package operations wait
+for the dpkg lock, and detailed failure output is in `/var/log/wg-guard/installer.log`.
 
 Certificate readiness is separate from process health. A healthy installation with pending
 TLS can keep serving the ACME challenge while `wg-guard tls-check` retries certificate proof.
@@ -168,15 +177,15 @@ not certify the dedicated-VPS/M6 lifecycle drills.
 ## Catalogued core maintenance
 
 `wg-guard core switch recommended --confirm-impact` uses the same lock and journal. The current
-catalog has one verified bundle, `awg-2026-08`; recommended and latest-compatible resolve to it.
-Reaffirming its exact installed tools/kernel package identities can run offline. No alternative
-package transition is invented. An unknown installed combination is refused with a manual
-migration requirement; a future catalog transition needs explicit compatibility and package
-availability evidence before implementation.
+recommended bundle is source-backed `awg-2026-09`; recommended and latest-compatible resolve to
+it. Exact upstream tags/commits, the versioned DKMS identity and cached source ownership are
+verified before readiness. Package-backed `awg-2026-08` remains recognizable for legacy
+installation/update compatibility. No arbitrary upstream branch or unreviewed version is accepted.
+An unknown installed combination is refused with a manual migration requirement.
 
 For manual migration, retain the panel backup and existing core identity, review the pinned
-integration contract, verify both exact package versions are available, and plan a maintenance
-window. Loaded module version, loaded `srcversion` and on-disk `srcversion` are distinct facts.
+integration contract, verify the selected source or legacy exact packages are available, and plan
+a maintenance window. Loaded module version, loaded `srcversion` and on-disk `srcversion` are distinct facts.
 Never unload active tunnels as an installer step. A differing source identity stays pending
 until an operator reboot and successful recheck; unknown identity never counts as correct.
 

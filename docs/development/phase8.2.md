@@ -161,6 +161,15 @@ Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-0
   automated-test verified, but real Cloudflare mutation/issuance is explicitly unverified.
   Native secure-exposure real-host recertification remains a Phase 11 matrix cell; unchanged
   Phase 8/8.1 native, Telegram, QR/config/client and one-command drills were not repeated.
+- A corrective clean-install drill closed a later PPA-retention failure: `awg-2026-09` was built
+  from exact upstream tools/kernel tags and commits, installed as versioned DKMS, embedded in the
+  local Docker runtime and verified without an Amnezia PPA. Real APT-lock contention failed safely;
+  the correction adds Ubuntu's official lock wait. The next exact retry carried package ownership,
+  repaired an inactive/stale Docker socket, completed health checks, reopened locally at
+  40 columns without acquisition, and purged its source core and recorded packages cleanly.
+- Quiet acquisition/build commands keep verbose output in a root-only bounded log while emitting
+  a short 15-second heartbeat. Success/information/warning/failure tones are green/cyan/yellow/red
+  on capable TTYs and remain identical plain text when redirected or color is disabled.
 
 Real CA rate limits are respected: fixture/staging checks precede at most one production issuance
 per required identity. Secrets and private certificate material are never committed as evidence.

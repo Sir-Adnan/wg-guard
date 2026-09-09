@@ -6,8 +6,8 @@ data paths, so backups and mode-switching are layout-independent.
 
 ## Docker mode (default)
 
-- **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + pinned `amneziawg-tools` from
-  `ppa:amnezia/ppa` + nftables + ca-certificates + the WG-Guard binary
+- **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + `amneziawg-tools` built from its
+  exact reviewed GitHub tag/commit + nftables + ca-certificates + the WG-Guard binary
   ([Dockerfile](../../Dockerfile), amd64). Registry publication of versioned tags is part of
   the Phase 12 release pipeline; until then build locally
   (`docker build -t wgguard/wg-guard:<tag> .`) and pass `--image` to the installer, which is
@@ -25,12 +25,12 @@ data paths, so backups and mode-switching are layout-independent.
   `status`, `doctor`, `version` run on the host;
   `serve` is refused with compose hints. Every CLI command is identical in both modes.
 - **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
-  persistence). On supported Ubuntu it installs the exact catalogued DKMS package
-  and matching running-kernel headers when needed, loads the module, and can rebuild only
-  `amneziawg/1.0.0` for that kernel. It never unloads active tunnels.
+  persistence). On supported Ubuntu it checks out the exact catalogued upstream kernel tag and
+  commit, registers versioned DKMS source, installs matching running-kernel headers when needed,
+  loads the module, and can rebuild only that recorded identity. It never unloads active tunnels.
 
 `internal/install.BuildRuntimeImage` can build a local Ubuntu 24.04 runtime image directly from
-a checksum-verified acquired panel binary plus the exact catalogued tools package, `iproute2`,
+a checksum-verified acquired panel binary plus the exact catalogued tools source, `iproute2`,
 `nftables`, `procps` (`sysctl`), CA roots and curl. It executes no candidate installer and returns
 only an immutable Docker image ID. Its private build context is removed after success/failure;
 the caller's staging parent is preserved. Acquisition-to-lifecycle plumbing and recording that
@@ -196,7 +196,7 @@ package-provisioning certification remain Phase 11:
 wg-guard core installed
 wg-guard core recommended
 wg-guard core latest-compatible
-wg-guard core exact awg-2026-08
+wg-guard core exact awg-2026-09
 wg-guard install --mode native --yes --public-ip PUBLIC_IP --prerequisites auto --core recommended
 ```
 
@@ -210,19 +210,21 @@ other architectures stop before acquisition or deployment. Ubuntu 24.04 is the v
 Native mode needs `ip`, `tc`, `nft`, `sysctl`, matching `awg` and systemd. Docker mode checks the
 engine, Compose and daemon while keeping host module management separate. A missing engine uses
 Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendations and removals
-disabled, preserving an existing Docker CE engine. Existing dependencies are not blanket-upgraded.
+disabled, preserving an existing Docker CE engine. An inactive supported systemd daemon/socket is
+reloaded and started before readiness is retried. Existing dependencies are not blanket-upgraded.
 
-Automatic Ubuntu preparation may install missing repository tooling and add the documented
-Amnezia PPA. If any AWG package must be installed, it refreshes signed apt metadata and verifies
-both exact AWG package versions before any AWG install or deployment write. An already installed,
-validated exact bundle can be reused offline without requiring those pins in a remote repository.
-Missing pins when installation is needed fail closed; there is no upstream substitution or
-blind AWG upgrade/downgrade. The PPA helper uses the host Ubuntu suite and then requires both
-exact package versions before installation. Newly requested installed packages and PPA
-preparation are recorded in the returned installation state; PPA sources remain on uninstall.
-Prerequisite preparation can remain after a later failure. The lifecycle journal records package
-and repository intents before commands run, and observed ownership is saved on completion/error.
-Interrupted intents require inspection; they are not automatically treated as owned packages.
+The recommended `awg-2026-09` bundle does not depend on PPA retention. It clones only the exact
+catalogued official tools/kernel tags, verifies both full commits and clean trees, builds the
+native `awg` tool/runtime layer, and registers `amneziawg/1.0.0-wgguard.20260906` with DKMS.
+Versioned source and a bounded installer-owned cache make retry deterministic. The package-backed
+`awg-2026-08` identity remains for legacy installed-state/update compatibility and fails closed if
+its historical exact packages are unavailable; it is not the recommended fresh-install path.
+
+APT commands wait for Ubuntu's dpkg lock rather than racing `unattended-upgrades`. The lifecycle
+journal records package intents and observed ownership before runtime mutation. A safe first-run
+failure closes as `aborted`, keeps the local manager, and carries observed package/repository
+ownership into the next attempt so later `--purge-packages` remains complete. Explicit package
+purge stops installer-owned Docker service/socket before removing Docker and source-core assets.
 
 `--prerequisites check` requires operator-provisioned prerequisites and makes no package/module
 mutations. Native tools must report the catalogued version, and managed modules need observable

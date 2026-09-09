@@ -7,30 +7,29 @@ document is assumed from memory; every runtime claim is backed by a check record
 captured in [`fixtures/phase8-upstream-contract.txt`](fixtures/phase8-upstream-contract.txt). If a
 behavior is not listed here as verified, WG-Guard code must treat it as unverified and gate it.
 
-## Pinned versions (re-audited in Phase 8, 2026-09-01)
+## Pinned versions (re-audited for installer integrity, 2026-09-09)
 
 | Component | Pinned version | Source |
 |---|---|---|
-| amneziawg-tools (`awg`, `awg-quick`) | **v3.1.20260812** (commit `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843`; Debian package `1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
-| amneziawg-dkms (kernel module source) | source **v3.1.20260828**, commit `3c38e168beb7c60dec41dfe423d41555205a3dac`; package **1.0.0** (`0~202608282205+3c38e16~ubuntu24.04.1`) | PPA `ppa:amnezia/ppa` |
+| amneziawg-tools (`awg`) | **v3.1.20260812**, commit `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843` | exact tag/commit from `amnezia-vpn/amneziawg-tools`; built into the host/native path and Docker runtime as required |
+| amneziawg kernel module source | **v3.1.20260906**, commit `4569c4c67f3a57414969260cafbbd04694fbaae0`; managed DKMS identity `1.0.0-wgguard.20260906` | exact tag/commit from `amnezia-vpn/amneziawg-linux-kernel-module` |
 | amneziawg-go (userspace daemon, fallback backend) | **v3.1.20260828**, commit `b5928efb6ca19f0153958460c3d141f04abc5c2e`; binary `amneziawg-go` | built from github.com/amnezia-vpn/amneziawg-go |
 | Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
-| Verification environment (kernel) | dedicated VPS, Ubuntu **24.04 LTS** (noble), KVM, kernel `6.8.0-137-generic`, x86_64; PPA packages natively | 2026-08-31 |
+| Verification environment (kernel/installer) | dedicated VPS, Ubuntu **24.04.4 LTS** (noble), KVM, kernel `6.8.0-138-generic`, x86_64; exact GitHub source + DKMS | 2026-09-09 |
 
-Package policy: the installer accepts Ubuntu 24.04 or newer with systemd on amd64/x86_64 only.
-It uses the host Ubuntu suite for `ppa:amnezia/ppa` and requires both exact pinned package
-versions before any core installation. Ubuntu 24.04 (`noble`) is the verified production cell;
-a later Ubuntu release fails closed if its PPA suite does not provide the exact bundle. It never
-injects an Ubuntu PPA into Debian. The historical WSL2 Ubuntu 26.04 source/runtime verification
-used a local noble-suite workaround and is not native package-installation evidence.
+Core policy: the installer accepts Ubuntu 24.04 or newer with systemd on amd64/x86_64 only.
+`recommended` and `latest-compatible` resolve to source-backed `awg-2026-09`. Git clones use
+only the catalogued official repository/tag, then require the exact full commit and a clean tree
+before compilation. The host module is registered as `amneziawg/1.0.0-wgguard.20260906`; DKMS
+builds require `build-essential` and headers matching the running kernel. No mutable branch,
+uncatalogued upstream version or PPA package retention is trusted by the recommended path.
 
-The Phase 8.1 catalog currently contains one bundle, `awg-2026-08`; `recommended` and
-`latest-compatible` both resolve to it. The installer checks availability of both exact package
-versions above before installing AWG, and refuses to replace an already installed different
-version automatically. It avoids the dependency-only `amneziawg` meta-package. DKMS builds need
-`build-essential` and headers for the running kernel. The pinned source's
-[`src/dkms.conf`](https://raw.githubusercontent.com/amnezia-vpn/amneziawg-linux-kernel-module/3c38e168beb7c60dec41dfe423d41555205a3dac/src/dkms.conf)
-registers `amneziawg/1.0.0`; targeted rebuilds use that identity and the running kernel.
+Package-backed `awg-2026-08` (tools commit `ee0f0a9…`, kernel commit `3c38e168…`) remains in the
+catalog for legacy state recognition and update compatibility. Its historical exact PPA packages
+can fail closed when unavailable and are not the fresh-install recommendation. The newer kernel
+tag differs by a reviewed RandomTrailers classification correction; its configuration/UAPI
+contract used by WG-Guard is unchanged. The userspace daemon remains an explicit, pinned fallback
+integration target, not the managed Ubuntu default.
 
 `wg-guard core installed` reports tools from the running container in Docker mode and the host
 in native mode; kernel observations always come from the host. Requested source/package pins,
@@ -289,7 +288,7 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
 | **Peer-only syncconf interface preservation** | VPS: reproduce kernel key clearing; fixed backend snapshot/apply/post-verify; repeat full client gate | interface private key and all live interface directives remain byte-identical while peers replace; recommended/randomized handshakes and traffic pass | ✅ **verified (VPS kernel, 2026-09-05)** |
 | **Phase 8 canonical config/QR/client gate** | Exact commit-stamped Ubuntu 24.04 harness run | normalized API/DB/runtime/config/decoded-QR equality; recommended/randomized kernel traffic; recommended userspace traffic; secret scan and cleanup pass | ✅ **verified** — [`fixtures/verify-phase8-vps-2026-09-05.txt`](fixtures/verify-phase8-vps-2026-09-05.txt) |
-| Installer on later Ubuntu amd64 releases | exact package availability plus real-host certification | — | ⚠️ Phase 11 |
+| Installer on later Ubuntu amd64 releases | exact source/DKMS/runtime build plus real-host certification | — | ⚠️ Phase 11 |
 
 Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
 [`fixtures/verify-wsl2-runtime.sh`](fixtures/verify-wsl2-runtime.sh).

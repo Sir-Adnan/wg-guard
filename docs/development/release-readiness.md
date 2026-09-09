@@ -77,6 +77,9 @@ Phase 8.2 completion (2026-09-09): the exact candidate passed the Ubuntu 24.04.4
 secure-exposure gate, including real domain and public-IP certificates, renewal hook, Nginx
 coexistence, state migration, narrow terminal QA and original-node restoration. Sanitized evidence:
 [`../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt`](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
+The same record contains the corrective exact-source fresh-install drill: the vanished PPA pin,
+APT lock contention and stale Docker socket/retry ownership defects are closed without changing
+REST/OpenAPI.
 
 ## Audit findings
 
@@ -112,7 +115,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
 | AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
 | AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`, review closed after `fc2c537`; Docker/native rollback and failed-start recovery passed on the dedicated VPS |
-| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 | M2 implemented, unit tested and reviewed; exact installed-bundle/runtime-image readiness passed on Ubuntu 24.04 amd64. The installer now rejects unsupported OS/architecture combinations early; later supported Ubuntu amd64 package provisioning remains Phase 11 |
+| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 + 8.2 correction | exact source-backed tools/kernel/DKMS/runtime readiness passed on Ubuntu 24.04 amd64; unsupported OS/architecture combinations fail early. Later supported Ubuntu amd64 source-build certification remains Phase 11 |
 | AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and reviewed; terminal and real domain/ACME deployment gates passed |
 | AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | M2 installer parsing and M5 missing-flag/signed-chat/interval validation regressions pass; M5 independent review closed |
 | AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; review closed; safe uninstall and node recovery passed in both VPS deployment modes |
@@ -130,6 +133,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-042 | high | A first interactive bootstrap keeps its verified build only in a temporary directory and immediately enters setup; cancellation/failure requires another acquisition instead of reopening a durable local manager | Phase 8.2 | verified; the checked build and bounded receipt are atomically persisted before the menu, failed/canceled setup resumes locally, and repeat-entry shell fixtures make zero acquisition requests |
 | AUD-043 | high | Domain ACME currently fails whenever 80/443 are owned by another service, and no transactional standard-Nginx/shared-webroot or DNS-01 route exists | Phase 8.2 | verified; standard-Nginx/webroot passed real issuance and no-mutation conflict refusal; DNS-01 uses the protected official plugin path and passes automated secret/command tests, with real issuance unclaimed without a scoped token |
 | AUD-044 | high | Trusted public-IP certificates are now available but the installer exposes only private SSH/manual files; short-lived renewal and reload are absent | Phase 8.2 | verified; staging and production Certbot short-lived IP certificates, SAN/expiry diagnostics, automatic timer, deploy-hook Docker reload and trusted HTTPS passed on the dedicated VPS |
+| AUD-045 | high | Fresh installation depends on a retired PPA core package and retries can fail on Ubuntu maintenance locks or a stale Docker socket while losing package ownership | Phase 8.2 corrective hardening | verified; recommended exact GitHub-source tools/kernel bundle, APT lock wait, safe aborted-state ownership carry, Docker service/socket lifecycle regressions and Ubuntu 24.04.4 Docker install/purge acceptance passed |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

@@ -29,6 +29,7 @@ promotes its matching recovery action; a healthy installed node shows these grou
 
 Enter the displayed number, use `0` to go back or `q` to cancel. Invalid input is retried. Menus
 and prompts use a compact single-column layout that remains readable in narrow SSH terminals.
+Confirmations use `[Y/n]` or `[y/N]`; `y`, `yes`, `n`, `no` and their case variants are accepted.
 
 Defaults follow two rules:
 
@@ -48,8 +49,8 @@ Fresh interactive setup then starts with only two decisions:
    through the displayed SSH tunnel. This can be changed after installation.
 2. Whether to customize advanced settings. Press Enter for the recommended setup.
 
-The recommended path uses Docker, detects the public VPN address, selects the compatible pinned
-AmneziaWG bundle, allocates per-interface UDP ports from 30000–50000 and uses the documented
+The recommended path uses Docker, detects the public VPN address, selects the source-backed pinned
+`awg-2026-09` bundle, allocates per-interface UDP ports from 30000–50000 and uses the documented
 network defaults. A domain enables ACME HTTPS; external TCP ports 80 and 443 must reach the VPS.
 Without a domain the panel TCP listener remains private. The VPN UDP port is separate from the
 panel/HTTPS TCP ports.
@@ -120,9 +121,14 @@ summaries or lifecycle records. Remove the supplied password file when it is no 
 ## Terminal behavior
 
 The UI uses no full-screen framework, animation or presentation polling. It is tested at narrow and
-wide terminal widths. Color is automatically disabled for redirected output, `TERM=dumb` or
+wide terminal widths. Information/headings are cyan, success is green, warnings are yellow and
+failures are red. Color is automatically disabled for redirected output, `TERM=dumb` or
 `NO_COLOR`; dynamic values are stripped of terminal control and bidi characters. Hidden input uses
 the real terminal descriptor and restores terminal state after Ctrl-C/Ctrl-D.
+
+Lengthy quiet operations print a short elapsed-time heartbeat while detailed command output is
+written to root-only `/var/log/wg-guard/installer.log`. This keeps ordinary and narrow SSH sessions
+responsive without flooding the screen.
 
 The running service picks up backup schedules/settings on its next scheduler pass. Coordinated
 restore stays on the host so it can safely stop and restart either deployment mode. See

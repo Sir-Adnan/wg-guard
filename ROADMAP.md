@@ -67,6 +67,12 @@ implemented and test-verified but not real-issued because no scoped test token w
 Native secure-exposure recertification remains Phase 11. Detailed results and evidence:
 [docs/development/phase8.2.md](docs/development/phase8.2.md).
 
+Corrective acceptance on 2026-09-09 also closed the fresh-install blocker caused by the retired
+PPA package pin: the recommended `awg-2026-09` bundle now builds exact reviewed upstream source,
+APT lock contention waits safely, interrupted prerequisite ownership carries into retry, Docker
+service/socket recovery is automatic, and install/purge passed on Ubuntu 24.04.4 amd64. Phase 9
+remains the next phase; this correction added no Phase 9 or REST/OpenAPI work.
+
 ### Phase 9 — Operational observability
 
 Add one bounded scheduler-driven telemetry pipeline and a mode-aware diagnostic log workflow.

@@ -12,18 +12,23 @@ The owner-approved insertion before Phase 9 is complete. Results and honest limi
 
 | Item | Status |
 |---|---|
-| Persistent verified bootstrap manager and state-aware menu | implemented + unit/shell/PTY tested; private receipt and local retry make no repeat acquisition. Real 40-column SSH manager passed |
+| Persistent verified bootstrap manager and state-aware menu | implemented + unit/shell/PTY tested; private receipt and local retry make no repeat acquisition. Semantic TTY colors, y/n confirmations, bounded long-operation heartbeats and real 40-column cached SSH rerun passed |
 | Exposure/certificate intent and busy-port discovery | implemented + unit tested; public plaintext is unrepresentable; real occupied-port request failed with unchanged state/container |
 | Standard Nginx + shared HTTP-01 webroot | implemented + failure-injection tested + real Docker verified with public domain issuance, loopback backend, canonical headers and config/reload rollback |
 | Cloudflare DNS-01 with scoped protected token | implemented + unit tested for official plugin commands, 0600 file transport and non-disclosure; real issuance unverified because no scoped Cloudflare test token was available |
 | Let's Encrypt public-IP short-lived certificate and renewal hook | implemented + unit tested + real staging/production verified; critical IP SAN, 160-hour lifetime, timer, quiet deploy hook and healthy Docker reload passed |
 | Post-install panel-access reconfiguration and rollback | implemented + unit/failure-injection tested; real direct/private/Nginx transitions, state migration, health/certificate proof and cleanup passed |
-| Ubuntu 24.04 amd64 secure-exposure matrix | Docker production verified on Ubuntu 24.04.4 amd64; Native rendering/restart is automated-test verified and real recertification remains Phase 11 |
+| Ubuntu 24.04 amd64 secure-exposure/installer matrix | Docker production verified on Ubuntu 24.04.4 amd64. Corrective fresh-install acceptance verified exact GitHub-source AWG/DKMS/runtime identity, APT-lock retry, Docker socket recovery, local rerun and source/package purge. Native rendering/restart is automated-test verified and real recertification remains Phase 11 |
 
 Evidence: [dedicated-VPS acceptance](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
 DNS-01 needs no inbound validation port, but WG-Guard requests only the exact panel hostname.
 Cloudflare Origin CA remains a proxied-origin path, not browser-trusted direct TLS. Public-IP
 certificates use Certbot 5.4+ and the 160-hour `shortlived` profile. No REST/OpenAPI contract changed.
+
+Corrective installer evidence is appended to the same
+[dedicated-VPS record](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). The recommended
+core is now source-backed `awg-2026-09`; package-backed `awg-2026-08` remains only a legacy
+compatibility identity and is not the default installation path.
 
 ## Phase 8.1 — GitHub delivery & lifecycle (complete, 2026-09-09)
 
@@ -35,7 +40,7 @@ The user-authorized insertion between completed Phase 8 and planned Phase 9 is c
 | Bootstrap, release/commit selection and artifact identity | implemented, reviewed and tested with unit/shell fixtures; the supported linux/amd64 artifact builds and checksums. [Real acquisition evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) covers source build/help and empty-release refusal. `d30894a` adds strict commit-bound PAX metadata handling; its real source install/update and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) passed. Non-amd64 targets are outside the product contract |
 | Terminal installer and management UX | English-only compact UI implemented and automated-test verified. Recommended setup asks only for optional domain and the advanced-settings gate; Enter accepts safe defaults, while disruptive actions remain explicit. `sudo wg-guard` opens locally without download. [VPS acceptance](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed 17 PTY and three nonTTY cases; follow-up regressions plus a targeted 48-column Ubuntu SSH run cover language normalization, compact widths and contract-gated bootstrap behavior for current/legacy host CLIs |
 | Local owner before public listener | atomic owner creation, protected stdin/file transport and existing-owner preservation are unit tested; owner-before-start passed in real Docker and native installs |
-| OS prerequisites and compatible AWG selection | implemented and reviewed for Ubuntu 24.04+ amd64; [installed exact bundle](../integrations/fixtures/verify-phase8.1-core-readonly-2026-09-06.txt), [package metadata](../integrations/fixtures/verify-phase8.1-package-metadata-2026-09-06.txt) and [runtime image identity](../integrations/fixtures/verify-phase8.1-runtime-image-2026-09-06.txt) passed on Ubuntu 24.04 amd64. Later supported Ubuntu releases remain a Phase 11 certification cell and fail closed when the exact pinned AWG bundle is unavailable |
+| OS prerequisites and compatible AWG selection | implemented and reviewed for Ubuntu 24.04+ amd64. Phase 8.1's linked package evidence remains historical; the current recommended `awg-2026-09` exact GitHub-source tools/kernel/DKMS/runtime identity passed the Phase 8.2 corrective VPS drill without a PPA. Later supported Ubuntu releases remain a Phase 11 certification cell and fail closed when the pinned source bundle cannot be built and verified |
 | Transactional install/update/rollback and safe uninstall | implemented, review/failure-injection verified and passed real Docker/native install, update, two-way rollback, failed-start recovery and data-preserving uninstall |
 | Catalogued core maintenance | lock/journal/impact confirmation, retry and pending-reboot behavior are tested. The installed recommended bundle was reaffirmed; no unsupported version transition is claimed |
 | Bounded restore and cross-contract recovery | streaming preview/approval, mandatory hashes, DB/key-pair ownership and fail-closed recovery are implemented and reviewed; coordinated restore and legacy-schema recovery passed on the VPS |

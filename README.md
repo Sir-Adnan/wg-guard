@@ -17,7 +17,9 @@ GitHub installer, recoverable lifecycle management, backups and an English-only 
 with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 added a persistent local
 manager, existing-Nginx coexistence, DNS-01, trusted short-lived public-IP HTTPS, certificate
 renewal diagnostics and safe post-install access changes. Broader compatibility and public
-release work remain later. See
+release work remain later. A closing installer hardening pass moved the recommended AWG core off
+the vanished PPA package pin to exact reviewed GitHub source, hardened interrupted retries, and
+passed a fresh Ubuntu 24.04 Docker install/purge drill. See
 [ROADMAP.md](ROADMAP.md) and the
 [development status](docs/development/status.md).
 
@@ -48,18 +50,20 @@ WG-Guard supports **Ubuntu 24.04 or newer on amd64/x86_64**. Ubuntu 24.04 LTS is
 verified target. Until the first stable release is published, run:
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 ```
 
 The first run verifies and stores the local manager, then opens its menu; it does not begin setup
 without your choice. Select **Install WG-Guard**. The terminal is English-only and **Enter** accepts
 the safest recommended answer: Docker, the compatible AmneziaWG bundle, automatic HTTPS for a
 usable domain, or private SSH access when no domain is supplied. Advanced settings contain custom
-ports, native systemd, network defaults and Telegram backup setup.
+ports, native systemd, network defaults and Telegram backup setup. Confirmations display `[Y/n]`
+or `[y/N]`; `y`, `yes`, `n`, `no` and case variants are accepted.
 
 The first development-source build can take several minutes. A published release installs much
 faster because it uses a verified prebuilt binary. When stable releases exist, the default command
-becomes the same command without `--commit main`.
+becomes the same command without `--commit main`. Long quiet operations emit a short progress
+heartbeat; detailed installer output is kept in root-only `/var/log/wg-guard/installer.log`.
 
 ## Open WG-Guard again
 

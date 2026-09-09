@@ -26,7 +26,9 @@ Docker/native runtime rewrites, post-install rollback and HSTS/proxy trust. Boot
 cover atomic manager/receipt persistence and zero-network retry; PTY tests cover 40/48/80-column
 English menus. The [dedicated Ubuntu 24.04.4 amd64 Docker record](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt)
 adds real webroot-domain and short-lived-IP issuance, renewal hooks, occupied-port refusal,
-state migration and cleanup. Cloudflare DNS-01 is automated-test verified only because no scoped
+state migration and cleanup. Its corrective addendum also records an exact GitHub-source
+AWG/DKMS Docker install, real APT-lock failure/retry, Docker socket repair, cached 40-column rerun,
+identity checks and explicit source/package purge. Cloudflare DNS-01 is automated-test verified only because no scoped
 test token was available; Native secure-exposure recertification stays in Phase 11.
 
 The repeatable

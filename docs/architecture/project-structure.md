@@ -7,7 +7,7 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
                          HTTP + scheduler + graceful shutdown), token, install/update/
-                         uninstall/status/core/tls-check/restart, bilingual manage,
+                         uninstall/status/core/tls-check/restart, English-only manage,
                          host-local owner-bootstrap (mode-aware Docker dispatch), doctor,
                          backup, restore, settings, secrets (single binary, hand-rolled arg
                          parsing — no CLI framework)
@@ -53,13 +53,13 @@ internal/
                          (Phase 6; Phase 8.1 safety and CLI extensions)
   distribution/          bounded GitHub release/commit catalog, verified private acquisition,
                          immutable source build identity and temporary toolchain (Phase 8.1)
-  terminal/              single-column fa/en presentation, bounded/cancellable input and actual-FD
+  terminal/              single-column English presentation, bounded/cancellable input and actual-FD
                          hidden secrets; no deployment or database business logic (Phase 8.1)
   install/               deployment layer: install plan + wizard, compose/systemd renderers,
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
                          update/rollback, coordinated offline restore and uninstall,
                          versioned state/artifact contract,
-                         Host seam for fault-injection testing (Phase 8.1; VPS gate pending)
+                         Host seam for fault-injection testing (Phase 8.1/8.2; Ubuntu 24.04 amd64 verified)
   serve/                 runtime composition: config → fail-closed pending-restore/recovery gate →
                          DB → secrets → settings → services →
                          boot → HTTP(S) listener (manual/proxy/dev/ACME) → scheduler;
