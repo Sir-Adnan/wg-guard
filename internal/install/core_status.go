@@ -15,8 +15,14 @@ func InspectInstalledCore(ctx context.Context, h Host) (CoreReport, error) {
 		return CoreReport{}, err
 	}
 	b, _ := SelectCore("recommended")
-	if st != nil && st.Core.Requested.ID != "" {
-		b = st.Core.Requested
+	if st != nil {
+		if st.Core.Requested.ID != "" {
+			b = st.Core.Requested
+		} else {
+			// States written before the source-backed catalog entry used the
+			// original package bundle even though they did not persist its ID.
+			b, _ = SelectCore("awg-2026-08")
+		}
 	}
 	r := InspectCore(ctx, h, b)
 	if st == nil {
@@ -29,6 +35,9 @@ func InspectInstalledCore(ctx context.Context, h Host) (CoreReport, error) {
 		r.ToolsPackage = ""
 		if raw, err := h.Output(ctx, []string{"docker", "exec", Container, "awg", "--version"}, 15*time.Second); err == nil {
 			r.ToolsVersion = strings.TrimSpace(raw)
+		}
+		if raw, err := h.Output(ctx, []string{"docker", "inspect", "--format", "{{ index .Config.Labels \"io.wg-guard.awg-tools.commit\" }}", Container}, 15*time.Second); err == nil && strings.TrimSpace(raw) == b.ToolsCommit {
+			r.ToolsSource = coreSourceGitHub
 		}
 		if raw, err := h.Output(ctx, []string{"docker", "exec", Container, "dpkg-query", "-W", "-f=${db:Status-Status}\t${Version}", "amneziawg-tools"}, 15*time.Second); err == nil {
 			status, version, ok := strings.Cut(strings.TrimSpace(raw), "\t")

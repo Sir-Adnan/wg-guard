@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/mail"
 	"os"
 	"os/signal"
@@ -59,6 +60,10 @@ func runInstall(args []string) error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
+	h := install.NewRealHost()
+	if err := install.CheckLifecycleReady(h); err != nil {
+		return err
+	}
 	if !o.Yes && o.Selection.Channel == "" && o.BuildMetadata == "" {
 		u := terminal.New(o.Stdin, o.Stdout, terminal.Detect(o.Stdin, o.Stdout, o.Locale))
 		u.Context = ctx
@@ -75,8 +80,24 @@ func runInstall(args []string) error {
 	o.Build = build
 	o.StageParent = parent
 	o.Version = build.Version
-	_, err = install.Install(ctx, install.NewRealHost(), o)
+	_, err = install.Install(ctx, h, o)
 	return err
+}
+
+func runRecoverInstall(args []string) error {
+	return runRecoverInstallWith(context.Background(), args, install.NewRealHost(), os.Stdout)
+}
+
+func runRecoverInstallWith(ctx context.Context, args []string, h install.Host, out io.Writer) error {
+	fs := flag.NewFlagSet("recover-install", flag.ContinueOnError)
+	yes := fs.Bool("yes", false, "confirm safe cleanup of an interrupted initial setup")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return lifecycleArgsError()
+	}
+	return install.CleanupIncompleteInstall(ctx, h, *yes, out)
 }
 
 func parseInstallOptions(args []string) (install.InstallOptions, error) {
@@ -237,6 +258,12 @@ func runUpdate(args []string) error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
+	h := install.NewRealHost()
+	if !o.Recover {
+		if err := install.CheckLifecycleReady(h); err != nil {
+			return err
+		}
+	}
 	if o.Selection.Channel != "" {
 		build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "")
 		if err != nil {
@@ -245,7 +272,7 @@ func runUpdate(args []string) error {
 		defer cleanup()
 		o.Build = build
 		o.BinaryPath = build.BinaryPath
-		st, err := install.LoadState(install.NewRealHost())
+		st, err := install.LoadState(h)
 		if err != nil {
 			return err
 		}
@@ -254,14 +281,14 @@ func runUpdate(args []string) error {
 			if err != nil {
 				return err
 			}
-			o.Image, err = install.BuildRuntimeImage(ctx, install.NewRealHost(), build, bundle, parent)
+			o.Image, err = install.BuildRuntimeImage(ctx, h, build, bundle, parent)
 			if err != nil {
 				return err
 			}
 			o.LocalImage = true
 		}
 	}
-	return install.Update(ctx, install.NewRealHost(), o)
+	return install.Update(ctx, h, o)
 }
 func parseUpdateOptions(args []string) (install.UpdateOptions, error) {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)

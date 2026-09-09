@@ -17,7 +17,7 @@ type packageHost struct {
 }
 
 func newPackageHost() *packageHost {
-	return &packageHost{memHost: newMemHost(), installed: map[string]string{"procps": "system", "software-properties-common": "system", "iproute2": "system", "nftables": "system", "ca-certificates": "system", "kmod": "system", "dkms": "system", "build-essential": "system", "linux-headers-6.8.0-138-generic": "system"}, available: map[string]string{
+	return &packageHost{memHost: newMemHost(), installed: map[string]string{"procps": "system", "software-properties-common": "system", "iproute2": "system", "nftables": "system", "ca-certificates": "system", "git": "system", "kmod": "system", "dkms": "system", "build-essential": "system", "linux-headers-6.8.0-138-generic": "system"}, available: map[string]string{
 		"amneziawg-tools": "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
 		"amneziawg-dkms":  "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
 	}}
@@ -43,7 +43,7 @@ func (h *packageHost) Output(ctx context.Context, a []string, d time.Duration) (
 
 func TestInstalledExactCoreReuseDoesNotRequireRepositoryAccess(t *testing.T) {
 	h := newPackageHost()
-	b, _ := SelectCore("recommended")
+	b, _ := SelectCore("awg-2026-08")
 	h.installed["amneziawg-tools"] = b.ToolsPackage
 	h.installed["amneziawg-dkms"] = b.KernelPackage
 	h.available = map[string]string{}
@@ -65,7 +65,7 @@ func TestAnyMissingCorePackageRequiresBothMetadataPins(t *testing.T) {
 		for _, otherAvailable := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/other-available=%t", missing, otherAvailable), func(t *testing.T) {
 				h := newPackageHost()
-				b, _ := SelectCore("recommended")
+				b, _ := SelectCore("awg-2026-08")
 				h.installed["amneziawg-tools"] = b.ToolsPackage
 				h.installed["amneziawg-dkms"] = b.KernelPackage
 				delete(h.installed, missing)
@@ -120,20 +120,131 @@ func (h *packageHost) Run(ctx context.Context, a []string, d time.Duration) erro
 }
 
 func TestCoreCatalogRejectsUncataloguedVersions(t *testing.T) {
-	for _, selector := range []string{"recommended", "latest-compatible", "awg-2026-08"} {
+	for _, selector := range []string{"recommended", "latest-compatible", "awg-2026-09"} {
 		b, err := SelectCore(selector)
-		if err != nil || b.ToolsCommit != "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843" || b.KernelCommit != "3c38e168beb7c60dec41dfe423d41555205a3dac" {
+		if err != nil || b.ID != "awg-2026-09" || b.ToolsCommit != "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843" || b.KernelCommit != "4569c4c67f3a57414969260cafbbd04694fbaae0" {
 			t.Fatalf("catalog selection failed: %+v %v", b, err)
 		}
+		if b.ToolsRepository != "https://github.com/amnezia-vpn/amneziawg-tools.git" || b.KernelRepository != "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" || b.KernelDKMSVersion != "1.0.0-wgguard.20260906" {
+			t.Fatalf("catalog source provenance incomplete: %+v", b)
+		}
+	}
+	legacy, err := SelectCore("awg-2026-08")
+	if err != nil || legacy.KernelCommit != "3c38e168beb7c60dec41dfe423d41555205a3dac" {
+		t.Fatalf("legacy installed bundle is no longer recognizable: %+v %v", legacy, err)
 	}
 	if _, err := SelectCore("upstream-main"); err == nil {
 		t.Fatal("arbitrary core accepted")
 	}
 }
 
+type sourceCoreHost struct {
+	*packageHost
+	revision      string
+	dkmsInstalled bool
+}
+
+func newSourceCoreHost() *sourceCoreHost {
+	h := &sourceCoreHost{packageHost: newPackageHost(), revision: "4569c4c67f3a57414969260cafbbd04694fbaae0"}
+	delete(h.available, "amneziawg-tools")
+	delete(h.available, "amneziawg-dkms")
+	return h
+}
+
+func (h *sourceCoreHost) Output(ctx context.Context, a []string, d time.Duration) (string, error) {
+	if len(a) >= 4 && a[0] == "git" && a[1] == "-C" && a[3] == "rev-parse" {
+		h.commands = append(h.commands, memCmd{argv: a})
+		if strings.Contains(a[2], "/tools") || strings.Contains(a[2], "\\tools") {
+			return "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", nil
+		}
+		return h.revision, nil
+	}
+	if len(a) > 1 && a[0] == "dkms" && a[1] == "status" {
+		h.commands = append(h.commands, memCmd{argv: a})
+		if h.dkmsInstalled {
+			return "amneziawg/1.0.0-wgguard.20260906, 6.8.0-138-generic, x86_64: installed", nil
+		}
+		return "", fmt.Errorf("not installed")
+	}
+	return h.packageHost.Output(ctx, a, d)
+}
+
+func (h *sourceCoreHost) Run(ctx context.Context, a []string, d time.Duration) error {
+	if len(a) > 0 && a[0] == "make" {
+		h.files[ManagedAWGBuildPath] = memFile{data: []byte("reviewed awg binary"), perm: 0o755}
+	}
+	if len(a) > 1 && a[0] == "dkms" && a[1] == "install" {
+		h.dkmsInstalled = true
+	}
+	return h.packageHost.Run(ctx, a, d)
+}
+
+func TestMissingAWGPackagesUsePinnedGitHubSource(t *testing.T) {
+	h := newSourceCoreHost()
+	b, _ := SelectCore("recommended")
+	r, _ := InspectPlatform(context.Background(), h)
+	st := &State{}
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.ran("add-apt-repository") {
+		t.Fatal("mutable PPA remained on the critical installation path")
+	}
+	if !h.ran("git", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260906") {
+		t.Fatalf("kernel source was not fetched from the reviewed tag: %v", h.ranCommands())
+	}
+	if !h.ran("dkms", "install", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "-k", r.Kernel) {
+		t.Fatalf("reviewed module was not installed with DKMS: %v", h.ranCommands())
+	}
+	if !h.ran("git", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260812") {
+		t.Fatalf("tools source was not fetched from the reviewed tag: %v", h.ranCommands())
+	}
+	if got := string(h.files[ManagedAWGBinaryPath].data); got != "reviewed awg binary" {
+		t.Fatalf("managed awg binary = %q", got)
+	}
+	for _, arg := range h.installedArgs {
+		if strings.HasPrefix(arg, "amneziawg-") {
+			t.Fatalf("AWG package unexpectedly installed from PPA: %q", arg)
+		}
+	}
+}
+
+func TestSourceRevisionMismatchStopsBeforeBuildOrDKMS(t *testing.T) {
+	h := newSourceCoreHost()
+	h.revision = strings.Repeat("f", 40)
+	b, _ := SelectCore("recommended")
+	r, _ := InspectPlatform(context.Background(), h)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	if err == nil {
+		t.Fatal("mismatched upstream revision accepted")
+	}
+	if h.ran("make") || h.ran("dkms", "add") || h.ran("dkms", "install") {
+		t.Fatalf("unverified source reached a build boundary: %v", h.ranCommands())
+	}
+}
+
+func TestSourceInstallRecordsMissingGitAsValidPrerequisite(t *testing.T) {
+	h := newSourceCoreHost()
+	delete(h.installed, "git")
+	h.available["git"] = "system"
+	b, _ := SelectCore("recommended")
+	r, _ := InspectPlatform(context.Background(), h)
+	st := &State{Schema: StateSchema, Mode: ModeNative, ConfigPath: ConfigPath, DataDir: DataDir, BinPath: BinPath, UnitPath: UnitPath}
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !contains(st.PackagesInstalled, "git") {
+		t.Fatal("installer-installed git was not recorded")
+	}
+	if err := validateState(st); err != nil {
+		t.Fatalf("valid source prerequisite ownership was rejected: %v", err)
+	}
+}
+
 func TestCoreMissingPackagesInstallExactAvailableVersions(t *testing.T) {
 	h := newPackageHost()
-	b, _ := SelectCore("recommended")
+	b, _ := SelectCore("awg-2026-08")
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
 	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard)
@@ -157,7 +268,7 @@ func TestCoreAvailabilityAndVersionConflictPreventInstalls(t *testing.T) {
 			} else {
 				delete(h.available, "amneziawg-dkms")
 			}
-			b, _ := SelectCore("recommended")
+			b, _ := SelectCore("awg-2026-08")
 			r, _ := InspectPlatform(context.Background(), h)
 			_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 			if err == nil {
@@ -172,7 +283,7 @@ func TestCoreAvailabilityAndVersionConflictPreventInstalls(t *testing.T) {
 
 func TestCoreCheckOnlyDoesNotInstallOrLoadModule(t *testing.T) {
 	h := newPackageHost()
-	b, _ := SelectCore("recommended")
+	b, _ := SelectCore("awg-2026-08")
 	r, _ := InspectPlatform(context.Background(), h)
 	r.OS = "debian"
 	r.Version = "12"
@@ -188,7 +299,7 @@ func TestCoreCheckOnlyDoesNotInstallOrLoadModule(t *testing.T) {
 
 func TestCoreReportsLoadedMismatchWithoutUnloading(t *testing.T) {
 	h := newPackageHost()
-	b, _ := SelectCore("recommended")
+	b, _ := SelectCore("awg-2026-08")
 	h.installed["amneziawg-tools"] = b.ToolsPackage
 	h.installed["amneziawg-dkms"] = b.KernelPackage
 	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("OLD")}
@@ -206,7 +317,7 @@ func TestCoreReportsLoadedMismatchWithoutUnloading(t *testing.T) {
 
 func TestCoreUnknownLoadedIdentityIsNotReady(t *testing.T) {
 	h := newPackageHost()
-	b, _ := SelectCore("recommended")
+	b, _ := SelectCore("awg-2026-08")
 	h.installed["amneziawg-tools"] = b.ToolsPackage
 	h.installed["amneziawg-dkms"] = b.KernelPackage
 	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
@@ -220,7 +331,7 @@ func TestCoreUnknownLoadedIdentityIsNotReady(t *testing.T) {
 func TestUbuntuRepositoryPreparationPrecedesExactCoreInstall(t *testing.T) {
 	h := newPackageHost()
 	delete(h.available, "amneziawg-dkms")
-	b, _ := SelectCore("recommended")
+	b, _ := SelectCore("awg-2026-08")
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
 	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard)
@@ -324,8 +435,21 @@ func TestInstalledCoreReportsContainerToolsAndHostModule(t *testing.T) {
 	h.output["docker exec wg-guard awg --version"] = "amneziawg-tools v3.1.20260812"
 	h.output["docker exec wg-guard dpkg-query -W -f=${db:Status-Status}\t${Version} amneziawg-tools"] = "installed\tcontainer-package"
 	r, err := InspectInstalledCore(context.Background(), h)
-	if err != nil || r.ToolsLocation != "container" || r.ToolsPackage != "container-package" || r.KernelPackage != "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1" {
+	if err != nil || r.Requested.ID != "awg-2026-08" || r.ToolsLocation != "container" || r.ToolsPackage != "container-package" || r.KernelPackage != "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1" {
 		t.Fatalf("incorrect core observation: %+v %v", r, err)
+	}
+}
+
+func TestSourceDockerCoreUsesRecordedImageBundleIdentity(t *testing.T) {
+	h := installedFixture(t, ModeDocker)
+	h.output["docker inspect --format {{ index .Config.Labels \"io.wg-guard.awg-tools.commit\" }} wg-guard"] = "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843\n"
+	h.output["docker exec wg-guard awg --version"] = "amneziawg-tools v3.1.20260812"
+	r, err := InspectInstalledCore(context.Background(), h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.ToolsSource != coreSourceGitHub || !coreReportMatchesBundle(r, r.Requested) {
+		t.Fatalf("source-backed container core identity was not proven: %+v", r)
 	}
 }
 

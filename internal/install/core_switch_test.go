@@ -99,7 +99,7 @@ func TestCoreRetryNeverBypassesDifferentOperation(t *testing.T) {
 }
 func TestCoreSwitchRejectsUnknownTransition(t *testing.T) {
 	h := installedFixture(t, ModeNative)
-	h.output["dpkg-query -W -f=${db:Status-Status}\t${Version} amneziawg-tools"] = "installed\tunknown"
+	h.output["awg"] = "amneziawg-tools unknown"
 	if _, err := SwitchCore(context.Background(), h, CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true, Stdout: io.Discard}); err == nil {
 		t.Fatal("unknown installed core accepted")
 	}

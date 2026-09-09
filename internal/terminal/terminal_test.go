@@ -57,6 +57,97 @@ func TestInputRetryBackAndCancellation(t *testing.T) {
 	}
 }
 
+func TestConfirmationUsesCompactYNDefaultsAndAcceptsCommonForms(t *testing.T) {
+	cases := []struct {
+		input string
+		def   bool
+		want  bool
+		hint  string
+	}{
+		{"\n", true, true, "[Y/n]"},
+		{"\n", false, false, "[y/N]"},
+		{"y\n", false, true, "[y/N]"},
+		{"Y\n", false, true, "[y/N]"},
+		{"yes\n", false, true, "[y/N]"},
+		{"YES\n", false, true, "[y/N]"},
+		{"n\n", true, false, "[Y/n]"},
+		{"N\n", true, false, "[Y/n]"},
+		{"no\n", true, false, "[Y/n]"},
+		{"No\n", true, false, "[Y/n]"},
+	}
+	for _, tc := range cases {
+		var out bytes.Buffer
+		got, err := New(strings.NewReader(tc.input), &out, Options{Locale: i18n.En}).ConfirmDefault("Continue?", tc.def)
+		if err != nil || got != tc.want {
+			t.Fatalf("input %q default %v = %v, %v", tc.input, tc.def, got, err)
+		}
+		if !strings.Contains(out.String(), tc.hint) || strings.Contains(out.String(), "yes/no") {
+			t.Fatalf("input %q rendered a verbose confirmation:\n%s", tc.input, out.String())
+		}
+	}
+}
+
+func TestSemanticColorsAreTTYOnly(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+	var out bytes.Buffer
+	ui := New(strings.NewReader(""), &out, Options{Locale: i18n.En, TTY: true, Color: true})
+	ui.Success("installed")
+	ui.Warning("review this")
+	ui.Failure("failed")
+	ui.Info("working")
+	ui.Result(nil)
+	ui.Result(errors.New("synthetic"))
+	text := out.String()
+	for _, code := range []string{"\x1b[32;1m", "\x1b[33;1m", "\x1b[31;1m", "\x1b[36m"} {
+		if !strings.Contains(text, code) {
+			t.Fatalf("semantic color %q missing from TTY output: %q", code, text)
+		}
+	}
+
+	out.Reset()
+	ui = New(strings.NewReader(""), &out, Options{Locale: i18n.En, TTY: false, Color: true})
+	ui.Success("installed")
+	ui.Warning("review this")
+	ui.Failure("failed")
+	ui.Info("working")
+	if strings.Contains(out.String(), "\x1b") {
+		t.Fatalf("redirected output contains terminal escapes: %q", out.String())
+	}
+}
+
+func TestStatusCardsUseStateTone(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+	for _, tc := range []struct {
+		status string
+		code   string
+	}{
+		{"READY", "\x1b[32;1m"},
+		{"ACTION REQUIRED", "\x1b[33;1m"},
+		{"FAILED", "\x1b[31;1m"},
+	} {
+		var out bytes.Buffer
+		New(nil, &out, Options{TTY: true, Color: true}).StatusCard(tc.status, "Node", nil)
+		if !strings.Contains(out.String(), tc.code) {
+			t.Fatalf("status %q missing semantic tone: %q", tc.status, out.String())
+		}
+	}
+}
+
+func TestMenuHighlightsOnlyTheRecommendedDefault(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+	var out bytes.Buffer
+	got, err := New(strings.NewReader("\n"), &out, Options{TTY: true, Color: true}).Choose("Setup", []string{"Recommended", "Advanced"}, 1)
+	if err != nil || got != 1 {
+		t.Fatalf("default menu choice = %d, %v", got, err)
+	}
+	if !strings.Contains(out.String(), "\x1b[32;1m  1  Recommended") || strings.Contains(out.String(), "\x1b[32;1m  2  Advanced") {
+		t.Fatalf("recommended menu hierarchy missing: %q", out.String())
+	}
+}
+
 func TestRootMenuUsesExitFooter(t *testing.T) {
 	var out bytes.Buffer
 	ui := New(strings.NewReader("0\n"), &out, Options{Locale: i18n.En})

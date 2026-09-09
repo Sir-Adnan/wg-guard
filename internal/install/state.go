@@ -36,7 +36,7 @@ func validateState(st *State) error {
 	}
 	for _, p := range st.PackagesInstalled {
 		switch p {
-		case "amneziawg-dkms", "amneziawg-tools", "kmod", "dkms", "build-essential", "docker.io", "docker-compose-v2", "iproute2", "nftables", "procps", "ca-certificates", "software-properties-common":
+		case "amneziawg-dkms", "amneziawg-tools", "kmod", "dkms", "build-essential", "git", "docker.io", "docker-compose-v2", "iproute2", "nftables", "procps", "ca-certificates", "software-properties-common":
 			continue
 		}
 		if !strings.HasPrefix(p, "linux-headers-") || len(p) > 128 || strings.ContainsAny(p, " /\\\t\r\n=:;") {

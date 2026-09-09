@@ -36,6 +36,15 @@ type UI struct {
 	inputTTY bool
 }
 
+const (
+	colorReset   = "\x1b[0m"
+	colorInfo    = "\x1b[36m"
+	colorHeading = "\x1b[36;1m"
+	colorSuccess = "\x1b[32;1m"
+	colorWarning = "\x1b[33;1m"
+	colorFailure = "\x1b[31;1m"
+)
+
 // StatusField is one compact, sanitized value in a manager status card.
 type StatusField struct {
 	Label string
@@ -159,6 +168,23 @@ func (u *UI) Text(s string) {
 	}
 }
 
+func (u *UI) tone(code, message string) {
+	if u.color {
+		fmt.Fprint(u.Out, code)
+	}
+	u.Text(message)
+	if u.color {
+		fmt.Fprint(u.Out, colorReset)
+	}
+}
+
+// Semantic terminal messages keep meaning visible with color while retaining
+// identical plain text in redirects, logs and terminals that disable color.
+func (u *UI) Info(message string)    { u.tone(colorInfo, message) }
+func (u *UI) Success(message string) { u.tone(colorSuccess, message) }
+func (u *UI) Warning(message string) { u.tone(colorWarning, message) }
+func (u *UI) Failure(message string) { u.tone(colorFailure, message) }
+
 // Header renders a compact product identity that remains readable in narrow
 // SSH terminals and degrades to plain text when color is unavailable.
 func (u *UI) Header(title, subtitle string) {
@@ -184,9 +210,13 @@ func (u *UI) Header(title, subtitle string) {
 }
 
 func (u *UI) Section(title string) {
+	u.section(title, colorHeading)
+}
+
+func (u *UI) section(title, color string) {
 	fmt.Fprintln(u.Out)
 	if u.color {
-		fmt.Fprint(u.Out, "\x1b[36;1m")
+		fmt.Fprint(u.Out, color)
 	}
 	u.Text(title)
 	if u.color {
@@ -210,7 +240,17 @@ func (u *UI) Field(label, value string) {
 // intentionally uses the same streaming/wrapping primitives as the rest of
 // the UI so it remains legible in narrow and non-color SSH terminals.
 func (u *UI) StatusCard(status, title string, fields []StatusField) {
-	u.Section(strings.ToUpper(Clean(status)) + " · " + Clean(title))
+	cleanStatus := strings.ToUpper(Clean(status))
+	tone := colorHeading
+	switch {
+	case strings.Contains(cleanStatus, "FAILED"), strings.Contains(cleanStatus, "ERROR"), strings.Contains(cleanStatus, "UNHEALTHY"), strings.Contains(cleanStatus, "NOT RESPONDING"):
+		tone = colorFailure
+	case strings.Contains(cleanStatus, "ACTION"), strings.Contains(cleanStatus, "ATTENTION"), strings.Contains(cleanStatus, "WARNING"):
+		tone = colorWarning
+	case strings.Contains(cleanStatus, "READY"), strings.Contains(cleanStatus, "HEALTHY"), strings.Contains(cleanStatus, "RESPONDING"):
+		tone = colorSuccess
+	}
+	u.section(cleanStatus+" · "+Clean(title), tone)
 	for _, field := range fields {
 		if strings.TrimSpace(field.Value) == "" {
 			continue
@@ -220,15 +260,15 @@ func (u *UI) StatusCard(status, title string, fields []StatusField) {
 }
 func (u *UI) Result(err error) {
 	if err == nil {
-		u.Text(u.T("terminal.done"))
+		u.Success(u.T("terminal.done"))
 	} else {
 		message := err.Error()
 		var localized interface{ Localized(i18n.Locale) string }
 		if errors.As(err, &localized) {
 			message = localized.Localized(u.Locale)
 		}
-		u.Text(u.T("terminal.failed", Clean(message)))
-		u.Text(u.T("terminal.recovery"))
+		u.Failure(u.T("terminal.failed", Clean(message)))
+		u.Warning(u.T("terminal.recovery"))
 	}
 }
 
@@ -325,7 +365,12 @@ func (u *UI) ChooseRoot(label string, options []string, def int) (int, error) {
 func (u *UI) choose(label string, options []string, def int, footer string) (int, error) {
 	u.Section(label)
 	for i, v := range options {
-		u.Text(fmt.Sprintf("  %d  %s", i+1, v))
+		line := fmt.Sprintf("  %d  %s", i+1, v)
+		if i+1 == def {
+			u.Success(line)
+		} else {
+			u.Text(line)
+		}
 	}
 	u.Text(u.T(footer))
 	for {
@@ -356,14 +401,28 @@ func (u *UI) Confirm(label string) (bool, error) {
 // has a meaningful recommendation. Destructive actions continue using
 // Confirm, whose default is always no.
 func (u *UI) ConfirmDefault(label string, def bool) (bool, error) {
-	defaultAnswer := "no"
+	hint := "y/N"
 	if def {
-		defaultAnswer = "yes"
+		hint = "Y/n"
 	}
 	for {
-		v, err := u.Ask(label+" "+u.T("terminal.yes_no"), defaultAnswer)
+		u.writePrompt(label+" ["+hint+"]", "")
+		v, err := readLine(u.Context, u.In, false)
+		if !u.inputTTY {
+			fmt.Fprintln(u.Out)
+		}
 		if err != nil {
 			return false, err
+		}
+		v = strings.TrimSpace(v)
+		if v == "q" {
+			return false, ErrCanceled
+		}
+		if v == "back" {
+			return false, ErrBack
+		}
+		if v == "" {
+			return def, nil
 		}
 		switch strings.ToLower(v) {
 		case "yes", "y":
@@ -371,7 +430,7 @@ func (u *UI) ConfirmDefault(label string, def bool) (bool, error) {
 		case "no", "n":
 			return false, nil
 		}
-		u.Text(u.T("terminal.yes_no"))
+		u.Warning(u.T("terminal.yes_no"))
 	}
 }
 func (u *UI) Secret(label string) (string, error) {

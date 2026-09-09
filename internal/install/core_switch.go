@@ -55,9 +55,10 @@ func SwitchCore(ctx context.Context, h Host, o CoreSwitchOptions) (CoreReport, e
 		return r, err
 	}
 	r.Requested = b
-	// The only allowed transition is reaffirming the exact verified installation.
-	// A future catalog addition needs a reviewed compatibility/package policy.
-	if r.ToolsPackage != b.ToolsPackage || r.KernelPackage != b.KernelPackage {
+	// This command reaffirms the exact installed bundle. It does not acquire a
+	// different source/package set; transitions need a separate maintenance
+	// transaction with rollback evidence.
+	if !coreReportMatchesBundle(r, b) {
 		return r, terminalError("install.error.core_transition")
 	}
 	before := *st

@@ -155,6 +155,7 @@ func TestRoute(t *testing.T) {
 	cases := map[string]string{
 		"serve":            "refuse",
 		"install":          "host",
+		"recover-install":  "host",
 		"update":           "host",
 		"uninstall":        "host",
 		"status":           "host",
@@ -503,7 +504,7 @@ func TestUpdateNativeRequiresBinary(t *testing.T) {
 }
 
 // TestPromptWizardRecommendedPath keeps the normal install to three concise
-// decisions: optional domain, advanced-settings gate, and final confirmation.
+// decisions: optional domain, recommended-setup gate, and final confirmation.
 func TestPromptWizardRecommendedPath(t *testing.T) {
 	h := newMemHost()
 	var out strings.Builder
@@ -530,6 +531,9 @@ func TestPromptWizardRecommendedPath(t *testing.T) {
 	}
 	if res.PortMin != 0 || res.MTU != 0 || res.TelegramToken != "" {
 		t.Fatalf("skipped sections must leave the plan untouched: %+v", res)
+	}
+	if !strings.Contains(out.String(), "Use recommended setup? [Y/n]") || strings.Contains(out.String(), "Customize setup?") {
+		t.Fatalf("recommended path does not make Enter behavior obvious:\n%s", out.String())
 	}
 	for _, noisy := range []string{"Docker (recommended)", "Manual certificate files", "Panel TCP port", "Container image", "Optional backups"} {
 		if strings.Contains(out.String(), noisy) {
@@ -562,7 +566,7 @@ func TestPromptWizardCustomSettings(t *testing.T) {
 	const token = "777000:AAE_test_token_not_real"
 	q := newPrompt(strings.NewReader(
 		"vpn.example.com\n"+ // domain
-			"y\n"+ // advanced settings
+			"n\n"+ // use recommended setup: no (open advanced)
 			"1\n"+ // mode: docker
 			"1\n"+ // keep detected direct HTTPS
 			"\n"+ // panel port
@@ -606,7 +610,7 @@ func TestPromptWizardEmptyTokenSkips(t *testing.T) {
 	h := newMemHost()
 	q := newPrompt(strings.NewReader(
 		"vpn.example.com\n"+ // domain
-			"y\n"+ // advanced settings
+			"n\n"+ // use recommended setup: no (open advanced)
 			"1\n"+ // mode
 			"1\n"+ // keep detected direct HTTPS
 			"\n"+ // panel port

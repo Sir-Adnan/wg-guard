@@ -76,6 +76,34 @@ func TestInstallPrerequisiteFailureBeforeDeploymentWrites(t *testing.T) {
 	}
 }
 
+type cachedManagerHost struct{ *memHost }
+
+func (h *cachedManagerHost) SelfExe() (string, error) { return BinPath, nil }
+
+func TestFreshPrerequisiteFailureReturnsToSetupWithoutRecoveryLoop(t *testing.T) {
+	base := newMemHost()
+	base.files[BinPath] = memFile{data: []byte("cached manager"), perm: 0o755}
+	base.failCmd["git"] = fmt.Errorf("network unavailable")
+	h := &cachedManagerHost{memHost: base}
+
+	if _, err := Install(context.Background(), h, InstallOptions{Plan: Defaults(), Yes: true, Stdout: io.Discard}); err == nil {
+		t.Fatal("source acquisition failure accepted")
+	}
+	if st, err := LoadState(h); err != nil || st != nil {
+		t.Fatalf("safe pre-runtime failure left incomplete install state: %+v %v", st, err)
+	}
+	j, err := LoadJournal(h)
+	if err != nil || j == nil || j.Stage != "aborted" || j.Operation != "install" || j.DataMayHaveChanged {
+		t.Fatalf("safe pre-runtime failure did not close its journal: %+v %v", j, err)
+	}
+	if got := string(h.files[BinPath].data); got != "cached manager" {
+		t.Fatalf("persistent manager was removed or replaced: %q", got)
+	}
+	if _, ok := h.files[ConfigPath]; ok {
+		t.Fatal("deployment config was written before prerequisites completed")
+	}
+}
+
 func TestSkipModuleDoesNotMutateHostModule(t *testing.T) {
 	h := newMemHost()
 	p := Defaults()

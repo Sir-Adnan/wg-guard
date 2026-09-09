@@ -30,6 +30,7 @@ type manager struct {
 	overview          func() error
 	installed         string
 	bootstrapMetadata string
+	lifecycleReady    func() error
 	view              managerView
 	journalOperation  string
 	recoveryLineage   string
@@ -40,6 +41,7 @@ type managerView uint8
 const (
 	managerFresh managerView = iota
 	managerInstalled
+	managerInstallRecovery
 	managerRecovery
 )
 
@@ -53,11 +55,27 @@ func managerRootMenu(view managerView) managerMenu {
 	switch view {
 	case managerInstalled:
 		return managerMenu{key: "menu", items: []string{"lifecycle", "access", "backups", "operations", "uninstall"}, defaultItem: 1}
+	case managerInstallRecovery:
+		return managerMenu{key: "setup_recovery_menu", items: []string{"cleanup_install", "readiness"}, defaultItem: 1}
 	case managerRecovery:
 		return managerMenu{key: "recovery_menu", items: []string{"recover_now", "lifecycle", "access", "backups", "operations"}, defaultItem: 1}
 	default:
 		return managerMenu{key: "fresh_menu", items: []string{"install_cached", "install_choose", "readiness", "help_short"}, defaultItem: 1}
 	}
+}
+
+func classifyManagerView(st *install.State, j *install.Journal) managerView {
+	pending := j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted"
+	if pending {
+		if j.Operation == "install" && j.Before == nil && j.After != nil && !j.DataMayHaveChanged && !j.PrerequisitesComplete && (j.After.Recovery == "" || j.After.Recovery == "install-incomplete") {
+			return managerInstallRecovery
+		}
+		return managerRecovery
+	}
+	if st != nil {
+		return managerInstalled
+	}
+	return managerFresh
 }
 
 func runManage(args []string) error {
@@ -82,11 +100,7 @@ func runManage(args []string) error {
 	u := terminal.New(os.Stdin, os.Stdout, terminal.Detect(os.Stdin, os.Stdout, locale))
 	u.Context = ctx
 	h := install.NewRealHost()
-	st, err := install.LoadState(h)
-	if err != nil {
-		return err
-	}
-	if st == nil && *metadata == "" {
+	if *metadata == "" {
 		if _, statErr := os.Stat(install.ManagerBuildPath); statErr == nil {
 			*metadata = install.ManagerBuildPath
 		}
@@ -98,6 +112,7 @@ func runManage(args []string) error {
 	m := manager{
 		ui: u, catalog: distribution.NewClient(nil, distribution.Options{}),
 		bootstrapMetadata: *metadata,
+		lifecycleReady:    func() error { return install.CheckLifecycleReady(h) },
 	}
 	m.run = func(ctx context.Context, args []string, in io.Reader) error {
 		if args[0] == "backup" || args[0] == "restore" {
@@ -109,6 +124,8 @@ func runManage(args []string) error {
 		switch args[0] {
 		case "install":
 			return runInstall(args[1:])
+		case "recover-install":
+			return runRecoverInstallWith(ctx, args[1:], h, os.Stdout)
 		case "update":
 			return runUpdate(args[1:])
 		case "uninstall":
@@ -142,22 +159,34 @@ func runManage(args []string) error {
 		if err != nil {
 			return err
 		}
-		m.view = managerFresh
+		m.view = classifyManagerView(st, j)
 		m.installed = ""
 		m.journalOperation = ""
 		m.recoveryLineage = ""
 		if st != nil {
-			m.view = managerInstalled
 			m.installed = st.Version
 			if st.Exposure.Lineage != "" {
 				m.recoveryLineage = install.CertbotLivePath(st.Exposure.Lineage)
 			}
 		}
 		if j != nil && j.Stage != "complete" && j.Stage != "rolled-back" && j.Stage != "aborted" {
-			m.view = managerRecovery
 			m.journalOperation = j.Operation
 		}
 		u.Header("WG-GUARD", u.T("manage.subtitle"))
+		if m.view == managerInstallRecovery {
+			mode := ""
+			if j != nil && j.After != nil {
+				mode = string(j.After.Mode)
+			}
+			fields := []terminal.StatusField{
+				{Label: u.T("manage.build"), Value: version.String()},
+				{Label: u.T("manage.installed"), Value: mode + " · " + u.T("manage.setup_incomplete")},
+				{Label: u.T("manage.journal"), Value: "install · recovery-required"},
+				{Label: u.T("manage.next"), Value: u.T("manage.cleanup_next")},
+			}
+			u.StatusCard(u.T("manage.action_required"), u.T("manage.setup_recovery_title"), fields)
+			return nil
+		}
 		if st == nil {
 			status := u.T("manage.ready")
 			title := u.T("manage.fresh_title")
@@ -287,6 +316,16 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 	switch m.view {
 	case managerFresh:
 		return m.freshAction(ctx, n)
+	case managerInstallRecovery:
+		switch n {
+		case 1:
+			_, err := m.reviewedAction(ctx, "cleanup_install_review", []string{"recover-install", "--yes"}, nil)
+			return err
+		case 2:
+			err := m.run(ctx, []string{"doctor"}, nil)
+			m.ui.Result(err)
+			return nil
+		}
 	case managerRecovery:
 		switch n {
 		case 1:
@@ -404,6 +443,11 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 1:
 			switch n {
 			case 1:
+				if m.lifecycleReady != nil {
+					if e := m.lifecycleReady(); e != nil {
+						return e
+					}
+				}
 				selection, e := pickSource(ctx, m.ui, m.catalog, m.installed)
 				if errors.Is(e, terminal.ErrBack) {
 					continue

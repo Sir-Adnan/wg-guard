@@ -65,6 +65,26 @@ func TestWizardReviewEffectiveNetworkDefaults(t *testing.T) {
 	}
 }
 
+func TestDirectHTTPSReviewNeverLabelsItsListenerPrivate(t *testing.T) {
+	p := Defaults()
+	p.Mode = ModeDocker
+	p.Exposure = ExposureDirect
+	p.Certificate = CertificateBuiltin
+	p.Domain = "panel.example.com"
+	p.PanelPort = 8443
+	p.PublicPort = 8443
+	p.TLSMode = "acme"
+	var out strings.Builder
+	q := newPrompt(strings.NewReader("y\n"), &out, false)
+	q.advanced = true
+	if err := q.confirm(p); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "Private loopback port") || !strings.Contains(out.String(), "Public HTTPS port: 8443") {
+		t.Fatalf("direct listener summary is misleading:\n%s", out.String())
+	}
+}
+
 func TestWizardRecommendedAccessUsesHostFactsAndEnterDefaults(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -106,7 +126,7 @@ func TestWizardAdvancedPublicIPAndCloudflareSecrets(t *testing.T) {
 	// Blank domain, customize, Docker, public-IP HTTPS, IP, panel port,
 	// challenge port, optional email, network defaults, Telegram later.
 	var out strings.Builder
-	q := newPrompt(strings.NewReader("\nyes\n\n2\n8.8.8.8\n\n\n\n\n\n\n\n"), &out, false)
+	q := newPrompt(strings.NewReader("\nn\n\n2\n8.8.8.8\n\n\n\n\n\n\n\n"), &out, false)
 	p := Defaults()
 	p.Mode = ""
 	if err := q.plan(&p, newMemHost()); err != nil {
@@ -118,7 +138,7 @@ func TestWizardAdvancedPublicIPAndCloudflareSecrets(t *testing.T) {
 
 	const token = "synthetic_cloudflare_token_123456"
 	out.Reset()
-	q = newPrompt(strings.NewReader("panel.example.com\nyes\n\n3\n2\n"+token+"\n\n\n\n\n\n\n\n\n"), &out, false)
+	q = newPrompt(strings.NewReader("panel.example.com\nn\n\n3\n1\n2\n"+token+"\n\n\n\n\n\n\n\n\n"), &out, false)
 	p = Defaults()
 	p.Mode = ""
 	if err := q.plan(&p, newMemHost()); err != nil {

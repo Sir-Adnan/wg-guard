@@ -15,10 +15,10 @@ func init() {
 	catalogFA["install.cli.sources"] = "یک منبع انتخاب کنید؛ بازیابی/بازگشت با دریافت یا جایگزین محلی ترکیب نمی‌شود."
 	catalogEN["install.error.core_confirmation"] = "Use core switch BUNDLE --confirm-impact after reviewing tunnel interruption and possible maintenance reboot."
 	catalogFA["install.error.core_confirmation"] = "پس از بررسی وقفهٔ تونل و راه‌اندازی مجدد احتمالی، core switch BUNDLE --confirm-impact را اجرا کنید."
-	catalogEN["install.error.core_transition"] = "Only one verified core bundle is catalogued; this installed version has no verified automatic transition. Back up, plan a maintenance window and follow the manual core migration runbook."
-	catalogFA["install.error.core_transition"] = "فقط یک بستهٔ هستهٔ تأییدشده در فهرست است؛ برای نسخهٔ نصب‌شده انتقال خودکار تأییدشده‌ای وجود ندارد. پشتیبان بگیرید، زمان نگهداری تعیین و راهنمای انتقال دستی هسته را دنبال کنید."
-	catalogEN["install.core.single_bundle"] = "The catalog has one verified bundle (awg-2026-08); it is already installed. No package change or tunnel interruption was performed."
-	catalogFA["install.core.single_bundle"] = "فهرست یک بستهٔ تأییدشده (awg-2026-08) دارد و همان نصب است. بسته‌ای تغییر نکرد و تونلی قطع نشد."
+	catalogEN["install.error.core_transition"] = "No automatic transition from the installed core to this reviewed bundle has been verified. Back up, plan a maintenance window and follow the core migration runbook."
+	catalogFA["install.error.core_transition"] = "انتقال خودکار از هستهٔ نصب‌شده به این بستهٔ بررسی‌شده تأیید نشده است. پشتیبان بگیرید، زمان نگهداری تعیین و راهنمای انتقال هسته را دنبال کنید."
+	catalogEN["install.core.single_bundle"] = "The selected reviewed core is already installed. No core change or tunnel interruption was performed."
+	catalogFA["install.core.single_bundle"] = "هستهٔ بررسی‌شدهٔ انتخابی از قبل نصب است؛ هسته‌ای تغییر نکرد و تونلی قطع نشد."
 	entries := map[string][2]string{
 		"rollback_restore":  {"Rollback requires coordinated database and master-key restoration from the recorded backup before old code can run. Active deployment is unchanged; see the lifecycle runbook.", "بازگشت پیش از اجرای نسخهٔ قدیمی به بازگردانی هماهنگ پایگاه داده و کلید اصلی از پشتیبان ثبت‌شده نیاز دارد. استقرار فعال تغییر نکرده است؛ راهنمای عملیات را ببینید."},
 		"backup_required":   {"Cannot skip the pre-update backup when data compatibility is unproven.", "وقتی سازگاری داده ثابت نشده است، پشتیبان پیش از به‌روزرسانی را نمی‌توان نادیده گرفت."},

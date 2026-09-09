@@ -15,15 +15,17 @@ import (
 
 type imageHost struct {
 	*memHost
-	t        *testing.T
-	identity string
-	fail     bool
-	builds   int
+	t         *testing.T
+	identity  string
+	fail      bool
+	builds    int
+	buildArgs []string
 }
 
 func (h *imageHost) Run(ctx context.Context, a []string, d time.Duration) error {
 	if len(a) > 1 && a[0] == "docker" && a[1] == "build" {
 		h.builds++
+		h.buildArgs = append([]string(nil), a...)
 		if h.fail {
 			return fmt.Errorf("build failed")
 		}
@@ -39,8 +41,8 @@ func (h *imageHost) Run(ctx context.Context, a []string, d time.Duration) error 
 		if !strings.Contains(string(dockerfile), "procps") {
 			h.t.Error("runtime lacks sysctl provider needed by boot")
 		}
-		if !strings.Contains(string(dockerfile), "amneziawg-tools=1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1") || strings.Contains(string(dockerfile), "go build") {
-			h.t.Fatal("runtime build lost compatible tools pin or rebuilt candidate")
+		if !strings.Contains(string(dockerfile), "--branch v3.1.20260812") || !strings.Contains(string(dockerfile), "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843") || strings.Contains(string(dockerfile), "ppa:amnezia/ppa") || strings.Contains(string(dockerfile), "amneziawg-tools=") {
+			h.t.Fatal("runtime build lost exact GitHub tools provenance")
 		}
 		for i, arg := range a {
 			if arg == "--iidfile" {
@@ -66,6 +68,9 @@ func TestRuntimeImageUsesAcquiredBinaryAndPrivateContext(t *testing.T) {
 	if err != nil || got != h.identity || h.builds != 1 {
 		t.Fatalf("image identity %q: %v", got, err)
 	}
+	if !contains(h.buildArgs, "io.wg-guard.awg-tools.commit="+b.ToolsCommit) {
+		t.Fatalf("runtime image lacks immutable AWG tools identity: %v", h.buildArgs)
+	}
 	files, _ := os.ReadDir(parent)
 	if len(files) != 1 || files[0].Name() != "candidate" {
 		t.Fatal("private build context not cleaned or caller files damaged")
@@ -75,6 +80,17 @@ func TestRuntimeImageUsesAcquiredBinaryAndPrivateContext(t *testing.T) {
 	}
 	if _, err := BuildRuntimeImage(context.Background(), h, build, b, parent); err == nil || h.builds != 1 {
 		t.Fatal("tampered candidate reached Docker build")
+	}
+}
+
+func TestLegacyBundleRuntimeUsesTheSamePinnedToolsSource(t *testing.T) {
+	b, err := SelectCore("awg-2026-08")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := runtimeDockerfile(b)
+	if !strings.Contains(dockerfile, "https://github.com/amnezia-vpn/amneziawg-tools.git") || !strings.Contains(dockerfile, b.ToolsCommit) {
+		t.Fatalf("legacy install update lost its immutable tools source:\n%s", dockerfile)
 	}
 }
 

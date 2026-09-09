@@ -10,13 +10,20 @@ import (
 )
 
 func TestCoreCommandCatalogAndInvalidSelection(t *testing.T) {
-	for _, args := range [][]string{{"recommended"}, {"latest-compatible"}, {"exact", "awg-2026-08"}} {
+	for _, tc := range []struct {
+		args []string
+		id   string
+	}{
+		{[]string{"recommended"}, "awg-2026-09"},
+		{[]string{"latest-compatible"}, "awg-2026-09"},
+		{[]string{"exact", "awg-2026-08"}, "awg-2026-08"},
+	} {
 		var out bytes.Buffer
-		if err := runCoreWithHost(args, nil, &out); err != nil {
+		if err := runCoreWithHost(tc.args, nil, &out); err != nil {
 			t.Fatal(err)
 		}
 		var b install.CoreBundle
-		if err := json.Unmarshal(out.Bytes(), &b); err != nil || b.ID != "awg-2026-08" {
+		if err := json.Unmarshal(out.Bytes(), &b); err != nil || b.ID != tc.id {
 			t.Fatal("invalid catalog response")
 		}
 	}

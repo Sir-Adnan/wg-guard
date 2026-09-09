@@ -55,6 +55,7 @@ var hostCommands = map[string]bool{
 	"certificate-sync": true,
 	"exposure":         true,
 	"install":          true,
+	"recover-install":  true,
 	"update":           true,
 	"uninstall":        true,
 	"status":           true,

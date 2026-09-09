@@ -30,17 +30,18 @@ type Artifact struct {
 	Backup       *BackupIdentity    `json:"backup,omitempty"`
 }
 type Journal struct {
-	PackageIntents     []string  `json:"package_intents,omitempty"`
-	RepositoryIntent   bool      `json:"repository_intent,omitempty"`
-	Schema             int       `json:"schema"`
-	ID                 string    `json:"id"`
-	Operation          string    `json:"operation"`
-	Stage              string    `json:"stage"`
-	Before             *State    `json:"before,omitempty"`
-	After              *State    `json:"after,omitempty"`
-	Previous           *Artifact `json:"previous,omitempty"`
-	Candidate          *Artifact `json:"candidate,omitempty"`
-	DataMayHaveChanged bool      `json:"data_may_have_changed"`
+	PackageIntents        []string  `json:"package_intents,omitempty"`
+	RepositoryIntent      bool      `json:"repository_intent,omitempty"`
+	Schema                int       `json:"schema"`
+	ID                    string    `json:"id"`
+	Operation             string    `json:"operation"`
+	Stage                 string    `json:"stage"`
+	Before                *State    `json:"before,omitempty"`
+	After                 *State    `json:"after,omitempty"`
+	Previous              *Artifact `json:"previous,omitempty"`
+	Candidate             *Artifact `json:"candidate,omitempty"`
+	DataMayHaveChanged    bool      `json:"data_may_have_changed"`
+	PrerequisitesComplete bool      `json:"prerequisites_complete,omitempty"`
 }
 
 func transactionID() string {
@@ -137,6 +138,11 @@ func noPending(h Host) error {
 	}
 	return nil
 }
+
+// CheckLifecycleReady is the cheap read-only guard used before remote source
+// discovery or artifact builds. Mutating operations still repeat the check
+// under the lifecycle lock; this early check prevents needless acquisition.
+func CheckLifecycleReady(h Host) error { return noPending(h) }
 
 func pendingOperationError(j *Journal) error {
 	if j != nil {

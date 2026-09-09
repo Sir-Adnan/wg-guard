@@ -21,6 +21,7 @@ type memHost struct {
 	commands []memCmd
 	failCmd  map[string]error  // first argv element → forced error
 	output   map[string]string // first argv element → scripted stdout for Output
+	dkms     map[string]bool
 	portFree func(string) bool
 	now      func() time.Time
 }
@@ -52,6 +53,7 @@ func newMemHost() *memHost {
 		files:   map[string]memFile{"/src/wg-guard": {data: []byte("/src/wg-guard"), perm: 0o755}, "/etc/os-release": {data: []byte("ID=ubuntu\nVERSION_ID=24.04\n")}, "/proc/1/comm": {data: []byte("systemd\n")}},
 		dirs:    map[string]bool{},
 		failCmd: map[string]error{},
+		dkms:    map[string]bool{},
 		output:  map[string]string{"uname -s": "Linux", "uname -m": "x86_64", "uname -r": "6.8.0-138-generic", "modinfo": "MATCHINGBUILD", "awg": "amneziawg-tools v3.1.20260812", "ip": `[{"addr_info":[{"local":"8.8.8.8"}]}]`},
 		now:     func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) },
 	}
@@ -65,6 +67,18 @@ func (m *memHost) Run(_ context.Context, argv []string, _ time.Duration) error {
 	if argv[0] == "modprobe" && len(argv) == 2 {
 		m.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
 		m.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
+	}
+	if len(argv) >= 3 && argv[0] == "make" && argv[1] == "-C" && strings.Contains(argv[2], "/tools/src") {
+		built := argv[2] + "/wg"
+		if argv[len(argv)-1] == "clean" {
+			delete(m.files, built)
+		} else {
+			m.files[built] = memFile{data: []byte("reviewed awg binary"), perm: 0o755}
+		}
+	}
+	if len(argv) > 1 && argv[0] == "dkms" && argv[1] == "install" {
+		version, kernel := argumentAfter(argv, "-v"), argumentAfter(argv, "-k")
+		m.dkms[version+"|"+kernel] = true
 	}
 	return nil
 }
@@ -84,6 +98,19 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 	m.commands = append(m.commands, memCmd{argv: argv})
 	if err := m.failCmd[argv[0]]; err != nil {
 		return "", err
+	}
+	if len(argv) >= 5 && argv[0] == "git" && argv[1] == "-C" && argv[3] == "rev-parse" {
+		if strings.Contains(argv[2], "/tools") {
+			return "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", nil
+		}
+		return "4569c4c67f3a57414969260cafbbd04694fbaae0", nil
+	}
+	if len(argv) > 1 && argv[0] == "dkms" && argv[1] == "status" {
+		version, kernel := argumentAfter(argv, "-v"), argumentAfter(argv, "-k")
+		if kernel != "" && m.dkms[version+"|"+kernel] {
+			return "amneziawg/" + version + ", " + kernel + ", x86_64: installed", nil
+		}
+		return "", fmt.Errorf("not installed")
 	}
 	if value, ok := m.output[argv[0]]; ok {
 		return value, nil
@@ -186,6 +213,18 @@ func (m *memHost) Rename(old, new string) error {
 		delete(m.files, old)
 		m.files[new] = f
 	}
+	for p, f := range m.files {
+		if strings.HasPrefix(p, old+"/") {
+			delete(m.files, p)
+			m.files[new+strings.TrimPrefix(p, old)] = f
+		}
+	}
+	for p := range m.dirs {
+		if p == old || strings.HasPrefix(p, old+"/") {
+			delete(m.dirs, p)
+			m.dirs[new+strings.TrimPrefix(p, old)] = true
+		}
+	}
 	return nil
 }
 
@@ -242,3 +281,12 @@ func (m *memHost) ran(prefixes ...string) bool {
 }
 
 var _ Host = (*memHost)(nil)
+
+func argumentAfter(argv []string, flag string) string {
+	for i := 0; i+1 < len(argv); i++ {
+		if argv[i] == flag {
+			return argv[i+1]
+		}
+	}
+	return ""
+}

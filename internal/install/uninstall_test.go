@@ -21,6 +21,56 @@ type nativeCleanupHost struct {
 	queryOutput      string
 }
 
+type sourcePurgeHost struct {
+	*memHost
+	removedAll []string
+}
+
+func (h *sourcePurgeHost) RemoveAll(path string) error {
+	h.removedAll = append(h.removedAll, path)
+	return h.memHost.RemoveAll(path)
+}
+
+func TestExplicitPackagePurgeRemovesManagedGitHubCore(t *testing.T) {
+	base := installedFixture(t, ModeNative)
+	h := &sourcePurgeHost{memHost: base}
+	report, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, PurgePackages: true, Stdout: io.Discard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, _ := SelectCore("recommended")
+	if !h.ran("dkms", "remove", "-m", "amneziawg", "-v", bundle.KernelDKMSVersion, "--all") {
+		t.Fatalf("managed DKMS source was not removed: %v", h.ranCommands())
+	}
+	for _, want := range []string{"/usr/src/amneziawg-" + bundle.KernelDKMSVersion, CoreCacheDir + "/" + bundle.ID} {
+		if !contains(h.removedAll, want) {
+			t.Fatalf("managed source path %q was not removed: %v", want, h.removedAll)
+		}
+	}
+	if _, ok := h.files[ManagedAWGBinaryPath]; ok {
+		t.Fatal("installer-owned AWG tool remains after explicit package purge")
+	}
+	if !contains(report.PurgedPkgs, "github-source:"+bundle.ID) {
+		t.Fatalf("source purge missing from report: %+v", report)
+	}
+}
+
+func TestSourceCorePurgeDryRunIsCompleteAndReadOnly(t *testing.T) {
+	h := installedFixture(t, ModeDocker)
+	h.commands = nil
+	var out strings.Builder
+	if _, err := Uninstall(context.Background(), h, UninstallOptions{DryRun: true, PurgePackages: true, Stdout: &out}); err != nil {
+		t.Fatal(err)
+	}
+	bundle, _ := SelectCore("recommended")
+	if !strings.Contains(out.String(), "github-source:"+bundle.ID) {
+		t.Fatalf("dry-run omitted managed source core:\n%s", out.String())
+	}
+	if h.ran("dkms", "remove") || h.ran("apt-get", "remove") {
+		t.Fatal("dry-run mutated core prerequisites")
+	}
+}
+
 func (h *nativeCleanupHost) Run(ctx context.Context, args []string, d time.Duration) error {
 	if h.failSeed && len(args) > 1 && args[0] == BinPath && args[1] == "settings" {
 		return errors.New("seed failed before unit creation")

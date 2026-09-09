@@ -34,6 +34,8 @@ Commands:
                       [--image REF] [--skip-module] [--yes]
   update      Explicit update: pre-upgrade backup, swap, health-checked rollback
               update [--image REF] (docker) | update --binary PATH (native)
+  recover-install  Safely clear a pre-runtime interrupted initial setup
+              recover-install --yes
   uninstall   Remove WG-Guard (data kept unless --purge-data)
               uninstall [--dry-run] [--purge-data] [--purge-packages] [--yes]
   status      Install state, service state and health
@@ -126,6 +128,11 @@ func main() {
 	case "install":
 		if err := runInstall(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "wg-guard: install: %v\n", err)
+			os.Exit(1)
+		}
+	case "recover-install":
+		if err := runRecoverInstall(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: recover-install: %v\n", err)
 			os.Exit(1)
 		}
 	case "update":

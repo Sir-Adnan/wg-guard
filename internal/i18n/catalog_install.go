@@ -39,7 +39,7 @@ func init() {
 	catalogEN["install.error.manual_pair"] = "install: manual certificate and private key are not a valid matching pair"
 	catalogFA["install.error.manual_pair"] = "نصب: گواهی دستی و کلید خصوصی یک جفت معتبر و مطابق نیستند"
 	for key, value := range map[string]string{
-		"install.error.core.1":     "install: unknown compatible core bundle; use recommended, latest-compatible or awg-2026-08",
+		"install.error.core.1":     "install: unknown compatible core bundle; use recommended, latest-compatible, awg-2026-09 or awg-2026-08",
 		"install.error.core.2":     "install: prerequisite policy must be auto or check",
 		"install.error.core.3":     "install: core must match a catalogued bundle",
 		"install.error.core.4":     "install: installed %s differs from selected bundle; preserve it and resolve compatibility manually",
@@ -53,7 +53,7 @@ func init() {
 		"install.error.core.12":    "install: Docker Compose is unavailable",
 		"install.error.core.13":    "install: Docker daemon is unavailable; start Docker and retry",
 		"install.error.core.14":    "install: installed AWG tools do not match selected bundle",
-		"install.error.core.15":    "install: installed kernel package does not match selected bundle",
+		"install.error.core.15":    "install: installed kernel module source does not match the selected bundle",
 		"install.error.core.16":    "install: loaded module differs from disk; schedule a maintenance reboot, then retry (active tunnels preserved)",
 		"install.error.core.17":    "install: load the compatible AmneziaWG module manually, then retry",
 		"install.error.core.18":    "install: selected module build failed; check matching headers and Secure Boot, then retry",
@@ -104,7 +104,7 @@ func init() {
 		catalogEN[key] = value
 	}
 	for key, value := range map[string]string{
-		"install.error.core.1":     "نصب: بستهٔ سازگار ناشناخته است؛ از recommended، latest-compatible یا awg-2026-08 استفاده کنید",
+		"install.error.core.1":     "نصب: بستهٔ سازگار ناشناخته است؛ از recommended، latest-compatible، awg-2026-09 یا awg-2026-08 استفاده کنید",
 		"install.error.core.2":     "نصب: روش پیش‌نیازها باید auto یا check باشد",
 		"install.error.core.3":     "نصب: هسته باید با یکی از بسته‌های فهرست سازگار مطابقت داشته باشد",
 		"install.error.core.4":     "نصب: نسخهٔ نصب‌شدهٔ %s با بستهٔ انتخابی متفاوت است؛ آن را حفظ و سازگاری را دستی بررسی کنید",
@@ -118,7 +118,7 @@ func init() {
 		"install.error.core.12":    "نصب: Docker Compose در دسترس نیست",
 		"install.error.core.13":    "نصب: سرویس Docker در دسترس نیست؛ آن را راه‌اندازی و دوباره تلاش کنید",
 		"install.error.core.14":    "نصب: ابزار AWG نصب‌شده با بستهٔ انتخابی مطابقت ندارد",
-		"install.error.core.15":    "نصب: بستهٔ ماژول نصب‌شده با بستهٔ انتخابی مطابقت ندارد",
+		"install.error.core.15":    "نصب: منبع ماژول نصب‌شده با بستهٔ انتخابی مطابقت ندارد",
 		"install.error.core.16":    "نصب: ماژول بارگذاری‌شده با نسخهٔ روی دیسک متفاوت است؛ راه‌اندازی مجدد را در زمان نگهداری انجام دهید و دوباره تلاش کنید (تونل‌های فعال حفظ شدند)",
 		"install.error.core.17":    "نصب: ماژول سازگار AmneziaWG را دستی بارگذاری و دوباره تلاش کنید",
 		"install.error.core.18":    "نصب: ساخت ماژول انتخابی ناموفق بود؛ هدرهای کرنل و Secure Boot را بررسی کنید",

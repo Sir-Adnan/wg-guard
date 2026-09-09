@@ -17,15 +17,19 @@ const (
 // CoreBundle identifies a reviewed compatibility contract, not an upstream
 // version range. Adding a newer bundle requires upstream and runtime evidence.
 type CoreBundle struct {
-	ID               string `json:"id"`
-	ToolsVersion     string `json:"tools_version"`
-	ToolsCommit      string `json:"tools_commit"`
-	ToolsPackage     string `json:"tools_package"`
-	KernelVersion    string `json:"kernel_version"`
-	KernelCommit     string `json:"kernel_commit"`
-	KernelPackage    string `json:"kernel_package"`
-	UserspaceVersion string `json:"userspace_version"`
-	UserspaceCommit  string `json:"userspace_commit"`
+	ID                string `json:"id"`
+	Source            string `json:"source"`
+	ToolsVersion      string `json:"tools_version"`
+	ToolsCommit       string `json:"tools_commit"`
+	ToolsRepository   string `json:"tools_repository"`
+	ToolsPackage      string `json:"tools_package"`
+	KernelVersion     string `json:"kernel_version"`
+	KernelCommit      string `json:"kernel_commit"`
+	KernelRepository  string `json:"kernel_repository"`
+	KernelDKMSVersion string `json:"kernel_dkms_version"`
+	KernelPackage     string `json:"kernel_package"`
+	UserspaceVersion  string `json:"userspace_version"`
+	UserspaceCommit   string `json:"userspace_commit"`
 }
 
 type CoreReport struct {
@@ -41,18 +45,41 @@ type CoreReport struct {
 	ModuleIdentity string     `json:"module_identity"` // unknown, matches-disk, differs-from-disk
 	ExternalModule bool       `json:"external_module"`
 	ToolsLocation  string     `json:"tools_location"`
+	ToolsSource    string     `json:"tools_source,omitempty"`
+	KernelSource   string     `json:"kernel_source,omitempty"`
+	KernelDKMS     string     `json:"kernel_dkms_version,omitempty"`
 }
 
 func SelectCore(selector string) (CoreBundle, error) {
 	switch selector {
-	case "", "recommended", "latest-compatible", "awg-2026-08":
+	case "", "recommended", "latest-compatible", "awg-2026-09":
 		return CoreBundle{
-			ID: "awg-2026-08", ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsPackage: "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
-			KernelVersion: "v3.1.20260828", KernelCommit: "3c38e168beb7c60dec41dfe423d41555205a3dac", KernelPackage: "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
+			ID: "awg-2026-09", Source: coreSourceGitHub,
+			ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git",
+			KernelVersion: "v3.1.20260906", KernelCommit: "4569c4c67f3a57414969260cafbbd04694fbaae0", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelDKMSVersion: "1.0.0-wgguard.20260906",
+			UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
+		}, nil
+	case "awg-2026-08":
+		return CoreBundle{
+			ID: "awg-2026-08", Source: coreSourcePackage, ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git", ToolsPackage: "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
+			KernelVersion: "v3.1.20260828", KernelCommit: "3c38e168beb7c60dec41dfe423d41555205a3dac", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelPackage: "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
 			UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
 		}, nil
 	}
 	return CoreBundle{}, terminalError("install.error.core.1")
+}
+
+func coreReportMatchesBundle(r CoreReport, b CoreBundle) bool {
+	if !strings.Contains(r.ToolsVersion, b.ToolsVersion) {
+		return false
+	}
+	if b.Source == coreSourceGitHub {
+		return r.ToolsSource == coreSourceGitHub && r.KernelSource == coreSourceGitHub && r.KernelDKMS == b.KernelDKMSVersion
+	}
+	if r.ToolsLocation == "container" && r.ToolsSource == coreSourceGitHub {
+		return r.KernelPackage == b.KernelPackage
+	}
+	return r.ToolsPackage == b.ToolsPackage && r.KernelPackage == b.KernelPackage
 }
 
 func installedPackage(ctx context.Context, h Host, name string) string {
@@ -71,6 +98,15 @@ func installedPackage(ctx context.Context, h Host, name string) string {
 // sysfs version/srcversion are NOT proof of a Git source commit.
 func InspectCore(ctx context.Context, h Host, b CoreBundle) CoreReport {
 	r := CoreReport{Requested: b, ToolsLocation: "host", ToolsPackage: installedPackage(ctx, h, "amneziawg-tools"), KernelPackage: installedPackage(ctx, h, "amneziawg-dkms")}
+	if b.Source == coreSourceGitHub {
+		if sourceInstalled(h, toolsInstalledMarker(b), b.ToolsCommit) {
+			r.ToolsSource = coreSourceGitHub
+		}
+		if sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) {
+			r.KernelSource = coreSourceGitHub
+			r.KernelDKMS = b.KernelDKMSVersion
+		}
+	}
 	if raw, err := h.Output(ctx, []string{"awg", "--version"}, 10*time.Second); err == nil {
 		r.ToolsVersion = strings.TrimSpace(raw)
 	}
@@ -157,8 +193,10 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 				return r, err
 			}
 		}
-		if err := require("amneziawg-tools", b.ToolsPackage); err != nil {
-			return r, err
+		if b.Source == coreSourcePackage {
+			if err := require("amneziawg-tools", b.ToolsPackage); err != nil {
+				return r, err
+			}
 		}
 	}
 	if p.Mode == ModeDocker {
@@ -179,14 +217,23 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 	}
 	if !external && managedUbuntu {
-		if err := require("amneziawg-dkms", b.KernelPackage); err != nil {
-			return r, err
+		if b.Source == coreSourcePackage {
+			if err := require("amneziawg-dkms", b.KernelPackage); err != nil {
+				return r, err
+			}
 		}
 		if !r.ModuleLoaded || r.KernelPackage == "" {
 			for _, name := range []string{"kmod", "dkms", "build-essential", "linux-headers-" + platform.Kernel} {
 				if err := require(name, ""); err != nil {
 					return r, err
 				}
+			}
+		}
+	}
+	if b.Source == coreSourceGitHub && managedUbuntu && (p.Mode == ModeNative || !external) {
+		for _, name := range []string{"git", "build-essential", "ca-certificates"} {
+			if err := require(name, ""); err != nil {
+				return r, err
 			}
 		}
 	}
@@ -202,12 +249,12 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 				needCore = true
 			}
 		}
-		if needCore && (!packageAvailable(ctx, h, "amneziawg-tools", b.ToolsPackage) || !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage)) {
+		if b.Source == coreSourcePackage && needCore && (!packageAvailable(ctx, h, "amneziawg-tools", b.ToolsPackage) || !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage)) {
 			if err := prepareUbuntuRepository(ctx, h, st); err != nil {
 				return r, err
 			}
 		}
-		if needCore && (!packageAvailable(ctx, h, "amneziawg-tools", b.ToolsPackage) || !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage)) {
+		if b.Source == coreSourcePackage && needCore && (!packageAvailable(ctx, h, "amneziawg-tools", b.ToolsPackage) || !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage)) {
 			return r, terminalError("install.error.core.8")
 		}
 	}
@@ -236,6 +283,18 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			return r, terminalError("install.error.core.10", installErr)
 		}
 	}
+	if b.Source == coreSourceGitHub && automatic {
+		if p.Mode == ModeNative {
+			if err := ensurePinnedTools(ctx, h, b); err != nil {
+				return r, err
+			}
+		}
+		if !external {
+			if err := ensurePinnedKernel(ctx, h, platform.Kernel, b); err != nil {
+				return r, err
+			}
+		}
+	}
 	requiredTools := []string{}
 	if p.Mode == ModeNative {
 		requiredTools = []string{"systemctl", "ip", "tc", "nft", "sysctl", "awg"}
@@ -258,13 +317,16 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	}
 	r = InspectCore(ctx, h, b)
 	r.ExternalModule = external
-	if p.Mode == ModeNative && (managedUbuntu && r.ToolsPackage != b.ToolsPackage || !strings.Contains(r.ToolsVersion, b.ToolsVersion)) {
+	if p.Mode == ModeNative && (b.Source == coreSourcePackage && managedUbuntu && r.ToolsPackage != b.ToolsPackage || b.Source == coreSourceGitHub && managedUbuntu && r.ToolsSource != coreSourceGitHub || !strings.Contains(r.ToolsVersion, b.ToolsVersion)) {
 		return r, terminalError("install.error.core.14")
 	}
 	if external {
 		return r, nil
 	}
-	if managedUbuntu && r.KernelPackage != b.KernelPackage {
+	if managedUbuntu && b.Source == coreSourcePackage && r.KernelPackage != b.KernelPackage {
+		return r, terminalError("install.error.core.15")
+	}
+	if managedUbuntu && b.Source == coreSourceGitHub && (r.KernelSource != coreSourceGitHub || r.KernelDKMS != b.KernelDKMSVersion) {
 		return r, terminalError("install.error.core.15")
 	}
 	if r.RebootRequired {
@@ -276,7 +338,11 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 		if err := h.Run(ctx, []string{"modprobe", "amneziawg"}, 30*time.Second); err != nil {
 			// Rebuild only the selected module for this running kernel, never all DKMS modules.
-			if err := h.Run(ctx, []string{"dkms", "install", "-m", "amneziawg", "-v", "1.0.0", "-k", platform.Kernel}, longTimeout); err != nil {
+			dkmsVersion := "1.0.0"
+			if b.KernelDKMSVersion != "" {
+				dkmsVersion = b.KernelDKMSVersion
+			}
+			if err := h.Run(ctx, []string{"dkms", "install", "-m", "amneziawg", "-v", dkmsVersion, "-k", platform.Kernel}, longTimeout); err != nil {
 				return r, terminalError("install.error.core.18")
 			}
 			if err := h.Run(ctx, []string{"depmod", "-a", platform.Kernel}, time.Minute); err != nil {

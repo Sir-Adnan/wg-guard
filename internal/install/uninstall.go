@@ -168,13 +168,21 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		rep.KeptData = st.DataDir
 	}
 
-	if o.PurgePackages && len(st.PackagesInstalled) > 0 {
+	if o.PurgePackages {
 		step(out, "Removing installer-installed packages")
-		pkgs := append([]string{"apt-get", "remove", "-y"}, st.PackagesInstalled...)
-		if err := h.Run(ctx, pkgs, longTimeout); err != nil {
-			return rep, err
+		if st.Core.Requested.Source == coreSourceGitHub {
+			if err := purgePinnedSourceCore(ctx, h, st.Core); err != nil {
+				return rep, err
+			}
+			rep.PurgedPkgs = append(rep.PurgedPkgs, "github-source:"+st.Core.Requested.ID)
 		}
-		rep.PurgedPkgs = st.PackagesInstalled
+		if len(st.PackagesInstalled) > 0 {
+			pkgs := append([]string{"apt-get", "remove", "-y"}, st.PackagesInstalled...)
+			if err := h.Run(ctx, pkgs, longTimeout); err != nil {
+				return rep, err
+			}
+			rep.PurgedPkgs = append(rep.PurgedPkgs, st.PackagesInstalled...)
+		}
 	}
 
 	if o.PurgeData {
@@ -226,5 +234,8 @@ func printPlan(out io.Writer, st *State, rep *UninstallReport, o UninstallOption
 		for _, p := range st.PackagesInstalled {
 			fmt.Fprintf(out, "  purge:    package %s\n", p)
 		}
+	}
+	if o.PurgePackages && st.Core.Requested.Source == coreSourceGitHub {
+		fmt.Fprintf(out, "  purge:    github-source:%s (AWG tool, DKMS module and cache)\n", st.Core.Requested.ID)
 	}
 }

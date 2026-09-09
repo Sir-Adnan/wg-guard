@@ -19,7 +19,15 @@ func progressUI(out io.Writer) *terminal.UI {
 }
 func progress(out io.Writer, key string, args ...any) {
 	u := progressUI(out)
-	u.Text(u.T("progress."+key, args...))
+	message := u.T("progress."+key, args...)
+	switch key {
+	case "healthy", "started", "port_free", "dns", "certificate", "nginx_challenge", "nginx":
+		u.Success(message)
+	case "persistence", "dns_pending":
+		u.Warning(message)
+	default:
+		u.Info(message)
+	}
 }
 
 // TerminalError keeps a catalog key and cause for the terminal UI.

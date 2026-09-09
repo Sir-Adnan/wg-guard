@@ -67,6 +67,7 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 	}{
 		{managerFresh, "install_cached", []string{"install_cached", "install_choose", "readiness", "help_short"}},
 		{managerInstalled, "lifecycle", []string{"lifecycle", "access", "backups", "operations", "uninstall"}},
+		{managerInstallRecovery, "cleanup_install", []string{"cleanup_install", "readiness"}},
 		{managerRecovery, "recover_now", []string{"recover_now", "lifecycle", "access", "backups", "operations"}},
 	}
 	for _, tc := range cases {
@@ -74,6 +75,34 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 		if len(menu.items) != len(tc.want) || menu.items[0] != tc.first || !reflect.DeepEqual(menu.items, tc.want) {
 			t.Fatalf("state %d menu = %+v, want %v", tc.state, menu, tc.want)
 		}
+	}
+}
+
+func TestInterruptedInitialSetupGetsOnlySafeCleanupAndDiagnostics(t *testing.T) {
+	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, Recovery: "install-incomplete", ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
+	j := &install.Journal{Schema: 1, Operation: "install", Stage: "recovery-required", After: st}
+	if got := classifyManagerView(st, j); got != managerInstallRecovery {
+		t.Fatalf("safe interrupted setup view = %v", got)
+	}
+	j.DataMayHaveChanged = true
+	if got := classifyManagerView(st, j); got != managerRecovery {
+		t.Fatalf("possibly mutated setup was offered automatic cleanup: %v", got)
+	}
+
+	var got []string
+	m := manager{
+		ui:   terminal.New(strings.NewReader("y\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		view: managerInstallRecovery,
+		run: func(_ context.Context, args []string, _ io.Reader) error {
+			got = append([]string(nil), args...)
+			return nil
+		},
+	}
+	if err := m.rootAction(context.Background(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"recover-install", "--yes"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("safe cleanup args = %v, want %v", got, want)
 	}
 }
 
@@ -179,6 +208,28 @@ func TestFreshManagerUsesCachedBuildOnlyAfterInstallSelection(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatal("fresh manager auto-started installation")
+	}
+}
+
+func TestPendingLifecycleStopsUpdateBeforeSourceCatalog(t *testing.T) {
+	calls := 0
+	m := manager{
+		ui:      terminal.New(strings.NewReader("1\n1\nq\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		catalog: panicCatalog{}, view: managerInstalled,
+		lifecycleReady: func() error {
+			calls++
+			return errors.New("install recovery is required")
+		},
+		run: func(context.Context, []string, io.Reader) error {
+			t.Fatal("update ran with a pending lifecycle operation")
+			return nil
+		},
+	}
+	if err := m.loop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("lifecycle guard calls = %d, want 1", calls)
 	}
 }
 

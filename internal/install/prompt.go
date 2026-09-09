@@ -99,12 +99,12 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	recommended, recommendationErr := ResolveExposure(*p, facts)
 	if recommendationErr == nil {
 		*p = recommended
-		q.ui.Field(q.t("recommended"), q.t("access_"+string(p.Exposure)))
+		q.ui.Success(q.t("recommended") + ": " + q.t("recommended_summary", q.t("access_"+string(p.Exposure))))
 	} else {
 		if explicitAccess {
 			return recommendationErr
 		}
-		q.ui.Text(q.t("conflict"))
+		q.ui.Warning(q.t("conflict"))
 		fallback := *p
 		fallback.Exposure = ExposurePrivate
 		fallback.Certificate = CertificateAuto
@@ -116,7 +116,9 @@ func (q *prompt) plan(p *Plan, h Host) error {
 		q.advanced = true
 	}
 	if !q.advanced {
-		q.advanced, err = q.askYesNo(q.t("advanced"), false)
+		useRecommended, askErr := q.askYesNo(q.t("use_recommended"), true)
+		err = askErr
+		q.advanced = !useRecommended
 		if err != nil {
 			return err
 		}
@@ -145,8 +147,14 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	if err := q.planTelegram(p); err != nil {
 		return err
 	}
-	if p.Mode == ModeDocker {
-		p.Image, err = q.ask(q.t("image"), p.Image)
+	if p.Mode == ModeDocker && p.Image == DefaultImage {
+		customImage, askErr := q.askYesNo(q.t("custom_image"), false)
+		if askErr != nil {
+			return askErr
+		}
+		if customImage {
+			p.Image, err = q.ask(q.t("image"), p.Image)
+		}
 	}
 	return err
 }
@@ -169,7 +177,7 @@ func (q *prompt) planAccess(p *Plan, facts ExposureFacts, explicit bool) error {
 				}
 			}
 		} else {
-			n, e := q.askChoice(q.t("access_method"), []string{q.t("keep_recommended"), q.t("private"), q.t("direct"), q.t("managed_nginx"), q.t("external_proxy")}, 1)
+			n, e := q.askChoice(q.t("access_method"), []string{q.t("use_detected", q.t("access_"+string(p.Exposure))), q.t("private"), q.t("other_access")}, 1)
 			if e != nil {
 				return e
 			}
@@ -177,11 +185,18 @@ func (q *prompt) planAccess(p *Plan, facts ExposureFacts, explicit bool) error {
 			case 2:
 				p.Exposure, p.Certificate = ExposurePrivate, ""
 			case 3:
-				p.Exposure, p.Certificate = ExposureDirect, CertificateAuto
-			case 4:
-				p.Exposure, p.Certificate = ExposureNginx, CertificateAuto
-			case 5:
-				p.Exposure, p.Certificate = ExposureExternalProxy, CertificateExternal
+				method, choiceErr := q.askChoice(q.t("other_access"), []string{q.t("direct"), q.t("managed_nginx"), q.t("external_proxy")}, 1)
+				if choiceErr != nil {
+					return choiceErr
+				}
+				switch method {
+				case 1:
+					p.Exposure, p.Certificate = ExposureDirect, CertificateAuto
+				case 2:
+					p.Exposure, p.Certificate = ExposureNginx, CertificateAuto
+				case 3:
+					p.Exposure, p.Certificate = ExposureExternalProxy, CertificateExternal
+				}
 			}
 		}
 	}
@@ -230,7 +245,7 @@ func (q *prompt) planAccess(p *Plan, facts ExposureFacts, explicit bool) error {
 		p.PublicPort = p.PanelPort
 		p.PanelPortExplicit = true
 		if err == nil && (p.Certificate == CertificateBuiltin || p.Certificate == CertificateIP) {
-			q.ui.Text(q.t("http01"))
+			q.ui.Warning(q.t("http01"))
 			p.ACMEHTTPPort, err = q.askInt(q.t("acme_port"), p.ACMEHTTPPort, 1, 65535)
 		}
 	case ExposurePrivate:
@@ -391,8 +406,12 @@ func (q *prompt) confirm(p Plan) error {
 	}
 	if q.advanced {
 		q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
-		q.ui.Field(q.t("backend_port"), strconv.Itoa(p.PanelPort))
-		if p.PublicURL() != "" {
+		if p.Exposure != ExposureDirect {
+			q.ui.Field(q.t("backend_port"), strconv.Itoa(p.PanelPort))
+		}
+		if p.Exposure == ExposureDirect {
+			q.ui.Field(q.t("public_https_port"), strconv.Itoa(p.PanelPort))
+		} else if p.PublicURL() != "" {
 			q.ui.Field(q.t("public_https_port"), strconv.Itoa(p.PublicPort))
 		}
 	}
@@ -412,14 +431,14 @@ func (q *prompt) confirm(p Plan) error {
 		q.ui.Field(q.t("dns"), dns)
 	}
 	if p.Certificate == CertificateBuiltin || p.Certificate == CertificateWebroot || p.Certificate == CertificateIP {
-		q.ui.Text(q.t("http01"))
+		q.ui.Warning(q.t("http01"))
 	}
 	if p.TelegramToken != "" {
 		q.ui.Field(q.t("backup"), q.t("backup_set", p.TelegramChat, p.TelegramTime))
 	} else if q.advanced {
 		q.ui.Text(q.t("backup_later"))
 	}
-	q.ui.Text(q.t("impact"))
+	q.ui.Info(q.t("impact"))
 	ok, err := q.askYesNo(q.t("proceed"), true)
 	if err != nil {
 		return err

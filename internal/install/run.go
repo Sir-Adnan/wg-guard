@@ -209,8 +209,17 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := j.save(h, "prepared"); err != nil {
 		return st, err
 	}
+	prerequisitesComplete := false
 	defer func() {
 		if resultErr != nil && !j.terminal() {
+			if !prerequisitesComplete && !j.DataMayHaveChanged {
+				removeErr := h.Remove(StatePath)
+				if errors.Is(removeErr, fs.ErrNotExist) {
+					removeErr = nil
+				}
+				resultErr = errors.Join(resultErr, removeErr, j.save(h, "aborted"))
+				return
+			}
 			st.Recovery = "install-incomplete"
 			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 			defer cancel()
@@ -228,6 +237,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	st.Platform = platform
 	st.Core, err = EnsurePrerequisites(ctx, journalHost{Host: h, j: j}, p, platform, bundle, o.Prerequisites, o.SkipModule, st, out)
 	if err != nil {
+		return st, err
+	}
+	prerequisitesComplete = true
+	j.PrerequisitesComplete = true
+	if err := j.save(h, "prepared"); err != nil {
 		return st, err
 	}
 	var nginxCleanup func() error

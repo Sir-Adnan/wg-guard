@@ -59,7 +59,7 @@ func BuildRuntimeImage(ctx context.Context, h Host, build distribution.Build, b 
 		return "", err
 	}
 	iid := filepath.Join(dir, "image-id")
-	args := []string{"docker", "build", "--iidfile", iid, "--label", "org.opencontainers.image.revision=" + build.Commit, "--label", "io.wg-guard.binary.sha256=" + build.SHA256, "--label", "io.wg-guard.core.bundle=" + b.ID, dir}
+	args := []string{"docker", "build", "--iidfile", iid, "--label", "org.opencontainers.image.revision=" + build.Commit, "--label", "io.wg-guard.binary.sha256=" + build.SHA256, "--label", "io.wg-guard.core.bundle=" + b.ID, "--label", "io.wg-guard.awg-tools.commit=" + b.ToolsCommit, dir}
 	if err := h.Run(ctx, args, longTimeout); err != nil {
 		return "", terminalError("install.error.image.6", err)
 	}
@@ -88,15 +88,22 @@ func hexLength(s string, n int) bool {
 }
 
 func runtimeDockerfile(b CoreBundle) string {
-	return `FROM ubuntu:24.04
+	return `FROM ubuntu:24.04 AS awg-tools-build
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates nftables iproute2 procps curl gnupg software-properties-common \
- && add-apt-repository -y ppa:amnezia/ppa \
- && apt-get update \
- && apt-get install -y --no-install-recommends amneziawg-tools=` + b.ToolsPackage + ` \
- && apt-get purge -y --auto-remove gnupg software-properties-common \
+ && apt-get install -y --no-install-recommends ca-certificates git build-essential \
  && rm -rf /var/lib/apt/lists/*
+RUN git clone --quiet --depth 1 --branch ` + b.ToolsVersion + ` --single-branch ` + b.ToolsRepository + ` /src/amneziawg-tools \
+ && test "$(git -C /src/amneziawg-tools rev-parse HEAD)" = "` + b.ToolsCommit + `" \
+ && git -C /src/amneziawg-tools diff --quiet ` + b.ToolsCommit + ` -- \
+ && make -C /src/amneziawg-tools/src
+
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates nftables iproute2 procps curl \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
 COPY wg-guard /usr/local/bin/wg-guard
 ENV WGG_IN_CONTAINER=1
 ENTRYPOINT ["/usr/local/bin/wg-guard"]

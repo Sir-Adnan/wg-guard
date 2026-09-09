@@ -82,6 +82,13 @@ func TestCertificateFailurePersistsRecoverablePendingState(t *testing.T) {
 	if loadErr != nil || saved == nil || st == nil || saved.TLSReadiness != "pending" {
 		t.Fatalf("lost recoverable pending state: %v %v", saved, loadErr)
 	}
+	j, journalErr := LoadJournal(h)
+	if journalErr != nil || j == nil || !j.PrerequisitesComplete {
+		t.Fatalf("certificate failure lost the completed-prerequisite boundary: %+v %v", j, journalErr)
+	}
+	if err := CleanupIncompleteInstall(context.Background(), h, true, io.Discard); err == nil {
+		t.Fatal("certificate failure was incorrectly treated as safe initial cleanup")
+	}
 }
 
 func TestCertificateCancellationIsBounded(t *testing.T) {
