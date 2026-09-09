@@ -24,24 +24,34 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -X github.com/Sir-Adnan/wg-guard/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o /out/wg-guard ./cmd/wg-guard
 
+FROM ubuntu:24.04 AS awg-tools-build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git build-essential \
+    && rm -rf /var/lib/apt/lists/*
+RUN git -c advice.detachedHead=false clone --quiet --depth 1 \
+        --branch v3.1.20260812 --single-branch \
+        https://github.com/amnezia-vpn/amneziawg-tools.git /src/amneziawg-tools \
+    && test "$(git -C /src/amneziawg-tools rev-parse HEAD)" = "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843" \
+    && git -C /src/amneziawg-tools diff --quiet ee0f0a9aa34ff0a0da4b3433b9512781cfe02843 -- \
+    && make -C /src/amneziawg-tools/src
+
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# amneziawg-tools comes from ppa:amnezia/ppa (pinned upstream; see
-# docs/integrations/amneziawg.md). software-properties-common is used to add
-# the PPA with its signing key and purged right after to keep the image lean.
+# Runtime tooling is built from the exact reviewed upstream tag and commit.
+# The host kernel module remains installer-managed and is not loaded here.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates nftables iproute2 procps curl \
-        gnupg software-properties-common \
-    && add-apt-repository -y ppa:amnezia/ppa \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends amneziawg-tools=1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1 \
-    && apt-get purge -y --auto-remove gnupg software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /out/wg-guard /usr/local/bin/wg-guard
+COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
+
+LABEL io.wg-guard.awg-tools.commit="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
 
 # Host networking is used at runtime (compose sets network_mode: host), so
 # EXPOSE is documentation only.

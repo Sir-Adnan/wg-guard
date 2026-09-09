@@ -100,6 +100,23 @@ func TestLegacyBundleRuntimeUsesTheSamePinnedToolsSource(t *testing.T) {
 	}
 }
 
+func TestRepositoryDockerfileUsesReviewedSourceTools(t *testing.T) {
+	data, err := os.ReadFile("../../Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(data)
+	b, _ := SelectCore("recommended")
+	for _, required := range []string{b.ToolsRepository, b.ToolsVersion, b.ToolsCommit, "/usr/local/bin/awg"} {
+		if !strings.Contains(dockerfile, required) {
+			t.Fatalf("repository Dockerfile omitted reviewed source identity %q", required)
+		}
+	}
+	if strings.Contains(dockerfile, "ppa:amnezia/ppa") || strings.Contains(dockerfile, "amneziawg-tools=") {
+		t.Fatal("repository Dockerfile still depends on mutable PPA package retention")
+	}
+}
+
 func TestRuntimeImageFailureNeverReturnsMutableFallback(t *testing.T) {
 	parent := t.TempDir()
 	binary := filepath.Join(parent, "candidate")
