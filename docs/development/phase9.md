@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.5 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **active; milestone 9.6 in progress**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -37,8 +37,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - [x] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces.
 - [x] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
 - [x] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
-- [ ] 9.5 — Install central structured-log redaction and component classification. **Active.**
-- [ ] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
+- [x] 9.5 — Install central structured-log redaction and component classification.
+- [ ] 9.6 — Implement the mode-aware `wg-guard logs` workflow. **Active.**
 - [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
 - [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence.
 
@@ -76,6 +76,13 @@ SVG sparklines. Unit/i18n tests cover healthy/degraded/unavailable/stale states,
 copy-only reads and topology secrecy. Asset budgets pass; manual 1440×900 and 390×844 browser
 smoke passed in fa/RTL and en/LTR with no horizontal overflow. This is local fake-backend browser
 evidence, not the milestone 9.8 real-VPS traffic gate.
+
+Milestone 9.5 adds one recursive, bounded `slog.Handler` safety boundary before every production
+text/JSON sink and classifies composition logs with the closed component set used by the planned
+CLI filter. Text and JSON secret corpora cover messages, errors, groups, maps, URL userinfo/query
+credentials and pre-bound attributes while preserving safe operational metadata. Handler
+delegation/metadata/error semantics, representative component output and WSL2 race tests pass.
+Real Docker/native failure-log scanning remains milestone 9.8 evidence.
 
 ## Documentation
 

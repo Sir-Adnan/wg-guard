@@ -38,6 +38,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
@@ -91,6 +92,7 @@ type Options struct {
 type Node struct {
 	cfg           *config.Config
 	log           *slog.Logger
+	logs          nodeLoggers
 	db            *database.DB
 	dataLease     *backup.DataLease
 	ring          *secrets.KeyRing
@@ -110,6 +112,33 @@ type Node struct {
 	sessions      *auth.SessionStore
 
 	booted atomic.Bool
+}
+
+type nodeLoggers struct {
+	serve      *slog.Logger
+	http       *slog.Logger
+	scheduler  *slog.Logger
+	accounting *slog.Logger
+	webhook    *slog.Logger
+	backup     *slog.Logger
+	awg        *slog.Logger
+	network    *slog.Logger
+}
+
+func newNodeLoggers(base *slog.Logger) nodeLoggers {
+	if base == nil {
+		base = slog.Default()
+	}
+	return nodeLoggers{
+		serve:      logsafe.WithComponent(base, logsafe.ComponentServe),
+		http:       logsafe.WithComponent(base, logsafe.ComponentHTTP),
+		scheduler:  logsafe.WithComponent(base, logsafe.ComponentScheduler),
+		accounting: logsafe.WithComponent(base, logsafe.ComponentAccounting),
+		webhook:    logsafe.WithComponent(base, logsafe.ComponentWebhook),
+		backup:     logsafe.WithComponent(base, logsafe.ComponentBackup),
+		awg:        logsafe.WithComponent(base, logsafe.ComponentAWG),
+		network:    logsafe.WithComponent(base, logsafe.ComponentNetwork),
+	}
 }
 
 // serializedReconciler serializes reconcile passes: the accounting cycle,
@@ -137,10 +166,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		return nil, fmt.Errorf("serve: config is required")
 	}
 	cfg := o.Config
-	log := o.Log
-	if log == nil {
-		log = slog.Default()
-	}
+	logs := newNodeLoggers(o.Log)
+	log := logs.serve
 	log.Info("starting wg-guard", "version", version.Version, "listen", cfg.HTTPListen,
 		"tls_mode", string(cfg.TLS.Mode))
 
@@ -155,9 +182,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 
 	// A staged restore (panel wizard) is consumed BEFORE the database is
 	// opened — never against a live WAL handle. Any restore failure aborts boot.
-	n := &Node{cfg: cfg, log: log}
+	n := &Node{cfg: cfg, log: log, logs: logs}
 	n.backup = &backup.Service{
-		Cfg: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: log,
+		Cfg: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: logs.backup,
 	}
 	pendingRestoreArchive, lease, err := n.backup.PrepareOpen()
 	if err != nil {
@@ -191,9 +218,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 			Deliver:   false,
 			Retention: preMigrationRetention,
 		}); err != nil {
-			log.Warn("pre-migration backup failed; migrating anyway", "err", err)
+			logs.backup.Warn("pre-migration backup failed; migrating anyway", "err", err)
 		} else {
-			log.Info("pre-migration backup created", "archive", res.Name)
+			logs.backup.Info("pre-migration backup created", "archive", res.Name)
 		}
 	}
 
@@ -250,7 +277,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		}
 		toolsVersion = res.ToolsVersion
 		for _, f := range res.Findings {
-			log.Warn("boot finding", "tool", f.Tool, "detail", f.Detail, "remedy", f.Remedy)
+			logs.network.Warn("boot finding", "tool", f.Tool, "detail", f.Detail, "remedy", f.Remedy)
 		}
 	}
 
@@ -277,7 +304,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.accounting.Reconciler = rec
 	n.accounting.Recorder = recorder
 
-	n.webhookWorker = webhook.NewWorker(db, n.ring, n.reg, log)
+	n.webhookWorker = webhook.NewWorker(db, n.ring, n.reg, logs.webhook)
 	n.sessions = auth.NewSessionStore(db, n.sessionIdleTTL(ctx), n.sessionAbsoluteTTL(ctx))
 	admins := admin.NewService(db, n.sessions)
 
@@ -317,7 +344,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Webhooks:     webhooksSvc,
 		Metrics:      n.metrics,
 		Telemetry:    n.telemetry,
-		Log:          log,
+		Log:          logs.http,
 		Reconciler:   rec,
 		NodeID:       nodeID,
 		ToolsVersion: toolsVersion,
@@ -340,7 +367,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Backup:       n.backup,
 		Tokens:       tokens,
 		Webhooks:     webhooksSvc,
-		Log:          log,
+		Log:          logs.http,
 		Reconciler:   rec,
 		Telemetry:    n.telemetry,
 		Version:      version.Version,
@@ -379,13 +406,13 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    64 << 10,
-		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
+		ErrorLog:          slog.NewLogLogger(logs.http.Handler(), slog.LevelWarn),
 	}
 
 	// Scheduler: one goroutine for all periodic work. Jobs are registered
 	// before Start so nothing can fire before the node is up; intervals are
 	// re-read from settings on every run (live-apply without restart).
-	n.sched = scheduler.New(log)
+	n.sched = scheduler.New(logs.scheduler)
 	n.sched.Every("accounting", n.accountingInterval(ctx), n.jobAccounting)
 	n.sched.Every("samples", n.sampleFlushInterval(ctx), n.jobSamples)
 	n.sched.Every("webhooks", webhookPassInterval, n.jobWebhooks)
@@ -461,10 +488,10 @@ func (n *Node) listen() (net.Listener, error) {
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
 			IdleTimeout:       120 * time.Second,
-			ErrorLog:          slog.NewLogLogger(n.log.Handler(), slog.LevelWarn),
+			ErrorLog:          slog.NewLogLogger(n.logs.http.Handler(), slog.LevelWarn),
 		}
 		go func() { _ = n.acmeServer.Serve(challengeLn) }()
-		n.log.Info("acme enabled",
+		n.logs.network.Info("acme enabled",
 			"domain", n.cfg.TLS.Domain,
 			"challenge_port", n.cfg.TLS.ACMEHTTPPort,
 			"cache_dir", filepath.Join(n.cfg.DataDir, "acme"))
@@ -615,7 +642,7 @@ func (n *Node) Shutdown(ctx context.Context) error {
 func (n *Node) jobAccounting(ctx context.Context) error {
 	if rep, err := n.accounting.RunCycle(ctx); err != nil {
 		n.metrics.SetAccountingError(time.Now())
-		n.log.Warn("accounting cycle failed", "err", err)
+		n.logs.accounting.Warn("accounting cycle failed", "err", err)
 	} else if rep != nil {
 		at := time.Now()
 		n.metrics.SetLastCycle(rep.Duration, at, rep.Deltas)
@@ -623,23 +650,23 @@ func (n *Node) jobAccounting(ctx context.Context) error {
 			n.metrics.SetAccountingError(at)
 		}
 		if rep.Deltas > 0 || rep.Activated > 0 || rep.QuotaTripped > 0 || len(rep.Errors) > 0 {
-			n.log.Debug("accounting cycle",
+			n.logs.accounting.Debug("accounting cycle",
 				"devices", rep.Deltas, "rx", rep.RX, "tx", rep.TX,
 				"activated", rep.Activated, "quota_tripped", rep.QuotaTripped,
 				"duration", rep.Duration.Round(time.Millisecond))
 		}
 		for _, e := range rep.Errors {
-			n.log.Warn("accounting cycle interface error", "interface", e.Interface, "err", e.Err)
+			n.logs.awg.Warn("accounting cycle interface error", "interface", e.Interface, "err", e.Err)
 		}
 		if rep.ShaperError != "" {
-			n.log.Warn("shaper refresh failed", "err", rep.ShaperError)
+			n.logs.network.Warn("shaper refresh failed", "err", rep.ShaperError)
 		}
 	}
 	if rep, err := n.accounting.EnforceExpiry(ctx); err != nil {
 		n.metrics.SetAccountingError(time.Now())
-		n.log.Warn("expiry pass failed", "err", err)
+		n.logs.accounting.Warn("expiry pass failed", "err", err)
 	} else if rep != nil && rep.Expired > 0 {
-		n.log.Info("expiry pass", "expired", rep.Expired)
+		n.logs.accounting.Info("expiry pass", "expired", rep.Expired)
 	}
 	n.sched.SetInterval("accounting", n.accountingInterval(ctx))
 	return nil
@@ -665,7 +692,7 @@ func (n *Node) jobSamples(ctx context.Context) error {
 		return err
 	}
 	if flushed > 0 {
-		n.log.Debug("samples flushed", "rows", flushed)
+		n.logs.accounting.Debug("samples flushed", "rows", flushed)
 	}
 	n.sched.SetInterval("samples", n.sampleFlushInterval(ctx))
 	return nil
@@ -679,7 +706,7 @@ func (n *Node) jobWebhooks(ctx context.Context) error {
 		return err
 	}
 	if rep.Failed > 0 || rep.Dead > 0 {
-		n.log.Warn("webhook delivery",
+		n.logs.webhook.Warn("webhook delivery",
 			"attempted", rep.Attempted, "delivered", rep.Delivered,
 			"failed", rep.Failed, "dead", rep.Dead)
 	}

@@ -5,7 +5,7 @@ this document owns cross-phase requirement coverage, release blockers, audit fin
 verification state. Phase execution details live in the corresponding phase document.
 
 Last updated: 2026-09-10. Phases 8, 8.1 and **8.2 — Secure access & persistent manager** are
-complete. **Phase 9 — Operational observability** is active at milestone 9.5.
+complete. **Phase 9 — Operational observability** is active at milestone 9.6.
 
 ## Program status
 
@@ -14,7 +14,7 @@ complete. **Phase 9 — Operational observability** is active at milestone 9.5.
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
-| 9 — Operational observability | active; milestone 9.5 | Useful live metrics/logs with bounded cost and retention |
+| 9 — Operational observability | active; milestone 9.6 | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |

@@ -16,6 +16,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 )
 
 // runOwnerBootstrap is host-local even for Docker: the installer uses the same
@@ -83,7 +84,11 @@ func loadOwnerService(path string) (*admin.Service, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := db.Migrate(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+	quiet := logsafe.WithComponent(
+		slog.New(logsafe.New(slog.NewTextHandler(io.Discard, nil))),
+		logsafe.ComponentServe,
+	)
+	if err := db.Migrate(context.Background(), quiet); err != nil {
 		db.Close()
 		return nil, nil, err
 	}

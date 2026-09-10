@@ -10,6 +10,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
@@ -51,7 +52,10 @@ func loadCLIEnvOwnership(configPath string, exclusive bool) (*cliEnv, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	quiet := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	quiet := logsafe.WithComponent(
+		slog.New(logsafe.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
+		logsafe.ComponentBackup,
+	)
 	if err := db.Migrate(context.Background(), quiet); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)

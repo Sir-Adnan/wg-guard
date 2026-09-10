@@ -51,6 +51,21 @@ structured exit errors): `awg` config files are written to 0600 temp files that 
 the duration of one CLI call; command stdout (which can contain key material, e.g. `awg show
 dump`) is parsed, never logged, and never embedded in errors.
 
+## Operational logging boundary
+
+Every production text/JSON `slog.Handler` is wrapped by `internal/logsafe` before output. The
+wrapper recursively sanitizes messages, errors, groups, maps, URLs and pre-bound attributes;
+recognized credentials, authorization/cookie values, WG-Guard tokens, subscription capabilities,
+private/PSK/HPK directives, and webhook/Telegram/backup secrets become `[REDACTED]`. Useful fixed
+metadata such as request/token IDs, counts and safe paths remains available. Collection traversal
+and recursion are bounded.
+
+Composition assigns one closed component value (`serve`, `http`, `scheduler`, `accounting`,
+`webhook`, `backup`, `awg`, or `network`) for later CLI filtering. This boundary is defense in
+depth: callers must still avoid logging raw configs, subprocess output, request bodies, headers,
+or secret-bearing URLs. Text and JSON secret-corpus tests plus race tests enforce the handler
+contract; real failure-log disclosure checks remain part of the Phase 9 VPS gate.
+
 ## Panel hardening
 
 - CSRF token on all mutating form/HTMX requests; security headers (CSP, X-Content-Type-Options,

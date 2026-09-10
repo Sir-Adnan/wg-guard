@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/serve"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
@@ -61,6 +62,7 @@ func runServe(args []string) error {
 	if err != nil {
 		return err
 	}
+	processLog := logsafe.WithComponent(log, logsafe.ComponentServe)
 
 	opts := serve.Options{Config: cfg, ConfigPath: configPath, Log: log}
 	if devBackend {
@@ -75,13 +77,13 @@ func runServe(args []string) error {
 		return err
 	}
 	<-ctx.Done()
-	log.Info("shutting down")
+	processLog.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
 	defer cancel()
 	if err := node.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown: %w", err)
 	}
-	log.Info("stopped")
+	processLog.Info("stopped")
 	return nil
 }
 
@@ -102,5 +104,5 @@ func buildLogger(cfg *config.Config) (*slog.Logger, error) {
 	} else {
 		h = slog.NewTextHandler(os.Stderr, opts)
 	}
-	return slog.New(h), nil
+	return slog.New(logsafe.New(h)), nil
 }

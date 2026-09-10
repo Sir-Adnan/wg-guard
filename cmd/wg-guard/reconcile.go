@@ -13,6 +13,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
@@ -53,7 +54,10 @@ func runReconcile(args []string) error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer db.Close()
-	quiet := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	quiet := logsafe.WithComponent(
+		slog.New(logsafe.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
+		logsafe.ComponentAWG,
+	)
 	if err := db.Migrate(context.Background(), quiet); err != nil {
 		return err
 	}

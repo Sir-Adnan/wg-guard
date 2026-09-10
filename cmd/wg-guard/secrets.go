@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
@@ -63,9 +61,7 @@ func runSecrets(args []string) error {
 		iface.NewService(env.DB, env.Reg, env.Ring),
 		env.Reg,
 	}
-	quiet := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	if _, err := secrets.Rotate(env.Cfg.MasterKeyFile, carriers...); err != nil {
-		_ = quiet
 		return err
 	}
 	fmt.Println("master key rotated: all stored secrets were re-encrypted; previous key removed")

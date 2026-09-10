@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -29,6 +30,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
@@ -36,6 +38,22 @@ import (
 // testLog keeps stderr clean; failures surface through assertions.
 func quietLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+func TestNodeLoggersClassifyRepresentativeFailures(t *testing.T) {
+	var out bytes.Buffer
+	logs := newNodeLoggers(slog.New(logsafe.New(slog.NewTextHandler(&out, nil))))
+	for _, logger := range []*slog.Logger{
+		logs.serve, logs.http, logs.scheduler, logs.accounting,
+		logs.webhook, logs.backup, logs.awg, logs.network,
+	} {
+		logger.Warn("representative failure", "err", "synthetic")
+	}
+	for _, component := range logsafe.Components() {
+		if !strings.Contains(out.String(), "component="+string(component)) {
+			t.Errorf("component %q missing from representative logs", component)
+		}
+	}
 }
 
 func testConfig(t *testing.T, listen string) *config.Config {
