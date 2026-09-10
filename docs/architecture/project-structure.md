@@ -115,3 +115,12 @@ docs/                    this documentation tree
   comments explain why/invariants/security constraints, not the next line.
 - **Tests** live next to code; integration tests carry the `integration` build tag; goldens for
   AWG parsing come from [../integrations/fixtures/](../integrations/fixtures/).
+
+## Web presentation boundary (Phase 10)
+
+`internal/web` keeps typed view models and calls existing services. Shared `partial_shell.html`
+owns head/preferences/feedback; app/auth/sub layouts compose it. `web/static/js/ui.js` owns shared
+navigation/overlay/theme/request lifecycle; `app.js` imports its cache-busted URL for page-specific
+forms. CSS tokens/primitives are shared, with page migrations tracked in `phase10.md`. No new
+frontend runtime or REST request path is introduced. Settings batch writes reuse registry
+validation/encryption and commit all submitted overrides in one SQLite transaction.

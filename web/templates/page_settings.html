@@ -51,7 +51,7 @@
       <div class="field {{if eq .Data.Field "default_quota_gb"}}field--invalid{{end}}">
         <label for="s-def-quota">{{.T "settings.default_quota"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-def-quota" name="default_quota_gb" type="number" min="0" step="1" value="{{.Data.DefaultQuotaGB}}">
+          <input class="input" id="s-def-quota" name="default_quota_gb" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="0" step="1"{{end}} value="{{.Data.DefaultQuotaGB}}">
           <span class="unit-static">GB</span>
         </div>
         <span class="hint">{{.T "settings.default_quota_hint"}}</span>
@@ -59,7 +59,7 @@
       <div class="field {{if eq .Data.Field "default_dur_months"}}field--invalid{{end}}">
         <label for="s-def-dur">{{.T "settings.default_dur"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-def-dur" name="default_dur_months" type="number" min="0" step="1" value="{{.Data.DefaultDurMonths}}">
+          <input class="input" id="s-def-dur" name="default_dur_months" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="0" step="1"{{end}} value="{{.Data.DefaultDurMonths}}">
           <span class="unit-static">{{.T "duration.months"}}</span>
         </div>
         <span class="hint">{{.T "settings.default_dur_hint"}}</span>
@@ -68,7 +68,7 @@
     <div class="field-row">
       <div class="field {{if eq .Data.Field "default_device_lim"}}field--invalid{{end}}">
         <label for="s-def-dev">{{.T "settings.default_device"}}</label>
-        <input class="input unit-group--narrow" id="s-def-dev" name="default_device_lim" type="number" min="1" max="100" step="1" value="{{.Data.DefaultDeviceLim}}">
+        <input class="input unit-group--narrow" id="s-def-dev" name="default_device_lim" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1" max="100" step="1"{{end}} value="{{.Data.DefaultDeviceLim}}">
         <span class="hint">{{.T "settings.default_device_hint"}}</span>
       </div>
       <div class="field {{if eq .Data.Field "default_iface_id"}}field--invalid{{end}}">
@@ -87,7 +87,7 @@
     <div class="field-row">
       <div class="field {{if eq .Data.Field "mtu"}}field--invalid{{end}}">
         <label for="s-mtu">{{.T "settings.mtu"}}</label>
-        <input class="input unit-group--narrow" id="s-mtu" name="mtu" type="number" min="576" max="65535" step="1" value="{{.Data.MTU}}">
+        <input class="input unit-group--narrow" id="s-mtu" name="mtu" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="576" max="65535" step="1"{{end}} value="{{.Data.MTU}}">
       </div>
       <div class="field {{if eq .Data.Field "keepalive"}}field--invalid{{end}}">
         <label for="s-keepalive">{{.T "settings.keepalive"}}</label>
@@ -111,11 +111,11 @@
     <div class="field-row">
       <div class="field {{if eq .Data.Field "port_min"}}field--invalid{{end}}">
         <label for="s-port-min">{{.T "settings.port_min"}}</label>
-        <input class="input" id="s-port-min" name="port_min" type="number" min="1024" max="65535" value="{{.Data.PortMin}}">
+        <input class="input" id="s-port-min" name="port_min" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1024" max="65535"{{end}} value="{{.Data.PortMin}}">
       </div>
       <div class="field {{if eq .Data.Field "port_max"}}field--invalid{{end}}">
         <label for="s-port-max">{{.T "settings.port_max"}}</label>
-        <input class="input" id="s-port-max" name="port_max" type="number" min="1024" max="65535" value="{{.Data.PortMax}}">
+        <input class="input" id="s-port-max" name="port_max" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1024" max="65535"{{end}} value="{{.Data.PortMax}}">
       </div>
     </div>
     <div class="field-row">
@@ -128,7 +128,7 @@
     <div class="field-row">
       <div class="field {{if eq .Data.Field "iface_max"}}field--invalid{{end}}">
         <label for="s-iface-max">{{.T "settings.iface_max"}}</label>
-        <input class="input unit-group--narrow" id="s-iface-max" name="iface_max" type="number" min="1" max="64" value="{{.Data.IfaceMax}}">
+        <input class="input unit-group--narrow" id="s-iface-max" name="iface_max" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1" max="64"{{end}} value="{{.Data.IfaceMax}}">
       </div>
       <div class="field {{if eq .Data.Field "drift_policy"}}field--invalid{{end}}">
         <label for="s-drift">{{.T "settings.drift_policy"}}</label>
@@ -146,14 +146,14 @@
       <div class="field {{if eq .Data.Field "acct_interval"}}field--invalid{{end}}">
         <label for="s-acct">{{.T "settings.acct_interval"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-acct" name="acct_interval" type="number" min="15" max="600" value="{{.Data.AcctInterval}}">
+          <input class="input" id="s-acct" name="acct_interval" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="15" max="600"{{end}} value="{{.Data.AcctInterval}}">
           <span class="unit-static">{{.T "duration.seconds_short"}}</span>
         </div>
       </div>
       <div class="field {{if eq .Data.Field "online_window"}}field--invalid{{end}}">
         <label for="s-online">{{.T "settings.online_window"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-online" name="online_window" type="number" min="30" max="3600" value="{{.Data.OnlineWindow}}">
+          <input class="input" id="s-online" name="online_window" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="30" max="3600"{{end}} value="{{.Data.OnlineWindow}}">
           <span class="unit-static">{{.T "duration.seconds_short"}}</span>
         </div>
       </div>
@@ -162,14 +162,14 @@
       <div class="field {{if eq .Data.Field "sample_flush"}}field--invalid{{end}}">
         <label for="s-flush">{{.T "settings.sample_flush"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-flush" name="sample_flush" type="number" min="60" max="3600" value="{{.Data.SampleFlush}}">
+          <input class="input" id="s-flush" name="sample_flush" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="60" max="3600"{{end}} value="{{.Data.SampleFlush}}">
           <span class="unit-static">{{.T "duration.seconds_short"}}</span>
         </div>
       </div>
       <div class="field {{if eq .Data.Field "sample_retention"}}field--invalid{{end}}">
         <label for="s-sample-ret">{{.T "settings.sample_retention"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-sample-ret" name="sample_retention" type="number" min="24" max="48" value="{{.Data.SampleRetention}}">
+          <input class="input" id="s-sample-ret" name="sample_retention" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="24" max="48"{{end}} value="{{.Data.SampleRetention}}">
           <span class="unit-static">{{.T "duration.hours"}}</span>
         </div>
       </div>
@@ -178,14 +178,14 @@
       <div class="field {{if eq .Data.Field "rollup_hourly"}}field--invalid{{end}}">
         <label for="s-roll-h">{{.T "settings.rollup_hourly"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-roll-h" name="rollup_hourly" type="number" min="7" max="90" value="{{.Data.RollupHourlyDays}}">
+          <input class="input" id="s-roll-h" name="rollup_hourly" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="7" max="90"{{end}} value="{{.Data.RollupHourlyDays}}">
           <span class="unit-static">{{.T "duration.days"}}</span>
         </div>
       </div>
       <div class="field {{if eq .Data.Field "rollup_daily"}}field--invalid{{end}}">
         <label for="s-roll-d">{{.T "settings.rollup_daily"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-roll-d" name="rollup_daily" type="number" min="30" max="730" value="{{.Data.RollupDailyDays}}">
+          <input class="input" id="s-roll-d" name="rollup_daily" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="30" max="730"{{end}} value="{{.Data.RollupDailyDays}}">
           <span class="unit-static">{{.T "duration.days"}}</span>
         </div>
       </div>
@@ -197,12 +197,12 @@
     <div class="field-row">
       <div class="field {{if eq .Data.Field "rate_limit"}}field--invalid{{end}}">
         <label for="s-rate">{{.T "settings.rate_limit"}}</label>
-        <input class="input unit-group--narrow" id="s-rate" name="rate_limit" type="number" min="0" max="100000" value="{{.Data.RateLimit}}">
+        <input class="input unit-group--narrow" id="s-rate" name="rate_limit" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="0" max="100000"{{end}} value="{{.Data.RateLimit}}">
         <span class="hint">{{.T "settings.rate_limit_hint"}}</span>
       </div>
       <div class="field {{if eq .Data.Field "webhook_max"}}field--invalid{{end}}">
         <label for="s-webhook-max">{{.T "settings.webhook_max"}}</label>
-        <input class="input unit-group--narrow" id="s-webhook-max" name="webhook_max" type="number" min="1" max="50" value="{{.Data.WebhookMax}}">
+        <input class="input unit-group--narrow" id="s-webhook-max" name="webhook_max" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1" max="50"{{end}} value="{{.Data.WebhookMax}}">
         <span class="hint">{{.T "settings.webhook_max_hint"}}</span>
       </div>
     </div>
@@ -210,14 +210,14 @@
       <div class="field {{if eq .Data.Field "session_idle"}}field--invalid{{end}}">
         <label for="s-sess-idle">{{.T "settings.session_idle"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-sess-idle" name="session_idle" type="number" min="1" max="168" value="{{.Data.SessionIdle}}">
+          <input class="input" id="s-sess-idle" name="session_idle" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1" max="168"{{end}} value="{{.Data.SessionIdle}}">
           <span class="unit-static">{{.T "duration.hours"}}</span>
         </div>
       </div>
       <div class="field {{if eq .Data.Field "session_abs"}}field--invalid{{end}}">
         <label for="s-sess-abs">{{.T "settings.session_abs"}}</label>
         <div class="unit-group unit-group--narrow">
-          <input class="input" id="s-sess-abs" name="session_abs" type="number" min="1" max="720" value="{{.Data.SessionAbs}}">
+          <input class="input" id="s-sess-abs" name="session_abs" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1" max="720"{{end}} value="{{.Data.SessionAbs}}">
           <span class="unit-static">{{.T "duration.hours"}}</span>
         </div>
       </div>
@@ -256,7 +256,7 @@
     <div class="field-row">
       <div class="field {{if eq .Data.Field "retention"}}field--invalid{{end}}">
         <label for="s-retention">{{.T "settings.retention"}}</label>
-        <input class="input unit-group--narrow" id="s-retention" name="retention" type="number" min="1" max="365" value="{{.Data.Retention}}">
+        <input class="input unit-group--narrow" id="s-retention" name="retention" {{if .Data.Error}}type="text" inputmode="numeric"{{else}}type="number" min="1" max="365"{{end}} value="{{.Data.Retention}}">
         <span class="hint">{{.T "settings.retention_hint"}}</span>
       </div>
       <div class="field {{if eq .Data.Field "telegram_chat"}}field--invalid{{end}}">

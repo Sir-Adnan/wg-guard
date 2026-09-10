@@ -51,5 +51,5 @@ make tidy         # go mod tidy
 
 Hand-written CSS + vanilla ES modules; HTMX and the Lucide sprite are vendored prebuilt files
 under `web/static/` with licenses noted in [../../THIRD_PARTY.md](../../THIRD_PARTY.md).
-Vazirmatn subsets are pre-generated (unicode-range split) and committed. Nothing is compiled at
+Vazirmatn Regular/SemiBold WOFF2 assets are pre-generated and committed. Nothing is compiled at
 install time on the server.

@@ -4,6 +4,8 @@ package i18n
 // catalog_en.go exactly (parity_test.go). Numbers inside values stay Latin
 // (data policy — see i18n.go); Persian prose wraps them RTL.
 var catalogFA = map[string]string{
+	"common.copy_failed":   "کپی در دسترس نیست. مقدار را انتخاب و به‌صورت دستی کپی کنید.",
+	"common.notifications": "اعلان‌ها",
 	// --- app ---
 	"app.name":    "وی‌گارد",
 	"app.tagline": "پنل مدیریت نود VPN",

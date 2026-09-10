@@ -19,11 +19,20 @@ counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3
 Docker doctor inspection is also mode-aware: AWG version/state comes from the runtime container,
 host network-policy checks remain local, and runtime errors are not mislabeled as missing links.
 
-## Phase 10 — Product UI/UX redesign (active, milestone 10.0)
+## Phase 10 — Product UI/UX redesign (active, milestone 10.1)
 
-Phase 10 remains at its pre-implementation inventory/design boundary. No visual migration is yet
-implemented or verified. It resumed after Phase 8.3 closed the data-plane release blocker. See
-[phase10.md](phase10.md).
+10.0 is complete: the full tracked prompt maps to milestones/routes/states, and UI/Settings/QA
+contracts are adopted. Atomic Settings saves and safe input redisplay are implemented with
+SQLite failure/rollback, targeted web/settings and WSL race coverage; browser checks confirm
+multiple malformed numeric inputs survive. No public API contract changed.
+
+10.1 shared foundations are implemented: tokens, shell/navigation, app/auth/public preferences,
+feedback/error foundation, accessible drawer/menu/dialog and submit lifecycle. Web/i18n and local
+Chrome representative fa/en × light/dark at 390/1440 plus 320 shell checks pass; asset budgets pass.
+WSL build/full unit/vet and scoped review also passed. This is foundation verification,
+not complete-panel visual migration. Full browser/device/
+viewport/state and TLS/VPS acceptance remain 10.7; pages migrate in 10.2–10.5. See
+[phase10.md](phase10.md) for scope and evidence.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 
@@ -481,7 +490,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 8.3 — Data-plane forwarding integrity | complete; production verified on Ubuntu 24.04.4 amd64 Docker | Runtime NAT/firewall reconciliation, scoped Docker coexistence, fail-closed diagnostics, public egress and owned cleanup |
-| 10 — Product UI/UX redesign | active; milestone 10.0 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
+| 10 — Product UI/UX redesign | active; milestone 10.1 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 

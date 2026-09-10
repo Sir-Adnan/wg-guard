@@ -1,14 +1,9 @@
 {{define "sub"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}">
+<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
+{{template "document-head" .}}
 <meta name="robots" content="noindex, nofollow">
 <title>{{.T "sub.title"}} · {{.T "app.name"}}</title>
-<link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
-<link rel="stylesheet" href="{{.A "/css/app.css"}}">
 </head>
 <body class="sub-body">
 <main class="sub-shell">
@@ -16,9 +11,9 @@
 <footer class="sub-foot">
   <span>{{.T "app.name"}}</span>
   <span class="spacer"></span>
-  {{$q := ""}}{{if eq .Data.Lang "en"}}{{$q = "?lang=fa"}}{{else}}{{$q = "?lang=en"}}{{end}}
-  <a class="sub-lang" href="{{$q}}" rel="nofollow">{{if eq .Data.Lang "en"}}فارسی{{else}}English{{end}}</a>
+  {{template "public-preferences" .}}
 </footer>
 </main>
+{{template "feedback-host" .}}
 </body>
 </html>{{end}}

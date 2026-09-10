@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -91,6 +92,21 @@ func TestSetRawValidation(t *testing.T) {
 	// write (1280) is still in effect.
 	if mtu, _ := reg.GetInt(ctx, "network.mtu"); mtu != 1280 {
 		t.Fatalf("invalid write leaked: mtu=%d", mtu)
+	}
+}
+
+func TestValidateAcceptsTypedStringListsWithoutPersisting(t *testing.T) {
+	reg, _ := newRegistry(t)
+	ctx := context.Background()
+	if err := reg.Validate("users.quota_presets_gb", []string{"10", "25"}); err != nil {
+		t.Fatalf("valid list: %v", err)
+	}
+	if err := reg.Validate("users.quota_presets_gb", []string{"10", "invalid"}); domain.CodeOf(err) != domain.CodeSettingInvalid {
+		t.Fatalf("invalid list: want SETTING_INVALID, got %v", err)
+	}
+	got, err := reg.GetStringList(ctx, "users.quota_presets_gb")
+	if err != nil || len(got) == 0 || got[0] != "20" {
+		t.Fatalf("Validate persisted a value: %v, %v", got, err)
 	}
 }
 
@@ -219,6 +235,99 @@ func TestCacheInvalidationAndConcurrency(t *testing.T) {
 	}
 	if n, err := reg.GetInt(ctx, "accounting.interval_seconds"); err != nil || n < 15 || n > 24 {
 		t.Fatalf("final value out of written range: %d %v", n, err)
+	}
+}
+
+func TestSetBatchCommitsAllValuesAndInvalidatesCache(t *testing.T) {
+	reg, db := newRegistry(t)
+	ctx := context.Background()
+	if _, err := reg.GetString(ctx, "node.id"); err != nil { // prime the cache
+		t.Fatal(err)
+	}
+	if err := reg.SetBatch(ctx, []Update{
+		{Key: "node.id", Value: "batch-node"},
+		{Key: "network.mtu", Value: 1280},
+		{Key: "backup.password", Value: "strong-password"},
+	}); err != nil {
+		t.Fatalf("SetBatch: %v", err)
+	}
+	if got, _ := reg.GetString(ctx, "node.id"); got != "batch-node" {
+		t.Fatalf("node id = %q", got)
+	}
+	if got, _ := reg.GetInt(ctx, "network.mtu"); got != 1280 {
+		t.Fatalf("mtu = %d", got)
+	}
+	if got, _ := reg.GetSecret(ctx, "backup.password"); got != "strong-password" {
+		t.Fatal("secret was not committed")
+	}
+	var stored string
+	if err := db.QueryRow(`SELECT value FROM settings WHERE key = 'backup.password'`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if !secrets.IsEncryptedText(stored) || strings.Contains(stored, "strong-password") {
+		t.Fatal("batch secret was not encrypted at rest")
+	}
+}
+
+func TestSetBatchRollsBackRealSQLiteWriteFailure(t *testing.T) {
+	reg, db := newRegistry(t)
+	ctx := context.Background()
+	if err := reg.Set(ctx, "node.id", "saved-node"); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.Set(ctx, "network.mtu", 1421); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := reg.GetString(ctx, "node.id"); got != "saved-node" { // prime cache
+		t.Fatalf("node id before batch = %q", got)
+	}
+	if _, err := db.Exec(`
+		CREATE TRIGGER fail_mtu_update
+		BEFORE UPDATE ON settings
+		WHEN NEW.key = 'network.mtu'
+		BEGIN
+			SELECT RAISE(FAIL, 'forced settings write failure');
+		END`); err != nil {
+		t.Fatal(err)
+	}
+
+	err := reg.SetBatch(ctx, []Update{
+		{Key: "node.id", Value: "must-roll-back"},
+		{Key: "network.mtu", Value: 1280},
+	})
+	if err == nil || !strings.Contains(err.Error(), "forced settings write failure") {
+		t.Fatalf("SetBatch error = %v", err)
+	}
+	if got, _ := reg.GetString(ctx, "node.id"); got != "saved-node" {
+		t.Fatalf("cached node id after rollback = %q", got)
+	}
+	var stored string
+	if err := db.QueryRow(`SELECT value FROM settings WHERE key = 'node.id'`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != "saved-node" {
+		t.Fatalf("persisted node id after rollback = %q", stored)
+	}
+	if got, _ := reg.GetInt(ctx, "network.mtu"); got != 1421 {
+		t.Fatalf("mtu after rollback = %d", got)
+	}
+}
+
+func TestSetBatchValidationFailureWritesNothing(t *testing.T) {
+	reg, _ := newRegistry(t)
+	ctx := context.Background()
+	if err := reg.Set(ctx, "node.id", "saved-node"); err != nil {
+		t.Fatal(err)
+	}
+	err := reg.SetBatch(ctx, []Update{
+		{Key: "node.id", Value: "must-not-persist"},
+		{Key: "backup.retention_count", Value: 999},
+	})
+	if domain.CodeOf(err) != domain.CodeSettingInvalid {
+		t.Fatalf("SetBatch error: want SETTING_INVALID, got %v", err)
+	}
+	if got, _ := reg.GetString(ctx, "node.id"); got != "saved-node" {
+		t.Fatalf("earlier batch value persisted after validation failure: %q", got)
 	}
 }
 

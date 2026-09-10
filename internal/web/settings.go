@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/settings"
 )
 
 // settingsData feeds the panel settings screen: the runtime registry. Non-
@@ -25,9 +26,9 @@ type settingsData struct {
 	// Users
 	QuotaPresets     string
 	DurPresets       string
-	DefaultQuotaGB   int
-	DefaultDurMonths int
-	DefaultDeviceLim int
+	DefaultQuotaGB   string
+	DefaultDurMonths string
+	DefaultDeviceLim string
 	DefaultIfaceID   string
 
 	// Subscription + downloads
@@ -36,33 +37,33 @@ type settingsData struct {
 	FilenameSuffix string
 
 	// Networking
-	MTU          int
+	MTU          string
 	DNSServers   string
 	AllowedIPs   string
 	Keepalive    string
-	PortMin      int
-	PortMax      int
+	PortMin      string
+	PortMax      string
 	DefaultPool  string
-	IfaceMax     int
+	IfaceMax     string
 	DriftPolicy  string
 	DriftOptions []string
 
 	// Accounting
-	AcctInterval     int
-	OnlineWindow     int
-	SampleFlush      int
-	SampleRetention  int
-	RollupHourlyDays int
-	RollupDailyDays  int
+	AcctInterval     string
+	OnlineWindow     string
+	SampleFlush      string
+	SampleRetention  string
+	RollupHourlyDays string
+	RollupDailyDays  string
 
 	// API + security
-	RateLimit   int
-	WebhookMax  int
-	SessionIdle int
-	SessionAbs  int
+	RateLimit   string
+	WebhookMax  string
+	SessionIdle string
+	SessionAbs  string
 
 	// Backups
-	Retention    int
+	Retention    string
 	PasswordSet  bool
 	TelegramSet  bool
 	TelegramChat string
@@ -80,7 +81,10 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 	ctx := r.Context()
 	d := settingsData{Ifaces: s.ifacesForForm(r), DriftOptions: []string{"report", "adopt", "remove"}}
 	get := func(key string) string { v, _ := s.Settings.GetString(ctx, key); return v }
-	getInt := func(key string) int { v, _ := s.Settings.GetInt(ctx, key); return v }
+	getInt := func(key string) string {
+		v, _ := s.Settings.GetInt(ctx, key)
+		return strconv.Itoa(v)
+	}
 	getList := func(key string) string {
 		v, err := s.Settings.GetStringList(ctx, key)
 		if err != nil {
@@ -187,23 +191,28 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		s.badRequest(w, r, "bad form")
 		return
 	}
+	type pendingSetting struct {
+		field  string
+		update settings.Update
+	}
+	pending := make([]pendingSetting, 0, len(settingSpecs)+2)
 	for _, spec := range settingSpecs {
 		if !r.Form.Has(spec.form) {
 			continue // absent fields keep their stored value
 		}
-		var err error
+		var value any
 		switch spec.kind {
 		case "int":
 			raw := strings.TrimSpace(r.PostFormValue(spec.form))
 			if raw == "" {
-				continue // absent inputs keep the stored value
+				continue // empty integer inputs keep the stored value
 			}
-			var n int
-			if n, err = strconv.Atoi(raw); err != nil {
-				err = domain.E(domain.CodeInvalidRequest, "not a number")
-			} else {
-				err = s.Settings.Set(r.Context(), spec.key, n)
+			n, err := strconv.Atoi(raw)
+			if err != nil {
+				s.settingsSaveError(w, r, spec.form, domain.E(domain.CodeInvalidRequest, "not a number"))
+				return
 			}
+			value = n
 		case "list":
 			parts := strings.Split(r.PostFormValue(spec.form), ",")
 			out := make([]string, 0, len(parts))
@@ -212,14 +221,11 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 					out = append(out, p)
 				}
 			}
-			err = s.Settings.Set(r.Context(), spec.key, out)
+			value = out
 		default:
-			err = s.Settings.Set(r.Context(), spec.key, strings.TrimSpace(r.PostFormValue(spec.form)))
+			value = strings.TrimSpace(r.PostFormValue(spec.form))
 		}
-		if err != nil {
-			s.settingsSaveError(w, r, spec.form, err)
-			return
-		}
+		pending = append(pending, pendingSetting{field: spec.form, update: settings.Update{Key: spec.key, Value: value}})
 	}
 
 	for _, secret := range []struct{ key, field, clear string }{
@@ -232,10 +238,20 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		} else if value == "" {
 			continue // keep the stored value
 		}
-		if err := s.Settings.Set(r.Context(), secret.key, value); err != nil {
-			s.settingsSaveError(w, r, secret.field, err)
+		pending = append(pending, pendingSetting{field: secret.field, update: settings.Update{Key: secret.key, Value: value}})
+	}
+
+	updates := make([]settings.Update, 0, len(pending))
+	for _, item := range pending {
+		if err := s.Settings.Validate(item.update.Key, item.update.Value); err != nil {
+			s.settingsSaveError(w, r, item.field, err)
 			return
 		}
+		updates = append(updates, item.update)
+	}
+	if err := s.Settings.SetBatch(r.Context(), updates); err != nil {
+		s.settingsSaveError(w, r, "", err)
+		return
 	}
 
 	s.audit(r, "settings.updated", "", nil)
@@ -254,16 +270,23 @@ func (s *Server) settingsSaveError(w http.ResponseWriter, r *http.Request, field
 		return
 	}
 	s.logError(r, "settings save", err)
-	http.Error(w, "internal error", http.StatusInternalServerError)
+	d := s.submittedSettingsData(r)
+	d.Error = s.t(r, "common.error_generic")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusInternalServerError)
+	_ = s.render(w, r, "settings", "app", d)
 }
 
 // submittedSettingsData rebuilds the form from the POST so a failed save
 // never silently drops what the operator typed.
 func (s *Server) submittedSettingsData(r *http.Request) settingsData {
-	d := settingsData{Ifaces: s.ifacesForForm(r)}
+	d := s.loadSettingsData(r)
 	str := func(field string) string { return r.PostFormValue(field) }
-	intOf := func(field string) int { n, _ := strconv.Atoi(strings.TrimSpace(r.PostFormValue(field))); return n }
 	for _, spec := range settingSpecs {
+		if !r.Form.Has(spec.form) {
+			continue
+		}
 		switch spec.form {
 		case "node_id":
 			d.NodeID = str(spec.form)
@@ -274,11 +297,11 @@ func (s *Server) submittedSettingsData(r *http.Request) settingsData {
 		case "dur_presets":
 			d.DurPresets = str(spec.form)
 		case "default_quota_gb":
-			d.DefaultQuotaGB = intOf(spec.form)
+			d.DefaultQuotaGB = str(spec.form)
 		case "default_dur_months":
-			d.DefaultDurMonths = intOf(spec.form)
+			d.DefaultDurMonths = str(spec.form)
 		case "default_device_lim":
-			d.DefaultDeviceLim = intOf(spec.form)
+			d.DefaultDeviceLim = str(spec.form)
 		case "default_iface_id":
 			d.DefaultIfaceID = str(spec.form)
 		case "sub_base_url":
@@ -288,7 +311,7 @@ func (s *Server) submittedSettingsData(r *http.Request) settingsData {
 		case "filename_suffix":
 			d.FilenameSuffix = str(spec.form)
 		case "mtu":
-			d.MTU = intOf(spec.form)
+			d.MTU = str(spec.form)
 		case "dns_servers":
 			d.DNSServers = str(spec.form)
 		case "allowed_ips":
@@ -296,37 +319,37 @@ func (s *Server) submittedSettingsData(r *http.Request) settingsData {
 		case "keepalive":
 			d.Keepalive = str(spec.form)
 		case "port_min":
-			d.PortMin = intOf(spec.form)
+			d.PortMin = str(spec.form)
 		case "port_max":
-			d.PortMax = intOf(spec.form)
+			d.PortMax = str(spec.form)
 		case "default_pool":
 			d.DefaultPool = str(spec.form)
 		case "iface_max":
-			d.IfaceMax = intOf(spec.form)
+			d.IfaceMax = str(spec.form)
 		case "drift_policy":
 			d.DriftPolicy = str(spec.form)
 		case "acct_interval":
-			d.AcctInterval = intOf(spec.form)
+			d.AcctInterval = str(spec.form)
 		case "online_window":
-			d.OnlineWindow = intOf(spec.form)
+			d.OnlineWindow = str(spec.form)
 		case "sample_flush":
-			d.SampleFlush = intOf(spec.form)
+			d.SampleFlush = str(spec.form)
 		case "sample_retention":
-			d.SampleRetention = intOf(spec.form)
+			d.SampleRetention = str(spec.form)
 		case "rollup_hourly":
-			d.RollupHourlyDays = intOf(spec.form)
+			d.RollupHourlyDays = str(spec.form)
 		case "rollup_daily":
-			d.RollupDailyDays = intOf(spec.form)
+			d.RollupDailyDays = str(spec.form)
 		case "rate_limit":
-			d.RateLimit = intOf(spec.form)
+			d.RateLimit = str(spec.form)
 		case "webhook_max":
-			d.WebhookMax = intOf(spec.form)
+			d.WebhookMax = str(spec.form)
 		case "session_idle":
-			d.SessionIdle = intOf(spec.form)
+			d.SessionIdle = str(spec.form)
 		case "session_abs":
-			d.SessionAbs = intOf(spec.form)
+			d.SessionAbs = str(spec.form)
 		case "retention":
-			d.Retention = intOf(spec.form)
+			d.Retention = str(spec.form)
 		case "telegram_chat":
 			d.TelegramChat = str(spec.form)
 		}

@@ -1,14 +1,9 @@
 {{define "auth"}}<!DOCTYPE html>
 <html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
+{{template "document-head" .}}
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
-<link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
-<link rel="stylesheet" href="{{.A "/css/app.css"}}">
-<script type="module" src="{{.A "/js/app.js"}}" defer></script>
+<script type="module" src="{{.A "/js/app.js"}}"></script>
 </head>
 <body>
 <div class="auth-shell">
@@ -17,15 +12,14 @@
       <span class="logo">{{.Icon "shield"}}</span>
       <span>{{.T "app.name"}}</span>
     </div>
+    {{template "flash" .}}
     {{block "content" .}}{{end}}
     <div class="auth-foot">
       <span class="text-subtle text-xs">{{.T "app.tagline"}}</span>
-      <span class="inline-actions">
-        <a href="{{.Path}}?lang=fa" hreflang="fa" lang="fa" class="text-xs {{if eq (printf "%v" .Locale) "fa"}}text-ok{{else}}text-subtle{{end}}">فارسی</a>
-        <a href="{{.Path}}?lang=en" hreflang="en" class="text-xs {{if eq (printf "%v" .Locale) "en"}}text-ok{{else}}text-subtle{{end}}">English</a>
-      </span>
+      {{template "preferences" .}}
     </div>
   </div>
 </div>
+{{template "feedback-host" .}}
 </body>
 </html>{{end}}

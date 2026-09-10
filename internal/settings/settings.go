@@ -74,16 +74,28 @@ type Item struct {
 // Registry is safe for concurrent use. Values are cached in memory and
 // invalidated on write; this is a read-heavy, write-rare table.
 type Registry struct {
-	db    *database.DB
-	ring  *secrets.KeyRing
-	defs  map[string]Definition
-	mu    sync.RWMutex
-	cache map[string]cacheEntry
+	db         *database.DB
+	ring       *secrets.KeyRing
+	defs       map[string]Definition
+	mu         sync.RWMutex
+	cache      map[string]cacheEntry
+	generation uint64
 }
 
 type cacheEntry struct {
 	val     any
 	updated time.Time
+}
+
+// Update is one typed setting value in an atomic SetBatch operation.
+type Update struct {
+	Key   string
+	Value any
+}
+
+type preparedUpdate struct {
+	def   Definition
+	value string
 }
 
 func New(db *database.DB, ring *secrets.KeyRing, defs []Definition) (*Registry, error) {
@@ -141,6 +153,7 @@ func (r *Registry) Get(ctx context.Context, key string) (any, error) {
 		return nil, domain.E(domain.CodeSettingUnknown, "unknown setting %q", key)
 	}
 	r.mu.RLock()
+	generation := r.generation
 	// Backup CLI and service are different processes. This small category is
 	// read only per backup/minute, so always observe its persisted settings.
 	if ce, ok := r.cache[key]; ok && def.Category != "backup" {
@@ -180,7 +193,11 @@ func (r *Registry) Get(ctx context.Context, key string) (any, error) {
 		}
 	}
 	r.mu.Lock()
-	r.cache[key] = cacheEntry{val: val, updated: updated}
+	// A write may have committed and invalidated this key while the query was
+	// in flight. Do not let that older read repopulate the cache afterward.
+	if r.generation == generation {
+		r.cache[key] = cacheEntry{val: val, updated: updated}
+	}
 	r.mu.Unlock()
 	return val, nil
 }
@@ -301,46 +318,104 @@ func (r *Registry) SetRaw(ctx context.Context, key, raw string) error {
 
 // Set validates and stores a typed value (panel form).
 func (r *Registry) Set(ctx context.Context, key string, value any) error {
+	update, err := r.prepare(key, value)
+	if err != nil {
+		return err
+	}
+	if err := r.write(ctx, r.db, update); err != nil {
+		return err
+	}
+	r.invalidate(update.def.Key)
+	return nil
+}
+
+// SetBatch validates and encodes every update before writing any of them,
+// then commits the complete set in one SQLite transaction. Failed validation,
+// encryption, writes, and commits leave both persisted state and cache intact.
+func (r *Registry) SetBatch(ctx context.Context, updates []Update) error {
+	prepared := make([]preparedUpdate, 0, len(updates))
+	for _, update := range updates {
+		p, err := r.prepare(update.Key, update.Value)
+		if err != nil {
+			return err
+		}
+		prepared = append(prepared, p)
+	}
+	if len(prepared) == 0 {
+		return nil
+	}
+	if err := r.db.WithTx(ctx, func(tx *sql.Tx) error {
+		for _, update := range prepared {
+			if err := r.write(ctx, tx, update); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	for _, update := range prepared {
+		delete(r.cache, update.def.Key)
+	}
+	r.generation++
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *Registry) prepare(key string, value any) (preparedUpdate, error) {
 	def, ok := r.defs[key]
 	if !ok {
-		return domain.E(domain.CodeSettingUnknown, "unknown setting %q", key)
+		return preparedUpdate{}, domain.E(domain.CodeSettingUnknown, "unknown setting %q", key)
 	}
 	var stored string
 	switch def.Kind {
 	case KindInt:
 		n, ok := toInt(value)
 		if !ok {
-			return domain.E(domain.CodeSettingInvalid, "%s: expected integer, got %T", key, value)
+			return preparedUpdate{}, domain.E(domain.CodeSettingInvalid, "%s: expected integer, got %T", key, value)
 		}
 		stored = strconv.FormatInt(int64(n), 10)
 	case KindBool:
 		b, ok := value.(bool)
 		if !ok {
-			return domain.E(domain.CodeSettingInvalid, "%s: expected bool, got %T", key, value)
+			return preparedUpdate{}, domain.E(domain.CodeSettingInvalid, "%s: expected bool, got %T", key, value)
 		}
 		stored = strconv.FormatBool(b)
 	case KindStringList:
 		l, ok := value.([]string)
 		if !ok {
-			return domain.E(domain.CodeSettingInvalid, "%s: expected []string, got %T", key, value)
+			return preparedUpdate{}, domain.E(domain.CodeSettingInvalid, "%s: expected []string, got %T", key, value)
 		}
 		b, err := json.Marshal(l)
 		if err != nil {
-			return domain.E(domain.CodeSettingInvalid, "%s: encode list: %v", key, err)
+			return preparedUpdate{}, domain.E(domain.CodeSettingInvalid, "%s: encode list: %v", key, err)
 		}
 		stored = string(b)
 	default:
 		s, ok := value.(string)
 		if !ok {
-			return domain.E(domain.CodeSettingInvalid, "%s: expected string, got %T", key, value)
+			return preparedUpdate{}, domain.E(domain.CodeSettingInvalid, "%s: expected string, got %T", key, value)
 		}
 		stored = s
 	}
-	return r.store(ctx, def, stored)
+	return r.prepareStored(def, stored)
 }
 
 // store runs the full validation pipeline and persists (secrets encrypted).
 func (r *Registry) store(ctx context.Context, def Definition, stored string) error {
+	update, err := r.prepareStored(def, stored)
+	if err != nil {
+		return err
+	}
+	if err := r.write(ctx, r.db, update); err != nil {
+		return err
+	}
+	r.invalidate(def.Key)
+	return nil
+}
+
+func (r *Registry) prepareStored(def Definition, stored string) (preparedUpdate, error) {
 	// Secret values arrive as plaintext and are encrypted below; every other
 	// kind is decoded from its stored textual form before validation.
 	typed, err := func() (any, error) {
@@ -350,10 +425,10 @@ func (r *Registry) store(ctx context.Context, def Definition, stored string) err
 		return r.decode(def, stored)
 	}()
 	if err != nil {
-		return err
+		return preparedUpdate{}, err
 	}
 	if err := r.validateValue(def, typed); err != nil {
-		return err
+		return preparedUpdate{}, err
 	}
 	var final string
 	if def.Kind == KindSecret {
@@ -362,28 +437,40 @@ func (r *Registry) store(ctx context.Context, def Definition, stored string) err
 		} else {
 			enc, err := r.ring.EncryptString(stored)
 			if err != nil {
-				return fmt.Errorf("settings: encrypt %s: %w", def.Key, err)
+				return preparedUpdate{}, fmt.Errorf("settings: encrypt %s: %w", def.Key, err)
 			}
 			final = enc
 		}
 	} else {
 		final = stored
 	}
-	if final == "" {
+	return preparedUpdate{def: def, value: final}, nil
+}
+
+type settingExecer interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func (r *Registry) write(ctx context.Context, execer settingExecer, update preparedUpdate) error {
+	if update.value == "" {
 		// Empty value → the default applies; drop the row so Get serves it.
-		if _, err := r.db.ExecContext(ctx, `DELETE FROM settings WHERE key = ?`, def.Key); err != nil {
-			return fmt.Errorf("settings: delete %s: %w", def.Key, err)
+		if _, err := execer.ExecContext(ctx, `DELETE FROM settings WHERE key = ?`, update.def.Key); err != nil {
+			return fmt.Errorf("settings: delete %s: %w", update.def.Key, err)
 		}
-	} else if _, err := r.db.ExecContext(ctx, `
+	} else if _, err := execer.ExecContext(ctx, `
 		INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-		def.Key, final, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
-		return fmt.Errorf("settings: upsert %s: %w", def.Key, err)
+		update.def.Key, update.value, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		return fmt.Errorf("settings: upsert %s: %w", update.def.Key, err)
 	}
-	r.mu.Lock()
-	delete(r.cache, def.Key)
-	r.mu.Unlock()
 	return nil
+}
+
+func (r *Registry) invalidate(key string) {
+	r.mu.Lock()
+	delete(r.cache, key)
+	r.generation++
+	r.mu.Unlock()
 }
 
 // Reset removes an override; the default applies again.
@@ -396,6 +483,7 @@ func (r *Registry) Reset(ctx context.Context, key string) error {
 	}
 	r.mu.Lock()
 	delete(r.cache, key)
+	r.generation++
 	r.mu.Unlock()
 	return nil
 }
@@ -415,6 +503,18 @@ func (r *Registry) Validate(key string, value any) error {
 			return domain.E(domain.CodeSettingInvalid, "%s: expected integer, got %T", key, value)
 		}
 		return r.validateValue(def, n)
+	case KindBool:
+		b, ok := value.(bool)
+		if !ok {
+			return domain.E(domain.CodeSettingInvalid, "%s: expected bool, got %T", key, value)
+		}
+		return r.validateValue(def, b)
+	case KindStringList:
+		list, ok := value.([]string)
+		if !ok {
+			return domain.E(domain.CodeSettingInvalid, "%s: expected []string, got %T", key, value)
+		}
+		return r.validateValue(def, list)
 	default:
 		s, ok := value.(string)
 		if !ok {
@@ -498,6 +598,7 @@ func (r *Registry) ReencryptSecrets(from, to *secrets.Cipher) error {
 	}
 	r.mu.Lock()
 	r.cache = map[string]cacheEntry{} // encrypted values changed wholesale
+	r.generation++
 	r.mu.Unlock()
 	return nil
 }

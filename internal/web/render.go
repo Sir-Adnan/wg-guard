@@ -192,7 +192,8 @@ type View struct {
 	assetFn func(string) string
 
 	// ToastMsg carries a post-redirect-flash message (already localized).
-	ToastMsg string
+	ToastMsg   string
+	ToastError bool
 
 	// Data carries the page-specific payload (typed per page).
 	Data any
@@ -244,6 +245,14 @@ func (v *View) B(n int64) string { return i18n.FormatBytes(v.Locale, n) }
 
 // N formats an integer with grouping.
 func (v *View) N(n int64) string { return i18n.FormatInt(n) }
+
+// Initial keeps a multibyte account name intact in the shared avatar.
+func (v *View) Initial(name string) string {
+	for _, r := range name {
+		return strings.ToUpper(string(r))
+	}
+	return "?"
+}
 
 // D renders a date ("never" when nil).
 func (v *View) D(t *time.Time) string {
@@ -378,6 +387,7 @@ func (s *Server) applyFlash(r *http.Request, v *View) {
 		return
 	}
 	key := r.URL.Query().Get("toast")
+	v.ToastError = key == "common.denied"
 	if key == "" {
 		return
 	}

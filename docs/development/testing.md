@@ -144,3 +144,21 @@ duplicate/member-count/size protections and bind metadata to the exact selected 
 Accounting cycle cost, bulk create 100/1000, user list at 1000 peers, idle RSS/CPU
 (`scripts/bench-idle.sh`, 10-minute soak at 0/100/1000 fake peers). Budgets and results are
 recorded in [status.md](status.md); regressions are treated as bugs.
+
+## Phase 10 UI verification
+
+[Phase 10](phase10.md) owns route/state/milestone coverage and the final browser matrix. During
+implementation use targeted settings/web/i18n tests and changed interaction checks. Coherent
+commits still require build/unit success; the full Phase 10 QA matrix runs at 10.7, not per edit.
+
+`go test ./internal/web -run '^TestBrowserFoundation$' -count=1 -v` optionally runs the real-browser
+foundation regression. Set `WG_TEST_BROWSER_NODE` to a development Node executable and
+`WG_TEST_PLAYWRIGHT` to an existing Playwright module path; `WG_TEST_BROWSER_CHANNEL` defaults to
+`chrome`. Without the Node opt-in the test skips. No npm/Node dependency is added to production.
+The Go test hosts an isolated temporary database; ephemeral session/subscription values travel
+only over child stdin and are never printed or committed. It tests focus/inert/resize, menu keys,
+dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery, actual Settings input
+redisplay and representative locale/theme layouts. It does not certify the full browser matrix.
+
+The asset script enforces JS/CSS/fonts; SVG and rendered HTML are measured separately. Browser
+geometry does not replace visual review, screen-reader use, real-device or live-TLS acceptance.

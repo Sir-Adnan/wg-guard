@@ -1,139 +1,14 @@
-/* WG-Guard panel behaviors — vanilla ES module, CSP-safe (no eval, no
- * inline handlers). Everything is event delegation so htmx swaps never
- * need re-initialization. Zero idle timers: the only animation is the
- * browser painting user actions; polling pauses on hidden tabs. */
+/* Page-specific form behaviors — vanilla ES module, CSP-safe (no eval or
+ * inline handlers). Shared navigation, overlays, themes and request lifecycle
+ * live in ui.js. Forms keep their server-rendered values and validators. */
 
-(() => {
+(async () => {
   "use strict";
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-  /* ---------- theme ---------- */
-
-  const THEME_COOKIE = "wg_theme";
-
-  function setTheme(choice) {
-    if (choice === "light" || choice === "dark") {
-      document.documentElement.dataset.theme = choice;
-    } else {
-      choice = "system";
-      delete document.documentElement.dataset.theme;
-    }
-    document.cookie = THEME_COOKIE + "=" + choice +
-      ";path=/;max-age=31536000;samesite=lax";
-    $$("[data-theme-choice]").forEach((b) =>
-      b.setAttribute("aria-pressed", String(b.dataset.themeChoice === choice)));
-  }
-
-  /* ---------- toasts ---------- */
-
-  let toastsHost = $(".toasts");
-  function toast(message, kind = "ok") {
-    if (!toastsHost) {
-      toastsHost = document.createElement("div");
-      toastsHost.className = "toasts";
-      document.body.appendChild(toastsHost);
-    }
-    const el = document.createElement("div");
-    el.className = "toast toast--" + (kind === "err" ? "err" : "ok");
-    el.setAttribute("role", "status");
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon.setAttribute("class", "icon");
-    icon.innerHTML = '<use href="/assets/icons.svg#i-' +
-      (kind === "err" ? "alert-circle" : "check") + '"/>';
-    const text = document.createElement("span");
-    text.textContent = message;
-    el.append(icon, text);
-    toastsHost.appendChild(el);
-    setTimeout(() => {
-      el.classList.add("is-leaving");
-      setTimeout(() => el.remove(), 300);
-    }, 3400);
-  }
-
-  /* server-driven toasts: HX-Trigger {"wg:toast": {message, kind}} */
-  document.body.addEventListener("wg:toast", (e) => {
-    const d = e.detail || {};
-    const msg = typeof d === "string" ? d : (d.message || d.value || "");
-    if (msg) toast(msg, d.kind);
-  });
-
-  /* ---------- dropdown menus ----------
-   * Menus open with position:fixed coordinates so they are never clipped by
-   * overflow:hidden/auto ancestors (table wrappers on mobile were cutting
-   * row action menus off). The fixed rect flips above when it would overflow
-   * the viewport bottom, which also keeps sidebar footer menus opening up. */
-
-  function placeMenu(menu, btn) {
-    menu.style.position = "fixed";
-    const r = btn.getBoundingClientRect();
-    const mw = menu.offsetWidth, mh = menu.offsetHeight;
-    const rtl = document.documentElement.dir === "rtl";
-    let x = rtl ? r.left : r.right - mw;
-    x = Math.max(8, Math.min(x, window.innerWidth - mw - 8));
-    let y = r.bottom + 6;
-    if (y + mh > window.innerHeight - 8) y = Math.max(8, r.top - mh - 6);
-    menu.style.left = x + "px";
-    menu.style.top = y + "px";
-  }
-
-  function resetMenu(menu) {
-    menu.classList.remove("is-open");
-    menu.style.position = "";
-    menu.style.left = "";
-    menu.style.top = "";
-    menu.closest(".menu-anchor")?.querySelector("button")?.setAttribute("aria-expanded", "false");
-  }
-
-  function closeMenus(except) {
-    $$(".menu.is-open").forEach((m) => {
-      if (m !== except) resetMenu(m);
-    });
-  }
-
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest(".menu-anchor > button");
-    if (btn) {
-      const menu = btn.parentElement.querySelector(".menu");
-      const open = !menu.classList.contains("is-open");
-      closeMenus();
-      if (open) {
-        placeMenu(menu, btn);
-        menu.classList.add("is-open");
-        btn.setAttribute("aria-expanded", "true");
-      }
-      return;
-    }
-    if (!e.target.closest(".menu")) closeMenus();
-  });
-
-  /* scrolling invalidates fixed menu coordinates — close instead of drift */
-  document.addEventListener("scroll", () => closeMenus(), true);
-
-  /* ---------- dialogs ---------- */
-
-  $$("dialog").forEach((dlg) => {
-    // close icon buttons inside any dialog (modals + drawers)
-    dlg.addEventListener("click", (e) => {
-      if (e.target.closest("[data-close-modal]")) dlg.close();
-    });
-  });
-
-  function openModal(id) {
-    const dlg = document.getElementById(id);
-    if (dlg && typeof dlg.showModal === "function") dlg.showModal();
-    return dlg;
-  }
-
-  /* [data-open-modal] buttons open native <dialog> by id */
-  document.addEventListener("click", (e) => {
-    const opener = e.target.closest("[data-open-modal]");
-    if (opener) {
-      e.preventDefault();
-      openModal(opener.dataset.openModal);
-    }
-  });
+  const { openModal, toast } = await import(document.querySelector('meta[name="ui-module"]').content);
 
   /* ---------- show-once secrets: select on focus ---------- */
   document.addEventListener("focusin", (e) => {
@@ -276,7 +151,7 @@
     const form = e.target;
     if (!form.matches("[data-confirm]") || form.dataset.confirmed === "1") return;
     e.preventDefault();
-    pendingConfirm = form;
+    pendingConfirm = { form, submitter: e.submitter };
     const dlg = openModal("confirm-dialog");
     if (!dlg) return;
     $("[data-confirm-title]", dlg).textContent = form.dataset.confirmTitle || "";
@@ -289,11 +164,13 @@
 
   document.addEventListener("click", (e) => {
     if (!e.target.closest("[data-confirm-ok]")) return;
-    const f = pendingConfirm;
+    const pending = pendingConfirm;
     pendingConfirm = null;
-    if (!f) return;
+    if (!pending) return;
+    const f = pending.form;
+    document.getElementById('confirm-dialog')?.close();
     f.dataset.confirmed = "1";
-    f.requestSubmit();
+    f.requestSubmit(pending.submitter || undefined);
     setTimeout(() => delete f.dataset.confirmed, 100);
   });
 
@@ -307,10 +184,9 @@
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text.trim());
-      toast(btn.dataset.copiedMsg || "Copied", "ok");
+      toast(btn.dataset.copiedMsg || document.querySelector('meta[name="ui-copied"]').content, "ok");
     } catch {
-      /* clipboard unavailable (permissions/insecure context): silent —
-       * the value stays selectable on screen */
+      toast(document.querySelector('meta[name="ui-copy-error"]').content, "err");
     }
   });
 
@@ -324,68 +200,6 @@
     const show = input.type === "password";
     input.type = show ? "text" : "password";
     t.setAttribute("aria-pressed", String(show)); // CSS swaps the two icons
-  });
-
-  /* ---------- mobile drawer ---------- */
-
-  const sidebar = $("#sidebar");
-  const scrim = $("#scrim");
-  function setDrawer(open) {
-    if (!sidebar) return;
-    sidebar.classList.toggle("is-open", open);
-    scrim?.classList.toggle("is-open", open);
-    $("#btn-drawer")?.setAttribute("aria-expanded", String(open));
-  }
-  $("#btn-drawer")?.addEventListener("click", () => setDrawer(true));
-  scrim?.addEventListener("click", () => setDrawer(false));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closeMenus(); setDrawer(false); }
-  });
-  sidebar?.addEventListener("click", (e) => {
-    if (e.target.closest(".nav a")) setDrawer(false);
-  });
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 960) setDrawer(false);
-  });
-
-  /* ---------- desktop sidebar collapse (persisted) ---------- */
-
-  const shell = $("#shell");
-  function setCollapsed(collapsed) {
-    if (!shell) return;
-    shell.toggleAttribute("data-collapsed", collapsed);
-    try { localStorage.setItem("wg_sidebar", collapsed ? "1" : "0"); } catch { /* private mode */ }
-    $("#btn-collapse")?.setAttribute("aria-expanded", String(!collapsed));
-  }
-  $("#btn-collapse")?.addEventListener("click", () =>
-    setCollapsed(!shell.hasAttribute("data-collapsed")));
-  try {
-    const stored = localStorage.getItem("wg_sidebar");
-    // No explicit operator preference yet: compact rail is the better default
-    // on tablets/small laptops where the expanded sidebar eats content width.
-    if (stored === "1" || (stored === null && window.innerWidth <= 1180)) {
-      shell?.toggleAttribute("data-collapsed", true);
-    }
-  } catch { /* ignore */ }
-
-  /* ---------- htmx integration ---------- */
-
-  document.body.addEventListener("htmx:configRequest", (e) => {
-    const meta = $('meta[name="csrf-token"]');
-    if (meta) e.detail.headers["X-CSRF-Token"] = meta.content;
-  });
-
-  /* dashboards marked data-pause-hidden stop polling in background tabs */
-  document.body.addEventListener("htmx:beforeRequest", (e) => {
-    if (document.hidden && e.target.closest?.("[data-pause-hidden]")) {
-      e.preventDefault();
-    }
-  });
-
-  /* fallback error toast when a swap request fails outright */
-  document.body.addEventListener("htmx:responseError", (e) => {
-    const msg = e.detail?.xhr?.getResponseHeader("X-WG-Error");
-    toast(msg || (e.detail?.headers && e.detail.headers["X-WG-Error"]) || "Error", "err");
   });
 
   /* Obfuscation profiles are generated and validated on the server. The
@@ -562,8 +376,6 @@
   document.addEventListener("change", (e) => {
     if (e.target.matches('select[name="duration_unit"]')) updateExpiryPreview();
   });
-  updateExpiryPreview();
-
   /* ---------- username generator ---------- */
 
   const WORDS = ("amber,azure,brave,calm,coral,cosmo,crimson,dawn,delta,dune,eager,echo,ember," +
@@ -822,16 +634,7 @@
   window.addEventListener("resize", () => { if (calEl?.classList.contains("is-open")) calPosition(); });
 
   /* ---------- boot ---------- */
+  // Calendar constants must exist before the initial duration preview.
+  updateExpiryPreview();
 
-  $$("[data-theme-choice]").forEach((b) =>
-    b.addEventListener("click", () => setTheme(b.dataset.themeChoice)));
-
-  /* PRG flash toast: show once, then clean the URL */
-  const flash = $("[data-toast-msg]");
-  if (flash) {
-    toast(flash.dataset.toastMsg, "ok");
-    history.replaceState(null, "", location.pathname + location.search
-      .replace(/([?&])toast=[^&]*&?/, "$1").replace(/([?&])targ=[^&]*&?/, "$1")
-      .replace(/[?&]+$/, ""));
-  }
 })();

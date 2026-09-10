@@ -8,10 +8,15 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** active again at route/state inventory and implementation planning;
-  no Phase 10 visual migration is yet claimed.
+- **Phase 10 product UI/UX redesign:** 10.0 contracts are complete and 10.1 shared foundations
+  are implemented; page migrations and full browser/VPS acceptance remain open.
 
 ### Changed
+- **Phase 10 foundations:** a shared bilingual shell, preferences and feedback system provides
+  consistent themes across panel/auth/subscription, keyboard menus, modal navigation focus,
+  responsive sizing and reduced motion. Settings saves now validate and commit submitted fields
+  together, including secrets; failures retain nonsensitive input without partial persistence.
+  No REST/OpenAPI contract changed. This is foundation work, not final complete-panel acceptance.
 - **Docker-aware doctor diagnostics:** the host-owned command now probes the pinned AWG tools and
   reads interface state through the running WG-Guard container in Docker mode, while kernel,
   firewall, forwarding, sysctl, shaping and exposure checks remain host-side. A failed tools probe

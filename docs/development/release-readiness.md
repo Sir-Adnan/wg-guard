@@ -6,7 +6,8 @@ verification state. Phase execution details live in the corresponding phase docu
 
 Last updated: 2026-09-10. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
 Corrective **Phase 8.3 — Data-plane forwarding integrity** is complete. Phase 10 is active again
-at milestone 10.0; no visual migration is yet claimed.
+at milestone 10.1: 10.0 contracts and Settings atomicity are complete; shared foundations have
+scoped local verification. Complete-panel migration and RB-006 acceptance remain open.
 
 ## Program status
 
@@ -17,7 +18,7 @@ at milestone 10.0; no visual migration is yet claimed.
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
-| 10 — Product UI/UX redesign | active; milestone 10.0 | Every route/state passes complete bilingual responsive QA |
+| 10 — Product UI/UX redesign | active; milestone 10.1 | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
@@ -61,7 +62,7 @@ implementation does not cross the active phase boundary.
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | verified | Storage/apply/dump/drift/API/forms/config/QR/backup paths preserve both bounds; userspace integration and exact kernel runtime/client equality passed. |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
-| RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
+| RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | in progress | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |

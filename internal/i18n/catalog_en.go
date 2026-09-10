@@ -21,6 +21,8 @@ var catalogEN = map[string]string{
 	"common.confirm":          "Confirm",
 	"common.copy":             "Copy",
 	"common.copied":           "Copied",
+	"common.copy_failed":      "Copy is unavailable. Select and copy the value manually.",
+	"common.notifications":    "Notifications",
 	"common.download":         "Download",
 	"common.show_qr":          "Show QR",
 	"common.enable":           "Enable",

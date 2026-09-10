@@ -1,69 +1,172 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; milestone 10.0 (inventory and implementation planning)**. Corrective Phase 8.3
-closed the routed-data-plane blocker on 2026-09-10; no Phase 10 visual migration is yet claimed.
+Status: **active; 10.0 complete, 10.1 foundation implemented and scoped verification passed**. The owner approved
+this order on 2026-09-10. The complete requirement input is the tracked
+[Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
+[UI/UX](../product/ui-ux.md) owns the lasting design contract. No complete-panel redesign or final
+browser/VPS acceptance is claimed.
 
-## Objective
+## Objective and boundaries
 
-Deliver one premium, accessible, shadcn-style product experience across every page, state,
-locale, theme, input method, and supported viewport without adding a production SPA runtime.
-
-## Scope and deliverables
-
-- Complete route/state/content audit and one reusable server-rendered component system.
-- Neutral white light mode and near-black dark mode; restrained semantic colors; consistent
-  spacing, typography, radii, borders, shadows, icons, motion, focus, hover, active, disabled,
-  loading, success, warning, error, and destructive states.
-- Shell, sidebar, header/footer, navigation, login, onboarding, error and empty states.
-- Dashboard, users, create/edit/detail, devices/config/QR, subscriptions, plans, interfaces,
-  settings, backups/restore, admins, tokens, webhooks/deliveries, audit and operational screens.
-- Intentional phone/tablet/desktop/large-screen layouts; mobile cards/sheets are not compressed
-  desktop tables, and narrow forms do not stretch on ultrawide displays.
-- Settings information architecture with simple normal paths and progressive disclosure for
-  advanced functions.
-- Human-readable localized API-token scope, admin permission, and webhook-event labels and
-  descriptions while stable API identifiers remain unchanged.
-- Full English/Persian terminology, grammar, key parity, RTL/LTR, accessibility and interaction
-  audit; technical values remain LTR with Latin digits.
+Deliver shadcn-like precision, Apple/iOS-like polish and restrained modern minimalism across
+every panel and public surface. Preserve Go + SQLite + SSR/HTMX/minimal vanilla JavaScript,
+existing business services, bilingual fa/en, RTL/LTR, and English-only host tools. No React, SPA,
+Tailwind, heavy frontend framework or production Node runtime. Build-time tooling needs a concrete
+justification. Visual migration does not justify API changes or new product features.
 
 ## Milestones
 
-1. Inventory routes, components, states, workflows, information architecture, and reference QA.
-2. Establish tokens, typography, Lucide sprite, primitives, shell, themes, and responsive tiers.
-3. Migrate auth/onboarding/dashboard and primary users/devices/config/subscription workflows.
-4. Migrate plans/interfaces and their advanced AWG configuration experience.
-5. Migrate settings, backup/restore, admins, tokens, webhooks/deliveries, audit and errors.
-6. Complete localization, accessibility, responsive, state, performance and browser QA.
+Accessibility, localization, responsive layout and interaction states apply to **every** milestone;
+10.6 consolidates them rather than introducing them. Coherent commits must build and pass
+`make test`; avoid micro-commits and repeated full QA.
 
-## Verification
+| Milestone | Deliverable and exit boundary |
+|---|---|
+| **10.0 — Inventory and design contract** | Complete coverage below; settle Settings save/validation; define components, charts, navigation, responsive tiers and QA. Implement only a necessary bounded Settings prerequisite. |
+| **10.1 — Foundation and application shell** | Tokens, white/near-black/system themes, typography, Lucide, shared primitives/feedback, accessible overlays, permission-aware shell, common auth/public/error foundations. Verify representative list/form/public compositions before broad migration. |
+| **10.2 — Interfaces and plans** | Lists/create/edit/actions, complete advanced AWG/profile-preview presentation, lossless semantics and client re-import consequences; preserve pinned service behavior. |
+| **10.3 — Primary operations and dashboard** | Users/create/edit/bulk/detail, devices, config/QR, admin subscription lifecycle; then dashboard and charts using existing telemetry/rollups. |
+| **10.4 — Settings and administration** | Grouped Settings, backups/restore/schedules/Telegram, admins, tokens, webhooks/deliveries, audit; human scope/permission/event labels and descriptions. |
+| **10.5 — Public and authentication surfaces** | Complete login/onboarding/auth states, public subscription/download experience, page and fragment errors. Foundations originate in 10.1. |
+| **10.6 — Product consistency** | Cross-page copy, state, responsive, keyboard/touch, accessibility and RTL/LTR audit; remove legacy patterns and duplicate assets. |
+| **10.7 — Final acceptance** | Full browser/state/performance matrix, relevant TLS/VPS workflow checks, docs/CI, coherent integration into main and exact-revision report. No public release. |
 
-- Handler/template/form/permission tests and fa/en catalog/key/raw-leak tests.
-- Interaction tests for dialogs, drawers, sheets, menus, calendars, filters, pagination, copy,
-  loading and destructive confirmations.
-- Contrast, keyboard, focus, reduced-motion, touch-target and technical-data-direction checks.
-- Browser matrix: approximately 320, 360, 390, 430, tablet, 1024, 1280, 1440, 1920, 2560 and
-  ultrawide; fa/en × light/dark on representative normal/empty/error/loading states.
-- Asset and typical-page HTML budgets remain measured; justified changes update budgets rather
-  than silently weakening product quality.
+Interfaces/plans precede consuming user workflows. Settings IA is agreed in 10.0, with final UX
+after those workflows expose defaults and consequences. A redesigned control does not close a
+Phase 11 lifecycle finding.
 
-## Real deployment QA
+## Complete requirement mapping
 
-Run the full route/workflow matrix against the live TLS deployment, including real QR/config,
-metrics, backups, permissions, menus, forms, touch, keyboard and viewport geometry. Use a real
-phone pass where available and label any unavailable hardware honestly.
+| Prompt requirement family | Implementation owner | Acceptance |
+|---|---|---|
+| Complete redesign, no legacy page/subpage/state | 10.1–10.5 | Inventory, 10.6/10.7 |
+| Hierarchy, spacing, alignment, density, typography, radii, borders | 10.1 | Component contract and representative compositions |
+| White/zinc light, near-black dark, no purple identity, system preference | 10.1 | Four locale/theme combinations plus system switching |
+| Restrained glass/blur/gradients/shadows/highlights/elevation | 10.1 | Selective hierarchy, readable opaque fallback, no decorative movement |
+| Cards/forms/buttons/tables/toolbars/sheets/dialogs/dropdowns/popovers | 10.1; compositions 10.2–10.5 | Semantics, focus, touch, clipping, swap lifecycle |
+| Tabs/badges/alerts/toasts/skeletons/empty states/confirmations | 10.1; adoption 10.2–10.5 | Shared state vocabulary and actionable feedback |
+| Hover/focus/pressed/selected/disabled/loading/success/warning/error/destructive | 10.1–10.5 | Applicable states; keyboard/touch equivalents |
+| Fast purposeful motion/reduced motion, no idle decoration | 10.1 | Overlay/loading/chart transitions and reduced-motion checks |
+| Consistent high-quality SVG/Lucide, no raster UI icons | 10.1 | Embedded sprite and notices when changed |
+| CPU/RAM/host RX-TX/VPN/active users-peers/disk/node-AWG health | 10.3 | Source/time/unit/availability and accessible chart system |
+| Intentional desktop/mobile, table/cards, dialog/sheet, max widths | 10.1–10.5 | 320 through ultrawide without viewport overflow or inaccessible data |
+| Settings usefulness/defaults/grouping/duplication/help/Advanced/consequences | 10.0 contract; 10.4 UX | Atomic submitted-save boundary; one primary editor per setting |
+| Human scope/permission/webhook-event wording, stable identifiers | 10.4 | fa/en coverage and unchanged submitted identifiers |
+| Technical IP/CIDR/port/key/traffic/time/status readability | 10.1–10.5 | Bidi isolation, Latin digits, tabular figures, faithful copy |
+| Full fa/en copy, RTL/LTR, accessibility, keyboard/touch | 10.1–10.5; audit 10.6 | Dynamic-copy coverage and functional checks |
+| Lightweight assets, justified budget flexibility | 10.1–10.7 | Measured JS/CSS/SVG/fonts/HTML; no duplicate/heavy assets |
+| Targeted tests, one final full matrix, preserve backend | All | Changed-risk tests; no repeat of unrelated successful VPS drills |
+| API/OpenAPI/examples/tests only for public contract changes | Affected milestone | Contract-diff review; visual wording alone changes no API |
+| Concise docs, README/ROADMAP/status/architecture as affected | All; final 10.7 | No scratch/report/plan files; honest verification levels |
+| Green CI, coherent commits, merge/push/main verification/branch cleanup | 10.7 | Exact merged revision; release needs separate owner approval |
+| Final report; no Phase 11 before Phase 10 closure | 10.7 | Coverage, architecture, QA, assets, VPS, remaining limits |
 
-## Documentation
+## Route, workflow and state inventory
 
-Update product UI/UX and requirements, architecture/project structure, testing/status/release
-tracker, screenshots where maintained, API/OpenAPI wording, CHANGELOG and third-party notices.
+Source: `internal/web/web.go`, templates and handler error paths. Method variants/fragments belong
+to their parent workflow. Machine responses (`/api/v1`, health/metrics), API documentation at
+`/docs`, and host terminal management retain their own contracts.
 
-## Completion criteria
+| Surface | Routes, subflows and patterns | Owner |
+|---|---|---|
+| Chrome | App/auth/sub layouts, `/prefs/locale`, `/logout`, theme, context, permission-aware nav, menu/drawer, flash/confirm | 10.1 |
+| Interfaces | `/interfaces`, `/new`, `/{id}/edit`, enable/disable/delete, `/profile-preview`; basic/advanced/provenance/re-import warning | 10.2 |
+| Plans | `/plans`, `/new`, `/{id}/edit`, enable/disable/delete; quota/duration/rate controls and interface references | 10.2 |
+| Users | `/users`, `/new`, `/{id}`, `/{id}/edit`, `/bulk`, `/bulk-action`; filters/sort/cursor, selection, drawer/fallback, enable/disable/delete/restore/renew/add/reset traffic | 10.3 |
+| Devices/admin subscription | User device creation; `/devices/{id}` enable/disable/regenerate/delete/config/qr; user `/sub` create/regenerate/revoke/restore, share/copy | 10.3 |
+| Dashboard | `/`, `/dashboard`, `/dashboard/live`, `/dashboard/chart`; counters, attention, live resources/health, rollup periods | 10.3 |
+| Settings | GET/POST `/settings`; section links, field errors, secret set/replace/clear, saved/retry/dirty states | 10.4 |
+| Backups | `/backups`, create/delete/download, restore preview/confirm/cancel, schedules create/update/delete/toggle, Telegram test, pending-restart banner | 10.4 |
+| Admins/tokens | `/admins` create/password/permissions/enable/delete, owner protection; `/tokens` create/revoke, show-once secret/scopes/CIDR/expiry | 10.4 |
+| Webhooks/audit | `/webhooks` create/detail/update/rotate/delete/redeliver, delivery history; `/audit` filters/cursor/metadata | 10.4 |
+| Auth | `/login`, `/onboarding` GET/POST, invalid credentials/input, throttle, expired session, owner already provisioned, locale/theme | 10.5 |
+| Public subscription | `/sub/{token}`, device QR/config; status/traffic/expiry, empty, revoked/unknown token, disabled/unavailable device, rate-limit/download failure | 10.5 |
+| Errors | Unknown route, invalid request, permission denial, CSRF/session failure, service failure; page versus HTMX fragment | Foundation 10.1; adoption 10.5 |
 
-RB-006 closes: every route belongs to one visual system, no legacy page/raw key/horizontal
-overflow remains, critical workflows work in both locales/themes on mobile and desktop, and
-browser/accessibility/asset gates pass.
+Each surface covers applicable normal/populated, first-use empty, filtered empty, loading,
+validation/transport/server error, success, unavailable/stale/partial data, disabled,
+permission-limited and destructive states. Preserve nonsensitive input on errors; never re-render
+secrets. Bulk actions identify count/selection scope/partial outcomes; cursor links retain filters.
+Do not invent loading states for synchronously available content.
 
-## Deferred to Phase 11
+## Settings save decision (10.0 prerequisite)
 
-Security certification, long soak, production load, recovery drills and broad compatibility
-matrix. Release packaging remains Phase 12.
+One submitted Save is all-or-nothing for submitted registry overrides, including secrets. Parse
+and validate supplied fields, prepare encrypted values, commit one SQLite transaction, then
+invalidate cached values. Failed parse/validation/encryption/write changes no override; success
+follows commit. Persistence atomicity does not promise a multi-read runtime snapshot or host apply.
+
+Preserve existing semantics: absent keeps; blank numeric keeps; blank text uses that key's
+reset/default behavior; blank secret keeps and explicit clear wins over replacement. Errors keep
+exact nonsensitive input and saved metadata/options; secrets stay blank with actual saved presence
+indicated. Single-setting CLI/API contracts and validators remain unchanged. Final section forms,
+dirty navigation and impact explanations belong to 10.4, after this bounded prerequisite.
+
+Settings groups: identity/status; user defaults/presets; network/client defaults; subscription/
+downloads; accounting/retention; access/API/session; backup integration. Use internal section links
+and one primary editor per setting. Backup/restore remain operational destinations linking to
+settings. Advanced controls stay reachable and explained; defaults/validation are not changed for
+visual reasons.
+
+## 10.1 execution boundary
+
+1. Rework `web/static/css/app.css` foundations and shell with semantic surfaces, width/density,
+   focus and reduced-motion tokens. Reuse `partial_*.html` for repeated markup, with no generic
+   component framework. Preserve page hooks until their migration.
+2. Extract shared behaviors from `web/static/js/app.js` to a small same-origin module: menus,
+   dialogs/drawer focus/inert, theme/feedback, pending-submit recovery, delegation/swap cleanup.
+   Business-specific forms remain separate; no public API dependency is added.
+3. App/auth/sub layouts share head/preferences/feedback and page context; permission-aware nav
+   and error foundations retain HTTP/session/CSRF behavior.
+4. Behavioral changes use failing tests first. Scoped web/i18n tests and local browser checks
+   cover shell plus representative list/form/public compositions. Page-specific calendar/chart
+   redesign and full-page migrations are not claimed in 10.1.
+
+## Verification and completion
+
+During implementation run changed-risk handler/template/form/permission/i18n and interaction
+checks. At coherent commits build and `make test` pass. At 10.7 run build/unit/vet and relevant
+CI/race gates, not Phase 11 soak/load/network certification.
+
+Final widths: **320, 360, 390, 430, 768, 1024, 1280, 1440, 1920, 2560, 3440** CSS pixels, plus
+breakpoint edges, short-height/landscape and zoom. Cross fa/en × light/dark × applicable states;
+check system preference separately. Cover Chromium, Firefox and WebKit/Safari; Android Chrome and
+iOS Safari on real devices when available. Record engine/version and emulated/physical coverage
+honestly. Check geometry and keyboard/touch as well as visual composition.
+
+Run the full matrix once at 10.7; after corrections rerun affected cells. Relevant TLS/VPS checks
+cover UI workflows, metrics, QR/config/download and backup/permissions; unchanged successful
+network/lifecycle drills remain accepted. Request VPS credentials only at that gate. Never capture
+credentials, subscription capabilities, raw configs or show-once secrets in evidence.
+
+RB-006 closes only when every inventory surface uses the new system, critical workflows pass
+locale/theme/input/viewport checks, no raw key/legacy page/viewport overflow remains, accessibility
+and measured asset/HTML/performance gates pass, and docs/CI agree with the exact revision. Update
+existing docs, CHANGELOG/README/notices as affected, without redundant reports. API/OpenAPI needs
+an actual public contract change. Phase 11/12 remain separate; AUD-019/AUD-050 are not certified by
+redesigned controls. Final integration includes coherent commits, merge/push/main verification and
+temporary branch cleanup; public publication always requires explicit owner approval.
+
+## Current evidence (2026-09-10)
+
+10.0: requirement/route/state ownership and UI contracts are adopted. Settings now validates and
+prepares all supplied changes before one transaction; real SQLite failure tests prove rollback.
+Targeted settings/web tests and WSL race pass. Browser input-value checks confirm multiple invalid
+numeric values survive redisplay; safe HTML 500 preserves nonsecret input on persistence failure.
+Scoped review closed both redisplay findings. No public API schema/validation rule changed.
+
+10.1: shared head/preferences/feedback and permission-aware shell, theme persistence across app/
+auth/public, error-page foundation, revised tokens/widths/touch/reduced motion, and shared UI module
+are implemented. Browser regression covers drawer focus/inert/resize, menu keys, dynamic dialog,
+submitter-preserving confirmation/deduplication, HTMX failure recovery, and representative list/
+form/auth/public fa/en × light/dark at 390/1440 plus 320 shell. This is local headless Chrome 152.0.7977.83 evidence;
+Firefox/WebKit, physical devices, full state/viewport matrix and VPS acceptance remain 10.7.
+Page-specific list/card/form/calendar/chart redesign remains in its owning milestone. The test
+also exposed an existing initial-date-preview ordering error, fixed without changing date logic.
+
+Final official asset check: JS 27,981 B, CSS 12,102 B, fonts 101,799 B gzip, within unchanged
+budgets. WSL `make build`, full `make test`, `make vet` and the asset script passed for this
+coherent change. Scoped review findings are closed, including menu/dialog focus return, visible
+menu geometry and anonymous error-language switching. The anonymous Login matrix asserts the
+actual form, theme, direction and overflow. 10.2 is next; these checks do not close RB-006 or
+begin Phase 11. No VPS drill or public publication was performed.
