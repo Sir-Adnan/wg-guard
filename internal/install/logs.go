@@ -85,10 +85,19 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 	if err != nil {
 		return err
 	}
+	logOutput := stdout
 	if options.Component != "" {
-		stdout = &componentLineFilter{out: stdout, component: options.Component}
+		logOutput = &componentLineFilter{out: stdout, component: options.Component}
 	}
-	if err := h.Stream(ctx, argv, stdout, stderr); err != nil {
+	// Docker preserves the container's stdout/stderr split. WG-Guard's
+	// structured logger writes to stderr, so route both container streams into
+	// the command's single documented stdout stream. Native journalctl already
+	// emits journal records on stdout and keeps diagnostics on stderr.
+	sourceStderr := stderr
+	if state.Mode == ModeDocker {
+		sourceStderr = logOutput
+	}
+	if err := h.Stream(ctx, argv, logOutput, sourceStderr); err != nil {
 		return fmt.Errorf("logs: %s source: %w", state.Mode, err)
 	}
 	return nil

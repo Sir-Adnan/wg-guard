@@ -106,6 +106,29 @@ func TestStreamLogsFiltersCompleteBoundedLinesLocally(t *testing.T) {
 	}
 }
 
+func TestStreamLogsDockerMergesContainerStderrIntoOutput(t *testing.T) {
+	h := &logStreamHost{
+		memHost: newMemHost(),
+		stderr:  []byte("time=x level=INFO component=serve msg=ready\n"),
+		chunks:  [][]byte{[]byte("time=x level=INFO component=http msg=request\n")},
+	}
+	var out, errOut bytes.Buffer
+	err := StreamLogs(context.Background(), h, installedLogState(ModeDocker), LogOptions{
+		Tail: 200, Since: time.Now().UTC(),
+	}, &out, &errOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"component=serve", "component=http"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("unified Docker output %q does not contain %q", out.String(), want)
+		}
+	}
+	if errOut.Len() != 0 {
+		t.Fatalf("Docker container stderr escaped unified output: %q", errOut.String())
+	}
+}
+
 type brokenLogWriter struct{ err error }
 
 func (w brokenLogWriter) Write([]byte) (int, error) { return 0, w.err }
