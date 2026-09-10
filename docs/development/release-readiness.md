@@ -5,7 +5,7 @@ this document owns cross-phase requirement coverage, release blockers, audit fin
 verification state. Phase execution details live in the corresponding phase document.
 
 Last updated: 2026-09-10. Phases 8, 8.1 and **8.2 — Secure access & persistent manager** are
-complete. **Phase 9 — Operational observability** is active at milestone 9.7.
+complete. **Phase 9 — Operational observability** is active at milestone 9.8.
 
 ## Program status
 
@@ -14,7 +14,7 @@ complete. **Phase 9 — Operational observability** is active at milestone 9.7.
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
-| 9 — Operational observability | active; milestone 9.7 | Useful live metrics/logs with bounded cost and retention |
+| 9 — Operational observability | active; milestone 9.8 | Useful live metrics/logs with bounded cost and retention |
 | 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
@@ -94,7 +94,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
 | AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | implemented + unit tested through mode-aware host `wg-guard logs`; real Docker/native failure/follow gate remains 9.8 |
-| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | planned; design contract complete |
+| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | implemented + unit/race tested: Docker 16 MiB × 8 local rotation, scoped native 7-day/size policy, operation journal 7-day/8 MiB; real policy/disk gate remains 9.8 |
 | AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | planned |
 | AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
 | AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |

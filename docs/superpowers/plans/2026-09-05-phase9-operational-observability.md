@@ -29,8 +29,8 @@ and [`../../development/phase9.md`](../../development/phase9.md).
 
 Execution status: Phase 9.0 contracts are accepted. Phase 9.1 completed on 2026-09-10 from clean
 revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures moved
-with Task 2 because no standalone fixture files were committed during design. Tasks 2–7 are
-complete; Task 8 is active.
+with Task 2 because no standalone fixture files were committed during design. Tasks 2–8 are
+complete; Task 9 is active.
 
 ---
 

@@ -73,6 +73,12 @@ closed. The separate host lifecycle lock still owns deployment orchestration, so
 CLI subprocesses do not inherit or reacquire it. See the exact protocol and older-binary
 boundary in [lifecycle recovery](../operations/lifecycle-recovery.md).
 
+Structured runtime records cross one recursive redaction handler and carry a closed component
+label before reaching deployment-native storage. Docker owns a compressed local-driver ring;
+native mode owns a scoped journal namespace; neither is copied into SQLite or exposed over HTTP.
+The host-side `wg-guard logs` command normalizes both. Fixed lifecycle outcomes that occur outside
+the service manager use a separate size/time-bounded private JSONL journal under the data directory.
+
 ## Reconciliation (DB is the source of truth)
 
 On boot and continuously, kernel state is verified against the database: missing interfaces are

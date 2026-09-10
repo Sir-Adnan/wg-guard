@@ -30,7 +30,7 @@ func validateState(st *State) error {
 		}
 	}
 	for _, p := range st.ExtraFiles {
-		if p != ModuleAutoLoadPath {
+		if p != ModuleAutoLoadPath && p != JournalRetentionPath && p != OperationRetentionPath {
 			return terminalError("install.error.state")
 		}
 	}

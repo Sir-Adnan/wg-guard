@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -39,7 +40,9 @@ type Host interface {
 
 	MkdirAll(path string, perm fs.FileMode) error
 	WriteFile(path string, data []byte, perm fs.FileMode) error
+	AppendFile(path string, data []byte, perm fs.FileMode) error
 	ReadFile(path string) ([]byte, error)
+	ReadDir(path string) ([]fs.DirEntry, error)
 	Stat(path string) (fs.FileInfo, error)
 	Remove(path string) error
 	RemoveAll(path string) error
@@ -138,7 +141,38 @@ func (realHost) MkdirAll(path string, perm fs.FileMode) error {
 func (realHost) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	return os.WriteFile(path, data, perm)
 }
-func (realHost) ReadFile(path string) ([]byte, error)    { return os.ReadFile(path) }
+func (realHost) AppendFile(path string, data []byte, perm fs.FileMode) error {
+	if err := safeHostPath(path); err != nil {
+		return err
+	}
+	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() {
+		return fmt.Errorf("append %s: not a regular file", path)
+	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	if err = f.Chmod(perm); err == nil {
+		var n int
+		n, err = f.Write(data)
+		if err == nil && n != len(data) {
+			err = io.ErrShortWrite
+		}
+	}
+	if err == nil {
+		err = f.Sync()
+	}
+	return errors.Join(err, f.Close())
+}
+func (realHost) ReadFile(path string) ([]byte, error) { return os.ReadFile(path) }
+func (realHost) ReadDir(path string) ([]fs.DirEntry, error) {
+	if err := safeHostPath(path); err != nil {
+		return nil, err
+	}
+	return os.ReadDir(path)
+}
 func (realHost) Open(path string) (io.ReadCloser, error) { return os.Open(path) }
 func (realHost) Stat(path string) (fs.FileInfo, error)   { return os.Stat(path) }
 func (realHost) Remove(path string) error                { return os.Remove(path) }

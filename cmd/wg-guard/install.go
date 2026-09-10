@@ -27,6 +27,12 @@ func routeDockerMode() {
 	if os.Getenv("WGG_IN_CONTAINER") == "1" {
 		return
 	}
+	// Operational logs are always host-owned. In particular, the fixed
+	// operation journal must remain readable when install state is absent or
+	// damaged, which is exactly when it is most useful.
+	if len(os.Args) > 1 && os.Args[1] == "logs" {
+		return
+	}
 	st, err := install.LoadState(install.NewRealHost())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

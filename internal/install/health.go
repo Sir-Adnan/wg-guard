@@ -196,7 +196,7 @@ func LoadState(h Host) (*State, error) {
 		}
 		for _, a := range []*Artifact{st.Current, st.Previous} {
 			if a != nil {
-				for _, p := range []string{a.Binary, a.Compose} {
+				for _, p := range []string{a.Binary, a.Compose, a.Unit} {
 					if p != "" {
 						if err := safeHostPath(p); err != nil {
 							return nil, err

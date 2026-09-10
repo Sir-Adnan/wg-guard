@@ -180,7 +180,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := preflight(ctx, h, p, out); err != nil {
 		return nil, err
 	}
-	for _, target := range []string{ConfigPath, ComposePth, UnitPath} {
+	targets := []string{ConfigPath, ComposePth, UnitPath, OperationRetentionPath}
+	if p.Mode == ModeNative {
+		targets = append(targets, JournalRetentionPath)
+	}
+	for _, target := range targets {
 		if _, err := h.Stat(target); err == nil {
 			return nil, terminalError("install.error.state")
 		} else if !errors.Is(err, fs.ErrNotExist) {
@@ -335,6 +339,18 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := h.MkdirAll(p.DataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("install: mkdir %s: %w", p.DataDir, err)
 	}
+	if err := ensureOperationRetention(ctx, h, st, false); err != nil {
+		return st, err
+	}
+	operations := newOperationJournal(h)
+	_ = operations.record(operationInstall, operationStarted, p.Mode)
+	defer func() {
+		outcome := operationSucceeded
+		if resultErr != nil {
+			outcome = operationFailed
+		}
+		_ = operations.record(operationInstall, outcome, p.Mode)
+	}()
 	cfgToml, err := renderBootConfig(p)
 	if err != nil {
 		return nil, fmt.Errorf("install: config: %w", err)
@@ -515,12 +531,22 @@ func installNative(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 	}
 
 	step(out, "Systemd unit")
+	if err := h.MkdirAll(JournalRetentionDir, 0o755); err != nil {
+		return fmt.Errorf("install: create journal policy directory: %w", err)
+	}
+	if err := h.WriteFile(JournalRetentionPath, []byte(RenderJournalRetention()), 0o644); err != nil {
+		return fmt.Errorf("install: write journal policy: %w", err)
+	}
+	st.ExtraFiles = addUnique(st.ExtraFiles, JournalRetentionPath)
 	if err := h.WriteFile(UnitPath, []byte(RenderUnit(p)), 0o644); err != nil {
 		return fmt.Errorf("install: write unit: %w", err)
 	}
 	st.UnitPath = UnitPath
 	if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
 		return fmt.Errorf("install: daemon-reload: %w", err)
+	}
+	if err := runQuiet(ctx, h, []string{"systemctl", "try-restart", "systemd-journald@wg-guard.service"}, 30*time.Second); err != nil {
+		return fmt.Errorf("install: reload journal namespace: %w", err)
 	}
 	if beforeStart != nil {
 		if err := beforeStart(ctx, h, p, st); err != nil {

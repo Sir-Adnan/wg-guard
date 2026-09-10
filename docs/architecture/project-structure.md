@@ -62,6 +62,7 @@ internal/
   install/               deployment layer: install plan + wizard, independent verified manager cache,
                          compose/systemd renderers,
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
+                         bounded fixed-metadata operation journal and Docker/native log policy,
                          update/rollback, coordinated offline restore and uninstall,
                          versioned state/artifact contract,
                          Host seam for fault-injection/stream testing, mode-aware operational logs

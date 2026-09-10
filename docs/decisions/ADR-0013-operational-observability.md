@@ -29,8 +29,10 @@ Use the deployment's native log owner instead of creating another service:
   policy;
 - Docker uses the per-container `local` logging driver with compression and an explicit size/file
   cap;
-- a small owned operation journal retains only fixed, redacted install/update/rollback milestones
-  for seven days, covering work that does not run inside the service manager.
+- a small owned operation journal retains only fixed, redacted install/update/rollback/uninstall
+  milestones for seven days, covering work that does not run inside the service manager; the
+  existing systemd-tmpfiles clean timer enforces deletion while internal pruning enforces the
+  independently tested file/count/byte boundary.
 
 `wg-guard logs` normalizes tail, since, follow, cancellation, and component filtering across those
 sources. A central `slog.Handler` wrapper redacts secrets before text/JSON handlers or platform log
@@ -54,6 +56,10 @@ storage receive a record.
   [journald.conf](https://www.freedesktop.org/software/systemd/man/latest/journald.conf.html).
 - systemd assigns unit output to a named journal namespace with
   [`LogNamespace=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LogNamespace=).
+- systemd [`tmpfiles.d`](https://www.freedesktop.org/software/systemd/man/latest/tmpfiles.d.html)
+  `d` entries provide age-based directory-content cleanup and the host's existing
+  [`systemd-tmpfiles-clean.timer`](https://www.freedesktop.org/software/systemd/man/latest/systemd-tmpfiles.html)
+  runs the policy without another WG-Guard process.
 - Docker recommends the efficient rotating `local` driver and documents `max-size`, `max-file`, and
   compression in the
   [local logging driver reference](https://docs.docker.com/engine/logging/drivers/local/).

@@ -66,6 +66,13 @@ depth: callers must still avoid logging raw configs, subprocess output, request 
 or secret-bearing URLs. Text and JSON secret-corpus tests plus race tests enforce the handler
 contract; real failure-log disclosure checks remain part of the Phase 9 VPS gate.
 
+Installer lifecycle observability contains only fixed `operation`, `outcome`, `mode` and timestamp
+metadata; error text, prompts, stdin, argv and subprocess output are structurally absent. Files are
+0600 in a 0700 directory, read back only after strict canonical validation, and bounded to seven
+UTC daily files/8 MiB. A fixed installer-owned tmpfiles rule removes files by mtime after seven
+days using Ubuntu's existing cleanup timer; unowned policy conflicts are refused. This journal is
+removed when the operator explicitly purges node data.
+
 ## Panel hardening
 
 - CSRF token on all mutating form/HTMX requests; security headers (CSP, X-Content-Type-Options,

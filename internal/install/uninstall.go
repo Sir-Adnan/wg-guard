@@ -40,7 +40,7 @@ type UninstallOptions struct {
 // install state (ADR-0006: "removes only WG-Guard-owned resources"). Data is
 // preserved unless PurgeData; installer-installed packages are preserved
 // unless PurgePackages. With DryRun nothing is mutated.
-func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallReport, error) {
+func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *UninstallReport, resultErr error) {
 	if !h.IsRoot() {
 		return nil, terminalError("install.error.root")
 	}
@@ -99,6 +99,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 			if a.Compose != "" {
 				artifacts = append(artifacts, a.Compose)
 			}
+			if a.Unit != "" {
+				artifacts = append(artifacts, a.Unit)
+			}
 		}
 	}
 	for _, path := range managedExposureArtifacts(st.Exposure) {
@@ -125,6 +128,18 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 			return nil, terminal.ErrCanceled
 		}
 	}
+	operations := newOperationJournal(h)
+	_ = operations.record(operationUninstall, operationStarted, st.Mode)
+	defer func() {
+		if rep.PurgedData {
+			return
+		}
+		outcome := operationSucceeded
+		if resultErr != nil {
+			outcome = operationFailed
+		}
+		_ = operations.record(operationUninstall, outcome, st.Mode)
+	}()
 
 	// Stop first: a still-running service could reopen files being removed.
 	j := &Journal{Schema: 1, ID: transactionID(), Operation: "uninstall", Before: st}
@@ -163,6 +178,15 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (*UninstallRepor
 		} else {
 			fmt.Fprintf(out, "  removed %s\n", path)
 		}
+	}
+	if st.Mode == ModeNative {
+		if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
+			return rep, err
+		}
+		if err := runQuiet(ctx, h, []string{"systemctl", "try-restart", "systemd-journald@wg-guard.service"}, 30*time.Second); err != nil {
+			return rep, err
+		}
+		_ = h.Remove(JournalRetentionDir) // succeeds only when the owned drop-in directory is empty
 	}
 
 	if o.PurgeData {

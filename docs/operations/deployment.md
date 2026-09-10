@@ -172,8 +172,28 @@ owned container or `journalctl --namespace=wg-guard -u wg-guard.service` for nat
 defaults to the latest 200 records from 24 hours, caps tail at 10,000 and since at seven days, and
 supports cancellable follow plus a closed structured-component filter. The filter processes only
 complete lines with a 64 KiB per-line bound and never places the filter value in subprocess argv.
-Raw logs remain local; there is no panel/API log endpoint. Phase 9 milestone 9.7 owns the durable
-storage caps, and milestone 9.8 owns real Docker/native failure drills.
+`--source operations` instead reads the fixed, private lifecycle journal without requiring install
+state; follow/component apply only to service logs. Raw logs remain local; there is no panel/API
+log endpoint.
+
+Docker Compose selects the efficient `local` driver with compression, `max-size=16m` and
+`max-file=8`. This hard-bounds the owned container near 128 MiB, but Docker has no age option: the
+seven-day CLI query horizon is not a claim of exact physical age deletion. Native service output
+uses `LogNamespace=wg-guard`; the installer-owned
+`/etc/systemd/journald@wg-guard.conf.d/retention.conf` sets `MaxRetentionSec=7day`,
+`MaxFileSec=1day`, `SystemMaxUse=128M` and `RuntimeMaxUse=64M` without changing global journald
+policy. Install/update reload the namespace; rollback restores the previous unit/policy and
+uninstall removes the owned drop-in.
+
+Lifecycle work outside the service manager writes only fixed action/outcome/mode metadata through
+the same redaction boundary under `/var/lib/wg-guard/operations`. At most seven UTC daily JSONL
+files and 8 MiB are retained; oldest recognized owned files are pruned on writes and readers skip
+invalid, oversized or interrupted lines. The installer-owned
+`/etc/tmpfiles.d/wg-guard-operations.conf` uses an mtime-only seven-day rule serviced by Ubuntu's
+existing `systemd-tmpfiles-clean.timer`, so idle old files do not wait for another lifecycle write.
+The installer applies the file explicitly, refuses an unowned conflict, records ownership, and
+rolls it back if the state commit fails. Purging node data intentionally removes these records.
+Milestone 9.8 owns real policy/timer and disk-growth inspection.
 
 ## Ports & networking defaults
 

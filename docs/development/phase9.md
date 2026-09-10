@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.7 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **active; milestone 9.8 in progress**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -39,8 +39,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - [x] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
 - [x] 9.5 — Install central structured-log redaction and component classification.
 - [x] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
-- [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds. **Active.**
-- [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence.
+- [x] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
+- [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence. **Active.**
 
 ## Verification
 
@@ -92,6 +92,18 @@ complete lines locally with a 64 KiB bound. Exact argv/no-shell routing, split w
 matching, false positives, oversized/partial lines, source/output failures and real subprocess
 cancellation are automated-test verified. Retention policy installation and real host behavior
 remain milestones 9.7–9.8.
+
+Milestone 9.7 configures Docker's `local` driver at 16 MiB × 8 compressed files and native
+systemd's dedicated `wg-guard` journal namespace at seven days/128 MiB persistent/64 MiB runtime.
+Native updates snapshot the prior unit, install the namespace/policy transactionally, reload the
+namespace, and restore the old unit/ownership on failure. A private operation journal keeps only
+fixed install/update/rollback/uninstall outcomes in at most seven UTC daily files and 8 MiB.
+Oldest owned files are pruned on writes and Ubuntu's existing tmpfiles-clean timer enforces a
+mtime-only seven-day cleanup without another daemon; neither crosses the owned directory. Corrupt,
+oversized and partial lines are skipped safely. `wg-guard logs --source operations` reads canonical
+valid records even without install state. Render/ownership/update/rollback/uninstall,
+fake-clock/size/permission and every lifecycle success/failure outcome are unit/race tested.
+Platform policy/timer and disk behavior still require milestone 9.8 VPS evidence.
 
 ## Documentation
 

@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +204,14 @@ func (m *memHost) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	return nil
 }
 
+func (m *memHost) AppendFile(path string, data []byte, perm fs.FileMode) error {
+	file := m.files[path]
+	file.data = append(file.data, data...)
+	file.perm = perm
+	m.files[path] = file
+	return nil
+}
+
 func (m *memHost) ReadFile(path string) ([]byte, error) {
 	if f, ok := m.files[path]; ok {
 		return append([]byte(nil), f.data...), nil
@@ -209,23 +219,63 @@ func (m *memHost) ReadFile(path string) ([]byte, error) {
 	return nil, fs.ErrNotExist
 }
 
-func (m *memHost) Stat(path string) (fs.FileInfo, error) {
-	if file, ok := m.files[path]; ok {
-		return statInfo{perm: file.perm}, nil
+func (m *memHost) ReadDir(dir string) ([]fs.DirEntry, error) {
+	if !m.dirs[dir] {
+		return nil, fs.ErrNotExist
 	}
-	if m.dirs[path] {
-		return statInfo{dir: true}, nil
+	prefix := strings.TrimSuffix(dir, "/") + "/"
+	entries := map[string]memDirEntry{}
+	for filePath, file := range m.files {
+		rel := strings.TrimPrefix(filePath, prefix)
+		if rel == filePath || rel == "" || strings.Contains(rel, "/") {
+			continue
+		}
+		entries[rel] = memDirEntry{name: rel, info: statInfo{name: rel, perm: file.perm, size: int64(len(file.data))}}
+	}
+	for dirPath := range m.dirs {
+		rel := strings.TrimPrefix(dirPath, prefix)
+		if rel == dirPath || rel == "" || strings.Contains(rel, "/") {
+			continue
+		}
+		entries[rel] = memDirEntry{name: rel, info: statInfo{name: rel, dir: true}}
+	}
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	result := make([]fs.DirEntry, 0, len(names))
+	for _, name := range names {
+		entry := entries[name]
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+func (m *memHost) Stat(filePath string) (fs.FileInfo, error) {
+	if file, ok := m.files[filePath]; ok {
+		return statInfo{name: path.Base(filePath), perm: file.perm, size: int64(len(file.data))}, nil
+	}
+	if m.dirs[filePath] {
+		return statInfo{name: path.Base(filePath), dir: true}, nil
 	}
 	return nil, fs.ErrNotExist
 }
 
 type statInfo struct {
+	name string
 	dir  bool
 	perm fs.FileMode
+	size int64
 }
 
-func (s statInfo) Name() string { return "x" }
-func (s statInfo) Size() int64  { return 0 }
+func (s statInfo) Name() string {
+	if s.name == "" {
+		return "x"
+	}
+	return s.name
+}
+func (s statInfo) Size() int64 { return s.size }
 func (s statInfo) Mode() fs.FileMode {
 	if s.perm == 0 {
 		return 0o600
@@ -236,14 +286,32 @@ func (s statInfo) ModTime() time.Time { return time.Time{} }
 func (s statInfo) IsDir() bool        { return s.dir }
 func (s statInfo) Sys() any           { return nil }
 
+type memDirEntry struct {
+	name string
+	info statInfo
+}
+
+func (e memDirEntry) Name() string               { return e.name }
+func (e memDirEntry) IsDir() bool                { return e.info.IsDir() }
+func (e memDirEntry) Type() fs.FileMode          { return e.info.Mode().Type() }
+func (e memDirEntry) Info() (fs.FileInfo, error) { return e.info, nil }
+
 func (m *memHost) Remove(path string) error {
 	delete(m.files, path)
 	return nil
 }
 
 func (m *memHost) RemoveAll(path string) error {
-	delete(m.files, path)
-	delete(m.dirs, path)
+	for filePath := range m.files {
+		if filePath == path || strings.HasPrefix(filePath, strings.TrimSuffix(path, "/")+"/") {
+			delete(m.files, filePath)
+		}
+	}
+	for dirPath := range m.dirs {
+		if dirPath == path || strings.HasPrefix(dirPath, strings.TrimSuffix(path, "/")+"/") {
+			delete(m.dirs, dirPath)
+		}
+	}
 	return nil
 }
 

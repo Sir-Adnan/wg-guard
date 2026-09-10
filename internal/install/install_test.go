@@ -119,6 +119,7 @@ func TestRenderComposeShape(t *testing.T) {
 		"- /etc/wg-guard/wg-guard.toml:/etc/wg-guard/wg-guard.toml:ro",
 		"- /var/lib/wg-guard:/var/lib/wg-guard",
 		"restart: unless-stopped",
+		"logging:\n      driver: local\n      options:\n        max-size: \"16m\"\n        max-file: \"8\"\n        compress: \"true\"",
 		"image: " + DefaultImage,
 		// acme mode probes the plain-HTTP sidecar, not the TLS listener
 		"http://127.0.0.1:80/healthz",
@@ -237,6 +238,12 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	if got := h.files[StatePath].perm; got != 0o600 {
 		t.Errorf("state perm = %o, want 600", got)
 	}
+	if file, ok := h.files[OperationRetentionPath]; !ok || file.perm != 0o644 || string(file.data) != RenderOperationRetention() {
+		t.Fatalf("operation retention policy = %+v, present=%v", file, ok)
+	}
+	if !contains(st.ExtraFiles, OperationRetentionPath) {
+		t.Fatalf("operation retention policy is not installer-owned: %v", st.ExtraFiles)
+	}
 	for _, want := range [][]string{
 		{"docker", "compose", "version"},
 		{"docker", "compose", "-f", ComposePth, "up", "-d"},
@@ -303,13 +310,44 @@ func TestInstallNativeHappyPath(t *testing.T) {
 	if _, ok := h.files[BinPath]; !ok {
 		t.Error("binary not copied")
 	}
+	if file, ok := h.files[JournalRetentionPath]; !ok {
+		t.Error("journal retention policy not written")
+	} else if file.perm != 0o644 || string(file.data) != RenderJournalRetention() {
+		t.Fatalf("journal retention policy = %o %q", file.perm, file.data)
+	}
+	if !contains(st.ExtraFiles, JournalRetentionPath) || !contains(st.ExtraFiles, OperationRetentionPath) {
+		t.Fatalf("retention policies are not installer-owned: %v", st.ExtraFiles)
+	}
 	for _, want := range [][]string{
 		{"systemctl", "daemon-reload"},
+		{"systemctl", "try-restart", "systemd-journald@wg-guard.service"},
 		{"systemctl", "enable", "--now", "wg-guard"},
 	} {
 		if !h.ran(want...) {
 			t.Errorf("command not run: %v", want)
 		}
+	}
+}
+
+func TestRenderJournalRetentionIsScopedAndBounded(t *testing.T) {
+	got := RenderJournalRetention()
+	for _, want := range []string{
+		"[Journal]", "MaxRetentionSec=7day", "MaxFileSec=1day",
+		"SystemMaxUse=128M", "RuntimeMaxUse=64M",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("retention policy missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Storage=") || strings.Contains(got, "ForwardTo") {
+		t.Fatalf("retention policy changes unrelated journal behavior:\n%s", got)
+	}
+}
+
+func TestRenderOperationRetentionUsesDailyMTimeCleanup(t *testing.T) {
+	want := "d /var/lib/wg-guard/operations 0700 root root m:7d -\n"
+	if got := RenderOperationRetention(); got != want {
+		t.Fatalf("operation retention = %q, want %q", got, want)
 	}
 }
 

@@ -46,6 +46,16 @@ with that opt-in it remains synthetic fixture evidence rather than native/Docker
 acceptance. See [backup and restore](../operations/backup-restore.md#isolated-acceptance-helper)
 for the bounded invocation and evidence limits.
 
+## Phase 9 observability verification
+
+Deterministic `/proc` fixtures and fake clocks cover metric availability, rate continuity, ring
+bounds, log retention and operation outcomes. Text/JSON secret corpora cover the central redaction
+handler; the install Host seam covers exact Docker/journal argv, split/oversized lines, broken
+output, cancellation, policy ownership and transactional update rollback. Focused WSL2 race suites
+pass. These are implementation gates only: real Docker/native failure visibility, journal/driver
+policy inspection, traffic graphs and measured idle/load overhead remain the Phase 9.8 dedicated
+Ubuntu 24.04 amd64 gate.
+
 During implementation, run focused regressions for the changed risk; run full build/unit/vet
 and relevant race/integration gates at coherent milestones. Prose-only changes do not justify
 repeating unchanged expensive suites. Root/service/data recovery paths need failure injection

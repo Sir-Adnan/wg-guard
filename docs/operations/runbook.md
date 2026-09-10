@@ -52,10 +52,13 @@ Recent service logs use one command in either deployment mode:
 sudo wg-guard logs
 sudo wg-guard logs --tail 500 --since 6h --component awg
 sudo wg-guard logs --follow
+sudo wg-guard logs --source operations --since 7d
 ```
 
 The command derives Docker versus native journal access from validated install state. Tail is
-bounded at 10,000, since at seven days, and `Ctrl+C` stops follow mode.
+bounded at 10,000, since at seven days, and `Ctrl+C` stops service follow mode. The operations
+source contains only fixed install/update/rollback/uninstall outcomes and remains readable when
+install state is absent.
 
 ## Update and recovery
 

@@ -55,7 +55,9 @@ package intents, observed ownership and repository preparation. Package intents 
 interrupted apt command may have changed those packages; inspect `dpkg-query` before deciding
 ownership. The recommended source-backed core adds no PPA; shared PPA configuration from a legacy
 package-backed installation is retained on uninstall. No password, token, raw boot configuration
-or archive content belongs in state, the journal or diagnostic evidence.
+or archive content belongs in state, the journal or diagnostic evidence. Safe fixed lifecycle
+outcomes can be inspected with `wg-guard logs --source operations --since 7d`; this does not expose
+prompts, command arguments, error text, configuration or archive content.
 
 Retained binaries and Compose snapshots live in random private directories under
 `/etc/wg-guard/lifecycle/`. Their exact paths and binary SHA-256 are recorded. Successful

@@ -48,14 +48,24 @@ EOF, partial input and interruption never grant consent.
 sudo wg-guard logs
 sudo wg-guard logs --tail 500 --since 6h
 sudo wg-guard logs --follow --component http
+sudo wg-guard logs --source operations
 ```
 
 `--tail` accepts 1–10,000 (default 200). `--since` accepts a positive duration or RFC3339 instant
 within the previous seven days (default 24h). `--component` accepts only `serve`, `http`,
 `scheduler`, `accounting`, `webhook`, `backup`, `awg`, or `network`; filtering is local and never
-adds free-form input to Docker/journal argv. Follow exits cleanly with `Ctrl+C`. Service logs stay
-host-local and are not exposed through the panel or REST API. Storage bounds are tracked
-separately by Phase 9 milestone 9.7.
+adds free-form input to Docker/journal argv. Follow exits cleanly with `Ctrl+C` and applies only to
+the service source. `--source operations` reads canonical fixed-metadata lifecycle outcomes; it
+works without install state and skips corrupt/partial records. Logs stay host-local and are not
+exposed through the panel or REST API.
+
+Docker service storage uses its compressed local driver with eight 16 MiB files (a hard size cap;
+Docker has no age option). Native service storage uses a dedicated journal namespace capped at
+seven days, 128 MiB persistent and 64 MiB runtime. Operation records keep no more than seven UTC
+daily files and 8 MiB; lifecycle writes prune immediately and Ubuntu's existing tmpfiles-clean
+timer removes files whose mtime exceeds seven days. Queries never return records older than the
+requested seven-day maximum. The root-private installer build log remains separately bounded to
+two 4 MiB files.
 
 ## Uninstall and clean reset
 

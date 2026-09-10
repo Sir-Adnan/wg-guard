@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -30,9 +32,12 @@ func runLogsWith(ctx context.Context, args []string, host install.Host, stdout, 
 	if err != nil {
 		return err
 	}
-	state, err := install.LoadState(host)
-	if err != nil {
-		return fmt.Errorf("logs: load install state: %w", err)
+	var state *install.State
+	if options.Source == install.LogSourceService {
+		state, err = install.LoadState(host)
+		if err != nil {
+			return fmt.Errorf("logs: load install state: %w", err)
+		}
 	}
 	return install.StreamLogs(ctx, host, state, options, stdout, stderr)
 }
@@ -44,6 +49,7 @@ func parseLogsOptions(args []string, now time.Time) (install.LogOptions, error) 
 	since := fs.String("since", "24h", "bounded duration or RFC3339 instant")
 	follow := fs.Bool("follow", false, "follow new service records")
 	component := fs.String("component", "", "structured component filter")
+	source := fs.String("source", install.LogSourceService, "service or operations")
 	if err := fs.Parse(args); err != nil {
 		return install.LogOptions{}, fmt.Errorf("logs: %w", err)
 	}
@@ -62,13 +68,32 @@ func parseLogsOptions(args []string, now time.Time) (install.LogOptions, error) 
 			return install.LogOptions{}, fmt.Errorf("logs: unknown --component %q", *component)
 		}
 	}
+	if *source != install.LogSourceService && *source != install.LogSourceOperations {
+		return install.LogOptions{}, fmt.Errorf("logs: unknown --source %q", *source)
+	}
+	if *source == install.LogSourceOperations && *follow {
+		return install.LogOptions{}, fmt.Errorf("logs: --follow is available only for the service source")
+	}
+	if *source == install.LogSourceOperations && *component != "" {
+		return install.LogOptions{}, fmt.Errorf("logs: --component is available only for the service source")
+	}
 	return install.LogOptions{
-		Tail: *tail, Since: instant, Follow: *follow, Component: *component,
+		Source: *source, Tail: *tail, Since: instant, Follow: *follow, Component: *component,
 	}, nil
 }
 
 func parseLogSince(value string, now time.Time) (time.Time, error) {
 	now = now.UTC().Truncate(time.Second)
+	if strings.HasSuffix(value, "d") {
+		days, err := strconv.Atoi(strings.TrimSuffix(value, "d"))
+		if err == nil {
+			if days < 1 || days > 7 {
+				return time.Time{}, fmt.Errorf("logs: --since duration must be greater than zero and at most 168h")
+			}
+			duration := time.Duration(days) * 24 * time.Hour
+			return now.Add(-duration), nil
+		}
+	}
 	if duration, err := time.ParseDuration(value); err == nil {
 		if duration <= 0 || duration > install.MaxLogSince {
 			return time.Time{}, fmt.Errorf("logs: --since duration must be greater than zero and at most 168h")

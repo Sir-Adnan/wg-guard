@@ -26,6 +26,7 @@ type Artifact struct {
 	Binary       string             `json:"binary"`
 	BinarySHA256 string             `json:"binary_sha256"`
 	Compose      string             `json:"compose,omitempty"`
+	Unit         string             `json:"unit,omitempty"`
 	Contract     Contract           `json:"contract"`
 	Backup       *BackupIdentity    `json:"backup,omitempty"`
 }
@@ -107,14 +108,14 @@ func LoadJournal(h Host) (*Journal, error) {
 	}
 	return &j, nil
 }
-func artifactPath(p string) bool {
-	return path.Dir(path.Dir(p)) == ArtifactDir && hexLength(path.Base(path.Dir(p)), 32) && (path.Base(p) == "binary" || path.Base(p) == "compose.yaml")
+func artifactPath(p, name string) bool {
+	return path.Dir(path.Dir(p)) == ArtifactDir && hexLength(path.Base(path.Dir(p)), 32) && path.Base(p) == name
 }
 func validateArtifact(a *Artifact) error {
 	if a == nil {
 		return nil
 	}
-	if !artifactPath(a.Binary) || !hexLength(a.BinarySHA256, 64) || a.Compose != "" && !artifactPath(a.Compose) {
+	if !artifactPath(a.Binary, "binary") || !hexLength(a.BinarySHA256, 64) || a.Compose != "" && !artifactPath(a.Compose, "compose.yaml") || a.Unit != "" && !artifactPath(a.Unit, "wg-guard.service") {
 		return terminalError("install.error.state")
 	}
 	if a.Image != "" && (!strings.HasPrefix(a.Image, "sha256:") || !hexLength(strings.TrimPrefix(a.Image, "sha256:"), 64)) {

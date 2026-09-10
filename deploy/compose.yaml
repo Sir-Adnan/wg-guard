@@ -4,8 +4,8 @@
 # with your ports, TLS mode and healthcheck; this reference documents the
 # shape. host networking + CAP_NET_ADMIN put links, nftables and tc on the
 # host's own netns — the AmneziaWG kernel module must be installed on the
-# HOST (the installer does this; manual: apt install amneziawg-dkms from
-# ppa:amnezia/ppa).
+# HOST. The installer builds the exact reviewed bundle from the compatibility
+# catalog; manual deployments must follow docs/integrations/amneziawg.md.
 #
 #   docker compose -f /etc/wg-guard/compose.yaml up -d
 
@@ -20,6 +20,12 @@ services:
     cap_add:
       - NET_ADMIN
     restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: "16m"
+        max-file: "8"
+        compress: "true"
     volumes:
       # Boot config: read-only inside the container.
       - /etc/wg-guard/wg-guard.toml:/etc/wg-guard/wg-guard.toml:ro

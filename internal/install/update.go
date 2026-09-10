@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"path"
@@ -14,7 +15,7 @@ import (
 
 // Update verifies before changing the active deployment. Every step after
 // swap-pending is recoverable, including state persistence and cancellation.
-func Update(ctx context.Context, h Host, o UpdateOptions) error {
+func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	out := o.Stdout
 	if out == nil {
 		out = io.Discard
@@ -51,6 +52,27 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	if err := migrateLegacyExposure(h, st); err != nil {
 		return err
 	}
+	if err := ensureOperationRetention(ctx, h, st, true); err != nil {
+		return err
+	}
+	if st.Mode == ModeNative {
+		if err := requireOwnedOrAbsent(h, st, JournalRetentionPath); err != nil {
+			return err
+		}
+	}
+	action := operationUpdate
+	if o.Rollback {
+		action = operationRollback
+	}
+	operations := newOperationJournal(h)
+	_ = operations.record(action, operationStarted, st.Mode)
+	defer func() {
+		outcome := operationSucceeded
+		if resultErr != nil {
+			outcome = operationFailed
+		}
+		_ = operations.record(action, outcome, st.Mode)
+	}()
 	step(out, "Update")
 	progress(out, "update_prepare")
 	j = &Journal{Schema: 1, ID: transactionID(), Operation: "update", Before: st}
@@ -99,6 +121,24 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	next.Image = j.Candidate.Image
 	next.Version = j.Candidate.Build.Version
 	next.Recovery = ""
+	next.ExtraFiles = append([]string(nil), st.ExtraFiles...)
+	if st.Mode == ModeNative && j.Candidate.Unit != "" {
+		unit, readErr := h.ReadFile(j.Candidate.Unit)
+		if readErr != nil {
+			return readErr
+		}
+		if strings.Contains(string(unit), "LogNamespace=wg-guard") {
+			next.ExtraFiles = addUnique(next.ExtraFiles, JournalRetentionPath)
+		} else {
+			filtered := next.ExtraFiles[:0]
+			for _, file := range next.ExtraFiles {
+				if file != JournalRetentionPath {
+					filtered = append(filtered, file)
+				}
+			}
+			next.ExtraFiles = filtered
+		}
+	}
 	j.After = &next
 	if err = j.save(h, "prepared"); err != nil {
 		return err
@@ -145,6 +185,29 @@ func Update(ctx context.Context, h Host, o UpdateOptions) error {
 	return nil
 }
 
+func requireOwnedOrAbsent(h Host, state *State, target string) error {
+	if _, ok := h.(realHost); ok {
+		if err := safeHostPath(target); err != nil {
+			return err
+		}
+	}
+	info, err := h.Stat(target)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	owned := false
+	for _, file := range state.ExtraFiles {
+		owned = owned || file == target
+	}
+	if !owned || !info.Mode().IsRegular() {
+		return fmt.Errorf("update: refusing unowned policy %s", target)
+	}
+	return nil
+}
+
 // migrateLegacyExposure upgrades only topology that can be reconstructed
 // exactly from the authoritative boot configuration. It intentionally does
 // not claim ownership of arbitrary legacy manual-certificate paths.
@@ -179,13 +242,16 @@ func removeArtifact(h Host, a *Artifact) {
 		return
 	}
 	if _, ok := h.(realHost); ok {
-		if safeHostPath(a.Binary) != nil || a.Compose != "" && safeHostPath(a.Compose) != nil {
+		if safeHostPath(a.Binary) != nil || a.Compose != "" && safeHostPath(a.Compose) != nil || a.Unit != "" && safeHostPath(a.Unit) != nil {
 			return
 		}
 	}
 	_ = h.Remove(a.Binary)
 	if a.Compose != "" {
 		_ = h.Remove(a.Compose)
+	}
+	if a.Unit != "" {
+		_ = h.Remove(a.Unit)
 	}
 	_ = h.Remove(path.Dir(a.Binary))
 }
@@ -203,6 +269,7 @@ func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, re
 		if resultErr != nil {
 			_ = h.Remove(dir + "/binary")
 			_ = h.Remove(dir + "/compose.yaml")
+			_ = h.Remove(dir + "/wg-guard.service")
 			_ = h.Remove(dir)
 		}
 	}()
@@ -240,6 +307,11 @@ func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, re
 			return nil, err
 		}
 		args = []string{"docker", "exec", Container, BinPath}
+	} else {
+		a.Unit = dir + "/wg-guard.service"
+		if err := h.CopyFile(UnitPath, a.Unit, 0o600); err != nil {
+			return nil, err
+		}
 	}
 	// Absent legacy contract never proves interpretation compatibility.
 	a.Contract, _ = readContract(ctx, h, args)
@@ -263,6 +335,7 @@ func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (re
 		if resultErr != nil {
 			_ = h.Remove(dir + "/binary")
 			_ = h.Remove(dir + "/compose.yaml")
+			_ = h.Remove(dir + "/wg-guard.service")
 			_ = h.Remove(dir)
 		}
 	}()
@@ -327,6 +400,15 @@ func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (re
 		if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
 			return nil, err
 		}
+	} else {
+		plan, err := installedPlan(h, st)
+		if err != nil {
+			return nil, err
+		}
+		a.Unit = dir + "/wg-guard.service"
+		if err = atomicWrite(h, a.Unit, []byte(RenderUnit(plan)), 0o600); err != nil {
+			return nil, err
+		}
 	}
 	return a, nil
 }
@@ -347,6 +429,59 @@ func composeImage(b []byte, image string) ([]byte, error) {
 	if n != 1 {
 		return nil, terminalError("install.error.compose")
 	}
+	return ensureComposeLogPolicy(lines)
+}
+
+func ensureComposeLogPolicy(lines []string) ([]byte, error) {
+	serviceStart, serviceEnd := -1, len(lines)
+	for index, line := range lines {
+		if line == "  wg-guard:" {
+			if serviceStart >= 0 {
+				return nil, terminalError("install.error.compose")
+			}
+			serviceStart = index
+			continue
+		}
+		if serviceStart >= 0 && strings.TrimSpace(line) != "" && len(line)-len(strings.TrimLeft(line, " \t")) <= 2 {
+			serviceEnd = index
+			break
+		}
+	}
+	if serviceStart < 0 {
+		return nil, terminalError("install.error.compose")
+	}
+	start, end, insert := -1, -1, -1
+	for index := serviceStart + 1; index < serviceEnd; index++ {
+		line := lines[index]
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if indent == 4 && strings.TrimSpace(line) == "logging:" {
+			if start >= 0 {
+				return nil, terminalError("install.error.compose")
+			}
+			start = index
+			end = index + 1
+			for end < serviceEnd {
+				next := lines[end]
+				nextIndent := len(next) - len(strings.TrimLeft(next, " \t"))
+				if strings.TrimSpace(next) != "" && nextIndent <= 4 {
+					break
+				}
+				end++
+			}
+		}
+		if insert < 0 && indent == 4 && strings.TrimSpace(line) == "volumes:" {
+			insert = index
+		}
+	}
+	policy := strings.Split(strings.TrimSuffix(dockerLogPolicy, "\n"), "\n")
+	if start >= 0 {
+		lines = append(append(append([]string(nil), lines[:start]...), policy...), lines[end:]...)
+		return []byte(strings.Join(lines, "\n")), nil
+	}
+	if insert < 0 {
+		return nil, terminalError("install.error.compose")
+	}
+	lines = append(append(append([]string(nil), lines[:insert]...), policy...), lines[insert:]...)
 	return []byte(strings.Join(lines, "\n")), nil
 }
 func deployArtifact(h Host, st *State, a *Artifact) error {
@@ -374,11 +509,36 @@ func deployArtifact(h Host, st *State, a *Artifact) error {
 		}
 		return atomicWrite(h, ComposePth, b, 0644)
 	}
+	if a.Unit != "" {
+		unit, err := h.ReadFile(a.Unit)
+		if err != nil {
+			return err
+		}
+		if err := atomicWrite(h, UnitPath, unit, 0o644); err != nil {
+			return err
+		}
+		if strings.Contains(string(unit), "LogNamespace=wg-guard") {
+			if err := h.MkdirAll(JournalRetentionDir, 0o755); err != nil {
+				return err
+			}
+			if err := atomicWrite(h, JournalRetentionPath, []byte(RenderJournalRetention()), 0o644); err != nil {
+				return err
+			}
+		} else if err := h.Remove(JournalRetentionPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	}
 	return nil
 }
 func startService(ctx context.Context, h Host, st *State) error {
 	if st.Mode == ModeDocker {
 		return runQuiet(ctx, h, []string{"docker", "compose", "-f", ComposePth, "up", "-d", "--pull", "never"}, longTimeout)
+	}
+	if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
+		return err
+	}
+	if err := runQuiet(ctx, h, []string{"systemctl", "try-restart", "systemd-journald@wg-guard.service"}, 30*time.Second); err != nil {
+		return err
 	}
 	return runQuiet(ctx, h, []string{"systemctl", "restart", "wg-guard"}, 90*time.Second)
 }

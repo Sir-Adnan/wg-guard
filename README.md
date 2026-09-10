@@ -40,6 +40,9 @@ passed a fresh Ubuntu 24.04 Docker install/purge drill. See
 - **Safe Linux integration** — namespaced nftables table (never touches foreign firewall rules),
   kernel-module AmneziaWG, drift reconciliation, and `doctor` diagnostics; pinned userspace
   runtime compatibility is tested, while automatic fallback lifecycle remains a Phase 11 gate
+- **Operational visibility** — one bounded live CPU/RAM/network/VPN health sampler feeds the
+  dashboard/API, while `wg-guard logs` provides safe Docker/native service and lifecycle records
+  with component filters and explicit storage caps
 - **Clean deployment** — Docker by default (verified runtime image + Compose), native systemd
   supported; private SSH access, built-in domain ACME, standard-Nginx/webroot, Cloudflare DNS-01,
   trusted public-IP HTTPS and operator-owned proxy/certificate paths
@@ -102,6 +105,7 @@ sudo wg-guard status
 sudo wg-guard doctor
 sudo wg-guard logs                       # latest 200 records from the last 24h
 sudo wg-guard logs --follow --component awg
+sudo wg-guard logs --source operations   # install/update/rollback/uninstall outcomes
 ```
 
 Updates, rollback, recovery, backups and uninstall are available from the local manager. Open its
