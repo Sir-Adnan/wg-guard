@@ -49,6 +49,9 @@ this ordering.
 - A post-completion diagnostic correction keeps Docker system/network checks on the host but runs
   AWG version/interface inspection inside the runtime container. Tool/runtime failures no longer
   masquerade as a list of missing interfaces; only a confirmed not-found result does.
+- Docker `doctor --fix` uses the existing lifecycle-locked, health-checked managed restart; its
+  startup owns canonical reconciliation with in-container tools, then host doctor verifies the
+  effective result. Native repair remains the direct service-stopped path.
 - Empty desired state and uninstall remove the WG-Guard nftables table, tagged jump and child
   chain only. Docker's own chains and host-wide policy are preserved.
 

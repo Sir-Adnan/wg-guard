@@ -32,3 +32,17 @@ func newDoctorInspector(state *install.State, host subprocess.Runner) *amneziawg
 	}
 	return amneziawg.New(host)
 }
+
+// prepareDoctorFix maps Docker repair onto the managed lifecycle restart.
+// Container startup already runs the canonical boot reconciliation with its
+// pinned AWG tools; the subsequent read-only doctor pass verifies the result.
+// Native mode retains doctor's direct offline repair path.
+func prepareDoctorFix(ctx context.Context, state *install.State, configPath string, fix bool, restart func(context.Context) error) (directFix bool, summary string, err error) {
+	if !fix || state == nil || state.Mode != install.ModeDocker || state.ConfigPath != configPath {
+		return fix, "", nil
+	}
+	if err := restart(ctx); err != nil {
+		return false, "", fmt.Errorf("Docker repair restart: %w", err)
+	}
+	return false, "restarted Docker node; startup reconciliation completed and passed its health gate", nil
+}

@@ -142,16 +142,19 @@ unavailable, interface state is reported as unavailable; only an explicit backen
 response is reported as a missing interface.
 
 `wg-guard doctor --fix` re-runs the boot repairs (recreate interfaces, re-apply configs and
-peers, rebuild nft/tc, repair supported Docker/UFW forwarding, enable IP forwarding) through the same orchestration as `serve`, then
-re-checks the affected areas. It **refuses to run while the service is up** — it would race
-the serialized reconciler for the AWG subprocess. Read-only doctor is safe anytime.
+peers, rebuild nft/tc, repair supported Docker/UFW forwarding, enable IP forwarding) through the
+same orchestration as `serve`, then re-checks the affected areas. In Docker mode the explicit fix
+performs the lifecycle-locked, health-checked managed restart; container startup owns the canonical
+reconciliation, and the host then runs the read-only verification pass. Do not stop the container
+first. Native mode applies the repair directly and therefore **refuses while the service is up** to
+avoid racing its serialized AWG subprocess. Read-only doctor is safe anytime.
 
 ## Incident playbook (first responses)
 
 | Symptom | First response |
 |---|---|
-| Handshake succeeds but peers get no Internet | `doctor` → both `nftables` and `forwarding`; run `doctor --fix` only after stopping the service. Never change global `FORWARD` to ACCEPT as a first response |
-| Panel shows peer state differing from reality | drift detected → `doctor --fix`; check `drift_policy` |
+| Handshake succeeds but peers get no Internet | `doctor` → both `nftables` and `forwarding`; Docker: run `doctor --fix` with the node installed/running; Native: stop the service first. Never change global `FORWARD` to ACCEPT as a first response |
+| Panel shows peer state differing from reality | drift detected → Docker: `doctor --fix`; Native: stop service, then `doctor --fix`; check `drift_policy` |
 | Traffic counters look wrong after restart | expected behavior: delta re-baseline; verify accumulated totals unchanged in DB |
 | Users all `expired` suddenly | clock skew — check NTP/timezone; expiry sweeps use UTC |
 | DB errors / corruption hints | stop writes, run `doctor`, restore latest backup (runbook steps above) |

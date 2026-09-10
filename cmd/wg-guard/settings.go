@@ -173,14 +173,25 @@ func runDoctor(args []string) error {
 		}
 	}
 
+	ctx := context.Background()
+	host := install.NewRealHost()
+	state, stateErr := install.LoadState(host)
+	dockerFixSummary := ""
+	if stateErr == nil {
+		var err error
+		fix, dockerFixSummary, err = prepareDoctorFix(ctx, state, configPath, fix, func(ctx context.Context) error {
+			return install.Restart(ctx, host)
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	env, err := loadCLIEnv(configPath)
 	if err != nil {
 		return err
 	}
 	defer env.Close()
-	ctx := context.Background()
-	host := install.NewRealHost()
-	state, stateErr := install.LoadState(host)
 	hostRunner := subprocess.NewSystem()
 	backend := newDoctorInspector(nil, hostRunner)
 	inspector := newDoctorInspector(state, hostRunner)
@@ -198,6 +209,9 @@ func runDoctor(args []string) error {
 		Fix:    fix, ServiceUp: serviceUp,
 	})
 	if report != nil {
+		if dockerFixSummary != "" {
+			report.Fixes = append(report.Fixes, dockerFixSummary)
+		}
 		if stateErr != nil {
 			report.Checks = append(report.Checks, doctor.Check{Name: "panel-access", Status: doctor.StatusFail, Detail: "install state is unreadable", Remedy: "recover the installer lifecycle state before changing access"})
 		} else if state != nil && state.ConfigPath == configPath {

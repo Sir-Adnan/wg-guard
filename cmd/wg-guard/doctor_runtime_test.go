@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -57,5 +58,45 @@ func TestDoctorInspectorUsesHostToolsInNativeMode(t *testing.T) {
 	want := [][]string{{"awg", "--version"}}
 	if !reflect.DeepEqual(runner.commands, want) {
 		t.Fatalf("native doctor commands = %#v, want %#v", runner.commands, want)
+	}
+}
+
+func TestPrepareDoctorFixUsesManagedRestartForDocker(t *testing.T) {
+	state := &install.State{Mode: install.ModeDocker, ConfigPath: install.ConfigPath}
+	restarts := 0
+	directFix, summary, err := prepareDoctorFix(context.Background(), state, install.ConfigPath, true, func(context.Context) error {
+		restarts++
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if directFix || restarts != 1 || !strings.Contains(summary, "startup reconciliation") {
+		t.Fatalf("Docker fix = direct:%v restarts:%d summary:%q", directFix, restarts, summary)
+	}
+}
+
+func TestPrepareDoctorFixKeepsNativeOfflineRepair(t *testing.T) {
+	state := &install.State{Mode: install.ModeNative, ConfigPath: install.ConfigPath}
+	directFix, summary, err := prepareDoctorFix(context.Background(), state, install.ConfigPath, true, func(context.Context) error {
+		t.Fatal("native doctor invoked Docker restart")
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !directFix || summary != "" {
+		t.Fatalf("native fix = direct:%v summary:%q", directFix, summary)
+	}
+}
+
+func TestPrepareDoctorFixPropagatesDockerRestartFailure(t *testing.T) {
+	state := &install.State{Mode: install.ModeDocker, ConfigPath: install.ConfigPath}
+	want := errors.New("health gate failed")
+	directFix, summary, err := prepareDoctorFix(context.Background(), state, install.ConfigPath, true, func(context.Context) error {
+		return want
+	})
+	if !errors.Is(err, want) || directFix || summary != "" {
+		t.Fatalf("Docker failure = direct:%v summary:%q err:%v", directFix, summary, err)
 	}
 }
