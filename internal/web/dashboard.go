@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
-	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -18,7 +18,8 @@ type dashLiveData struct {
 	Total, Active, Waiting, Online, Expired, Exceeded, Expiring int64
 	TrafficTotal                                                int64
 	OnlineWindow                                                int64 // seconds, tooltip meta
-	HostView                                                    hostView
+	OnlineAvailable                                             bool
+	Telemetry                                                   telemetryView
 }
 
 // dashChartData is the traffic chart card (refreshed only on range change).
@@ -26,22 +27,6 @@ type dashChartData struct {
 	Range    string // "24h" | "7d" | "30d"
 	HasChart bool
 	SVG      template.HTML
-}
-
-// hostView carries pre-formatted host metrics for the template (html/
-// template cannot dereference the raw snapshot's pointers, and formatting
-// belongs in Go anyway). An empty field means "unavailable".
-type hostView struct {
-	Has       bool
-	CPUPct    string
-	MemUsed   string
-	MemTotal  string
-	MemClass  string // meter width/tone class
-	DiskUsed  string
-	DiskFree  string
-	DiskClass string
-	Load      string
-	Uptime    string
 }
 
 type dashData struct {
@@ -173,12 +158,12 @@ func chartRangeOf(r *http.Request) string {
 func (s *Server) loadLive(r *http.Request) dashLiveData {
 	ctx := r.Context()
 	d := dashLiveData{OnlineWindow: 180}
+	loc := s.localeFor(r)
+	d.Telemetry = newTelemetryView(loc, telemetry.History{})
 	if v, err := s.Settings.GetInt(ctx, "accounting.online_window_seconds"); err == nil && v > 0 {
 		d.OnlineWindow = int64(v)
 	}
 
-	cutoff := time.Now().UTC().Add(-time.Duration(d.OnlineWindow) * time.Second).
-		Format(time.RFC3339Nano)
 	soon := time.Now().UTC().Add(7 * 24 * time.Hour).Format(time.RFC3339Nano)
 
 	err := s.DB.QueryRowContext(ctx, `SELECT
@@ -195,48 +180,15 @@ func (s *Server) loadLive(r *http.Request) dashLiveData {
 		s.logError(r, "dashboard counters", err)
 	}
 
-	_ = s.DB.QueryRowContext(ctx, `SELECT COUNT(*)
-		FROM devices d JOIN users u ON u.id = d.user_id
-		WHERE u.deleted_at IS NULL AND d.enabled = 1
-		  AND d.last_handshake_at IS NOT NULL AND d.last_handshake_at >= ?`, cutoff).
-		Scan(&d.Online)
-
-	// Host metrics: read on demand (the Reader keeps one CPU sample for the
-	// utilization delta; no background polling anywhere).
-	if s.Host != nil {
-		d.HostView = newHostView(s.localeFor(r), s.Host.Snapshot(time.Now()))
+	if s.Telemetry != nil {
+		history := s.Telemetry.Snapshot(time.Now().UTC(), telemetry.HistoryCapacity)
+		d.Telemetry = newTelemetryView(loc, history)
+		if history.Available && history.Latest.OnlineUsers.Available {
+			d.Online = int64(history.Latest.OnlineUsers.Value)
+			d.OnlineAvailable = true
+		}
 	}
 	return d
-}
-
-// newHostView formats a snapshot for the template; empty fields mean the
-// metric is unavailable on this host.
-func newHostView(loc i18n.Locale, h hoststats.Snapshot) hostView {
-	v := hostView{}
-	if h.CPUPercent != nil {
-		v.CPUPct = fmt.Sprintf("%.0f%%", *h.CPUPercent)
-	}
-	if h.MemTotal > 0 {
-		used := h.MemUsed()
-		v.MemUsed = i18n.FormatBytes(loc, int64(used))
-		v.MemTotal = i18n.FormatBytes(loc, int64(h.MemTotal))
-		v.MemClass = meterClass(int64(used), int64(h.MemTotal))
-	}
-	if h.DiskTotal > 0 {
-		used := int64(h.DiskTotal) - int64(h.DiskFree)
-		v.DiskUsed = i18n.FormatBytes(loc, used)
-		v.DiskFree = i18n.FormatBytes(loc, int64(h.DiskFree))
-		v.DiskClass = meterClass(used, int64(h.DiskTotal))
-	}
-	if h.Load1 != nil && h.Load5 != nil && h.Load15 != nil {
-		v.Load = fmt.Sprintf("%.2f · %.2f · %.2f", *h.Load1, *h.Load5, *h.Load15)
-	}
-	if h.Uptime > 0 {
-		v.Uptime = i18n.FormatDuration(loc, int64(h.Uptime.Seconds()))
-	}
-	v.Has = v.CPUPct != "" || v.MemTotal != "" || v.DiskUsed != "" ||
-		v.Load != "" || v.Uptime != ""
-	return v
 }
 
 // meterClass is View.MeterClass without the locale-bound receiver (the host

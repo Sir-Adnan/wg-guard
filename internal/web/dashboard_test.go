@@ -1,12 +1,18 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 )
 
 // createDeviceViaForm runs the panel's device-create flow.
@@ -92,15 +98,122 @@ func TestDashboardLiveFragment(t *testing.T) {
 	}
 	for _, want := range []string{
 		`id="live"`,
-		`hx-trigger="every 30s"`,
+		`hx-trigger="every 10s"`,
 		"hx-get=\"/dashboard/live\"",
 		"کل کاربران",
-		// Test env wires no hoststats reader → the card degrades honestly.
-		"آمار میزبان فقط روی لینوکس در دسترس است.",
+		// Test env wires no sampler → the card degrades honestly.
+		"تله‌متری لحظه‌ای در حال آماده‌سازی یا در دسترس نیست.",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("live fragment missing %q", want)
 		}
+	}
+}
+
+func TestDashboardLiveUsesSharedTelemetryWithoutSampling(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	var calls atomic.Int32
+	load := 0.4
+	sampler := telemetry.New(telemetry.SourceFunc(func(_ context.Context, at time.Time) (telemetry.RawSample, error) {
+		n := calls.Add(1)
+		cpu := float64(20 + n)
+		return telemetry.RawSample{
+			At: at, HostAvailable: true, CPUPercent: &cpu,
+			MemTotalBytes: 1_000, MemAvailableBytes: 400,
+			DiskTotalBytes: 2_000, DiskFreeBytes: 500, Load1: &load, Uptime: time.Hour,
+			ProcessRSSBytes: 100, ProcessHeapBytes: 50, ProcessMetricsAvailable: true, Goroutines: 7,
+			HostNetwork: telemetry.Counter{Identity: "private-eth", RXBytes: uint64(n * 1_000), TXBytes: uint64(n * 2_000), Available: true},
+			VPNNetwork:  telemetry.Counter{Identity: "private-awg", RXBytes: uint64(n * 3_000), TXBytes: uint64(n * 4_000), Available: true},
+			OnlineUsers: 2, ActivePeers: 3, ActivityAvailable: true,
+			EnabledInterfaces: 1, ObservedInterfaces: 1, InterfacesAvailable: true,
+			Ready: true, ReadinessAvailable: true,
+		}, nil
+	}), telemetry.DefaultCadence)
+	base := time.Now().UTC().Add(-telemetry.DefaultCadence)
+	if _, err := sampler.Sample(context.Background(), base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sampler.Sample(context.Background(), base.Add(telemetry.DefaultCadence)); err != nil {
+		t.Fatal(err)
+	}
+	e.srv.Telemetry = sampler
+
+	rec := e.get("/dashboard/live", cookie)
+	if calls.Load() != 2 {
+		t.Fatalf("dashboard invoked telemetry source: calls = %d", calls.Load())
+	}
+	for _, want := range []string{
+		`id="telemetry-card"`, `data-health="healthy"`, `class="sparkline"`,
+		"سلامت لحظه‌ای", "سالم", "ترافیک زنده VPN", "همتاهای فعال",
+	} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("Persian telemetry dashboard missing %q: %s", want, rec.Body.String())
+		}
+	}
+	for _, forbidden := range []string{"private-eth", "private-awg"} {
+		if strings.Contains(rec.Body.String(), forbidden) {
+			t.Fatalf("dashboard leaked topology %q", forbidden)
+		}
+	}
+
+	csrf := deriveCSRF(cookie.Value)
+	if switched := e.post("/prefs/locale", url.Values{"locale": {"en"}}, cookie, csrf); switched.Code != http.StatusSeeOther {
+		t.Fatalf("switch locale: %d", switched.Code)
+	}
+	rec = e.get("/dashboard/live", cookie)
+	for _, want := range []string{"Live health", "Healthy", "Live VPN traffic", "Active peers"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("English telemetry dashboard missing %q", want)
+		}
+	}
+}
+
+func TestTelemetryViewLocalizesDegradedUnavailableAndStaleStates(t *testing.T) {
+	cases := []struct {
+		name   string
+		locale i18n.Locale
+		health telemetry.Health
+		issues telemetry.Issues
+		label  string
+		issue  string
+		class  string
+	}{
+		{"degraded-en", i18n.En, telemetry.HealthDegraded, telemetry.IssueAWGInterfaceMissing, "Needs attention", "An enabled VPN interface is missing", "badge--warn"},
+		{"unavailable-en", i18n.En, telemetry.HealthUnavailable, telemetry.IssueSourceUnavailable, "Unavailable", "Telemetry source unavailable", "badge--danger"},
+		{"stale-fa", i18n.Fa, telemetry.HealthDegraded, telemetry.IssueSampleStale, "نیازمند توجه", "نمونهٔ تله‌متری قدیمی است", "badge--warn"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			history := telemetry.History{
+				Available: true, Cadence: telemetry.DefaultCadence,
+				Latest: telemetry.Point{At: time.Unix(1_700_000_000, 0), Health: tc.health, Issues: tc.issues},
+				Points: []telemetry.Point{{At: time.Unix(1_700_000_000, 0), Health: tc.health, Issues: tc.issues}},
+			}
+			view := newTelemetryView(tc.locale, history)
+			if view.HealthLabel != tc.label || view.HealthClass != tc.class {
+				t.Fatalf("health view = %+v", view)
+			}
+			if len(view.Issues) != 1 || view.Issues[0] != tc.issue {
+				t.Fatalf("issue view = %v", view.Issues)
+			}
+		})
+	}
+}
+
+func TestDashboardTelemetryFailureNeverRendersRawError(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	sampler := telemetry.New(telemetry.SourceFunc(func(context.Context, time.Time) (telemetry.RawSample, error) {
+		return telemetry.RawSample{}, errors.New("database password=do-not-render")
+	}), telemetry.DefaultCadence)
+	_, _ = sampler.Sample(context.Background(), time.Now())
+	e.srv.Telemetry = sampler
+	rec := e.get("/dashboard/live", cookie)
+	if strings.Contains(rec.Body.String(), "do-not-render") || !strings.Contains(rec.Body.String(), "در دسترس نیست") {
+		t.Fatalf("unsafe unavailable state: %s", rec.Body.String())
 	}
 }
 

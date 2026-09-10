@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.4 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **active; milestone 9.5 in progress**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -36,8 +36,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - [x] 9.1 — Implement host/network/process collectors and the bounded telemetry ring.
 - [x] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces.
 - [x] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
-- [ ] 9.4 — Move the dashboard to shared snapshots and add functional live graphs. **Active.**
-- [ ] 9.5 — Install central structured-log redaction and component classification.
+- [x] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
+- [ ] 9.5 — Install central structured-log redaction and component classification. **Active.**
 - [ ] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
 - [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
 - [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence.
@@ -68,6 +68,14 @@ Milestone 9.3 adds `GET /api/v1/node/telemetry` under `stats.read`, with a 60-po
 180-point hard cap, chronological samples, nullable unavailable values, non-secret health codes,
 and no topology. Handler/auth/bounds/serialization tests and bidirectional route/OpenAPI coverage
 pass. The contract is additive; no existing V1 field or meaning changed.
+
+Milestone 9.4 removes per-browser host sampling and the duplicate online-device query. The live
+fragment reads the shared ring every 10 seconds, distinguishes online users from active peers,
+and renders health, CPU, memory, VPN rates, activity and host/process details with bounded CSP-safe
+SVG sparklines. Unit/i18n tests cover healthy/degraded/unavailable/stale states, gaps, flat series,
+copy-only reads and topology secrecy. Asset budgets pass; manual 1440×900 and 390×844 browser
+smoke passed in fa/RTL and en/LTR with no horizontal overflow. This is local fake-backend browser
+evidence, not the milestone 9.8 real-VPS traffic gate.
 
 ## Documentation
 

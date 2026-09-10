@@ -30,7 +30,7 @@ and [`../../development/phase9.md`](../../development/phase9.md).
 Execution status: Phase 9.0 contracts are accepted. Phase 9.1 completed on 2026-09-10 from clean
 revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures moved
 with Task 2 because no standalone fixture files were committed during design. Tasks 2–4 are
-complete and Task 5 is active.
+complete through Task 5; Task 6 is active.
 
 ---
 
@@ -206,7 +206,7 @@ Tests first:
 
 Checkpoint: `feat(api): expose bounded node telemetry`.
 
-### Task 5 — Replace per-browser host reads with shared dashboard telemetry
+### Task 5 — Replace per-browser host reads with shared dashboard telemetry (complete)
 
 Files:
 

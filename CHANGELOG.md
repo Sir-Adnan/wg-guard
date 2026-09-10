@@ -85,6 +85,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   userspace integration remains valid protocol/config compatibility evidence.
 
 ### Added
+- **Functional live operations dashboard:** shared telemetry now drives bilingual health, CPU,
+  memory, VPN receive/transmit, online-user and active-peer cards plus bounded CSP-safe sparklines
+  and host/process details. Ten-second HTMX refresh pauses in hidden tabs and never re-samples the
+  host; desktop/mobile fa/en smoke checks found no horizontal overflow.
 - **Bounded live telemetry API:** one scheduler-owned 10-second sampler retains at most 180
   in-memory host/VPN/process/activity points. `GET /api/v1/node/telemetry` requires `stats.read`,
   returns nullable metrics without topology or raw errors, defaults to 60 points and caps at 180;

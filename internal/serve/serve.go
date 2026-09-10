@@ -342,7 +342,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Webhooks:     webhooksSvc,
 		Log:          log,
 		Reconciler:   rec,
-		Host:         hoststats.New(cfg.DataDir),
+		Telemetry:    n.telemetry,
 		Version:      version.Version,
 		TLSMode:      cfg.TLS.Mode,
 		NodeID:       nodeID,

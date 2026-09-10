@@ -70,10 +70,12 @@ default (low-level AWG parameters never surface casually).
 
 ## Dashboard
 
-Operational, not decorative: user counters (total/active/online/expired/traffic-exceeded/
-expiring-soon), total traffic, node + AWG status, CPU/RAM/disk/network. Charts are
-server-rendered SVG from rollup tables; no continuous animation. Auto-refresh (30 s) pauses
-when the tab is hidden (Page Visibility).
+Operational, not decorative: user counters (total/active/distinct-online/expired/
+traffic-exceeded/expiring-soon), total traffic, node health, active peers, CPU/RAM/disk,
+process pressure, and host/VPN rates. Ten-second live cards read one scheduler-owned bounded
+history and use CSP-safe server-rendered SVG sparklines; durable traffic charts still come from
+rollup tables. There is no continuous animation, and refresh pauses when the tab is hidden (Page
+Visibility). Phase 10 owns the final visual-system redesign, not this data contract.
 
 ## Performance budgets (enforced in CI)
 

@@ -1,8 +1,11 @@
 package web
 
 import (
+	"html/template"
 	"strings"
 	"testing"
+
+	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 )
 
 func TestTrafficChartSVG(t *testing.T) {
@@ -79,4 +82,65 @@ func TestCompactBytes(t *testing.T) {
 			t.Errorf("compactBytes(%d) = %q, want %q", in, got, want)
 		}
 	}
+}
+
+func TestSparklineSVGIsDeterministicEscapedAndGapAware(t *testing.T) {
+	available := func(value float64) telemetry.Metric {
+		return telemetry.Metric{Value: value, Available: true}
+	}
+	series := []sparkSeries{
+		{Class: "spark-primary", Values: []telemetry.Metric{available(10), available(20), {}, available(30)}},
+		{Class: "spark-secondary", Values: []telemetry.Metric{available(5), available(15), available(25), available(35)}},
+	}
+	first := sparklineSVG(series, `CPU <unsafe> & "quoted"`, 100)
+	second := sparklineSVG(series, `CPU <unsafe> & "quoted"`, 100)
+	if first == "" || first != second {
+		t.Fatalf("sparkline must be non-empty and deterministic: %q / %q", first, second)
+	}
+	body := string(first)
+	for _, want := range []string{`class="sparkline"`, `class="spark-line spark-primary"`, `class="spark-line spark-secondary"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("sparkline missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "<unsafe>") || !strings.Contains(body, "&lt;unsafe&gt;") {
+		t.Fatalf("aria label not escaped: %s", body)
+	}
+	primary := pathForClass(t, template.HTML(body), "spark-primary")
+	if strings.Count(primary, "M") != 2 {
+		t.Fatalf("gap must start a new path segment: %q", primary)
+	}
+}
+
+func TestSparklineSVGHandlesFlatInvalidAndBoundedSeries(t *testing.T) {
+	flat := make([]telemetry.Metric, telemetry.HistoryCapacity+20)
+	for i := range flat {
+		flat[i] = telemetry.Metric{Value: 12, Available: true}
+	}
+	body := string(sparklineSVG([]sparkSeries{{Class: "spark-primary", Values: flat}}, "flat", 0))
+	if body == "" || strings.Contains(body, "NaN") || strings.Contains(body, "Inf") {
+		t.Fatalf("flat sparkline is invalid: %s", body)
+	}
+	if strings.Count(pathForClass(t, template.HTML(body), "spark-primary"), "L") != telemetry.HistoryCapacity-1 {
+		t.Fatal("sparkline must retain only the bounded newest history")
+	}
+	if got := sparklineSVG([]sparkSeries{{Class: "untrusted-class", Values: flat}}, "bad", 0); got != "" {
+		t.Fatalf("unknown class must be rejected: %s", got)
+	}
+}
+
+func pathForClass(t *testing.T, svg template.HTML, class string) string {
+	t.Helper()
+	body := string(svg)
+	needle := `class="spark-line ` + class + `" d="`
+	start := strings.Index(body, needle)
+	if start < 0 {
+		t.Fatalf("path %s missing: %s", class, body)
+	}
+	start += len(needle)
+	end := strings.Index(body[start:], `"`)
+	if end < 0 {
+		t.Fatalf("path %s unterminated", class)
+	}
+	return body[start : start+end]
 }

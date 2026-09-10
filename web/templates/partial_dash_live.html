@@ -1,5 +1,5 @@
 {{define "dash_live"}}
-<div id="live" data-pause-hidden hx-get="/dashboard/live" hx-trigger="every 30s" hx-swap="outerHTML">
+<div id="live" data-pause-hidden hx-get="/dashboard/live" hx-trigger="every 10s" hx-swap="outerHTML">
   <div class="metric-grid">
     <div class="metric">
       <span class="label">{{.IconS "users"}}{{.T "dash.users_total"}}</span>
@@ -12,7 +12,7 @@
     </div>
     <div class="metric">
       <span class="label">{{.IconS "wifi"}}{{.T "dash.users_online"}}</span>
-      <span class="value text-ok">{{.N .Data.Live.Online}}</span>
+      <span class="value text-ok">{{if .Data.Live.OnlineAvailable}}{{.N .Data.Live.Online}}{{else}}—{{end}}</span>
       <span class="meta">{{.T "dash.online_window" .Data.Live.OnlineWindow}}</span>
     </div>
     <div class="metric">
@@ -33,47 +33,75 @@
     </div>
   </div>
 
-  <div class="card card--pad mt-4" id="host-card">
-    <h2>{{.T "dash.host"}}</h2>
-    {{if .Data.Live.HostView.Has}}
-    <div class="host-grid">
-      {{with .Data.Live.HostView}}
-      {{if .CPUPct}}
-      <div class="host-item">
-        <span class="label">{{$.T "dash.cpu"}}</span>
-        <span class="value text-md ltr-data">{{.CPUPct}}</span>
+  {{$telemetry := .Data.Live.Telemetry}}
+  <div class="card card--pad mt-4 ops-card" id="telemetry-card" data-health="{{$telemetry.HealthCode}}">
+    <div class="ops-head">
+      <div>
+        <h2>{{.T "dash.live_health"}}</h2>
+        {{if $telemetry.Updated}}<p class="meta ltr-data">{{$telemetry.Updated}}</p>{{end}}
       </div>
-      {{end}}
-      {{if .MemTotal}}
-      <div class="host-item">
-        <span class="label">{{$.T "dash.memory"}}</span>
-        <div class="meter {{.MemClass}}"><span class="bar"><span></span></span></div>
-        <span class="meta">{{$.T "dash.mem_of" .MemUsed .MemTotal}}</span>
+      <span class="badge {{$telemetry.HealthClass}}"><span class="dot"></span>{{$telemetry.HealthLabel}}</span>
+    </div>
+    {{if $telemetry.Has}}
+    <div class="ops-grid">
+      <section class="ops-metric">
+        <span class="label">{{.T "dash.cpu"}}</span>
+        <strong class="value ltr-data">{{if $telemetry.CPUValue}}{{$telemetry.CPUValue}}{{else}}—{{end}}</strong>
+        {{if $telemetry.CPUChart}}<div class="spark-wrap">{{$telemetry.CPUChart}}</div>{{end}}
+      </section>
+      <section class="ops-metric">
+        <span class="label">{{.T "dash.memory"}}</span>
+        <strong class="value ltr-data">{{if $telemetry.MemoryValue}}{{$telemetry.MemoryValue}}{{else}}—{{end}}</strong>
+        {{if $telemetry.MemoryMeta}}<span class="meta ltr-data">{{$telemetry.MemoryMeta}}</span>{{end}}
+        {{if $telemetry.MemoryClass}}<div class="meter {{$telemetry.MemoryClass}}"><span class="bar"><span></span></span></div>{{end}}
+        {{if $telemetry.MemoryChart}}<div class="spark-wrap">{{$telemetry.MemoryChart}}</div>{{end}}
+      </section>
+      <section class="ops-metric">
+        <span class="label">{{.T "dash.vpn_live"}}</span>
+        <span class="rate-line"><span>{{.T "dash.rx"}}</span><strong class="ltr-data">{{if $telemetry.VPNRXRate}}{{$telemetry.VPNRXRate}}{{else}}—{{end}}</strong></span>
+        <span class="rate-line"><span>{{.T "dash.tx"}}</span><strong class="ltr-data">{{if $telemetry.VPNTXRate}}{{$telemetry.VPNTXRate}}{{else}}—{{end}}</strong></span>
+        {{if $telemetry.VPNChart}}<div class="spark-wrap">{{$telemetry.VPNChart}}</div>{{end}}
+      </section>
+      <section class="ops-metric">
+        <span class="label">{{.T "dash.users_online"}}</span>
+        <strong class="value ltr-data">{{if $telemetry.OnlineUsers}}{{$telemetry.OnlineUsers}}{{else}}—{{end}}</strong>
+        <span class="meta">{{.T "dash.active_peers"}} · <span class="ltr-data">{{if $telemetry.ActivePeers}}{{$telemetry.ActivePeers}}{{else}}—{{end}}</span></span>
+        {{if $telemetry.ActivityChart}}<div class="spark-wrap">{{$telemetry.ActivityChart}}</div>{{end}}
+      </section>
+    </div>
+
+    {{if $telemetry.Issues}}
+    <ul class="ops-issues" role="status">
+      {{range $telemetry.Issues}}<li>{{.}}</li>{{end}}
+    </ul>
+    {{end}}
+
+    <div class="ops-details">
+      <h3>{{.T "dash.host_details"}}</h3>
+      <div class="host-grid">
+        {{if $telemetry.DiskUsed}}
+        <div class="host-item">
+          <span class="label">{{.T "dash.disk"}}</span>
+          <div class="meter {{$telemetry.DiskClass}}"><span class="bar"><span></span></span></div>
+          <span class="meta ltr-data">{{.T "dash.disk_free" $telemetry.DiskFree}}</span>
+        </div>
+        {{end}}
+        {{if $telemetry.Load}}
+        <div class="host-item"><span class="label">{{.T "dash.load_1"}}</span><span class="value text-md ltr-data">{{$telemetry.Load}}</span></div>
+        {{end}}
+        {{if $telemetry.Uptime}}
+        <div class="host-item"><span class="label">{{.T "dash.uptime"}}</span><span class="value text-md ltr-data">{{$telemetry.Uptime}}</span></div>
+        {{end}}
+        {{if $telemetry.ProcessRSS}}
+        <div class="host-item"><span class="label">{{.T "dash.process_rss"}}</span><span class="value text-md ltr-data">{{$telemetry.ProcessRSS}}</span><span class="meta ltr-data">{{.T "dash.process_heap"}} · {{$telemetry.ProcessHeap}}</span></div>
+        {{end}}
+        {{if or $telemetry.HostRXRate $telemetry.HostTXRate}}
+        <div class="host-item"><span class="label">{{.T "dash.host_network"}}</span><span class="meta ltr-data">{{.T "dash.rx"}} {{$telemetry.HostRXRate}} · {{.T "dash.tx"}} {{$telemetry.HostTXRate}}</span></div>
+        {{end}}
       </div>
-      {{end}}
-      {{if .DiskUsed}}
-      <div class="host-item">
-        <span class="label">{{$.T "dash.disk"}}</span>
-        <div class="meter {{.DiskClass}}"><span class="bar"><span></span></span></div>
-        <span class="meta">{{$.T "dash.disk_free" .DiskFree}}</span>
-      </div>
-      {{end}}
-      {{if .Load}}
-      <div class="host-item">
-        <span class="label">{{$.T "dash.load"}}</span>
-        <span class="value text-md ltr-data">{{.Load}}</span>
-      </div>
-      {{end}}
-      {{if .Uptime}}
-      <div class="host-item">
-        <span class="label">{{$.T "dash.uptime"}}</span>
-        <span class="value text-md ltr-data">{{.Uptime}}</span>
-      </div>
-      {{end}}
-      {{end}}
     </div>
     {{else}}
-    <p class="text-muted text-sm">{{.T "dash.host_stats_unavailable"}}</p>
+    <p class="text-muted text-sm ops-empty">{{.T "dash.telemetry_unavailable"}}</p>
     {{end}}
   </div>
 </div>
