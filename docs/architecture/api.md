@@ -48,7 +48,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 | Users | `POST/GET /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/enable\|disable\|renew`, `POST /users/{id}/traffic/add\|set\|reset`, `GET /users/{id}/traffic` (series) |
 | Bulk | `POST /users/bulk`, `POST /users/bulk-action` (`{action, user_ids, params}`) |
 | Devices | `GET/POST /users/{id}/devices`, `GET/PATCH/DELETE /devices/{id}`, `POST /devices/{id}/enable\|disable\|regenerate`, `GET /devices/{id}/config\|qr` |
-| Stats | `GET /stats`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
+| Stats | `GET /stats`, `GET /node/telemetry`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
 | Plans | `GET/POST /plans`, `GET/PATCH/DELETE /plans/{id}` |
 | Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation) |
 | Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope) |
@@ -57,6 +57,20 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 
 **Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
 [ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)).
+
+## Live telemetry
+
+`GET /api/v1/node/telemetry` requires `stats.read` and reads only the shared scheduler-owned
+in-memory ring. `points` defaults to 60, rejects missing/duplicate/non-positive values, and clamps
+larger integers to the fixed 180-point capacity. Points are oldest-to-newest; `latest` includes
+staleness evaluation at request time. A fresh process with no point returns `latest: null` and an
+empty array.
+
+Every metric key is present. An unavailable reading is JSON `null`, not a fabricated zero. Units
+are explicit in field names: bytes, bytes per second, percentages, seconds, and counts. Health is
+`healthy`, `degraded`, or `unavailable` with a closed list of non-secret issue codes. The response
+never contains interface names, endpoints, database/subprocess errors, or raw configuration. Live
+history is intentionally lost on restart; accounting rollups remain the durable traffic history.
 
 ## AmneziaWG interface profile contract
 

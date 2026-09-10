@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.3 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **active; milestone 9.4 in progress**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -35,8 +35,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - [x] 9.0 — Freeze metric/log/retention contracts, ADR, and resource budgets.
 - [x] 9.1 — Implement host/network/process collectors and the bounded telemetry ring.
 - [x] 9.2 — Compose one sampler into the central scheduler and health/metrics surfaces.
-- [ ] 9.3 — Add the authorized REST/OpenAPI telemetry contract. **Active.**
-- [ ] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
+- [x] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
+- [ ] 9.4 — Move the dashboard to shared snapshots and add functional live graphs. **Active.**
 - [ ] 9.5 — Install central structured-log redaction and component classification.
 - [ ] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
 - [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
@@ -63,6 +63,11 @@ before `Start` returns, queries activity/interface state in one aggregate SQLite
 recent accounting failure/recovery, and exposes only aggregate health/cadence/rates from the
 optional Prometheus endpoint. Focused unit and WSL2 race suites pass; real traffic/overhead remains
 the milestone 9.8 VPS gate.
+
+Milestone 9.3 adds `GET /api/v1/node/telemetry` under `stats.read`, with a 60-point default,
+180-point hard cap, chronological samples, nullable unavailable values, non-secret health codes,
+and no topology. Handler/auth/bounds/serialization tests and bidirectional route/OpenAPI coverage
+pass. The contract is additive; no existing V1 field or meaning changed.
 
 ## Documentation
 

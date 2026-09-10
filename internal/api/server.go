@@ -16,6 +16,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
@@ -36,6 +37,7 @@ type Deps struct {
 	Accounting *accounting.Service
 	Webhooks   *webhook.Service
 	Metrics    *metrics.Collector
+	Telemetry  *telemetry.Sampler
 	Log        *slog.Logger
 
 	// ClientConf renders client configs + QR (shared with the web panel).
@@ -153,6 +155,7 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/health", Handler: s.handleNodeHealth})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node", Scope: "node.read", Handler: s.handleNode})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/stats", Scope: "node.read", Handler: s.handleNodeStats})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/telemetry", Scope: "stats.read", Handler: s.handleTelemetry})
 
 	// --- Users ---
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users", Scope: "users.create", Handler: s.handleUserCreate, Idempotent: true})

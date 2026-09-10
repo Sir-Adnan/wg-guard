@@ -316,6 +316,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Accounting:   n.accounting,
 		Webhooks:     webhooksSvc,
 		Metrics:      n.metrics,
+		Telemetry:    n.telemetry,
 		Log:          log,
 		Reconciler:   rec,
 		NodeID:       nodeID,

@@ -5,7 +5,7 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 9 — Operational observability (active, milestone 9.3)
+## Phase 9 — Operational observability (active, milestone 9.4)
 
 The accepted metric, log, retention and resource contracts are in [phase9.md](phase9.md) and
 [ADR-0013](../decisions/ADR-0013-operational-observability.md). Milestone 9.1 implemented bounded
@@ -14,8 +14,10 @@ Rate reset/replacement/gap behavior, partial availability, health, copy isolatio
 are unit/race tested on WSL2 Ubuntu amd64. Milestone 9.2 now composes one source/sampler into the
 central scheduler, takes an initial snapshot, tracks recent accounting health, and adds
 topology-free aggregate telemetry to `/metrics`; source SQL, serve wiring, and metrics rendering
-are unit/race tested. Milestone 9.3 is the additive REST/OpenAPI contract. No Phase 9 behavior is
-yet claimed as real-VPS verified.
+are unit/race tested. Milestone 9.3 adds the `stats.read`-protected `/api/v1/node/telemetry`
+contract with nullable metrics, deterministic bounds/order, and synchronized OpenAPI;
+handler/auth/schema and bidirectional route coverage pass. Milestone 9.4 moves the dashboard to
+shared snapshots. No Phase 9 behavior is yet claimed as real-VPS verified.
 
 ## Phase 8.2 — Secure access & persistent manager (complete, 2026-09-09)
 
@@ -442,7 +444,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | Phase | State | Scope |
 |---|---|---|
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
-| 9 — Operational observability | active; milestone 9.3 | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 9 — Operational observability | active; milestone 9.4 | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |

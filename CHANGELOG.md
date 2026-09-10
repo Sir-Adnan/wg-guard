@@ -8,8 +8,9 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 9 operational observability:** bounded live node/AWG metrics, unified Docker/native
-  operational logs and seven-day retention. Implementation has not started.
+- **Phase 9 operational observability:** active; bounded telemetry core, scheduler composition and
+  REST/OpenAPI are implemented. Dashboard, unified Docker/native logs and retention remain in this
+  phase.
 
 ### Changed
 - **Administrator setup and complete removal:** fresh interactive installation now asks for the
@@ -84,6 +85,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   userspace integration remains valid protocol/config compatibility evidence.
 
 ### Added
+- **Bounded live telemetry API:** one scheduler-owned 10-second sampler retains at most 180
+  in-memory host/VPN/process/activity points. `GET /api/v1/node/telemetry` requires `stats.read`,
+  returns nullable metrics without topology or raw errors, defaults to 60 points and caps at 180;
+  OpenAPI documents the complete additive contract.
 - **Phase 8.2 secure access and persistent manager:** the verified GitHub build is atomically
   retained as a root-only manager cache (plus the fresh-host command copy) with a private receipt before setup; the state-aware
   English manager resumes locally without another acquisition. Installer-owned exposure now

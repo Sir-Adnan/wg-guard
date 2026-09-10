@@ -29,8 +29,8 @@ and [`../../development/phase9.md`](../../development/phase9.md).
 
 Execution status: Phase 9.0 contracts are accepted. Phase 9.1 completed on 2026-09-10 from clean
 revision `cb728945a348944dc86d3d485babbc1123bf4492`; expanded deterministic `/proc` fixtures moved
-with Task 2 because no standalone fixture files were committed during design. Tasks 2–3 are
-complete and Task 4 is active.
+with Task 2 because no standalone fixture files were committed during design. Tasks 2–4 are
+complete and Task 5 is active.
 
 ---
 
@@ -185,7 +185,7 @@ Verification: serve/metrics tests, full unit suite, race suite.
 
 Checkpoint: `feat(serve): schedule shared live telemetry`.
 
-### Task 4 — Add the REST telemetry contract
+### Task 4 — Add the REST telemetry contract (complete)
 
 Files:
 
