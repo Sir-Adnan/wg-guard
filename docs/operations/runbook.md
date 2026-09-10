@@ -129,14 +129,14 @@ Settings → Backups for the credentials. The REST API intentionally has no back
 
 `wg-guard doctor` (implemented) checks: platform, privileges, data-dir/master-key permissions,
 AWG tool version, kernel-module presence, DB integrity (`PRAGMA integrity_check`), interface
-state vs DB (missing links, port drift, peer-count mismatch), nftables table presence, the
-`ip_forward` sysctl, tc state when speed limits exist, disk free space, endpoint DNS
+state vs DB (missing links, port drift, peer-count mismatch), nftables table presence, effective
+Docker/legacy `FORWARD` policy coverage, the `ip_forward` sysctl, tc state when speed limits exist, disk free space, endpoint DNS
 resolution, TLS certificate expiry (manual mode), NTP synchronization (timedatectl), and the
 backups posture (no schedules + no archives is a warning; stale newest archive too). Checks
 that cannot run on a platform report `skip` honestly.
 
 `wg-guard doctor --fix` re-runs the boot repairs (recreate interfaces, re-apply configs and
-peers, rebuild nft/tc, enable forwarding) through the same orchestration as `serve`, then
+peers, rebuild nft/tc, repair supported Docker/UFW forwarding, enable IP forwarding) through the same orchestration as `serve`, then
 re-checks the affected areas. It **refuses to run while the service is up** — it would race
 the serialized reconciler for the AWG subprocess. Read-only doctor is safe anytime.
 
@@ -144,7 +144,7 @@ the serialized reconciler for the AWG subprocess. Read-only doctor is safe anyti
 
 | Symptom | First response |
 |---|---|
-| Installed fine, peers get no traffic | `doctor` → firewall coexistence section (ufw/firewalld forward policy) |
+| Handshake succeeds but peers get no Internet | `doctor` → both `nftables` and `forwarding`; run `doctor --fix` only after stopping the service. Never change global `FORWARD` to ACCEPT as a first response |
 | Panel shows peer state differing from reality | drift detected → `doctor --fix`; check `drift_policy` |
 | Traffic counters look wrong after restart | expected behavior: delta re-baseline; verify accumulated totals unchanged in DB |
 | Users all `expired` suddenly | clock skew — check NTP/timezone; expiry sweeps use UTC |

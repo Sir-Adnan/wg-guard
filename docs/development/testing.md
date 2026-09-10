@@ -61,6 +61,14 @@ authenticated live-dashboard output, AWG/network faults, actual-secret scans, Do
 failure recovery and full cleanup. Long soak, 1,000 peers and later supported Ubuntu amd64 cells
 remain Phase 11; Docker's local driver is size-bounded but cannot promise physical age deletion.
 
+The [Phase 8.3 public-egress fixture](../integrations/fixtures/verify-phase8.3-vps.sh) closes the
+gateway-only gap. On a fresh Docker node it creates plain, recommended and randomized interfaces
+after service startup, imports each downloaded config into a separate real kernel client
+namespace, routes the namespace default through AWG, and requires public IPv4, DNS, HTTPS, NAT
+identity and bidirectional counters while Docker retains `FORWARD DROP`. It also checks doctor,
+restart/idempotency, the exact owned rule/jump count and cleanup. The exact 2026-09-10 run is
+[recorded here](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
+
 During implementation, run focused regressions for the changed risk; run full build/unit/vet
 and relevant race/integration gates at coherent milestones. Prose-only changes do not justify
 repeating unchanged expensive suites. Root/service/data recovery paths need failure injection
@@ -79,7 +87,7 @@ and without a real VPN interface.
 | Tunnel adapter | conf renderer + dump parser against golden fixtures captured from the pinned upstream ([../integrations/fixtures/](../integrations/fixtures/)), exec wrapper against a scripted fake `awg` | plain `go test` |
 | Deployment | the whole install/update/uninstall/rollback flow against an in-memory `Host` seam (fs map + recorded commands), incl. health-checked rollback with real probe endpoints on loopback | plain `go test` (`internal/install`) |
 | Integration (`integration` build tag) | real interface lifecycle, syncconf, reconcile, nftables, sysctls — userspace backend in WSL2/CI | WSL2 Ubuntu / CI runner |
-| Real VPS matrix | kernel module, netlink dump format, NAT/NAT-less paths, firewall coexistence, install/update/uninstall | Ubuntu 24.04 and later supported Ubuntu releases on amd64 (Phase 11; the 24.04/amd64 slice is drill-verified) |
+| Real VPS matrix | kernel module, netlink dump format, public NAT path, firewall coexistence, install/update/uninstall | Ubuntu 24.04 and later supported Ubuntu releases on amd64 (Phase 8.3 verifies current Docker public egress; broader Phase 11 matrix remains) |
 
 ## Invariants with dedicated tests
 

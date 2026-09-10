@@ -91,8 +91,11 @@ func newDeps(t *testing.T) *deps {
 		},
 		respond: func(argv []string) subprocess.Result {
 			// sysctl read: forwarding off → the boot must switch it on.
-			if strings.Join(argv, " ") == "sysctl -n net.ipv4.ip_forward" {
+			switch strings.Join(argv, " ") {
+			case "sysctl -n net.ipv4.ip_forward":
 				return subprocess.Result{Stdout: []byte("0\n")}
+			case "iptables -w 5 -S FORWARD":
+				return subprocess.Result{Stdout: []byte("-P FORWARD ACCEPT\n")}
 			}
 			return subprocess.Result{}
 		},
@@ -240,6 +243,8 @@ func TestBringUpUfwActive(t *testing.T) {
 			return subprocess.Result{Stdout: []byte("Status: active\nDefault: deny (incoming), allow (outgoing), disabled (routed)\n")}
 		case strings.HasPrefix(joined, "ufw route allow"):
 			return subprocess.Result{Stdout: []byte("Rule added\n")}
+		case joined == "iptables -w 5 -S FORWARD":
+			return subprocess.Result{Stdout: []byte("-P FORWARD DROP\n")}
 		}
 		return subprocess.Result{}
 	}
@@ -274,6 +279,8 @@ func TestBringUpAllowsOwnedTunnelThroughDockerForwardDrop(t *testing.T) {
 			return subprocess.Result{Stdout: []byte("-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n")}
 		case "iptables -w 5 -S WGGUARD-FORWARD":
 			return subprocess.Result{Stdout: []byte("-N WGGUARD-FORWARD\n")}
+		case "iptables -w 5 -S FORWARD":
+			return subprocess.Result{Stdout: []byte("-P FORWARD DROP\n-A FORWARD -j DOCKER-USER\n")}
 		}
 		return subprocess.Result{}
 	}

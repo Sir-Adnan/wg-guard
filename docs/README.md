@@ -22,7 +22,7 @@ or chat history.
 | [integrations/webhooks.md](integrations/webhooks.md) | Event catalog, HMAC signature scheme, durable delivery semantics |
 | [operations/deployment.md](operations/deployment.md) | Docker (default) and native installation, TLS modes, ports, updates |
 | [development/phase8.2.md](development/phase8.2.md) | Completed secure-access, certificate-lifecycle, and persistent-manager phase |
-| [development/phase8.3.md](development/phase8.3.md) | Active Docker/firewall forwarding-integrity correction and Internet-egress gate |
+| [development/phase8.3.md](development/phase8.3.md) | Completed Docker/firewall forwarding-integrity correction and Internet-egress gate |
 | [operations/github-install.md](operations/github-install.md) | GitHub bootstrap, release/source acquisition, trust boundary and local candidate artifacts |
 | [operations/terminal-management.md](operations/terminal-management.md) | English terminal navigation, recommended setup, local owner, lifecycle and automation |
 | [operations/lifecycle-recovery.md](operations/lifecycle-recovery.md) | Durable lifecycle state, safe rollback, interrupted operations and recovery limits |
@@ -36,7 +36,7 @@ or chat history.
 | [development/phase8.md](development/phase8.md) | Completed Phase 8 execution checklist and verification log |
 | [development/phase8.1.md](development/phase8.1.md) | Completed GitHub delivery and terminal lifecycle phase |
 | [development/phase9.md](development/phase9.md) | Completed operational-observability gate and linked real-VPS evidence |
-| [development/phase10.md](development/phase10.md) | Paused complete-panel UI/UX redesign gate; resumes after Phase 8.3 |
+| [development/phase10.md](development/phase10.md) | Active complete-panel UI/UX redesign gate |
 | [development/phase11.md](development/phase11.md) through [phase12.md](development/phase12.md) | Planned production-certification and release-candidate gates |
 | [decisions/](decisions/) | Architecture Decision Records (ADRs) |
 

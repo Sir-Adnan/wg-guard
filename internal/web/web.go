@@ -55,7 +55,8 @@ type Deps struct {
 	Accounting       *accounting.Service
 	Log              *slog.Logger
 
-	// Reconciler runs after structural mutations (see api.Server).
+	// Reconciler runs the complete serialized network pass after structural
+	// mutations (see api.Server).
 	Reconciler accounting.Reconciler
 
 	// ClientConf renders client configs + QR (shared with the REST API).

@@ -43,10 +43,10 @@ type Deps struct {
 	// ClientConf renders client configs + QR (shared with the web panel).
 	ClientConf *clientconf.Renderer
 
-	// Reconciler runs after structural mutations so peer changes take
-	// effect immediately (satisfied by *reconcile.Engine; serve wraps it in
-	// a single-flight adapter so API calls and the accounting cycle
-	// serialize). Nil = status-only (tests without a backend).
+	// Reconciler runs after structural mutations so tunnel, peer, firewall,
+	// NAT and shaping state take effect together. Serve supplies the full
+	// boot.RuntimeReconciler behind one serialization lock. Nil = status-only
+	// (tests without a backend).
 	Reconciler accounting.Reconciler
 
 	// NodeID and ToolsVersion populate /node.
@@ -234,9 +234,9 @@ func (s *Server) audit(r *http.Request, action, target string, meta map[string]a
 	})
 }
 
-// reconcile runs the engine after structural changes so peer updates land
-// immediately. Errors are logged, never failed loudly: the accounting cycle
-// and boot re-derive the same state (DB is the source of truth).
+// reconcile runs the canonical network pass after structural changes. Errors
+// are logged; serve also marks readiness unhealthy until a later pass succeeds
+// because the database remains the source of truth for retry/recovery.
 func (s *Server) reconcile(r *http.Request) {
 	if s.Reconciler == nil {
 		return

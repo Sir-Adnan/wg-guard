@@ -15,7 +15,8 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 - Idle/load RSS and CPU, API latency, SQLite, scheduler/accounting, telemetry, webhook, binary,
   frontend and install-footprint measurements at 0/100/1000 users/devices.
 - Real 1000-shaped-peer tc/IFB workload and documented degradation/operational guidance.
-- nftables/NAT/firewall coexistence and real bidirectional traffic.
+- Extend Phase 8.3's verified Ubuntu 24.04 Docker public-egress baseline across native,
+  firewalld/non-default policies, later supported Ubuntu releases and long-running traffic.
 - Ubuntu 24.04 and later supported releases on amd64; Docker/native; kernel/userspace matrix.
 - Backup/restore, key rotation, restart/reboot, update/automatic and interrupted rollback,
   uninstall/reinstall, corrupt/missing state, disk pressure, and log growth drills.

@@ -874,9 +874,9 @@ func (s *Server) humanizeDomainError(r *http.Request, err error) string {
 	return s.t(r, "common.error_validation")
 }
 
-// runReconcile applies structural changes to the backend immediately
-// (same contract as the API: errors are logged, the accounting cycle and
-// boot re-derive the same state from the DB).
+// runReconcile applies the complete tunnel/firewall/NAT/shaping state
+// immediately. Errors are logged and make serve readiness unhealthy until a
+// later canonical pass succeeds; the DB remains the retry source of truth.
 func (s *Server) runReconcile(r *http.Request) {
 	if s.Reconciler == nil {
 		return

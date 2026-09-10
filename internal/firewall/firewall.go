@@ -2,7 +2,8 @@
 // (ADR-0004): one forward-accept chain (priority 10, after standard filter
 // chains) and one srcnat masquerade chain. The table is applied as rendered
 // state — its full content is a pure function of the enabled interfaces — so
-// re-applying is idempotent and the uninstaller deletes exactly this table.
+// re-applying is idempotent. Docker coexistence uses a separately owned,
+// scoped child chain; cleanup removes both owned surfaces.
 //
 // Hard rules (docs/architecture/networking.md): WG-Guard never flushes or
 // edits foreign tables, never sets global policies, and no shell
@@ -40,14 +41,11 @@ func (m *Manager) Present(ctx context.Context) (bool, error) {
 	if err := m.nftAvailable(); err != nil {
 		return false, err
 	}
-	_, err := m.Run.Run(ctx, []string{"nft", "list", "table", TableName})
+	res, err := m.Run.Run(ctx, []string{"nft", "list", "table", TableName})
 	if err == nil {
 		return true, nil
 	}
-	var ee *subprocess.ExitError
-	if errors.As(err, &ee) {
-		// nft exits non-zero for "no such table"; any other failure surfaces
-		// on Apply anyway.
+	if nftObjectMissing(res, err) {
 		return false, nil
 	}
 	return false, fmt.Errorf("firewall: probe %s: %w", TableName, err)
@@ -92,10 +90,9 @@ func (m *Manager) Remove(ctx context.Context) error {
 	if err := m.nftAvailable(); err != nil {
 		cleanupErrs = append(cleanupErrs, err)
 	} else {
-		_, err := m.Run.Run(ctx, []string{"nft", "delete", "table", TableName})
+		res, err := m.Run.Run(ctx, []string{"nft", "delete", "table", TableName})
 		if err != nil {
-			var ee *subprocess.ExitError
-			if !errors.As(err, &ee) {
+			if !nftObjectMissing(res, err) {
 				cleanupErrs = append(cleanupErrs, fmt.Errorf("firewall: remove %s: %w", TableName, err))
 			}
 		}
@@ -153,3 +150,13 @@ func renderTable(ifaces []Interface, dropExisting bool) []byte {
 }
 
 func managedComment(iface string) string { return "wgguard:managed:" + iface }
+
+func nftObjectMissing(res subprocess.Result, err error) bool {
+	var exitErr *subprocess.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	message := strings.ToLower(string(res.Stderr) + " " + exitErr.Stderr)
+	return strings.Contains(message, "no such file or directory") ||
+		strings.Contains(message, "no such table")
+}

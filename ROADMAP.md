@@ -19,9 +19,9 @@ unverified work. Detailed release-readiness tracking lives in
 | **8 — Audit & configuration integrity** | Project audit; lossless AWG parameter parity; default/randomized profiles; client config and QR correctness; real handshake/traffic verification | ✅ Complete |
 | **8.1 — GitHub delivery & lifecycle** | One-command acquisition, premium terminal installer/manager, prerequisites, compatible AWG versions, and verified lifecycle recovery | ✅ Complete |
 | **8.2 — Secure access & persistent manager** | Independently cached/update-aware manager, unified update center, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | ✅ Complete |
-| **8.3 — Data-plane forwarding integrity** | Docker/UFW forwarding coexistence, effective route/NAT diagnostics, full tunnel-to-Internet verification, and owned firewall cleanup | 🟦 Active |
+| **8.3 — Data-plane forwarding integrity** | Docker/UFW forwarding coexistence, effective route/NAT diagnostics, full tunnel-to-Internet verification, and owned firewall cleanup | ✅ Complete |
 | **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ✅ Complete |
-| **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ⏸ Paused at milestone 10.0 until Phase 8.3 closes |
+| **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | 🟦 Active; milestone 10.0 |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
 
@@ -111,8 +111,10 @@ Inserted as a corrective release blocker after Phase 9 when real clients could h
 could not reach routed networks on a Docker host. Preserve the namespaced nftables NAT model,
 integrate only through a firewall manager's supported extension point, fail readiness when an
 earlier forwarding DROP remains unresolved, and extend the real-host gate through public DNS and
-HTTPS rather than stopping at the tunnel gateway. Phase 10 resumes only after the Docker Ubuntu
-24.04 amd64 path passes and owned compatibility rules are removed safely. Detailed gate:
+HTTPS rather than stopping at the tunnel gateway. Completed 2026-09-10: the exact Ubuntu 24.04
+amd64 Docker candidate passed fresh install, post-start interface creation, plain/recommended/
+randomized public egress, DNS, HTTPS, counters, doctor, restart/idempotency and owned-rule cleanup.
+Phase 10 then resumed at milestone 10.0. Detailed gate and evidence:
 [docs/development/phase8.3.md](docs/development/phase8.3.md).
 
 ### Phase 10 — Product UI/UX redesign

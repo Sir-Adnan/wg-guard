@@ -5,18 +5,22 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 8.3 — Data-plane forwarding integrity (active)
+## Phase 8.3 — Data-plane forwarding integrity (complete, 2026-09-10)
 
 Real mobile/desktop clients exposed a release-blocking path that prior gates did not exercise:
-the tunnel handshakes, but Docker's earlier `FORWARD` policy can drop routed packets before the
-later WG-Guard nftables accept chain runs. The defect is reproduced against the dedicated Ubuntu
-24.04 amd64 VPS and in an isolated network namespace. Implementation and full AWG-to-Internet
-Docker verification are in progress; no fix is claimed yet. See [phase8.3.md](phase8.3.md).
+post-start interface creation reconciled only the AWG backend, leaving firewall/NAT stale, while
+Docker's earlier `FORWARD` DROP could terminate routed packets before WG-Guard's later nftables
+accept chain. Runtime reconciliation now refreshes the complete network state; a narrow owned
+chain is attached through Docker's documented `DOCKER-USER` extension point; unresolved policies
+fail readiness; and doctor verifies the effective path. The exact data-plane Ubuntu 24.04.4 amd64
+Docker candidate passed fresh install, plain/recommended/randomized public IPv4, DNS and HTTPS,
+counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3.md) and the
+[sanitized evidence](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
 
-## Phase 10 — Product UI/UX redesign (paused, milestone 10.0)
+## Phase 10 — Product UI/UX redesign (active, milestone 10.0)
 
 Phase 10 remains at its pre-implementation inventory/design boundary. No visual migration is yet
-implemented or verified. It resumes after Phase 8.3 closes the data-plane release blocker. See
+implemented or verified. It resumed after Phase 8.3 closed the data-plane release blocker. See
 [phase10.md](phase10.md).
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
@@ -285,9 +289,9 @@ amneziawg-go v3.1.20260828, and real nftables).
 | Verify-after-apply gate: post-apply dump must match applied key/port/obfuscation, or hard error (converts silent upstream mismatches into visible failures instead of reconcile churn) | ✅ implemented + unit tested; **integration tested** (caught the real persist-params behavior below) |
 | Pinned runtime facts discovered: explicit-zero obfuscation block → `EINVAL`; omitted obfuscation keys persist across setconf ⇒ plain↔obfuscated transitions recreate the link | ✅ verified in WSL2; documented in [../integrations/amneziawg.md](../integrations/amneziawg.md) |
 | `network` package: `ip link add <name> type amneziawg` (+mtu), addr, up, delete (missing-link classification), `sysctl` IPv4 forwarding (idempotent, read-before-write) | ✅ implemented + unit tested (scripted `ip`/`sysctl`); sysctl verified live in WSL2 |
-| `firewall` package: rendered-state `table inet wgguard` (forward accept priority 10, masquerade postrouting priority 100, rules commented), atomic delete+recreate via `nft -f`, probe-based idempotency, `Remove` tolerant of absence | ✅ implemented + unit tested (scripted nft); **integration tested** against real nftables in WSL2 (apply/re-apply-no-duplicates/remove) |
-| Firewall-manager coexistence: ufw detection (status/verbose, routed-policy parsing), idempotent `ufw route allow in on awgN` when ufw runs, firewalld detection, findings with remedies | ✅ implemented + unit tested; ufw/firewalld behavior on a production host **requires real VPS** |
-| `boot` package: tooling probe → IPv4 forwarding → reconcile → firewall → coexistence, with per-interface error collection (one broken profile cannot abort bring-up) and audit record | ✅ implemented + unit tested (fake backend + scripted runner) |
+| `firewall` package: rendered-state `table inet wgguard` (forward accept priority 10, masquerade postrouting priority 100), scoped `WGGUARD-FORWARD` child chain at Docker's `DOCKER-USER` extension, effective-policy inspection, and owned cleanup | ✅ unit/integration tested; Docker `FORWARD DROP`, three-profile public egress, doctor/restart and cleanup **verified on Ubuntu 24.04.4 amd64** |
+| Firewall-manager coexistence: Docker scoped child/jump; UFW status/routed-policy and idempotent per-interface allow; firewalld detection/remedy | ✅ Docker production verified and UFW failure/missing-tool unit tested; generic firewalld automation remains Phase 11 |
+| `boot` package: tooling probe → IPv4 forwarding → reconcile → firewall/NAT → manager coexistence → shaping, shared by startup and serialized runtime mutations; runtime failure degrades readiness | ✅ implemented + unit tested; post-start interface creation and restart public egress production verified |
 | `wg-guard reconcile` CLI: boot bring-up outside the service; prints versions/counters/drift/errors/coexistence findings; non-zero exit when an interface failed | ✅ implemented (manual run on VPS pending) |
 | Reconcile engine refinements: obfuscation-mode transitions recreate the link and re-sync peers; fresh-create peer adds counted; per-interface error collection | ✅ implemented + unit tested |
 | `TunnelBackend` spec completion: `InterfaceSpec.Address` (gateway CIDR) — a link-creating backend needs the address at bring-up; phase-1 draft omitted it | ✅ implemented + unit tested |
@@ -474,14 +478,15 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 |---|---|---|
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
-| 8.3 — Data-plane forwarding integrity | active; reproduced, not fixed | Docker/UFW coexistence, effective forwarding diagnostics, public egress gate and owned cleanup |
-| 10 — Product UI/UX redesign | paused; milestone 10.0 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
+| 8.3 — Data-plane forwarding integrity | complete; production verified on Ubuntu 24.04.4 amd64 Docker | Runtime NAT/firewall reconciliation, scoped Docker coexistence, fail-closed diagnostics, public egress and owned cleanup |
+| 10 — Product UI/UX redesign | active; milestone 10.0 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 
 ## Requires real VPS or client verification (carried forward)
 
-- Phase 11: nftables/NAT/firewall coexistence, 1000-shaped-peer tc, Ubuntu 24.04 and later
-  supported Ubuntu releases on amd64, kernel/userspace, Docker/native, recovery and TLS drills.
+- Phase 11: non-default/firewalld and native firewall coexistence, 1000-shaped-peer tc, later
+  supported Ubuntu releases on amd64, kernel/userspace lifecycle, recovery and TLS drills. The
+  Ubuntu 24.04 Docker `FORWARD DROP` public-egress cell is already verified by Phase 8.3.
 - Phase 12: installation and upgrade from the exact release-candidate artifacts. Public release
   and registry publication remain owner-approval gated.

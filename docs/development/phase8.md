@@ -2,7 +2,8 @@
 
 Status: **complete**. Started 2026-08-31 and completed 2026-09-05 after RB-001 through RB-004
 closed with local, integration, browser, and dedicated real-VPS evidence. Phase 9 subsequently
-completed; corrective Phase 8.3 is active and Phase 10 is paused at milestone 10.0.
+completed; corrective Phase 8.3 subsequently closed the routed-data-plane gap and Phase 10 is
+active at milestone 10.0.
 Cross-phase blockers and findings are tracked in
 [release-readiness.md](release-readiness.md).
 

@@ -95,8 +95,10 @@ removed when the operator explicitly purges node data.
 
 ## Linux/network security
 
-- Namespaced nftables table only; scoped rules; no global policy changes; firewall-manager
-  coexistence handled explicitly (see [../architecture/networking.md](../architecture/networking.md)).
+- NAT/general rules stay in the namespaced nftables table; Docker coexistence uses only one tagged
+  jump to an owned, interface/subnet-scoped child chain at its documented `DOCKER-USER` extension.
+  No global policy or foreign chain is flushed; unsupported blocking paths fail closed (see
+  [../architecture/networking.md](../architecture/networking.md)).
 - Subprocess surface minimized: pinned `awg` binary, argv-only, timeouts, output treated as
   untrusted input, parsed strictly (see [../integrations/amneziawg.md](../integrations/amneziawg.md)).
   Applied configs are verified after apply (post-apply dump must match the applied key/port/

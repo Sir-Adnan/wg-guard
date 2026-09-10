@@ -4,8 +4,9 @@
 // docs/architecture/networking.md: verify tooling, enable IPv4 forwarding,
 // reconcile tunnels and peers, apply the namespaced firewall table, restore
 // speed limits (tc), and handle firewall-manager coexistence. Failures on
-// essential steps (tooling, forwarding, reconcile, firewall) abort bring-up;
-// shaper and coexistence problems are surfaced as findings and never abort.
+// essential steps (tooling, forwarding, reconcile, firewall, or a required
+// scoped manager repair) abort bring-up; shaping and advisory coexistence
+// findings do not.
 package boot
 
 import (

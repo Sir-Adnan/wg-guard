@@ -1,0 +1,77 @@
+Phase 8.3 — sanitized Ubuntu 24.04 amd64 Docker verification
+Date: 2026-09-10 UTC
+
+Purpose
+-------
+Close the real-client failure in which AmneziaWG completed a handshake but routed no Internet
+traffic. Earlier Phase 8/9 gates reached the tunnel gateway or isolated peer only; they did not
+exercise a post-start interface through the host's public route and Docker firewall.
+
+Root causes reproduced
+----------------------
+1. API/web mutations ran the AWG reconcile engine without refreshing the rendered firewall/NAT
+   state, so an interface created after service startup could lack forwarding and masquerade.
+2. Docker's iptables backend left `FORWARD` policy `DROP` before WG-Guard's independent nftables
+   base chain. Netfilter's terminal drop prevented the later accept rules from taking effect.
+
+The second cause was reproduced both on the dedicated host and in an isolated three-namespace
+probe. `ip_forward=1` and WG-Guard masquerade were present while the earlier Docker chain dropped
+forwarded packets. A scoped allow through `DOCKER-USER` restored the route without changing the
+global policy.
+
+Exact data-plane candidate
+--------------------------
+- WG-Guard code revision: 1c7cb032b29d05a14aeea2db94b1cb31d988804c
+- Version stamp: 0.0.0-phase8.3, linux/amd64
+- OS: Ubuntu 24.04.4 LTS, x86_64
+- Kernel: 6.8.0-138-generic
+- Docker: 29.1.3, iptables firewall backend
+- AWG: reviewed awg-2026-09 source bundle; kernel module and v3.1.20260812 tools
+- Deployment: fresh installer-built immutable local Docker image, host networking, private panel
+
+Real acceptance
+---------------
+- Fresh Docker installation and health gate: PASS.
+- Interfaces were created through the running REST API after the panel was already ready.
+- Canonical downloaded configs were applied to separate real kernel AmneziaWG client namespaces:
+  - plain: handshake, tunnel gateway, public IPv4, DNS, HTTPS, NAT identity, RX/TX — PASS.
+  - recommended: handshake, tunnel gateway, public IPv4, DNS, HTTPS, NAT identity, RX/TX — PASS.
+  - randomized: handshake, tunnel gateway, public IPv4, DNS, HTTPS, NAT identity, RX/TX — PASS.
+- Host `FORWARD` policy remained `DROP`: PASS.
+- Exact managed state for three interfaces: six subnet/interface-scoped child rules and one tagged
+  `DOCKER-USER` jump: PASS.
+- `doctor`: interfaces, nftables, forwarding and IPv4 forwarding all reported pass.
+- Docker restart: readiness returned, all three namespaces retained HTTPS egress, rule count stayed
+  six and jump count stayed one: PASS.
+- Uninstall: WG-Guard nftables table, child chain and tagged jump absent; Docker's `FORWARD DROP`
+  unchanged: PASS.
+- Final cleanup: test namespaces/links, container, token, client configs, owner-password file and
+  copied test binaries absent: PASS.
+
+Corrective evidence during the drill
+------------------------------------
+The first candidate made UFW repair errors fatal but classified a genuinely absent `ufw` binary as
+an execution failure. Its install health gate correctly failed. A regression using the real
+`exec.ErrNotFound` shape was added and the final candidate passed fresh installation. A later
+doctor-only false negative exposed iptables' canonical argument/state ordering and quoted comment
+output; the final candidate and fixture use canonical rules and passed doctor plus restart.
+Closing fail-safe regressions additionally reject an unparseable host policy, unexpected rules in
+WG-Guard's owned child chain and nftables permission failures. These branches do not alter the
+verified normal data path and are covered by the final automated gate.
+
+Scope and limits
+----------------
+- No REST/OpenAPI or client-config format changed.
+- No arm64 or non-Ubuntu claim is made.
+- Generic foreign firewall policy ownership and firewalld automation remain Phase 11; unsupported
+  blocking policies fail with an actionable diagnostic rather than receiving a global mutation.
+- AUD-050 still owns transactional interface-link deletion. The final test removed its exact
+  collision-checked links explicitly after uninstall; this record does not claim that broader
+  Phase 11 lifecycle fix.
+- Secret-bearing token, owner password and client configurations were never printed or retained in
+  this evidence.
+
+Reproduction
+------------
+Use `verify-phase8.3-vps.sh --public-ip <dedicated-vps-ip>` only on a disposable, freshly installed
+Ubuntu 24.04 amd64 Docker node with no `awg0`–`awg2` or `p83-*` collisions.

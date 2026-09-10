@@ -58,9 +58,12 @@ scheduler. All periodic work runs on the one scheduler goroutine: accounting cyc
 (`accounting.interval_seconds`, live-reloadable), sample flush, webhook delivery pass (5 s), live
 telemetry (10 s), and housekeeping (10 min prunes + rate-limit reload). The telemetry source runs
 one bounded `/proc` pass and one aggregate SQLite statement; API, metrics, and browser readers
-consume immutable ring copies and never sample the host. Reconcile passes are serialized behind one
-mutex shared by boot, the accounting/enforcement paths and API-triggered reconciles —
-concurrent AWG operations on one interface are the race verify-after-apply exists to catch.
+consume immutable ring copies and never sample the host. Runtime reconcile passes are serialized
+behind one mutex shared by accounting/enforcement and API/web mutations. The canonical pass owns
+the complete network state—AWG links/peers, rendered firewall/NAT, supported manager coexistence
+and shaping—so a post-start interface cannot exist without its route policy. A failure makes the
+readiness endpoint unready until a complete pass succeeds; concurrent AWG operations on one
+interface remain the race verify-after-apply exists to catch.
 Graceful shutdown drains HTTP (both the TLS listener and, in ACME mode, the port-80 challenge
 sidecar), lets the running job finish, then closes the DB. TLS: manual cert, proxy, loopback
 dev, and ACME (`autocert`; HTTP-01 sidecar + certificate cache under the data dir) — all four
@@ -85,9 +88,10 @@ On boot and continuously, kernel state is verified against the database: missing
 created and configured; mismatched ports/params are corrected (audited); missing peers are
 re-applied; unknown peers follow `drift_policy` (`report` default | `adopt` | `remove`). The
 30 s accounting cycle triggers a reconciliation pass whenever enforcement changes who may hold
-peers (quota trips, expiry, first-connection activations). `wg-guard doctor [--fix]` performs
-the same repairs on demand plus environment checks (permissions, upstream pin, module, nft,
-sysctls, shaper, disk, endpoint DNS, cert expiry, DB integrity).
+peers (quota trips, expiry, first-connection activations). Structural web/API changes use that same
+full pass immediately. `wg-guard doctor [--fix]` performs the repairs on demand and checks the
+effective legacy `FORWARD` policy/manager path in addition to permissions, upstream pin, module,
+nft, sysctls, shaper, disk, endpoint DNS, cert expiry and DB integrity.
 
 ## Failure & recovery posture
 

@@ -5,7 +5,7 @@ this document owns cross-phase requirement coverage, release blockers, audit fin
 verification state. Phase execution details live in the corresponding phase document.
 
 Last updated: 2026-09-10. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
-**Phase 8.3 — Data-plane forwarding integrity** is the active corrective gate. Phase 10 is paused
+Corrective **Phase 8.3 — Data-plane forwarding integrity** is complete. Phase 10 is active again
 at milestone 10.0; no visual migration is yet claimed.
 
 ## Program status
@@ -16,8 +16,8 @@ at milestone 10.0; no visual migration is yet claimed.
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
-| 8.3 — Data-plane forwarding integrity | active; root cause reproduced | Effective Docker/UFW forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
-| 10 — Product UI/UX redesign | paused; milestone 10.0 | Every route/state passes complete bilingual responsive QA |
+| 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
+| 10 — Product UI/UX redesign | active; milestone 10.0 | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
@@ -66,7 +66,7 @@ implementation does not cross the active phase boundary.
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 | RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | verified | Cached manager/zero-network retry and public-HTTP refusal pass automated gates; real Docker Nginx/webroot and short-lived IP issuance/renewal, occupied-port refusal, rollback-safe transitions and cleanup are recorded in [Phase 8.2 evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). Cloudflare DNS-01 is automated-test verified; real issuance awaits a scoped token and is not claimed |
-| RB-011 | Docker's earlier `FORWARD` DROP can allow AWG handshake while blocking all routed client traffic | Phase 8.3 | reproduced | Scoped manager coexistence, fail-closed readiness/doctor diagnostics, and real AWG-to-public-DNS/HTTPS Docker traffic with cleanup evidence |
+| RB-011 | Docker's earlier `FORWARD` DROP can allow AWG handshake while blocking all routed client traffic | Phase 8.3 | verified | Scoped `DOCKER-USER` coexistence, fail-closed readiness/doctor diagnostics, and exact data-plane candidate plain/recommended/randomized public-IP/DNS/HTTPS traffic with cleanup [evidence](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt) |
 
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
@@ -89,6 +89,13 @@ Phase 9 completion (2026-09-10): one bounded sampler fed the dashboard, metrics 
 passed real Native/Docker failure, traffic, resource and cleanup drills on Ubuntu 24.04.4 amd64.
 Sanitized evidence:
 [`../integrations/fixtures/verify-phase9-vps-2026-09-10.txt`](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
+
+Phase 8.3 corrective completion (2026-09-10): runtime mutations now reconcile the complete
+network state and Docker's terminal `FORWARD DROP` is crossed only through its scoped user-policy
+extension point. The exact Ubuntu 24.04.4 amd64 Docker candidate passed post-start plain,
+recommended and randomized AWG clients through public IPv4, DNS and HTTPS, then restart,
+diagnostics and owned-rule cleanup while the global DROP remained unchanged. Sanitized evidence:
+[`../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt`](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
 
 ## Audit findings
 
@@ -148,7 +155,8 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-048 | high | Interactive install silently selects username `owner`; a short password is rejected only after deployment/data preparation, leaving an initial-install journal without a useful retry/reset path and causing apparent successful credentials to fail as `admin` | Phase 8.2 maintenance | verified: explicit `admin` default, shared backend validation with in-place retry, blank-password secure generation and post-completion show-once handoff, guided cleanup for every interrupted initial install, and distinct node-reset/complete-removal ownership pass automated gates. Real Docker confirmed default `admin`, short-password retry and complete removal; generated credentials were intentionally not captured |
 | AUD-049 | high | Recommended private Docker setup records loopback HTTP as proxy TLS, making the session cookie `Secure`; valid credentials are accepted but the browser cannot return the cookie over the documented SSH-tunnel HTTP URL and falls back to login | Phase 8.2 maintenance | verified: reproduced on Ubuntu 24.04.4 amd64, then fixed by resolving private exposure to loopback-only dev transport while retaining proxy mode for real HTTPS proxies. Exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie |
 | AUD-050 | high | Deleting a tunnel interface removes its DB ownership record before reconciliation, so the still-live kernel link is classified as foreign and may remain after the operator believes it was deleted | Phase 11 interface lifecycle hardening | open; reproduced during the Phase 9 VPS gate. Implement teardown-before-final-delete with failure recovery and API/web/backend regressions; the Phase 9 fixture removes only its collision-checked owned link during cleanup |
-| AUD-051 | critical | Docker's iptables backend installs an earlier `FORWARD` policy DROP; WG-Guard's later nftables accept chain cannot override that terminal verdict, while prior real-host gates stopped at the tunnel gateway | Phase 8.3 | reproduced on the dedicated VPS and in an isolated netns; implementation and public-egress verification active |
+| AUD-051 | critical | Docker's iptables backend installs an earlier `FORWARD` policy DROP; WG-Guard's later nftables accept chain cannot override that terminal verdict, while prior real-host gates stopped at the tunnel gateway | Phase 8.3 | verified: scoped owned child chain and tagged `DOCKER-USER` jump preserve the global DROP; all supported generated profiles passed real public egress |
+| AUD-052 | critical | API/web runtime reconciliation updated interfaces and peers but not the firewall/NAT rendered state, so an interface created after startup could handshake without routed traffic | Phase 8.3 | verified: one serialized runtime reconciler now reapplies tunnel, firewall/NAT, coexistence and shaping; regression and exact fresh-install public-egress gate pass |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
@@ -159,7 +167,7 @@ The Phase 11 matrix starts from the honest state below. “Planned” is not sup
 
 | OS | Arch | Docker | Native | Kernel backend | Userspace fallback | State |
 |---|---|---|---|---|---|---|
-| Ubuntu 24.04 | amd64 | drill verified | drill verified | config/client traffic verified | manual-daemon config/client traffic verified; product lifecycle planned | partial |
+| Ubuntu 24.04 | amd64 | public egress + lifecycle drills verified | lifecycle drill verified; expanded firewall recertification planned | kernel config/client/public traffic verified | manual-daemon config/client traffic verified; product lifecycle planned | partial |
 | Ubuntu >24.04 | amd64 | planned per release | planned per release | planned per release | planned | unverified |
 
 Containers and emulation can validate packaging but do not upgrade a real-host Ubuntu release

@@ -1,7 +1,7 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **paused at milestone 10.0 while corrective Phase 8.3 is active**. Phase 9 stabilized the
-monitoring/logging contracts on 2026-09-10; no Phase 10 visual migration is yet claimed.
+Status: **active; milestone 10.0 (inventory and implementation planning)**. Corrective Phase 8.3
+closed the routed-data-plane blocker on 2026-09-10; no Phase 10 visual migration is yet claimed.
 
 ## Objective
 

@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
@@ -124,6 +126,9 @@ func (m *Manager) CheckForwarding(ctx context.Context, ifaces []Interface, docke
 		return status, nil
 	}
 	status.Policy = policy
+	if status.Policy == "unknown" {
+		return status, fmt.Errorf("firewall: could not determine the host FORWARD policy")
+	}
 	if status.Policy != "DROP" {
 		status.Managed = true
 		status.Source = "policy"
@@ -255,12 +260,37 @@ func parseDockerForwardingRules(output []byte) ([][]string, error) {
 			continue
 		}
 		fields := strings.Fields(line)
-		if len(fields) < 3 || fields[0] != "-A" || fields[1] != dockerForwardingChain {
+		if !validDockerForwardingRule(fields) {
 			return nil, fmt.Errorf("firewall: unexpected rule in owned %s chain", dockerForwardingChain)
 		}
 		rules = append(rules, fields)
 	}
 	return rules, nil
+}
+
+func validDockerForwardingRule(fields []string) bool {
+	if len(fields) != 8 && len(fields) != 12 ||
+		fields[0] != "-A" || fields[1] != dockerForwardingChain {
+		return false
+	}
+	prefix, err := netip.ParsePrefix(fields[3])
+	if err != nil || !prefix.Addr().Is4() || fields[len(fields)-2] != "-j" || fields[len(fields)-1] != "ACCEPT" {
+		return false
+	}
+	if len(fields) == 8 {
+		return fields[2] == "-s" && fields[4] == "-i" && validManagedInterface(fields[5])
+	}
+	return fields[2] == "-d" && fields[4] == "-o" && validManagedInterface(fields[5]) &&
+		fields[6] == "-m" && fields[7] == "conntrack" && fields[8] == "--ctstate" &&
+		fields[9] == "RELATED,ESTABLISHED"
+}
+
+func validManagedInterface(name string) bool {
+	if len(name) <= 3 || len(name) > 15 || !strings.HasPrefix(name, "awg") {
+		return false
+	}
+	_, err := strconv.ParseUint(name[3:], 10, 32)
+	return err == nil
 }
 
 // RemoveDockerForwarding removes only WG-Guard's tagged jump and owned child

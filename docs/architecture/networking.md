@@ -23,9 +23,9 @@ self-inflicted outage).
 
 ## Firewall ownership (nftables)
 
-- Everything lives in one namespaced table: `table inet wgguard`. Rules are commented
-  `wgguard:managed`. WG-Guard **never** flushes or edits foreign tables (Docker, ufw, admin
-  rules) and only ever *adds* scoped rules — never global policies.
+- NAT and the deployment-independent forwarding rules live in one namespaced table:
+  `table inet wgguard`. Rules are commented `wgguard:managed`. WG-Guard never flushes a foreign
+  table or changes a global policy.
 - The table is applied as **rendered state**: its full content is a pure function of the
   enabled interfaces' device pools, applied atomically with `nft -f` (probe → when present,
   one transaction deletes and recreates it, so re-applying never duplicates rules; with zero
@@ -42,7 +42,19 @@ self-inflicted outage).
   reports findings (active managers, whether the routed policy blocks forwarding, and the exact
   remedy commands). This is the most common "installed fine, no traffic" failure and is handled
   explicitly.
-- Uninstaller removes exactly the `wgguard` table and nothing else.
+- **Docker coexistence**: Docker's iptables backend can install an earlier terminal
+  `FORWARD DROP`; an accept in WG-Guard's later nftables base chain cannot override it. When
+  `DOCKER-USER` exists, WG-Guard attaches one tagged jump to an owned `WGGUARD-FORWARD` child
+  chain. The child accepts only source traffic entering through an enabled `awgN` from that
+  interface's exact pool and established/related return traffic to the same interface/pool.
+  Desired rules are added before stale rules are removed; the chain is never flushed during a
+  live reconcile. Docker's chains, rules and global DROP policy remain untouched.
+- A legacy `FORWARD DROP` without complete Docker or UFW coverage is a boot/readiness error, not a
+  warning beside a nonfunctional VPN. `doctor` separately verifies the nftables table and the
+  effective manager path. Missing manager binaries mean "not installed"; permission or mutation
+  failures remain fatal.
+- Empty desired state and uninstall remove exactly the `wgguard` table, tagged Docker jump and
+  owned child chain. Transactional kernel-link deletion remains AUD-050 in Phase 11.
 
 ## Sysctls & system state
 
@@ -51,6 +63,12 @@ value is checked first; only `sysctl -w` when off); prior values are recorded un
 `/var/lib/wg-guard` for clean restore on uninstall. Recorded in the runbook.
 
 ## Reconciliation of mode changes
+
+Every structural mutation uses the same serialized runtime bring-up pipeline as boot: reconcile
+interfaces/peers, render firewall/NAT from all enabled interfaces, repair supported manager
+coexistence, then restore shaping. Creating or disabling an interface after the HTTP service has
+started therefore cannot leave stale forwarding state. A failed runtime pass makes `/readyz`
+unready until a later complete pass succeeds.
 
 The pinned runtime cannot switch an interface between plain and obfuscated states with
 `setconf` (explicit zeros are rejected; omitted keys persist — see

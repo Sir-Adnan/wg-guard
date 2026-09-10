@@ -32,8 +32,8 @@ internal/
   boot/                  bring-up orchestration: tooling probe → sysctl → reconcile →
                          firewall → coexistence (used by `serve` and `wg-guard reconcile`)
   audit/                 audit log (never secrets)
-  firewall/              namespaced nftables table `wgguard` (rendered-state apply),
-                         ufw/firewalld coexistence (Phase 2 ✅)
+  firewall/              namespaced nftables table `wgguard`, scoped Docker `DOCKER-USER`
+                         child-chain coexistence, UFW integration and effective-path inspection
   network/               ip link/addr wrappers, sysctls (Phase 2 ✅)
   subprocess/            the single exec choke point: explicit argv, timeouts, structured
                          exit errors; output is never logged (Phase 2 ✅)

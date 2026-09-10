@@ -8,10 +8,19 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** active at route/state inventory and implementation planning;
+- **Phase 10 product UI/UX redesign:** active again at route/state inventory and implementation planning;
   no Phase 10 visual migration is yet claimed.
 
 ### Changed
+- **Routed client traffic and firewall integrity:** post-start interface mutations now reconcile
+  AWG state, nftables NAT/forwarding, supported manager coexistence and shaping as one serialized
+  operation. Docker's earlier `FORWARD DROP` is handled through one tagged jump to a narrow owned
+  child chain in its documented `DOCKER-USER` extension point; global policy and foreign rules are
+  never relaxed or flushed. Runtime failures make readiness unready, and doctor verifies both the
+  nftables table and effective forwarding path. Docker images include Ubuntu's iptables-nft CLI;
+  uninstall removes only WG-Guard's table/jump/child chain. The exact data-plane Ubuntu 24.04.4
+  amd64 Docker candidate passed fresh install plus plain/recommended/randomized public IPv4, DNS, HTTPS, NAT,
+  counters, restart/idempotency and cleanup. REST/OpenAPI and client-config formats are unchanged.
 - **Bounded operational telemetry and safe logs:** one scheduler-owned 180-point sampler now feeds
   metrics, the authorized REST/OpenAPI endpoint and bilingual dashboard cards/graphs without
   per-browser collection. Every production structured-log sink now has recursive secret redaction

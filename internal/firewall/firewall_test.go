@@ -158,6 +158,19 @@ func TestRemoveIdempotent(t *testing.T) {
 	}
 }
 
+func TestRemoveDoesNotTreatNftPermissionFailureAsAbsent(t *testing.T) {
+	f := &fakeRunner{}
+	f.run("nftables v1.0.9")
+	f.failCmd("nft", "Operation not permitted")
+	f.mu.Lock()
+	f.steps = append(f.steps, fakeStep{err: &exec.Error{Name: "iptables", Err: exec.ErrNotFound}})
+	f.mu.Unlock()
+	err := (&Manager{Run: f}).Remove(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "Operation not permitted") {
+		t.Fatalf("permission failure was hidden as absent: %v", err)
+	}
+}
+
 func TestCoexistenceUfw(t *testing.T) {
 	ctx := context.Background()
 

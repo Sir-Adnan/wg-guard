@@ -163,7 +163,7 @@ func TestDoctorReportsIncompleteDockerForwardingPath(t *testing.T) {
 		"iptables --version":               {Stdout: []byte("iptables v1.8.10 (nf_tables)\n")},
 		"iptables -w 5 -S FORWARD":         {Stdout: []byte("-P FORWARD DROP\n-A FORWARD -j DOCKER-USER\n")},
 		"iptables -w 5 -S DOCKER-USER":     {Stdout: []byte("-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n")},
-		"iptables -w 5 -S WGGUARD-FORWARD": {Stdout: []byte("-N WGGUARD-FORWARD\n-A WGGUARD-FORWARD -i awg0 -s 10.8.0.0/24 -j ACCEPT\n")},
+		"iptables -w 5 -S WGGUARD-FORWARD": {Stdout: []byte("-N WGGUARD-FORWARD\n-A WGGUARD-FORWARD -s 10.8.0.0/24 -i awg0 -j ACCEPT\n")},
 	}}
 	doc := &doctor{d: deps}
 	doc.checkFirewall(context.Background())

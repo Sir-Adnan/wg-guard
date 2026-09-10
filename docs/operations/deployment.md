@@ -7,7 +7,7 @@ data paths, so backups and mode-switching are layout-independent.
 ## Docker mode (default)
 
 - **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + `amneziawg-tools` built from its
-  exact reviewed GitHub tag/commit + nftables + ca-certificates + the WG-Guard binary
+  exact reviewed GitHub tag/commit + nftables/iptables-nft + ca-certificates + the WG-Guard binary
   ([Dockerfile](../../Dockerfile), amd64). Registry publication of versioned tags is part of
   the Phase 12 release pipeline; until then build locally
   (`docker build -t wgguard/wg-guard:<tag> .`) and pass `--image` to the installer, which is
@@ -22,8 +22,8 @@ data paths, so backups and mode-switching are layout-independent.
   `/var/cache/wg-guard`.
 - **Why this split**: the AmneziaWG kernel module and forwarding run on the **host** — the VPN
   data plane never traverses the container, so Docker adds zero hot-path overhead. The panel and
-  AWG tooling run in the container with host networking (interfaces appear on the host, nftables
-  edits the host's tables through the shared netns). Rejected alternatives (host agent process;
+  AWG tooling run in the container with host networking (interfaces appear on the host; nftables
+  and the iptables-nft compatibility CLI edit host policy through the shared netns). Rejected alternatives (host agent process;
   privileged module-loading container) are recorded in [ADR-0006](../decisions/ADR-0006-docker-default-deployment.md).
 - **Host `wg-guard` shim**: the same binary, mode-aware — panel/data commands exec into the
   container; `manage`, `install`, `update`, `uninstall`, `restart`, `owner-bootstrap`, `core`,
@@ -36,7 +36,7 @@ data paths, so backups and mode-switching are layout-independent.
 
 `internal/install.BuildRuntimeImage` can build a local Ubuntu 24.04 runtime image directly from
 a checksum-verified acquired panel binary plus the exact catalogued tools source, `iproute2`,
-`nftables`, `procps` (`sysctl`), CA roots and curl. It executes no candidate installer and returns
+`nftables`, `iptables`, `procps` (`sysctl`), CA roots and curl. It executes no candidate installer and returns
 only an immutable Docker image ID. Its private build context is removed after success/failure;
 the caller's staging parent is preserved. Acquisition-to-lifecycle plumbing and recording that
 ID as the active/previous artifact are implemented by the shared lifecycle engine. No official
@@ -256,11 +256,18 @@ messages retain fa/en catalog parity.
 Preflight requires Ubuntu 24.04 or newer on amd64/x86_64 and inspects the running kernel, init,
 endpoint and TCP ports before package/deployment writes. Other distributions, older Ubuntu and
 other architectures stop before acquisition or deployment. Ubuntu 24.04 is the verified target.
-Native mode needs `ip`, `tc`, `nft`, `sysctl`, matching `awg` and systemd. Docker mode checks the
+Native mode needs `ip`, `tc`, `nft`, `iptables`, `sysctl`, matching `awg` and systemd. Docker mode checks the
 engine, Compose and daemon while keeping host module management separate. A missing engine uses
 Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendations and removals
 disabled, preserving an existing Docker CE engine. An inactive supported systemd daemon/socket is
 reloaded and started before readiness is retried. Existing dependencies are not blanket-upgraded.
+
+Docker's iptables backend may keep the host-wide `FORWARD` policy at `DROP`. WG-Guard deliberately
+does not relax it. For each enabled tunnel it renders NAT in `table inet wgguard` and a narrow
+source/interface plus established-return allow path in its own `WGGUARD-FORWARD` child chain,
+attached by one tagged jump at Docker's documented `DOCKER-USER` extension point. Runtime
+interface mutations refresh both layers before readiness is healthy; `doctor` reports a missing
+or partial path. Uninstall removes only the owned table, jump and child chain.
 
 The recommended `awg-2026-09` bundle does not depend on PPA retention. It clones only the exact
 catalogued official tools/kernel tags, verifies both full commits and clean trees, builds the

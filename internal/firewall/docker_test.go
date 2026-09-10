@@ -81,6 +81,24 @@ func TestEnsureDockerForwardingNoDockerChainIsNoop(t *testing.T) {
 	}
 }
 
+func TestEnsureDockerForwardingRefusesUnexpectedRulesInOwnedChain(t *testing.T) {
+	r := &dockerRunner{responses: map[string]fakeStep{
+		"iptables --version":               {stdout: "iptables v1.8.10 (nf_tables)\n"},
+		"iptables -w 5 -S DOCKER-USER":     {stdout: "-N DOCKER-USER\n"},
+		"iptables -w 5 -S WGGUARD-FORWARD": {stdout: "-N WGGUARD-FORWARD\n-A WGGUARD-FORWARD -s 0.0.0.0/0 -j DROP\n"},
+	}}
+	managed, err := (&Manager{Run: r}).EnsureDockerForwarding(context.Background(),
+		[]Interface{{Name: "awg0", Subnet: "10.8.0.0/24"}})
+	if err == nil || managed || !strings.Contains(err.Error(), "unexpected rule") {
+		t.Fatalf("managed=%v err=%v calls=%v", managed, err, r.calls)
+	}
+	for _, call := range r.calls {
+		if strings.Contains(call, " -D WGGUARD-FORWARD ") {
+			t.Fatalf("unexpected pre-existing rule was deleted: %v", r.calls)
+		}
+	}
+}
+
 func TestEnsureDockerForwardingEmptyStateRemovesOnlyOwnedChain(t *testing.T) {
 	r := &dockerRunner{responses: map[string]fakeStep{
 		"iptables --version":               {stdout: "iptables v1.8.10 (nf_tables)\n"},
@@ -139,6 +157,18 @@ func TestCheckForwardingAcceptsManagedDrop(t *testing.T) {
 				t.Fatalf("status=%+v err=%v", status, err)
 			}
 		})
+	}
+}
+
+func TestCheckForwardingRejectsUnparseablePolicy(t *testing.T) {
+	r := &dockerRunner{responses: map[string]fakeStep{
+		"iptables --version":       {stdout: "iptables v1.8.10 (nf_tables)\n"},
+		"iptables -w 5 -S FORWARD": {stdout: "-A FORWARD -j FOREIGN-FILTER\n"},
+	}}
+	status, err := (&Manager{Run: r}).CheckForwarding(context.Background(),
+		[]Interface{{Name: "awg0", Subnet: "10.8.0.0/24"}}, false, nil)
+	if err == nil || !strings.Contains(err.Error(), "could not determine") {
+		t.Fatalf("status=%+v err=%v", status, err)
 	}
 }
 
