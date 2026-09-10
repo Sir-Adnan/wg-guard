@@ -47,6 +47,12 @@ func Components() []Component {
 	return append([]Component(nil), components[:]...)
 }
 
+// ParseComponent accepts only an exact member of the public component set.
+func ParseComponent(value string) (Component, bool) {
+	component := Component(value)
+	return component, component.valid()
+}
+
 // WithComponent adds a stable component field. Invalid values are not emitted.
 func WithComponent(logger *slog.Logger, component Component) *slog.Logger {
 	if logger == nil {

@@ -7,7 +7,7 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
                          HTTP + scheduler + graceful shutdown), token, install/update/
-                         uninstall/status/core/tls-check/restart, English-only manage,
+                         uninstall/status/logs/core/tls-check/restart, English-only manage,
                          host-local owner-bootstrap (mode-aware Docker dispatch), doctor,
                          backup, restore, settings, secrets (single binary, hand-rolled arg
                          parsing — no CLI framework)
@@ -47,6 +47,8 @@ internal/
                          composed into serve in Phase 4)
   telemetry/             fixed 180-point live host/VPN/process/activity ring; derives safe rates
                          and health without topology or its own goroutine (Phase 9)
+  logsafe/               centralized recursive slog redaction and closed component registry
+                         applied before every production text/JSON sink (Phase 9)
   webhook/               durable event delivery: events table, recorder (in-txn emit),
                          worker (backoff, dead-letter), HMAC signing (Phase 4 ✅)
   backup/                archive builder, bounded private preview/explicit approval, recoverable
@@ -62,7 +64,8 @@ internal/
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
                          update/rollback, coordinated offline restore and uninstall,
                          versioned state/artifact contract,
-                         Host seam for fault-injection testing (Phase 8.1/8.2; Ubuntu 24.04 amd64 verified)
+                         Host seam for fault-injection/stream testing, mode-aware operational logs
+                         (Phase 8.1/8.2/9; Ubuntu 24.04 amd64 verified through Phase 8.2)
   serve/                 runtime composition: config → fail-closed pending-restore/recovery gate →
                          DB → secrets → settings → services →
                          boot → HTTP(S) listener (manual/proxy/dev/ACME) → scheduler;
@@ -88,8 +91,8 @@ migrations/              numbered SQL migrations (embedded; 0004 sub_links,
                          0005 gated interface obfuscation parameters,
                          0006 backup schedules, 0007 lossless H1–H4 ranges)
 deploy/                  reference compose for Docker mode (installer generates the tailored one)
-Dockerfile               official image: multi-stage build onto ubuntu:24.04 + pinned
-                         amneziawg-tools (ppa:amnezia/ppa) + nftables (Phase 7 ✅)
+Dockerfile               official image: multi-stage build onto ubuntu:24.04 + exact reviewed
+                         upstream amneziawg-tools source commit + nftables
 install.sh               GitHub bootstrap/update check; refreshes only the verified manager cache
                          and delegates host lifecycle to the Go binary
 scripts/                 dev helpers, immutable candidate builder and executable bootstrap fixtures

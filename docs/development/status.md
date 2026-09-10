@@ -5,7 +5,7 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 9 — Operational observability (active, milestone 9.6)
+## Phase 9 — Operational observability (active, milestone 9.7)
 
 The accepted metric, log, retention and resource contracts are in [phase9.md](phase9.md) and
 [ADR-0013](../decisions/ADR-0013-operational-observability.md). Milestone 9.1 implemented bounded
@@ -22,8 +22,10 @@ sparklines. Web/i18n tests, asset budgets, and local 1440×900/390×844 fa/en br
 the browser never invokes the sampler source. Milestone 9.5 wraps every production log sink with
 bounded recursive redaction and assigns a closed component at composition boundaries; text/JSON
 secret corpora, handler semantics, representative components and WSL2 race tests pass. Milestone
-9.6 owns the unified Docker/native logs command. No Phase 9 behavior is yet claimed as real-VPS
-verified.
+9.6 adds a mode-aware host `logs` command with bounded tail/since, clean follow cancellation and
+local closed-component filtering; exact Docker/native argv and failure/stream bounds are unit
+tested. Milestone 9.7 owns storage retention and the installer operation journal. No Phase 9
+behavior is yet claimed as real-VPS verified.
 
 ## Phase 8.2 — Secure access & persistent manager (complete, 2026-09-09)
 
@@ -450,7 +452,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | Phase | State | Scope |
 |---|---|---|
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
-| 9 — Operational observability | active; milestone 9.6 | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 9 — Operational observability | active; milestone 9.7 | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |

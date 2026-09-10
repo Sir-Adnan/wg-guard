@@ -146,6 +146,7 @@ func TestRenderUnitHardening(t *testing.T) {
 		"ReadWritePaths=/var/lib/wg-guard /proc/sys/net/ipv4/ip_forward",
 		"MemoryDenyWriteExecute=true",
 		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK",
+		"LogNamespace=wg-guard",
 	} {
 		if !strings.Contains(u, want) {
 			t.Errorf("unit missing %q\n%s", want, u)
@@ -161,6 +162,7 @@ func TestRoute(t *testing.T) {
 		"update":           "host",
 		"uninstall":        "host",
 		"status":           "host",
+		"logs":             "host",
 		"doctor":           "host",
 		"certificate-sync": "host",
 		"exposure":         "host",

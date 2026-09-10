@@ -9,15 +9,17 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ### Planned
 - **Phase 9 operational observability:** active; bounded telemetry core, scheduler composition and
-  REST/OpenAPI, functional dashboard telemetry and central log redaction are implemented. Unified
-  Docker/native logs and bounded retention remain in this phase.
+  REST/OpenAPI, functional dashboard telemetry, central log redaction and the unified Docker/native
+  logs command are implemented. Bounded retention remains in this phase.
 
 ### Changed
 - **Bounded operational telemetry and safe logs:** one scheduler-owned 180-point sampler now feeds
   metrics, the authorized REST/OpenAPI endpoint and bilingual dashboard cards/graphs without
   per-browser collection. Every production structured-log sink now has recursive secret redaction
-  and a stable closed component label. Docker/native log access and storage retention remain the
-  next Phase 9 milestones; no real-VPS telemetry/log verification is claimed yet.
+  and a stable closed component label. `wg-guard logs` now selects the installed Docker/native
+  source, bounds tail/since and local complete-line component filtering, and supports cancellable
+  follow without a shell. Storage retention remains the next Phase 9 milestone; no real-VPS
+  telemetry/log verification is claimed yet.
 - **Administrator setup and complete removal:** fresh interactive installation now asks for the
   username with `admin` as the Enter default, retries invalid/mismatched passwords in place, and
   generates a 24-character cryptographic password when the field is blank. Generated credentials

@@ -12,6 +12,7 @@ func init() {
 		"update.manager":        "Manager only",
 		"update.core":           "AmneziaWG core",
 		"update.status":         "Current versions",
+		"manage.logs":           "Operational logs · last 24 hours",
 		"update.manager_review": "Update the local manager? The running panel and VPN connections will not restart.",
 		"update.core_review":    "Update to the reviewed compatible AmneziaWG bundle? A reboot may be required; active tunnels are never force-unloaded.",
 		"update.all_review":     "Update manager, panel and compatible AmneziaWG core? A backup is created before the panel restart; stop on the first failed safety gate.",

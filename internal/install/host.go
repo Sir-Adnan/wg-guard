@@ -31,6 +31,10 @@ type Host interface {
 	// Output runs argv and captures stdout (status formatting needs the
 	// command's value, not just its exit status).
 	Output(ctx context.Context, argv []string, timeout time.Duration) (string, error)
+	// Stream runs explicit argv until completion or context cancellation and
+	// connects its output to caller-owned writers. It is used by operational
+	// logs, whose follow mode cannot have a fixed process timeout.
+	Stream(ctx context.Context, argv []string, stdout, stderr io.Writer) error
 	LookPath(name string) (string, error)
 
 	MkdirAll(path string, perm fs.FileMode) error
@@ -111,6 +115,17 @@ func (realHost) Output(ctx context.Context, argv []string, timeout time.Duration
 	argv = withAptLockWait(argv)
 	result, err := runner.RunConfigured(ctx, argv, "", os.Environ())
 	return string(result.Stdout), err
+}
+
+func (realHost) Stream(ctx context.Context, argv []string, stdout, stderr io.Writer) error {
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // explicit installer-controlled argv
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err := cmd.Run()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
 }
 
 func (realHost) LookPath(name string) (string, error) { return exec.LookPath(name) }

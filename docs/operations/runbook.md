@@ -46,6 +46,17 @@ Verify: `sudo wg-guard status` → container/unit healthy; open the printed pane
 with the locally supplied administrator credentials. Diagnostics: `sudo wg-guard doctor`. See
 [terminal management](terminal-management.md) for navigation, restart, secrets and cancellation.
 
+Recent service logs use one command in either deployment mode:
+
+```bash
+sudo wg-guard logs
+sudo wg-guard logs --tail 500 --since 6h --component awg
+sudo wg-guard logs --follow
+```
+
+The command derives Docker versus native journal access from validated install state. Tail is
+bounded at 10,000, since at seven days, and `Ctrl+C` stops follow mode.
+
 ## Update and recovery
 
 ```bash
@@ -136,7 +147,8 @@ the serialized reconciler for the AWG subprocess. Read-only doctor is safe anyti
 | Users all `expired` suddenly | clock skew — check NTP/timezone; expiry sweeps use UTC |
 | DB errors / corruption hints | stop writes, run `doctor`, restore latest backup (runbook steps above) |
 | Cert renewal failing | port 80 reachability (HTTP-01), then `doctor` cert section |
-| Disk filling | backup retention, log volume, DB size (`traffic_samples` pruning), `doctor` disk check |
+| Service/API/AWG failure | `wg-guard logs --since 1h`; narrow with `--component http` or `awg` |
+| Disk filling | backup retention, bounded log storage, DB size (`traffic_samples` pruning), `doctor` disk check |
 
 ## Verification status
 

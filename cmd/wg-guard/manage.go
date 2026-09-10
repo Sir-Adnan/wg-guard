@@ -485,7 +485,7 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 1:
 			n, err = m.menu("lifecycle", "update", "rollback", "recover", "restart")
 		case 2:
-			n, err = m.menu("operations", "status", "doctor", "tls", "core", "switch")
+			n, err = m.menu("operations", "status", "doctor", "tls", "core", "switch", "logs")
 		case 3:
 			n, err = m.ui.Choose(m.ui.T("manage.backups"), []string{m.ui.T("manage.backup_create"), m.ui.T("manage.backup_list"), m.ui.T("manage.restore"), m.ui.T("manage.schedules"), m.ui.T("manage.telegram"), m.ui.T("backup.cli.backup_password"), m.ui.T("backup.cli.recover")}, 0)
 		case 4:
@@ -540,6 +540,8 @@ func (m *manager) group(ctx context.Context, group int) error {
 				}
 				args = []string{"core", "switch", "recommended", "--confirm-impact"}
 				review = "core_review"
+			case 6:
+				args = []string{"logs"}
 			}
 		case 3:
 			err = m.backupAction(ctx, n)

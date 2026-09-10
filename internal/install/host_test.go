@@ -4,13 +4,36 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"os/exec"
 	"strings"
+	"testing"
 	"time"
 )
+
+func TestRealHostStreamReturnsContextCancellation(t *testing.T) {
+	if os.Getenv("WGG_TEST_STREAM_HELPER") == "1" {
+		_, _ = fmt.Fprintln(os.Stdout, "ready")
+		for {
+			time.Sleep(time.Hour)
+		}
+	}
+	t.Setenv("WGG_TEST_STREAM_HELPER", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	var stdout bytes.Buffer
+	err := (realHost{}).Stream(ctx, []string{os.Args[0], "-test.run=^TestRealHostStreamReturnsContextCancellation$"}, &stdout, io.Discard)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("stream cancellation = %v", err)
+	}
+	if !strings.Contains(stdout.String(), "ready") {
+		t.Fatalf("stream did not connect stdout: %q", stdout.String())
+	}
+}
 
 // memHost is the in-memory Host for tests: fs in a map, commands recorded
 // with scripted results.
@@ -144,6 +167,22 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 		return "LoadState=loaded\nActiveState=inactive\n", nil
 	}
 	return m.output[argv[0]], nil
+}
+
+func (m *memHost) Stream(ctx context.Context, argv []string, stdout, _ io.Writer) error {
+	m.commands = append(m.commands, memCmd{argv: append([]string(nil), argv...)})
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := m.failCmd[argv[0]]; err != nil {
+		return err
+	}
+	value := m.output[strings.Join(argv, " ")]
+	if value == "" {
+		value = m.output[argv[0]]
+	}
+	_, err := io.WriteString(stdout, value)
+	return err
 }
 
 func (m *memHost) LookPath(name string) (string, error) {

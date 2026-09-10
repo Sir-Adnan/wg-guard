@@ -197,10 +197,19 @@ func TestHandlerPreservesSlogContractAndUnderlyingError(t *testing.T) {
 
 func TestComponentLoggerUsesClosedStableValue(t *testing.T) {
 	for _, component := range Components() {
+		parsed, ok := ParseComponent(string(component))
+		if !ok || parsed != component {
+			t.Errorf("ParseComponent(%q) = %q, %v", component, parsed, ok)
+		}
 		var out bytes.Buffer
 		WithComponent(slog.New(New(slog.NewTextHandler(&out, nil))), component).Info("event")
 		if !strings.Contains(out.String(), "component="+string(component)) {
 			t.Errorf("component %q missing: %s", component, out.String())
+		}
+	}
+	for _, invalid := range []string{"", "HTTP", "http ", "database", "http --follow"} {
+		if _, ok := ParseComponent(invalid); ok {
+			t.Errorf("ParseComponent accepted %q", invalid)
 		}
 	}
 }

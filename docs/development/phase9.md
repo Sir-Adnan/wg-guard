@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.6 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **active; milestone 9.7 in progress**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -38,8 +38,8 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - [x] 9.3 — Add the authorized REST/OpenAPI telemetry contract.
 - [x] 9.4 — Move the dashboard to shared snapshots and add functional live graphs.
 - [x] 9.5 — Install central structured-log redaction and component classification.
-- [ ] 9.6 — Implement the mode-aware `wg-guard logs` workflow. **Active.**
-- [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
+- [x] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
+- [ ] 9.7 — Enforce native/Docker/operation-log retention and disk bounds. **Active.**
 - [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence.
 
 ## Verification
@@ -83,6 +83,15 @@ CLI filter. Text and JSON secret corpora cover messages, errors, groups, maps, U
 credentials and pre-bound attributes while preserving safe operational metadata. Handler
 delegation/metadata/error semantics, representative component output and WSL2 race tests pass.
 Real Docker/native failure-log scanning remains milestone 9.8 evidence.
+
+Milestone 9.6 adds the host-side `wg-guard logs` command and the same recent-log action to the
+local manager. Validated install state chooses Docker `docker logs` or the dedicated native
+journal namespace; tail defaults to 200 and caps at 10,000, since defaults to 24 hours and caps at
+seven days, follow honors process cancellation, and the closed component filter is applied to
+complete lines locally with a 64 KiB bound. Exact argv/no-shell routing, split writes, text/JSON
+matching, false positives, oversized/partial lines, source/output failures and real subprocess
+cancellation are automated-test verified. Retention policy installation and real host behavior
+remain milestones 9.7–9.8.
 
 ## Documentation
 

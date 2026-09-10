@@ -165,6 +165,16 @@ heap) is **off by default**; enable with `[metrics] enabled = true` (or `WGG_MET
 when your monitoring stack needs it — it exposes topology signals and belongs behind an
 operator's decision, ideally not on a public listener.
 
+### Operational logs
+
+`wg-guard logs` is always a host command. Validated install state selects `docker logs` for the
+owned container or `journalctl --namespace=wg-guard -u wg-guard.service` for native mode. It
+defaults to the latest 200 records from 24 hours, caps tail at 10,000 and since at seven days, and
+supports cancellable follow plus a closed structured-component filter. The filter processes only
+complete lines with a 64 KiB per-line bound and never places the filter value in subprocess argv.
+Raw logs remain local; there is no panel/API log endpoint. Phase 9 milestone 9.7 owns the durable
+storage caps, and milestone 9.8 owns real Docker/native failure drills.
+
 ## Ports & networking defaults
 
 All values below are **recommended defaults** (sensible starting points chosen from upstream

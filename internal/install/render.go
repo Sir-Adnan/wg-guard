@@ -59,6 +59,7 @@ var hostCommands = map[string]bool{
 	"update":           true,
 	"uninstall":        true,
 	"status":           true,
+	"logs":             true,
 	"doctor":           true,
 	"version":          true,
 	"help":             true,
@@ -108,7 +109,8 @@ func RenderUnit(p Plan) string {
 	fmt.Fprintf(&b, "ExecStart=%s serve -config %s\n", BinPath, p.BootConfigPath())
 	b.WriteString("Restart=on-failure\n")
 	b.WriteString("RestartSec=5s\n")
-	b.WriteString("LimitNOFILE=65535\n\n")
+	b.WriteString("LimitNOFILE=65535\n")
+	b.WriteString("LogNamespace=wg-guard\n\n")
 	b.WriteString("AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE\n")
 	b.WriteString("CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE\n")
 	b.WriteString("NoNewPrivileges=true\n")

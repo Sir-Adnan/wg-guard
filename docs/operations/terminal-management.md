@@ -24,7 +24,7 @@ promotes its matching recovery action; a healthy installed node shows these grou
 | Install & updates | Update center, build selection, install, rollback and interrupted-operation recovery |
 | Panel access & HTTPS | Access overview, reversible configuration, certificate renewal check and private fallback |
 | Backups & recovery | Create/list/send archives, coordinated restore, schedules and Telegram settings/tests |
-| System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
+| System & diagnostics | Status, recent operational logs, read-only doctor, TLS verification, compatible core review/switch and service restart |
 | Uninstall | Data-preserving removal, quick-reinstall reset, or separately confirmed complete removal |
 
 Enter the displayed number and use `0` to go back or exit. Press `Ctrl+C` to cancel safely. Invalid input is retried. Menus
@@ -38,6 +38,24 @@ Defaults follow two rules:
   confirmation shown by the prompt.
 
 EOF, partial input and interruption never grant consent.
+
+## Operational logs
+
+**System & diagnostics → Operational logs** shows the latest service records from the previous
+24 hours. The equivalent host command automatically chooses the installed deployment mode:
+
+```bash
+sudo wg-guard logs
+sudo wg-guard logs --tail 500 --since 6h
+sudo wg-guard logs --follow --component http
+```
+
+`--tail` accepts 1–10,000 (default 200). `--since` accepts a positive duration or RFC3339 instant
+within the previous seven days (default 24h). `--component` accepts only `serve`, `http`,
+`scheduler`, `accounting`, `webhook`, `backup`, `awg`, or `network`; filtering is local and never
+adds free-form input to Docker/journal argv. Follow exits cleanly with `Ctrl+C`. Service logs stay
+host-local and are not exposed through the panel or REST API. Storage bounds are tracked
+separately by Phase 9 milestone 9.7.
 
 ## Uninstall and clean reset
 

@@ -100,6 +100,8 @@ Useful read-only checks:
 ```bash
 sudo wg-guard status
 sudo wg-guard doctor
+sudo wg-guard logs                       # latest 200 records from the last 24h
+sudo wg-guard logs --follow --component awg
 ```
 
 Updates, rollback, recovery, backups and uninstall are available from the local manager. Open its
