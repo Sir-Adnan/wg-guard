@@ -28,7 +28,9 @@ data paths, so backups and mode-switching are layout-independent.
 - **Host `wg-guard` shim**: the same binary, mode-aware — panel/data commands exec into the
   container; `manage`, `install`, `update`, `uninstall`, `restart`, `owner-bootstrap`, `core`,
   `status`, `doctor`, `version` run on the host;
-  `serve` is refused with compose hints. Every CLI command is identical in both modes.
+  `serve` is refused with compose hints. The host-owned `doctor` delegates only AWG tool/interface
+  inspection to the running container; system and network-policy checks stay on the host. Every
+  CLI command is identical in both modes.
 - **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
   persistence). On supported Ubuntu it checks out the exact catalogued upstream kernel tag and
   commit, registers versioned DKMS source, installs matching running-kernel headers when needed,

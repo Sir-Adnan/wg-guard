@@ -135,6 +135,12 @@ resolution, TLS certificate expiry (manual mode), NTP synchronization (timedatec
 backups posture (no schedules + no archives is a warning; stale newest archive too). Checks
 that cannot run on a platform report `skip` honestly.
 
+In Docker mode the command remains host-owned: kernel, nftables/iptables, forwarding, sysctl,
+shaping and exposure are inspected on the host, while the AWG version and interface dumps run
+through the active `wg-guard` container where the pinned `awg` binary lives. If that runtime is
+unavailable, interface state is reported as unavailable; only an explicit backend not-found
+response is reported as a missing interface.
+
 `wg-guard doctor --fix` re-runs the boot repairs (recreate interfaces, re-apply configs and
 peers, rebuild nft/tc, repair supported Docker/UFW forwarding, enable IP forwarding) through the same orchestration as `serve`, then
 re-checks the affected areas. It **refuses to run while the service is up** — it would race

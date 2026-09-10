@@ -15,8 +15,6 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
-	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
-	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
 )
 
 // runSettings reads and writes the runtime settings registry (the same
@@ -181,8 +179,12 @@ func runDoctor(args []string) error {
 	}
 	defer env.Close()
 	ctx := context.Background()
+	host := install.NewRealHost()
+	state, stateErr := install.LoadState(host)
+	hostRunner := subprocess.NewSystem()
+	backend := newDoctorInspector(nil, hostRunner)
+	inspector := newDoctorInspector(state, hostRunner)
 
-	var backend tunnel.Backend = amneziawg.New(subprocess.NewSystem())
 	serviceUp := backup.ServiceRunning(env.Cfg.HTTPListen)
 	if fix && serviceUp {
 		return fmt.Errorf("doctor --fix refuses to run while the service is up (stop the service first)")
@@ -191,15 +193,15 @@ func runDoctor(args []string) error {
 	report, err := doctor.Run(ctx, doctor.Deps{
 		Cfg: env.Cfg, ConfigPath: env.ConfigPath,
 		DB: env.DB, Reg: env.Reg, Ring: env.Ring,
-		Backend: backend, Run: subprocess.NewSystem(),
-		Shaper: shaper.New(subprocess.NewSystem()),
+		Backend: backend, Inspector: inspector, Run: hostRunner,
+		Shaper: shaper.New(hostRunner),
 		Fix:    fix, ServiceUp: serviceUp,
 	})
 	if report != nil {
-		if state, stateErr := install.LoadState(install.NewRealHost()); stateErr != nil {
+		if stateErr != nil {
 			report.Checks = append(report.Checks, doctor.Check{Name: "panel-access", Status: doctor.StatusFail, Detail: "install state is unreadable", Remedy: "recover the installer lifecycle state before changing access"})
 		} else if state != nil && state.ConfigPath == configPath {
-			exposure, exposureErr := install.DiagnoseExposure(ctx, install.NewRealHost(), state, time.Now())
+			exposure, exposureErr := install.DiagnoseExposure(ctx, host, state, time.Now())
 			if exposureErr != nil {
 				report.Checks = append(report.Checks, doctor.Check{Name: "panel-access", Status: doctor.StatusFail, Detail: exposureErr.Error(), Remedy: "run sudo wg-guard and review Panel access & HTTPS"})
 			} else {

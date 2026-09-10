@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -55,6 +56,13 @@ type Report struct {
 	Fixes  []string // what --fix changed, in order
 }
 
+// BackendInspector is the read-only runtime surface used by diagnostics.
+// Docker deployments provide an inspector backed by the running container,
+// while repair orchestration retains its independently selected Backend.
+type BackendInspector interface {
+	Dump(context.Context, string) (tunnel.InterfaceState, error)
+}
+
 // Failures counts checks that need attention (exit-code driver).
 func (r *Report) Failures() int {
 	n := 0
@@ -85,6 +93,7 @@ type Deps struct {
 	Reg        *settings.Registry
 	Ring       *secrets.KeyRing
 	Backend    tunnel.Backend
+	Inspector  BackendInspector
 	Run        subprocess.Runner
 	Shaper     *shaper.Manager
 	Log        *slog.Logger
@@ -101,6 +110,13 @@ type doctor struct {
 	report Report
 }
 
+func (d *doctor) inspector() BackendInspector {
+	if d.d.Inspector != nil {
+		return d.d.Inspector
+	}
+	return d.d.Backend
+}
+
 func (d *doctor) add(name string, status Status, detail, remedy string) {
 	d.report.Checks = append(d.report.Checks, Check{
 		Name: name, Status: status, Detail: detail, Remedy: remedy,
@@ -115,10 +131,10 @@ func Run(ctx context.Context, d Deps) (*Report, error) {
 	doc.checkPrivileges()
 	doc.checkDataDir()
 	doc.checkMasterKey()
-	doc.checkTools(ctx)
+	toolsReady := doc.checkTools(ctx)
 	doc.checkKernelModule()
 	doc.checkDatabase(ctx)
-	doc.checkInterfaces(ctx)
+	doc.checkInterfaces(ctx, toolsReady)
 	doc.checkFirewall(ctx)
 	doc.checkSysctls()
 	doc.checkShaper(ctx)
@@ -141,7 +157,7 @@ func Run(ctx context.Context, d Deps) (*Report, error) {
 		// Re-check the repaired areas.
 		doc.checkDataDir()
 		doc.checkDatabase(ctx)
-		doc.checkInterfaces(ctx)
+		doc.checkInterfaces(ctx, toolsReady)
 		doc.checkFirewall(ctx)
 		doc.checkSysctls()
 		doc.checkShaper(ctx)
@@ -231,25 +247,27 @@ func (d *doctor) checkMasterKey() {
 	d.add("master-key", StatusPass, p, "")
 }
 
-func (d *doctor) checkTools(ctx context.Context) {
-	if d.d.Backend == nil {
+func (d *doctor) checkTools(ctx context.Context) bool {
+	inspector := d.inspector()
+	if inspector == nil {
 		d.add("awg-tools", StatusSkip, "no backend wired", "")
-		return
+		return false
 	}
-	prober, ok := d.d.Backend.(interface {
+	prober, ok := inspector.(interface {
 		ToolsVersion(context.Context) (string, error)
 	})
 	if !ok {
 		d.add("awg-tools", StatusSkip, "backend has no version probe (dev/fake)", "")
-		return
+		return true
 	}
 	v, err := prober.ToolsVersion(ctx)
 	if err != nil {
 		d.add("awg-tools", StatusFail, fmt.Sprintf("probe failed: %v", err),
-			"install AmneziaWG tools from the pinned PPA (docs/integrations/amneziawg.md)")
-		return
+			"restore the selected AWG runtime (the container in Docker mode or pinned host tools in native mode), then run wg-guard doctor again")
+		return false
 	}
 	d.add("awg-tools", StatusPass, v, "")
+	return true
 }
 
 func (d *doctor) checkKernelModule() {
@@ -281,9 +299,16 @@ func (d *doctor) checkDatabase(ctx context.Context) {
 	d.add("database", StatusPass, "integrity ok", "")
 }
 
-func (d *doctor) checkInterfaces(ctx context.Context) {
-	if d.d.DB == nil || d.d.Backend == nil {
+func (d *doctor) checkInterfaces(ctx context.Context, toolsReady bool) {
+	inspector := d.inspector()
+	if d.d.DB == nil || inspector == nil {
 		d.add("interfaces", StatusSkip, "database or backend not wired", "")
+		return
+	}
+	if !toolsReady {
+		d.add("interfaces", StatusSkip,
+			"backend state unavailable because the AWG tools probe failed",
+			"restore access to the selected AWG runtime, then run wg-guard doctor again")
 		return
 	}
 	rows, err := d.d.DB.QueryContext(ctx,
@@ -308,11 +333,15 @@ func (d *doctor) checkInterfaces(ctx context.Context) {
 		d.add("interfaces", StatusPass, "no enabled interfaces", "")
 		return
 	}
-	var missing, drift, peerMismatch []string
+	var missing, unreadable, drift, peerMismatch []string
 	for _, w := range want {
-		state, err := d.d.Backend.Dump(ctx, w.name)
+		state, err := inspector.Dump(ctx, w.name)
 		if err != nil {
-			missing = append(missing, w.name)
+			if errors.Is(err, tunnel.ErrInterfaceNotFound) {
+				missing = append(missing, w.name)
+			} else {
+				unreadable = append(unreadable, fmt.Sprintf("%s (%v)", w.name, err))
+			}
 			continue
 		}
 		if state.ListenPort != w.port {
@@ -322,6 +351,15 @@ func (d *doctor) checkInterfaces(ctx context.Context) {
 			peerMismatch = append(peerMismatch,
 				fmt.Sprintf("%s (%d peers in kernel, %d enabled devices)", w.name, len(state.Peers), n))
 		}
+	}
+	if len(unreadable) > 0 {
+		detail := "backend inspection failed: " + strings.Join(unreadable, "; ")
+		if len(missing) > 0 {
+			detail += "; confirmed missing: " + strings.Join(missing, ", ")
+		}
+		d.add("interfaces", StatusFail, detail,
+			"restore access to the AWG runtime, then run wg-guard doctor again before repairing interfaces")
+		return
 	}
 	if len(missing) > 0 {
 		d.add("interfaces", StatusFail,

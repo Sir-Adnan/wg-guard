@@ -46,6 +46,9 @@ this ordering.
 - `doctor` distinguishes the nftables table from the effective forwarding path and understands
   iptables' canonical rule ordering. Docker/runtime images contain Ubuntu's `iptables-nft`
   compatibility tool; native prerequisite checks require it.
+- A post-completion diagnostic correction keeps Docker system/network checks on the host but runs
+  AWG version/interface inspection inside the runtime container. Tool/runtime failures no longer
+  masquerade as a list of missing interfaces; only a confirmed not-found result does.
 - Empty desired state and uninstall remove the WG-Guard nftables table, tagged jump and child
   chain only. Docker's own chains and host-wide policy are preserved.
 
@@ -70,6 +73,10 @@ this ordering.
 - Closing fail-safe regressions reject an unparseable effective policy, unexpected rules inside
   WG-Guard's owned child chain and nftables permission failures. They do not change the verified
   normal data path and are covered by the final automated gate.
+- The Docker-aware diagnostic correction is covered by command-routing, failed-tool, unreadable-
+  backend and confirmed-not-found regressions. The user-provided pre-fix transcript reproduced the
+  false diagnosis while real client traffic remained healthy; candidate runtime verification is
+  recorded before this maintenance patch is merged.
 
 ## Safety and compatibility
 

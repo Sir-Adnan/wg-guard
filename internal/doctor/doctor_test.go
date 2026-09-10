@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
 
@@ -26,6 +28,23 @@ func (r *doctorRunner) Run(_ context.Context, argv []string) (subprocess.Result,
 		return result, nil
 	}
 	return subprocess.Result{}, nil
+}
+
+type failingInspector struct {
+	tunnel.Backend
+	toolsErr error
+	dumpErr  error
+}
+
+func (b *failingInspector) ToolsVersion(context.Context) (string, error) {
+	if b.toolsErr != nil {
+		return "", b.toolsErr
+	}
+	return "v3.1.20260812", nil
+}
+
+func (b *failingInspector) Dump(context.Context, string) (tunnel.InterfaceState, error) {
+	return tunnel.InterfaceState{}, b.dumpErr
 }
 
 func newDoctorEnv(t *testing.T) (Deps, *database.DB) {
@@ -66,6 +85,81 @@ func statusOf(r *Report, name string) Check {
 		}
 	}
 	return Check{Status: "absent"}
+}
+
+func addEnabledInterface(t *testing.T, db *database.DB, name string, port int) {
+	t.Helper()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := db.Exec(`INSERT INTO tunnel_interfaces
+		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
+		 preset_name, enabled, backend_mode, created_at, updated_at)
+		VALUES (?, ?, ?, '10.8.0.0/24', 1420, 'pub', x'00',
+		 'plain', 1, 'kernel', ?, ?)`, "iface-"+name, name, port, now, now); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDoctorSkipsInterfaceStateWhenToolsProbeFails(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	addEnabledInterface(t, db, "awg0", 39001)
+	deps.Backend = &failingInspector{
+		Backend:  fake.New(),
+		toolsErr: errors.New("container runtime unavailable"),
+		dumpErr:  errors.New("must not inspect interfaces after a failed tools probe"),
+	}
+
+	report, err := Run(context.Background(), deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := statusOf(report, "awg-tools"); got.Status != StatusFail {
+		t.Fatalf("awg-tools = %+v", got)
+	} else if strings.Contains(strings.ToLower(got.Remedy), "ppa") || !strings.Contains(got.Remedy, "selected AWG runtime") {
+		t.Fatalf("awg-tools remedy = %q", got.Remedy)
+	}
+	got := statusOf(report, "interfaces")
+	if got.Status != StatusSkip || strings.Contains(got.Detail, "missing") {
+		t.Fatalf("interfaces after tools failure = %+v", got)
+	}
+}
+
+func TestDoctorDistinguishesBackendInspectionFailureFromMissingInterface(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	addEnabledInterface(t, db, "awg0", 39001)
+	deps.Backend = &failingInspector{
+		Backend: fake.New(),
+		dumpErr: errors.New("container runtime unavailable"),
+	}
+
+	report, err := Run(context.Background(), deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := statusOf(report, "interfaces")
+	if got.Status != StatusFail || !strings.Contains(got.Detail, "inspection failed") || strings.Contains(got.Detail, "missing from backend") {
+		t.Fatalf("interfaces after backend inspection failure = %+v", got)
+	}
+	if strings.Contains(got.Remedy, "recreates the interface") {
+		t.Fatalf("inspection failure suggests destructive repair: %+v", got)
+	}
+}
+
+func TestDoctorReportsConfirmedMissingInterface(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	addEnabledInterface(t, db, "awg0", 39001)
+	deps.Backend = &failingInspector{
+		Backend: fake.New(),
+		dumpErr: tunnel.ErrInterfaceNotFound,
+	}
+
+	report, err := Run(context.Background(), deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := statusOf(report, "interfaces")
+	if got.Status != StatusFail || !strings.Contains(got.Detail, "missing from backend: awg0") {
+		t.Fatalf("confirmed missing interface = %+v", got)
+	}
 }
 
 func TestDoctorReportOverTempNode(t *testing.T) {

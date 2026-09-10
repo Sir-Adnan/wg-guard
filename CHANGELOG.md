@@ -12,6 +12,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   no Phase 10 visual migration is yet claimed.
 
 ### Changed
+- **Docker-aware doctor diagnostics:** the host-owned command now probes the pinned AWG tools and
+  reads interface state through the running WG-Guard container in Docker mode, while kernel,
+  firewall, forwarding, sysctl, shaping and exposure checks remain host-side. A failed tools probe
+  makes interface state unavailable instead of falsely declaring every database interface missing;
+  only an explicit backend not-found error recommends recreation. REST/OpenAPI and client configs
+  are unchanged.
 - **Routed client traffic and firewall integrity:** post-start interface mutations now reconcile
   AWG state, nftables NAT/forwarding, supported manager coexistence and shaping as one serialized
   operation. Docker's earlier `FORWARD DROP` is handled through one tagged jump to a narrow owned
