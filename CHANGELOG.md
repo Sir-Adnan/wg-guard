@@ -20,7 +20,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   are unchanged. Exact Ubuntu 24.04.4 amd64 Docker acceptance passed with no host `awg`, one active
   interface, a controlled stopped-container failure, recovery and full cleanup. In Docker mode,
   explicit `doctor --fix` now uses the lifecycle-locked, health-checked restart whose startup runs
-  canonical reconciliation; native mode retains direct offline repair.
+  canonical reconciliation; native mode retains direct offline repair. A real missing link was
+  recreated by that managed path with a healthy container and completed restart journal.
 - **Routed client traffic and firewall integrity:** post-start interface mutations now reconcile
   AWG state, nftables NAT/forwarding, supported manager coexistence and shaping as one serialized
   operation. Docker's earlier `FORWARD DROP` is handled through one tagged jump to a narrow owned

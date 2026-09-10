@@ -119,7 +119,8 @@ Phase 10 then resumed at milestone 10.0. Detailed gate and evidence:
 
 A bounded post-completion diagnostic correction also made host-owned Docker `doctor` inspect AWG
 inside the runtime container without moving kernel/firewall checks off the host. Exact candidate
-verification covered healthy, unavailable-container and recovered states; Phase 10 remains active.
+verification covered healthy, unavailable-container, recovered and managed missing-link repair
+states; Phase 10 remains active.
 
 ### Phase 10 — Product UI/UX redesign
 

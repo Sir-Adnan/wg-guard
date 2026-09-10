@@ -84,6 +84,10 @@ this ordering.
   firewall/forwarding checks. Stopping the container produced one tools failure plus an honest
   interface `skip` (never false missing); restart restored all relevant passes. Full uninstall and
   secret/interface cleanup passed.
+- Exact repair candidate `dea94c9c486fd03b88e85624aec48c68e8e78c74` then reproduced one
+  confirmed missing `awg0` while Docker remained healthy. Running `doctor --fix` without manually
+  stopping the node completed the managed restart/health gate, recreated `awg0`, returned every
+  relevant diagnostic to pass and recorded lifecycle `restart/complete`; full cleanup passed.
 
 ## Safety and compatibility
 

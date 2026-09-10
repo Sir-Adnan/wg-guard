@@ -69,6 +69,13 @@ Docker-aware doctor maintenance
 - Container stopped: tools failed and interface inspection skipped; no interface was falsely
   reported missing. Container restart restored all relevant passes: PASS.
 - Token, password, temporary files, container/data and exact test interface cleanup: PASS.
+- Exact managed-repair revision: dea94c9c486fd03b88e85624aec48c68e8e78c74.
+- A real `awg0` link was removed while its enabled DB record remained; read-only doctor reported
+  that interface alone as confirmed missing: PASS.
+- `doctor --fix` on the running Docker node performed the lifecycle-managed restart; startup
+  recreated `awg0`, the container returned healthy, all relevant checks passed and the journal
+  recorded `restart/complete`: PASS.
+- Final token/password/file/container/data/interface cleanup after the repair drill: PASS.
 
 Scope and limits
 ----------------
