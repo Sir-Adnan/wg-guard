@@ -117,6 +117,10 @@ randomized public egress, DNS, HTTPS, counters, doctor, restart/idempotency and 
 Phase 10 then resumed at milestone 10.0. Detailed gate and evidence:
 [docs/development/phase8.3.md](docs/development/phase8.3.md).
 
+A bounded post-completion diagnostic correction also made host-owned Docker `doctor` inspect AWG
+inside the runtime container without moving kernel/firewall checks off the host. Exact candidate
+verification covered healthy, unavailable-container and recovered states; Phase 10 remains active.
+
 ### Phase 10 — Product UI/UX redesign
 
 Migrate the complete panel and public subscription experience to one accessible shadcn-style

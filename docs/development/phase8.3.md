@@ -75,8 +75,12 @@ this ordering.
   normal data path and are covered by the final automated gate.
 - The Docker-aware diagnostic correction is covered by command-routing, failed-tool, unreadable-
   backend and confirmed-not-found regressions. The user-provided pre-fix transcript reproduced the
-  false diagnosis while real client traffic remained healthy; candidate runtime verification is
-  recorded before this maintenance patch is merged.
+  false diagnosis while real client traffic remained healthy. Exact candidate
+  `670f3e138d1e1ff5c858110d2fed5f8e007e40a1` then passed a fresh Docker install with host `awg`
+  absent, container tools pinned, one post-start interface and clean `doctor` tool/interface/
+  firewall/forwarding checks. Stopping the container produced one tools failure plus an honest
+  interface `skip` (never false missing); restart restored all relevant passes. Full uninstall and
+  secret/interface cleanup passed.
 
 ## Safety and compatibility
 

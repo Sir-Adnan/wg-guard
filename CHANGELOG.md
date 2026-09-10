@@ -17,7 +17,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   firewall, forwarding, sysctl, shaping and exposure checks remain host-side. A failed tools probe
   makes interface state unavailable instead of falsely declaring every database interface missing;
   only an explicit backend not-found error recommends recreation. REST/OpenAPI and client configs
-  are unchanged.
+  are unchanged. Exact Ubuntu 24.04.4 amd64 Docker acceptance passed with no host `awg`, one active
+  interface, a controlled stopped-container failure, recovery and full cleanup.
 - **Routed client traffic and firewall integrity:** post-start interface mutations now reconcile
   AWG state, nftables NAT/forwarding, supported manager coexistence and shaping as one serialized
   operation. Docker's earlier `FORWARD DROP` is handled through one tagged jump to a narrow owned

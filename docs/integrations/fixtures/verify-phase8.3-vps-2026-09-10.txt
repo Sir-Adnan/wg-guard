@@ -59,6 +59,17 @@ Closing fail-safe regressions additionally reject an unparseable host policy, un
 WG-Guard's owned child chain and nftables permission failures. These branches do not alter the
 verified normal data path and are covered by the final automated gate.
 
+Docker-aware doctor maintenance
+-------------------------------
+- Exact code revision: 670f3e138d1e1ff5c858110d2fed5f8e007e40a1.
+- Fresh private Docker installation on the same Ubuntu 24.04.4 amd64 host: PASS.
+- Host `awg` intentionally absent; container tools v3.1.20260812: PASS.
+- One recommended interface created after service readiness; `doctor` tools, interface,
+  nftables, Docker-scoped forwarding and sysctl checks: PASS.
+- Container stopped: tools failed and interface inspection skipped; no interface was falsely
+  reported missing. Container restart restored all relevant passes: PASS.
+- Token, password, temporary files, container/data and exact test interface cleanup: PASS.
+
 Scope and limits
 ----------------
 - No REST/OpenAPI or client-config format changed.
