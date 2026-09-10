@@ -8,10 +8,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 9 operational observability:** active; bounded telemetry core, scheduler composition and
-  REST/OpenAPI, functional dashboard telemetry, central log redaction, unified Docker/native logs,
-  and bounded storage policies are implemented. Real failure/resource/retention verification
-  remains in this phase.
+- **Phase 10 product UI/UX redesign:** active at route/state inventory and implementation planning;
+  no Phase 10 visual migration is yet claimed.
 
 ### Changed
 - **Bounded operational telemetry and safe logs:** one scheduler-owned 180-point sampler now feeds
@@ -22,7 +20,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   follow without a shell. Docker now uses compressed 16 MiB × 8 local rotation; native mode has a
   transactionally managed seven-day/size-bounded journal namespace; a fixed-metadata operation
   journal is capped at seven UTC files/8 MiB, serviced by the existing tmpfiles cleanup timer, and
-  available through `--source operations`. No real-VPS telemetry/log verification is claimed yet.
+  available through `--source operations`. Docker logs now merge the container's stdout/stderr
+  into one redirectable CLI stream. Sequential Native/Docker Ubuntu 24.04.4 amd64 acceptance
+  passed real AWG traffic/load, dashboard login, failure visibility/recovery, policy inspection,
+  secret scans and full cleanup; Docker's lack of physical age deletion remains explicit.
 - **Administrator setup and complete removal:** fresh interactive installation now asks for the
   username with `admin` as the Enter default, retries invalid/mismatched passwords in place, and
   generates a 24-character cryptographic password when the field is blank. Generated credentials
@@ -74,8 +75,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   advanced-settings gate; `sudo wg-guard` reopens local management without a download. The GitHub
   fast path verifies the installed management contract and safely acquires a current manager for
   older host CLIs; the bounded compatibility probe cannot consume piped script input. Docker/native
-  Ubuntu 24.04 drills passed; Phase 9 remains separate and public release publication is
-  owner-approved.
+  Ubuntu 24.04 drills passed; that delivery work remained separate from Phase 9 and public release
+  publication remains owner-approved.
 - **Commit-bound codeload metadata:** Go source extraction accepts GitHub's one leading PAX
   global header only when its sole comment matches the selected commit SHA. Metadata is never
   materialized, and traversal/link/device/root/duplicate/count/size protections remain active.

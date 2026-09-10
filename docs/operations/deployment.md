@@ -172,6 +172,9 @@ owned container or `journalctl --namespace=wg-guard -u wg-guard.service` for nat
 defaults to the latest 200 records from 24 hours, caps tail at 10,000 and since at seven days, and
 supports cancellable follow plus a closed structured-component filter. The filter processes only
 complete lines with a 64 KiB per-line bound and never places the filter value in subprocess argv.
+Docker container stdout and stderr are merged into this one redirectable log stream because the
+application logger writes structured records to stderr; native journal records already arrive on
+stdout. Source command failures still return a nonzero CLI status.
 `--source operations` instead reads the fixed, private lifecycle journal without requiring install
 state; follow/component apply only to service logs. Raw logs remain local; there is no panel/API
 log endpoint.
@@ -193,7 +196,8 @@ invalid, oversized or interrupted lines. The installer-owned
 existing `systemd-tmpfiles-clean.timer`, so idle old files do not wait for another lifecycle write.
 The installer applies the file explicitly, refuses an unowned conflict, records ownership, and
 rolls it back if the state commit fails. Purging node data intentionally removes these records.
-Milestone 9.8 owns real policy/timer and disk-growth inspection.
+The platform policies, an expired-file cleanup and both deployment modes passed the
+[Phase 9 VPS gate](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
 
 ## Ports & networking defaults
 

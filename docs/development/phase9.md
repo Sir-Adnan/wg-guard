@@ -1,6 +1,6 @@
 # Phase 9 — Operational observability
 
-Status: **active; milestone 9.8 in progress**. The metric/log contracts, ADR and resource budgets
+Status: **complete (2026-09-10)**. The metric/log contracts, ADR and resource budgets
 were accepted on 2026-09-05 after Phase 8 closed RB-001 through RB-004. Phases 8.1 and 8.2 then
 completed the delivery/lifecycle and secure-access prerequisites. Execution began from clean
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
@@ -40,7 +40,7 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 - [x] 9.5 — Install central structured-log redaction and component classification.
 - [x] 9.6 — Implement the mode-aware `wg-guard logs` workflow.
 - [x] 9.7 — Enforce native/Docker/operation-log retention and disk bounds.
-- [ ] 9.8 — Run real failure/resource drills and close RB-005 with evidence. **Active.**
+- [x] 9.8 — Run real failure/resource drills and close RB-005 with evidence.
 
 ## Verification
 
@@ -55,14 +55,14 @@ with bounded resource use, bounded log storage, and no secret disclosure.
 Milestone 9.1 uses deterministic Linux `/proc` fixtures for host/default-route/owned-interface
 counters and process RSS. Counter continuity, reset/replacement/gap handling, partial sources,
 fixed ring capacity, chronological copy snapshots, health transitions and concurrent readers pass
-focused tests and the race detector in WSL2 Ubuntu amd64. This is implementation evidence, not the
-real-VPS telemetry gate.
+focused tests and the race detector in WSL2 Ubuntu amd64. Real-host telemetry evidence is recorded
+under milestone 9.8.
 
 Milestone 9.2 composes exactly one sampler into the existing scheduler, takes an initial sample
 before `Start` returns, queries activity/interface state in one aggregate SQLite statement, tracks
 recent accounting failure/recovery, and exposes only aggregate health/cadence/rates from the
-optional Prometheus endpoint. Focused unit and WSL2 race suites pass; real traffic/overhead remains
-the milestone 9.8 VPS gate.
+optional Prometheus endpoint. Focused unit and WSL2 race suites pass; real traffic/overhead is
+recorded under the milestone 9.8 VPS gate.
 
 Milestone 9.3 adds `GET /api/v1/node/telemetry` under `stats.read`, with a 60-point default,
 180-point hard cap, chronological samples, nullable unavailable values, non-secret health codes,
@@ -74,15 +74,15 @@ fragment reads the shared ring every 10 seconds, distinguishes online users from
 and renders health, CPU, memory, VPN rates, activity and host/process details with bounded CSP-safe
 SVG sparklines. Unit/i18n tests cover healthy/degraded/unavailable/stale states, gaps, flat series,
 copy-only reads and topology secrecy. Asset budgets pass; manual 1440×900 and 390×844 browser
-smoke passed in fa/RTL and en/LTR with no horizontal overflow. This is local fake-backend browser
-evidence, not the milestone 9.8 real-VPS traffic gate.
+smoke passed in fa/RTL and en/LTR with no horizontal overflow. Milestone 9.8 adds the real-VPS
+traffic gate without replacing this broader local browser matrix.
 
 Milestone 9.5 adds one recursive, bounded `slog.Handler` safety boundary before every production
 text/JSON sink and classifies composition logs with the closed component set used by the planned
 CLI filter. Text and JSON secret corpora cover messages, errors, groups, maps, URL userinfo/query
 credentials and pre-bound attributes while preserving safe operational metadata. Handler
 delegation/metadata/error semantics, representative component output and WSL2 race tests pass.
-Real Docker/native failure-log scanning remains milestone 9.8 evidence.
+Real Docker/native failure-log scanning is recorded in milestone 9.8 evidence.
 
 Milestone 9.6 adds the host-side `wg-guard logs` command and the same recent-log action to the
 local manager. Validated install state chooses Docker `docker logs` or the dedicated native
@@ -91,7 +91,7 @@ seven days, follow honors process cancellation, and the closed component filter 
 complete lines locally with a 64 KiB bound. Exact argv/no-shell routing, split writes, text/JSON
 matching, false positives, oversized/partial lines, source/output failures and real subprocess
 cancellation are automated-test verified. Retention policy installation and real host behavior
-remain milestones 9.7–9.8.
+were completed in milestones 9.7–9.8.
 
 Milestone 9.7 configures Docker's `local` driver at 16 MiB × 8 compressed files and native
 systemd's dedicated `wg-guard` journal namespace at seven days/128 MiB persistent/64 MiB runtime.
@@ -103,7 +103,16 @@ mtime-only seven-day cleanup without another daemon; neither crosses the owned d
 oversized and partial lines are skipped safely. `wg-guard logs --source operations` reads canonical
 valid records even without install state. Render/ownership/update/rollback/uninstall,
 fake-clock/size/permission and every lifecycle success/failure outcome are unit/race tested.
-Platform policy/timer and disk behavior still require milestone 9.8 VPS evidence.
+Platform policy/timer and disk behavior are included in the milestone 9.8 VPS evidence.
+
+Milestone 9.8 passed sequential Native and Docker acceptance on the dedicated Ubuntu 24.04.4
+amd64 VPS. The repeatable fixture verified platform retention policies, bounded CLI reads and
+follow cancellation, process-crash recovery, real kernel AmneziaWG handshake/traffic, load and
+idle overhead, missing-interface health, authenticated dashboard output, AWG/network failure
+classification, actual-secret absence, and Docker update/rollback failure recovery. The final
+Docker run also verifies the corrected single redirectable output stream for container stdout and
+stderr. Measured results, exact revision, cleanup and honest limits are recorded in the
+[sanitized evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
 
 ## Documentation
 
@@ -112,7 +121,7 @@ testing/status/release tracker, and CHANGELOG in the same changes as behavior.
 
 ## Completion criteria
 
-RB-005 closes: one dashboard and one CLI workflow explain real failures, log growth is bounded,
+RB-005 is closed: one dashboard and one CLI workflow explain real failures, log growth is bounded,
 secrets stay absent, tests/race pass, and measured idle/live overhead fits documented budgets.
 
 ## Deferred to Phase 10

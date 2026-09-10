@@ -51,10 +51,15 @@ for the bounded invocation and evidence limits.
 Deterministic `/proc` fixtures and fake clocks cover metric availability, rate continuity, ring
 bounds, log retention and operation outcomes. Text/JSON secret corpora cover the central redaction
 handler; the install Host seam covers exact Docker/journal argv, split/oversized lines, broken
-output, cancellation, policy ownership and transactional update rollback. Focused WSL2 race suites
-pass. These are implementation gates only: real Docker/native failure visibility, journal/driver
-policy inspection, traffic graphs and measured idle/load overhead remain the Phase 9.8 dedicated
-Ubuntu 24.04 amd64 gate.
+output, cancellation, policy ownership and transactional update rollback.
+
+The [repeatable Phase 9 fixture](../integrations/fixtures/verify-phase9-vps.sh) and
+[sanitized acceptance record](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) add
+sequential Native/Docker Ubuntu 24.04.4 amd64 evidence: platform policy inspection, bounded/follow
+CLI behavior, process crash recovery, real kernel AmneziaWG traffic, telemetry under load,
+authenticated live-dashboard output, AWG/network faults, actual-secret scans, Docker lifecycle
+failure recovery and full cleanup. Long soak, 1,000 peers and later supported Ubuntu amd64 cells
+remain Phase 11; Docker's local driver is size-bounded but cannot promise physical age deletion.
 
 During implementation, run focused regressions for the changed risk; run full build/unit/vet
 and relevant race/integration gates at coherent milestones. Prose-only changes do not justify

@@ -1,6 +1,6 @@
 # Phase 8.2 — Secure access & persistent manager
 
-Status: **complete (2026-09-09)**. Phase 9 is next, designed but not started.
+Status: **complete (2026-09-09)**. Phase 9 subsequently completed; Phase 10 is active.
 
 ## Objective and placement
 
@@ -222,7 +222,7 @@ offline daily entry. The Update Center separates manager, panel, reviewed core a
 updates without turning an installer refresh into a silent service restart. Every advertised exposure is explicit, public
 plaintext is unrepresentable, certificate/proxy changes are journaled and reversible, short-lived
 IP issuance/renewal and standard-Nginx coexistence passed the real Docker gate, and the repository,
-documentation and verification records are synchronized. Phase 9 remains untouched.
+documentation and verification records are synchronized. Phase 8.2 included no Phase 9 work.
 
 ## Explicitly deferred
 

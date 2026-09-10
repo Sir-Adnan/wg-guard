@@ -5,7 +5,13 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 9 — Operational observability (active, milestone 9.8)
+## Phase 10 — Product UI/UX redesign (active, milestone 10.0)
+
+Phase 10 is the active phase after Phase 9 closed RB-005. Route/state inventory and the detailed
+dependency-ordered implementation plan are next; no Phase 10 visual migration is yet implemented
+or verified. See [phase10.md](phase10.md).
+
+## Phase 9 — Operational observability (complete, 2026-09-10)
 
 The accepted metric, log, retention and resource contracts are in [phase9.md](phase9.md) and
 [ADR-0013](../decisions/ADR-0013-operational-observability.md). Milestone 9.1 implemented bounded
@@ -27,8 +33,12 @@ local closed-component filtering; exact Docker/native argv and failure/stream bo
 tested. Milestone 9.7 adds hard Docker/native storage policy, transactional native-unit migration,
 and a private seven-day/8 MiB fixed-metadata operation journal available through `logs --source
 operations`; retention, corruption, permissions and lifecycle outcomes are unit/race tested.
-Milestone 9.8 owns real failure/resource/retention drills. No Phase 9 behavior is yet claimed as
-real-VPS verified.
+Milestone 9.8 passed sequential Native and Docker gates on Ubuntu 24.04.4 amd64. Real kernel AWG
+traffic, process crashes, failure classification, bounded CLI/follow behavior, native/Docker/
+operation retention, authenticated dashboard output, actual-secret scans, update/rollback failure
+recovery and full cleanup passed. Idle CPU was at most 0.100%, process RSS at most 31,004 KiB,
+API p95 at most 2.312 ms, and the maximum observed sampler gap was 10.05 seconds. Exact revision,
+measurements and limits are in the [sanitized VPS evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
 
 ## Phase 8.2 — Secure access & persistent manager (complete, 2026-09-09)
 
@@ -455,14 +465,13 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | Phase | State | Scope |
 |---|---|---|
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
-| 9 — Operational observability | active; milestone 9.8 | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
-| 10 — Product UI/UX redesign | planned; not implemented | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
+| 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
+| 10 — Product UI/UX redesign | active; milestone 10.0 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 
 ## Requires real VPS or client verification (carried forward)
 
-- Phase 9: Docker/native operational logs, retention, live metrics under real traffic.
 - Phase 11: nftables/NAT/firewall coexistence, 1000-shaped-peer tc, Ubuntu 24.04 and later
   supported Ubuntu releases on amd64, kernel/userspace, Docker/native, recovery and TLS drills.
 - Phase 12: installation and upgrade from the exact release-candidate artifacts. Public release

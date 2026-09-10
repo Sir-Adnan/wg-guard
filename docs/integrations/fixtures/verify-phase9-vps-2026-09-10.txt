@@ -1,0 +1,59 @@
+Phase 9 — operational observability acceptance
+Date: 2026-09-10; dedicated Ubuntu 24.04.4 LTS amd64 VPS
+Final runtime/manager candidate: 3cef7a11c949bf295efd48af7df2677c737cf45e
+Kernel: 6.8.0-138-generic
+
+PASS Native: the dedicated wg-guard journal namespace was active with the
+installer-owned 7-day, 1-day-file, 128 MiB persistent and 64 MiB runtime limits.
+The operation directory was 0700, records were 0600, and systemd-tmpfiles removed
+an owned synthetic file older than seven days. Bounded tail/since/component reads
+and SIGINT follow cancellation succeeded. A forced service-process crash advanced
+the restart counter and recovered readiness.
+
+PASS Docker: exact-commit GitHub source installation and update produced matching
+host/container build identities. The container used restart=unless-stopped and the
+local logging driver with compression, max-size=16m and max-file=8. A real process
+crash advanced the restart counter and recovered readiness. The host CLI emitted
+both container output streams through one redirectable log stream; this drill found
+and closed that Docker stderr regression before the final run. Injected compose-up
+failures during update and rollback both returned failure, recovered the healthy
+container automatically, and produced fixed failed operation records.
+
+PASS live behavior in both modes: an isolated kernel AmneziaWG client completed a
+real handshake and sustained traffic. The API reported healthy traffic rates near
+49.5 KiB/s, one online user, one active peer, and a maximum observed scheduler gap
+of 10.05 seconds. A 64 MiB memory/CPU load was reflected in telemetry. Removing the
+owned test interface produced degraded health with awg_interface_missing; restart
+reconciled it. Missing/reset/replacement rate suppression also remains covered by
+the deterministic unit/race suite rather than inferred from a graph.
+
+PASS resource/UI gate: Native idle CPU was 0.067%, process RSS 31,004 KiB and API
+p95 2.312 ms. Docker idle CPU was 0.100%, process RSS 30,760 KiB and API p95
+1.807 ms. The authenticated Docker live fragment was 6,606 bytes and rendered four
+operational cards. The fixed 180-point ring remains below its tested 128 KiB cap.
+
+PASS diagnostics safety: real AWG-tool and traffic-control failures appeared under
+the expected closed components. Captured service diagnostics contained neither the
+actual short-lived API token nor the administrator password; a synthetic capability
+path appeared only as /sub/[REDACTED]. Operation records contained fixed metadata.
+
+PASS cleanup: purge-all removed the container, state, data, host manager, retention
+policy and exclusively owned packages/source. Harness namespaces, links, wrappers,
+credentials, candidates and captures were removed. No release, tag or registry
+artifact was published.
+
+PASS final automated gate: gofmt, module verification, vet, asset budgets, bootstrap
+fixtures, 17 credential-free backup-helper tests, the full unit and race suites,
+privileged WSL2 integration (accounting, nftables, tc/IFB and pinned userspace AWG),
+and linux/amd64 build passed. BenchmarkSampleAndSnapshot measured 5,551 ns/op,
+27,277 B/op and 2 allocs/op on the recorded development machine. The installed WSL
+Go 1.26.0 correctly failed the vulnerability gate on fixed standard-library issues;
+the required repeat with patched Go 1.26.6 reported zero reachable vulnerabilities.
+
+Honest limits: Docker log storage has a hard compressed size/file cap and a seven-day
+CLI query horizon, but Docker's local driver cannot guarantee physical age deletion.
+Long soak, 1,000-peer load and later supported Ubuntu amd64 cells remain Phase 11.
+The drill exposed a separate interface-delete ordering defect: deleting the DB row
+before reconciliation can leave the former owned kernel link classified as foreign.
+The repeatable fixture explicitly removes only its own link; AUD-050 assigns the
+product correction and regression coverage to Phase 11.

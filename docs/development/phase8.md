@@ -1,7 +1,8 @@
 # Phase 8 — Audit & configuration integrity
 
 Status: **complete**. Started 2026-08-31 and completed 2026-09-05 after RB-001 through RB-004
-closed with local, integration, browser, and dedicated real-VPS evidence. Phase 9 is active.
+closed with local, integration, browser, and dedicated real-VPS evidence. Phase 9 subsequently
+completed; Phase 10 is active.
 Cross-phase blockers and findings are tracked in
 [release-readiness.md](release-readiness.md).
 

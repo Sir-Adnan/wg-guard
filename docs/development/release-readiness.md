@@ -4,8 +4,9 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-10. Phases 8, 8.1 and **8.2 — Secure access & persistent manager** are
-complete. **Phase 9 — Operational observability** is active at milestone 9.8.
+Last updated: 2026-09-10. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
+**Phase 10 — Product UI/UX redesign** is active at milestone 10.0; no visual migration is yet
+claimed.
 
 ## Program status
 
@@ -14,8 +15,8 @@ complete. **Phase 9 — Operational observability** is active at milestone 9.8.
 | 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
-| 9 — Operational observability | active; milestone 9.8 | Useful live metrics/logs with bounded cost and retention |
-| 10 — Product UI/UX redesign | planned | Every route/state passes complete bilingual responsive QA |
+| 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
+| 10 — Product UI/UX redesign | active; milestone 10.0 | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
@@ -58,7 +59,7 @@ implementation does not cross the active phase boundary.
 | RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | verified | Canonical typed paths and three delivery surfaces are unit tested; recommended and randomized decoded configs passed real kernel client handshake and bidirectional traffic. |
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | verified | Storage/apply/dump/drift/API/forms/config/QR/backup paths preserve both bounds; userspace integration and exact kernel runtime/client equality passed. |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
-| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | planned | Unified log workflow and bounded retention verified in both modes |
+| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | planned | Full route/state/browser matrix completed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
@@ -81,6 +82,12 @@ The same record contains the corrective exact-source fresh-install drill: the va
 APT lock contention and stale Docker socket/retry ownership defects are closed without changing
 REST/OpenAPI.
 
+Phase 9 completion (2026-09-10): one bounded sampler fed the dashboard, metrics and the
+`stats.read` REST contract; central redaction, unified host logs and deployment-native retention
+passed real Native/Docker failure, traffic, resource and cleanup drills on Ubuntu 24.04.4 amd64.
+Sanitized evidence:
+[`../integrations/fixtures/verify-phase9-vps-2026-09-10.txt`](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
+
 ## Audit findings
 
 Severity: critical (secret loss/exposure or unusable release), high (major correctness/security),
@@ -93,8 +100,8 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | verified |
 | AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
-| AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | implemented + unit tested through mode-aware host `wg-guard logs`; real Docker/native failure/follow gate remains 9.8 |
-| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | implemented + unit/race tested: Docker 16 MiB × 8 local rotation, scoped native 7-day/size policy, operation journal 7-day/8 MiB; real policy/disk gate remains 9.8 |
+| AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | verified: bounded Docker/native service and operation sources, component filtering and follow cancellation passed the real VPS gate; Docker stderr unification regression closed before final acceptance |
+| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | verified: Docker 16 MiB × 8 compressed local rotation, scoped native 7-day/size policy, operation journal 7-day/8 MiB and real tmpfiles expiry passed on the VPS; Docker physical age deletion remains an explicit platform limitation |
 | AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | planned |
 | AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
 | AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |
@@ -138,6 +145,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-047 | high | An interrupted uninstall is presented as generic recovery, reads an already removed boot config, and dispatches `update --recover`, trapping the operator in a recovery loop | Phase 8.2 maintenance | fixed from the user-provided transcript: uninstall has a dedicated config-independent view and resumes its own removal with explicit keep-data/full-reset choices. Focused regressions and a real Ubuntu 24.04.4 amd64 synthetic-journal Full reset passed; API/OpenAPI is unchanged |
 | AUD-048 | high | Interactive install silently selects username `owner`; a short password is rejected only after deployment/data preparation, leaving an initial-install journal without a useful retry/reset path and causing apparent successful credentials to fail as `admin` | Phase 8.2 maintenance | verified: explicit `admin` default, shared backend validation with in-place retry, blank-password secure generation and post-completion show-once handoff, guided cleanup for every interrupted initial install, and distinct node-reset/complete-removal ownership pass automated gates. Real Docker confirmed default `admin`, short-password retry and complete removal; generated credentials were intentionally not captured |
 | AUD-049 | high | Recommended private Docker setup records loopback HTTP as proxy TLS, making the session cookie `Secure`; valid credentials are accepted but the browser cannot return the cookie over the documented SSH-tunnel HTTP URL and falls back to login | Phase 8.2 maintenance | verified: reproduced on Ubuntu 24.04.4 amd64, then fixed by resolving private exposure to loopback-only dev transport while retaining proxy mode for real HTTPS proxies. Exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie |
+| AUD-050 | high | Deleting a tunnel interface removes its DB ownership record before reconciliation, so the still-live kernel link is classified as foreign and may remain after the operator believes it was deleted | Phase 11 interface lifecycle hardening | open; reproduced during the Phase 9 VPS gate. Implement teardown-before-final-delete with failure recovery and API/web/backend regressions; the Phase 9 fixture removes only its collision-checked owned link during cleanup |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

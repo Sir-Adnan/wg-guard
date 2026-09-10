@@ -11,7 +11,7 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–8.2 are complete; Phase 9 operational observability is active.**
+**In active development — Phases 0–9 are complete; Phase 10 product UI/UX redesign is active.**
 Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
 GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
 with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 added a persistent local
@@ -19,7 +19,9 @@ manager, existing-Nginx coexistence, DNS-01, trusted short-lived public-IP HTTPS
 renewal diagnostics and safe post-install access changes. Broader compatibility and public
 release work remain later. A closing installer hardening pass moved the recommended AWG core off
 the vanished PPA package pin to exact reviewed GitHub source, hardened interrupted retries, and
-passed a fresh Ubuntu 24.04 Docker install/purge drill. See
+  passed a fresh Ubuntu 24.04 Docker install/purge drill. Phase 9 then added bounded live
+  telemetry, safe unified Docker/native logs and enforced retention, verified under real AWG
+  traffic and failure drills on Ubuntu 24.04 amd64. See
 [ROADMAP.md](ROADMAP.md) and the
 [development status](docs/development/status.md).
 

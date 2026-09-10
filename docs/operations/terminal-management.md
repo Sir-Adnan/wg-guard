@@ -55,9 +55,10 @@ sudo wg-guard logs --source operations
 within the previous seven days (default 24h). `--component` accepts only `serve`, `http`,
 `scheduler`, `accounting`, `webhook`, `backup`, `awg`, or `network`; filtering is local and never
 adds free-form input to Docker/journal argv. Follow exits cleanly with `Ctrl+C` and applies only to
-the service source. `--source operations` reads canonical fixed-metadata lifecycle outcomes; it
-works without install state and skips corrupt/partial records. Logs stay host-local and are not
-exposed through the panel or REST API.
+the service source. Docker container stdout/stderr are normalized into the command's one
+redirectable stdout stream. `--source operations` reads canonical fixed-metadata lifecycle
+outcomes; it works without install state and skips corrupt/partial records. Logs stay host-local
+and are not exposed through the panel or REST API.
 
 Docker service storage uses its compressed local driver with eight 16 MiB files (a hard size cap;
 Docker has no age option). Native service storage uses a dedicated journal namespace capped at
