@@ -209,9 +209,15 @@
     const obfBox = obfToggle.closest(".collapse-body");
     const profilePolicy = $("[data-profile-policy]");
     const profileToken = $("[data-profile-token]");
+    const profileLabel = $('[data-profile-label]');
+    const syncPolicyLabel = () => {
+      if (profileLabel) profileLabel.textContent = profileLabel.dataset['policy' + (profilePolicy?.value || 'plain').replace(/^./, c => c.toUpperCase())] || profileLabel.dataset.policyCustom;
+    };
     let applyingProfile = false;
     let generatingProfile = false;
     const sync = () => {
+      const fields = $("#obf-fields");
+      if (fields) fields.hidden = !obfToggle.checked;
       obfBox?.querySelectorAll("input:not([data-obf-toggle])").forEach((inp) => {
         inp.disabled = !obfToggle.checked;
       });
@@ -251,6 +257,9 @@
         }
         if (profilePolicy) profilePolicy.value = payload.policy;
         if (profileToken) profileToken.value = payload.token;
+        syncPolicyLabel();
+        const advanced = $('#awg-advanced');
+        if (advanced && policy === 'randomized') advanced.open = true;
       } catch {
         toast(source?.dataset.generationError || "Error", "err");
       } finally {
@@ -267,10 +276,12 @@
       if (!obfToggle.checked) {
         if (profilePolicy) profilePolicy.value = "plain";
         if (profileToken) profileToken.value = "";
+      syncPolicyLabel();
         return;
       }
       if (profilePolicy) profilePolicy.value = "custom";
       if (profileToken) profileToken.value = "";
+      syncPolicyLabel();
       const recommended = obfBox.querySelector('[data-generate-obf="recommended"]');
       generate("recommended", recommended);
     });
@@ -279,6 +290,7 @@
       if (applyingProfile || event.target === obfToggle || !obfToggle.checked) return;
       if (profilePolicy) profilePolicy.value = "custom";
       if (profileToken) profileToken.value = "";
+      syncPolicyLabel();
     };
     obfBox.addEventListener("input", markCustom);
     obfBox.addEventListener("change", markCustom);

@@ -124,3 +124,6 @@ navigation/overlay/theme/request lifecycle; `app.js` imports its cache-busted UR
 forms. CSS tokens/primitives are shared, with page migrations tracked in `phase10.md`. No new
 frontend runtime or REST request path is introduced. Settings batch writes reuse registry
 validation/encryption and commit all submitted overrides in one SQLite transaction.
+Operational forms reuse `operational_forms.go` and `partial_form_feedback.html` for allowlisted
+input redisplay and safe field feedback; interface display copies remove secret carriers before
+reaching templates. Existing permission scopes also protect migrated panel routes and controls.

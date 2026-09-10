@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
@@ -10,13 +11,16 @@ import (
 
 // planRow decorates a plan for the list (usage count + profile name).
 type planRow struct {
-	P         *plan.Plan
-	Users     int
-	IfaceName string
+	P                *plan.Plan
+	Users            int
+	CountKnown       bool
+	IfaceName        string
+	IfaceUnavailable bool
 }
 
 type plansData struct {
-	Rows []planRow
+	Rows    []planRow
+	Enabled int
 }
 
 func (s *Server) handlePlanList(w http.ResponseWriter, r *http.Request) {
@@ -38,21 +42,32 @@ func (s *Server) handlePlanList(w http.ResponseWriter, r *http.Request) {
 		for _, ref := range refs {
 			ifaceNames[ref.ID] = ref.Name
 		}
+	} else {
+		// Secondary lookup failure is visible in the list and safe to diagnose
+		// without exposing database/driver details or submitted configuration.
+		s.logError(r, "plan interface references unavailable", nil)
 	}
+	enabled := 0
 	rows := make([]planRow, 0, len(plans))
 	for _, p := range plans {
+		if p.Enabled {
+			enabled++
+		}
 		rows = append(rows, planRow{
-			P:         p,
-			Users:     counts[p.ID],
-			IfaceName: ifaceNames[deref(p.InterfaceID)],
+			CountKnown:       err == nil,
+			P:                p,
+			Users:            counts[p.ID],
+			IfaceName:        ifaceNames[deref(p.InterfaceID)],
+			IfaceUnavailable: p.InterfaceID != nil && ifaceNames[*p.InterfaceID] == "",
 		})
 	}
-	_ = s.render(w, r, "plans", "app", plansData{Rows: rows})
+	_ = s.render(w, r, "plans", "app", plansData{Rows: rows, Enabled: enabled})
 }
 
 // planFormData backs the new/edit page. P is nil on create; the duration
 // prefills from P.DurationSeconds via the view helpers (value + unit).
 type planFormData struct {
+	Form   operationalForm
 	P      *plan.Plan
 	Ifaces []ifaceRef
 }
@@ -75,7 +90,7 @@ func (s *Server) handlePlanNew(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	_ = s.render(w, r, "plan_form", "app", planFormData{Ifaces: refs})
+	_ = s.render(w, r, "plan_form", "app", newPlanFormData(nil, refs))
 }
 
 func (s *Server) handlePlanEditPage(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +104,7 @@ func (s *Server) handlePlanEditPage(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	_ = s.render(w, r, "plan_form", "app", planFormData{P: p, Ifaces: refs})
+	_ = s.render(w, r, "plan_form", "app", newPlanFormData(p, refs))
 }
 
 // planInputFromForm parses the plan form. Forms submit every field, so
@@ -147,31 +162,31 @@ func planInputFromForm(r *http.Request, isEdit bool) (plan.Input, error) {
 func (s *Server) handlePlanCreate(w http.ResponseWriter, r *http.Request) {
 	in, err := planInputFromForm(r, false)
 	if err != nil {
-		s.badRequest(w, r, "plan form")
+		s.planFormError(w, r, err)
 		return
 	}
 	p, err := s.Plans.Create(r.Context(), in)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.planFormError(w, r, err)
 		return
 	}
 	s.audit(r, "plan.created", p.ID, map[string]any{"name": p.Name})
-	s.redirectToast(w, r, "/plans", "plans.toast.created")
+	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.created")
 }
 
 func (s *Server) handlePlanUpdate(w http.ResponseWriter, r *http.Request) {
 	in, err := planInputFromForm(r, true)
 	if err != nil {
-		s.badRequest(w, r, "plan form")
+		s.planFormError(w, r, err)
 		return
 	}
 	p, err := s.Plans.Update(r.Context(), r.PathValue("id"), in)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.planFormError(w, r, err)
 		return
 	}
 	s.audit(r, "plan.updated", p.ID, map[string]any{"name": p.Name})
-	s.redirectToast(w, r, "/plans", "plans.toast.updated")
+	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.updated")
 }
 
 func (s *Server) handlePlanEnable(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +204,7 @@ func (s *Server) planToggle(w http.ResponseWriter, r *http.Request, enable bool)
 		return
 	}
 	s.audit(r, "plan.updated", id, nil)
-	s.redirectToast(w, r, "/plans", "plans.toast.toggled")
+	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.toggled")
 }
 
 func (s *Server) handlePlanDelete(w http.ResponseWriter, r *http.Request) {
@@ -199,5 +214,83 @@ func (s *Server) handlePlanDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "plan.deleted", id, nil)
-	s.redirectToast(w, r, "/plans", "plans.toast.deleted")
+	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.deleted")
+}
+
+func newPlanFormData(p *plan.Plan, refs []ifaceRef) planFormData {
+	values := map[string]string{"name": "", "enabled": "1", "traffic_limit_value": "", "traffic_limit_unit": "gb", "duration_value": "", "duration_unit": "days", "device_limit": "", "speed_down": "", "speed_up": "", "interface": "", "start_policy": "immediate"}
+	if p != nil {
+		v := View{}
+		values["name"], values["traffic_limit_value"], values["traffic_limit_unit"] = p.Name, v.QuotaVal(p.TrafficLimitBytes), v.QuotaUnit(p.TrafficLimitBytes)
+		values["duration_value"], values["duration_unit"] = v.DurVal(p.DurationSeconds), v.DurUnit(p.DurationSeconds)
+		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(p.DeviceLimit), rawFormInt(p.SpeedLimitDownKbps), rawFormInt(p.SpeedLimitUpKbps)
+		values["interface"], values["start_policy"] = deref(p.InterfaceID), string(p.StartPolicy)
+		if !p.Enabled {
+			values["enabled"] = "0"
+		}
+	}
+	return planFormData{P: p, Ifaces: refs, Form: operationalForm{Values: values}}
+}
+
+func (s *Server) planFormError(w http.ResponseWriter, r *http.Request, err error) {
+	var p *plan.Plan
+	if id := r.PathValue("id"); id != "" {
+		var loadErr error
+		p, loadErr = s.Plans.Get(r.Context(), id)
+		if loadErr != nil {
+			s.actionFailed(w, r, loadErr)
+			return
+		}
+	}
+	refs, loadErr := s.ifaceRefs(r)
+	if loadErr != nil {
+		s.actionFailed(w, r, loadErr)
+		return
+	}
+	d := newPlanFormData(p, refs)
+	d.Form = submittedOperationalForm(r, d.Form.Values)
+	if d.Form.V("enabled") != "0" {
+		d.Form.Values["enabled"] = "1"
+	}
+	if d.Form.V("traffic_limit_value") == "" && r.PostFormValue("traffic_limit_gb") != "" {
+		d.Form.Values["traffic_limit_value"], d.Form.Values["traffic_limit_unit"] = r.PostFormValue("traffic_limit_gb"), "gb"
+	}
+	if d.Form.V("duration_value") == "" && r.PostFormValue("duration_days") != "" {
+		d.Form.Values["duration_value"], d.Form.Values["duration_unit"] = r.PostFormValue("duration_days"), "days"
+	}
+	field := operationalErrorField(err, true)
+	if field != "" {
+		d.Form.Fields[field] = "common.error_validation"
+	}
+	if _, e := quotaFromForm(r); e != nil {
+		d.Form.Fields["traffic_limit_value"] = "forms.error.quota"
+	}
+	if _, e := durationFromForm(r); e != nil {
+		d.Form.Fields["duration_value"] = "forms.error.duration"
+	}
+	for _, key := range []string{"speed_down", "speed_up", "device_limit"} {
+		var e error
+		if key == "device_limit" {
+			_, e = parseInt(r.PostFormValue(key))
+		} else {
+			_, e = parseKbps(r.PostFormValue(key))
+		}
+		if e != nil {
+			d.Form.Fields[key] = "forms.error.number"
+		} else if text := strings.TrimSpace(r.PostFormValue(key)); text != "" {
+			n, _ := strconv.Atoi(text)
+			if n <= 0 {
+				d.Form.Fields[key] = "forms.error.number"
+			}
+		}
+	}
+	s.operationalFormStatus(w, r, &d.Form, err)
+	_ = s.render(w, r, "plan_form", "app", d)
+}
+
+func rawFormInt(n *int) string {
+	if n == nil {
+		return ""
+	}
+	return strconv.Itoa(*n)
 }

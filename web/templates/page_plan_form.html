@@ -1,107 +1,105 @@
 {{define "title"}}{{if .Data.P}}{{.T "plans.edit"}}{{else}}{{.T "plans.new"}}{{end}}{{end}}
 {{define "content"}}
-<div class="page-head">
-  <div>
-    <h1>{{if .Data.P}}{{.T "plans.edit"}}{{else}}{{.T "plans.new"}}{{end}}</h1>
-    {{if .Data.P}}<p class="ltr-data">{{.Data.P.Name}}</p>{{end}}
+<div class="form-page">
+  <div class="page-head">
+    <div>
+      <h1>{{if .Data.P}}{{.T "plans.edit"}}{{else}}{{.T "plans.new"}}{{end}}</h1><p>{{.T "plans.form.intro"}}</p>
+    </div>
+    <a class="btn btn--ghost" href="{{if .Can "plans.read"}}/plans{{else}}/{{end}}">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
   </div>
-  <div class="actions"><a class="btn btn--ghost" href="/plans">{{.IconS "arrow-left"}}<span>{{.T "common.back"}}</span></a></div>
-</div>
-
-<form method="post" action="{{if .Data.P}}/plans/{{.Data.P.ID}}/edit{{else}}/plans{{end}}" class="card card--pad form-card" novalidate>
-  <input type="hidden" name="_csrf" value="{{.CSRF}}">
-
-  <fieldset class="onboard-section">
-    <legend>{{.T "plans.form.section_basics"}}</legend>
-    <div class="field">
-      <label for="p-name">{{.T "plans.name"}}</label>
-      <input class="input" id="p-name" name="name" dir="ltr" spellcheck="false" required maxlength="64"
-             value="{{if .Data.P}}{{.Data.P.Name}}{{end}}">
-    </div>
-    <div class="field">
-      <label class="check-label" for="p-enabled">
-        <input class="checkbox" id="p-enabled" type="checkbox" name="enabled" value="1"
-               {{if or (not .Data.P) .Data.P.Enabled}}checked{{end}}>
-        <span>{{.T "plans.enabled"}}</span>
-      </label>
-    </div>
-  </fieldset>
-
-  <fieldset class="onboard-section">
-    <legend>{{.T "users.form.section_limits"}}</legend>
-    <div class="field-row">
-      <div class="field">
-        <label for="p-traffic">{{.T "users.form.traffic_limit"}}</label>
-        <div class="unit-group">
-          <input class="input" id="p-traffic" name="traffic_limit_value" type="number" min="0.001" step="any" inputmode="decimal"
-                 value="{{if .Data.P}}{{.QuotaVal .Data.P.TrafficLimitBytes}}{{end}}">
-          <select class="select" name="traffic_limit_unit" aria-label="{{.T "users.form.traffic_limit"}}">
-            <option value="gb" {{if and .Data.P (eq (.QuotaUnit .Data.P.TrafficLimitBytes) "gb")}}selected{{end}}>GB</option>
-            <option value="mb" {{if and .Data.P (eq (.QuotaUnit .Data.P.TrafficLimitBytes) "mb")}}selected{{end}}>MB</option>
-          </select>
+  <form method="post" action="{{if .Data.P}}/plans/{{.Data.P.ID}}/edit{{else}}/plans{{end}}" class="form-stack" novalidate>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    {{template "form_feedback" .}}
+    <fieldset class="form-section card card--pad">
+      <legend>{{.T "plans.form.section_basics"}}</legend>
+      <p class="section-description">{{.T "plans.form.basics_hint"}}</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="p-name">{{.T "plans.name"}}</label>
+          <input class="input" id="p-name" name="name" type="text" dir="auto" required maxlength="64" value="{{.Data.Form.V "name"}}" {{if .Data.Form.Invalid "name"}}aria-invalid="true"{{end}} aria-describedby="{{if .Data.Form.Invalid "name"}}error-name{{end}}">{{if .Data.Form.Invalid "name"}}<span class="field-error" id="error-name">{{.T (index .Data.Form.Fields "name")}}</span>{{end}}
         </div>
-        <span class="hint">{{.T "users.form.traffic_limit_hint"}}</span>
-      </div>
-      <div class="field">
-        <label for="p-device-limit">{{.T "plans.device_limit"}}</label>
-        <input class="input" id="p-device-limit" name="device_limit" type="number" min="1" max="100"
-               value="{{if .Data.P}}{{.KD .Data.P.DeviceLimit}}{{end}}">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="p-speed-down">{{.T "plans.speed_down"}}</label>
-        <input class="input" id="p-speed-down" name="speed_down" type="number" min="1"
-               value="{{if .Data.P}}{{.KD .Data.P.SpeedLimitDownKbps}}{{end}}">
-        <span class="hint">{{.T "users.form.speed_hint"}}</span>
-      </div>
-      <div class="field">
-        <label for="p-speed-up">{{.T "plans.speed_up"}}</label>
-        <input class="input" id="p-speed-up" name="speed_up" type="number" min="1"
-               value="{{if .Data.P}}{{.KD .Data.P.SpeedLimitUpKbps}}{{end}}">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="p-duration">{{.T "plans.duration"}}</label>
-        <div class="unit-group">
-          <input class="input" id="p-duration" name="duration_value" type="number" min="0.1" step="any"
-                 value="{{if .Data.P}}{{.DurVal .Data.P.DurationSeconds}}{{end}}">
-          <select class="select" name="duration_unit" aria-label="{{.T "plans.duration"}}">
-            <option value="days" {{if and .Data.P (eq (.DurUnit .Data.P.DurationSeconds) "days")}}selected{{end}}>{{.T "duration.days"}}</option>
-            <option value="hours" {{if and .Data.P (eq (.DurUnit .Data.P.DurationSeconds) "hours")}}selected{{end}}>{{.T "duration.hours"}}</option>
-            <option value="months" {{if and .Data.P (eq (.DurUnit .Data.P.DurationSeconds) "months")}}selected{{end}}>{{.T "duration.months"}}</option>
-          </select>
+        <div class="field">
+          <label for="p-enabled">{{.T "forms.availability"}}</label>
+          <select class="select" id="p-enabled" name="enabled" {{if .Data.Form.Invalid "enabled"}}aria-invalid="true"{{end}} aria-describedby="{{if .Data.Form.Invalid "enabled"}}error-enabled{{end}}">
+            <option value="1" {{if eq (.Data.Form.V "enabled") "1"}}selected{{end}}>{{.T "plans.enabled"}}</option>
+            <option value="0" {{if eq (.Data.Form.V "enabled") "0"}}selected{{end}}>{{.T "plans.disabled"}}</option>
+          </select>{{if .Data.Form.Invalid "enabled"}}<span class="field-error" id="error-enabled">{{.T (index .Data.Form.Fields "enabled")}}</span>{{end}}
         </div>
-        <span class="hint">{{.T "users.form.duration_hint"}}</span>
       </div>
-      <div class="field">
-        <label for="p-policy">{{.T "users.start_policy"}}</label>
-        <select class="select" id="p-policy" name="start_policy">
-          <option value="immediate" {{if and .Data.P (eq (printf "%v" .Data.P.StartPolicy) "immediate")}}selected{{end}}>{{.T "users.start_policy.immediate"}}</option>
-          <option value="first_connection" {{if and .Data.P (eq (printf "%v" .Data.P.StartPolicy) "first_connection")}}selected{{end}}>{{.T "users.start_policy.first_connection"}}</option>
-        </select>
+    </fieldset>
+    <fieldset class="form-section card card--pad">
+      <legend>{{.T "users.form.section_limits"}}</legend>
+      <p class="section-description">{{.T "plans.form.limits_hint"}}</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="p-traffic">{{.T "users.form.traffic_limit"}}</label>
+          <div class="unit-group">
+            <input class="input" id="p-traffic" name="traffic_limit_value" type="text" dir="ltr" inputmode="decimal" value="{{.Data.Form.V "traffic_limit_value"}}" {{if .Data.Form.Invalid "traffic_limit_value"}}aria-invalid="true"{{end}} aria-describedby="hint-traffic_limit_value {{if .Data.Form.Invalid "traffic_limit_value"}}error-traffic_limit_value{{end}}">
+            <select class="select" name="traffic_limit_unit" aria-label="{{.T "forms.unit"}}">
+              <option value="gb" {{if eq (.Data.Form.V "traffic_limit_unit") "gb"}}selected{{end}}>GB</option>
+              <option value="mb" {{if eq (.Data.Form.V "traffic_limit_unit") "mb"}}selected{{end}}>MB</option>
+            </select>
+          </div>{{if .Data.Form.Invalid "traffic_limit_value"}}<span class="field-error" id="error-traffic_limit_value">{{.T (index .Data.Form.Fields "traffic_limit_value")}}</span>{{end}}
+          <span class="hint" id="hint-traffic_limit_value">{{.T "users.form.traffic_limit_hint"}}</span>
+        </div>
+        <div class="field">
+          <label for="p-device-limit">{{.T "plans.device_limit"}}</label>
+          <input class="input" id="p-device-limit" name="device_limit" type="text" dir="ltr" inputmode="decimal" value="{{.Data.Form.V "device_limit"}}" {{if .Data.Form.Invalid "device_limit"}}aria-invalid="true"{{end}} aria-describedby="hint-device_limit {{if .Data.Form.Invalid "device_limit"}}error-device_limit{{end}}">{{if .Data.Form.Invalid "device_limit"}}<span class="field-error" id="error-device_limit">{{.T (index .Data.Form.Fields "device_limit")}}</span>{{end}}
+          <span class="hint" id="hint-device_limit">{{.T "plans.form.devices_hint"}}</span>
+        </div>
       </div>
+    </fieldset>
+    <fieldset class="form-section card card--pad">
+      <legend>{{.T "plans.form.validity"}}</legend>
+      <div class="field-row">
+        <div class="field">
+          <label for="p-duration">{{.T "plans.duration"}}</label>
+          <div class="unit-group">
+            <input class="input" id="p-duration" name="duration_value" type="text" dir="ltr" inputmode="decimal" value="{{.Data.Form.V "duration_value"}}" {{if .Data.Form.Invalid "duration_value"}}aria-invalid="true"{{end}} aria-describedby="hint-duration_value {{if .Data.Form.Invalid "duration_value"}}error-duration_value{{end}}">
+            <select class="select" name="duration_unit" aria-label="{{.T "forms.unit"}}">
+              <option value="days" {{if eq (.Data.Form.V "duration_unit") "days"}}selected{{end}}>{{.T "duration.days"}}</option>
+              <option value="hours" {{if eq (.Data.Form.V "duration_unit") "hours"}}selected{{end}}>{{.T "duration.hours"}}</option>
+              <option value="months" {{if eq (.Data.Form.V "duration_unit") "months"}}selected{{end}}>{{.T "duration.months"}}</option>
+            </select>
+          </div>{{if .Data.Form.Invalid "duration_value"}}<span class="field-error" id="error-duration_value">{{.T (index .Data.Form.Fields "duration_value")}}</span>{{end}}
+          <span class="hint" id="hint-duration_value">{{.T "users.form.duration_hint"}}</span>
+        </div>
+        <div class="field">
+          <label for="p-policy">{{.T "users.start_policy"}}</label>
+          <select class="select" id="p-policy" name="start_policy" {{if .Data.Form.Invalid "start_policy"}}aria-invalid="true"{{end}} aria-describedby="{{if .Data.Form.Invalid "start_policy"}}error-start_policy{{end}}">
+            <option value="immediate" {{if eq (.Data.Form.V "start_policy") "immediate"}}selected{{end}}>{{.T "users.start_policy.immediate"}}</option>
+            <option value="first_connection" {{if eq (.Data.Form.V "start_policy") "first_connection"}}selected{{end}}>{{.T "users.start_policy.first_connection"}}</option>
+          </select>{{if .Data.Form.Invalid "start_policy"}}<span class="field-error" id="error-start_policy">{{.T (index .Data.Form.Fields "start_policy")}}</span>{{end}}
+        </div>
+      </div>
+    </fieldset>
+    <details class="collapse form-panel" {{if or .Data.Form.Error (.Data.Form.V "speed_down") (.Data.Form.V "speed_up") (.Data.Form.V "interface")}}open{{end}}>
+      <summary>{{.IconS "settings"}}<span>{{.T "plans.form.delivery"}}</span></summary>
+      <div class="collapse-body">
+        <p class="section-description">{{.T "plans.form.delivery_hint"}}</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="p-speed-down">{{.T "plans.speed_down"}}</label>
+            <input class="input" id="p-speed-down" name="speed_down" type="text" dir="ltr" inputmode="decimal" value="{{.Data.Form.V "speed_down"}}" {{if .Data.Form.Invalid "speed_down"}}aria-invalid="true"{{end}} aria-describedby="hint-speed_down {{if .Data.Form.Invalid "speed_down"}}error-speed_down{{end}}">{{if .Data.Form.Invalid "speed_down"}}<span class="field-error" id="error-speed_down">{{.T (index .Data.Form.Fields "speed_down")}}</span>{{end}}
+            <span class="hint" id="hint-speed_down">{{.T "users.form.speed_hint"}}</span>
+          </div>
+          <div class="field">
+            <label for="p-speed-up">{{.T "plans.speed_up"}}</label>
+            <input class="input" id="p-speed-up" name="speed_up" type="text" dir="ltr" inputmode="decimal" value="{{.Data.Form.V "speed_up"}}" {{if .Data.Form.Invalid "speed_up"}}aria-invalid="true"{{end}} aria-describedby="hint-speed_up {{if .Data.Form.Invalid "speed_up"}}error-speed_up{{end}}">{{if .Data.Form.Invalid "speed_up"}}<span class="field-error" id="error-speed_up">{{.T (index .Data.Form.Fields "speed_up")}}</span>{{end}}
+            <span class="hint" id="hint-speed_up">{{.T "users.form.speed_hint"}}</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="p-iface">{{.T "users.interface"}}</label>
+          <select class="select" id="p-iface" name="interface" aria-describedby="hint-interface">
+            <option value="">{{.T "common.none"}}</option>{{range .Data.Ifaces}}<option value="{{.ID}}" {{if eq ($.Data.Form.V "interface") .ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+          <span class="hint" id="hint-interface">{{.T "plans.form.interface_hint"}}</span>
+        </div>
+      </div>
+    </details>
+    <div class="form-actions">
+      <a class="btn btn--ghost" href="{{if .Can "plans.read"}}/plans{{else}}/{{end}}">{{.T "common.cancel"}}</a>
+      <button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "common.save"}}</button>
     </div>
-  </fieldset>
-
-  <fieldset class="onboard-section">
-    <legend>{{.T "users.form.section_advanced"}}</legend>
-    <div class="field">
-      <label for="p-iface">{{.T "users.interface"}}</label>
-      <select class="select" id="p-iface" name="interface">
-        <option value="">{{.T "common.none"}}</option>
-        {{range .Data.Ifaces}}
-        <option value="{{.ID}}" {{if and $.Data.P $.Data.P.InterfaceID (eq (printf "%v" $.Data.P.InterfaceID) .ID)}}selected{{end}}>{{.Name}}</option>
-        {{end}}
-      </select>
-      <span class="hint">{{.T "plans.form.interface_hint"}}</span>
-    </div>
-  </fieldset>
-
-  <div class="inline-actions">
-    <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
-    <a class="btn btn--ghost" href="/plans">{{.T "common.cancel"}}</a>
-  </div>
-</form>
-{{end}}
+  </form>
+</div>{{end}}

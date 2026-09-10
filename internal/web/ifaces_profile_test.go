@@ -258,3 +258,75 @@ func TestProfileJavaScriptUsesOnlyServerGeneration(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeInterfaceFormProfileTransitions(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+	created, err := e.ifaces.Create(t.Context(), iface.CreateInput{Name: "awg0", Preset: "recommended"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := previewForm(profileFormFields(created.Obfuscation), csrf, "", "recommended", "")
+	form.Set("obf_jc", "7") // no JavaScript updates the hidden policy
+	rec := e.post("/interfaces/"+created.ID+"/edit", form, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("native custom edit failed: %d", rec.Code)
+	}
+	updated, err := e.ifaces.Get(t.Context(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Preset != "custom" || updated.Obfuscation.Jc != 7 {
+		t.Fatal("native edit must infer custom provenance")
+	}
+	// A native unchecked checkbox is absent, while disabled-by-JS fields would
+	// normally be omitted; stale inputs must not prevent a plain transition.
+	form.Del("obf_enabled")
+	form.Set("obf_jc", "stale malformed value")
+	form.Set("profile_policy", "recommended")
+	rec = e.post("/interfaces/"+created.ID+"/edit", form, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("native plain transition failed: %d", rec.Code)
+	}
+	updated, err = e.ifaces.Get(t.Context(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Preset != "plain" || updated.Obfuscation != (iface.Obfuscation{}) {
+		t.Fatal("unchecked obfuscation must clear stale fields")
+	}
+	// A supplied seal is always verified, even on an existing generated profile.
+	form = previewForm(profileFormFields(created.Obfuscation), csrf, "", "recommended", "forged-token")
+	if rec = e.post("/interfaces/"+created.ID+"/edit", form, cookie, csrf); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatal("forged seal accepted")
+	}
+	after, _ := e.ifaces.Get(t.Context(), created.ID)
+	if after.Obfuscation != updated.Obfuscation {
+		t.Fatal("forged seal mutated profile")
+	}
+}
+
+func TestInterfaceFormViewExcludesSecretCarriers(t *testing.T) {
+	e := newEnv(t)
+	original, err := e.ifaces.Create(t.Context(), iface.CreateInput{Name: "awg0", Preset: "randomized"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := newIfaceFormData(original)
+	if d.I == original || d.I.Obfuscation.HeaderProtectionKey != "" || len(d.I.PrivKeyEnc) != 0 {
+		t.Fatal("template context retains secret carriers or original pointer")
+	}
+	if !d.HasHeaderProtectionKey || !d.AdvancedOpen() {
+		t.Fatal("advanced presence lost when sanitizing")
+	}
+	for key, value := range d.Form.Values {
+		if key == "obf_hpk" || value == original.Obfuscation.HeaderProtectionKey {
+			t.Fatal("secret entered field values")
+		}
+	}
+	if original.Obfuscation.HeaderProtectionKey == "" || len(original.PrivKeyEnc) == 0 {
+		t.Fatal("view sanitization mutated service object")
+	}
+}

@@ -160,5 +160,12 @@ only over child stdin and are never printed or committed. It tests focus/inert/r
 dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery, actual Settings input
 redisplay and representative locale/theme layouts. It does not certify the full browser matrix.
 
+`go test ./internal/web -run '^TestBrowserPhase10$' -count=1 -v` uses the same opt-in runtime
+for milestone-specific product checks (`WG_TEST_UI_SUITE`, default `10.2`). It exercises form
+errors and mutations in the isolated database, plus relevant fa/en/theme/phone/desktop pages,
+without replaying the foundation suite. `WG_TEST_BROWSER_ENGINE` defaults to `chromium`;
+alternate engines require their development browser binaries. The `final` suite expands the
+viewport matrix and is reserved for 10.7. Browser diagnostics omit URLs and capabilities.
+
 The asset script enforces JS/CSS/fonts; SVG and rendered HTML are measured separately. Browser
 geometry does not replace visual review, screen-reader use, real-device or live-TLS acceptance.

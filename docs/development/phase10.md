@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0 complete, 10.1 foundation implemented and scoped verification passed**. The owner approved
+Status: **active; 10.0–10.2 complete with scoped verification; 10.3 is next**. The owner approved
 this order on 2026-09-10. The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
 [UI/UX](../product/ui-ux.md) owns the lasting design contract. No complete-panel redesign or final
@@ -164,9 +164,21 @@ Firefox/WebKit, physical devices, full state/viewport matrix and VPS acceptance 
 Page-specific list/card/form/calendar/chart redesign remains in its owning milestone. The test
 also exposed an existing initial-date-preview ordering error, fixed without changing date logic.
 
-Final official asset check: JS 27,981 B, CSS 12,102 B, fonts 101,799 B gzip, within unchanged
+10.1 asset check: JS 27,981 B, CSS 12,102 B, fonts 101,799 B gzip, within unchanged
 budgets. WSL `make build`, full `make test`, `make vet` and the asset script passed for this
 coherent change. Scoped review findings are closed, including menu/dialog focus return, visible
 menu geometry and anonymous error-language switching. The anonymous Login matrix asserts the
-actual form, theme, direction and overflow. 10.2 is next; these checks do not close RB-006 or
+actual form, theme, direction and overflow. These checks do not close RB-006 or
 begin Phase 11. No VPS drill or public publication was performed.
+
+10.2: Interfaces/Plans lists, mobile cards, create/edit forms and Advanced/profile presentation
+are migrated. Errors retain exact nonsensitive values with field feedback; secondary read failures
+remain unavailable. Existing read/write scopes now protect routes and controls. Native forms can
+edit generated profiles as custom or switch to plain; fresh generated seals remain mandatory.
+Template views exclude HPK/private-key carriers. Targeted tests cover these boundaries, units,
+provenance and failed persistence; the single scoped review's material findings are resolved.
+Chrome 152.0.7977.83 passes 48 fa/en × theme × 390/1440 composition cells plus read-only controls,
+validation retry, plan mutations, generated-header round-trip and actual no-JS profile transitions.
+Representative desktop/mobile visuals were inspected. Maximum checked HTML was 5,629 B gzip.
+WSL build/full unit/vet and asset checks passed; JS 28,140 B, CSS 12,914 B, fonts 101,799 B gzip.
+No REST/OpenAPI change, VPS drill or complete browser-matrix acceptance is claimed.

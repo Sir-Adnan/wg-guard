@@ -8,10 +8,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** 10.0 contracts are complete and 10.1 shared foundations
-  are implemented; page migrations and full browser/VPS acceptance remain open.
+- **Phase 10 product UI/UX redesign:** 10.0–10.2 are complete; remaining page migrations and
+  full browser/VPS acceptance remain open.
 
 ### Changed
+- **Interfaces and Plans:** redesigned responsive collections and grouped forms preserve input
+  on validation errors, show unavailable secondary data honestly, and apply existing read/write
+  permissions to panel routes and controls. AWG editing works without JavaScript; generated
+  profile seals and secret-safe template views are preserved. REST/OpenAPI remains unchanged.
 - **Phase 10 foundations:** a shared bilingual shell, preferences and feedback system provides
   consistent themes across panel/auth/subscription, keyboard menus, modal navigation focus,
   responsive sizing and reduced motion. Settings saves now validate and commit submitted fields

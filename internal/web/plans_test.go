@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -216,7 +217,7 @@ func TestInterfaceObfuscationRangeForm(t *testing.T) {
 	badNumber := cloneValues(form)
 	badNumber.Set("obf_jc", "five")
 	rec = e.post(editPath, badNumber, cookie, csrf)
-	if rec.Code != http.StatusSeeOther {
+	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("malformed number response: %d", rec.Code)
 	}
 	after, _ := e.ifaces.Get(context.Background(), created.ID)
@@ -226,7 +227,7 @@ func TestInterfaceObfuscationRangeForm(t *testing.T) {
 	badOverlap := cloneValues(form)
 	badOverlap.Set("obf_h2", "105-120")
 	rec = e.post(editPath, badOverlap, cookie, csrf)
-	if rec.Code != http.StatusSeeOther {
+	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("overlap response: %d", rec.Code)
 	}
 	after, _ = e.ifaces.Get(context.Background(), created.ID)
@@ -241,4 +242,263 @@ func cloneValues(in url.Values) url.Values {
 		out[key] = append([]string(nil), values...)
 	}
 	return out
+}
+
+func TestOperationalFormsPreserveInvalidInput(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+	for _, tc := range []struct {
+		path  string
+		form  url.Values
+		wants []string
+	}{
+		{"/plans", url.Values{"name": {"Retry plan"}, "traffic_limit_value": {"not-a-quota"}, "traffic_limit_unit": {"mb"}, "duration_value": {"3.5"}, "duration_unit": {"hours"}, "speed_down": {"oops"}, "enabled": {"0"}}, []string{`value="Retry plan"`, `value="not-a-quota"`, `value="3.5"`, `value="oops"`, `id="form-errors"`, `aria-invalid="true"`, `value="mb" selected`, `value="hours" selected`}},
+		{"/interfaces", url.Values{"name": {"awg9"}, "listen_port": {"bad-port"}, "mtu": {"bad-mtu"}, "obf_enabled": {"1"}, "obf_h1": {"100-110"}, "obf_hpk": {"secret-do-not-redisplay"}, "obf_padding": {"not-a-range"}}, []string{`value="awg9"`, `value="bad-port"`, `value="bad-mtu"`, `value="100-110"`, `value="not-a-range"`, `id="form-errors"`, `aria-invalid="true"`, `id="awg-advanced" open`}},
+	} {
+		rec := e.post(tc.path, tc.form, cookie, csrf)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s failed form = %d", tc.path, rec.Code)
+		}
+		body := rec.Body.String()
+		for _, want := range tc.wants {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s missing %s", tc.path, want)
+			}
+		}
+		if strings.Contains(body, "secret-do-not-redisplay") {
+			t.Fatal("secret redisplayed")
+		}
+	}
+	var plans, ifaces int
+	_ = e.db.QueryRow(`SELECT count(*) FROM plans`).Scan(&plans)
+	_ = e.db.QueryRow(`SELECT count(*) FROM tunnel_interfaces`).Scan(&ifaces)
+	if plans != 0 || ifaces != 0 {
+		t.Fatal("failed forms changed storage")
+	}
+}
+
+func TestOperationalEnabledFormCanDisable(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+	rec := e.post("/plans", url.Values{"name": {"Disabled plan"}, "enabled": {"0"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatal(rec.Code)
+	}
+	var id string
+	if err := e.db.QueryRow(`SELECT id FROM plans WHERE name = 'Disabled plan'`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/plans/"+id+"/edit", cookie).Body.String()
+	if !strings.Contains(body, `name="enabled"`) || !strings.Contains(body, `value="0" selected`) {
+		t.Fatal("disabled plan form must submit an explicit zero")
+	}
+}
+
+func TestOperationalFormPersistenceFailureAndPreviewRetry(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+	if _, err := e.db.Exec(`CREATE TRIGGER fail_plan_save BEFORE INSERT ON plans BEGIN SELECT RAISE(ABORT, 'simulated storage failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	rec := e.post("/plans", url.Values{"name": {"Keep my work"}, "device_limit": {"3"}}, cookie, csrf)
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), `value="Keep my work"`) || strings.Contains(rec.Body.String(), "simulated storage") {
+		t.Fatal("storage failure must preserve safe input and hide driver details")
+	}
+	for _, policy := range []string{"recommended", "randomized"} {
+		preview := decodeProfilePreview(t, e.post("/interfaces/profile-preview", url.Values{"policy": {policy}}, cookie, csrf).Body.String())
+		form := previewForm(preview.Fields, csrf, "awg0", policy, preview.Token)
+		form.Set("listen_port", "bad")
+		rec := e.post("/interfaces", form, cookie, csrf)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatal(rec.Code)
+		}
+		body := rec.Body.String()
+		if policy == "recommended" {
+			if !strings.Contains(body, preview.Token) {
+				t.Fatal("nonsecret recommended preview must survive unrelated field error")
+			}
+			form.Set("listen_port", "39888")
+			if retry := e.post("/interfaces", form, cookie, csrf); retry.Code != http.StatusSeeOther {
+				t.Fatal("recommended preview retry failed")
+			}
+		} else {
+			if strings.Contains(body, preview.Fields["obf_hpk"]) || strings.Contains(body, preview.Token) {
+				t.Fatal("new secret or its unusable preview redisplayed")
+			}
+			if !strings.Contains(body, `name="profile_policy" value="randomized"`) {
+				t.Fatal("failed preview must retain its policy instead of silently downgrading")
+			}
+		}
+	}
+}
+
+func TestOperationalListSecondaryDataUnavailable(t *testing.T) {
+	for _, table := range []string{"users", "devices", "tunnel_interfaces"} {
+		t.Run(table, func(t *testing.T) {
+			e := newEnv(t)
+			e.seedOwner()
+			cookie := e.login("owner")
+			csrf := deriveCSRF(cookie.Value)
+			i, err := e.ifaces.Create(t.Context(), iface.CreateInput{Name: "awg1", ListenPort: 39001})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rec := e.post("/plans", url.Values{"name": {"Referenced plan"}, "interface": {i.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+				t.Fatal(rec.Code)
+			}
+			if _, err := e.db.Exec(`ALTER TABLE ` + table + ` RENAME TO unavailable_data`); err != nil {
+				t.Fatal(err)
+			}
+			path := "/plans"
+			if table == "devices" {
+				path = "/interfaces"
+			}
+			rec := e.get(path, cookie)
+			if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "ناموجود") {
+				t.Fatalf("%s secondary failure must be distinct from zero", table)
+			}
+		})
+	}
+}
+
+func TestPlanFormTechnicalValuesAreLossless(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+	rec := e.post("/plans", url.Values{"name": {"Exact rates"}, "device_limit": {"3"}, "speed_down": {"10240"}, "speed_up": {"5120"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatal(rec.Code)
+	}
+	var id string
+	if err := e.db.QueryRow(`SELECT id FROM plans WHERE name='Exact rates'`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/plans/"+id+"/edit", cookie).Body.String()
+	for _, value := range []string{`value="10240"`, `value="5120"`} {
+		if !strings.Contains(body, value) {
+			t.Errorf("missing raw numeric form %s", value)
+		}
+	}
+	body = e.get("/plans", cookie).Body.String()
+	if strings.Contains(body, "3 کیلوبیت") || strings.Contains(body, "kbit/s") {
+		t.Fatal("device counts or rates have misleading units")
+	}
+}
+
+func TestOperationalPermissions(t *testing.T) {
+	for _, scopes := range [][]string{{"users.read"}, {"plans.read", "interfaces.read"}, {"plans.write", "interfaces.write"}} {
+		t.Run(strings.Join(scopes, "+"), func(t *testing.T) {
+			e := newEnv(t)
+			e.seedOwner()
+			owner := e.login("owner")
+			ownerCSRF := deriveCSRF(owner.Value)
+			i, err := e.ifaces.Create(t.Context(), iface.CreateInput{Name: "awg0", ListenPort: 39001})
+			if err != nil {
+				t.Fatal(err)
+			}
+			e.post("/plans", url.Values{"name": {"Permission plan"}}, owner, ownerCSRF)
+			var pid string
+			if err := e.db.QueryRow(`SELECT id FROM plans WHERE name='Permission plan'`).Scan(&pid); err != nil {
+				t.Fatal(err)
+			}
+			cookie := e.limitedLogin(t, scopes)
+			csrf := deriveCSRF(cookie.Value)
+			read := scopes[0] == "plans.read"
+			write := scopes[0] == "plans.write"
+			denied := func(rec *httptest.ResponseRecorder, path string) {
+				t.Helper()
+				if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "toast=common.denied") {
+					t.Errorf("%s not denied: %d %s", path, rec.Code, rec.Header().Get("Location"))
+				}
+			}
+			for _, base := range []string{"/plans", "/interfaces"} {
+				rec := e.get(base, cookie)
+				if read {
+					if rec.Code != http.StatusOK {
+						t.Fatal(rec.Code)
+					}
+					body := rec.Body.String()
+					for _, forbidden := range []string{`href="` + base + `/new"`, `/edit"`, `/disable"`, `/delete"`, `/enable"`} {
+						if strings.Contains(body, forbidden) {
+							t.Errorf("reader sees write control %s", forbidden)
+						}
+					}
+				} else {
+					denied(rec, base)
+				}
+				id := pid
+				if base == "/interfaces" {
+					id = i.ID
+				}
+				for _, path := range []string{base + "/new", base + "/" + id + "/edit"} {
+					rec := e.get(path, cookie)
+					if write {
+						if rec.Code != http.StatusOK {
+							t.Fatal(path, rec.Code)
+						}
+					} else {
+						denied(rec, path)
+					}
+				}
+			}
+			if !write {
+				for _, path := range []string{"/plans", "/plans/" + pid + "/edit", "/plans/" + pid + "/enable", "/plans/" + pid + "/disable", "/plans/" + pid + "/delete", "/interfaces", "/interfaces/" + i.ID + "/edit", "/interfaces/" + i.ID + "/enable", "/interfaces/" + i.ID + "/disable", "/interfaces/" + i.ID + "/delete", "/interfaces/profile-preview"} {
+					denied(e.post(path, url.Values{"name": {"awg1"}, "policy": {"recommended"}, "enabled": {"0"}}, cookie, csrf), path)
+				}
+				plan, _ := e.srv.Plans.Get(t.Context(), pid)
+				after, _ := e.ifaces.Get(t.Context(), i.ID)
+				if plan == nil || !plan.Enabled || plan.Name != "Permission plan" || after == nil || !after.Enabled {
+					t.Fatal("denied mutation changed stored entities")
+				}
+				var count int
+				_ = e.db.QueryRow(`SELECT count(*) FROM plans`).Scan(&count)
+				if count != 1 {
+					t.Fatal("denied create persisted plan")
+				}
+				_ = e.db.QueryRow(`SELECT count(*) FROM tunnel_interfaces`).Scan(&count)
+				if count != 1 {
+					t.Fatal("denied create persisted interface")
+				}
+			}
+			body := e.get("/", cookie).Body.String()
+			if !read && !write && (strings.Contains(body, `href="/plans"`) || strings.Contains(body, `href="/interfaces"`)) {
+				t.Fatal("unrelated viewer sees denied navigation")
+			}
+			if write {
+				if !strings.Contains(body, `href="/plans/new"`) || !strings.Contains(body, `href="/interfaces/new"`) {
+					t.Fatal("write-only navigation must lead to authorized create page")
+				}
+				rec := e.post("/plans", url.Values{"name": {"Writer created"}}, cookie, csrf)
+				if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/?") {
+					t.Fatal("writer save must return to an authorized destination")
+				}
+				rec = e.post("/interfaces/profile-preview", url.Values{"policy": {"recommended"}}, cookie, csrf)
+				if rec.Code != http.StatusOK {
+					t.Fatal("writer preview denied")
+				}
+			}
+		})
+	}
+}
+
+func TestOperationalReadOnlyEmptyStateHasNoWriteCTA(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.limitedLogin(t, []string{"plans.read", "interfaces.read"})
+	for _, path := range []string{"/plans", "/interfaces"} {
+		rec := e.get(path, cookie)
+		if rec.Code != http.StatusOK {
+			t.Fatal(path, rec.Code)
+		}
+		if strings.Contains(rec.Body.String(), `href="`+path+`/new"`) {
+			t.Fatal("read-only empty state offers denied create action")
+		}
+	}
 }

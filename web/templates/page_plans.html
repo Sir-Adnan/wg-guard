@@ -5,14 +5,17 @@
     <h1>{{.T "plans.title"}}</h1>
     <p>{{.T "plans.subtitle"}}</p>
   </div>
+  {{if .Can "plans.write"}}
   <div class="actions">
     <a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.new"}}</span></a>
   </div>
+  {{end}}
 </div>
 
 {{if .Data.Rows}}
-<div class="table-wrap">
-  <table class="table table--cards">
+<div class="collection-head"><div><span class="eyebrow">{{.T "plans.list_hint"}}</span><h2>{{len .Data.Rows}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.Data.Enabled}} {{.T "forms.enabled"}}</span></div>
+<div class="table-wrap collection">
+  <table class="table table--cards entity-table">
     <thead>
       <tr>
         <th>{{.T "plans.name"}}</th>
@@ -21,7 +24,7 @@
         <th>{{.T "plans.device_limit"}}</th>
         <th>{{.T "plans.speed"}}</th>
         <th>{{.T "plans.users_count"}}</th>
-        <th class="text-end">{{.T "common.actions"}}</th>
+        {{if .Can "plans.write"}}<th class="text-end">{{.T "common.actions"}}</th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -30,12 +33,12 @@
   </table>
 </div>
 {{else}}
-<div class="table-wrap">
+<div class="table-wrap collection">
   <div class="empty">
     {{.Icon "layers"}}
     <h3>{{.T "plans.empty.title"}}</h3>
     <p>{{.T "plans.empty.desc"}}</p>
-    <a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>
+    {{if .Can "plans.write"}}<a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>{{end}}
   </div>
 </div>
 {{end}}
@@ -44,21 +47,24 @@
 {{define "plans_row"}}
 {{$row := .row}}{{$p := $row.P}}{{$v := .v}}
 <tr>
-  <td data-label="{{$v.T "plans.name"}}">
-    <span class="cell-main">{{$p.Name}}</span>
-    {{if not $p.Enabled}}<span class="badge">{{$v.T "plans.disabled"}}</span>{{end}}
+  <td class="card-title" data-label="{{$v.T "plans.name"}}">
+    {{if $v.Can "plans.write"}}<a class="entity-link" href="/plans/{{$p.ID}}/edit">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></a>{{else}}<span class="entity-link">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></span>{{end}}
+    {{if $p.Enabled}}<span class="badge badge--ok">{{$v.T "plans.enabled"}}</span>{{else}}<span class="badge">{{$v.T "plans.disabled"}}</span>{{end}}
+    {{if $row.IfaceUnavailable}}<span class="cell-sub">{{$v.T "users.interface"}}: {{$v.T "forms.unavailable"}}</span>{{end}}
     {{if $row.IfaceName}}<span class="cell-sub ltr-data">{{$row.IfaceName}}</span>{{end}}
   </td>
-  <td data-label="{{$v.T "plans.quota"}}" class="ltr-data">{{$v.BLim $p.TrafficLimitBytes}}</td>
+  <td data-label="{{$v.T "plans.quota"}}" ><bdi class="ltr-data metric-value">{{$v.BLim $p.TrafficLimitBytes}}</bdi></td>
   <td data-label="{{$v.T "plans.duration"}}">{{if $p.DurationSeconds}}{{$v.Dur (i64u $p.DurationSeconds)}}{{else}}<span class="text-subtle">{{$v.T "common.none"}}</span>{{end}}</td>
-  <td data-label="{{$v.T "plans.device_limit"}}" class="ltr-data">{{$v.U $p.DeviceLimit}}</td>
-  <td data-label="{{$v.T "plans.speed"}}" class="ltr-data text-subtle">
-    {{$v.U $p.SpeedLimitDownKbps}} · {{$v.U $p.SpeedLimitUpKbps}}
+  <td data-label="{{$v.T "plans.device_limit"}}" ><bdi class="ltr-data">{{if $p.DeviceLimit}}{{$v.KD $p.DeviceLimit}}{{else}}{{$v.T "common.unlimited"}}{{end}}</bdi></td>
+  <td data-label="{{$v.T "plans.speed"}}" class="rate-pair">
+    <span><span class="text-subtle">{{$v.T "plans.download"}}</span><bdi class="ltr-data">{{$v.U $p.SpeedLimitDownKbps}}</bdi></span>
+    <span><span class="text-subtle">{{$v.T "plans.upload"}}</span><bdi class="ltr-data">{{$v.U $p.SpeedLimitUpKbps}}</bdi></span>
   </td>
-  <td data-label="{{$v.T "plans.users_count"}}" class="ltr-data">{{$v.N (i64u $row.Users)}}</td>
-  <td class="text-end">
-    <div class="menu-anchor">
-      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
+  <td data-label="{{$v.T "plans.users_count"}}" >{{if $row.CountKnown}}<bdi class="ltr-data">{{$v.N (i64u $row.Users)}}</bdi>{{else}}<span class="text-subtle">{{$v.T "forms.unavailable"}}</span>{{end}}</td>
+  {{if $v.Can "plans.write"}}
+  <td class="text-end card-actions" data-label="{{$v.T "common.actions"}}">
+    <div class="entity-actions"><a class="btn btn--sm btn--ghost" href="/plans/{{$p.ID}}/edit">{{$v.T "common.edit"}}</a><div class="menu-anchor">
+      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$p.Name}}">{{$v.IconS "more-vertical"}}</button>
       <div class="menu" role="menu">
         <a role="menuitem" href="/plans/{{$p.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
         {{if $p.Enabled}}
@@ -81,7 +87,8 @@
           <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
         </form>
       </div>
-    </div>
+    </div></div>
   </td>
+  {{end}}
 </tr>
 {{end}}

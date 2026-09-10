@@ -139,3 +139,18 @@ prebuilt/embedded with cache-busted URLs and notices; no compilation at deployme
 No screen is accepted merely because it renders. Milestone checks cover representative desktop/
 phone, both locales/themes and changed states; 10.7 owns the full route/state/browser/performance
 matrix and relevant live TLS deployment evidence. Unavailable engines/devices remain unverified.
+
+## Operational forms and collections
+
+Interfaces and Plans use shared `form-page`/`form-stack` section cards and `form-panel` disclosures,
+with one primary save action. Technical numeric/range fields use text controls with appropriate
+input modes so server validation can redisplay exact invalid input. Field errors and a focusable
+summary accompany a failed save; fresh secrets are cleared with explicit retry guidance. Profile
+generation remains server-owned and sealed; changing a generated value changes its provenance.
+Plain mode hides inactive parameter controls when JavaScript is available, with a native fallback.
+
+`collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
+cards on phones. Name/edit links, availability, exact technical units and action menus have stable
+positions. Missing secondary counts/references display unavailable, never an invented zero.
+Plans and Interfaces enforce their existing read/write permissions at the server boundary as
+well as in navigation and controls; a read-only account can inspect lists without mutation affordances.

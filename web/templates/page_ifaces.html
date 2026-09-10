@@ -5,14 +5,17 @@
     <h1>{{.T "ifaces.title"}}</h1>
     <p>{{.T "ifaces.subtitle"}}</p>
   </div>
+  {{if .Can "interfaces.write"}}
   <div class="actions">
     <a class="btn btn--primary" href="/interfaces/new">{{.IconS "plus"}}<span>{{.T "ifaces.new"}}</span></a>
   </div>
+  {{end}}
 </div>
 
 {{if .Data.Rows}}
-<div class="table-wrap">
-  <table class="table table--cards">
+<div class="collection-head"><div><span class="eyebrow">{{.T "ifaces.list_hint"}}</span><h2>{{len .Data.Rows}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.Data.Enabled}} {{.T "forms.enabled"}}</span></div>
+<div class="table-wrap collection">
+  <table class="table table--cards entity-table">
     <thead>
       <tr>
         <th>{{.T "ifaces.name"}}</th>
@@ -20,7 +23,7 @@
         <th>{{.T "ifaces.subnet"}}</th>
         <th>{{.T "ifaces.obfuscation"}}</th>
         <th>{{.T "ifaces.peers"}}</th>
-        <th class="text-end">{{.T "common.actions"}}</th>
+        {{if .Can "interfaces.write"}}<th class="text-end">{{.T "common.actions"}}</th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -29,12 +32,12 @@
   </table>
 </div>
 {{else}}
-<div class="table-wrap">
+<div class="table-wrap collection">
   <div class="empty">
     {{.Icon "network"}}
     <h3>{{.T "ifaces.empty.title"}}</h3>
     <p>{{.T "ifaces.empty.desc"}}</p>
-    <a class="btn btn--primary" href="/interfaces/new">{{.IconS "plus"}}<span>{{.T "ifaces.empty.cta"}}</span></a>
+    {{if .Can "interfaces.write"}}<a class="btn btn--primary" href="/interfaces/new">{{.IconS "plus"}}<span>{{.T "ifaces.empty.cta"}}</span></a>{{end}}
   </div>
 </div>
 {{end}}
@@ -43,13 +46,13 @@
 {{define "ifaces_row"}}
 {{$row := .row}}{{$i := $row.I}}{{$v := .v}}
 <tr>
-  <td data-label="{{$v.T "ifaces.name"}}">
-    <span class="cell-main ltr-data">{{$i.Name}}</span>
-    {{if not $i.Enabled}}<span class="badge">{{$v.T "ifaces.status_disabled"}}</span>{{end}}
+  <td class="card-title" data-label="{{$v.T "ifaces.name"}}">
+    {{if $v.Can "interfaces.write"}}<a class="entity-link ltr-data" href="/interfaces/{{$i.ID}}/edit">{{$v.IconS "network"}}<span>{{$i.Name}}</span></a>{{else}}<span class="entity-link">{{$v.IconS "network"}}<span>{{$i.Name}}</span></span>{{end}}
+    {{if $i.Enabled}}<span class="badge badge--ok">{{$v.T "ifaces.status_enabled"}}</span>{{else}}<span class="badge">{{$v.T "ifaces.status_disabled"}}</span>{{end}}
     <span class="cell-sub ltr-data">MTU {{$i.MTU}}</span>
   </td>
-  <td data-label="{{$v.T "ifaces.port"}}" class="ltr-data">{{$i.ListenPort}}</td>
-  <td data-label="{{$v.T "ifaces.subnet"}}" class="ltr-data">{{$i.Subnet}}</td>
+  <td data-label="{{$v.T "ifaces.port"}}" ><bdi class="ltr-data">{{$i.ListenPort}} <span class="text-subtle">UDP</span></bdi></td>
+  <td data-label="{{$v.T "ifaces.subnet"}}" ><bdi class="ltr-data">{{$i.Subnet}}</bdi></td>
   <td data-label="{{$v.T "ifaces.obfuscation"}}">
     {{if $i.Obfuscation.Enabled}}
     <span class="badge badge--info">{{$v.IconS "shield"}}{{$v.T "ifaces.obfuscation_on"}}</span>
@@ -57,10 +60,11 @@
     <span class="badge">{{$v.T "ifaces.obfuscation_off"}}</span>
     {{end}}
   </td>
-  <td data-label="{{$v.T "ifaces.peers"}}" class="ltr-data">{{$v.N (i64u $row.Devices)}}</td>
-  <td class="text-end">
-    <div class="menu-anchor">
-      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
+  <td data-label="{{$v.T "ifaces.peers"}}" >{{if $row.CountKnown}}<bdi class="ltr-data">{{$v.N (i64u $row.Devices)}}</bdi>{{else}}<span class="text-subtle">{{$v.T "forms.unavailable"}}</span>{{end}}</td>
+  {{if $v.Can "interfaces.write"}}
+  <td class="text-end card-actions" data-label="{{$v.T "common.actions"}}">
+    <div class="entity-actions"><a class="btn btn--sm btn--ghost" href="/interfaces/{{$i.ID}}/edit">{{$v.T "common.edit"}}</a><div class="menu-anchor">
+      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$i.Name}}">{{$v.IconS "more-vertical"}}</button>
       <div class="menu" role="menu">
         <a role="menuitem" href="/interfaces/{{$i.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
         {{if $i.Enabled}}
@@ -83,7 +87,8 @@
           <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
         </form>
       </div>
-    </div>
+    </div></div>
   </td>
+  {{end}}
 </tr>
 {{end}}

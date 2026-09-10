@@ -1,0 +1,8 @@
+{{define "form_feedback"}}
+{{if .Data.Form.Error}}
+<div class="form-feedback callout callout--error" id="form-errors" role="alert" tabindex="-1">
+  {{.IconS "alert-triangle"}}
+  <div><strong>{{.Data.Form.Error}}</strong><p>{{.T "forms.retry_hint"}}</p></div>
+</div>
+{{end}}
+{{end}}

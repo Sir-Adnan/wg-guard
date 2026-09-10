@@ -15,12 +15,14 @@ import (
 
 // ifaceRow decorates an interface for the list (device count).
 type ifaceRow struct {
-	I       *iface.Interface
-	Devices int
+	I          *iface.Interface
+	Devices    int
+	CountKnown bool
 }
 
 type ifacesData struct {
-	Rows []ifaceRow
+	Rows    []ifaceRow
+	Enabled int
 }
 
 func (s *Server) handleIfaceList(w http.ResponseWriter, r *http.Request) {
@@ -37,20 +39,26 @@ func (s *Server) handleIfaceList(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logError(r, "iface device counts", err)
 	}
+	enabled := 0
 	rows := make([]ifaceRow, 0, len(ifaces))
 	for _, i := range ifaces {
-		rows = append(rows, ifaceRow{I: i, Devices: counts[i.ID]})
+		if i.Enabled {
+			enabled++
+		}
+		rows = append(rows, ifaceRow{I: safeInterfaceView(i), Devices: counts[i.ID], CountKnown: err == nil})
 	}
-	_ = s.render(w, r, "ifaces", "app", ifacesData{Rows: rows})
+	_ = s.render(w, r, "ifaces", "app", ifacesData{Rows: rows, Enabled: enabled})
 }
 
 // ifaceFormData backs the new/edit page. I is nil on create.
 type ifaceFormData struct {
-	I *iface.Interface
+	I                      *iface.Interface
+	Form                   operationalForm
+	HasHeaderProtectionKey bool
 }
 
 func (s *Server) handleIfaceNew(w http.ResponseWriter, r *http.Request) {
-	_ = s.render(w, r, "iface_form", "app", ifaceFormData{})
+	_ = s.render(w, r, "iface_form", "app", newIfaceFormData(nil))
 }
 
 func (s *Server) handleIfaceEditPage(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +67,7 @@ func (s *Server) handleIfaceEditPage(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	_ = s.render(w, r, "iface_form", "app", ifaceFormData{I: i})
+	_ = s.render(w, r, "iface_form", "app", newIfaceFormData(i))
 }
 
 func (s *Server) handleProfilePreview(w http.ResponseWriter, r *http.Request) {
@@ -209,6 +217,11 @@ func profileFormFields(profile iface.Obfuscation) map[string]string {
 // relationship validation remains in the interface service.
 func obfuscationFromForm(r *http.Request, existing *iface.Obfuscation) (iface.Obfuscation, error) {
 	o := iface.Obfuscation{Enabled: r.PostFormValue("obf_enabled") == "1"}
+	// Native forms post stale fields when a checkbox is unchecked. The toggle
+	// is authoritative; ignoring those values matches the enhanced form.
+	if !o.Enabled {
+		return o, nil
+	}
 	atoi := func(key string) (int, error) {
 		text := strings.TrimSpace(r.PostFormValue(key))
 		if text == "" {
@@ -291,22 +304,22 @@ func obfuscationFromForm(r *http.Request, existing *iface.Obfuscation) (iface.Ob
 func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 	port, err := optionalFormInt(r, "listen_port")
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, nil, err)
 		return
 	}
 	mtu, err := optionalFormInt(r, "mtu")
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, nil, err)
 		return
 	}
 	obfuscation, err := obfuscationFromForm(r, nil)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, nil, err)
 		return
 	}
 	policy, generated, err := s.generatedPolicyFromForm(r, obfuscation, nil)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, nil, err)
 		return
 	}
 	in := iface.CreateInput{
@@ -322,12 +335,12 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	i, err := s.Ifaces.Create(r.Context(), in)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, nil, err)
 		return
 	}
 	s.audit(r, "interface.created", i.ID, map[string]any{"name": i.Name})
 	s.runReconcile(r)
-	s.redirectToast(w, r, "/interfaces", "ifaces.toast.created")
+	s.redirectToast(w, r, operationalReturnPath(r, "/interfaces", "interfaces.read"), "ifaces.toast.created")
 }
 
 func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
@@ -339,12 +352,12 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	obfuscation, err := obfuscationFromForm(r, &prev.Obfuscation)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, prev, err)
 		return
 	}
 	policy, generated, err := s.generatedPolicyFromForm(r, obfuscation, prev)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, prev, err)
 		return
 	}
 	in := iface.UpdateInput{
@@ -357,7 +370,7 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	if v := r.PostFormValue("mtu"); v != "" {
 		mtu, err := optionalFormInt(r, "mtu")
 		if err != nil {
-			s.actionFailed(w, r, err)
+			s.ifaceFormError(w, r, prev, err)
 			return
 		}
 		in.MTU = &mtu
@@ -375,16 +388,16 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	// with the old parameters must be re-exported. The toast says so.
 	i, err := s.Ifaces.Update(r.Context(), id, in)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.ifaceFormError(w, r, prev, err)
 		return
 	}
 	s.audit(r, "interface.updated", id, map[string]any{"name": i.Name})
 	s.runReconcile(r)
 	if prev.Obfuscation != i.Obfuscation {
-		s.redirectToast(w, r, "/interfaces", "ifaces.toast.rotation")
+		s.redirectToast(w, r, operationalReturnPath(r, "/interfaces", "interfaces.read"), "ifaces.toast.rotation")
 		return
 	}
-	s.redirectToast(w, r, "/interfaces", "ifaces.toast.updated")
+	s.redirectToast(w, r, operationalReturnPath(r, "/interfaces", "interfaces.read"), "ifaces.toast.updated")
 }
 
 func (s *Server) generatedPolicyFromForm(r *http.Request, profile iface.Obfuscation, existing *iface.Interface) (string, bool, error) {
@@ -401,8 +414,14 @@ func (s *Server) generatedPolicyFromForm(r *http.Request, profile iface.Obfuscat
 		// Existing generated profiles may be edited for unrelated fields
 		// without minting a fresh preview. Preserve the classification only
 		// when the submitted AWG values are byte-for-byte unchanged.
-		if existing != nil && existing.Preset == policyText && existing.Obfuscation == profile {
-			return policyText, true, nil
+		if existing != nil {
+			if existing.Preset == policyText && existing.Obfuscation == profile {
+				return policyText, true, nil
+			}
+			// Native forms cannot update the hidden policy when values change.
+			// Infer custom/plain through the service; never retain generated
+			// provenance for a changed profile without a verified fresh seal.
+			return "", false, nil
 		}
 		return "", false, domain.E(domain.CodeParamConstraint, "generated profile preview is invalid; generate it again")
 	default:
@@ -441,7 +460,7 @@ func (s *Server) ifaceToggle(w http.ResponseWriter, r *http.Request, enable bool
 	}
 	s.audit(r, "interface.updated", id, nil)
 	s.runReconcile(r)
-	s.redirectToast(w, r, "/interfaces", "ifaces.toast.toggled")
+	s.redirectToast(w, r, operationalReturnPath(r, "/interfaces", "interfaces.read"), "ifaces.toast.toggled")
 }
 
 func (s *Server) handleIfaceDelete(w http.ResponseWriter, r *http.Request) {
@@ -452,8 +471,100 @@ func (s *Server) handleIfaceDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "interface.deleted", id, nil)
 	s.runReconcile(r)
-	s.redirectToast(w, r, "/interfaces", "ifaces.toast.deleted")
+	s.redirectToast(w, r, operationalReturnPath(r, "/interfaces", "interfaces.read"), "ifaces.toast.deleted")
 }
 
 // ptrOf is a tiny helper for the obfuscation pointer field.
 func ptrOf(o iface.Obfuscation) *iface.Obfuscation { return &o }
+
+func newIfaceFormData(i *iface.Interface) ifaceFormData {
+	values := profileFormFields(iface.Obfuscation{})
+	delete(values, "obf_hpk")
+	for key, value := range map[string]string{"name": "", "listen_port": "", "subnet": "", "mtu": "", "endpoint_override": "", "enabled": "1", "profile_policy": "plain", "profile_token": "", "obf_hpk_clear": ""} {
+		values[key] = value
+	}
+	if i != nil {
+		for key, value := range profileFormFields(i.Obfuscation) {
+			if key != "obf_hpk" {
+				values[key] = value
+			}
+		}
+		values["name"], values["listen_port"], values["subnet"], values["mtu"] = i.Name, strconv.Itoa(i.ListenPort), i.Subnet, strconv.Itoa(i.MTU)
+		values["endpoint_override"], values["profile_policy"] = i.EndpointOverride, i.Preset
+		if !i.Enabled {
+			values["enabled"] = "0"
+		}
+	}
+	return ifaceFormData{I: safeInterfaceView(i), Form: operationalForm{Values: values}, HasHeaderProtectionKey: i != nil && i.Obfuscation.HeaderProtectionKey != ""}
+}
+
+func (s *Server) ifaceFormError(w http.ResponseWriter, r *http.Request, i *iface.Interface, err error) {
+	d := newIfaceFormData(i)
+	d.Form = submittedOperationalForm(r, d.Form.Values)
+	if i != nil {
+		d.Form.Values["name"], d.Form.Values["listen_port"], d.Form.Values["subnet"] = i.Name, strconv.Itoa(i.ListenPort), i.Subnet
+	}
+	if d.Form.V("enabled") != "0" {
+		d.Form.Values["enabled"] = "1"
+	}
+	// A generated secret cannot be redisplayed. Keep its policy but require a
+	// fresh preview, so retrying cannot silently downgrade a generated profile.
+	d.Form.SecretReset = r.PostFormValue("obf_hpk") != ""
+	if d.Form.SecretReset {
+		d.Form.Values["profile_token"] = ""
+	}
+	if key := operationalErrorField(err, false); key != "" {
+		d.Form.Fields[key] = "common.error_validation"
+	}
+	for _, key := range []string{"listen_port", "mtu"} {
+		if _, e := optionalFormInt(r, key); e != nil {
+			d.Form.Fields[key] = "forms.error.number"
+		}
+	}
+	var prior *iface.Obfuscation
+	if i != nil {
+		prior = &i.Obfuscation
+	}
+	if _, e := obfuscationFromForm(r, prior); e != nil {
+		if key := operationalErrorField(e, false); key != "" {
+			d.Form.Fields[key] = "forms.error.awg"
+		}
+	}
+	s.operationalFormStatus(w, r, &d.Form, err)
+	_ = s.render(w, r, "iface_form", "app", d)
+}
+
+func (d ifaceFormData) ProfileKey() string {
+	switch d.Form.V("profile_policy") {
+	case "recommended", "randomized", "plain", "custom":
+		return "ifaces.profile." + d.Form.V("profile_policy")
+	}
+	if d.Form.V("obf_enabled") == "1" {
+		return "ifaces.profile.custom"
+	}
+	return "ifaces.profile.plain"
+}
+
+func (d ifaceFormData) AdvancedOpen() bool {
+	if d.Form.Error != "" || d.HasHeaderProtectionKey {
+		return true
+	}
+	for _, key := range []string{"obf_s3", "obf_s4", "obf_i1", "obf_i2", "obf_i3", "obf_i4", "obf_i5", "obf_padding", "obf_rekey_after", "obf_rekey_timeout", "obf_reject_after", "obf_keepalive", "obf_max_handshake", "obf_random_trailers", "obf_disable_cookies"} {
+		if v := d.Form.V(key); v != "" && v != "0" {
+			return true
+		}
+	}
+	return false
+}
+
+// Template contexts carry public configuration and presence flags only, not
+// encrypted private-key carriers or plaintext header-protection keys.
+func safeInterfaceView(i *iface.Interface) *iface.Interface {
+	if i == nil {
+		return nil
+	}
+	view := *i
+	view.PrivKeyEnc = nil
+	view.Obfuscation.HeaderProtectionKey = ""
+	return &view
+}
