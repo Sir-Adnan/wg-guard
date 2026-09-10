@@ -48,7 +48,25 @@ type Result struct {
 	ManagedIfaces          int
 	ShapedGroups           int      // (user, interface) pairs with speed limits
 	UfwRoutes              []string // interfaces the ufw route rule was added for
+	Forwarding             firewall.ForwardingStatus
 	Findings               []firewall.Finding
+}
+
+// RuntimeReconciler is the canonical post-mutation reconciler. Unlike a bare
+// reconcile.Engine it also refreshes forwarding, NAT, firewall-manager
+// coexistence and shaping, so an interface created after process start is
+// immediately usable as a routed tunnel.
+type RuntimeReconciler struct {
+	Deps Deps
+}
+
+// Run implements the shared accounting/API/web reconciliation contract.
+func (r *RuntimeReconciler) Run(ctx context.Context) (*reconcile.Report, error) {
+	res, err := BringUp(ctx, r.Deps)
+	if err != nil {
+		return nil, err
+	}
+	return res.Reconcile, nil
 }
 
 // BringUp runs the full sequence and records an audit entry.
@@ -100,6 +118,10 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 	if err := fw.Apply(ctx, ifaces); err != nil {
 		return nil, fmt.Errorf("boot: firewall: %w", err)
 	}
+	dockerManaged, err := fw.EnsureDockerForwarding(ctx, ifaces)
+	if err != nil {
+		return nil, fmt.Errorf("boot: Docker forwarding: %w", err)
+	}
 
 	// 5. Speed limits (tc): restore shaping from DB state. Never fatal — a
 	// broken tc must not take tunnels down; it is reported as a finding.
@@ -125,13 +147,18 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 
 	// 6. Coexistence: add the ufw forward-allow rule when ufw runs
 	// (idempotent, scoped to our interfaces); gather findings for the
-	// operator. Never fatal.
+	// operator. A failed scoped repair is fatal: otherwise the panel can be
+	// ready while every client packet is dropped.
 	routes, err := fw.EnsureUfwRoutes(ctx, ifaces)
 	if err != nil {
-		routes = nil // finding-quality issue; the table itself is applied
-	} else {
-		res.UfwRoutes = routes
+		return nil, fmt.Errorf("boot: UFW forwarding: %w", err)
 	}
+	res.UfwRoutes = routes
+	forwarding, err := fw.CheckForwarding(ctx, ifaces, dockerManaged, routes)
+	if err != nil {
+		return nil, fmt.Errorf("boot: forwarding policy: %w", err)
+	}
+	res.Forwarding = forwarding
 	findings, ferr := fw.Coexistence(ctx)
 	if ferr == nil {
 		res.Findings = append(res.Findings, findings...)

@@ -88,18 +88,22 @@ func (m *Manager) Apply(ctx context.Context, ifaces []Interface) error {
 // Remove deletes the wgguard table; removing an absent table is success
 // (idempotent uninstall).
 func (m *Manager) Remove(ctx context.Context) error {
+	var cleanupErrs []error
 	if err := m.nftAvailable(); err != nil {
-		return err
-	}
-	_, err := m.Run.Run(ctx, []string{"nft", "delete", "table", TableName})
-	if err != nil {
-		var ee *subprocess.ExitError
-		if errors.As(err, &ee) {
-			return nil // already absent — goal state reached
+		cleanupErrs = append(cleanupErrs, err)
+	} else {
+		_, err := m.Run.Run(ctx, []string{"nft", "delete", "table", TableName})
+		if err != nil {
+			var ee *subprocess.ExitError
+			if !errors.As(err, &ee) {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("firewall: remove %s: %w", TableName, err))
+			}
 		}
-		return fmt.Errorf("firewall: remove %s: %w", TableName, err)
 	}
-	return nil
+	if err := m.RemoveDockerForwarding(ctx); err != nil {
+		cleanupErrs = append(cleanupErrs, err)
+	}
+	return errors.Join(cleanupErrs...)
 }
 
 func (m *Manager) nftAvailable() error {

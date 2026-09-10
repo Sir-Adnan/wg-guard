@@ -4,12 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Sir-Adnan/wg-guard/internal/i18n"
-	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
 	"io/fs"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/firewall"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
+	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
+
+type uninstallFirewallRunner struct{ host Host }
+
+func (r uninstallFirewallRunner) Run(ctx context.Context, argv []string) (subprocess.Result, error) {
+	stdout, err := r.host.Output(ctx, argv, 15*time.Second)
+	return subprocess.Result{Stdout: []byte(stdout)}, err
+}
 
 // UninstallReport lists what uninstall did or would do (--dry-run).
 type UninstallReport struct {
@@ -161,6 +171,10 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 		return rep, err
 	}
 	rep.Stopped = true
+	step(out, "Removing owned network policy")
+	if err := (&firewall.Manager{Run: uninstallFirewallRunner{host: h}}).Remove(ctx); err != nil {
+		return rep, fmt.Errorf("uninstall: remove owned network policy: %w", err)
+	}
 	if err := j.save(h, "swap-pending"); err != nil {
 		return rep, err
 	}

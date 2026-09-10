@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/boot"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
@@ -12,8 +13,20 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
+
+type doctorRunner struct {
+	responses map[string]subprocess.Result
+}
+
+func (r *doctorRunner) Run(_ context.Context, argv []string) (subprocess.Result, error) {
+	if result, ok := r.responses[strings.Join(argv, " ")]; ok {
+		return result, nil
+	}
+	return subprocess.Result{}, nil
+}
 
 func newDoctorEnv(t *testing.T) (Deps, *database.DB) {
 	t.Helper()
@@ -132,5 +145,33 @@ func TestDoctorFixRunsRepairsAndRechecks(t *testing.T) {
 	}
 	if passes < 2 {
 		t.Fatalf("expected re-check after fixes, database checked %d times", passes)
+	}
+}
+
+func TestDoctorReportsIncompleteDockerForwardingPath(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := db.Exec(`INSERT INTO tunnel_interfaces
+		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
+		 preset_name, enabled, backend_mode, created_at, updated_at)
+		VALUES ('iface-0', 'awg0', 39001, '10.8.0.0/24', 1420, 'pub', x'00',
+		 'plain', 1, 'kernel', ?, ?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	deps.Run = &doctorRunner{responses: map[string]subprocess.Result{
+		"nft list table inet wgguard":      {Stdout: []byte("table inet wgguard {}\n")},
+		"iptables --version":               {Stdout: []byte("iptables v1.8.10 (nf_tables)\n")},
+		"iptables -w 5 -S FORWARD":         {Stdout: []byte("-P FORWARD DROP\n-A FORWARD -j DOCKER-USER\n")},
+		"iptables -w 5 -S DOCKER-USER":     {Stdout: []byte("-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n")},
+		"iptables -w 5 -S WGGUARD-FORWARD": {Stdout: []byte("-N WGGUARD-FORWARD\n-A WGGUARD-FORWARD -i awg0 -s 10.8.0.0/24 -j ACCEPT\n")},
+	}}
+	doc := &doctor{d: deps}
+	doc.checkFirewall(context.Background())
+	got := statusOf(&doc.report, "forwarding")
+	if got.Status != StatusFail || !strings.Contains(got.Detail, "DROP") {
+		t.Fatalf("forwarding check=%+v", got)
+	}
+	if !strings.Contains(got.Remedy, "doctor --fix") {
+		t.Fatalf("forwarding remedy=%q", got.Remedy)
 	}
 }

@@ -188,7 +188,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		return nil
 	}
 	if p.Mode == ModeNative && managedUbuntu {
-		for _, name := range []string{"iproute2", "nftables", "procps", "ca-certificates"} {
+		for _, name := range []string{"iproute2", "nftables", "iptables", "procps", "ca-certificates"} {
 			if err := require(name, ""); err != nil {
 				return r, err
 			}
@@ -300,7 +300,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	}
 	requiredTools := []string{}
 	if p.Mode == ModeNative {
-		requiredTools = []string{"systemctl", "ip", "tc", "nft", "sysctl", "awg"}
+		requiredTools = []string{"systemctl", "ip", "tc", "nft", "iptables", "sysctl", "awg"}
 	}
 	if p.Mode == ModeDocker {
 		requiredTools = []string{"docker"}

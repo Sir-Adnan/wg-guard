@@ -81,11 +81,12 @@ const (
 // and boot bring-up is skipped).
 type Options struct {
 	Config           *config.Config
-	ConfigPath       string           // source boot config path (archived by backups)
-	Backend          tunnel.Backend   // nil = real AmneziaWG CLI backend
-	Log              *slog.Logger     // nil = slog.Default()
-	TelemetrySource  telemetry.Source // nil = bounded production collectors
-	TelemetryCadence time.Duration    // zero = telemetry.DefaultCadence
+	ConfigPath       string            // source boot config path (archived by backups)
+	Backend          tunnel.Backend    // nil = real AmneziaWG CLI backend
+	Run              subprocess.Runner // nil = bounded system runner
+	Log              *slog.Logger      // nil = slog.Default()
+	TelemetrySource  telemetry.Source  // nil = bounded production collectors
+	TelemetryCadence time.Duration     // zero = telemetry.DefaultCadence
 }
 
 // Node is one running WG-Guard instance: services, HTTP server, scheduler.
@@ -111,7 +112,8 @@ type Node struct {
 	webhookWorker *webhook.Worker
 	sessions      *auth.SessionStore
 
-	booted atomic.Bool
+	booted       atomic.Bool
+	networkReady atomic.Bool
 }
 
 type nodeLoggers struct {
@@ -147,14 +149,19 @@ func newNodeLoggers(base *slog.Logger) nodeLoggers {
 // race the verify-after-apply gate exists to catch. It implements
 // accounting.Reconciler so both paths hold one engine.
 type serializedReconciler struct {
-	mu    sync.Mutex
-	inner accounting.Reconciler
+	mu      sync.Mutex
+	inner   accounting.Reconciler
+	healthy *atomic.Bool
 }
 
 func (r *serializedReconciler) Run(ctx context.Context) (*reconcile.Report, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.inner.Run(ctx)
+	rep, err := r.inner.Run(ctx)
+	if r.healthy != nil {
+		r.healthy.Store(err == nil && (rep == nil || len(rep.Errors) == 0))
+	}
+	return rep, err
 }
 
 // Start brings up a node and begins serving. It returns once the listener is
@@ -260,32 +267,52 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		shaperMgr    *shaper.Manager
 		toolsVersion string
 	)
+	n.networkReady.Store(true)
+	runner := o.Run
+	if runner == nil {
+		runner = subprocess.NewSystem()
+	}
 	if o.Backend != nil {
 		backend = o.Backend
 		toolsVersion = "fake (dev backend)"
-		log.Warn("dev backend active: no tunnel or firewall operations are performed on this host")
+		if o.Run == nil {
+			log.Warn("dev backend active: no tunnel or firewall operations are performed on this host")
+		}
 	} else {
-		runner := subprocess.NewSystem()
 		backend = amneziawg.New(runner)
 		shaperMgr = shaper.New(runner)
+	}
+	runtimeNetworking := o.Backend == nil || o.Run != nil
+	bootDeps := boot.Deps{
+		DB: db, Ring: n.ring, Settings: n.reg, Backend: backend,
+		Run: runner, Audit: auditSvc, Shaper: shaperMgr,
+	}
+	if runtimeNetworking {
 		res, err := boot.BringUp(ctx, boot.Deps{
-			DB: db, Ring: n.ring, Settings: n.reg, Backend: backend,
-			Run: runner, Audit: auditSvc, Shaper: shaperMgr,
+			DB: bootDeps.DB, Ring: bootDeps.Ring, Settings: bootDeps.Settings,
+			Backend: bootDeps.Backend, Run: bootDeps.Run, Audit: bootDeps.Audit,
+			Shaper: bootDeps.Shaper,
 		})
 		if err != nil {
 			return fail(fmt.Errorf("serve: boot: %w", err))
 		}
+		n.networkReady.Store(res.Reconcile == nil || len(res.Reconcile.Errors) == 0)
 		toolsVersion = res.ToolsVersion
 		for _, f := range res.Findings {
 			logs.network.Warn("boot finding", "tool", f.Tool, "detail", f.Detail, "remedy", f.Remedy)
 		}
 	}
 
-	// Reconcile engine shared by boot, the accounting cycle/expiry and the
-	// API — serialized behind one mutex (see serializedReconciler).
-	rec := &serializedReconciler{inner: &reconcile.Engine{
+	// Runtime mutations must refresh the complete networking state. The
+	// injected dev backend keeps its in-memory-only behavior unless a runner
+	// was explicitly supplied for integration testing.
+	var inner accounting.Reconciler = &reconcile.Engine{
 		DB: db, Backend: backend, Ring: n.ring, Policy: n.driftPolicy(ctx),
-	}}
+	}
+	if runtimeNetworking {
+		inner = &boot.RuntimeReconciler{Deps: bootDeps}
+	}
+	rec := &serializedReconciler{inner: inner, healthy: &n.networkReady}
 
 	// Domain services. The webhook recorder is injected into user, device
 	// and accounting so events commit in the SAME transaction as the state
@@ -583,7 +610,7 @@ func (n *Node) sessionAbsoluteTTL(ctx context.Context) time.Duration {
 
 // ready is the readiness gate: bring-up finished and the DB answers.
 func (n *Node) ready() bool {
-	if !n.booted.Load() {
+	if !n.booted.Load() || !n.networkReady.Load() {
 		return false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

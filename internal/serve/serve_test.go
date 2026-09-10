@@ -11,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,9 +20,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,9 +35,62 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
+	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
+	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 )
+
+type runtimeNetworkRunner struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+type reconcileSequence struct {
+	err error
+}
+
+func (r *reconcileSequence) Run(context.Context) (*reconcile.Report, error) {
+	if r.err != nil {
+		err := r.err
+		r.err = nil
+		return nil, err
+	}
+	return &reconcile.Report{}, nil
+}
+
+func (r *runtimeNetworkRunner) Run(_ context.Context, argv []string) (subprocess.Result, error) {
+	r.mu.Lock()
+	r.calls = append(r.calls, strings.Join(argv, " "))
+	r.mu.Unlock()
+	switch strings.Join(argv, " ") {
+	case "sysctl -n net.ipv4.ip_forward":
+		return subprocess.Result{Stdout: []byte("1\n")}, nil
+	case "nft list table inet wgguard", "nft delete table inet wgguard":
+		return subprocess.Result{Stderr: []byte("No such file or directory")},
+			&subprocess.ExitError{Name: "nft", ExitCode: 1, Stderr: "No such file or directory"}
+	case "iptables --version":
+		return subprocess.Result{}, fmt.Errorf("iptables unavailable: %w", exec.ErrNotFound)
+	case "ufw status verbose":
+		return subprocess.Result{}, &subprocess.ExitError{Name: "ufw", ExitCode: 1, Stderr: "not found"}
+	case "firewall-cmd --state":
+		return subprocess.Result{}, &subprocess.ExitError{Name: "firewall-cmd", ExitCode: 1, Stderr: "not found"}
+	default:
+		return subprocess.Result{}, nil
+	}
+}
+
+func (r *runtimeNetworkRunner) reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = nil
+}
+
+func (r *runtimeNetworkRunner) joined() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return strings.Join(r.calls, "\n")
+}
 
 // testLog keeps stderr clean; failures surface through assertions.
 func quietLogger() *slog.Logger {
@@ -133,6 +190,60 @@ func TestServeLifecycle(t *testing.T) {
 	}
 	if id, _ := v.(string); id == "" {
 		t.Fatal("node.id not initialized")
+	}
+}
+
+func TestRuntimeMutationReconcilesTunnelAndFirewallTogether(t *testing.T) {
+	cfg := testConfig(t, "127.0.0.1:0")
+	backend := fake.New()
+	runner := &runtimeNetworkRunner{}
+	n, err := Start(context.Background(), Options{
+		Config: cfg, Backend: backend, Run: runner, Log: quietLogger(),
+	})
+	if err != nil {
+		t.Fatalf("serve start: %v", err)
+	}
+	t.Cleanup(func() { _ = n.Shutdown(context.Background()) })
+
+	ifaces := iface.NewService(n.db, n.reg, n.ring)
+	if _, err := ifaces.Create(context.Background(), iface.CreateInput{
+		Name: "awg0", ListenPort: 39001, Subnet: "10.77.0.0/24",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	runner.reset()
+	if _, err := n.apiServer.Reconciler.Run(context.Background()); err != nil {
+		t.Fatalf("runtime reconcile: %v", err)
+	}
+
+	calls := runner.joined()
+	if !strings.Contains(calls, "nft -f ") {
+		t.Fatalf("post-create reconcile skipped firewall/NAT apply:\n%s", calls)
+	}
+	state, err := backend.Dump(context.Background(), "awg0")
+	if err != nil || state.Name != "awg0" {
+		t.Fatalf("tunnel state=%+v err=%v", state, err)
+	}
+}
+
+func TestSerializedReconcilerTracksRuntimeNetworkHealth(t *testing.T) {
+	var healthy atomic.Bool
+	healthy.Store(true)
+	r := &serializedReconciler{
+		inner:   &reconcileSequence{err: errors.New("forwarding apply failed")},
+		healthy: &healthy,
+	}
+	if _, err := r.Run(context.Background()); err == nil {
+		t.Fatal("injected runtime failure accepted")
+	}
+	if healthy.Load() {
+		t.Fatal("readiness stayed healthy after runtime network failure")
+	}
+	if _, err := r.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !healthy.Load() {
+		t.Fatal("successful canonical reconcile did not restore readiness")
 	}
 }
 

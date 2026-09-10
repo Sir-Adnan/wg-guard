@@ -5,11 +5,19 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
-## Phase 10 — Product UI/UX redesign (active, milestone 10.0)
+## Phase 8.3 — Data-plane forwarding integrity (active)
 
-Phase 10 is the active phase after Phase 9 closed RB-005. Route/state inventory and the detailed
-dependency-ordered implementation plan are next; no Phase 10 visual migration is yet implemented
-or verified. See [phase10.md](phase10.md).
+Real mobile/desktop clients exposed a release-blocking path that prior gates did not exercise:
+the tunnel handshakes, but Docker's earlier `FORWARD` policy can drop routed packets before the
+later WG-Guard nftables accept chain runs. The defect is reproduced against the dedicated Ubuntu
+24.04 amd64 VPS and in an isolated network namespace. Implementation and full AWG-to-Internet
+Docker verification are in progress; no fix is claimed yet. See [phase8.3.md](phase8.3.md).
+
+## Phase 10 — Product UI/UX redesign (paused, milestone 10.0)
+
+Phase 10 remains at its pre-implementation inventory/design boundary. No visual migration is yet
+implemented or verified. It resumes after Phase 8.3 closes the data-plane release blocker. See
+[phase10.md](phase10.md).
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 
@@ -466,7 +474,8 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 |---|---|---|
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
-| 10 — Product UI/UX redesign | active; milestone 10.0 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
+| 8.3 — Data-plane forwarding integrity | active; reproduced, not fixed | Docker/UFW coexistence, effective forwarding diagnostics, public egress gate and owned cleanup |
+| 10 — Product UI/UX redesign | paused; milestone 10.0 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 

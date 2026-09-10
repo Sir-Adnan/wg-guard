@@ -5,8 +5,8 @@ this document owns cross-phase requirement coverage, release blockers, audit fin
 verification state. Phase execution details live in the corresponding phase document.
 
 Last updated: 2026-09-10. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
-**Phase 10 — Product UI/UX redesign** is active at milestone 10.0; no visual migration is yet
-claimed.
+**Phase 8.3 — Data-plane forwarding integrity** is the active corrective gate. Phase 10 is paused
+at milestone 10.0; no visual migration is yet claimed.
 
 ## Program status
 
@@ -16,7 +16,8 @@ claimed.
 | 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
-| 10 — Product UI/UX redesign | active; milestone 10.0 | Every route/state passes complete bilingual responsive QA |
+| 8.3 — Data-plane forwarding integrity | active; root cause reproduced | Effective Docker/UFW forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
+| 10 — Product UI/UX redesign | paused; milestone 10.0 | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
@@ -65,6 +66,7 @@ implementation does not cross the active phase boundary.
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 | RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | verified | Cached manager/zero-network retry and public-HTTP refusal pass automated gates; real Docker Nginx/webroot and short-lived IP issuance/renewal, occupied-port refusal, rollback-safe transitions and cleanup are recorded in [Phase 8.2 evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). Cloudflare DNS-01 is automated-test verified; real issuance awaits a scoped token and is not claimed |
+| RB-011 | Docker's earlier `FORWARD` DROP can allow AWG handshake while blocking all routed client traffic | Phase 8.3 | reproduced | Scoped manager coexistence, fail-closed readiness/doctor diagnostics, and real AWG-to-public-DNS/HTTPS Docker traffic with cleanup evidence |
 
 No release blocker may be silently downgraded. A blocker can close only with linked evidence or
 be explicitly waived by the project owner with the residual risk recorded.
@@ -146,6 +148,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-048 | high | Interactive install silently selects username `owner`; a short password is rejected only after deployment/data preparation, leaving an initial-install journal without a useful retry/reset path and causing apparent successful credentials to fail as `admin` | Phase 8.2 maintenance | verified: explicit `admin` default, shared backend validation with in-place retry, blank-password secure generation and post-completion show-once handoff, guided cleanup for every interrupted initial install, and distinct node-reset/complete-removal ownership pass automated gates. Real Docker confirmed default `admin`, short-password retry and complete removal; generated credentials were intentionally not captured |
 | AUD-049 | high | Recommended private Docker setup records loopback HTTP as proxy TLS, making the session cookie `Secure`; valid credentials are accepted but the browser cannot return the cookie over the documented SSH-tunnel HTTP URL and falls back to login | Phase 8.2 maintenance | verified: reproduced on Ubuntu 24.04.4 amd64, then fixed by resolving private exposure to loopback-only dev transport while retaining proxy mode for real HTTPS proxies. Exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie |
 | AUD-050 | high | Deleting a tunnel interface removes its DB ownership record before reconciliation, so the still-live kernel link is classified as foreign and may remain after the operator believes it was deleted | Phase 11 interface lifecycle hardening | open; reproduced during the Phase 9 VPS gate. Implement teardown-before-final-delete with failure recovery and API/web/backend regressions; the Phase 9 fixture removes only its collision-checked owned link during cleanup |
+| AUD-051 | critical | Docker's iptables backend installs an earlier `FORWARD` policy DROP; WG-Guard's later nftables accept chain cannot override that terminal verdict, while prior real-host gates stopped at the tunnel gateway | Phase 8.3 | reproduced on the dedicated VPS and in an isolated netns; implementation and public-egress verification active |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

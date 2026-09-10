@@ -44,8 +44,8 @@ func (h *imageHost) Run(ctx context.Context, a []string, d time.Duration) error 
 		if err != nil {
 			h.t.Fatal(err)
 		}
-		if !strings.Contains(string(dockerfile), "procps") {
-			h.t.Error("runtime lacks sysctl provider needed by boot")
+		if !strings.Contains(string(dockerfile), "procps") || !strings.Contains(string(dockerfile), "iptables") {
+			h.t.Error("runtime lacks sysctl or Docker forwarding tooling needed by boot")
 		}
 		if !strings.Contains(string(dockerfile), "--branch v3.1.20260812") || !strings.Contains(string(dockerfile), "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843") || strings.Contains(string(dockerfile), "ppa:amnezia/ppa") || strings.Contains(string(dockerfile), "amneziawg-tools=") {
 			h.t.Fatal("runtime build lost exact GitHub tools provenance")
@@ -107,7 +107,7 @@ func TestRepositoryDockerfileUsesReviewedSourceTools(t *testing.T) {
 	}
 	dockerfile := string(data)
 	b, _ := SelectCore("recommended")
-	for _, required := range []string{b.ToolsRepository, b.ToolsVersion, b.ToolsCommit, "/usr/local/bin/awg"} {
+	for _, required := range []string{b.ToolsRepository, b.ToolsVersion, b.ToolsCommit, "/usr/local/bin/awg", "iptables"} {
 		if !strings.Contains(dockerfile, required) {
 			t.Fatalf("repository Dockerfile omitted reviewed source identity %q", required)
 		}

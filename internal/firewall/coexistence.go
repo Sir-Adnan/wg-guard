@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
@@ -74,6 +75,9 @@ func (m *Manager) EnsureUfwRoutes(ctx context.Context, ifaces []Interface) (appl
 func ufwStatus(run subprocess.Runner, ctx context.Context) (active bool, blockingDetail string, installed bool, err error) {
 	res, rerr := run.Run(ctx, []string{"ufw", "status", "verbose"})
 	if rerr != nil {
+		if errors.Is(rerr, exec.ErrNotFound) {
+			return false, "", false, nil
+		}
 		var ee *subprocess.ExitError
 		if errors.As(rerr, &ee) {
 			return false, "", false, nil // not installed or not runnable
@@ -116,6 +120,9 @@ func routedPolicyBlocked(defaultLine string) bool {
 func firewalldStatus(run subprocess.Runner, ctx context.Context) (running bool, installed bool, err error) {
 	_, rerr := run.Run(ctx, []string{"firewall-cmd", "--state"})
 	if rerr != nil {
+		if errors.Is(rerr, exec.ErrNotFound) {
+			return false, false, nil
+		}
 		var ee *subprocess.ExitError
 		if errors.As(rerr, &ee) {
 			return false, false, nil

@@ -23,6 +23,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/boot"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
@@ -355,14 +356,69 @@ func countEnabledDevices(ctx context.Context, db *database.DB, ifaceName string)
 func (d *doctor) checkFirewall(ctx context.Context) {
 	if d.d.Run == nil {
 		d.add("nftables", StatusSkip, "no runner wired", "")
+		d.add("forwarding", StatusSkip, "no runner wired", "")
+		return
+	}
+	ifaces, err := enabledFirewallInterfaces(ctx, d.d.DB)
+	if err != nil {
+		d.add("forwarding", StatusFail, "load enabled interfaces: "+err.Error(), "repair the database query before changing firewall state")
 		return
 	}
 	if _, err := d.d.Run.Run(ctx, []string{"nft", "list", "table", "inet", "wgguard"}); err != nil {
-		d.add("nftables", StatusWarn, "table inet wgguard is missing",
+		status := StatusWarn
+		if len(ifaces) > 0 {
+			status = StatusFail
+		}
+		d.add("nftables", status, "table inet wgguard is missing",
 			"wg-guard doctor --fix (re-applies the namespaced table)")
+	} else {
+		d.add("nftables", StatusPass, "table inet wgguard present", "")
+	}
+	if len(ifaces) == 0 {
+		d.add("forwarding", StatusPass, "no enabled interfaces require forwarding", "")
 		return
 	}
-	d.add("nftables", StatusPass, "table inet wgguard present", "")
+	inspection, err := (&firewall.Manager{Run: d.d.Run}).InspectForwarding(ctx, ifaces)
+	if err != nil {
+		d.add("forwarding", StatusFail, err.Error(), "wg-guard doctor --fix")
+		return
+	}
+	switch {
+	case inspection.Policy == "DROP" && inspection.DockerUser && inspection.DockerManaged:
+		d.add("forwarding", StatusPass,
+			"FORWARD policy DROP is covered by scoped WG-Guard rules in DOCKER-USER", "")
+	case inspection.Policy == "DROP":
+		d.add("forwarding", StatusFail,
+			"host FORWARD policy is DROP without a complete scoped WG-Guard allow path",
+			"wg-guard doctor --fix (reconciles Docker/UFW forwarding without changing the global policy)")
+	case inspection.Policy == "unknown":
+		d.add("forwarding", StatusWarn,
+			"legacy FORWARD policy could not be inspected",
+			"install the supported iptables compatibility tool, then run wg-guard doctor again")
+	default:
+		d.add("forwarding", StatusPass, "host FORWARD policy is "+inspection.Policy, "")
+	}
+}
+
+func enabledFirewallInterfaces(ctx context.Context, db *database.DB) ([]firewall.Interface, error) {
+	if db == nil {
+		return nil, nil
+	}
+	rows, err := db.QueryContext(ctx,
+		`SELECT name, ipv4_subnet FROM tunnel_interfaces WHERE enabled = 1 ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []firewall.Interface
+	for rows.Next() {
+		var ifc firewall.Interface
+		if err := rows.Scan(&ifc.Name, &ifc.Subnet); err != nil {
+			return nil, err
+		}
+		out = append(out, ifc)
+	}
+	return out, rows.Err()
 }
 
 func (d *doctor) checkSysctls() {

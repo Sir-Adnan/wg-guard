@@ -45,7 +45,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # The host kernel module remains installer-managed and is not loaded here.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates nftables iproute2 procps curl \
+        ca-certificates nftables iptables iproute2 procps curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /out/wg-guard /usr/local/bin/wg-guard

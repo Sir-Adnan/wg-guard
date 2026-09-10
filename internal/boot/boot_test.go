@@ -31,6 +31,9 @@ func (f *fakeRunner) Run(_ context.Context, argv []string) (subprocess.Result, e
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, append([]string(nil), argv...))
+	if err, ok := f.errs[strings.Join(argv, " ")]; ok {
+		return subprocess.Result{}, err
+	}
 	if err, ok := f.errs[strings.Join(argv[:2], " ")]; ok {
 		return subprocess.Result{}, err
 	}
@@ -253,6 +256,139 @@ func TestBringUpUfwActive(t *testing.T) {
 	}
 	if len(res.Findings) != 1 || res.Findings[0].Tool != "ufw" || res.Findings[0].Blocking {
 		t.Fatalf("findings = %+v", res.Findings)
+	}
+}
+
+func TestBringUpAllowsOwnedTunnelThroughDockerForwardDrop(t *testing.T) {
+	ctx := context.Background()
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	d.runner.respond = func(argv []string) subprocess.Result {
+		joined := strings.Join(argv, " ")
+		switch joined {
+		case "sysctl -n net.ipv4.ip_forward":
+			return subprocess.Result{Stdout: []byte("1\n")}
+		case "iptables --version":
+			return subprocess.Result{Stdout: []byte("iptables v1.8.10 (nf_tables)\n")}
+		case "iptables -w 5 -S DOCKER-USER":
+			return subprocess.Result{Stdout: []byte("-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n")}
+		case "iptables -w 5 -S WGGUARD-FORWARD":
+			return subprocess.Result{Stdout: []byte("-N WGGUARD-FORWARD\n")}
+		}
+		return subprocess.Result{}
+	}
+
+	if _, err := BringUp(ctx, Deps{
+		DB: d.db, Ring: d.ring, Backend: d.backend, Run: d.runner,
+		Settings: mustRegistry(t, d),
+	}); err != nil {
+		t.Fatalf("bring up: %v", err)
+	}
+
+	calls := d.runner.joined()
+	for _, want := range []string{
+		"iptables -w 5 -A WGGUARD-FORWARD -s 10.8.0.0/24 -i awg0 -j ACCEPT",
+		"iptables -w 5 -A WGGUARD-FORWARD -d 10.8.0.0/24 -o awg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
+	} {
+		if !strings.Contains(calls, want) {
+			t.Errorf("missing scoped Docker forwarding command %q:\n%s", want, calls)
+		}
+	}
+	if strings.Contains(calls, "iptables -P FORWARD") {
+		t.Fatalf("must never change the host-wide FORWARD policy:\n%s", calls)
+	}
+	if strings.Contains(calls, "iptables -w 5 -F WGGUARD-FORWARD") {
+		t.Fatalf("must not flush live forwarding during reconcile:\n%s", calls)
+	}
+}
+
+func TestRuntimeReconcilerReappliesFirewallAfterInterfaceCreation(t *testing.T) {
+	ctx := context.Background()
+	d := newDeps(t)
+	reconciler := &RuntimeReconciler{Deps: Deps{
+		DB: d.db, Ring: d.ring, Backend: d.backend, Run: d.runner,
+		Settings: mustRegistry(t, d),
+	}}
+
+	// The common production sequence starts with no interfaces, then an
+	// operator creates one through the running panel.
+	if _, err := reconciler.Run(ctx); err != nil {
+		t.Fatalf("empty reconcile: %v", err)
+	}
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	d.runner.mu.Lock()
+	d.runner.calls = nil
+	d.runner.mu.Unlock()
+
+	if _, err := reconciler.Run(ctx); err != nil {
+		t.Fatalf("post-create reconcile: %v", err)
+	}
+	calls := d.runner.joined()
+	if !strings.Contains(calls, "nft -f") {
+		t.Fatalf("runtime reconcile created the tunnel without applying NAT/forwarding:\n%s", calls)
+	}
+}
+
+func TestBringUpRejectsUnmanagedForwardDrop(t *testing.T) {
+	ctx := context.Background()
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	d.runner.errs["iptables -w 5 -S DOCKER-USER"] = &subprocess.ExitError{
+		Name: "iptables", ExitCode: 1, Stderr: "iptables: No chain/target/match by that name.",
+	}
+	d.runner.respond = func(argv []string) subprocess.Result {
+		switch strings.Join(argv, " ") {
+		case "sysctl -n net.ipv4.ip_forward":
+			return subprocess.Result{Stdout: []byte("1\n")}
+		case "iptables --version":
+			return subprocess.Result{Stdout: []byte("iptables v1.8.10 (nf_tables)\n")}
+		case "iptables -w 5 -S FORWARD":
+			return subprocess.Result{Stdout: []byte("-P FORWARD DROP\n-A FORWARD -j FOREIGN-FILTER\n")}
+		case "ufw status verbose":
+			return subprocess.Result{Stdout: []byte("Status: inactive\n")}
+		}
+		return subprocess.Result{}
+	}
+
+	_, err := BringUp(ctx, Deps{
+		DB: d.db, Ring: d.ring, Backend: d.backend, Run: d.runner,
+		Settings: mustRegistry(t, d),
+	})
+	if err == nil || !strings.Contains(err.Error(), "FORWARD policy is DROP") {
+		t.Fatalf("unmanaged drop was accepted: %v", err)
+	}
+}
+
+func TestBringUpDoesNotIgnoreActiveUfwRepairFailure(t *testing.T) {
+	ctx := context.Background()
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	d.runner.errs["iptables -w 5 -S DOCKER-USER"] = &subprocess.ExitError{
+		Name: "iptables", ExitCode: 1, Stderr: "iptables: No chain/target/match by that name.",
+	}
+	d.runner.errs["ufw route allow in on awg0"] = &subprocess.ExitError{
+		Name: "ufw", ExitCode: 1, Stderr: "permission denied",
+	}
+	d.runner.respond = func(argv []string) subprocess.Result {
+		switch strings.Join(argv, " ") {
+		case "sysctl -n net.ipv4.ip_forward":
+			return subprocess.Result{Stdout: []byte("1\n")}
+		case "iptables --version":
+			return subprocess.Result{Stdout: []byte("iptables v1.8.10 (nf_tables)\n")}
+		case "iptables -w 5 -S FORWARD":
+			return subprocess.Result{Stdout: []byte("-P FORWARD DROP\n")}
+		case "ufw status verbose":
+			return subprocess.Result{Stdout: []byte("Status: active\nDefault: deny (incoming), allow (outgoing), deny (routed)\n")}
+		}
+		return subprocess.Result{}
+	}
+
+	_, err := BringUp(ctx, Deps{
+		DB: d.db, Ring: d.ring, Backend: d.backend, Run: d.runner,
+		Settings: mustRegistry(t, d),
+	})
+	if err == nil || !strings.Contains(err.Error(), "ufw route allow") {
+		t.Fatalf("UFW repair failure was ignored: %v", err)
 	}
 }
 

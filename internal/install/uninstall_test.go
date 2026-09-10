@@ -79,6 +79,10 @@ func TestCompleteRemovalPurgesAllExclusiveWGGuardState(t *testing.T) {
 	if !strings.Contains(out.String(), "Removing local manager and logs") || strings.Contains(out.String(), "progress.") {
 		t.Fatalf("complete removal rendered an internal message key:\n%s", out.String())
 	}
+	if !h.ran("nft", "delete", "table", "inet wgguard") ||
+		!h.ran("iptables", "-w", "5", "-X", "WGGUARD-FORWARD") {
+		t.Fatalf("complete removal left owned forwarding state: %v", h.ranCommands())
+	}
 }
 
 func TestSourceCorePurgeDryRunIsCompleteAndReadOnly(t *testing.T) {

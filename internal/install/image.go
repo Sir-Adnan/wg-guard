@@ -101,7 +101,7 @@ RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch ` + b.Tool
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates nftables iproute2 procps curl \
+ && apt-get install -y --no-install-recommends ca-certificates nftables iptables iproute2 procps curl \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
 COPY wg-guard /usr/local/bin/wg-guard

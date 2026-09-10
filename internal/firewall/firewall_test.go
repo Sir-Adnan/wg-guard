@@ -232,6 +232,18 @@ func TestEnsureUfwRoutes(t *testing.T) {
 			t.Fatalf("applied=%v err=%v", applied, err)
 		}
 	})
+
+	t.Run("missing ufw executable is a no-op", func(t *testing.T) {
+		f := &fakeRunner{}
+		f.mu.Lock()
+		f.steps = []fakeStep{{err: &exec.Error{Name: "ufw", Err: exec.ErrNotFound}}}
+		f.mu.Unlock()
+		m := &Manager{Run: f}
+		applied, err := m.EnsureUfwRoutes(ctx, []Interface{{Name: "awg0"}})
+		if err != nil || len(applied) != 0 {
+			t.Fatalf("applied=%v err=%v", applied, err)
+		}
+	})
 }
 
 func (f *fakeRunner) callsJoined() string {

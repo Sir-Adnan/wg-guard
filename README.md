@@ -11,7 +11,8 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–9 are complete; Phase 10 product UI/UX redesign is active.**
+**In active development — Phase 8.3 forwarding integrity is the active corrective gate; Phase 10
+UI/UX work resumes after it closes.**
 Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
 GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
 with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 added a persistent local
