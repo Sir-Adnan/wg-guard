@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,136 +10,203 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 )
 
-// settingsData feeds the panel settings screen: the runtime registry. Non-
-// secret knobs read and write; backup secrets are write-only (status badge +
-// replace/clear). Read and write are gated by node.settings.
+// Settings presentation metadata belongs to the web layer; validation and
+// persistence remain exclusively in the registry.
 type settingsData struct {
-	Error string // humanized message
-	Field string // field that failed (best effort)
-
-	// Identity
-	NodeID   string
-	NodeSet  bool
-	Endpoint string
-	TLSMode  string
-	ToolsVer string
-
-	// Users
-	QuotaPresets     string
-	DurPresets       string
-	DefaultQuotaGB   string
-	DefaultDurMonths string
-	DefaultDeviceLim string
-	DefaultIfaceID   string
-
-	// Subscription + downloads
-	SubBaseURL     string
-	FilenamePrefix string
-	FilenameSuffix string
-
-	// Networking
-	MTU          string
-	DNSServers   string
-	AllowedIPs   string
-	Keepalive    string
-	PortMin      string
-	PortMax      string
-	DefaultPool  string
-	IfaceMax     string
-	DriftPolicy  string
-	DriftOptions []string
-
-	// Accounting
-	AcctInterval     string
-	OnlineWindow     string
-	SampleFlush      string
-	SampleRetention  string
-	RollupHourlyDays string
-	RollupDailyDays  string
-
-	// API + security
-	RateLimit   string
-	WebhookMax  string
-	SessionIdle string
-	SessionAbs  string
-
-	// Backups
-	Retention    string
-	PasswordSet  bool
-	TelegramSet  bool
-	TelegramChat string
-
-	Ifaces []*ifaceRef
+	Error, Field, ErrorLabel string
+	TLSMode, ToolsVer        string
+	LoadFailed               bool
+	Sections                 []settingsSection
 }
 
-// handleSettingsPage renders the settings form from the live registry.
+type settingsSection struct {
+	ID, Title, Description string
+	Fields, Advanced       []settingsControl
+	AdvancedOpen           bool
+}
+
+type settingsOption struct {
+	Value, Label string
+	Selected     bool
+}
+type settingsControl struct {
+	Unit                                                    string
+	Name, Label, Hint, Effect, Value, Default, Range        string
+	Numeric, Secret, SecretSet, Clear, Unavailable, Invalid bool
+	Options                                                 []settingsOption
+}
+
+type settingsPresentation struct {
+	name, label, hint, effect string
+	advanced                  bool
+}
+
+type settingsGroup struct {
+	id, title string
+	fields    []settingsPresentation
+}
+
+// The seven product groups deliberately differ from registry storage categories.
+var settingsGroups = []settingsGroup{
+	{"identity", "settings.section_identity", []settingsPresentation{
+		{"node_id", "settings.node_id", "settings.help.node", "settings.effect.node", false},
+		{"endpoint", "settings.endpoint", "settings.help.endpoint", "settings.effect.config", false},
+	}},
+	{"users", "settings.section_users", []settingsPresentation{
+		{"default_quota_gb", "settings.default_quota", "settings.default_quota_hint", "settings.effect.users", false},
+		{"default_dur_months", "settings.default_dur", "settings.default_dur_hint", "settings.effect.users", false},
+		{"default_device_lim", "settings.default_device", "settings.help.devices", "settings.effect.users", false},
+		{"default_iface_id", "settings.default_iface", "settings.help.interface", "settings.effect.users", false},
+		{"quota_presets", "settings.quota_presets", "settings.quota_presets_hint", "settings.effect.users", true},
+		{"dur_presets", "settings.dur_presets", "settings.dur_presets_hint", "settings.effect.users", true},
+	}},
+	{"network", "settings.section_networking", []settingsPresentation{
+		{"dns_servers", "settings.dns", "settings.dns_hint", "settings.effect.config", false},
+		{"allowed_ips", "settings.allowed_ips", "settings.allowed_ips_hint", "settings.effect.config", false},
+		{"mtu", "settings.mtu", "settings.help.mtu", "settings.effect.interfaces", false},
+		{"keepalive", "settings.keepalive", "settings.keepalive_hint", "settings.effect.config", false},
+		{"port_min", "settings.port_min", "settings.help.port", "settings.effect.interfaces", true},
+		{"port_max", "settings.port_max", "settings.help.port", "settings.effect.interfaces", true},
+		{"default_pool", "settings.default_pool", "settings.default_pool_hint", "settings.effect.interfaces", true},
+		{"iface_max", "settings.iface_max", "settings.help.cap", "settings.effect.interfaces", true},
+		{"drift_policy", "settings.drift_policy", "settings.help.drift", "settings.effect.restart", true},
+	}},
+	{"subscription", "settings.group.subscription", []settingsPresentation{
+		{"sub_base_url", "settings.sub_base_url", "settings.sub_base_url_hint", "settings.effect.links", false},
+		{"filename_prefix", "settings.filename_prefix", "settings.filename_hint", "settings.effect.downloads", false},
+		{"filename_suffix", "settings.filename_suffix", "settings.help.filename", "settings.effect.downloads", false},
+	}},
+	{"accounting", "settings.section_accounting", []settingsPresentation{
+		{"acct_interval", "settings.acct_interval", "settings.help.cycle", "settings.effect.accounting", false},
+		{"online_window", "settings.online_window", "settings.help.online", "settings.effect.online", false},
+		{"sample_flush", "settings.sample_flush", "settings.help.flush", "settings.effect.flush", true},
+		{"sample_retention", "settings.sample_retention", "settings.help.raw", "settings.effect.prune", true},
+		{"rollup_hourly", "settings.rollup_hourly", "settings.help.hourly", "settings.effect.prune", true},
+		{"rollup_daily", "settings.rollup_daily", "settings.help.daily", "settings.effect.prune", true},
+	}},
+	{"access", "settings.section_api", []settingsPresentation{
+		{"session_idle", "settings.session_idle", "settings.help.idle", "settings.effect.restart", false},
+		{"session_abs", "settings.session_abs", "settings.help.absolute", "settings.effect.restart", false},
+		{"rate_limit", "settings.rate_limit", "settings.rate_limit_hint", "settings.effect.api", true},
+		{"webhook_max", "settings.webhook_max", "settings.webhook_max_hint", "settings.effect.webhook", true},
+	}},
+	{"backup", "settings.section_backup", []settingsPresentation{
+		{"retention", "settings.retention", "settings.retention_hint", "settings.effect.backup", false},
+		{"backup_password", "settings.backup_password", "settings.backup_password_hint", "settings.effect.password", false},
+		{"telegram_chat", "settings.telegram_chat", "settings.telegram_chat_hint", "settings.effect.telegram", true},
+		{"telegram_token", "settings.telegram_token", "settings.telegram_token_hint", "settings.effect.telegram", true},
+	}},
+}
+
+func settingsValue(v any) string {
+	if list, ok := v.([]string); ok {
+		return strings.Join(list, ", ")
+	}
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprint(v)
+}
+
 func (s *Server) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
 	d := s.loadSettingsData(r)
 	_ = s.render(w, r, "settings", "app", d)
 }
 
 func (s *Server) loadSettingsData(r *http.Request) settingsData {
-	ctx := r.Context()
-	d := settingsData{Ifaces: s.ifacesForForm(r), DriftOptions: []string{"report", "adopt", "remove"}}
-	get := func(key string) string { v, _ := s.Settings.GetString(ctx, key); return v }
-	getInt := func(key string) string {
-		v, _ := s.Settings.GetInt(ctx, key)
-		return strconv.Itoa(v)
+	d := settingsData{TLSMode: string(s.TLSMode), ToolsVer: s.ToolsVersion}
+	defs := map[string]settings.Definition{}
+	for _, def := range s.Settings.Definitions() {
+		defs[def.Key] = def
 	}
-	getList := func(key string) string {
-		v, err := s.Settings.GetStringList(ctx, key)
-		if err != nil {
-			return ""
+	specs := map[string]setSpec{}
+	for _, spec := range settingSpecs {
+		specs[spec.form] = spec
+	}
+	specs["backup_password"] = setSpec{"backup.password", "backup_password", "secret"}
+	specs["telegram_token"] = setSpec{"backup.telegram_token", "telegram_token", "secret"}
+	ifaces, ifaceErr := s.Ifaces.List(r.Context())
+	for _, group := range settingsGroups {
+		section := settingsSection{ID: group.id, Title: group.title, Description: "settings.intro." + group.id}
+		for _, p := range group.fields {
+			spec := specs[p.name]
+			def, found := defs[spec.key]
+			f := settingsControl{Name: p.name, Label: p.label, Hint: p.hint, Effect: p.effect, Numeric: spec.kind == "int", Secret: spec.kind == "secret", Default: settingsValue(def.Default)}
+			switch f.Name {
+			case "default_quota_gb":
+				f.Unit = "settings.unit.gb"
+			case "default_dur_months":
+				f.Unit = "duration.months"
+			case "acct_interval", "online_window", "sample_flush":
+				f.Unit = "duration.seconds_short"
+			case "sample_retention", "session_idle", "session_abs":
+				f.Unit = "duration.hours"
+			case "rollup_hourly", "rollup_daily":
+				f.Unit = "duration.days"
+			}
+			if f.Numeric {
+				f.Range = fmt.Sprintf("%d–%d", def.Min, def.Max)
+			}
+			var err error
+			if f.Secret {
+				var secret string
+				secret, err = s.Settings.GetSecret(r.Context(), spec.key)
+				f.SecretSet = err == nil && secret != ""
+			} else {
+				var value any
+				value, err = s.Settings.Get(r.Context(), spec.key)
+				if err == nil {
+					f.Value = settingsValue(value)
+				}
+			}
+			f.Unavailable = err != nil || !found
+			if f.Unavailable {
+				d.LoadFailed = true
+			}
+			if r.Method == http.MethodPost {
+				if !f.Secret && r.Form.Has(f.Name) {
+					f.Value = r.PostFormValue(f.Name)
+				}
+				if f.Secret {
+					f.Clear = r.PostFormValue(f.Name+"_clear") == "1"
+				}
+			}
+			if p.name == "default_iface_id" {
+				f.Options = append(f.Options, settingsOption{"", s.t(r, "settings.default_iface_auto"), f.Value == ""})
+				selectedFound := f.Value == ""
+				for _, iface := range ifaces {
+					label := iface.Name
+					if !iface.Enabled {
+						label += " · " + s.t(r, "settings.interface_disabled")
+					}
+					f.Options = append(f.Options, settingsOption{iface.ID, label, f.Value == iface.ID})
+					selectedFound = selectedFound || f.Value == iface.ID
+				}
+				if !selectedFound {
+					f.Options = append(f.Options, settingsOption{f.Value, s.t(r, "settings.selection_unavailable") + " · " + f.Value, true})
+				}
+				if ifaceErr != nil {
+					f.Unavailable = true
+					d.LoadFailed = true
+				}
+			} else if len(def.Options) > 0 {
+				selectedFound := false
+				for _, option := range def.Options {
+					f.Options = append(f.Options, settingsOption{option, s.t(r, "settings.drift."+option), f.Value == option})
+					selectedFound = selectedFound || f.Value == option
+				}
+				if !selectedFound {
+					f.Options = append(f.Options, settingsOption{f.Value, f.Value, true})
+				}
+			}
+			if p.advanced {
+				section.Advanced = append(section.Advanced, f)
+			} else {
+				section.Fields = append(section.Fields, f)
+			}
 		}
-		return strings.Join(v, ", ")
+		d.Sections = append(d.Sections, section)
 	}
-
-	d.NodeID = get("node.id")
-	d.NodeSet = d.NodeID != ""
-	d.Endpoint = get("node.endpoint")
-	d.TLSMode = string(s.TLSMode)
-	d.ToolsVer = s.ToolsVersion
-
-	d.QuotaPresets = getList("users.quota_presets_gb")
-	d.DurPresets = getList("users.duration_presets_months")
-	d.DefaultQuotaGB = getInt("users.default_quota_gb")
-	d.DefaultDurMonths = getInt("users.default_duration_months")
-	d.DefaultDeviceLim = getInt("users.default_device_limit")
-	d.DefaultIfaceID = get("users.default_iface_id")
-	d.SubBaseURL = get("subscription.base_url")
-	d.FilenamePrefix = get("downloads.filename_prefix")
-	d.FilenameSuffix = get("downloads.filename_suffix")
-
-	d.MTU = getInt("network.mtu")
-	d.DNSServers = getList("network.dns_servers")
-	d.AllowedIPs = get("network.client_allowed_ips")
-	d.Keepalive = get("network.client_persistent_keepalive")
-	d.PortMin = getInt("network.port_min")
-	d.PortMax = getInt("network.port_max")
-	d.DefaultPool = get("network.default_pool")
-	d.IfaceMax = getInt("interfaces.max_count")
-	d.DriftPolicy = get("drift.policy")
-
-	d.AcctInterval = getInt("accounting.interval_seconds")
-	d.OnlineWindow = getInt("accounting.online_window_seconds")
-	d.SampleFlush = getInt("accounting.sample_flush_seconds")
-	d.SampleRetention = getInt("accounting.sample_retention_hours")
-	d.RollupHourlyDays = getInt("accounting.rollup_hourly_days")
-	d.RollupDailyDays = getInt("accounting.rollup_daily_days")
-
-	d.RateLimit = getInt("api.rate_limit_per_minute")
-	d.WebhookMax = getInt("webhooks.max_attempts")
-	d.SessionIdle = getInt("security.session_idle_hours")
-	d.SessionAbs = getInt("security.session_absolute_hours")
-
-	d.Retention = getInt("backup.retention_count")
-	if pw, err := s.Settings.GetSecret(ctx, "backup.password"); err == nil {
-		d.PasswordSet = pw != ""
-	}
-	if tok, err := s.Settings.GetSecret(ctx, "backup.telegram_token"); err == nil {
-		d.TelegramSet = tok != ""
-	}
-	d.TelegramChat = get("backup.telegram_chat")
 	return d
 }
 
@@ -264,7 +332,7 @@ func (s *Server) settingsSaveError(w http.ResponseWriter, r *http.Request, field
 	switch domain.CodeOf(err) {
 	case domain.CodeInvalidRequest, domain.CodeSettingUnknown, domain.CodeSettingInvalid:
 		d := s.submittedSettingsData(r)
-		d.Field = field
+		d.markInvalid(field)
 		d.Error = s.humanizeDomainError(r, err)
 		_ = s.render(w, r, "settings", "app", d)
 		return
@@ -278,81 +346,26 @@ func (s *Server) settingsSaveError(w http.ResponseWriter, r *http.Request, field
 	_ = s.render(w, r, "settings", "app", d)
 }
 
-// submittedSettingsData rebuilds the form from the POST so a failed save
-// never silently drops what the operator typed.
-func (s *Server) submittedSettingsData(r *http.Request) settingsData {
-	d := s.loadSettingsData(r)
-	str := func(field string) string { return r.PostFormValue(field) }
-	for _, spec := range settingSpecs {
-		if !r.Form.Has(spec.form) {
-			continue
+// submittedSettingsData preserves exact nonsensitive POST values, including
+// explicit secret-clear intent; plaintext secrets are never returned to the UI.
+func (s *Server) submittedSettingsData(r *http.Request) settingsData { return s.loadSettingsData(r) }
+
+func (d *settingsData) markInvalid(name string) {
+	d.Field = name
+	for i := range d.Sections {
+		section := &d.Sections[i]
+		for j := range section.Fields {
+			if section.Fields[j].Name == name {
+				section.Fields[j].Invalid = true
+				d.ErrorLabel = section.Fields[j].Label
+			}
 		}
-		switch spec.form {
-		case "node_id":
-			d.NodeID = str(spec.form)
-		case "endpoint":
-			d.Endpoint = str(spec.form)
-		case "quota_presets":
-			d.QuotaPresets = str(spec.form)
-		case "dur_presets":
-			d.DurPresets = str(spec.form)
-		case "default_quota_gb":
-			d.DefaultQuotaGB = str(spec.form)
-		case "default_dur_months":
-			d.DefaultDurMonths = str(spec.form)
-		case "default_device_lim":
-			d.DefaultDeviceLim = str(spec.form)
-		case "default_iface_id":
-			d.DefaultIfaceID = str(spec.form)
-		case "sub_base_url":
-			d.SubBaseURL = str(spec.form)
-		case "filename_prefix":
-			d.FilenamePrefix = str(spec.form)
-		case "filename_suffix":
-			d.FilenameSuffix = str(spec.form)
-		case "mtu":
-			d.MTU = str(spec.form)
-		case "dns_servers":
-			d.DNSServers = str(spec.form)
-		case "allowed_ips":
-			d.AllowedIPs = str(spec.form)
-		case "keepalive":
-			d.Keepalive = str(spec.form)
-		case "port_min":
-			d.PortMin = str(spec.form)
-		case "port_max":
-			d.PortMax = str(spec.form)
-		case "default_pool":
-			d.DefaultPool = str(spec.form)
-		case "iface_max":
-			d.IfaceMax = str(spec.form)
-		case "drift_policy":
-			d.DriftPolicy = str(spec.form)
-		case "acct_interval":
-			d.AcctInterval = str(spec.form)
-		case "online_window":
-			d.OnlineWindow = str(spec.form)
-		case "sample_flush":
-			d.SampleFlush = str(spec.form)
-		case "sample_retention":
-			d.SampleRetention = str(spec.form)
-		case "rollup_hourly":
-			d.RollupHourlyDays = str(spec.form)
-		case "rollup_daily":
-			d.RollupDailyDays = str(spec.form)
-		case "rate_limit":
-			d.RateLimit = str(spec.form)
-		case "webhook_max":
-			d.WebhookMax = str(spec.form)
-		case "session_idle":
-			d.SessionIdle = str(spec.form)
-		case "session_abs":
-			d.SessionAbs = str(spec.form)
-		case "retention":
-			d.Retention = str(spec.form)
-		case "telegram_chat":
-			d.TelegramChat = str(spec.form)
+		for j := range section.Advanced {
+			if section.Advanced[j].Name == name {
+				section.Advanced[j].Invalid = true
+				section.AdvancedOpen = true
+				d.ErrorLabel = section.Advanced[j].Label
+			}
 		}
 	}
-	return d
 }

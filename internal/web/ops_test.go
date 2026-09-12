@@ -58,7 +58,7 @@ func TestAdminsScreenLifecycle(t *testing.T) {
 	rec = e.postForm("/admins/create", url.Values{
 		"username": {"ops"}, "password": {"a-long-password-1"}, "role": {"admin"},
 	}, cookie)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "already taken") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "already taken") {
 		t.Fatalf("duplicate admin: %d", rec.Code)
 	}
 
@@ -168,7 +168,7 @@ func TestWebhooksScreenLifecycle(t *testing.T) {
 	rec := e.postForm("/webhooks/create", url.Values{
 		"url": {"http://"}, "events": {"user.created"},
 	}, cookie)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "URL") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "URL") {
 		t.Fatalf("invalid url create: %d", rec.Code)
 	}
 

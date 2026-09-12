@@ -22,7 +22,7 @@ counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3
 Docker doctor inspection is also mode-aware: AWG version/state comes from the runtime container,
 host network-policy checks remain local, and runtime errors are not mislabeled as missing links.
 
-## Phase 10 — Product UI/UX redesign (active, milestone 10.4)
+## Phase 10 — Product UI/UX redesign (active, milestone 10.5)
 
 10.0 is complete: the full tracked prompt maps to milestones/routes/states, and UI/Settings/QA
 contracts are adopted. Atomic Settings saves and safe input redisplay are implemented with
@@ -46,7 +46,10 @@ native no-JS profile edits. Build/unit/vet/assets passed.
 lossless retries, permissions, partial availability, accessible calendars/QR and exact chart data.
 Chrome 64 locale/theme/phone/desktop cells and native device retry pass; WSL build/unit/vet pass.
 Light remains the default, English uses system typography, and assets are measured without ceilings.
-10.4 Settings/administration is next; complete browser/state/TLS/VPS acceptance remains 10.7.
+10.4 Settings/administration is implemented: all 34 settings, native backup/restore/schedules,
+admins/tokens/webhooks/audit, localized permissions and faithful failed-state handling. Scoped
+tests, Chrome 80 composition cells and WSL build/unit/vet pass. 10.5 public/auth/error migration
+is next; complete browser/state/TLS/VPS acceptance remains 10.7.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

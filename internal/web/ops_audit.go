@@ -13,6 +13,7 @@ import (
 // is written through the redaction allowlist upstream, so it is safe to show.
 type auditData struct {
 	Error string
+	Known bool
 
 	Records []audit.Record
 	// NextCursor is the oldest ID on the page — the "older" link — set only
@@ -37,7 +38,7 @@ func (s *Server) handleAuditPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logError(r, "audit query", err)
 	}
-	d := auditData{Records: records, Action: opts.Action, ActorID: opts.ActorID}
+	d := auditData{Known: err == nil, Records: records, Action: opts.Action, ActorID: opts.ActorID}
 	if len(records) > 50 {
 		d.Records = records[:50]
 		d.NextCursor = records[49].ID

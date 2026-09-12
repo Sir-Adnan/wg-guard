@@ -8,10 +8,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** 10.0–10.3 are complete; remaining page migrations and
+- **Phase 10 product UI/UX redesign:** 10.0–10.4 are complete; remaining page migrations and
   full browser/VPS acceptance remain open.
 
 ### Changed
+- **Settings and administration:** grouped settings explain defaults and effects while preserving
+  atomic saves; backup/restore/schedule workflows support native forms and explicit availability.
+  Admins, tokens, webhooks and audit use localized permissions, safe retries and clearer lifecycle
+  controls. Invalid token expiry and empty webhook selections no longer silently retain unintended behavior.
 - **Users and dashboard:** redesigned account/device/subscription workflows, safe retry forms,
   keyboard calendars and lazy QR recovery; live telemetry and traffic charts distinguish missing
   data and provide exact non-hover values. Light is the default; English uses native typography.

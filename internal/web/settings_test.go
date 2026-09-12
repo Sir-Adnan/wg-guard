@@ -2,8 +2,10 @@ package web
 
 import (
 	"context"
+	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -240,8 +242,8 @@ func TestSettingsValidationRedisplayPreservesInputAndSavedMetadata(t *testing.T)
 	if err := e.reg.Set(ctx, "backup.password", "stored-secret"); err != nil {
 		t.Fatal(err)
 	}
-	if body := e.get("/settings", cookie).Body.String(); !strings.Contains(body, `name="mtu" type="number" min="576" max="65535" step="1" value="1420"`) {
-		t.Fatal("valid MTU did not render as a constrained number input")
+	if body := e.get("/settings", cookie).Body.String(); !strings.Contains(body, `name="mtu" type="text" inputmode="numeric" value="1420"`) {
+		t.Fatal("valid MTU did not render with a numeric input mode")
 	}
 
 	rec := e.post("/settings", url.Values{
@@ -456,5 +458,92 @@ func TestSettingsSavePreservesEmptyAndClearSemantics(t *testing.T) {
 	}
 	if got, _ := e.reg.GetSecret(ctx, "backup.telegram_token"); got != "saved-token" {
 		t.Fatal("blank/absent secret did not keep stored value")
+	}
+}
+
+func TestSettingsRedesignRetainsUnavailableSelectionAndAccessibleErrors(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	if err := e.reg.Set(context.Background(), "users.default_iface_id", "missing-interface"); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/settings", cookie).Body.String()
+	for _, want := range []string{`value="missing-interface" selected`, `id="settings-network"`, `data-settings-form`, `id="settings-access"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing settings contract: %s", want)
+		}
+	}
+	rec := e.post("/settings", url.Values{"port_min": {"  not a port  "}, "backup_password_clear": {"1"}}, cookie, deriveCSRF(cookie.Value))
+	body = rec.Body.String()
+	for _, want := range []string{`id="form-errors"`, `aria-invalid="true"`, `value="  not a port  "`, `name="backup_password_clear" value="1" checked`, `id="settings-network-advanced" open`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing safe retry contract: %s", want)
+		}
+	}
+}
+
+func TestSettingsRegistryCoverageAndUnavailableValues(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	// Malformed persisted values must never be displayed as invented zero/defaults.
+	if _, err := e.db.Exec(`INSERT INTO settings (key,value,updated_at) VALUES ('network.mtu','broken','2026-01-01T00:00:00Z'), ('backup.password','invalid-ciphertext','2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/settings", cookie).Body.String()
+	for _, name := range []string{"mtu", "backup_password"} {
+		input := regexp.MustCompile(`<input[^>]+name="` + name + `"[^>]*>`).FindString(body)
+		if !strings.Contains(input, " disabled") || strings.Contains(input, `value="0"`) || strings.Contains(input, `value="1420"`) {
+			t.Fatalf("unavailable %s input: %s", name, input)
+		}
+	}
+	for _, want := range []string{"Some settings could not be loaded", "This value will not be submitted."} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing load failure explanation: %s", want)
+		}
+	}
+	// Every registry key has exactly one editor, including secrets.
+	specs := map[string]string{"backup.password": "backup_password", "backup.telegram_token": "telegram_token"}
+	for _, spec := range settingSpecs {
+		specs[spec.key] = spec.form
+	}
+	for _, def := range settings.Defaults() {
+		name := specs[def.Key]
+		if name == "" {
+			t.Fatalf("no field for registry key %s", def.Key)
+		}
+		if got := strings.Count(body, `name="`+name+`"`); got != 1 {
+			t.Fatalf("%s has %d editors", def.Key, got)
+		}
+	}
+	if strings.Contains(body, "settings.help.") || strings.Contains(body, "settings.effect.") {
+		t.Fatal("unlocalized settings metadata")
+	}
+	// An unrelated save must not replace unavailable values by rendered defaults.
+	rec := e.post("/settings", url.Values{"filename_prefix": {"new-"}}, cookie, deriveCSRF(cookie.Value))
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("unrelated save: %d", rec.Code)
+	}
+	var raw string
+	if err := e.db.QueryRow(`SELECT value FROM settings WHERE key='network.mtu'`).Scan(&raw); err != nil || raw != "broken" {
+		t.Fatalf("unavailable value changed: %q %v", raw, err)
+	}
+}
+
+func TestSettingsUnavailableInterfaceListCannotOverwriteSelection(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	if err := e.reg.Set(context.Background(), "users.default_iface_id", "saved-interface"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`ALTER TABLE tunnel_interfaces RENAME TO unavailable_interfaces`); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/settings", cookie).Body.String()
+	selectTag := regexp.MustCompile(`<select[^>]+name="default_iface_id"[^>]*>`).FindString(body)
+	if !strings.Contains(selectTag, " disabled") || !strings.Contains(body, `value="saved-interface" selected`) {
+		t.Fatal("unavailable interface list lost or enabled saved selection")
 	}
 }

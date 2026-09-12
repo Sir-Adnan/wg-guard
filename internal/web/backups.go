@@ -15,8 +15,14 @@ import (
 // backupsData feeds the /backups screen: archive list, schedules, telegram
 // state, the pending-restore banner and the restore review card.
 type backupsData struct {
-	Error string // localized message or safe engine error text
-	Field string
+	Error                                                  string // localized message or safe engine error text
+	Field                                                  string
+	Available, ArchivesKnown, SchedulesKnown, PendingKnown bool
+	TelegramReady, SettingsKnown                           bool
+	ScheduleOpen                                           bool
+	CreateOpen                                             bool
+	RestoreName                                            string
+	Form                                                   operationalForm
 
 	Archives  []backup.ArchiveInfo
 	Schedules []*backup.Schedule
@@ -49,32 +55,64 @@ type scheduleForm struct {
 
 func (s *Server) backupsData(r *http.Request) backupsData {
 	ctx := r.Context()
-	d := backupsData{}
+	d := backupsData{Available: s.Backup != nil, SettingsKnown: true, RestoreName: r.URL.Query().Get("restore"), Form: scheduleOperationalForm(nil), CreateOpen: r.URL.Query().Get("create") == "1" || r.URL.Path == "/backups/create"}
+	if r.URL.Path == "/backups/restore" {
+		d.RestoreName = r.PostFormValue("name")
+	}
 	if s.Backup != nil {
 		if arcs, err := s.Backup.List(); err == nil {
 			d.Archives = arcs
+			d.ArchivesKnown = true
 		}
 		if pending, err := s.Backup.Pending(); err == nil {
 			d.Pending = pending
+			d.PendingKnown = true
 		}
 		if schedules, err := s.Backup.Schedules(ctx); err == nil {
 			d.Schedules = schedules
+			d.SchedulesKnown = true
 		}
 	}
-	if token, err := s.Settings.GetSecret(ctx, "backup.telegram_token"); err == nil && token != "" {
-		d.TelegramSet = true
-		d.TelegramChat, _ = s.Settings.GetString(ctx, "backup.telegram_chat")
+	if token, err := s.Settings.GetSecret(ctx, "backup.telegram_token"); err == nil {
+		d.TelegramSet = token != ""
+	} else {
+		d.SettingsKnown = false
 	}
-	if pw, err := s.Settings.GetSecret(ctx, "backup.password"); err == nil && pw != "" {
-		d.PasswordSet = true
+	if chat, err := s.Settings.GetString(ctx, "backup.telegram_chat"); err == nil {
+		d.TelegramChat = chat
+	} else {
+		d.SettingsKnown = false
 	}
-	d.Retention, _ = s.Settings.GetInt(ctx, "backup.retention_count")
+	if pw, err := s.Settings.GetSecret(ctx, "backup.password"); err == nil {
+		d.PasswordSet = pw != ""
+	} else {
+		d.SettingsKnown = false
+	}
+	if retention, err := s.Settings.GetInt(ctx, "backup.retention_count"); err == nil {
+		d.Retention = retention
+	} else {
+		d.SettingsKnown = false
+	}
+	d.TelegramReady = d.Available && d.SettingsKnown && d.TelegramSet && strings.TrimSpace(d.TelegramChat) != ""
 	return d
 }
 
 // handleBackupsPage renders the backups/ops screen.
 func (s *Server) handleBackupsPage(w http.ResponseWriter, r *http.Request) {
-	_ = s.render(w, r, "backups", "app", s.backupsData(r))
+	d := s.backupsData(r)
+	if id := r.URL.Query().Get("schedule"); id != "" && d.Available {
+		d.ScheduleOpen = true
+		if id != "new" {
+			f, err := s.Backup.GetSchedule(r.Context(), id)
+			if err != nil {
+				s.backupError(w, r, err)
+				return
+			}
+			d.SchedForm.ID = f.ID
+			d.Form = scheduleOperationalForm(f)
+		}
+	}
+	_ = s.render(w, r, "backups", "app", d)
 }
 
 // handleBackupCreate runs a manual archive (optional explicit password;
@@ -150,7 +188,8 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 		switch domain.CodeOf(err) {
 		case domain.CodeInvalidRequest, domain.CodeNotFound:
 			d := s.backupsData(r)
-			d.Error = err.Error()
+			d.Error = backup.ErrorText(err, s.localeFor(r))
+			d.RestoreName = name
 			_ = s.render(w, r, "backups", "app", d)
 		default:
 			s.backupError(w, r, err)
@@ -195,6 +234,37 @@ func (s *Server) handleBackupRestoreCancel(w http.ResponseWriter, r *http.Reques
 
 // --- schedules -----------------------------------------------------------------
 
+func scheduleOperationalForm(f *backup.Schedule) operationalForm {
+	v := map[string]string{"name": "", "kind": "daily", "time_of_day": "03:00", "weekday": "0", "interval_hours": "24", "retention": "0", "enabled": "1"}
+	if f != nil {
+		v["name"], v["kind"], v["time_of_day"] = f.Name, f.Kind, f.TimeOfDay
+		v["weekday"], v["interval_hours"], v["retention"] = strconv.Itoa(f.Weekday), strconv.Itoa(f.IntervalHours), strconv.Itoa(f.RetentionCount)
+		if !f.Enabled {
+			v["enabled"] = "0"
+		}
+	}
+	return operationalForm{Values: v, Fields: map[string]string{}}
+}
+
+func scheduleNumberErrors(r *http.Request) map[string]string {
+	fields := map[string]string{}
+	keys := []string{"retention"}
+	if r.PostFormValue("kind") == "interval" {
+		keys = append(keys, "interval_hours")
+	}
+	if r.PostFormValue("kind") == "weekly" {
+		keys = append(keys, "weekday")
+	}
+	for _, key := range keys {
+		if raw := r.PostFormValue(key); raw != "" {
+			if _, err := strconv.Atoi(raw); err != nil {
+				fields[key] = "forms.error.number"
+			}
+		}
+	}
+	return fields
+}
+
 func (s *Server) scheduleFromForm(r *http.Request) scheduleForm {
 	weekday, _ := strconv.Atoi(r.PostFormValue("weekday"))
 	interval, _ := strconv.Atoi(r.PostFormValue("interval_hours"))
@@ -221,6 +291,10 @@ func (f scheduleForm) toSchedule() *backup.Schedule {
 // handleScheduleCreate adds a schedule.
 func (s *Server) handleScheduleCreate(w http.ResponseWriter, r *http.Request) {
 	f := s.scheduleFromForm(r)
+	if len(scheduleNumberErrors(r)) > 0 {
+		s.scheduleError(w, r, f, domain.E(domain.CodeInvalidRequest, "invalid schedule number"))
+		return
+	}
 	if _, err := s.Backup.CreateSchedule(r.Context(), f.toSchedule()); err != nil {
 		s.scheduleError(w, r, f, err)
 		return
@@ -234,6 +308,10 @@ func (s *Server) handleScheduleUpdate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	f := s.scheduleFromForm(r)
 	f.ID = id
+	if len(scheduleNumberErrors(r)) > 0 {
+		s.scheduleError(w, r, f, domain.E(domain.CodeInvalidRequest, "invalid schedule number"))
+		return
+	}
 	if _, err := s.Backup.UpdateSchedule(r.Context(), id, f.toSchedule()); err != nil {
 		s.scheduleError(w, r, f, err)
 		return
@@ -318,11 +396,22 @@ func (s *Server) backupError(w http.ResponseWriter, r *http.Request, err error) 
 func (s *Server) scheduleError(w http.ResponseWriter, r *http.Request, f scheduleForm, err error) {
 	d := s.backupsData(r)
 	d.SchedForm = f
+	d.ScheduleOpen = true
+	d.Form = submittedOperationalForm(r, scheduleOperationalForm(nil).Values)
+	d.Form.Fields = scheduleNumberErrors(r)
+	message := strings.TrimPrefix(strings.TrimPrefix(strings.ToLower(err.Error()), "backup: "), "schedule ")
+	for _, item := range [][2]string{{"name", "name"}, {"kind", "kind"}, {"time", "time_of_day"}, {"weekday", "weekday"}, {"interval", "interval_hours"}, {"retention", "retention"}} {
+		if strings.HasPrefix(message, item[0]) {
+			d.Form.Fields[item[1]] = "common.error_validation"
+		}
+	}
 	if domain.CodeOf(err) == domain.CodeInvalidRequest {
 		d.Error = backup.ErrorText(err, s.localeFor(r))
 	} else {
 		d.Error = s.t(r, "common.error_generic")
 		s.logError(r, "schedule save", err)
 	}
+	s.operationalFormStatus(w, r, &d.Form, err)
+	d.Form.Error = d.Error
 	_ = s.render(w, r, "backups", "app", d)
 }

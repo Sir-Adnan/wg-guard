@@ -200,7 +200,7 @@ func TestBackupScheduleLifecycle(t *testing.T) {
 	rec := e.postForm("/backups/schedules", url.Values{
 		"name": {"nightly"}, "kind": {"monthly"},
 	}, cookie)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "must be daily") {
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "must be daily") {
 		t.Fatalf("invalid schedule: %d", rec.Code)
 	}
 
@@ -247,6 +247,48 @@ func TestBackupScheduleLifecycle(t *testing.T) {
 	}
 	if body := e.get("/backups", cookie).Body.String(); strings.Contains(body, "nightly") {
 		t.Fatal("schedule still listed")
+	}
+}
+
+func TestBackupScheduleInvalidNumbersRetainRawValues(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	rec := e.postForm("/backups/schedules", url.Values{"name": {"Keep schedule"}, "kind": {"interval"}, "interval_hours": {"bad-hours"}, "retention": {"bad-retention"}, "enabled": {"0"}}, cookie)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), `value="bad-hours"`) || !strings.Contains(rec.Body.String(), `value="bad-retention"`) || !strings.Contains(rec.Body.String(), `aria-invalid="true"`) {
+		t.Fatal("invalid schedule values must survive with visible field errors")
+	}
+	if schedules, _ := e.srv.Backup.Schedules(context.Background()); len(schedules) != 0 {
+		t.Fatal("invalid schedule was saved")
+	}
+}
+
+func TestBackupScheduleNativeEditKeepsDisabled(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	e.postForm("/backups/schedules", url.Values{"name": {"paused"}, "kind": {"daily"}, "time_of_day": {"03:15"}, "enabled": {"0"}}, cookie)
+	body := e.get("/backups?schedule="+e.schedID("paused"), cookie).Body.String()
+	if !strings.Contains(body, `value="0" selected`) || !strings.Contains(body, `/update"`) {
+		t.Fatal("native editor must bind status and update target")
+	}
+}
+
+func TestBackupsUnavailableAndTelegramReadiness(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	e.srv.Backup = nil
+	body := e.get("/backups", cookie).Body.String()
+	if !strings.Contains(body, "Backup service is unavailable") || strings.Contains(body, "No backups yet") {
+		t.Fatal("unavailable backup service must not appear empty")
+	}
+	if err := e.reg.SetRaw(context.Background(), "backup.telegram_token", "synthetic-token"); err != nil {
+		t.Fatal(err)
+	}
+	body = e.get("/backups", cookie).Body.String()
+	if strings.Contains(body, `data-telegram-ready="true"`) {
+		t.Fatal("token alone must not imply Telegram is ready")
 	}
 }
 

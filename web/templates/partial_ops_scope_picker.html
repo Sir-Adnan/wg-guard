@@ -1,0 +1,24 @@
+{{define "ops_scope_picker"}}
+{{$v := .v}}{{$selected := .selected}}{{$name := .name}}
+<fieldset class="ops-permissions" {{if .invalid}}aria-invalid="true" aria-describedby="scope-error"{{end}}>
+  <legend>{{$v.T "tokens.col_scopes"}}</legend><p class="hint">{{$v.T "ops.scope_hint"}}</p>
+  {{if .invalid}}<p class="field-error" id="scope-error">{{$v.T "ops.scope_error"}}</p>{{end}}
+  {{range $v.UnknownChoices $selected}}<label class="check-label"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" checked><span class="ltr-data">{{.}}</span><span class="field-error">{{$v.T "ops.scope_error"}}</span></label>{{end}}
+  <div class="ops-scope-grid">{{range .groups}}
+    <details class="ops-scope-group" {{range .Scopes}}{{if $v.HasChoice $selected .}}open{{break}}{{end}}{{end}}><summary>{{$v.OpsLabel "family" .Family}}</summary>
+      {{range .Scopes}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" {{if $v.HasChoice $selected .}}checked{{end}}><span><strong>{{$v.ScopeLabel .}}</strong><small>{{$v.ScopeDescription .}}</small></span></label>{{end}}
+    </details>{{end}}
+  </div>
+</fieldset>
+{{end}}
+{{define "ops_field"}}
+{{$v := .v}}{{$f := .f}}{{$name := .name}}
+<div class="field"><label for="ops-{{$name}}">{{$v.T .label}}</label>
+  <input class="input {{if .technical}}ltr-data{{end}}" id="ops-{{$name}}" name="{{$name}}" {{if .password}}type="password" autocomplete="new-password"{{else}}value="{{$f.V $name}}"{{end}} {{if .numeric}}inputmode="numeric"{{end}} aria-describedby="ops-{{$name}}-help" {{if $f.Invalid $name}}aria-invalid="true"{{end}}>
+  <span class="hint" id="ops-{{$name}}-help">{{if .hint}}{{$v.T .hint}}{{end}}{{if $f.Invalid $name}} <span class="field-error">{{$v.T (index $f.Fields $name)}}</span>{{end}}</span>
+</div>
+{{end}}
+{{define "ops_unavailable"}}
+<div class="empty"><h2>{{.T "forms.unavailable"}}</h2><p>{{.T "ops.load_failed"}}</p><a class="btn" href="{{.Path}}">{{.T "common.retry"}}</a></div>
+{{end}}
+

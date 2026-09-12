@@ -132,6 +132,15 @@ Settings uses grouped section navigation, progressive disclosure and one editor 
 operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
 consequences and external host ownership are explained. Save/validation/secret semantics are
 specified in [Phase 10](../development/phase10.md#settings-save-decision-100-prerequisite).
+Its separate lightweight `settings.js` module tracks dirty state without repeated announcements;
+keyboard focus clears the sticky Save bar. Native focus/anchor scrolling is immediate so pointer
+actions do not race page movement. Session TTL and drift-policy saves require a service restart;
+saving does not restart the service. Backup operations link to the single Settings editor.
+
+Administration uses native forms/disclosures and selected-account editors, with human permission/
+event labels and unchanged submitted identifiers. Valid family wildcards round-trip; owner roles
+retain service protection. Full-form webhook saves reject an empty event selection; rejected URLs
+never redisplay userinfo. Audit summaries compact UUIDs while details retain exact copyable values.
 
 Build the strongest premium UX within the lightweight architecture, then optimize unnecessary
 cost without degrading it. There are no numerical asset-size targets, review thresholds or

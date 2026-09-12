@@ -14,96 +14,30 @@
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("[data-token-once]")) e.target.select();
   });
-
-  /* ---------- admins: password + permission modals ---------- */
-  document.addEventListener("click", (e) => {
-    const pw = e.target.closest("[data-admin-pw]");
-    if (pw) {
-      const form = $("[data-admin-pw-form]");
-      form.action = "/admins/" + pw.dataset.adminPw + "/password";
-      $("[data-admin-pw-name]", form).textContent = pw.dataset.adminName || "";
-      form.reset();
-      openModal("dlg-admin-password");
-      return;
-    }
-    const pe = e.target.closest("[data-admin-perms]");
-    if (pe) {
-      const form = $("[data-admin-perms-form]");
-      form.action = "/admins/" + pe.dataset.adminPerms + "/permissions";
-      $("[data-admin-perms-name]", form).textContent = pe.dataset.adminName || "";
-      const granted = new Set((pe.dataset.adminPermlist || "").split(/\s+/).filter(Boolean));
-      $$("input[name=permissions]", form).forEach((c) => { c.checked = granted.has(c.value); });
-      openModal("dlg-admin-perms");
-    }
+  window.addEventListener("pagehide", () => {
+    $$("[data-token-once]").forEach(input => { input.value = ""; input.removeAttribute("value"); });
   });
 
-  /* ---------- webhooks: edit modal prefill ---------- */
-  document.addEventListener("click", (e) => {
-    const ed = e.target.closest("[data-hook-edit]");
-    if (!ed) return;
-    const form = $("[data-hook-form]");
-    form.action = "/webhooks/" + ed.dataset.hookEdit + "/update";
-    $("#hook-edit-url", form).value = ed.dataset.hookUrl || "";
-    const on = ed.dataset.hookEnabled === "1";
-    const check = $("[data-hook-enabled-check]", form);
-    check.checked = on;
-    $$("[data-hook-enabled-input]", form).forEach((el) => { el.disabled = on; });
-    $$("[data-hook-event]", form).forEach((c) => { c.checked = false; });
-    openModal("dlg-hook-edit");
-  });
-  // The endpoint list page opens the edit modal from its own buttons; event
-  // checkboxes are filled from the row's data via data-hook-events.
-  document.addEventListener("click", (e) => {
-    const ed = e.target.closest("[data-hook-edit]");
-    if (!ed || !ed.dataset.hookEvents) return;
-    const events = new Set(ed.dataset.hookEvents.split(","));
-    $$("[data-hook-event]").forEach((c) => { c.checked = events.has(c.dataset.hookEvent); });
-  });
-
-  /* ---------- backup schedule dialog (kind segments + edit prefill) ---------- */
-  const schedForm = $("[data-sched-form]");
+  /* ---------- schedule form progressive disclosure ---------- */
+  const schedForm = $('[data-sched-form]');
   if (schedForm) {
-    const kindInput = $("[data-sched-kind-input]", schedForm);
-    const kindBtns = $$("[data-sched-kind-btn]", schedForm);
-    const setKind = (kind) => {
-      kindInput.value = kind;
-      kindBtns.forEach((b) => b.classList.toggle("is-on", b.dataset.schedKindBtn === kind));
-      $$("[data-sched-panel]", schedForm).forEach((panel) => {
-        const show = (panel.dataset.schedPanel || "").split(",").includes(kind);
-        panel.hidden = !show;
-        // Park hidden inputs so only the visible kind submits values.
-        $$("input,select", panel).forEach((el) => { el.disabled = !show; });
+    const kindInput = $('[data-sched-kind-input]', schedForm);
+    const setKind = () => {
+      const kind = kindInput.value;
+      $$('[data-sched-panel]', schedForm).forEach(panel => {
+        const visible = panel.dataset.schedPanel.split(',').includes(kind);
+        panel.hidden = !visible;
+        $$('input,select', panel).forEach(el => { el.disabled = !visible; });
       });
-      const wdRow = $("[data-sched-weekday-row]", schedForm);
-      if (wdRow) wdRow.hidden = kind !== "weekly";
-      $$("select", wdRow || schedForm).forEach((el) => {
-        if (el.name === "weekday") el.disabled = kind !== "weekly";
-      });
+      const weekday = $('[data-sched-weekday-row]', schedForm);
+      if (weekday) {
+        weekday.hidden = kind !== 'weekly';
+        $('select', weekday).disabled = kind !== 'weekly';
+      }
     };
-    kindBtns.forEach((b) => b.addEventListener("click", () => setKind(b.dataset.schedKindBtn)));
-    setKind(kindInput.value || "daily");
-
-    document.addEventListener("click", (e) => {
-      const ed = e.target.closest("[data-sched-edit]");
-      if (!ed) return;
-      schedForm.action = "/backups/schedules/" + ed.dataset.schedEdit + "/update";
-      $("#sch-name", schedForm).value = ed.dataset.schedName || "";
-      $("#sch-time", schedForm).value = ed.dataset.schedTime || "03:00";
-      $("#sch-weekday", schedForm).value = ed.dataset.schedWeekday || "0";
-      $("#sch-interval", schedForm).value = ed.dataset.schedInterval || "24";
-      $("#sch-retention", schedForm).value = ed.dataset.schedRetention || "0";
-      setKind(ed.dataset.schedKind || "daily");
-      openModal("dlg-schedule");
-    });
-    // The "add" button resets to create mode.
-    const addBtn = $('[data-open-modal="dlg-schedule"]');
-    if (addBtn) addBtn.addEventListener("click", () => {
-      schedForm.action = "/backups/schedules";
-      schedForm.reset();
-      setKind("daily");
-    });
+    kindInput.addEventListener('change', setKind);
+    setKind();
   }
-
   /* ---------- bulk selection (users table) ---------- */
 
   function updateBulkSelection() {
@@ -205,7 +139,7 @@
     msgEl.textContent = form.dataset.confirmMessage || "";
     const okBtn = $("[data-confirm-ok]", dlg);
     okBtn.className = "btn " + (form.dataset.confirmKind === "ok" ? "btn--primary" : "btn--danger");
-    okBtn.textContent = form.dataset.confirmLabel || "";
+    okBtn.textContent = form.dataset.confirmLabel || e.submitter?.getAttribute('aria-label') || e.submitter?.textContent?.trim() || document.querySelector('meta[name="ui-confirm"]')?.content || "";
   });
 
   document.addEventListener("click", (e) => {

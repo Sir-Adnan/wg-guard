@@ -263,6 +263,8 @@ func (v *View) D(t *time.Time) string {
 }
 
 // DT renders a date with time.
+func (v *View) DateTime(t time.Time) string { return i18n.FormatDateTime(v.Locale, t, nil) }
+
 func (v *View) DT(t *time.Time) string {
 	if t == nil {
 		return v.T("common.never")
@@ -444,8 +446,10 @@ func (s *Server) localeFor(r *http.Request) i18n.Locale {
 // create/edit forms read best on a centered narrow column, while tables and
 // dashboards keep the full fluid width (see .content--narrow in app.css).
 func pageClass(path string) string {
-	if strings.HasPrefix(path, "/settings") ||
-		strings.HasSuffix(path, "/new") || strings.HasSuffix(path, "/edit") {
+	if path == "/settings" {
+		return " content--settings"
+	}
+	if strings.HasSuffix(path, "/new") || strings.HasSuffix(path, "/edit") {
 		return " content--narrow"
 	}
 	return ""

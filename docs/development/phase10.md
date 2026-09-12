@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0–10.3 complete with scoped verification; 10.4 is next**. The owner approved
+Status: **active; 10.0–10.4 complete with scoped verification; 10.5 is next**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
@@ -171,4 +171,12 @@ SVG 3,095 B gzip; maximum checked HTML 6,803 B. Light default, native English ty
 measurement-only asset tooling implement the owner continuation decisions. REST/OpenAPI unchanged.
 
 Full Firefox/WebKit, viewport/state, physical-device and relevant TLS/VPS acceptance remain 10.7.
+10.4: all 34 Settings editors, seven groups/defaults/effects/dirty saves; native backup/schedule/
+restore review; redesigned admins, tokens, webhooks/deliveries and audit. Scoped tests cover failed
+reads, exact retries, paused schedules, family wildcards, webhook empty selections and credential
+redaction. Chrome 152.0.7977.84 passed 80 locale/theme/390–1440 cells, native schedule edits,
+Settings keyboard/save and credential lifecycle checks. Focused review fixes and WSL build/unit/vet
+passed. Gzip: JS 29,434 B, CSS 16,348 B, fonts 101,750 B, SVG 3,095 B; maximum HTML 8,352 B.
+Native scrolling now settles immediately; Settings focus clears its sticky Save bar. No REST change.
+
 These scoped milestones do not close RB-006 or start Phase 11; no public release is authorized.

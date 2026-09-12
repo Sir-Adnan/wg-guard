@@ -67,6 +67,7 @@
   </div>
 </div>
 {{template "feedback-host" .}}
+{{if eq .Path "/settings"}}<script type="module" src="{{.A "/js/settings.js"}}"></script>{{end}}
 {{template "confirm-dialog" .}}
 </body>
 </html>{{end}}

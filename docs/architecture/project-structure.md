@@ -127,3 +127,6 @@ validation/encryption and commit all submitted overrides in one SQLite transacti
 Operational forms reuse `operational_forms.go` and `partial_form_feedback.html` for allowlisted
 input redisplay and safe field feedback; interface display copies remove secret carriers before
 reaching templates. Existing permission scopes also protect migrated panel routes and controls.
+Settings presentation metadata lives in the web layer and derives defaults/ranges from the registry;
+`settings.js` is loaded only on that route. Administration shares `ops_labels.go` and its permission/
+field partial. These presentation helpers add no REST dependency or persistence abstraction.

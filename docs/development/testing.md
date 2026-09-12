@@ -166,6 +166,8 @@ errors and mutations in the isolated database, plus relevant fa/en/theme/phone/d
 without replaying the foundation suite. `WG_TEST_BROWSER_ENGINE` defaults to `chromium`;
 alternate engines require their development browser binaries. The `final` suite expands the
 viewport matrix and is reserved for 10.7. Browser diagnostics omit URLs and capabilities.
+`WG_TEST_UI_PAGE` filters composition reruns to an affected route. Native device/schedule checks
+use actual JavaScript-disabled contexts; standalone native User checks use `10.3-users-native`.
 
 The asset script reports JS/CSS/fonts/SVG raw and gzip sizes without size ceilings; rendered HTML
 and fragments are browser measurements. Investigate waste and loading/rendering regressions. Browser

@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	neturl "net/url"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
@@ -12,11 +13,14 @@ import (
 // signing secret is generated server-side and shown exactly once, on create
 // or rotation.
 type webhooksData struct {
-	Error    string
-	Show     *webhook.Endpoint
-	List     []webhook.EndpointWithStats
-	Delivery []webhook.Delivery
-	Catalog  []string
+	Form          operationalForm
+	Selected      []string
+	Known         bool
+	DeliveryKnown bool
+	Show          *webhook.Endpoint
+	List          []webhook.EndpointWithStats
+	Delivery      []webhook.Delivery
+	Catalog       []string
 
 	Created struct {
 		URL    string
@@ -25,11 +29,74 @@ type webhooksData struct {
 }
 
 func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
-	list, err := s.Webhooks.List(r.Context())
-	if err != nil {
-		s.logError(r, "webhooks list", err)
+	_ = s.render(w, r, "webhooks", "app", s.webhookPageData(r, nil))
+}
+
+func (s *Server) webhookPageData(r *http.Request, endpoint *webhook.Endpoint) webhooksData {
+	d := webhooksData{Show: endpoint, Catalog: webhook.Catalog(), Form: operationalForm{Values: map[string]string{"url": "", "enabled": "1"}, Fields: map[string]string{}}}
+	if endpoint != nil {
+		d.Form.Values["url"] = endpoint.URL
+		d.Form.Values["enabled"] = ""
+		if endpoint.Enabled {
+			d.Form.Values["enabled"] = "1"
+		}
+		d.Selected = endpoint.Events
+		var err error
+		if canOperate(r, "webhooks.read") {
+			d.Delivery, err = s.Webhooks.Deliveries(r.Context(), endpoint.ID, 50)
+			d.DeliveryKnown = err == nil
+		}
+	} else {
+		var err error
+		if canOperate(r, "webhooks.read") {
+			d.List, err = s.Webhooks.List(r.Context())
+			d.Known = err == nil
+		}
 	}
-	_ = s.render(w, r, "webhooks", "app", webhooksData{List: list, Catalog: webhook.Catalog()})
+	return d
+}
+
+func (s *Server) webhookFormFailure(w http.ResponseWriter, r *http.Request, id string, err error) {
+	var endpoint *webhook.Endpoint
+	if id != "" {
+		endpoint, _ = s.Webhooks.Get(r.Context(), id)
+		if endpoint == nil {
+			endpoint = &webhook.Endpoint{ID: id}
+		}
+	}
+	d := s.webhookPageData(r, endpoint)
+	d.Form = submittedOperationalForm(r, d.Form.Values)
+	// URL user information is a rejected credential, never a retained form value.
+	if parsed, parseErr := neturl.Parse(d.Form.V("url")); parseErr == nil {
+		if parsed.User != nil {
+			parsed.User = nil
+			d.Form.Values["url"] = parsed.String()
+		}
+	} else {
+		// Parsing can fail inside the password itself (for example %zz).
+		// Inspect only the apparent authority; never reflect rejected credentials.
+		raw := strings.TrimSpace(d.Form.V("url"))
+		_, authority, hasScheme := strings.Cut(raw, "://")
+		if !hasScheme {
+			authority = strings.TrimPrefix(raw, "//")
+		}
+		if end := strings.IndexAny(authority, "/?#"); end >= 0 {
+			authority = authority[:end]
+		}
+		if strings.Contains(authority, "@") {
+			d.Form.Values["url"] = ""
+		}
+	}
+	d.Selected = r.Form["events"]
+	if domain.CodeOf(err) == domain.CodeInvalidRequest {
+		field := "url"
+		if strings.Contains(err.Error(), "event") {
+			field = "events"
+		}
+		d.Form.Fields[field] = "common.error_validation"
+	}
+	s.operationalFormStatus(w, r, &d.Form, err)
+	_ = s.render(w, r, "webhooks", "app", d)
 }
 
 // handleWebhookCreate adds an endpoint; the (generated) signing secret is
@@ -39,29 +106,14 @@ func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	events := r.Form["events"]
 	e, secret, err := s.Webhooks.Create(r.Context(), url, events, "")
 	if err != nil {
-		if domain.CodeOf(err) == domain.CodeInvalidRequest {
-			d := webhooksData{List: s.webhookList(r), Catalog: webhook.Catalog()}
-			d.Error = err.Error()
-			_ = s.render(w, r, "webhooks", "app", d)
-			return
-		}
-		s.logError(r, "webhook create", err)
-		s.redirectToast(w, r, "/webhooks", "common.error_generic")
+		s.webhookFormFailure(w, r, "", err)
 		return
 	}
-	s.audit(r, "webhooks.created", e.URL, nil)
-	d := webhooksData{List: s.webhookList(r), Catalog: webhook.Catalog()}
+	s.audit(r, "webhooks.created", e.ID, nil)
+	d := s.webhookPageData(r, nil)
 	d.Created.URL = e.URL
 	d.Created.Secret = secret
 	_ = s.render(w, r, "webhooks", "app", d)
-}
-
-func (s *Server) webhookList(r *http.Request) []webhook.EndpointWithStats {
-	list, err := s.Webhooks.List(r.Context())
-	if err != nil {
-		return nil
-	}
-	return list
 }
 
 // handleWebhookShow is the endpoint detail: recent deliveries + actions.
@@ -72,27 +124,24 @@ func (s *Server) handleWebhookShow(w http.ResponseWriter, r *http.Request) {
 		s.opsError(w, r, "/webhooks", err)
 		return
 	}
-	deliveries, err := s.Webhooks.Deliveries(r.Context(), id, 50)
-	if err != nil {
-		s.logError(r, "webhook deliveries", err)
-	}
-	_ = s.render(w, r, "webhooks", "app", webhooksData{
-		Show: e, Delivery: deliveries, Catalog: webhook.Catalog(),
-	})
+	_ = s.render(w, r, "webhooks", "app", s.webhookPageData(r, e))
 }
 
-// handleWebhookUpdate applies URL/events/enabled changes from the edit modal.
+// handleWebhookUpdate applies the complete endpoint settings form.
 func (s *Server) handleWebhookUpdate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	url := strings.TrimSpace(r.PostFormValue("url"))
 	enabled := r.PostFormValue("enabled") == "1"
-	in := webhook.EndpointUpdate{URL: &url, Events: r.Form["events"], Enabled: &enabled}
+	// This is a complete HTML form, so unchecked events mean an explicit empty
+	// selection. The service reserves nil for omitted fields in partial updates.
+	events := append([]string{}, r.Form["events"]...)
+	in := webhook.EndpointUpdate{URL: &url, Events: events, Enabled: &enabled}
 	if _, _, err := s.Webhooks.Update(r.Context(), id, in); err != nil {
-		s.opsError(w, r, "/webhooks/"+id, err)
+		s.webhookFormFailure(w, r, id, err)
 		return
 	}
-	s.audit(r, "webhooks.updated", url, nil)
-	s.redirectToast(w, r, "/webhooks", "hooks.toast.updated")
+	s.audit(r, "webhooks.updated", id, nil)
+	s.redirectToast(w, r, operationalReturnPath(r, "/webhooks/"+id, "webhooks.read"), "hooks.toast.updated")
 }
 
 // handleWebhookRotate generates a new signing secret (shown once).
@@ -104,9 +153,8 @@ func (s *Server) handleWebhookRotate(w http.ResponseWriter, r *http.Request) {
 		s.opsError(w, r, "/webhooks/"+id, err)
 		return
 	}
-	s.audit(r, "webhooks.secret_rotated", e.URL, nil)
-	deliveries, _ := s.Webhooks.Deliveries(r.Context(), id, 50)
-	d := webhooksData{Show: e, Delivery: deliveries, Catalog: webhook.Catalog()}
+	s.audit(r, "webhooks.secret_rotated", e.ID, nil)
+	d := s.webhookPageData(r, e)
 	d.Created.URL = e.URL
 	d.Created.Secret = secret
 	_ = s.render(w, r, "webhooks", "app", d)
