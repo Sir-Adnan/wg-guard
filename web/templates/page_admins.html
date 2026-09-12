@@ -24,7 +24,7 @@
 <form method="post" action="/admins/create" class="form-stack" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
 <div class="field-row">{{template "ops_field" (dict "v" . "f" .Data.Form "name" "username" "label" "admins.col_admin" "hint" "onboard.username_hint" "technical" true)}}
 {{template "ops_field" (dict "v" . "f" .Data.Form "name" "password" "label" "admins.password" "hint" "admins.password_hint" "password" true "technical" true)}}</div>
-<div class="field"><label for="ops-role">{{.T "admins.col_role"}}</label><select class="select" id="ops-role" name="role" aria-describedby="ops-role-help" {{if .Data.Form.Invalid "role"}}aria-invalid="true"{{end}}><option value="admin" {{if eq (.Data.Form.V "role") "admin"}}selected{{end}}>{{.T "role.admin"}}</option><option value="owner" {{if eq (.Data.Form.V "role") "owner"}}selected{{end}}>{{.T "role.owner"}}</option></select><span class="hint" id="ops-role-help">{{.T "admins.permissions_hint"}}</span></div>
+<input type="hidden" name="role" value="admin"><p class="callout">{{.T "ops.admin_create_role"}}</p>
 {{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "permissions" "invalid" (.Data.Form.Invalid "permissions"))}}
 <div class="form-actions"><button class="btn btn--primary" type="submit">{{.T "admins.add"}}</button></div></form></div></details>
 {{end}}</div>

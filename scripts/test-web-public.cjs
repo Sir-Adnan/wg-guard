@@ -1,8 +1,10 @@
 // Auth/public browser contract; reuses the product fixture and never logs capabilities.
 const assert = (ok, message) => { if (!ok) throw new Error('contract: ' + message); };
-module.exports = async ({ browser, seed, final }) => {
+const qa = require('./web-qa.cjs');
+module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
   let step = 'launch';
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  await qa.install(context);
   const page = await context.newPage();
   let errors = 0;
   page.on('pageerror', () => errors++);
@@ -13,7 +15,9 @@ module.exports = async ({ browser, seed, final }) => {
   };
   const submit = async form => Promise.all([page.waitForNavigation(), form.locator('button[type="submit"]').last().click()]);
   let cells = 0, maxHTML = 0;
+  const performanceSummary = {};
   try {
+    if (!compositionsOnly) {
     step = 'login validation';
     await navigate(seed.url, '/login?next=%2Fdashboard');
     await page.locator('#f-username').fill('browser-login');
@@ -52,6 +56,7 @@ module.exports = async ({ browser, seed, final }) => {
     await page.waitForFunction(() => document.querySelector('#qr-img')?.naturalWidth > 0);
     await page.locator('#qr-modal [data-close-modal]').click();
 
+    }
     step = 'auth and public compositions';
     const widths = final ? [320,360,390,430,768,799,800,959,960,961,1024,1280,1440,1920,2560,3440] : [390,1440];
     const surfaces = [
@@ -64,8 +69,11 @@ module.exports = async ({ browser, seed, final }) => {
       for (const theme of ['light','dark']) {
         await context.addCookies([{ name:'wg_locale', value:lang, url:seed.url }, { name:'wg_theme', value:theme, url:seed.url }]);
         for (const width of widths) {
+          if(!qa.variant(lang,theme,width))continue;
           await page.setViewportSize({ width, height:900 });
+          await page.setExtraHTTPHeaders({'X-WG-QA-Client':lang+'-'+theme+'-'+width});
           for (const [name, base, path, status] of surfaces) {
+            if(process.env.WG_TEST_UI_PUBLIC && name!==process.env.WG_TEST_UI_PUBLIC)continue;
             step = name + ' ' + lang + '/' + theme + '/' + width;
             const target = name.includes('subscription') ? path + '?lang=' + lang : path;
             await navigate(base, target, status);
@@ -75,6 +83,10 @@ module.exports = async ({ browser, seed, final }) => {
             assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), step + ' viewport overflow');
             assert(await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(elements => elements.every(el => el.labels?.length || el.getAttribute('aria-label'))), step + ' control names');
             maxHTML = Math.max(maxHTML, require('node:zlib').gzipSync(await page.content()).length);
+            if(final || (compositionsOnly && ((width===1440 && lang==='en' && theme==='light') || (width===390 && lang==='fa' && theme==='dark')))) {
+              qa.merge(performanceSummary, await qa.measure(page));
+              await qa.scan(page,step,width===390||width===1440);
+            }
             if (process.env.WG_UI_SCREENSHOT_DIR && ['login','onboarding','subscription'].includes(name) && ((width ===1440 && lang==='en' && theme==='light') || (width===390 && lang==='fa' && theme==='dark'))) {
               const fs=require('node:fs'), pathModule=require('node:path');
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR,{recursive:true});
@@ -85,6 +97,7 @@ module.exports = async ({ browser, seed, final }) => {
         }
       }
     }
+    if (!compositionsOnly) {
     step = 'onboarding validation and completion';
     await navigate(seed.setupURL, '/onboarding');
     await page.locator('#o-username').fill('new-owner');
@@ -105,11 +118,14 @@ module.exports = async ({ browser, seed, final }) => {
     await page.locator('#f-password').fill(seed.loginPassword);
     await submit(page.locator('form[action="/login"]'));
     assert(new URL(page.url()).pathname === '/dashboard','login honors safe return');
+    }
     assert(errors===0,'auth/public JavaScript errors');
-    console.log('PASS authentication/public '+browser.version()+': '+cells+' composition cells; native HTTP statuses, onboarding, login, lazy QR and download recovery; max rendered HTML gzip '+maxHTML+' B');
+    console.log('PASS authentication/public '+browser.version()+': '+cells+' composition cells; HTTP status and UI checks; max rendered HTML gzip '+maxHTML+' B');
+    if(Object.keys(performanceSummary).length)console.log('Observed auth/public maxima before accessibility instrumentation: '+JSON.stringify(performanceSummary));
   } catch(error) {
     throw new Error(error.message.startsWith('contract:') ? error.message : 'contract: '+step+' operation failed (sensitive details suppressed)');
   } finally { await context.close(); }
+  if(compositionsOnly)return;
   // Shared QR extraction also affects the existing admin user detail.
   const admin = await browser.newContext({ reducedMotion:'reduce' });
   await admin.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);

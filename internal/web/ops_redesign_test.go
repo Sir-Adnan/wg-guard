@@ -130,3 +130,22 @@ func TestAdministrationWildcardAndWebhookReader(t *testing.T) {
 		t.Fatal("unchecked endpoint must disable")
 	}
 }
+
+func TestAdminCreateOffersOnlySupportedAccountRole(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	body := e.get("/admins", cookie).Body.String()
+	if strings.Contains(body, `<option value="owner"`) || !strings.Contains(body, `name="role" value="admin"`) || !strings.Contains(body, "Additional accounts are administrators") {
+		t.Fatal("creation form must explain the single owner and offer only administrator accounts")
+	}
+	// The established service boundary still rejects a forged additional owner.
+	rec := e.postForm("/admins/create", url.Values{"username": {"another-owner"}, "password": {testPassword}, "role": {"owner"}}, cookie)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "This node has one owner") {
+		t.Fatalf("owner protection response: %d", rec.Code)
+	}
+	list, err := e.admins.List(context.Background())
+	if err != nil || len(list) != 1 {
+		t.Fatalf("unexpected accounts after rejected owner: %d, %v", len(list), err)
+	}
+}

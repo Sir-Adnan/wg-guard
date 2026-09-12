@@ -4,6 +4,10 @@ package i18n
 // catalog_en.go exactly (parity_test.go). Numbers inside values stay Latin
 // (data policy — see i18n.go); Persian prose wraps them RTL.
 var catalogFA = map[string]string{
+	"ops.admin_create_role": "حساب‌های اضافی، مدیر هستند. این گره یک مالک دارد؛ دسترسی‌های لازم برای هر مدیر را انتخاب کنید.",
+	"duration.months_short": "ماه",
+	"duration.hours_short":  "ساعت",
+
 	"access.promise":                            "شبکهٔ شما، با دیدی روشن.",
 	"access.intro":                              "محیطی متمرکز برای مدیریت این نود VPN و افرادی که از آن استفاده می‌کنند.",
 	"access.accounts":                           "کنترل حساب‌ها",

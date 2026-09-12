@@ -48,7 +48,7 @@
   <table class="table table--cards entity-table users-table">
     <thead>
       <tr>
-        {{if .Can "users.bulk"}}<th class="card-hide"><input type="checkbox" class="checkbox" id="sel-all" aria-label="{{.T "users.selection_page"}}"></th>{{end}}
+        {{if .Can "users.bulk"}}<th class="card-hide"><label class="selection-hit"><input type="checkbox" class="checkbox" id="sel-all"><span class="sr-only">{{.T "users.selection_page"}}</span></label></th>{{end}}
         <th>{{.T "users.username"}}</th>
         <th>{{.T "common.status"}}</th>
         {{if .Can "traffic.read"}}<th>{{.T "users.traffic"}}</th>{{end}}
@@ -132,7 +132,7 @@
 {{define "users_row"}}
 {{$row := .row}}{{$u := $row.U}}{{$v := .v}}
 <tr>
-  {{if $v.Can "users.bulk"}}<td class="selection-cell" data-label="{{$v.T "common.selected"}}"><input type="checkbox" class="checkbox js-sel" name="ids" form="users-selection" value="{{$u.ID}}" aria-label="{{$u.Username}}"></td>{{end}}
+  {{if $v.Can "users.bulk"}}<td class="selection-cell" data-label="{{$v.T "common.selected"}}"><label class="selection-hit"><input type="checkbox" class="checkbox js-sel" name="ids" form="users-selection" value="{{$u.ID}}"><span class="sr-only"><bdi>{{$u.Username}}</bdi></span></label></td>{{end}}
   <td class="card-title" data-label="{{$v.T "users.username"}}">
     <div class="id-cell">
       <span class="avatar" aria-hidden="true">{{slice $u.Username 0 1}}</span>

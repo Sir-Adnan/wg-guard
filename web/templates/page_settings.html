@@ -20,7 +20,7 @@
         {{range .Fields}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}
       </div>
       {{if .Advanced}}<details class="collapse settings-advanced" id="settings-{{.ID}}-advanced"{{if .AdvancedOpen}} open{{end}}><summary>{{$.T "settings.advanced"}}<span class="badge">{{len .Advanced}}</span></summary><div class="settings-fields">{{range .Advanced}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}</div></details>{{end}}
-      {{if and (eq .ID "backup") ($.Can "backup.manage")}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/backups">{{$.IconS "archive"}}{{$.T "settings.open_backups"}}</a><p class="hint">{{$.T "settings.backup_destination"}}</p></footer>{{end}}
+      {{if and (eq .ID "backup") ($.Can "backup.manage")}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/backups">{{$.IconS "database"}}{{$.T "settings.open_backups"}}</a><p class="hint">{{$.T "settings.backup_destination"}}</p></footer>{{end}}
     </section>
     {{end}}
     <div class="settings-savebar"><div><strong data-settings-status role="status">{{if .Data.Error}}{{.T "settings.save.dirty"}}{{else if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}</strong><p class="hint">{{.T "settings.save.atomic"}}</p></div><button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "settings.save.all"}}</button></div>

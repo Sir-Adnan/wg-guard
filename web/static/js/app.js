@@ -244,71 +244,6 @@
     }
   });
 
-  /* ---------- segmented mode panels (packages/custom, duration/date/never) ---------- */
-
-  document.addEventListener("click", (e) => {
-    const seg = e.target.closest(".seg[data-mode]");
-    if (!seg) return;
-    e.preventDefault();
-    const group = seg.dataset.modeGroup;
-    $$('.seg[data-mode-group="' + group + '"]').forEach((b) =>
-      b.classList.toggle("is-on", b === seg));
-    $$('[data-panel^="' + group + ':"]').forEach((p) => {
-      const on = p.dataset.panel === seg.dataset.mode;
-      p.hidden = !on;
-      // panels flagged data-disable park their inputs while hidden so the
-      // submit only carries the visible mode's values
-      if (p.hasAttribute("data-disable")) {
-        p.querySelectorAll("input,select,button").forEach((el) => { el.disabled = !on; });
-      }
-    });
-    updateExpiryPreview();
-  });
-
-  /* live expiry preview (Jalali-aware for fa) */
-  function calFmt(g) {
-    if (isFa()) {
-      const j = calD2J(calG2D(g.getFullYear(), g.getMonth() + 1, g.getDate()));
-      return j.jd + " " + FA_MONTHS[j.jm - 1] + " " + j.jy;
-    }
-    return EN_MONTHS[g.getMonth()] + " " + g.getDate() + ", " + g.getFullYear();
-  }
-  function updateExpiryPreview() {
-    const el = $("#expiry-preview");
-    if (!el) return;
-    const on = $('.seg[data-mode-group="exp"].is-on');
-    const mode = on ? on.dataset.mode : "exp:dur";
-    if (mode === "exp:never") { el.textContent = el.dataset.tplNever || ""; return; }
-    let target = null;
-    if (mode === "exp:date") {
-      const inp = $("#u-expires");
-      if (inp && /^\d{4}-\d{2}-\d{2}$/.test(inp.value)) {
-        const [y, m, d] = inp.value.split("-").map(Number);
-        target = new Date(y, m - 1, d);
-      }
-    } else {
-      const raw = $('input[name="duration_value"]')?.value;
-      const unit = $('select[name="duration_unit"]')?.value;
-      const val = parseFloat(raw);
-      if (val > 0 && unit) {
-        target = new Date();
-        if (unit === "months") target.setMonth(target.getMonth() + val);
-        else if (unit === "days") target.setDate(target.getDate() + val);
-        else target.setHours(target.getHours() + val);
-      }
-    }
-    if (!target) { el.textContent = ""; return; }
-    const days = Math.round((target - new Date()) / 86400000);
-    const dpart = (el.dataset.tplDays || "~{n} days").replace("{n}", String(Math.max(days, 1)));
-    el.textContent = (el.dataset.tpl || "Expires {date}").replace("{date}", calFmt(target)) +
-      " · " + dpart;
-  }
-  document.addEventListener("input", (e) => {
-    if (e.target.matches('input[name="duration_value"], #u-expires')) updateExpiryPreview();
-  });
-  document.addEventListener("change", (e) => {
-    if (e.target.matches('select[name="duration_unit"]')) updateExpiryPreview();
-  });
   /* ---------- username generator ---------- */
 
   const WORDS = ("amber,azure,brave,calm,coral,cosmo,crimson,dawn,delta,dune,eager,echo,ember," +
@@ -577,10 +512,14 @@
 
   function calPosition() {
     const r = cal.trigger.getBoundingClientRect();
-    const w = Math.min(296, window.innerWidth - 16);
+    const touch = matchMedia("(pointer: coarse)").matches || window.innerWidth <= 800;
+    // Seven 44px day targets need 338px with regular padding/gaps. At 320px,
+    // CSS removes grid gaps and uses 5px padding; no outer gutter is possible.
+    const gutter = touch && window.innerWidth < 354 ? 0 : 8;
+    const w = Math.min(touch ? 338 : 296, window.innerWidth - gutter * 2);
     calEl.style.width = w + "px";
     let x = r.left + r.width / 2 - w / 2;
-    x = Math.max(8, Math.min(x, window.innerWidth - w - 8));
+    x = Math.max(gutter, Math.min(x, window.innerWidth - w - gutter));
     let y = r.bottom + 6;
     calEl.style.insetInlineStart = "";
     calEl.style.left = x + "px";
@@ -619,9 +558,5 @@
   });
   document.addEventListener("close", e => { if (e.target.contains?.(calEl)) calClose(false); }, true);
   window.addEventListener("resize", () => { if (calEl?.classList.contains("is-open")) calPosition(); });
-
-  /* ---------- boot ---------- */
-  // Calendar constants must exist before the initial duration preview.
-  updateExpiryPreview();
 
 })();

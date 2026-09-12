@@ -3,6 +3,7 @@ package web
 import (
 	"io/fs"
 	"path"
+	"regexp"
 	"strings"
 	"testing"
 	"text/template"
@@ -13,6 +14,29 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	webassets "github.com/Sir-Adnan/wg-guard/web"
 )
+
+func TestTemplateIconReferencesExist(t *testing.T) {
+	sprite, err := fs.ReadFile(webassets.FS, "static/img/icons.svg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := fs.Glob(webassets.FS, "templates/*.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	references := regexp.MustCompile(`\.IconS?\s+"([^"]+)"`)
+	for _, file := range files {
+		body, err := fs.ReadFile(webassets.FS, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range references.FindAllSubmatch(body, -1) {
+			if !strings.Contains(string(sprite), `id="i-`+string(m[1])+`"`) {
+				t.Errorf("%s references missing icon %s", file, m[1])
+			}
+		}
+	}
+}
 
 // TestTemplatesUseKnownI18nKeys walks every embedded template and fails when a
 // constant string passed to the .T helper is not a catalog key in BOTH locales.

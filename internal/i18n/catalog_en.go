@@ -4,6 +4,10 @@ package i18n
 // exactly (parity_test.go). Values are format strings where args exist.
 // Values must never contain secrets or raw configuration.
 var catalogEN = map[string]string{
+	"ops.admin_create_role": "Additional accounts are administrators. This node has one owner; choose the permissions each administrator needs.",
+	"duration.months_short": "mo",
+	"duration.hours_short":  "h",
+
 	"access.promise":                            "Your network. A clear view.",
 	"access.intro":                              "A focused workspace for managing this VPN node and the people who use it.",
 	"access.accounts":                           "Account control",
@@ -95,7 +99,7 @@ var catalogEN = map[string]string{
 	"ops.admin_account_hint":                    "Permission changes take effect for subsequent requests.",
 	"ops.owner_protected":                       "This node has one owner with full access. The owner cannot be disabled, demoted or deleted.",
 	"ops.admin_create_hint":                     "New accounts are administrators. Select only the permissions they need.",
-	"ops.permission_count":                      "%d permissions",
+	"ops.permission_count":                      "Permissions: %d",
 	"ops.admin_delete":                          "Delete administrator %s? They will lose panel access.",
 	"ops.tokens_intro":                          "Create scoped credentials for integrations, then track expiry and usage.",
 	"ops.secret_done":                           "I have saved the secret",

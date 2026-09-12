@@ -232,14 +232,22 @@ func (v *View) T(key string, args ...any) string {
 // Icon renders a sprite reference. Icons are recognition aids, never
 // decoration; text labels stay in markup next to them.
 func (v *View) Icon(name string) template.HTML {
-	return template.HTML(`<svg class="icon" aria-hidden="true"><use href="` +
+	return template.HTML(`<svg class="icon` + directionalIconClass(name) + `" aria-hidden="true"><use href="` +
 		v.iconBase + `#i-` + name + `"></use></svg>`)
 }
 
 // IconS is the small variant (inline in dense rows).
 func (v *View) IconS(name string) template.HTML {
-	return template.HTML(`<svg class="icon icon--sm" aria-hidden="true"><use href="` +
+	return template.HTML(`<svg class="icon icon--sm` + directionalIconClass(name) + `" aria-hidden="true"><use href="` +
 		v.iconBase + `#i-` + name + `"></use></svg>`)
+}
+
+func directionalIconClass(name string) string {
+	switch name {
+	case "arrow-left", "arrow-right", "chevron-left", "chevron-right":
+		return " icon--directional"
+	}
+	return ""
 }
 
 // B formats a byte count with locale units.

@@ -157,8 +157,8 @@ foundation regression. Set `WG_TEST_BROWSER_NODE` to a development Node executab
 `chrome`. Without the Node opt-in the test skips. No npm/Node dependency is added to production.
 The Go test hosts an isolated temporary database; ephemeral session/subscription values travel
 only over child stdin and are never printed or committed. It tests focus/inert/resize, menu keys,
-dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery, actual Settings input
-redisplay and representative locale/theme layouts. It does not certify the full browser matrix.
+dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery and representative
+locale/theme layouts. Settings errors belong to the product driver. This is not the full matrix.
 
 `go test ./internal/web -run '^TestBrowserPhase10$' -count=1 -v` uses the same opt-in runtime
 for milestone-specific product checks (`WG_TEST_UI_SUITE`, default `10.2`). It exercises form
@@ -170,6 +170,17 @@ viewport matrix and is reserved for 10.7. Browser diagnostics omit URLs and capa
 use actual JavaScript-disabled contexts; standalone native User checks use `10.3-users-native`.
 Suite `10.5` invokes the shared-fixture auth/public driver, including a separate temporary first-run
 node; generated login credentials travel only over stdin. No configs or QR pixels enter diagnostics.
+`WG_TEST_AXE` optionally locates a development-only `@axe-core/playwright` installation. The driver
+checks WCAG-tagged rules and measures request/loading/layout behavior before instrumentation.
+The final driver adds real-route state cases from temporary databases, interactive states, touch,
+system-theme and equivalent-zoom checks. Synthetic healthy telemetry stays fresh; stale data has
+its own case. Virtual subscriber identities prevent matrix traffic from consuming one rate bucket;
+the production limit and a dedicated limited-state case remain enforced.
+
+Use `WG_TEST_UI_GROUP` (`main`, `public`, `states`, `interactions`), `WG_TEST_UI_STATE`,
+`WG_TEST_UI_PUBLIC`, `WG_TEST_UI_LANG`, `WG_TEST_UI_THEME` and `WG_TEST_UI_WIDTH` for affected-cell
+reruns. Run full acceptance with these filters absent and a sufficient Go test timeout. No physical
+devices, physical browser zoom or assistive-technology operation are implied by emulation or axe.
 
 The asset script reports JS/CSS/fonts/SVG raw and gzip sizes without size ceilings; rendered HTML
 and fragments are browser measurements. Investigate waste and loading/rendering regressions. Browser

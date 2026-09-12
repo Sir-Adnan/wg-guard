@@ -87,6 +87,9 @@ loading, success, warning, error and destructive states. Hover only enhances int
 keyboard/touch provide equivalent operations. Controls have accessible names, visible focus and
 44px touch targets. Use native HTML semantics first; adding ARIA roles requires implementing the
 matching keyboard behavior. Focus must not be hidden behind sticky chrome/overlays.
+Checkbox glyphs stay compact inside 44px hit areas; preset buttons and calendar days also meet
+the touch target. At 320px the calendar uses the available width with seven 44px columns.
+Directional navigation icons mirror in RTL; plots and technical values retain their data direction.
 
 Menus support open/focus, arrows/Home/End, Escape and focus return; Tab can leave and dismiss.
 Dialogs/sheets contain focus and restore it to the invoker, including after successful actions.

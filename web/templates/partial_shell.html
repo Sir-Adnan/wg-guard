@@ -43,5 +43,5 @@
 <a class="btn btn--ghost locale-choice" href="{{.LocaleLink}}" lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}" rel="nofollow">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فارسی{{end}}</a>
 {{end}}
 {{define "public-preferences"}}<div class="preferences">{{template "public-language" .}}{{template "theme-menu" .}}</div>{{end}}
-{{define "feedback-host"}}<div class="toasts" aria-label="{{.T "common.notifications"}}"></div>{{end}}
+{{define "feedback-host"}}<div class="toasts" role="region" aria-label="{{.T "common.notifications"}}"></div>{{end}}
 {{define "flash"}}{{if .ToastMsg}}<div class="alert {{if .ToastError}}alert--error{{else}}alert--success{{end}}" role="{{if .ToastError}}alert{{else}}status{{end}}">{{if .ToastError}}{{.IconS "alert-circle"}}{{else}}{{.IconS "check"}}{{end}}<span>{{.ToastMsg}}</span></div>{{end}}{{end}}

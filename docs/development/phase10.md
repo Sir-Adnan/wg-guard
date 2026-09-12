@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0–10.5 complete with scoped verification; 10.6 is next**. The owner approved
+Status: **active; 10.0–10.6 complete with scoped verification; 10.7 acceptance is next**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
@@ -186,4 +186,10 @@ scoped tests. Chrome 152.0.7977.84 passed 56 locale/theme/phone/desktop cells, o
 download/QR checks plus admin QR smoke; focused fixes and WSL build/unit/vet passed. Gzip: JS
 30,580 B, CSS 17,649 B, fonts 101,750 B, SVG 3,095 B; maximum public/auth HTML 2,844 B.
 QR error tests assert absence of config/secrets directly rather than limiting HTML size.
+10.6: removed orphan presentation code, corrected role/count/unit copy, contrast/control boundaries,
+RTL icons/tooltips and touch targets. All template icon references resolve. Scoped web/i18n and
+WSL build/unit/vet passed; Chrome/axe 4.13.0 covered representative normal/auth/public and 59 state
+compositions in both design directions, plus eight touch cells/1,232 targets, theme persistence,
+reduced motion and equivalent-zoom reflow. Fixed state/hover findings were rerun only where affected.
+Gzip: JS 29,912 B, CSS 17,193 B, fonts 101,750 B, SVG 3,137 B. Full cross-browser acceptance remains open.
 These scoped milestones do not close RB-006 or start Phase 11; no public release is authorized.

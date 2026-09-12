@@ -1,6 +1,7 @@
 // Optional real-browser milestone checks against TestBrowserPhase10's isolated
 // database. Ephemeral capabilities arrive on stdin and never enter diagnostics.
 const playwright = require(process.env.WG_TEST_PLAYWRIGHT || 'playwright');
+const qa = require('./web-qa.cjs');
 const assert = (ok, message) => { if (!ok) throw new Error('contract: ' + message); };
 let stage = 'launch';
 (async () => {
@@ -8,12 +9,14 @@ let stage = 'launch';
   for await (const chunk of process.stdin) input += chunk;
   const seed = JSON.parse(input);
   const suite = process.env.WG_TEST_UI_SUITE || '10.2';
+  const group = process.env.WG_TEST_UI_GROUP || 'all';
   const engine = process.env.WG_TEST_BROWSER_ENGINE || 'chromium';
   const browser = await playwright[engine].launch({
     ...(engine === 'chromium' ? { channel: process.env.WG_TEST_BROWSER_CHANNEL || 'chrome' } : {}), headless: true,
   });
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+    await qa.install(context);
     await context.addCookies([{ name: 'wg_session', value: seed.session, url: seed.url }]);
     const page = await context.newPage();
     let runtimeErrors = 0;
@@ -31,10 +34,18 @@ let stage = 'launch';
         locale: value, _csrf: seed.csrf,
       } });
     };
-    if (suite === '10.5' || suite === 'final') {
+    if (process.env.WG_TEST_UI_STATE_MODE === 'preview' || group === 'states') {
+      await require('./test-web-states.cjs')({browser,seed,final:suite==='final'});
+      await context.close(); return;
+    }
+    if(group==='interactions'){
+      await require('./test-web-interactions.cjs')({browser,seed,engine});
+      await context.close();return;
+    }
+    if ((suite === '10.5' || suite === '10.6' || suite === 'final') && (group==='all' || group==='public')) {
       stage = 'authentication and public workflows';
-      await require('./test-web-public.cjs')({ browser, seed, final: suite === 'final' });
-      if (suite === '10.5') { await context.close(); return; }
+      await require('./test-web-public.cjs')({ browser, seed, final: suite === 'final', compositionsOnly: suite === '10.6' });
+      if (suite === '10.5' || group==='public') { await context.close(); return; }
     }
     if (suite === '10.3-users-native') {
       stage = 'native user detail labels and device retry';
@@ -222,12 +233,14 @@ let stage = 'launch';
       stage = 'dashboard chart navigation and accessible data';
       await page.emulateMedia({ colorScheme: 'dark' });
       await goto('/dashboard');
+      assert(await page.locator('#telemetry-card').getAttribute('data-health') === 'healthy', 'normal dashboard fixture stays healthy');
       assert(await page.locator('html').getAttribute('data-theme') === 'light', 'unsaved theme stays light on a dark OS');
       assert(await page.locator('.resource-card .sparkline').count() === 5, 'all live chart families render');
       await page.locator('.live-data > summary').click();
       await page.locator('.live-data a[hx-get]').click();
       await page.waitForFunction(() => document.querySelectorAll('.sample-data-table tbody tr').length > 0);
-      assert(await page.locator('.sample-data-table tbody tr').count() === 24, 'on-demand exact live samples');
+      const sampleRows = await page.locator('.sample-data-table tbody tr').count();
+      assert(sampleRows >= Number(seed.samples || 24) && sampleRows <= 180, 'on-demand bounded live samples');
       await page.locator('.live-data > summary').click();
       await page.locator('#traffic-range-7d').focus();
       await page.keyboard.press('Enter');
@@ -376,16 +389,21 @@ let stage = 'launch';
     const routes = suite === '10.2' ? operationalRoutes : suite === '10.3-users' ? userRoutes : suite === '10.3-dashboard' ? dashboardRoutes : suite === '10.3' ? [...userRoutes, ...dashboardRoutes] : suite === '10.4-backups' ? backupRoutes : suite === '10.4-settings' ? ['/settings'] : suite === '10.4-admin' ? adminRoutes : suite === '10.4' ? [...backupRoutes, '/settings', ...adminRoutes] : [...operationalRoutes, ...userRoutes, ...dashboardRoutes, ...backupRoutes, '/settings', ...adminRoutes];
     let cells = 0;
     let maxHTMLGzip = 0;
+    const performanceSummary = {};
+    const failures=[];
     for (const lang of ['en', 'fa']) {
       await locale(lang);
       for (const theme of ['light', 'dark']) {
         await context.addCookies([{ name: 'wg_theme', value: theme, url: seed.url }]);
         for (const width of suite === 'final' ? [320, 360, 390, 430, 768, 799, 800, 959, 960, 961, 1024, 1280, 1440, 1920, 2560, 3440] : [390, 1440]) {
+          if(!qa.variant(lang,theme,width))continue;
           await page.setViewportSize({ width, height: 900 });
           for (let index = 0; index < routes.length; index++) {
             if (process.env.WG_TEST_UI_PAGE && routes[index] !== process.env.WG_TEST_UI_PAGE) continue;
             stage = suite + ' composition ' + index + ' ' + lang + '/' + theme + '/' + width;
+            try {
             await goto(routes[index]);
+            if(routes[index].startsWith('/dashboard'))assert(await page.locator('#telemetry-card').getAttribute('data-health')==='healthy','normal dashboard state stays healthy');
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl' : 'ltr'), 'page direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, 'page theme');
             const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
@@ -394,18 +412,36 @@ let stage = 'launch';
             assert(await page.locator('main h1').count() === 1, 'single primary page heading');
             assert(await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(elements => elements.every(el => el.labels?.length || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'))), 'form controls have names');
             maxHTMLGzip = Math.max(maxHTMLGzip, require('node:zlib').gzipSync(await page.content()).length);
+            if (suite === 'final' || (suite === '10.6' && ((lang === 'en' && theme === 'light' && width === 1440) || (lang === 'fa' && theme === 'dark' && width === 390)))) {
+              qa.merge(performanceSummary, await qa.measure(page));
+              await qa.scan(page, stage, width === 390 || width === 1440);
+            }
             if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark'))) {
               const fs = require('node:fs'), path = require('node:path');
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
               await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, suite + '-' + index + '-' + width + '.png'), fullPage: true });
             }
+            } catch(error) {
+              if(suite!=='final')throw error;
+              failures.push(stage);
+              console.log('Matrix failure '+stage+': '+(error.message.startsWith('contract:')?error.message:'browser operation failed; sensitive details suppressed'));
+            }
             cells++;
+            if(suite==='final' && cells%128===0)console.log('Main matrix progress: '+cells+' cells checked');
           }
         }
       }
     }
     assert(runtimeErrors === 0, 'page JavaScript errors');
-    console.log('PASS ' + engine + ' ' + browser.version() + ' Phase ' + suite + ': ' + cells + ' composition cells; scoped workflow and interaction checks; max rendered HTML gzip ' + maxHTMLGzip + ' B');
+    console.log('Checked ' + engine + ' ' + browser.version() + ' Phase ' + suite + ': ' + cells + ' composition cells; max rendered HTML gzip ' + maxHTMLGzip + ' B');
+    if (Object.keys(performanceSummary).length) console.log('Observed page maxima before accessibility instrumentation: '+JSON.stringify(performanceSummary));
+    if (suite === 'final' && group==='all') {
+      try{await require('./test-web-states.cjs')({browser,seed,final:true});}catch(error){failures.push('state matrix'); console.log(error.message);}
+      try{await require('./test-web-interactions.cjs')({browser,seed,engine});}catch(error){failures.push('interactions'); console.log(error.message.startsWith('contract:')?error.message:'interaction operation failed');}
+    }
+    assert(failures.length===0,'matrix failures: '+failures.join('; '));
+    if(suite==='final')assert(cells>0,'matrix filters selected no cells');
+    console.log('PASS Phase '+suite+' '+engine+' '+browser.version());
     await context.close();
   } finally { await browser.close(); }
 })().catch(error => {

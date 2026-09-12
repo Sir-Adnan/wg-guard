@@ -8,10 +8,13 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** 10.0–10.5 are complete; consistency and
+- **Phase 10 product UI/UX redesign:** 10.0–10.6 are complete;
   full browser/VPS acceptance remain open.
 
 ### Changed
+- **UI consistency:** improved text/control contrast and 44px touch targets, corrected RTL icon/
+  tooltip behavior and missing SVG references, and removed obsolete presentation code. Additional
+  accounts are clearly administrators; the existing single-owner service rule remains unchanged.
 - **Authentication and subscriptions:** redesigned setup/sign-in and customer connection pages;
   failed forms retain only nonsecret input, session expiry returns to a full page, and errors keep
   their HTTP status and public/admin boundary. Shared lazy QR and public download feedback avoid
