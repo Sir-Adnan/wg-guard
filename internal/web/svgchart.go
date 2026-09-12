@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"math"
 	"strconv"
 	"strings"
 )
 
-// chartBucket is one aggregated traffic period (a bar pair).
+// chartBucket is one aggregated traffic period.
 type chartBucket struct {
 	Label string // short x-axis label (Latin digits, locale-independent)
 	Title string // full tooltip text, already localized
@@ -19,13 +20,13 @@ type chartBucket struct {
 // SVG geometry. The viewBox is fixed; the element scales to its container.
 const (
 	chartW, chartH = 720, 240
-	chartPadL      = 56 // room for y-axis byte labels
+	chartPadL      = 88 // readable y labels even at phone scale
 	chartPadR      = 8
 	chartPadT      = 12
 	chartPadB      = 26 // room for x-axis labels
 )
 
-// trafficChartSVG renders a grouped RX/TX bar chart as an inline SVG. It is
+// trafficChartSVG renders chronological RX/TX lines as an inline SVG. It is
 // CSP-safe by construction: CSS classes and presentation attributes only —
 // no inline style attributes, no scripts. All text passes through HTML
 // escaping; numbers come from strconv. The chart reads LTR in both locales
@@ -62,7 +63,7 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 	// Grid + y-axis labels (4 divisions of the nice-scaled max).
 	for i := 0; i <= 4; i++ {
 		y := chartPadT + plotH*float64(i)/4
-		val := scale * int64(4-i) / 4
+		val := scale/4*int64(4-i) + scale%4*int64(4-i)/4
 		sb.WriteString(`<line class="chart-grid" x1="` + f1(chartPadL) +
 			`" y1="` + f1(y) + `" x2="` + f1(chartW-chartPadR) +
 			`" y2="` + f1(y) + `"/>`)
@@ -72,37 +73,45 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 		}
 	}
 
-	// Bars: two per bucket (RX, TX), grouped and centered in the slot.
-	slot := plotW / float64(len(buckets))
-	group := slot * 0.62
-	barW := group * 0.56
-	step := len(buckets) / 7
-	if step < 1 {
-		step = 1
+	// Shared chronological lines with a quiet area under received traffic.
+	// Exact per-bucket values are also rendered in the accessible data table.
+	var rxPath, txPath strings.Builder
+	step := (len(buckets) + 5) / 6
+	for i, bucket := range buckets {
+		x := float64(chartPadL) + plotW/2
+		if len(buckets) > 1 {
+			x = chartPadL + plotW*float64(i)/float64(len(buckets)-1)
+		}
+		command := "L"
+		if i == 0 {
+			command = "M"
+		}
+		rxY := chartPadT + plotH*(1-float64(bucket.RX)/float64(scale))
+		txY := chartPadT + plotH*(1-float64(bucket.TX)/float64(scale))
+		rxPath.WriteString(command + f1(x) + " " + f1(rxY))
+		txPath.WriteString(command + f1(x) + " " + f1(txY))
+		if i%step == 0 || i == len(buckets)-1 {
+			class := "chart-axis"
+			if i != 0 && i != len(buckets)-1 && (i/step)%2 == 1 {
+				class += " chart-axis-minor"
+			}
+			anchor := "middle"
+			if i == 0 {
+				anchor = "start"
+			} else if i == len(buckets)-1 {
+				anchor = "end"
+			}
+			sb.WriteString(`<text class="` + class + `" x="` + f1(x) + `" y="` + f1(chartH-8) + `" text-anchor="` + anchor + `">` + html.EscapeString(bucket.Label) + `</text>`)
+		}
+		sb.WriteString(`<g><title>` + html.EscapeString(bucket.Title) + `</title></g>`)
+		if len(buckets) == 1 {
+			sb.WriteString(`<circle class="chart-point-rx" cx="` + f1(x) + `" cy="` + f1(rxY) + `" r="3"/><circle class="chart-point-tx" cx="` + f1(x) + `" cy="` + f1(txY) + `" r="3"/>`)
+		}
 	}
-	for i, b := range buckets {
-		x0 := chartPadL + slot*float64(i) + (slot-group)/2
-		rxH := plotH * float64(b.RX) / float64(scale)
-		txH := plotH * float64(b.TX) / float64(scale)
-		sb.WriteString(`<g><title>` + html.EscapeString(b.Title) + `</title>`)
-		if b.RX > 0 {
-			sb.WriteString(`<rect class="chart-rx" x="` + f1(x0) +
-				`" y="` + f1(chartPadT+plotH-rxH) +
-				`" width="` + f1(barW) + `" height="` + f1(rxH) + `" rx="2"><title>` +
-				html.EscapeString(b.Title) + `</title></rect>`)
-		}
-		if b.TX > 0 {
-			sb.WriteString(`<rect class="chart-tx" x="` + f1(x0+barW+1.5) +
-				`" y="` + f1(chartPadT+plotH-txH) +
-				`" width="` + f1(barW) + `" height="` + f1(txH) + `" rx="2"/>`)
-		}
-		if i%step == 0 && b.Label != "" {
-			sb.WriteString(`<text class="chart-axis" x="` + f1(x0+group/2) +
-				`" y="` + f1(chartH-8) + `" text-anchor="middle">` +
-				html.EscapeString(b.Label) + `</text>`)
-		}
-		sb.WriteString(`</g>`)
+	if len(buckets) > 1 {
+		sb.WriteString(`<path class="chart-area" d="` + rxPath.String() + `L` + f1(chartW-chartPadR) + ` ` + f1(chartPadT+plotH) + `L` + f1(chartPadL) + ` ` + f1(chartPadT+plotH) + `Z"/>`)
 	}
+	sb.WriteString(`<path class="chart-rx" d="` + rxPath.String() + `"/><path class="chart-tx" d="` + txPath.String() + `"/>`)
 	sb.WriteString(`</svg>`)
 	return template.HTML(sb.String())
 }
@@ -117,13 +126,19 @@ func f1(v float64) string {
 // numbers (traffic 73 GB → 100 GB scale).
 func niceMax(v int64) int64 {
 	mag := int64(1)
-	for mag*10 <= v {
+	for mag <= v/10 {
 		mag *= 10
 	}
 	for _, m := range [3]int64{1, 2, 5} {
+		if mag > math.MaxInt64/m {
+			return math.MaxInt64
+		}
 		if m*mag >= v {
 			return m * mag
 		}
+	}
+	if mag > math.MaxInt64/10 {
+		return math.MaxInt64
 	}
 	return 10 * mag
 }

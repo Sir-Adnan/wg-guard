@@ -167,5 +167,6 @@ without replaying the foundation suite. `WG_TEST_BROWSER_ENGINE` defaults to `ch
 alternate engines require their development browser binaries. The `final` suite expands the
 viewport matrix and is reserved for 10.7. Browser diagnostics omit URLs and capabilities.
 
-The asset script enforces JS/CSS/fonts; SVG and rendered HTML are measured separately. Browser
+The asset script reports JS/CSS/fonts/SVG raw and gzip sizes without size ceilings; rendered HTML
+and fragments are browser measurements. Investigate waste and loading/rendering regressions. Browser
 geometry does not replace visual review, screen-reader use, real-device or live-TLS acceptance.

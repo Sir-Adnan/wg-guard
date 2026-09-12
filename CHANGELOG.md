@@ -8,10 +8,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** 10.0–10.2 are complete; remaining page migrations and
+- **Phase 10 product UI/UX redesign:** 10.0–10.3 are complete; remaining page migrations and
   full browser/VPS acceptance remain open.
 
 ### Changed
+- **Users and dashboard:** redesigned account/device/subscription workflows, safe retry forms,
+  keyboard calendars and lazy QR recovery; live telemetry and traffic charts distinguish missing
+  data and provide exact non-hover values. Light is the default; English uses native typography.
+  Frontend sizes are measured without arbitrary ceilings; the lightweight architecture remains.
 - **Interfaces and Plans:** redesigned responsive collections and grouped forms preserve input
   on validation errors, show unavailable secondary data honestly, and apply existing read/write
   permissions to panel routes and controls. AWG editing works without JavaScript; generated

@@ -11,9 +11,66 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 )
+
+func TestDashboardPermissionDoesNotExposeSnapshots(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	reader := e.limitedLogin(t, []string{auth.ScopeUsersRead})
+	for _, path := range []string{"/", "/dashboard"} {
+		rec := e.get(path, reader)
+		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), `hx-get="/dashboard/live"`) || strings.Contains(rec.Body.String(), `id="chart-card"`) {
+			t.Fatal("restricted landing must not render or poll operational data")
+		}
+	}
+	for _, path := range []string{"/dashboard/live", "/dashboard/chart"} {
+		if rec := e.get(path, reader); rec.Code != http.StatusForbidden {
+			t.Fatal("restricted dashboard fragment must be forbidden")
+		}
+	}
+}
+
+func TestDashboardChartUnavailableIsDifferentFromEmpty(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	if _, err := e.db.Exec(`DROP TABLE traffic_rollups`); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/dashboard", cookie).Body.String()
+	if !strings.Contains(body, "Traffic history is unavailable.") || strings.Contains(body, "No traffic recorded") {
+		t.Fatal("failed traffic query must render unavailable, not an empty period")
+	}
+	if strings.Contains(body, `badge--ok badge--pulse`) {
+		t.Fatal("missing telemetry must not advertise a healthy node")
+	}
+}
+
+func TestDashboardTrafficHasNonHoverDataAndSelectedRange(t *testing.T) {
+	e := newEnv(t)
+	uid, _, _, cookie := e.seedUserWithDevice()
+	seedRollup(t, e, uid, "daily", time.Now().UTC().Truncate(24*time.Hour), 12000, 4000)
+	body := e.get("/dashboard?range=7d", cookie).Body.String()
+	if !strings.Contains(body, `aria-current="true"`) || !strings.Contains(body, `id="traffic-data"`) || !strings.Contains(body, "12") {
+		t.Fatal("traffic history needs selected range and keyboard-accessible data")
+	}
+}
+
+func TestTelemetryChartDoesNotBridgeMissingSamples(t *testing.T) {
+	base := time.Now().UTC()
+	points := []telemetry.Point{
+		{At: base, CPUPercent: telemetry.Metric{Available: true, Value: 10}},
+		{At: base.Add(10 * time.Second), CPUPercent: telemetry.Metric{Available: true, Value: 20}},
+		{At: base.Add(40 * time.Second), CPUPercent: telemetry.Metric{Available: true, Value: 30}},
+	}
+	view := newTelemetryView(i18n.En, telemetry.History{Available: true, Cadence: 10 * time.Second, Points: points, Latest: points[2]})
+	if strings.Count(pathForClass(t, view.CPUChart, "spark-primary"), "M") != 2 {
+		t.Fatal("missing sample intervals must break the live chart")
+	}
+}
 
 // createDeviceViaForm runs the panel's device-create flow.
 func createDeviceViaForm(t *testing.T, e *env, cookie *http.Cookie, userID, name string) {
@@ -270,5 +327,55 @@ func TestDashboardAttention(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("attention card missing %q", want)
 		}
+	}
+}
+
+func TestDashboardAttentionFailureIsVisible(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	if _, err := e.db.Exec(`DROP TABLE users`); err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/dashboard", cookie).Body.String()
+	if !strings.Contains(body, `data-attention-unavailable`) {
+		t.Fatal("failed action queries must not imply no users need attention")
+	}
+}
+
+func TestDashboardSampleDataIsOnDemandAndPermissionScoped(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	if body := e.get("/dashboard", cookie).Body.String(); !strings.Contains(body, `id="telemetry-history"`) || strings.Contains(body, `class="sample-data-table"`) {
+		t.Fatal("sample table must be available on demand only")
+	}
+	rec := e.get("/dashboard/live?view=history", cookie)
+	if rec.Code != 200 || strings.Contains(rec.Body.String(), `id="live"`) || !strings.Contains(rec.Body.String(), "No live samples") {
+		t.Fatal("sample-data fragment must be a stable non-polling snapshot")
+	}
+	reader := e.limitedLogin(t, []string{auth.ScopeUsersRead})
+	if e.get("/dashboard/live?view=history", reader).Code != 403 {
+		t.Fatal("sample data bypassed stats permission")
+	}
+}
+
+func TestDashboardSampleDataRetainsSecondsAndLocalizesMissing(t *testing.T) {
+	e := newEnv(t)
+	base := time.Date(2026, 9, 12, 10, 20, 10, 0, time.UTC)
+	sampler := telemetry.New(telemetry.SourceFunc(func(_ context.Context, at time.Time) (telemetry.RawSample, error) {
+		return telemetry.RawSample{At: at}, nil
+	}), telemetry.DefaultCadence)
+	_, _ = sampler.Sample(context.Background(), base)
+	_, _ = sampler.Sample(context.Background(), base.Add(10*time.Second))
+	e.srv.Telemetry = sampler
+	r := httptest.NewRequest("GET", "/dashboard/live?view=history", nil)
+	r.AddCookie(&http.Cookie{Name: localeCookie, Value: "en"})
+	rows := e.srv.loadSampleData(r)
+	if len(rows) != 2 || rows[0].At == rows[1].At || !strings.Contains(rows[0].At, "10:20:10") {
+		t.Fatal("sample timestamps lose ten-second precision")
+	}
+	if rows[0].Values[0] != "Unavailable" {
+		t.Fatal("missing metric must have localized copy")
 	}
 }

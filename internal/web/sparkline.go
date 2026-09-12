@@ -5,14 +5,15 @@ import (
 	"html/template"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 )
 
 const (
-	sparkWidth  = 240
-	sparkHeight = 56
-	sparkPad    = 2
+	sparkWidth  = 320
+	sparkHeight = 100
+	sparkPad    = 6
 )
 
 type sparkSeries struct {
@@ -30,6 +31,10 @@ var sparkClasses = map[string]bool{
 // come from a closed set and all text is escaped, so callers cannot inject
 // style, markup, or script into the CSP-safe SVG.
 func sparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64) template.HTML {
+	return timedSparklineSVG(series, ariaLabel, fixedMax, nil, 0)
+}
+
+func timedSparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64, times []time.Time, cadence time.Duration) template.HTML {
 	if len(series) == 0 || len(series) > 3 {
 		return ""
 	}
@@ -78,12 +83,15 @@ func sparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64) temp
 	}
 
 	var b strings.Builder
-	b.WriteString(`<svg class="sparkline" viewBox="0 0 240 56" role="img" aria-label="`)
+	b.WriteString(`<svg class="sparkline" viewBox="0 0 320 100" role="img" aria-label="`)
 	b.WriteString(html.EscapeString(ariaLabel))
 	b.WriteString(`" preserveAspectRatio="none" focusable="false">`)
+	for _, y := range []int{6, 50, 94} {
+		b.WriteString(`<path class="spark-grid" d="M6 ` + f1(float64(y)) + `H314"/>`)
+	}
 	for _, item := range series {
 		values := newestSparkValues(item.Values, maxLen)
-		path := sparkPath(values, maxLen, maxValue)
+		path := timedSparkPath(values, maxLen, maxValue, times, cadence)
 		if path == "" {
 			continue
 		}
@@ -92,6 +100,16 @@ func sparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64) temp
 		b.WriteString(`" d="`)
 		b.WriteString(path)
 		b.WriteString(`"/>`)
+		// A move-only segment has no stroke, so show isolated samples explicitly.
+		for _, segment := range strings.Split(path, "M")[1:] {
+			if strings.Contains(segment, "L") {
+				continue
+			}
+			xy := strings.Fields(segment)
+			if len(xy) == 2 {
+				b.WriteString(`<circle class="spark-dot ` + item.Class + `" cx="` + xy[0] + `" cy="` + xy[1] + `" r="2.5"/>`)
+			}
+		}
 	}
 	b.WriteString(`</svg>`)
 	return template.HTML(b.String())
@@ -109,12 +127,20 @@ func validSparkMetric(value telemetry.Metric) bool {
 }
 
 func sparkPath(values []telemetry.Metric, widthPoints int, maxValue float64) string {
+	return timedSparkPath(values, widthPoints, maxValue, nil, 0)
+}
+
+func timedSparkPath(values []telemetry.Metric, widthPoints int, maxValue float64, times []time.Time, cadence time.Duration) string {
 	if maxValue <= 0 {
 		return ""
 	}
 	plotW := float64(sparkWidth - 2*sparkPad)
 	plotH := float64(sparkHeight - 2*sparkPad)
 	offset := widthPoints - len(values)
+	if len(times) > widthPoints {
+		times = times[len(times)-widthPoints:]
+	}
+	timed := len(times) == widthPoints && widthPoints > 1 && times[widthPoints-1].After(times[0])
 	var path strings.Builder
 	penDown := false
 	for i, value := range values {
@@ -125,6 +151,13 @@ func sparkPath(values []telemetry.Metric, widthPoints int, maxValue float64) str
 		x := float64(sparkWidth) / 2
 		if widthPoints > 1 {
 			x = sparkPad + plotW*float64(offset+i)/float64(widthPoints-1)
+		}
+		if timed {
+			index := offset + i
+			x = sparkPad + plotW*float64(times[index].Sub(times[0]))/float64(times[widthPoints-1].Sub(times[0]))
+			if index > 0 && cadence > 0 && times[index].Sub(times[index-1]) > cadence+cadence/2 {
+				penDown = false
+			}
 		}
 		clamped := math.Min(value.Value, maxValue)
 		y := sparkPad + plotH*(1-clamped/maxValue)

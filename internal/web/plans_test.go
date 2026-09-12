@@ -198,7 +198,7 @@ func TestInterfaceObfuscationRangeForm(t *testing.T) {
 	// input direction or value.
 	editPath := "/interfaces/" + created.ID + "/edit"
 	body := e.get(editPath, cookie).Body.String()
-	for _, want := range []string{`<html lang="fa" dir="rtl">`, `name="obf_h1" type="text" dir="ltr"`, `value="100-110"`} {
+	for _, want := range []string{`<html lang="fa" dir="rtl" data-theme="light">`, `name="obf_h1" type="text" dir="ltr"`, `value="100-110"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Persian range form missing %q", want)
 		}
@@ -207,7 +207,7 @@ func TestInterfaceObfuscationRangeForm(t *testing.T) {
 		t.Fatalf("set English locale: %d", rec.Code)
 	}
 	body = e.get(editPath, cookie).Body.String()
-	for _, want := range []string{`<html lang="en" dir="ltr">`, `name="obf_h1" type="text" dir="ltr"`, `value="100-110"`} {
+	for _, want := range []string{`<html lang="en" dir="ltr" data-theme="light">`, `name="obf_h1" type="text" dir="ltr"`, `value="100-110"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("English range form missing %q", want)
 		}

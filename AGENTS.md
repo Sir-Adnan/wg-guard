@@ -6,6 +6,10 @@ guessing, and update them in the same change when behavior changes.
 
 ## Start here
 
+On a new session or when entering an unfamiliar area, orient from the documents below.
+For continuation work, reuse already-established context and read only the authoritative
+documents relevant to the current change; do not repeatedly reread unrelated docs.
+
 1. [docs/README.md](docs/README.md) — documentation map.
 2. [docs/development/status.md](docs/development/status.md) — what is designed / implemented /
    tested. Never claim more than this matrix says.
@@ -13,8 +17,8 @@ guessing, and update them in the same change when behavior changes.
    release blockers, audit findings, and future-phase ownership.
 4. [docs/development/workflow.md](docs/development/workflow.md) — build/test/lint/CI rules.
 5. [docs/architecture/overview.md](docs/architecture/overview.md) and
-   [docs/architecture/project-structure.md](docs/architecture/project-structure.md) before
-   writing any code.
+   [docs/architecture/project-structure.md](docs/architecture/project-structure.md) when entering
+   an unfamiliar area or making architecture/structure-affecting changes.
 6. [docs/integrations/amneziawg.md](docs/integrations/amneziawg.md) before touching anything
    AmneziaWG-related — upstream behavior is pinned there, not assumed from memory.
 
@@ -22,9 +26,11 @@ guessing, and update them in the same change when behavior changes.
 
 - **Never guess upstream behavior.** If AmneziaWG behavior is uncertain, inspect the pinned
   version or mark the item unresolved. Do not invent CLI flags, config keys, or protocol params.
-- **No heavy dependencies.** Justify every new Go module and frontend asset; prefer stdlib.
-  No Node.js in production; frontend assets are prebuilt and committed/embedded.
-- **Resource budgets are requirements.** One process, one scheduler goroutine, bounded queues,
+- **Avoid unnecessary heavy dependencies.** Justify meaningful new Go modules and frontend
+  dependencies. Prefer stdlib and lightweight solutions, but do not sacrifice correctness,
+  maintainability, accessibility, or product/UI quality merely to minimize dependency or asset size.
+  No Node.js runtime in production; frontend assets are prebuilt and committed/embedded.
+- **Runtime resource budgets are requirements.** One process, one scheduler goroutine, bounded queues,
   cursor pagination, no busy loops. See docs/architecture/overview.md §Resources.
 - **Security-sensitive code** (auth, secrets, subprocess, firewall, configs): follow
   docs/operations/security.md. Never log keys, tokens, passwords, raw configs, or webhook
@@ -33,8 +39,9 @@ guessing, and update them in the same change when behavior changes.
   `internal/i18n` catalogs (fa + en, key parity tested), logical CSS and LTR technical data. The
   installer/host terminal is English-only and must not switch from environment or legacy language
   flags.
-- **Two phases never mix.** Follow the phase in ROADMAP.md; a phase ends with tests green,
-  docs updated, a coherent commit, and an honest verification report.
+- **Do not pull future-phase scope forward unnecessarily.** Work within the active ROADMAP phase.
+  A bounded prerequisite or regression fix discovered by the active phase may be handled when
+  required for correctness, but do not silently absorb unrelated future-phase work.
 - Distinguish clearly: designed / implemented / unit tested / integration tested /
   requires real VPS verification.
 
@@ -58,3 +65,6 @@ tag.
 
 Small, coherent, imperative messages (`docs: …`, `feat(user): …`, `fix(api): …`, `build: …`).
 The repository must build and pass `make test` at every commit.
+Prefer coherent milestone/change commits over micro-commits created only to checkpoint progress.
+Run targeted tests during implementation; run the required full commit gate once the coherent
+commit is ready.

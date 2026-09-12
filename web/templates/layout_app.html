@@ -16,8 +16,12 @@
     </a><button type="button" class="icon-btn nav-close" data-close-nav aria-label="{{.T "common.close"}}">{{.Icon "x"}}</button></div>
     <nav class="nav">
       <div class="nav-label">{{.T "nav.group.manage"}}</div>
+      {{if .Can "stats.read"}}
       <a href="/dashboard" {{if or (eq .Path "/dashboard") (eq .Path "/")}}aria-current="page"{{end}} aria-label="{{.T "nav.dashboard"}}" data-tip="{{.T "nav.dashboard"}}">{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
-      <a href="/users" aria-label="{{.T "nav.users"}}" data-tip="{{.T "nav.users"}}" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
+      {{end}}
+      {{if or (.Can "users.read") (.Can "users.create") (.Can "users.bulk")}}
+      <a href="{{if .Can "users.read"}}/users{{else if .Can "users.create"}}/users/new{{else}}/users/bulk{{end}}" aria-label="{{.T "nav.users"}}" data-tip="{{.T "nav.users"}}" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
+      {{end}}
       {{if or (.Can "plans.read") (.Can "plans.write")}}
       <a href="{{if .Can "plans.read"}}/plans{{else}}/plans/new{{end}}" aria-label="{{.T "nav.plans"}}" data-tip="{{.T "nav.plans"}}" {{if .IsActive "/plans"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
       {{end}}

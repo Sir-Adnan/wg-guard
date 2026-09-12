@@ -11,12 +11,17 @@ retain meaningful fallback paths. `internal/web` calls existing services directl
 API. Typed page/view data owns formatting and states; templates own semantic markup. No React,
 SPA, Tailwind, heavy framework, chart runtime, QR runtime or production Node.js dependency.
 
+This is a ground-up redesign: legacy layout, hierarchy, markup and interactions are not design
+constraints. Preserve proven backend semantics and security while replacing weak frontend
+compositions. No page, workflow, dialog or state may remain visually legacy at closure.
+
 Premium means precise hierarchy, spacing, typography, consistency, usability and restraint.
 Shadcn-like neutral surfaces carry the product: white/zinc light, near-black `#09090b` dark,
-monochrome primary actions, restrained semantic colors, no purple identity. Apple/iOS influence
-is limited to refined depth and responsive feedback. Glass/blur/gradients/highlights are optional
-on selected chrome/overlays, with an opaque readable fallback. No neon, glow, decorative card
-movement, constant animation or blur-heavy content surfaces.
+monochrome primary actions, restrained semantic colors, no purple identity. Apple/iOS-like polish
+includes refined depth and responsive feedback. Glass, blur, gradients, shadows and highlights may
+support dashboard/status cards, overlays, auth/onboarding, public surfaces and other useful focal
+points, with readable fallbacks. Effects enhance hierarchy; avoid neon, excessive glow/blur,
+decorative card movement and constant animation.
 
 Three layers keep the system maintainable:
 
@@ -55,16 +60,18 @@ part of layout, not afterthoughts. The final viewport/browser matrix is owned by
 
 ## Typography, localization and technical data
 
-Vazirmatn is self-hosted, OFL, `font-display: swap`, shared by Persian and English; current assets
-are Regular/400 and SemiBold/600 WOFF2 files, not locale unicode-range subsets. Keep weights and
-payload limited; a future subset change requires measurement and honest notices. Body/form text
+Persian uses self-hosted Vazirmatn, OFL, `font-display: swap`, Regular/400 and SemiBold/600 WOFF2.
+English uses the native system sans stack (SF/Segoe UI as available), with no additional font
+download. Judge weight, rhythm and mixed-script readability in both locales; a future subset
+change requires measurement and honest notices. Body/form text
 must remain readable on phones; headings, metadata and numeric metrics have distinct hierarchy.
 
 All product copy, including dynamic JavaScript feedback and scope/event descriptions, comes from
 `internal/i18n` fa/en catalogs. Static key parity is necessary but dynamic-key/rendered-copy checks
 and human terminology review are also required. Resolve language on the server and set `lang` and
 `dir`; use CSS logical properties with only necessary physical exceptions. Default locale is fa;
-theme defaults to system and explicit light/dark preferences work across app, auth and subscription.
+theme defaults to Light. Explicit Light, Dark or System preferences override that default across
+app, auth and subscription, including a dark OS with no saved preference.
 
 Technical values (IP/CIDR/ports/keys/counters) use LTR isolation, Latin digits and tabular numerals;
 copy returns the original value, never formatted/truncated text. Mixed-language names use bidi
@@ -115,26 +122,25 @@ names; detail must be obtainable without hover. Line styles/labels distinguish R
 unavailable, stale and partial data are distinct; refresh preserves reading/focus and geometry.
 Do not imply long resource history from traffic rollups or invent new telemetry contracts for
 visual symmetry. Disk and health can use compact meters/status instead of decorative line charts.
+Exact ten-second sample values are available on demand in a stable table outside the live swap;
+its timestamps include seconds and UTC. Historical traffic offers a separate per-bucket table.
+Snapshot reading and focus never trigger extra samplers or automatic table replacement.
 
-## Settings and asset gates
+## Settings and performance
 
 Settings uses grouped section navigation, progressive disclosure and one editor per setting;
 operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
 consequences and external host ownership are explained. Save/validation/secret semantics are
 specified in [Phase 10](../development/phase10.md#settings-save-decision-100-prerequisite).
 
-| Asset | Initial gzip budget |
-|---|---|
-| JavaScript total (HTMX + application modules) | ≤ 30 KiB |
-| CSS total | ≤ 25 KiB |
-| Fonts total | ≤ 150 KiB |
-| Typical list-page HTML | ≤ 60 KiB |
-
-`scripts/check-assets.sh` enforces JS/CSS/fonts in CI; rendered HTML is a QA measurement, not yet
-an automated CI assertion. Measure SVG, full/fragment HTML, request count and rendering/layout cost
-as well. Increase a budget only for a demonstrated UX need with before/after evidence and updated
-checks/docs; avoid duplicate assets, eager QR loading and duplicated mobile DOM. Assets remain
-prebuilt/embedded with cache-busted URLs and notices; no compilation at deployment time.
+Build the strongest premium UX within the lightweight architecture, then optimize unnecessary
+cost without degrading it. There are no numerical asset-size targets, review thresholds or
+ceilings for JS, CSS, fonts, SVG, full HTML or fragments. `scripts/check-assets.sh` reports raw/gzip
+sizes in CI and fails for missing assets, never solely for size. Browser QA measures full/fragment
+HTML, request count, loading, layout shift and rendering cost. Investigate unexpected regressions,
+duplicate assets/markup, expensive repeated work and polling; defer expensive assets such as QR
+until requested. Assets remain prebuilt/embedded with cache-busted URLs and notices; no deployment
+compilation or unnecessary dependencies.
 
 No screen is accepted merely because it renders. Milestone checks cover representative desktop/
 phone, both locales/themes and changed states; 10.7 owns the full route/state/browser/performance

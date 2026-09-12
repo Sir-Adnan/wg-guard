@@ -1,9 +1,10 @@
 {{define "dash_attention"}}
 {{$v := .}}
 {{with .Data.Attention}}
-{{if .Any}}
+{{if or .Any .Unavailable}}
 <div class="card card--pad dash-attention">
-  <h2>{{$v.T "dash.attention"}}</h2>
+  <div class="section-head"><div><h2>{{$v.T "dash.attention"}}</h2><p>{{$v.T "dash.attention_hint"}}</p></div><a class="btn btn--ghost btn--sm" href="/users">{{$v.T "nav.users"}} {{$v.IconS "arrow-right"}}</a></div>
+  {{if .Unavailable}}<p class="callout callout--warn" data-attention-unavailable>{{$v.T "dash.attention_unavailable"}}</p>{{end}}
   <div class="attention-grid">
     {{if .Expiring}}
     <div class="attention-col attention-col--expiring">

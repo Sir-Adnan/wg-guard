@@ -458,7 +458,7 @@ func themeFrom(r *http.Request) string {
 			return c.Value
 		}
 	}
-	return "system"
+	return "light"
 }
 
 func localeFrom(r *http.Request) string {

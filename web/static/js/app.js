@@ -106,17 +106,22 @@
 
   /* ---------- bulk selection (users table) ---------- */
 
-  document.addEventListener("change", (e) => {
-    const all = e.target.id === "sel-all";
-    if (all) {
-      $$(".js-sel").forEach((c) => { c.checked = e.target.checked; });
-    }
-    if (!all && !e.target.classList.contains("js-sel")) return;
+  function updateBulkSelection() {
     const n = $$(".js-sel:checked").length;
     $$("[data-sel-count]").forEach((el) => { el.textContent = n; });
     $$("[data-bulk-bar]").forEach((el) => el.classList.toggle("hidden", n === 0));
     const allBox = $("#sel-all");
-    if (allBox) allBox.checked = n > 0 && n === $$(".js-sel").length;
+    if (allBox) {
+      allBox.checked = n > 0 && n === $$(".js-sel").length;
+      allBox.indeterminate = n > 0 && n < $$(".js-sel").length;
+    }
+    $$("[data-bulk-action] button[type='submit']").forEach(button => { button.disabled = n === 0; });
+  }
+  updateBulkSelection();
+  document.addEventListener("change", (e) => {
+    const all = e.target.id === "sel-all";
+    if (all) $$(".js-sel").forEach((c) => { c.checked = e.target.checked; });
+    if (all || e.target.classList.contains("js-sel")) updateBulkSelection();
   });
 
   /* fill selected ids + dynamic confirm message, then let the submit run */
@@ -130,17 +135,58 @@
     if (f.dataset.bulkConfirmMsg) {
       f.dataset.confirmMessage = f.dataset.bulkConfirmMsg.replace("%d", String(ids.length));
     }
+    const action = f.querySelector('[name="action"]');
+    if (action) {
+      f.dataset.confirmTitle = action.selectedOptions[0].textContent;
+      f.dataset.confirmKind = action.value === "delete" ? "danger" : "ok";
+    }
   }, true); // capture: runs before the confirm-flow listener reads the message
 
   /* ---------- QR modal ---------- */
 
+  let qrURL = "";
+  function loadQR() {
+    const dialog = $("#qr-modal"), img = $("#qr-img");
+    if (!dialog || !img || !qrURL) return;
+    const state = $("[data-qr-state]", dialog), retry = $("[data-qr-retry]", dialog);
+    img.hidden = true;
+    if (retry) retry.hidden = true;
+    if (state) state.textContent = state.dataset.loading;
+    img.onload = () => {
+      if (!dialog.open) return;
+      img.hidden = false;
+      if (state) state.textContent = "";
+    };
+    img.onerror = () => {
+      if (!dialog.open) return;
+      img.hidden = true;
+      if (state) state.textContent = state.dataset.error;
+      if (retry) retry.hidden = false;
+    };
+    img.src = qrURL;
+  }
+  function clearQR() {
+    const img = $("#qr-img");
+    if (img) { img.onload = img.onerror = null; img.removeAttribute("src"); img.hidden = true; }
+    qrURL = "";
+  }
+  document.addEventListener("close", (e) => {
+    if (e.target.id === "qr-modal") clearQR();
+  }, true);
+  document.addEventListener("cancel", (e) => {
+    if (e.target.id === "qr-modal") clearQR();
+  }, true);
   document.addEventListener("click", (e) => {
+    if (e.target.closest("#qr-modal [data-close-modal]")) clearQR();
+  }, true);
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-qr-retry]")) { loadQR(); return; }
     const btn = e.target.closest("[data-qr]");
     if (!btn) return;
     e.preventDefault();
-    const img = $("#qr-img");
-    if (img) img.src = btn.dataset.qr;
+    qrURL = btn.dataset.qr;
     openModal("qr-modal");
+    loadQR();
   });
 
   /* ---------- confirm flow ---------- */
@@ -491,6 +537,8 @@
   function calFromISO(iso) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return null;
     const [y, m, d] = iso.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
     if (isFa()) {
       const jdn = calG2D(y, m, d);
       const j = calD2J(jdn);
@@ -505,6 +553,9 @@
     if (!calEl) {
       calEl = document.createElement("div");
       calEl.className = "calendar";
+      calEl.id = "date-calendar";
+      calEl.setAttribute("role", "dialog");
+      calEl.setAttribute("aria-labelledby", "calendar-title");
       // A <dialog> renders in the top layer: anything appended to <body>
       // paints BELOW it. Mount the popover inside the dialog when the
       // trigger lives in one (create-user drawer), otherwise on <body>.
@@ -516,10 +567,15 @@
         if (e.target.closest("[data-cal-next]")) { calMove(1); return; }
         if (e.target.closest("[data-cal-clear]")) {
           cal.input.value = "";
+          cal.input.dispatchEvent(new Event("change", { bubbles: true }));
           calClose();
         }
       });
     }
+    (trigger.closest("dialog") || document.body).appendChild(calEl);
+    cal?.trigger?.setAttribute("aria-expanded", "false");
+    trigger.setAttribute("aria-expanded", "true");
+    trigger.setAttribute("aria-controls", calEl.id);
     const existing = calFromISO(input.value);
     const t = new Date();
     cal = {
@@ -530,15 +586,37 @@
       jy: existing ? existing.jy : (isFa() ? calD2J(calG2D(t.getFullYear(), t.getMonth() + 1, t.getDate())).jy : t.getFullYear()),
       jm: existing ? existing.jm : (isFa() ? calD2J(calG2D(t.getFullYear(), t.getMonth() + 1, t.getDate())).jm : t.getMonth() + 1),
       selected: existing ? existing.g : null,
+      focusDate: existing && existing.g >= new Date(t.getFullYear(), t.getMonth(), t.getDate()) ? existing.g : new Date(t.getFullYear(), t.getMonth(), t.getDate()),
     };
+    calSetView(cal.focusDate);
     calRender();
     calEl.classList.add("is-open");
     calPosition();
+    $("[data-cal-day][tabindex='0']", calEl)?.focus({ preventScroll: true });
   }
 
-  function calClose() { calEl?.classList.remove("is-open"); }
+  function calClose(returnFocus = true) {
+    if (!calEl?.classList.contains("is-open")) return;
+    calEl.classList.remove("is-open");
+    cal.trigger.setAttribute("aria-expanded", "false");
+    if (returnFocus) cal.trigger.focus({ preventScroll: true });
+  }
+
+  function calSetView(date) {
+    const parts = calFromISO(isoOf(date));
+    cal.jy = parts.jy; cal.jm = parts.jm;
+  }
+
+  function calFocus(date) {
+    const today = new Date(cal.today.getFullYear(), cal.today.getMonth(), cal.today.getDate());
+    cal.focusDate = date < today ? today : date;
+    calSetView(cal.focusDate);
+    calRender();
+    $("[data-cal-day][tabindex='0']", calEl)?.focus({ preventScroll: true });
+  }
 
   function calMove(dir) {
+    const day = calFromISO(isoOf(cal.focusDate)).jd;
     if (cal.view === "j") {
       let m = cal.jm + dir, y = cal.jy;
       if (m > 12) { m = 1; y++; }
@@ -550,7 +628,10 @@
       if (m < 0) { m = 11; y--; }
       cal.jy = y; cal.jm = m + 1;
     }
-    calRender();
+    const len = cal.view === "j" ? calJalMonthLen(cal.jy, cal.jm) : new Date(cal.jy, cal.jm, 0).getDate();
+    const d = Math.min(day, len);
+    const g = cal.view === "j" ? calD2G(calJ2D(cal.jy, cal.jm, d)) : { gy: cal.jy, gm: cal.jm, gd: d };
+    calFocus(new Date(g.gy, g.gm - 1, g.gd));
   }
 
   function calPick(day) {
@@ -601,13 +682,17 @@
       const iso = gy + "-" + pad(gm) + "-" + pad(gd);
       const past = new Date(gy, gm - 1, gd) < new Date(cal.today.getFullYear(), cal.today.getMonth(), cal.today.getDate());
       const cls = (iso === todayISO ? " is-today" : "") + (cal.selected && iso === isoOf(cal.selected) ? " is-selected" : "");
+      const label = new Intl.DateTimeFormat(fa ? "fa-IR" : "en", { dateStyle: "full" }).format(new Date(gy, gm - 1, gd));
       cells += '<button type="button" class="cal-day' + cls + '" data-cal-day="' + d + '"' +
+        ' tabindex="' + (iso === isoOf(cal.focusDate) ? '0' : '-1') + '" aria-label="' + label + '"' +
+        (iso === todayISO ? ' aria-current="date"' : '') +
+        ' aria-pressed="' + Boolean(cal.selected && iso === isoOf(cal.selected)) + '"' +
         (past ? " disabled" : "") + ">" + d + "</button>";
     }
     calEl.innerHTML =
       '<div class="cal-head">' +
       '<button type="button" class="icon-btn" data-cal-prev aria-label="' + (cal.labels.calPrev || "") + '">‹</button>' +
-      '<span class="cal-title" aria-live="polite">' + title + "</span>" +
+      '<span id="calendar-title" class="cal-title" aria-live="polite">' + title + "</span>" +
       '<button type="button" class="icon-btn" data-cal-next aria-label="' + (cal.labels.calNext || "") + '">›</button>' +
       "</div>" +
       '<div class="cal-grid">' + week.map((w) => '<span class="cal-wd">' + w + "</span>").join("") + cells + "</div>" +
@@ -638,11 +723,26 @@
       else calOpen(trigger);
       return;
     }
-    if (calEl?.classList.contains("is-open") && !e.target.closest(".calendar")) calClose();
+    if (calEl?.classList.contains("is-open") && !e.target.closest(".calendar")) calClose(false);
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") calClose();
+    if (!calEl?.classList.contains("is-open")) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); calClose(); return; }
+    if (!e.target.matches("[data-cal-day]")) return;
+    if (["PageUp", "PageDown"].includes(e.key)) { e.preventDefault(); calMove(e.key === "PageUp" ? -1 : 1); return; }
+    const date = new Date(cal.focusDate);
+    const weekday = (date.getDay() + (cal.view === "j" ? 1 : 6)) % 7;
+    const rtl = getComputedStyle(calEl).direction === "rtl";
+    const offsets = { ArrowLeft: rtl ? 1 : -1, ArrowRight: rtl ? -1 : 1, ArrowUp: -7, ArrowDown: 7, Home: -weekday, End: 6 - weekday };
+    if (!(e.key in offsets)) return;
+    e.preventDefault();
+    date.setDate(date.getDate() + offsets[e.key]);
+    calFocus(date);
+  }, true);
+  document.addEventListener("focusin", e => {
+    if (calEl?.classList.contains("is-open") && !calEl.contains(e.target) && e.target !== cal.trigger) calClose(false);
   });
+  document.addEventListener("close", e => { if (e.target.contains?.(calEl)) calClose(false); }, true);
   window.addEventListener("resize", () => { if (calEl?.classList.contains("is-open")) calPosition(); });
 
   /* ---------- boot ---------- */

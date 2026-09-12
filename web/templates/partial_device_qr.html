@@ -1,0 +1,14 @@
+{{define "device_qr_dialog"}}
+<dialog id="qr-modal" class="modal modal--qr" aria-label="{{.T "devices.qr"}}">
+  <div class="modal-head">
+    <h2>{{.T "devices.qr"}}</h2>
+    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <div class="modal-body qr-body">
+    <p data-qr-state role="status" data-loading="{{.T "common.loading"}}" data-error="{{.T "devices.qr_error"}}"></p>
+    <img id="qr-img" alt="{{.T "devices.qr"}}" width="280" height="280" hidden>
+    <button type="button" class="btn" data-qr-retry hidden>{{.T "common.retry"}}</button>
+    <p class="text-muted text-sm">{{.T "devices.config_note"}}</p>
+  </div>
+</dialog>
+{{end}}

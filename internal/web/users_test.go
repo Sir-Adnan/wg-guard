@@ -198,7 +198,7 @@ func TestUserBulkCreate(t *testing.T) {
 	// Invalid count is rejected.
 	form.Set("count", "501")
 	rec = e.post("/users/bulk", form, cookie, deriveCSRF(cookie.Value))
-	if rec.Code != http.StatusBadRequest {
+	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid bulk count: %d", rec.Code)
 	}
 }

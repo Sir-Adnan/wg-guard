@@ -1,34 +1,43 @@
 {{define "title"}}{{.T "dash.title"}}{{end}}
 {{define "content"}}
-<div class="page-head">
-  <div>
-    <h1>{{.T "dash.title"}}</h1>
-    <p>{{.T "dash.subtitle"}}</p>
+<div class="dashboard-page">
+  <div class="page-head">
+    <div><h1>{{.T "dash.title"}}</h1><p>{{.T "dash.subtitle"}}</p></div>
+    {{if .Data.Allowed}}<span class="badge">{{.IconS "server"}}<bdi>{{.Data.NodeID}}</bdi></span>{{end}}
   </div>
-  <div class="actions">
-    <span class="badge badge--accent">{{.IconS "server"}}<span class="ltr-data">{{.Data.NodeID}}</span></span>
-  </div>
+  {{if .Data.Allowed}}
+  {{template "dash_live" .}}
+  <details class="collapse form-panel live-data"{{if .Data.History}} open{{end}}>
+    <summary>{{.IconS "activity"}}<span>{{.T "dash.sample_data"}}</span></summary>
+    <div class="collapse-body">
+      <p class="hint">{{.T "dash.sample_data_hint"}}</p>
+      <a class="btn btn--outline btn--sm" href="/dashboard?history=1#telemetry-history" hx-get="/dashboard/live?view=history" hx-target="#telemetry-history" hx-swap="innerHTML">{{.T "dash.load_samples"}}</a>
+      <div id="telemetry-history">{{if .Data.History}}{{template "dash_history" .}}{{end}}</div>
+    </div>
+  </details>
+  {{template "dash_attention" .}}
+  {{template "dash_chart" .}}
+  <details class="collapse form-panel node-context">
+    <summary>{{.IconS "server"}}<span>{{.T "dash.node"}}</span></summary>
+    <dl class="detail-list collapse-body">
+      {{if .Data.Endpoint}}<dt>{{.T "dash.endpoint"}}</dt><dd class="ltr-data">{{.Data.Endpoint}}</dd>{{end}}
+      <dt>{{.T "dash.version"}}</dt><dd class="ltr-data">{{.Version}}</dd>
+      <dt>{{.T "dash.backend"}}</dt><dd><bdi>{{.Data.ToolsVersion}}</bdi></dd>
+    </dl>
+  </details>
+  {{else}}
+  <div class="empty card card--pad"><span class="empty-icon">{{.Icon "shield"}}</span><h2>{{.T "dash.access_limited"}}</h2><p>{{.T "dash.access_limited_hint"}}</p></div>
+  {{end}}
 </div>
+{{end}}
 
-{{template "dash_live" .}}
-
-{{template "dash_attention" .}}
-
-{{template "dash_chart" .}}
-
-<div class="card card--pad mt-4">
-  <h2>{{.T "dash.node"}}</h2>
-  <dl class="detail-list">
-    <dt>{{.T "dash.node_status"}}</dt>
-    <dd><span class="badge badge--ok badge--pulse"><span class="dot"></span>{{.T "dash.node_up"}}</span></dd>
-    {{if .Data.Endpoint}}
-    <dt>{{.T "dash.endpoint"}}</dt>
-    <dd class="ltr-data">{{.Data.Endpoint}}</dd>
-    {{end}}
-    <dt>{{.T "dash.version"}}</dt>
-    <dd class="ltr-data">{{.Version}}</dd>
-    <dt>{{.T "dash.backend"}}</dt>
-    <dd class="text-muted text-sm ltr-data">{{.Data.ToolsVersion}}</dd>
-  </dl>
-</div>
+{{define "dash_history"}}
+{{if .Data.History}}
+<div class="table-wrap sample-data-wrap" tabindex="0" role="region" aria-label="{{.T "dash.sample_data"}}">
+<table class="sample-data-table">
+<caption>{{.T "dash.sample_data"}} · UTC</caption>
+<thead><tr><th scope="col">{{.T "dash.period"}}</th><th scope="col">{{.T "dash.cpu"}}</th><th scope="col">{{.T "dash.memory"}}</th><th scope="col">{{.T "dash.disk"}}</th><th scope="col">{{.T "dash.host_network"}} · RX</th><th scope="col">{{.T "dash.host_network"}} · TX</th><th scope="col">{{.T "dash.vpn_live"}} · RX</th><th scope="col">{{.T "dash.vpn_live"}} · TX</th><th scope="col">{{.T "dash.users_online"}}</th><th scope="col">{{.T "dash.active_peers"}}</th></tr></thead>
+<tbody>{{range .Data.History}}<tr><th scope="row"><bdi>{{.At}}</bdi></th>{{range .Values}}<td><bdi>{{.}}</bdi></td>{{end}}</tr>{{end}}</tbody>
+</table></div>
+{{else}}<p class="callout">{{.T "dash.no_samples"}}</p>{{end}}
 {{end}}

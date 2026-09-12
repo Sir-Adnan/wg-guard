@@ -11,21 +11,24 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
-	"github.com/Sir-Adnan/wg-guard/internal/device"
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 // usersData feeds the users list page.
 type usersData struct {
-	Items      []userRow
-	NextCursor string
-	Search     string
-	Status     string
-	Sort       string
-	HasFilters bool
-	Plans      []*planRef
-	Ifaces     []*ifaceRef
+	Form        operationalForm
+	PlansKnown  bool
+	IfacesKnown bool
+	Items       []userRow
+	NextCursor  string
+	Search      string
+	Status      string
+	Sort        string
+	HasFilters  bool
+	Plans       []*planRef
+	Ifaces      []*ifaceRef
 	// Create-drawer preset chips (settings-driven).
 	QuotaPresets    []string
 	DurationPresets []string
@@ -41,12 +44,14 @@ type usersData struct {
 
 // userRow is one list row: the user plus panel-computed display fields.
 type userRow struct {
-	U           *user.User
-	Used        int64 // RX+TX, precomputed for the meter
-	DeviceCount int
-	Devices     []*device.Device // id/name summaries for the quick-share menu
-	PlanName    string
-	SubURL      string // customer subscription URL ("" when no active link)
+	U            *user.User
+	Used         int64 // RX+TX, precomputed for the meter
+	DeviceCount  int
+	DevicesKnown bool
+	PlanKnown    bool
+	Devices      []*deviceView // id/name summaries for the quick-share menu
+	PlanName     string
+	SubURL       string // customer subscription URL ("" when no active link)
 }
 
 type planRef struct {
@@ -115,6 +120,8 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 		DurationPresets: s.settingList(r, "users.duration_presets_months"),
 	}
 	data.DefaultQuotaGB, data.DefaultDurMonths, data.DefaultDeviceLim, data.DefaultIfaceID = s.createDefaults(r)
+	data.Form = s.newUserFormData(r).Form
+	data.PlansKnown, data.IfacesKnown = data.Plans != nil, data.Ifaces != nil
 	_ = s.render(w, r, "users", "app", data)
 }
 
@@ -168,19 +175,23 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 		ids[i] = u.ID
 	}
 	counts, err := s.Devices.CountForUsers(ctx, ids)
+	countsKnown := err == nil
 	if err != nil {
 		s.logError(r, "device count batch", err)
 	}
 	planNames := map[string]string{}
 	var plans []*planRef
+	plansKnown := false
 	if plist, err := s.Plans.List(ctx); err == nil {
+		plansKnown = true
+		plans = make([]*planRef, 0, len(plist))
 		for _, p := range plist {
 			planNames[p.ID] = p.Name
 			plans = append(plans, &planRef{ID: p.ID, Name: p.Name})
 		}
 	}
 	subURLs := map[string]string{}
-	if s.Links != nil {
+	if s.Links != nil && canOperate(r, auth.ScopeConfigsRead) {
 		if links, err := s.Links.ForUsers(ctx, ids); err == nil {
 			for id, l := range links {
 				if !l.Revoked() && l.Token != "" {
@@ -198,7 +209,7 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 	}
 	for i, u := range items {
 		rows[i] = userRow{U: u, Used: u.TrafficUsedRX + u.TrafficUsedTX,
-			DeviceCount: counts[u.ID], Devices: deviceLists[u.ID],
+			DeviceCount: counts[u.ID], DevicesKnown: countsKnown, PlanKnown: plansKnown, Devices: safeDeviceViews(deviceLists[u.ID]),
 			PlanName: planNames[deref(u.PlanID)], SubURL: subURLs[u.ID]}
 	}
 	return rows, plans
@@ -207,13 +218,17 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 // --- create / edit ------------------------------------------------------------
 
 type userFormData struct {
-	IsEdit   bool
-	User     *user.User
-	Plans    []*planRef
-	Ifaces   []*ifaceRef
-	Error    string // localized message
-	FieldErr string // field name that failed (best effort)
-	StartNow bool
+	Form        operationalForm
+	PlansKnown  bool
+	IfacesKnown bool
+	IsBulk      bool
+	IsEdit      bool
+	User        *user.User
+	Plans       []*planRef
+	Ifaces      []*ifaceRef
+	Error       string // localized message
+	FieldErr    string // field name that failed (best effort)
+	StartNow    bool
 	// Raw submitted duration (error redisplay on create; edit prefills from
 	// User.DurationSeconds via the view helpers).
 	DurationValue string
@@ -291,10 +306,102 @@ func (s *Server) newUserFormData(r *http.Request) userFormData {
 		Plans:  s.plansForForm(r),
 		Ifaces: s.ifacesForForm(r),
 	}
+	data.PlansKnown, data.IfacesKnown = data.Plans != nil, data.Ifaces != nil
 	data.QuotaPresets = s.settingList(r, "users.quota_presets_gb")
 	data.DurationPresets = s.settingList(r, "users.duration_presets_months")
 	data.DefaultQuotaGB, data.DefaultDurMonths, data.DefaultDeviceLim, data.DefaultIfaceID = s.createDefaults(r)
+	data.Form = userOperationalForm(nil)
+	data.Form.Values["device_limit"] = strconv.Itoa(data.DefaultDeviceLim)
+	data.Form.Values["interface"] = data.DefaultIfaceID
+	if data.DefaultQuotaGB > 0 {
+		data.Form.Values["traffic_limit_value"] = strconv.Itoa(data.DefaultQuotaGB)
+	}
+	if data.DefaultDurMonths > 0 {
+		data.Form.Values["duration_value"] = strconv.Itoa(data.DefaultDurMonths)
+		data.Form.Values["duration_unit"] = "months"
+	}
 	return data
+}
+
+func userOperationalForm(u *user.User) operationalForm {
+	values := map[string]string{"username": "", "display_name": "", "note": "", "tags": "", "traffic_limit_value": "", "traffic_limit_unit": "gb", "duration_value": "", "duration_unit": "days", "expires_on": "", "device_limit": "", "speed_down": "", "speed_up": "", "interface": "", "plan": "", "start_policy": "immediate", "auto_devices": "1", "prefix": "", "count": "10", "start_index": "1"}
+	if u != nil {
+		v := View{}
+		values["username"], values["display_name"], values["note"], values["tags"] = u.Username, u.DisplayName, u.Note, strings.Join(u.Tags, ", ")
+		values["traffic_limit_value"], values["traffic_limit_unit"] = v.QuotaVal(u.TrafficLimitBytes), v.QuotaUnit(u.TrafficLimitBytes)
+		values["duration_value"], values["duration_unit"] = v.DurVal(u.DurationSeconds), v.DurUnit(u.DurationSeconds)
+		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(u.DeviceLimit), rawFormInt(u.SpeedLimitDownKbps), rawFormInt(u.SpeedLimitUpKbps)
+		values["interface"], values["plan"], values["start_policy"] = deref(u.InterfaceID), deref(u.PlanID), string(u.StartPolicy)
+	}
+	return operationalForm{Values: values, Fields: map[string]string{}}
+}
+
+func (s *Server) handleUserBulkPage(w http.ResponseWriter, r *http.Request) {
+	d := s.newUserFormData(r)
+	d.IsBulk = true
+	d.Form = userOperationalForm(nil)
+	d.Form.Values["auto_devices"] = ""
+	_ = s.render(w, r, "user_form", "app", d)
+}
+
+func (s *Server) userFormError(w http.ResponseWriter, r *http.Request, u *user.User, bulk bool, err error) {
+	d := s.newUserFormData(r)
+	d.IsEdit, d.IsBulk, d.User = u != nil, bulk, u
+	d.Form = submittedOperationalForm(r, userOperationalForm(u).Values)
+	if d.Form.V("traffic_limit_value") == "" && r.PostFormValue("traffic_limit_gb") != "" {
+		d.Form.Values["traffic_limit_value"], d.Form.Values["traffic_limit_unit"] = r.PostFormValue("traffic_limit_gb"), "gb"
+	}
+	if d.Form.V("duration_value") == "" && r.PostFormValue("duration_days") != "" {
+		d.Form.Values["duration_value"], d.Form.Values["duration_unit"] = r.PostFormValue("duration_days"), "days"
+	}
+	if _, e := quotaFromForm(r); e != nil {
+		d.Form.Fields["traffic_limit_value"] = "forms.error.quota"
+	}
+	if _, e := durationFromForm(r); e != nil {
+		d.Form.Fields["duration_value"] = "forms.error.duration"
+	}
+	for _, key := range []string{"device_limit", "speed_down", "speed_up"} {
+		if raw := r.PostFormValue(key); strings.TrimSpace(raw) != "" {
+			if n, e := strconv.Atoi(raw); e != nil || n <= 0 {
+				d.Form.Fields[key] = "forms.error.number"
+			}
+		}
+	}
+	if exp, e := parseDateOnly(r.PostFormValue("expires_on")); e != nil || (exp != nil && exp.Before(time.Now())) {
+		d.Form.Fields["expires_on"] = "common.error_validation"
+	}
+	if domain.CodeOf(err) == domain.CodeUsernameExists {
+		d.Form.Fields["username"] = "users.error.username_taken"
+	}
+	if domain.CodeOf(err) == domain.CodeInvalidRequest {
+		// Match fixed service-owned prefixes; never surface raw error contents.
+		for _, item := range [][3]string{
+			{"username must", "username", "onboard.username_hint"},
+			{"prefix must", "prefix", "users.bulk.prefix_error"},
+			{"generated usernames would exceed", "prefix", "users.bulk.length_error"},
+			{"start_index must", "start_index", "users.bulk.index_error"},
+			{"width must", "start_index", "users.bulk.index_error"},
+		} {
+			if strings.HasPrefix(err.Error(), item[0]) {
+				d.Form.Fields[item[1]] = item[2]
+			}
+		}
+	}
+	if bulk {
+		if n, e := strconv.Atoi(r.PostFormValue("count")); e != nil || n < 1 || n > 500 {
+			d.Form.Fields["count"] = "common.error_validation"
+		}
+		if n, e := strconv.Atoi(r.PostFormValue("start_index")); e != nil || n < 0 {
+			d.Form.Fields["start_index"] = "users.bulk.index_error"
+		}
+	}
+	s.operationalFormStatus(w, r, &d.Form, err)
+	_ = s.render(w, r, "user_form", "app", d)
+}
+
+func canOperate(r *http.Request, scope string) bool {
+	a := adminFrom(r)
+	return a != nil && auth.Authorized(a.Role, a.Permissions, scope)
 }
 
 // settingList reads a string-list setting (best effort — missing key or
@@ -324,36 +431,25 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	in, err := s.userInputFromForm(r, false)
 	if err != nil {
-		s.badRequest(w, r, err.Error())
+		s.userFormError(w, r, nil, false, err)
 		return
 	}
 	in.Username = r.PostFormValue("username")
 	u, err := s.Users.Create(r.Context(), in)
 	if err != nil {
-		if domain.CodeOf(err) == domain.CodeInvalidRequest || domain.CodeOf(err) == domain.CodeUsernameExists {
-			d := s.newUserFormData(r)
-			d.Error = s.humanizeDomainError(r, err)
-			d.FieldErr = "username"
-			d.StartNow = r.PostFormValue("start_policy") != "first_connection"
-			d.DurationValue = formDurationValue(r)
-			d.DurationUnit = r.PostFormValue("duration_unit")
-			_ = s.render(w, r, "user_form", "app", d)
-			return
-		}
-		s.logError(r, "user create", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.userFormError(w, r, nil, false, err)
 		return
 	}
 	s.audit(r, "user.created", u.ID, map[string]any{"username": u.Username})
 	s.ensureSubLink(r, u.ID)
-	if r.PostFormValue("auto_devices") == "1" {
+	if r.PostFormValue("auto_devices") == "1" && canOperate(r, auth.ScopeDevicesWrite) {
 		n := 1 // unlimited device limit still provisions one ready config
 		if u.DeviceLimit != nil {
 			n = *u.DeviceLimit
 		}
 		s.createAutoDevices(r, u.ID, n)
 	}
-	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.created")
+	s.redirectToast(w, r, operationalReturnPath(r, "/users/"+u.ID, auth.ScopeUsersRead), "users.toast.created")
 }
 
 func (s *Server) handleUserEditPage(w http.ResponseWriter, r *http.Request) {
@@ -361,10 +457,12 @@ func (s *Server) handleUserEditPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_ = s.render(w, r, "user_form", "app", userFormData{
-		IsEdit: true, User: u,
+	d := userFormData{
+		IsEdit: true, User: u, Form: userOperationalForm(u),
 		Plans: s.plansForForm(r), Ifaces: s.ifacesForForm(r),
-	})
+	}
+	d.PlansKnown, d.IfacesKnown = d.Plans != nil, d.Ifaces != nil
+	_ = s.render(w, r, "user_form", "app", d)
 }
 
 func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
@@ -378,25 +476,16 @@ func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	in, err := s.userInputFromForm(r, true)
 	if err != nil {
-		s.badRequest(w, r, err.Error())
+		s.userFormError(w, r, u, false, err)
 		return
 	}
 	updated, err := s.Users.Update(r.Context(), u.ID, in)
 	if err != nil {
-		if domain.CodeOf(err) == domain.CodeInvalidRequest {
-			_ = s.render(w, r, "user_form", "app", userFormData{
-				IsEdit: true, User: u,
-				Plans: s.plansForForm(r), Ifaces: s.ifacesForForm(r),
-				Error: s.humanizeDomainError(r, err),
-			})
-			return
-		}
-		s.logError(r, "user update", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.userFormError(w, r, u, false, err)
 		return
 	}
 	s.audit(r, "user.updated", u.ID, nil)
-	s.redirectToast(w, r, "/users/"+updated.ID, "users.toast.updated")
+	s.redirectToast(w, r, operationalReturnPath(r, "/users/"+updated.ID, auth.ScopeUsersRead), "users.toast.updated")
 }
 
 // quotaFromForm parses the traffic limit as value+unit (exact decimal bytes).
@@ -563,6 +652,22 @@ func (s *Server) handleUserRestore(w http.ResponseWriter, r *http.Request) {
 	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.updated", u.Username)
 }
 
+func userActionForm() operationalForm {
+	return operationalForm{Values: map[string]string{"name": "", "mode": "from_expiration", "duration_value": "1", "duration_unit": "days", "date": "", "traffic_value": "10", "traffic_unit": "gb"}, Fields: map[string]string{}}
+}
+
+func (s *Server) userActionError(w http.ResponseWriter, r *http.Request, id, action, field string, err error) {
+	d := userDetailData{U: &userDetailUser{User: &user.User{ID: id}}, Action: action, Form: submittedOperationalForm(r, userActionForm().Values)}
+	if field != "" {
+		d.Form.Fields[field] = "common.error_validation"
+	}
+	s.operationalFormStatus(w, r, &d.Form, err)
+	if domain.CodeOf(err) != domain.CodeInternal {
+		d.Form.Error = s.humanizeDomainError(r, err)
+	}
+	_ = s.render(w, r, "user_action", "app", d)
+}
+
 // handleUserRenew applies one of the three renewal modes (days for
 // from_expiration/from_now, exact date otherwise).
 func (s *Server) handleUserRenew(w http.ResponseWriter, r *http.Request) {
@@ -583,23 +688,23 @@ func (s *Server) handleUserRenew(w http.ResponseWriter, r *http.Request) {
 	case "from_expiration", "from_now":
 		secs, err := durationFromForm(r)
 		if err != nil || secs == nil {
-			s.badRequest(w, r, "duration")
+			s.userActionError(w, r, u.ID, "renew", "duration_value", errInvalid)
 			return
 		}
 		duration = secs
 	case "exact":
 		d, err := parseDateOnly(r.PostFormValue("date"))
 		if err != nil || d == nil {
-			s.badRequest(w, r, "date")
+			s.userActionError(w, r, u.ID, "renew", "date", errInvalid)
 			return
 		}
 		exact = d
 	default:
-		s.badRequest(w, r, "mode")
+		s.userActionError(w, r, u.ID, "renew", "mode", errInvalid)
 		return
 	}
 	if _, err := s.Users.Renew(r.Context(), u.ID, mode, duration, exact); err != nil {
-		s.actionFailed(w, r, err)
+		s.userActionError(w, r, u.ID, "renew", "", err)
 		return
 	}
 	s.audit(r, "user.renewed", u.ID, map[string]any{"mode": mode})
@@ -621,12 +726,12 @@ func (s *Server) handleUserTrafficAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	quota, err := parseQuotaBytes(value, unit)
 	if err != nil || quota == nil {
-		s.badRequest(w, r, "traffic")
+		s.userActionError(w, r, u.ID, "traffic", "traffic_value", errInvalid)
 		return
 	}
 	a := s.actorFrom(r)
 	if err := s.Accounting.AddTraffic(r.Context(), u.ID, *quota, 0, a); err != nil {
-		s.actionFailed(w, r, err)
+		s.userActionError(w, r, u.ID, "traffic", "", err)
 		return
 	}
 	s.audit(r, "user.traffic_added", u.ID, map[string]any{"bytes": *quota})
@@ -657,27 +762,26 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	count, err := strconv.Atoi(r.PostFormValue("count"))
 	if err != nil || count < 1 || count > 500 {
-		s.badRequest(w, r, "count")
+		s.userFormError(w, r, nil, true, errInvalid)
 		return
 	}
-	startIndex, _ := strconv.Atoi(r.PostFormValue("start_index"))
+	startIndex, startErr := strconv.Atoi(r.PostFormValue("start_index"))
+	if startErr != nil {
+		s.userFormError(w, r, nil, true, errInvalid)
+		return
+	}
 	width := len(strconv.Itoa(startIndex + count - 1))
 	if width < 3 {
 		width = 3
 	}
 	in, err := s.userInputFromForm(r, false)
 	if err != nil {
-		s.badRequest(w, r, "limits")
+		s.userFormError(w, r, nil, true, err)
 		return
 	}
 	res, err := s.Users.CreateBulk(r.Context(), r.PostFormValue("prefix"), count, startIndex, width, in)
 	if err != nil {
-		if domain.CodeOf(err) == domain.CodeInvalidRequest || domain.CodeOf(err) == domain.CodeUsernameExists {
-			s.redirectToast(w, r, "/users", "common.error_validation")
-			return
-		}
-		s.logError(r, "bulk create", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.userFormError(w, r, nil, true, err)
 		return
 	}
 	s.audit(r, "user.bulk_created", "", map[string]any{"count": len(res.Users)})
@@ -718,7 +822,9 @@ func (s *Server) handleBulkAction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.audit(r, "user.bulk_action", "", map[string]any{"action": action, "total": len(ids), "ok": ok})
-	if action == "delete" {
+	if ok != len(ids) {
+		s.redirectToastRaw(w, r, operationalReturnPath(r, "/users", auth.ScopeUsersRead), s.t(r, "users.bulk.partial", ok, len(ids)))
+	} else if action == "delete" {
 		s.redirectToast(w, r, "/users", "users.toast.bulk_deleted", strconv.Itoa(ok))
 	} else {
 		s.redirectToast(w, r, "/users", "users.toast.bulk_updated", strconv.Itoa(ok))
@@ -754,6 +860,9 @@ func (s *Server) actorFrom(r *http.Request) accounting.Actor {
 }
 
 func (s *Server) redirectToast(w http.ResponseWriter, r *http.Request, path, key string, targ ...string) {
+	if strings.HasPrefix(path, "/users") {
+		path = operationalReturnPath(r, path, auth.ScopeUsersRead)
+	}
 	q := url.Values{"toast": {key}}
 	if len(targ) > 0 && targ[0] != "" {
 		q.Set("targ", targ[0])

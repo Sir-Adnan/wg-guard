@@ -25,8 +25,8 @@ func TestShellNavigationReflectsPermissionAndRoot(t *testing.T) {
 	if strings.Contains(body, `href="/settings"`) {
 		t.Fatal("shell offers Settings to an account without node.settings")
 	}
-	if !strings.Contains(body, `href="/dashboard" aria-current="page"`) {
-		t.Fatal("root dashboard has no current navigation destination")
+	if strings.Contains(body, `href="/dashboard"`) {
+		t.Fatal("shell offers dashboard to an account without stats.read")
 	}
 }
 
@@ -49,6 +49,18 @@ func TestSharedThemeAndErrorSurfaces(t *testing.T) {
 		}
 		if path == "/not-a-page" && (rec.Code != 404 || !strings.Contains(body, `lang="en"`)) {
 			t.Fatal("unknown route must keep its status and localized HTML")
+		}
+	}
+}
+
+func TestThemeDefaultAndExplicitPreferences(t *testing.T) {
+	for _, tc := range []struct{ cookie, want string }{{"", "light"}, {"invalid", "light"}, {"light", "light"}, {"dark", "dark"}, {"system", "system"}} {
+		r := httptest.NewRequest("GET", "/", nil)
+		if tc.cookie != "" {
+			r.AddCookie(&http.Cookie{Name: themeCookie, Value: tc.cookie})
+		}
+		if got := themeFrom(r); got != tc.want {
+			t.Errorf("theme %q: got %q, want %q", tc.cookie, got, tc.want)
 		}
 	}
 }

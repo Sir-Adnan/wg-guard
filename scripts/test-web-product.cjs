@@ -27,11 +27,39 @@ let stage = 'launch';
       await Promise.all([page.waitForNavigation(), form.locator('button[type="submit"]').last().click()]);
     };
     const locale = async value => {
-      await goto('/plans');
       await page.request.post(seed.url + '/prefs/locale', { form: {
-        locale: value, _csrf: await page.locator('meta[name="csrf-token"]').getAttribute('content'),
+        locale: value, _csrf: seed.csrf,
       } });
     };
+    if (suite === '10.3-users-native') {
+      stage = 'native user detail labels and device retry';
+      const nativeContext = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+      await nativeContext.addCookies([{ name: 'wg_session', value: seed.session, url: seed.url }]);
+      const nativePage = await nativeContext.newPage();
+      const response = await nativePage.goto(seed.url + '/users/' + seed.user);
+      assert(response.status() === 200, 'native detail loads');
+      assert(await nativePage.evaluate(() => {
+        const ids = [...document.querySelectorAll('[id]')].map(el => el.id);
+        return new Set(ids).size === ids.length;
+      }), 'native detail IDs are unique');
+      stage = 'native device disclosure';
+      await nativePage.locator('details').filter({ has: nativePage.locator('#d-name-native') }).locator('summary').click();
+      assert(await nativePage.locator('label[for="d-name-native"]').evaluate(el => el.control?.id === 'd-name-native' && el.control.getClientRects().length > 0), 'native label addresses visible device field');
+      const nativeForm = nativePage.locator('form').filter({ has: nativePage.locator('#d-name-native') });
+      stage = 'native device invalid submit';
+      await Promise.all([nativePage.waitForNavigation(), nativeForm.locator('button[type="submit"]').click()]);
+      assert(await nativePage.locator('#d-name[aria-invalid="true"]').count() === 1, 'native device validation offers retry');
+      stage = 'native device corrected retry';
+      assert(await nativePage.locator('#d-name').isVisible(), 'native retry input visible');
+      await nativePage.locator('#d-name').fill('Native device');
+      stage = 'native device retry submit';
+      await Promise.all([nativePage.waitForNavigation(), nativePage.locator('form').filter({ has: nativePage.locator('#d-name') }).locator('button[type="submit"]').click()]);
+      assert(await nativePage.locator('main').getByText('Native device', { exact: true }).count() === 1, 'native device creation completes');
+      await nativeContext.close();
+      await context.close();
+      console.log('PASS ' + engine + ' ' + browser.version() + ' Phase 10.3-users-native: unique IDs, associated labels, native validation and device creation');
+      return;
+    }
     if (suite === '10.2' || suite === 'final') {
       stage = 'read-only operational pages';
       const readerContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
@@ -115,7 +143,98 @@ let stage = 'launch';
       const seededPlan = page.locator('tr').filter({ hasText: 'Monthly / ماهانه' });
       assert(!/Kbps/.test(await seededPlan.locator('td').nth(3).innerText()), 'device count is not a bandwidth value');
     }
-    const routes = ['/interfaces', '/interfaces/new', '/interfaces/' + seed.iface + '/edit', '/plans', '/plans/new', '/plans/' + seed.plan + '/edit'];
+    if (['10.3', '10.3-users', 'final'].includes(suite)) {
+      stage = 'user invalid input preservation';
+      await goto('/users/new');
+      const userForm = page.locator('form[action="/users"]');
+      await userForm.locator('[name="username"]').fill('browser-user');
+      await userForm.locator('[name="display_name"]').fill('نام حفظ‌شده');
+      await userForm.locator('[name="device_limit"]').evaluate(el => { el.type = 'text'; el.value = 'invalid'; });
+      await submit(userForm);
+      assert(await page.locator('[name="username"]').inputValue() === 'browser-user', 'user name survives validation');
+      assert(await page.locator('[name="display_name"]').inputValue() === 'نام حفظ‌شده', 'display name survives validation');
+      assert(await page.locator('[name="device_limit"]').inputValue() === 'invalid', 'invalid user limit survives validation');
+      stage = 'user creation and device QR';
+      await goto('/users/new');
+      await page.locator('[name="username"]').fill('browser-user');
+      await page.locator('[name="device_limit"]').fill('1');
+      await submit(page.locator('form[action="/users"]'));
+      assert(await page.locator('main h1').innerText() === 'browser-user', 'created user detail');
+      const detailURL = page.url();
+      stage = 'user device QR opens';
+      const qr = page.locator('[data-qr]').first();
+      await qr.click();
+      await page.waitForFunction(() => [...document.querySelectorAll('dialog[open] img')].some(img => img.complete && img.naturalWidth > 0));
+      stage = 'user device QR close focus';
+      await page.locator('dialog[open] [data-close-modal]').first().click();
+      assert(await qr.evaluate(el => el === document.activeElement), 'QR returns focus');
+      stage = 'user device config download';
+      const configLink = page.locator('a[download][href$="/config"]').first();
+      const config = await page.request.get(new URL(await configLink.getAttribute('href'), seed.url).href);
+      assert(config.status() === 200 && !!config.headers()['content-disposition'], 'config remains a download');
+      stage = 'subscription revoke and restore';
+      const revoke = page.locator('form[action$="/sub/revoke"]');
+      await revoke.locator('button[type="submit"]').click();
+      await Promise.all([page.waitForNavigation(), page.locator('[data-confirm-ok]').click()]);
+      assert(await page.locator('form[action$="/sub/restore"]').count() === 1, 'revoked subscription offers restore');
+      await submit(page.locator('form[action$="/sub/restore"]'));
+      assert(await page.locator('#sub-url').inputValue() !== '', 'restored subscription is shareable');
+      stage = 'user edit validation';
+      await page.goto(detailURL.replace(/\?.*$/, '') + '/edit');
+      await page.locator('[name="display_name"]').fill('Changed display');
+      await page.locator('[name="device_limit"]').evaluate(el => { el.type = 'text'; el.value = 'invalid'; });
+      await submit(page.locator('form[action$="/edit"]'));
+      assert(await page.locator('[name="display_name"]').inputValue() === 'Changed display', 'edit values survive validation');
+      stage = 'users filtered empty';
+      await goto('/users?q=no-such-browser-user');
+      assert(await page.locator('main a[href="/users"]').count() > 0, 'filtered empty has clear action');
+      stage = 'calendar keyboard';
+      await goto('/users/new');
+      const calendarTrigger = page.locator('[data-calendar]').first();
+      await calendarTrigger.click();
+      assert(await page.locator('[data-cal-day]:focus').count() === 1, 'calendar focuses a day');
+      const dayBefore = await page.locator('[data-cal-day]:focus').getAttribute('data-cal-day');
+      await page.keyboard.press(await page.locator('html').getAttribute('dir') === 'rtl' ? 'ArrowLeft' : 'ArrowRight');
+      assert(await page.locator('[data-cal-day]:focus').getAttribute('data-cal-day') !== dayBefore, 'calendar arrow moves day focus');
+      await page.keyboard.press('Home');
+      await page.keyboard.press('PageDown');
+      assert(await page.locator('[data-cal-day]:focus').count() === 1, 'calendar month move retains day focus');
+      await page.keyboard.press('Escape');
+      assert(await calendarTrigger.evaluate(el => el === document.activeElement), 'calendar returns trigger focus');
+      stage = 'QR failure and retry';
+      await goto('/users/' + seed.user);
+      await page.route('**/devices/*/qr', route => route.abort());
+      await page.locator('[data-qr]').first().click();
+      await page.waitForFunction(() => document.querySelector('[data-qr-retry]') && !document.querySelector('[data-qr-retry]').hidden);
+      assert(await page.locator('[data-qr-state]').isVisible(), 'QR failure is visible');
+      await page.unroute('**/devices/*/qr');
+      await page.locator('[data-qr-retry]').click();
+      await page.waitForFunction(() => document.querySelector('#qr-img').naturalWidth > 0);
+      await page.locator('dialog[open] [data-close-modal]').first().click();
+      assert(!await page.locator('#qr-img').getAttribute('src'), 'closed QR clears sensitive image source');
+    }
+    if (['10.3', '10.3-dashboard', 'final'].includes(suite)) {
+      stage = 'dashboard chart navigation and accessible data';
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await goto('/dashboard');
+      assert(await page.locator('html').getAttribute('data-theme') === 'light', 'unsaved theme stays light on a dark OS');
+      assert(await page.locator('.resource-card .sparkline').count() === 5, 'all live chart families render');
+      await page.locator('.live-data > summary').click();
+      await page.locator('.live-data a[hx-get]').click();
+      await page.waitForFunction(() => document.querySelectorAll('.sample-data-table tbody tr').length > 0);
+      assert(await page.locator('.sample-data-table tbody tr').count() === 24, 'on-demand exact live samples');
+      await page.locator('.live-data > summary').click();
+      await page.locator('#traffic-range-7d').focus();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.querySelector('#traffic-range-7d')?.getAttribute('aria-current') === 'true');
+      assert(await page.locator('#traffic-range-7d').evaluate(el => el === document.activeElement), 'chart range swap retains keyboard focus');
+      await page.locator('#traffic-data > summary').click();
+      assert(await page.locator('#traffic-data tbody tr').count() === 7, 'chart exposes each daily bucket without hover');
+    }
+    const operationalRoutes = ['/interfaces', '/interfaces/new', '/interfaces/' + seed.iface + '/edit', '/plans', '/plans/new', '/plans/' + seed.plan + '/edit'];
+    const userRoutes = ['/users', '/users/new', '/users/' + seed.user, '/users/' + seed.user + '/edit', '/users/bulk'];
+    const dashboardRoutes = ['/dashboard', '/dashboard?range=7d', '/dashboard?range=30d'];
+    const routes = suite === '10.2' ? operationalRoutes : suite === '10.3-users' ? userRoutes : suite === '10.3-dashboard' ? dashboardRoutes : suite === '10.3' ? [...userRoutes, ...dashboardRoutes] : [...operationalRoutes, ...userRoutes, ...dashboardRoutes];
     let cells = 0;
     let maxHTMLGzip = 0;
     for (const lang of ['en', 'fa']) {
@@ -133,7 +252,7 @@ let stage = 'launch';
             assert(await page.locator('main h1').count() === 1, 'single primary page heading');
             assert(await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(elements => elements.every(el => el.labels?.length || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'))), 'form controls have names');
             maxHTMLGzip = Math.max(maxHTMLGzip, require('node:zlib').gzipSync(await page.content()).length);
-            if (process.env.WG_UI_SCREENSHOT_DIR && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark'))) {
+            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark'))) {
               const fs = require('node:fs'), path = require('node:path');
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
               await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, suite + '-' + index + '-' + width + '.png'), fullPage: true });
@@ -144,10 +263,11 @@ let stage = 'launch';
       }
     }
     assert(runtimeErrors === 0, 'page JavaScript errors');
-    console.log('PASS ' + engine + ' ' + browser.version() + ' Phase ' + suite + ': ' + cells + ' composition cells; form preservation and plan mutations; max rendered HTML gzip ' + maxHTMLGzip + ' B');
+    console.log('PASS ' + engine + ' ' + browser.version() + ' Phase ' + suite + ': ' + cells + ' composition cells; scoped workflow and interaction checks; max rendered HTML gzip ' + maxHTMLGzip + ' B');
     await context.close();
   } finally { await browser.close(); }
 })().catch(error => {
-  console.error('FAIL ' + stage + (error.message.startsWith('contract:') ? ': ' + error.message : ' (browser operation failed; sensitive details suppressed)'));
+  const category = error.message.includes('strict mode violation') ? 'ambiguous locator' : error.message.includes('not a valid URL') ? 'invalid request URL' : error.message.includes('has been closed') ? 'browser closed' : error.name === 'TimeoutError' ? 'timeout' : 'browser operation failed';
+  console.error('FAIL ' + stage + (error.message.startsWith('contract:') ? ': ' + error.message : ' (' + category + '; sensitive details suppressed)'));
   process.exitCode = 1;
 });

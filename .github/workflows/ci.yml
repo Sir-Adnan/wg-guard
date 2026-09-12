@@ -21,7 +21,7 @@ jobs:
         run: test -z "$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
       - name: go vet
         run: go vet ./...
-      - name: Frontend asset budgets (gzip)
+      - name: Frontend asset measurements (raw and gzip)
         run: bash scripts/check-assets.sh
       - name: Bootstrap and candidate artifact fixtures
         run: bash scripts/test-bootstrap.sh

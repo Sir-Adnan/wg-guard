@@ -1,32 +1,35 @@
 {{define "dash_chart"}}
-<div id="chart-card" class="card">
+<section id="chart-card" class="card traffic-card" aria-labelledby="traffic-title">
   <div class="card-head">
-    <h2>{{.T "dash.traffic"}}</h2>
-    <div class="seg-group" role="group" aria-label="{{.T "dash.traffic"}}">
+    <div><h2 id="traffic-title">{{.T "dash.traffic"}}</h2><p class="section-description">{{.T "dash.rollup_source"}}</p></div>
+    <nav class="seg-group" aria-label="{{.T "dash.traffic"}}">
       {{$r := .Data.Chart.Range}}
-      <a class="seg{{if eq $r "24h"}} is-on{{end}}" href="/dashboard?range=24h"
-         hx-get="/dashboard/chart?range=24h" hx-target="#chart-card" hx-swap="outerHTML"
-         hx-push-url="false">{{.T "dash.range_24h"}}</a>
-      <a class="seg{{if eq $r "7d"}} is-on{{end}}" href="/dashboard?range=7d"
-         hx-get="/dashboard/chart?range=7d" hx-target="#chart-card" hx-swap="outerHTML"
-         hx-push-url="false">{{.T "dash.range_7d"}}</a>
-      <a class="seg{{if eq $r "30d"}} is-on{{end}}" href="/dashboard?range=30d"
-         hx-get="/dashboard/chart?range=30d" hx-target="#chart-card" hx-swap="outerHTML"
-         hx-push-url="false">{{.T "dash.range_30d"}}</a>
-    </div>
+      {{range $key := list "24h" "7d" "30d"}}
+      <a id="traffic-range-{{$key}}" class="seg{{if eq $r $key}} is-on{{end}}" {{if eq $r $key}}aria-current="true"{{end}} href="/dashboard?range={{$key}}"
+         hx-get="/dashboard/chart?range={{$key}}" hx-target="#chart-card" hx-swap="outerHTML" hx-push-url="false">{{$.T (printf "dash.range_%s" $key)}}</a>
+      {{end}}
+    </nav>
   </div>
   <div class="card-body">
-    <div class="chart-legend">
-      <span class="legend-item"><span class="swatch"></span>{{.T "dash.rx"}}</span>
-      <span class="legend-item"><span class="swatch swatch--tx"></span>{{.T "dash.tx"}}</span>
-    </div>
-    {{if .Data.Chart.SVG}}
-    <div class="chart-wrap">{{.Data.Chart.SVG}}</div>
+    {{if not .Data.Chart.HasChart}}
+    <div class="empty"><span class="empty-icon">{{.Icon "activity"}}</span><p role="status">{{.T "dash.traffic_unavailable"}}</p><a class="btn" href="/dashboard?range={{.Data.Chart.Range}}">{{.T "common.retry"}}</a></div>
     {{else}}
-    <div class="empty">
-      <p>{{.T "dash.no_traffic"}}</p>
+    <div class="traffic-totals">
+      <div><span class="legend-item"><span class="swatch"></span>{{.T "dash.rx"}}</span><strong class="ltr-data">{{.B .Data.Chart.RX}}</strong></div>
+      <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{.T "dash.tx"}}</span><strong class="ltr-data">{{.B .Data.Chart.TX}}</strong></div>
     </div>
+    <p class="chart-period ltr-data">{{.Data.Chart.Period}}</p>
+    {{if .Data.Chart.SVG}}<div class="chart-wrap" dir="ltr">{{.Data.Chart.SVG}}</div>
+    {{else}}<div class="empty chart-empty"><p>{{.T "dash.no_traffic"}}</p></div>{{end}}
+    <details class="chart-data" id="traffic-data">
+      <summary>{{.T "dash.view_data"}}</summary>
+      <div class="table-wrap"><table class="table table--cards">
+        <caption class="sr-only">{{.T "dash.view_data"}}</caption>
+        <thead><tr><th scope="col">{{.T "dash.period"}}</th><th scope="col">{{.T "dash.rx"}}</th><th scope="col">{{.T "dash.tx"}}</th></tr></thead>
+        <tbody>{{range .Data.Chart.Buckets}}<tr><th scope="row"><bdi>{{.Label}}</bdi></th><td data-label="{{$.T "dash.rx"}}"><bdi>{{$.B .RX}}</bdi></td><td data-label="{{$.T "dash.tx"}}"><bdi>{{$.B .TX}}</bdi></td></tr>{{end}}</tbody>
+      </table></div>
+    </details>
     {{end}}
   </div>
-</div>
+</section>
 {{end}}

@@ -1,7 +1,8 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0–10.2 complete with scoped verification; 10.3 is next**. The owner approved
-this order on 2026-09-10. The complete requirement input is the tracked
+Status: **active; 10.0–10.3 complete with scoped verification; 10.4 is next**. The owner approved
+this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
+The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
 [UI/UX](../product/ui-ux.md) owns the lasting design contract. No complete-panel redesign or final
 browser/VPS acceptance is claimed.
@@ -54,7 +55,7 @@ Phase 11 lifecycle finding.
 | Human scope/permission/webhook-event wording, stable identifiers | 10.4 | fa/en coverage and unchanged submitted identifiers |
 | Technical IP/CIDR/port/key/traffic/time/status readability | 10.1–10.5 | Bidi isolation, Latin digits, tabular figures, faithful copy |
 | Full fa/en copy, RTL/LTR, accessibility, keyboard/touch | 10.1–10.5; audit 10.6 | Dynamic-copy coverage and functional checks |
-| Lightweight assets, justified budget flexibility | 10.1–10.7 | Measured JS/CSS/SVG/fonts/HTML; no duplicate/heavy assets |
+| Premium UX with observable, efficient assets; no numerical size ceilings | 10.1–10.7 | Measured JS/CSS/SVG/fonts/HTML, loading/rendering cost; eliminate waste without weakening UX |
 | Targeted tests, one final full matrix, preserve backend | All | Changed-risk tests; no repeat of unrelated successful VPS drills |
 | API/OpenAPI/examples/tests only for public contract changes | Affected milestone | Contract-diff review; visual wording alone changes no API |
 | Concise docs, README/ROADMAP/status/architecture as affected | All; final 10.7 | No scratch/report/plan files; honest verification levels |
@@ -147,38 +148,27 @@ an actual public contract change. Phase 11/12 remain separate; AUD-019/AUD-050 a
 redesigned controls. Final integration includes coherent commits, merge/push/main verification and
 temporary branch cleanup; public publication always requires explicit owner approval.
 
-## Current evidence (2026-09-10)
+## Current evidence
 
-10.0: requirement/route/state ownership and UI contracts are adopted. Settings now validates and
-prepares all supplied changes before one transaction; real SQLite failure tests prove rollback.
-Targeted settings/web tests and WSL race pass. Browser input-value checks confirm multiple invalid
-numeric values survive redisplay; safe HTML 500 preserves nonsecret input on persistence failure.
-Scoped review closed both redisplay findings. No public API schema/validation rule changed.
+10.0: requirement/route/state ownership and Settings save contracts are adopted. Submitted
+settings validate and commit atomically; SQLite rollback, safe redisplay and scoped race/browser
+checks passed. No public API schema or validation rule changed.
 
-10.1: shared head/preferences/feedback and permission-aware shell, theme persistence across app/
-auth/public, error-page foundation, revised tokens/widths/touch/reduced motion, and shared UI module
-are implemented. Browser regression covers drawer focus/inert/resize, menu keys, dynamic dialog,
-submitter-preserving confirmation/deduplication, HTMX failure recovery, and representative list/
-form/auth/public fa/en × light/dark at 390/1440 plus 320 shell. This is local headless Chrome 152.0.7977.83 evidence;
-Firefox/WebKit, physical devices, full state/viewport matrix and VPS acceptance remain 10.7.
-Page-specific list/card/form/calendar/chart redesign remains in its owning milestone. The test
-also exposed an existing initial-date-preview ordering error, fixed without changing date logic.
+10.1 (`33d0101`): shared shell, tokens, preferences, feedback, overlays and submission lifecycle.
+Scoped web/i18n, Chrome fa/en × light/dark phone/desktop and WSL build/unit/vet checks passed.
 
-10.1 asset check: JS 27,981 B, CSS 12,102 B, fonts 101,799 B gzip, within unchanged
-budgets. WSL `make build`, full `make test`, `make vet` and the asset script passed for this
-coherent change. Scoped review findings are closed, including menu/dialog focus return, visible
-menu geometry and anonymous error-language switching. The anonymous Login matrix asserts the
-actual form, theme, direction and overflow. These checks do not close RB-006 or
-begin Phase 11. No VPS drill or public publication was performed.
+10.2 (`cf0d145`): responsive Interfaces/Plans collections and forms; lossless validation/profile
+editing, secret-free views and existing permission boundaries. Chrome 48 composition cells,
+mutations and native no-JS profile transitions passed, as did WSL build/unit/vet. Maximum checked
+HTML was 5,629 B gzip. No REST/OpenAPI change or VPS drill.
 
-10.2: Interfaces/Plans lists, mobile cards, create/edit forms and Advanced/profile presentation
-are migrated. Errors retain exact nonsensitive values with field feedback; secondary read failures
-remain unavailable. Existing read/write scopes now protect routes and controls. Native forms can
-edit generated profiles as custom or switch to plain; fresh generated seals remain mandatory.
-Template views exclude HPK/private-key carriers. Targeted tests cover these boundaries, units,
-provenance and failed persistence; the single scoped review's material findings are resolved.
-Chrome 152.0.7977.83 passes 48 fa/en × theme × 390/1440 composition cells plus read-only controls,
-validation retry, plan mutations, generated-header round-trip and actual no-JS profile transitions.
-Representative desktop/mobile visuals were inspected. Maximum checked HTML was 5,629 B gzip.
-WSL build/full unit/vet and asset checks passed; JS 28,140 B, CSS 12,914 B, fonts 101,799 B gzip.
-No REST/OpenAPI change, VPS drill or complete browser-matrix acceptance is claimed.
+10.3: Users/create/edit/bulk/detail, device/config/QR/subscription workflows and dashboard are
+migrated. Safe retry forms, permission boundaries, unavailable references and exact sample/chart
+data have targeted coverage. Chrome 152.0.7977.84 passed 64 fa/en/theme/390–1440 cells, keyboard/
+QR workflows and a separate actual no-JS device retry; inspected visuals and scoped review fixes
+are complete. WSL build/unit/vet passed. Measurements: JS 29,305 B, CSS 14,588 B, fonts 101,750 B,
+SVG 3,095 B gzip; maximum checked HTML 6,803 B. Light default, native English typography and
+measurement-only asset tooling implement the owner continuation decisions. REST/OpenAPI unchanged.
+
+Full Firefox/WebKit, viewport/state, physical-device and relevant TLS/VPS acceptance remain 10.7.
+These scoped milestones do not close RB-006 or start Phase 11; no public release is authorized.

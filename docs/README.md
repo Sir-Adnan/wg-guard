@@ -12,7 +12,7 @@ or chat history.
 | Document | Purpose |
 |---|---|
 | [product/requirements.md](product/requirements.md) | What WG-Guard is: product scope, user/device/profile model, lifecycle, non-goals |
-| [product/ui-ux.md](product/ui-ux.md) | Design system: tokens, components, i18n/RTL, themes, motion, budgets, QA gates |
+| [product/ui-ux.md](product/ui-ux.md) | Design system: tokens, components, i18n/RTL, themes, motion, performance, QA gates |
 | [architecture/overview.md](architecture/overview.md) | How it works: process model, components, key decisions, resource design |
 | [architecture/project-structure.md](architecture/project-structure.md) | Repository and package layout, naming conventions, dependency rules |
 | [architecture/database.md](architecture/database.md) | SQLite schema, invariants, allocation, retention, migration policy |

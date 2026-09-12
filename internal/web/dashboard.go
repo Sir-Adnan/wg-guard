@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
@@ -19,6 +20,7 @@ type dashLiveData struct {
 	TrafficTotal                                                int64
 	OnlineWindow                                                int64 // seconds, tooltip meta
 	OnlineAvailable                                             bool
+	CountersAvailable                                           bool
 	Telemetry                                                   telemetryView
 }
 
@@ -27,15 +29,20 @@ type dashChartData struct {
 	Range    string // "24h" | "7d" | "30d"
 	HasChart bool
 	SVG      template.HTML
+	Buckets  []chartBucket
+	RX, TX   int64
+	Period   string
 }
 
 type dashData struct {
+	Allowed      bool
 	Live         dashLiveData
 	Chart        dashChartData
 	Attention    attentionData
 	NodeID       string
 	ToolsVersion string
 	Endpoint     string
+	History      []sampleDataRow
 }
 
 // attentionItem is one row of the dashboard "needs attention" lists.
@@ -50,10 +57,11 @@ type attentionItem struct {
 // attentionData groups the users an operator should look at first —
 // rendered only when non-empty; each list capped at 5 rows.
 type attentionData struct {
-	Expiring []attentionItem
-	Expired  []attentionItem
-	Exceeded []attentionItem
-	Any      bool
+	Expiring    []attentionItem
+	Expired     []attentionItem
+	Exceeded    []attentionItem
+	Any         bool
+	Unavailable bool
 }
 
 // loadAttention fetches the three action lists (best effort: a failure
@@ -75,6 +83,9 @@ func (s *Server) loadAttention(r *http.Request) attentionData {
 		for _, u := range page.Items {
 			d.Expiring = append(d.Expiring, attentionItem{ID: u.ID, Username: u.Username, When: u.ExpiresAt})
 		}
+	} else {
+		d.Unavailable = true
+		s.logError(r, "dashboard expiring users", err)
 	}
 	if page, err := s.Users.ListPage(ctx, user.ListQuery{
 		Limit: limit, Sort: user.SortExpiresAt, Desc: true,
@@ -83,6 +94,9 @@ func (s *Server) loadAttention(r *http.Request) attentionData {
 		for _, u := range page.Items {
 			d.Expired = append(d.Expired, attentionItem{ID: u.ID, Username: u.Username, When: u.ExpiresAt, Used: u.TrafficUsedRX + u.TrafficUsedTX, Limit: u.TrafficLimitBytes})
 		}
+	} else {
+		d.Unavailable = true
+		s.logError(r, "dashboard expired users", err)
 	}
 	if page, err := s.Users.ListPage(ctx, user.ListQuery{
 		Limit: limit, Sort: user.SortUsed, Desc: true,
@@ -91,6 +105,9 @@ func (s *Server) loadAttention(r *http.Request) attentionData {
 		for _, u := range page.Items {
 			d.Exceeded = append(d.Exceeded, attentionItem{ID: u.ID, Username: u.Username, Used: u.TrafficUsedRX + u.TrafficUsedTX, Limit: u.TrafficLimitBytes})
 		}
+	} else {
+		d.Unavailable = true
+		s.logError(r, "dashboard exceeded users", err)
 	}
 	d.Any = len(d.Expiring)+len(d.Expired)+len(d.Exceeded) > 0
 	return d
@@ -113,22 +130,42 @@ var chartRanges = map[string]struct {
 // per table — users/devices are indexed for status and handshake lookups; at
 // target scale (thousands of rows) these are sub-ms.
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	if !dashboardReadable(r) {
+		_ = s.render(w, r, "dashboard", "app", dashData{})
+		return
+	}
 	d := dashData{
+		Allowed:      true,
 		NodeID:       s.NodeID,
 		ToolsVersion: s.ToolsVersion,
 	}
 	d.Live = s.loadLive(r)
+	if r.URL.Query().Get("history") == "1" {
+		d.History = s.loadSampleData(r)
+	}
 	d.Endpoint, _ = s.Settings.GetString(r.Context(), "node.endpoint")
 	d.Chart = s.loadChart(r, chartRangeOf(r))
-	d.Attention = s.loadAttention(r)
+	if a := adminFrom(r); auth.Authorized(a.Role, a.Permissions, auth.ScopeUsersRead) {
+		d.Attention = s.loadAttention(r)
+	}
 
 	if err := s.render(w, r, "dashboard", "app", d); err != nil {
 		s.logError(r, "dashboard render", err)
 	}
 }
 
-// handleDashboardLive is the 30 s auto-refresh fragment (htmx swap target).
+// handleDashboardLive reads the shared ten-second snapshot without sampling.
 func (s *Server) handleDashboardLive(w http.ResponseWriter, r *http.Request) {
+	if !dashboardReadable(r) {
+		http.Error(w, s.t(r, "common.denied"), http.StatusForbidden)
+		return
+	}
+	if r.URL.Query().Get("view") == "history" {
+		if err := s.partial(w, r, "dashboard", "dash_history", dashData{History: s.loadSampleData(r)}); err != nil {
+			s.logError(r, "dashboard sample data", err)
+		}
+		return
+	}
 	if err := s.partial(w, r, "dashboard", "dash_live", dashData{Live: s.loadLive(r)}); err != nil {
 		s.logError(r, "dashboard live render", err)
 	}
@@ -136,10 +173,19 @@ func (s *Server) handleDashboardLive(w http.ResponseWriter, r *http.Request) {
 
 // handleDashboardChart swaps the chart card on range change.
 func (s *Server) handleDashboardChart(w http.ResponseWriter, r *http.Request) {
+	if !dashboardReadable(r) {
+		http.Error(w, s.t(r, "common.denied"), http.StatusForbidden)
+		return
+	}
 	d := dashData{Chart: s.loadChart(r, chartRangeOf(r))}
 	if err := s.partial(w, r, "dashboard", "dash_chart", d); err != nil {
 		s.logError(r, "dashboard chart render", err)
 	}
+}
+
+func dashboardReadable(r *http.Request) bool {
+	a := adminFrom(r)
+	return a != nil && auth.Authorized(a.Role, a.Permissions, auth.ScopeStatsRead)
 }
 
 // chartRangeOf resolves the ?range= param (default 24h).
@@ -179,6 +225,7 @@ func (s *Server) loadLive(r *http.Request) dashLiveData {
 	if err != nil {
 		s.logError(r, "dashboard counters", err)
 	}
+	d.CountersAvailable = err == nil
 
 	if s.Telemetry != nil {
 		history := s.Telemetry.Snapshot(time.Now().UTC(), telemetry.HistoryCapacity)
@@ -214,7 +261,7 @@ func meterClass(used, total int64) string {
 
 // loadChart builds the traffic chart from rollups. Missing buckets are
 // zero-filled so the axis is an honest timeline. Errors leave the chart
-// empty (the card keeps its empty state) — the dashboard never fails
+// unavailable (distinct from a successfully read empty period) — the dashboard never fails
 // because its chart failed.
 func (s *Server) loadChart(r *http.Request, rangeKey string) dashChartData {
 	out := dashChartData{Range: rangeKey}
@@ -281,8 +328,12 @@ func (s *Server) loadChart(r *http.Request, rangeKey string) dashChartData {
 			RX:    v[0],
 			TX:    v[1],
 		}
+		out.RX += v[0]
+		out.TX += v[1]
 	}
 	out.HasChart = true
+	out.Buckets = buckets
+	out.Period = i18n.FormatDateTime(s.localeFor(r), since, nil) + " — " + i18n.FormatDateTime(s.localeFor(r), now, nil) + " UTC"
 	out.SVG = trafficChartSVG(buckets, s.t(r, "dash.traffic_chart", s.t(r, def.label)))
 	return out
 }

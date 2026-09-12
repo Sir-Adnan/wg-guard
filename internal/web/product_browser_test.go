@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 )
 
 // Product checks are opt-in and milestone-scoped; they do not replay the shell
@@ -41,11 +42,15 @@ func TestBrowserPhase10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if suite := os.Getenv("WG_TEST_UI_SUITE"); suite != "" && suite != "10.2" {
+		seedBrowserTelemetry(t, e, uid)
+	}
 	server := httptest.NewServer(e.handler)
 	defer server.Close()
 	payload, err := json.Marshal(map[string]string{
 		"url": server.URL, "session": cookie.Value, "sub": "/sub/" + link.Token,
 		"reader": reader.Value,
+		"csrf":   csrf,
 		"user":   uid, "device": did, "plan": pid, "iface": iid,
 	})
 	if err != nil {
@@ -60,4 +65,37 @@ func TestBrowserPhase10(t *testing.T) {
 		t.Fatalf("product browser: %v\n%s", err, output)
 	}
 	t.Log(string(output))
+}
+
+func seedBrowserTelemetry(t *testing.T, e *env, uid string) {
+	t.Helper()
+	i := uint64(0)
+	sampler := telemetry.New(telemetry.SourceFunc(func(_ context.Context, at time.Time) (telemetry.RawSample, error) {
+		i++
+		cpu, load := float64(18+i*7%53), 0.34
+		return telemetry.RawSample{
+			At: at, HostAvailable: true, CPUPercent: &cpu, Load1: &load, Uptime: 27 * time.Hour,
+			MemTotalBytes: 2_000_000_000, MemAvailableBytes: 1_200_000_000 + i*2_000_000,
+			DiskTotalBytes: 40_000_000_000, DiskFreeBytes: 29_000_000_000,
+			ProcessMetricsAvailable: true, ProcessRSSBytes: 29_000_000, ProcessHeapBytes: 11_000_000,
+			HostNetwork:       telemetry.Counter{Identity: "test-host", Available: true, RXBytes: i * i * 50000, TXBytes: i * i * 12000},
+			VPNNetwork:        telemetry.Counter{Identity: "test-vpn", Available: true, RXBytes: i * i * 30000, TXBytes: i * i * 10000},
+			ActivityAvailable: true, OnlineUsers: 1, ActivePeers: 1,
+			InterfacesAvailable: true, EnabledInterfaces: 1, ObservedInterfaces: 1,
+			ReadinessAvailable: true, Ready: true, AccountingAvailable: true,
+		}, nil
+	}), telemetry.DefaultCadence)
+	now := time.Now().UTC()
+	for n := 23; n >= 0; n-- {
+		if _, err := sampler.Sample(context.Background(), now.Add(-time.Duration(n)*telemetry.DefaultCadence)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e.srv.Telemetry = sampler
+	for n := 0; n < 24; n++ {
+		seedRollup(t, e, uid, "hourly", now.Truncate(time.Hour).Add(-time.Duration(n)*time.Hour), int64((n+1)*(n+3))*70000, int64(n+1)*35000)
+	}
+	for n := 0; n < 7; n++ {
+		seedRollup(t, e, uid, "daily", now.Truncate(24*time.Hour).Add(-time.Duration(n)*24*time.Hour), int64((n+1)*3)*700000, int64(n+1)*250000)
+	}
 }

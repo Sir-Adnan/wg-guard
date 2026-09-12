@@ -1,36 +1,30 @@
 #!/usr/bin/env bash
-# Asset budget enforcement (docs/product/ui-ux.md §Performance budgets).
-# Runs in CI and locally: gzip every committed frontend asset and fail if a
-# budget is exceeded. Budgets are gzip sizes in bytes.
+# Asset measurements for engineering awareness, never product-size ceilings.
+# Missing assets still fail; larger assets do not. Review waste and duplication
+# alongside browser loading/rendering measurements (docs/product/ui-ux.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-budget_js=30720        # 30 KB — JavaScript total (HTMX + app)
-budget_css=25600       # 25 KB — CSS total
-budget_fonts=153600    # 150 KB — fonts total
-budget_html=61440      # 60 KB — typical list-page HTML (checked on rendered pages in QA)
-
 fail=0
-check() { # name budget files...
-  local name="$1" budget="$2"; shift 2
-  local total=0
+measure() { # name files...
+  local name="$1"; shift
+  local total=0 raw=0
   for f in "$@"; do
     [ -f "$f" ] || { echo "MISSING asset: $f"; fail=1; return; }
     local sz
-    sz=$(gzip -c "$f" | wc -c)
+    sz=$(gzip -n -c "$f" | wc -c)
     total=$((total + sz))
+    raw=$((raw + $(wc -c < "$f")))
   done
-  local kb=$((total / 1024)) cap=$((budget / 1024))
-  if [ "$total" -gt "$budget" ]; then
-    echo "OVER BUDGET: $name ${total}B gz > ${budget}B (${kb} KiB > ${cap} KiB)"
-    fail=1
-  else
-    echo "ok: $name ${total}B gz / ${budget}B (${kb}/${cap} KiB)"
-  fi
+  echo "$name: ${raw} B raw, ${total} B gzip, $# files"
 }
 
-check "javascript total" "$budget_js" web/static/js/*.js
-check "css total"        "$budget_css" web/static/css/*.css
-check "fonts total"      "$budget_fonts" web/static/fonts/*.woff2
+measure "javascript total" web/static/js/*.js
+measure "css total" web/static/css/*.css
+measure "fonts total" web/static/fonts/*.woff2
+mapfile -d '' svg_files < <(find web/static -type f -name '*.svg' -print0)
+if [ "${#svg_files[@]}" -gt 0 ]; then
+  measure "SVG total" "${svg_files[@]}"
+fi
 
 exit $fail

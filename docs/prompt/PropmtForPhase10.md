@@ -295,22 +295,6 @@ Keep the proposed grouped structure, but review every setting for:
 
 Scopes, Permissions and Webhook Events must use localized human-readable labels and concise descriptions rather than exposing raw identifiers as primary UI text.
 
-## Performance budget
-
-The current lightweight budget is important, but it must not prevent premium product quality.
-
-If additional CSS, SVG, chart logic or minimal JavaScript is genuinely required for the new component system and premium UX, increase the existing asset budget reasonably.
-
-Do not optimize for the smallest possible byte count at the expense of UX.
-
-However:
-
-- measure the resulting CSS/JS/HTML sizes;
-- avoid unnecessary libraries;
-- avoid duplicate assets;
-- avoid runtime-heavy frontend frameworks;
-- keep the final implementation efficient.
-
 ## Product/design ownership
 
 Use your strongest senior product-design and frontend-engineering judgment.

@@ -2,6 +2,7 @@ package web
 
 import (
 	"html/template"
+	"math"
 	"strings"
 	"testing"
 
@@ -72,6 +73,16 @@ func TestNiceMax(t *testing.T) {
 	}
 }
 
+func TestTrafficChartLargeCounter(t *testing.T) {
+	if got := niceMax(math.MaxInt64); got != math.MaxInt64 {
+		t.Fatalf("large scale wrapped: %d", got)
+	}
+	body := string(trafficChartSVG([]chartBucket{{RX: math.MaxInt64, TX: 1}}, "large"))
+	if strings.Contains(body, ">-") || !strings.Contains(body, `<circle`) {
+		t.Fatal("large or isolated traffic sample is not represented correctly")
+	}
+}
+
 func TestCompactBytes(t *testing.T) {
 	cases := map[int64]string{
 		0: "0", 512: "512", 1000: "1K", 1537: "1.5K",
@@ -126,6 +137,13 @@ func TestSparklineSVGHandlesFlatInvalidAndBoundedSeries(t *testing.T) {
 	}
 	if got := sparklineSVG([]sparkSeries{{Class: "untrusted-class", Values: flat}}, "bad", 0); got != "" {
 		t.Fatalf("unknown class must be rejected: %s", got)
+	}
+}
+
+func TestSparklineKeepsIsolatedAvailableSamplesVisible(t *testing.T) {
+	body := string(sparklineSVG([]sparkSeries{{Class: "spark-primary", Values: []telemetry.Metric{{Available: true, Value: 12}}}}, "one sample", 100))
+	if !strings.Contains(body, "<circle") {
+		t.Fatal("one valid sample must have a visible mark, not only a move command")
 	}
 }
 

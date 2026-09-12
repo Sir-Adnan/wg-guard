@@ -10,12 +10,13 @@
     </p>
   </div>
   <div class="actions">
-    <a class="btn" href="/users/{{.Data.U.ID}}/edit">{{.IconS "pencil"}}<span>{{.T "common.edit"}}</span></a>
-    <div class="menu-anchor">
+    {{if .Can "users.update"}}<a class="btn" href="/users/{{.Data.U.ID}}/edit">{{.IconS "pencil"}}<span>{{.T "common.edit"}}</span></a>{{end}}
+    <a class="btn btn--ghost" href="/users">{{.T "common.back"}}</a>
+    {{if or (.Can "users.update") (.Can "users.delete") (.Can "traffic.update")}}<div class="menu-anchor">
       <button type="button" class="btn btn--ghost" aria-haspopup="menu" aria-expanded="false">{{.IconS "more-vertical"}}<span>{{.T "common.actions"}}</span></button>
       <div class="menu" role="menu">
-        <button type="button" role="menuitem" data-open-modal="renew-modal">{{.IconS "calendar"}}<span>{{.T "users.action.renew"}}</span></button>
-        <button type="button" role="menuitem" data-open-modal="traffic-modal">{{.IconS "plus"}}<span>{{.T "users.action.add_traffic"}}</span></button>
+        {{if .Can "users.update"}}<button type="button" role="menuitem" data-open-modal="renew-modal">{{.IconS "calendar"}}<span>{{.T "users.action.renew"}}</span></button>{{end}}
+        {{if .Can "traffic.update"}}<button type="button" role="menuitem" data-open-modal="traffic-modal">{{.IconS "plus"}}<span>{{.T "users.action.add_traffic"}}</span></button>
         <form role="none" method="post" action="/users/{{.Data.U.ID}}/traffic/reset" data-confirm
               data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" .Data.U.Username)}}"
               data-confirm-message="{{.T "users.traffic_reset.confirm"}}"
@@ -23,7 +24,8 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.reset_traffic"}}</span></button>
         </form>
-        <hr>
+        {{end}}
+        {{if .Can "users.update"}}<hr>
         {{if .Data.U.DeletedAt}}
         <form role="none" method="post" action="/users/{{.Data.U.ID}}/restore">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
@@ -40,7 +42,8 @@
           <button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.enable"}}</span></button>
         </form>
         {{end}}
-        {{if not .Data.U.DeletedAt}}
+        {{end}}
+        {{if and (not .Data.U.DeletedAt) (.Can "users.delete")}}
         <form role="none" method="post" action="/users/{{.Data.U.ID}}/delete" data-confirm
               data-confirm-title="{{.T "common.confirm_delete"}}"
               data-confirm-message="{{.T "users.confirm_delete" (printf "%v" .Data.U.Username)}}"
@@ -50,15 +53,15 @@
         </form>
         {{end}}
       </div>
-    </div>
+    </div>{{end}}
   </div>
 </div>
 
-<div class="user-detail-grid">
+<div class="user-detail-grid user-operations">
   <div class="card card--pad">
     <h2>{{.T "users.detail.overview"}}</h2>
     <dl class="detail-list">
-      <dt>{{.T "users.traffic"}}</dt>
+      {{if .Can "traffic.read"}}<dt>{{.T "users.traffic"}}</dt>
       <dd>
         <div class="meter {{.MeterClass .Data.U.Used .Data.U.TrafficLimitBytes}}">
           <span class="bar"><span></span></span>
@@ -69,21 +72,22 @@
       <dd class="ltr-data" data-tip="{{.T "users.detail.rx_hint"}}">{{.B (i64u .Data.U.TrafficUsedRX)}}</dd>
       <dt>{{.T "users.detail.tx"}}</dt>
       <dd class="ltr-data" data-tip="{{.T "users.detail.tx_hint"}}">{{.B (i64u .Data.U.TrafficUsedTX)}}</dd>
+      {{end}}
       <dt>{{.T "users.speed_limit"}}</dt>
       <dd class="ltr-data">{{.U .Data.U.SpeedLimitDownKbps}} ↓ / {{.U .Data.U.SpeedLimitUpKbps}} ↑</dd>
-      <dt>{{.T "users.devices"}}</dt>
-      <dd class="ltr-data">{{len .Data.Devices}}{{if .Data.U.DeviceLimit}} / {{.KD .Data.U.DeviceLimit}}{{end}}</dd>
+      {{if .Can "devices.read"}}<dt>{{.T "users.devices"}}</dt>
+      <dd class="ltr-data">{{if .Data.DevicesKnown}}{{len .Data.Devices}}{{if .Data.U.DeviceLimit}} / {{.KD .Data.U.DeviceLimit}}{{end}}{{else}}{{.T "forms.unavailable"}}{{end}}</dd>{{end}}
       <dt>{{.T "users.plan"}}</dt>
-      <dd>{{if .Data.PlanName}}{{.Data.PlanName}}{{else}}<span class="text-subtle">{{.T "users.no_plan"}}</span>{{end}}</dd>
+      <dd>{{if not .Data.PlanKnown}}{{.T "forms.unavailable"}}{{else if .Data.PlanName}}{{.Data.PlanName}}{{else}}<span class="text-subtle">{{.T "users.no_plan"}}</span>{{end}}</dd>
       <dt>{{.T "users.interface"}}</dt>
-      <dd>{{if .Data.IfaceName}}<span class="ltr-data">{{.Data.IfaceName}}</span>{{else}}<span class="text-subtle">{{.T "common.none"}}</span>{{end}}</dd>
+      <dd>{{if not .Data.IfaceKnown}}{{.T "forms.unavailable"}}{{else if .Data.IfaceName}}<span class="ltr-data">{{.Data.IfaceName}}</span>{{else}}<span class="text-subtle">{{.T "common.none"}}</span>{{end}}</dd>
       <dt>{{.T "users.start_policy"}}</dt>
       <dd>{{if eq (printf "%v" .Data.U.StartPolicy) "first_connection"}}{{.T "users.start_policy.first_connection"}}{{else}}{{.T "users.start_policy.immediate"}}{{end}}</dd>
       <dt>{{.T "users.duration"}}</dt>
       <dd>{{if .Data.U.DurationSeconds}}{{.Dur (i64u .Data.U.DurationSeconds)}}{{else}}<span class="text-subtle">—</span>{{end}}</dd>
       <dt>{{.T "users.expires"}}</dt>
       <dd class="ltr-data {{.ExpiryClass .Data.U.ExpiresAt}}">{{.DT .Data.U.ExpiresAt}}</dd>
-      <dt>{{.T "users.start_policy"}} · activated</dt>
+      <dt>{{.T "users.activated"}}</dt>
       <dd class="ltr-data">{{.DT .Data.U.ActivatedAt}}</dd>
       <dt>{{.T "users.last_activity"}}</dt>
       <dd class="ltr-data">{{.Rel .Data.U.LastActivityAt}}</dd>
@@ -95,17 +99,20 @@
     </dl>
   </div>
 
-  <div class="card card--pad">
+  {{if or (.Can "configs.read") (.Can "users.update")}}<div class="card card--pad subscription-card">
     <h2>{{.T "sub.card.title"}}</h2>
     <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p>
-    {{if not .Data.SubExists}}
-    <form method="post" action="/users/{{.Data.U.ID}}/sub/create">
+    {{if not .Data.SubKnown}}
+    <div class="callout"><p>{{.T "users.sub_unavailable"}}</p><a class="btn btn--sm" href="/users/{{.Data.U.ID}}">{{.T "common.retry"}}</a></div>
+    {{else if not .Data.SubExists}}
+    {{if .Can "users.update"}}<form method="post" action="/users/{{.Data.U.ID}}/sub/create">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <button type="submit" class="btn">{{.IconS "link"}}<span>{{.T "sub.card.create"}}</span></button>
     </form>
+    {{else}}<p class="hint">{{.T "users.sub_absent"}}</p>{{end}}
     {{else if .Data.SubRevoked}}
     <p class="mt-4"><span class="badge badge--danger"><span class="dot"></span>{{.T "sub.card.revoked"}}</span></p>
-    <div class="inline-actions mt-4">
+    {{if .Can "users.update"}}<div class="inline-actions mt-4">
       <form method="post" action="/users/{{.Data.U.ID}}/sub/restore">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn btn--sm">{{.IconS "rotate-ccw"}}<span>{{.T "sub.card.restore"}}</span></button>
@@ -114,13 +121,14 @@
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn btn--sm btn--ghost">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button>
       </form>
-    </div>
+    </div>{{end}}
     {{else}}
-    <div class="input-adj mt-4">
+    {{if .Can "configs.read"}}<div class="input-adj mt-4">
       <input class="input ltr-data" id="sub-url" readonly value="{{.Data.SubURL}}" aria-label="{{.T "sub.card.title"}}">
       <button type="button" class="icon-btn" data-copy="#sub-url" data-copied-msg="{{.T "common.copied"}}" aria-label="{{.T "common.copy"}}">{{.IconS "copy"}}</button>
     </div>
-    <div class="inline-actions mt-4">
+    {{end}}
+    {{if .Can "users.update"}}<div class="inline-actions mt-4">
       <form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate" data-confirm
             data-confirm-title="{{.T "sub.card.regenerate"}}"
             data-confirm-message="{{.T "sub.card.regenerate_confirm"}}"
@@ -135,48 +143,50 @@
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "link-off"}}<span>{{.T "sub.card.revoke"}}</span></button>
       </form>
-    </div>
+    </div>{{end}}
     {{end}}
-  </div>
+  </div>{{end}}
 
-  <div>
+  {{if .Can "devices.read"}}<div class="user-devices">
     <div class="card">
       <div class="card-head">
-        <h2>{{.T "users.detail.devices_section"}}</h2>
-        <button type="button" class="btn btn--sm" data-open-modal="device-modal">{{.IconS "plus"}}<span>{{.T "devices.add"}}</span></button>
+        <div><h2>{{.T "users.detail.devices_section"}}</h2><p class="hint">{{.T "users.devices_hint"}}</p></div>
+        {{if .Can "devices.write"}}<button type="button" class="btn btn--sm" data-open-modal="device-modal">{{.IconS "plus"}}<span>{{.T "devices.add"}}</span></button>{{end}}
       </div>
-      {{if .Data.Devices}}
-      <div class="table-wrap table-wrap--flush">
-        <table class="table table--cards">
+      {{if not .Data.DevicesKnown}}<div class="empty"><p>{{.T "users.devices_unavailable"}}</p><a class="btn" href="/users/{{.Data.U.ID}}">{{.T "common.retry"}}</a></div>
+      {{else if .Data.Devices}}
+      <div class="table-wrap table-wrap--flush collection">
+        <table class="table table--cards entity-table">
           <thead>
             <tr>
               <th>{{.T "devices.name"}}</th>
               <th>{{.T "devices.ip"}}</th>
               <th>{{.T "common.status"}}</th>
               <th>{{.T "devices.last_handshake"}}</th>
-              <th>{{.T "devices.transfer"}}</th>
+              {{if .Can "traffic.read"}}<th>{{.T "devices.transfer"}}</th>{{end}}
               <th class="text-end">{{.T "common.actions"}}</th>
             </tr>
           </thead>
           <tbody>
             {{range .Data.Devices}}
             <tr>
-              <td data-label="{{$.T "devices.name"}}"><span class="cell-main">{{.D.Name}}</span></td>
+              <td class="card-title" data-label="{{$.T "devices.name"}}"><span class="cell-main">{{.D.Name}}</span></td>
               <td data-label="{{$.T "devices.ip"}}" class="ltr-data">{{.D.IPv4}}</td>
               <td data-label="{{$.T "common.status"}}">
                 {{if .D.Enabled}}
-                <span class="badge {{if .Online}}badge--ok badge--pulse{{end}}"><span class="dot"></span>{{if .Online}}{{$ot := $.T "status.online"}}{{$ot}}{{else}}{{$of := $.T "status.offline"}}{{$of}}{{end}}</span>
+                <span class="badge {{if .Online}}badge--ok{{end}}"><span class="dot"></span>{{if .Online}}{{$ot := $.T "status.online"}}{{$ot}}{{else}}{{$of := $.T "status.offline"}}{{$of}}{{end}}</span>
                 {{else}}
                 <span class="badge">{{$.T "status.disabled"}}</span>
                 {{end}}
               </td>
               <td data-label="{{$.T "devices.last_handshake"}}" class="text-subtle">{{$v := $}}{{$v.Rel .LastHS}}</td>
-              <td data-label="{{$.T "devices.transfer"}}" class="ltr-data">↓ {{$.B (i64u .D.TXBytes)}} · ↑ {{$.B (i64u .D.RXBytes)}}</td>
-              <td class="text-end">
+              {{if $.Can "traffic.read"}}<td data-label="{{$.T "devices.transfer"}}" class="ltr-data">↓ {{$.B (i64u .D.TXBytes)}} · ↑ {{$.B (i64u .D.RXBytes)}}</td>{{end}}
+              <td class="text-end card-actions" data-label="{{$.T "common.actions"}}">
                 <div class="inline-actions">
-                  <a class="icon-btn" href="/devices/{{.D.ID}}/config" download data-tip="{{$.T "devices.download_config"}}" aria-label="{{$.T "devices.download_config"}}">{{$v.IconS "download"}}</a>
-                  <button type="button" class="icon-btn" data-qr="/devices/{{.D.ID}}/qr" data-tip="{{$.T "devices.qr"}}" aria-label="{{$.T "devices.qr"}}">{{$v.IconS "qr-code"}}</button>
-                  <div class="menu-anchor">
+                  {{if $.Can "configs.read"}}<a class="icon-btn" href="/devices/{{.D.ID}}/config" download data-tip="{{$.T "devices.download_config"}}" aria-label="{{$.T "devices.download_config"}}">{{$v.IconS "download"}}</a>
+                  <a class="icon-btn" href="/devices/{{.D.ID}}/qr" data-qr="/devices/{{.D.ID}}/qr" data-tip="{{$.T "devices.qr"}}" aria-label="{{$.T "devices.qr"}}">{{$v.IconS "qr-code"}}</a>
+                  {{end}}
+                  {{if $.Can "devices.write"}}<div class="menu-anchor">
                     <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
                     <div class="menu" role="menu">
                       {{if .D.Enabled}}
@@ -206,7 +216,7 @@
                         <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "users.action.delete"}}</span></button>
                       </form>
                     </div>
-                  </div>
+                  </div>{{end}}
                 </div>
               </td>
             </tr>
@@ -218,110 +228,48 @@
       <div class="empty">
         {{.Icon "wifi"}}
         <p>{{.T "devices.empty"}}</p>
-        <button type="button" class="btn" data-open-modal="device-modal">{{.IconS "plus"}}<span>{{.T "devices.add"}}</span></button>
+        {{if .Can "devices.write"}}<button type="button" class="btn" data-open-modal="device-modal">{{.IconS "plus"}}<span>{{.T "devices.add"}}</span></button>{{end}}
       </div>
       {{end}}
     </div>
-  </div>
+  </div>{{end}}
 </div>
 
+<noscript><div class="form-stack">
+{{if .Can "devices.write"}}<details class="collapse form-panel"><summary>{{.T "devices.add"}}</summary>{{template "user_device_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
+{{if .Can "users.update"}}<details class="collapse form-panel"><summary>{{.T "users.action.renew"}}</summary>{{template "user_renew_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
+{{if .Can "traffic.update"}}<details class="collapse form-panel"><summary>{{.T "users.action.add_traffic"}}</summary>{{template "user_traffic_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
+</div></noscript>
 {{template "user_detail_modals" .}}
 {{end}}
 
 {{define "user_detail_modals"}}
-<dialog id="device-modal" class="modal" aria-labelledby="device-modal-title">
+{{if .Can "devices.write"}}<dialog id="device-modal" class="modal" aria-labelledby="device-modal-title">
   <div class="modal-head">
     <h2 id="device-modal-title">{{.T "devices.add"}}</h2>
     <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
   </div>
-  <form method="post" action="/users/{{.Data.U.ID}}/devices">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="modal-body">
-      <div class="field">
-        <label for="d-name">{{.T "devices.name"}}</label>
-        <input class="input" id="d-name" name="name" required maxlength="64" placeholder="iPhone · laptop …">
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
-      <button type="submit" class="btn btn--primary">{{.T "devices.add"}}</button>
-    </div>
-  </form>
+  {{template "user_device_form" (dict "v" . "suffix" "")}}
 </dialog>
 
-<dialog id="renew-modal" class="modal" aria-labelledby="renew-title">
+{{end}}
+{{if .Can "users.update"}}<dialog id="renew-modal" class="modal" aria-labelledby="renew-title">
   <div class="modal-head">
     <h2 id="renew-title">{{.T "users.renew.title" (printf "%v" .Data.U.Username)}}</h2>
     <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
   </div>
-  <form method="post" action="/users/{{.Data.U.ID}}/renew">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="modal-body">
-      <div class="field">
-        <label for="r-mode">{{.T "users.action.renew"}}</label>
-        <select class="select" id="r-mode" name="mode">
-          <option value="from_expiration">{{.T "users.renew.extend_from_expiry"}}</option>
-          <option value="from_now">{{.T "users.renew.extend_from_now"}}</option>
-          <option value="exact">{{.T "users.renew.exact"}}</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="r-duration">{{.T "users.renew.days"}}</label>
-        <div class="unit-group">
-          <input class="input" id="r-duration" name="duration_value" type="number" min="0.1" step="any" value="1">
-          <select class="select" name="duration_unit" aria-label="{{.T "users.renew.days"}}">
-            <option value="months">{{.T "duration.months"}}</option>
-            <option value="days" selected>{{.T "duration.days"}}</option>
-            <option value="hours">{{.T "duration.hours"}}</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <label for="r-date">{{.T "users.renew.date"}}</label>
-        <input class="input" id="r-date" name="date" type="date" dir="ltr">
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
-      <button type="submit" class="btn btn--primary">{{.T "users.action.renew"}}</button>
-    </div>
-  </form>
+  {{template "user_renew_form" (dict "v" . "suffix" "")}}
 </dialog>
 
-<dialog id="traffic-modal" class="modal" aria-labelledby="traffic-title">
+{{end}}
+{{if .Can "traffic.update"}}<dialog id="traffic-modal" class="modal" aria-labelledby="traffic-title">
   <div class="modal-head">
     <h2 id="traffic-title">{{.T "users.traffic_add.title" (printf "%v" .Data.U.Username)}}</h2>
     <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
   </div>
-  <form method="post" action="/users/{{.Data.U.ID}}/traffic/add">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="modal-body">
-      <div class="field">
-        <label for="t-traffic">{{.T "users.traffic_add.amount"}}</label>
-        <div class="unit-group">
-          <input class="input" id="t-traffic" name="traffic_value" type="number" min="0.001" step="any" value="10" required>
-          <select class="select" name="traffic_unit" aria-label="{{.T "users.action.add_traffic"}}">
-            <option value="gb">GB</option>
-            <option value="mb">MB</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
-      <button type="submit" class="btn btn--primary">{{.T "users.action.add_traffic"}}</button>
-    </div>
-  </form>
+  {{template "user_traffic_form" (dict "v" . "suffix" "")}}
 </dialog>
 
-<dialog id="qr-modal" class="modal modal--qr" aria-label="{{.T "devices.qr"}}">
-  <div class="modal-head">
-    <h2>{{.T "devices.qr"}}</h2>
-    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
-  </div>
-  <div class="modal-body qr-body">
-    <img id="qr-img" src="" alt="{{.T "devices.qr"}}" width="280" height="280">
-    <p class="text-muted text-sm">{{.T "devices.config_note"}}</p>
-  </div>
-</dialog>
+{{end}}
+{{if .Can "configs.read"}}{{template "device_qr_dialog" .}}{{end}}
 {{end}}

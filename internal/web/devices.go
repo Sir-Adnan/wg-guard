@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
@@ -15,13 +16,30 @@ import (
 
 // deviceRow is one row of the user-detail device table.
 type deviceRow struct {
-	D      *device.Device
+	D      *deviceView
 	Online bool
 	LastHS *time.Time
 }
 
+// deviceView deliberately excludes encrypted key carriers from templates.
+type deviceView struct {
+	ID, Name, IPv4   string
+	Enabled          bool
+	RXBytes, TXBytes uint64
+}
+
+func safeDeviceViews(devs []*device.Device) []*deviceView {
+	out := make([]*deviceView, 0, len(devs))
+	for _, d := range devs {
+		out = append(out, &deviceView{ID: d.ID, Name: d.Name, IPv4: d.IPv4, Enabled: d.Enabled, RXBytes: d.RXBytes, TXBytes: d.TXBytes})
+	}
+	return out
+}
+
 // userDetailData feeds the user detail page.
 type userDetailData struct {
+	Form         operationalForm
+	Action       string
 	U            *userDetailUser
 	Devices      []deviceRow
 	PlanName     string
@@ -29,6 +47,10 @@ type userDetailData struct {
 	OnlineWindow int64
 	SubExists    bool   // a subscription link row exists
 	SubURL       string // public URL ("" when absent or revoked)
+	DevicesKnown bool
+	PlanKnown    bool
+	IfaceKnown   bool
+	SubKnown     bool
 	SubRevoked   bool
 }
 
@@ -47,7 +69,7 @@ func (s *Server) handleUserDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	data := userDetailData{OnlineWindow: 180}
+	data := userDetailData{Form: userActionForm(), OnlineWindow: 180, PlanKnown: u.PlanID == nil, IfaceKnown: u.InterfaceID == nil}
 	if v, err := s.Settings.GetInt(ctx, "accounting.online_window_seconds"); err == nil && v > 0 {
 		data.OnlineWindow = int64(v)
 	}
@@ -55,29 +77,36 @@ func (s *Server) handleUserDetail(w http.ResponseWriter, r *http.Request) {
 
 	if p, err := s.Plans.Get(ctx, deref(u.PlanID)); err == nil && u.PlanID != nil {
 		data.PlanName = p.Name
+		data.PlanKnown = true
 	}
 	if f, err := s.Ifaces.Get(ctx, deref(u.InterfaceID)); err == nil && u.InterfaceID != nil {
 		data.IfaceName = f.Name
+		data.IfaceKnown = true
 	}
-	if devs, err := s.Devices.ListForUser(ctx, u.ID); err == nil {
-		data.Devices = make([]deviceRow, 0, len(devs))
-		for _, d := range devs {
-			row := deviceRow{D: d}
-			if d.LastHandshake != nil {
-				hs := *d.LastHandshake
-				row.LastHS = &hs
-				row.Online = hs.After(cutoff)
+	if canOperate(r, auth.ScopeDevicesRead) {
+		if devs, err := s.Devices.ListForUser(ctx, u.ID); err == nil {
+			data.DevicesKnown = true
+			data.Devices = make([]deviceRow, 0, len(devs))
+			for _, d := range devs {
+				row := deviceRow{D: safeDeviceViews([]*device.Device{d})[0]}
+				if d.LastHandshake != nil {
+					hs := *d.LastHandshake
+					row.LastHS = &hs
+					row.Online = hs.After(cutoff)
+				}
+				data.Devices = append(data.Devices, row)
 			}
-			data.Devices = append(data.Devices, row)
+		} else {
+			s.logError(r, "device list", err)
 		}
-	} else {
-		s.logError(r, "device list", err)
 	}
-	if s.Links != nil {
-		if l, err := s.Links.ForUser(ctx, u.ID); err == nil && l != nil {
+	if s.Links != nil && (canOperate(r, auth.ScopeConfigsRead) || canOperate(r, auth.ScopeUsersUpdate)) {
+		l, err := s.Links.ForUser(ctx, u.ID)
+		data.SubKnown = err == nil
+		if err == nil && l != nil {
 			data.SubExists = true
 			data.SubRevoked = l.Revoked()
-			if !l.Revoked() && l.Token != "" {
+			if !l.Revoked() && l.Token != "" && canOperate(r, auth.ScopeConfigsRead) {
 				data.SubURL = s.subURLFor(r, l.Token)
 			}
 		}
@@ -99,15 +128,15 @@ func (s *Server) handleDeviceCreate(w http.ResponseWriter, r *http.Request) {
 	name := r.PostFormValue("name")
 	keys, err := s.generateKeys(r, false)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.userActionError(w, r, u.ID, "devices", "", err)
 		return
 	}
 	if _, err := s.Devices.Create(r.Context(), u.ID, name, *keys, ""); err != nil {
-		if domain.CodeOf(err) == domain.CodeInvalidRequest || domain.CodeOf(err) == domain.CodeDeviceLimitReached || domain.CodeOf(err) == domain.CodeDeviceKeyExists {
-			s.redirectToast(w, r, "/users/"+u.ID, "common.error_validation")
-			return
+		field := ""
+		if domain.CodeOf(err) == domain.CodeInvalidRequest {
+			field = "name"
 		}
-		s.actionFailed(w, r, err)
+		s.userActionError(w, r, u.ID, "devices", field, err)
 		return
 	}
 	s.audit(r, "device.created", u.ID, map[string]any{"name": name})
@@ -179,12 +208,12 @@ func (s *Server) handleDeviceConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	d, err := s.Devices.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.writeQRError(w, r, err)
 		return
 	}
 	text, err := s.ClientConf.Render(r.Context(), d.ID)
 	if err != nil {
-		s.actionFailed(w, r, err)
+		s.writeQRError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")

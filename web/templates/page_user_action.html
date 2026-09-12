@@ -1,0 +1,10 @@
+{{define "title"}}{{if eq .Data.Action "devices"}}{{.T "devices.add"}}{{else if eq .Data.Action "renew"}}{{.T "users.action.renew"}}{{else}}{{.T "users.action.add_traffic"}}{{end}}{{end}}
+{{define "content"}}
+<div class="form-page">
+  <div class="page-head"><h1>{{template "title" .}}</h1><a class="btn btn--ghost" href="{{if .Can "users.read"}}/users/{{.Data.U.ID}}{{else}}/{{end}}">{{.T "common.back"}}</a></div>
+  {{template "form_feedback" .}}
+  <div class="card">
+    {{if eq .Data.Action "devices"}}{{template "user_device_form" (dict "v" . "suffix" "")}}{{else if eq .Data.Action "renew"}}{{template "user_renew_form" (dict "v" . "suffix" "")}}{{else}}{{template "user_traffic_form" (dict "v" . "suffix" "")}}{{end}}
+  </div>
+</div>
+{{end}}

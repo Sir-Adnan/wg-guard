@@ -5,6 +5,9 @@ more than this table says). Statuses: `designed` → `implemented` → `unit tes
 `integration tested` → `production verified`; items that fundamentally need real hardware stay
 marked `requires real VPS`.
 
+Historical asset-budget results below describe past gates. Phase 10 replaces frontend size
+ceilings with observable measurements and efficiency review; runtime resource limits remain.
+
 ## Phase 8.3 — Data-plane forwarding integrity (complete, 2026-09-10)
 
 Real mobile/desktop clients exposed a release-blocking path that prior gates did not exercise:
@@ -19,7 +22,7 @@ counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3
 Docker doctor inspection is also mode-aware: AWG version/state comes from the runtime container,
 host network-policy checks remain local, and runtime errors are not mislabeled as missing links.
 
-## Phase 10 — Product UI/UX redesign (active, milestone 10.3)
+## Phase 10 — Product UI/UX redesign (active, milestone 10.4)
 
 10.0 is complete: the full tracked prompt maps to milestones/routes/states, and UI/Settings/QA
 contracts are adopted. Atomic Settings saves and safe input redisplay are implemented with
@@ -28,7 +31,7 @@ multiple malformed numeric inputs survive. No public API contract changed.
 
 10.1 shared foundations are implemented: tokens, shell/navigation, app/auth/public preferences,
 feedback/error foundation, accessible drawer/menu/dialog and submit lifecycle. Web/i18n and local
-Chrome representative fa/en × light/dark at 390/1440 plus 320 shell checks pass; asset budgets pass.
+Chrome representative fa/en × light/dark at 390/1440 plus 320 shell checks pass; assets were measured.
 WSL build/full unit/vet and scoped review also passed. This is foundation verification,
 not complete-panel visual migration. Full browser/device/
 viewport/state and TLS/VPS acceptance remain 10.7; pages migrate in 10.2–10.5. See
@@ -37,7 +40,13 @@ viewport/state and TLS/VPS acceptance remain 10.7; pages migrate in 10.2–10.5.
 10.2 Interfaces/Plans are implemented and scoped-tested: responsive lists/forms, exact error
 redisplay, advanced AWG/provenance, secret-free interface views and existing read/write permission
 enforcement. Local Chrome covers 48 locale/theme/phone/desktop cells, CRUD, read-only controls and
-native no-JS profile edits. Build/unit/vet/assets pass; 10.3 is next. Full acceptance remains 10.7.
+native no-JS profile edits. Build/unit/vet/assets passed.
+
+10.3 Users/device/subscription workflows and dashboard are implemented and scoped-tested:
+lossless retries, permissions, partial availability, accessible calendars/QR and exact chart data.
+Chrome 64 locale/theme/phone/desktop cells and native device retry pass; WSL build/unit/vet pass.
+Light remains the default, English uses system typography, and assets are measured without ceilings.
+10.4 Settings/administration is next; complete browser/state/TLS/VPS acceptance remains 10.7.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 
