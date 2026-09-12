@@ -1,25 +1,16 @@
 {{define "auth"}}<!DOCTYPE html>
 <html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
-<head>
-{{template "document-head" .}}
-<title>{{template "title" .}} · {{.T "app.name"}}</title>
-<script type="module" src="{{.A "/js/app.js"}}"></script>
-</head>
-<body>
-<div class="auth-shell">
-  <div class="auth-card">
-    <div class="brand">
-      <span class="logo">{{.Icon "shield"}}</span>
-      <span>{{.T "app.name"}}</span>
-    </div>
-    {{template "flash" .}}
-    {{block "content" .}}{{end}}
-    <div class="auth-foot">
-      <span class="text-subtle text-xs">{{.T "app.tagline"}}</span>
-      {{template "preferences" .}}
-    </div>
-  </div>
-</div>
-{{template "feedback-host" .}}
-</body>
-</html>{{end}}
+<head>{{template "document-head" .}}<title>{{template "title" .}} · {{.T "app.name"}}</title></head>
+<body class="access-surface">
+<a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
+<div class="access-shell">
+<header class="access-top"><a class="access-brand" href="/login"><span class="logo">{{.Icon "shield"}}</span><span>{{.T "app.name"}}</span></a>{{template "preferences" .}}</header>
+<main id="main" tabindex="-1" class="access-frame{{if not (or (eq .Path "/login") (eq .Path "/onboarding"))}} access-frame--error{{end}}">
+{{if or (eq .Path "/login") (eq .Path "/onboarding")}}
+<section class="access-story" aria-labelledby="access-story-title"><span class="eyebrow">{{.T "app.tagline"}}</span><h2 id="access-story-title">{{.T "access.promise"}}</h2><p>{{.T "access.intro"}}</p><ul class="access-features"><li>{{.Icon "users"}}<div><strong>{{.T "access.accounts"}}</strong><p>{{.T "access.accounts_hint"}}</p></div></li><li>{{.Icon "activity"}}<div><strong>{{.T "access.health"}}</strong><p>{{.T "access.health_hint"}}</p></div></li><li>{{.Icon "key"}}<div><strong>{{.T "access.sharing"}}</strong><p>{{.T "access.sharing_hint"}}</p></div></li></ul></section>
+{{end}}
+<section class="access-panel">{{template "flash" .}}{{block "content" .}}{{end}}</section>
+</main>
+<footer class="access-footer">{{.T "access.private_panel"}}</footer>
+</div>{{template "feedback-host" .}}
+</body></html>{{end}}

@@ -157,6 +157,13 @@ matrix and relevant live TLS deployment evidence. Unavailable engines/devices re
 
 ## Operational forms and collections
 
+Auth/setup use a focused access layout; public subscriptions have independent customer navigation
+and technical summaries. Error pages/fragments keep their HTTP status, query-selected public
+locale and layout boundary. Session expiry returns to a safe full page, including during polling.
+QR loads on demand through a shared viewer. Public downloads give retry feedback and preserve
+the native file-link fallback. Connection-disabled states do not invent new config-access rules.
+Public presentation excludes admin notes and encrypted key carriers; capability URLs stay private.
+
 Interfaces and Plans use shared `form-page`/`form-stack` section cards and `form-panel` disclosures,
 with one primary save action. Technical numeric/range fields use text controls with appropriate
 input modes so server validation can redisplay exact invalid input. Field errors and a focusable

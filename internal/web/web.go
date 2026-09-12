@@ -13,6 +13,7 @@ package web
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
@@ -251,27 +252,9 @@ func (s *Server) Handler() http.Handler {
 // The shared error surface is used for unmatched browser pages. Binary downloads,
 // API envelopes and method-specific responses keep their existing contracts.
 func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusNotFound)
-	layout := "auth"
-	renderRequest := r
-	if adminFrom(r) != nil {
-		layout = "app"
-	} else if lang := r.URL.Query().Get("lang"); lang == "fa" || lang == "en" {
-		localized := r.Clone(r.Context())
-		localized.Header = r.Header.Clone()
-		localized.Header.Del("Cookie")
-		for _, cookie := range r.Cookies() {
-			if cookie.Name != localeCookie {
-				localized.AddCookie(cookie)
-			}
-		}
-		localized.AddCookie(&http.Cookie{Name: localeCookie, Value: lang})
-		renderRequest = localized
+	if r.URL.Path == "/sub" || strings.HasPrefix(r.URL.Path, "/sub/") {
+		s.surfaceError(w, r, http.StatusNotFound, "common.error_not_found", "sub")
+		return
 	}
-	_ = s.render(w, renderRequest, "error", layout, struct {
-		Status     int
-		MessageKey string
-	}{404, "common.error_not_found"})
+	s.surfaceError(w, r, http.StatusNotFound, "common.error_not_found", "")
 }

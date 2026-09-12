@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -36,6 +37,87 @@ func (e *env) seedUserWithDevice() (string, string, string, *http.Cookie) {
 		e.t.Fatalf("device create: %v", err)
 	}
 	return u.ID, d.ID, csrf, cookie
+}
+
+func TestPublicSubscriptionPresentationBoundaries(t *testing.T) {
+	e := newEnv(t)
+	uid, did, _, _ := e.seedUserWithDevice()
+	link, err := e.srv.Links.ForUser(context.Background(), uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := e.subBase(link.Token)
+	rec := e.get(base+"?lang=en", nil)
+	if strings.Contains(rec.Body.String(), `class="sub-qr" src=`) || !strings.Contains(rec.Body.String(), `data-qr=`) {
+		t.Fatal("public QR must load only on explicit request")
+	}
+	if field, exists := reflect.TypeFor[subDevice]().FieldByName("D"); !exists || field.Type != reflect.TypeFor[*deviceView]() {
+		t.Fatal("public templates must receive keyless device summaries")
+	}
+	if _, err := e.db.Exec(`UPDATE devices SET enabled=0 WHERE id=?`, did); err != nil {
+		t.Fatal(err)
+	}
+	rec = e.get(base+"?lang=en", nil)
+	if !strings.Contains(rec.Body.String(), "This device is disabled") {
+		t.Fatal("disabled device must not be shown as merely offline")
+	}
+	if rec = e.get(base+"/devices/"+did+"/config", nil); rec.Code != http.StatusOK {
+		t.Fatal("presentation must preserve existing disabled-device config access")
+	}
+	if _, err := e.db.Exec(`ALTER TABLE devices RENAME TO unavailable_devices`); err != nil {
+		t.Fatal(err)
+	}
+	rec = e.get(base+"?lang=en", nil)
+	if !strings.Contains(rec.Body.String(), "Devices could not be loaded") || strings.Contains(rec.Body.String(), "No devices yet") {
+		t.Fatal("failed device read must not imply empty account")
+	}
+}
+
+func TestPublicSubscriptionStatusAndErrorSurfaces(t *testing.T) {
+	e := newEnv(t)
+	uid, did, _, _ := e.seedUserWithDevice()
+	link, err := e.srv.Links.ForUser(context.Background(), uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := e.subBase(link.Token)
+	for _, tc := range []struct{ status, text string }{
+		{"active", "Ready to connect"}, {"disabled", "Access is disabled"}, {"suspended", "Access is suspended"},
+		{"expired", "Your subscription has expired"}, {"traffic_exceeded", "Your data allowance is used up"}, {"waiting_first_connection", "Starts with your first connection"},
+	} {
+		if _, err := e.db.Exec(`UPDATE users SET status=? WHERE id=?`, tc.status, uid); err != nil {
+			t.Fatal(err)
+		}
+		rec := e.get(base+"?lang=en", nil)
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), tc.text) {
+			t.Errorf("missing status presentation %s", tc.status)
+		}
+	}
+	unknown := e.get("/sub/unknown?lang=en", nil)
+	if _, err := e.srv.Links.SetRevoked(context.Background(), uid, true); err != nil {
+		t.Fatal(err)
+	}
+	revoked := e.get(base+"?lang=en", nil)
+	parsedBase, _ := url.Parse(base)
+	revokedMarkup := strings.ReplaceAll(revoked.Body.String(), parsedBase.Path, "/sub/unknown")
+	if unknown.Code != http.StatusNotFound || revoked.Code != http.StatusNotFound || unknown.Body.String() != revokedMarkup {
+		t.Fatal("unknown and revoked links must share identical error surfaces")
+	}
+	if revoked.Header().Get("Cache-Control") != "no-store" || !strings.Contains(revoked.Body.String(), `dir="ltr"`) || !strings.Contains(revoked.Body.String(), "This subscription link is unavailable.") || strings.Contains(revoked.Body.String(), `href="/login"`) {
+		t.Fatal("public error must be localized, uncached and free of admin navigation")
+	}
+	if _, err := e.srv.Links.SetRevoked(context.Background(), uid, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`ALTER TABLE tunnel_interfaces RENAME TO unavailable_interfaces`); err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"config", "qr"} {
+		rec := e.get(base+"/devices/"+did+"/"+suffix+"?lang=en", nil)
+		if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" || rec.Header().Get("Cache-Control") != "no-store" {
+			t.Error("failed delivery must preserve uncached HTTP failure")
+		}
+	}
 }
 
 // subBase is the token URL used by the public endpoints (host-prefixed).

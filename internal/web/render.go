@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -177,14 +178,15 @@ func (s *Server) initTemplates() error {
 // View is the render context for every template execution. Locale-scoped
 // helpers are methods so templates stay i18n-aware without global state.
 type View struct {
-	Locale    i18n.Locale
-	Dir       string
-	Theme     string // "light" | "dark" | "system"
-	Path      string // request path, for nav highlighting
-	PageClass string // content width tier (" content--narrow" on form/settings routes)
-	Admin     *auth.Admin
-	CSRF      string
-	Version   string
+	Locale       i18n.Locale
+	Dir          string
+	Theme        string // "light" | "dark" | "system"
+	Path         string // request path, for nav highlighting
+	PageClass    string // content width tier (" content--narrow" on form/settings routes)
+	Admin        *auth.Admin
+	CSRF         string
+	Version      string
+	LoginContext url.Values
 
 	// iconBase is the cache-busted sprite URL, resolved per server.
 	iconBase string
@@ -264,6 +266,21 @@ func (v *View) D(t *time.Time) string {
 
 // DT renders a date with time.
 func (v *View) DateTime(t time.Time) string { return i18n.FormatDateTime(v.Locale, t, nil) }
+
+func (v *View) LocaleLink() string {
+	q := url.Values{}
+	if v.Path == "/login" {
+		for key, values := range v.LoginContext {
+			q[key] = append([]string(nil), values...)
+		}
+	}
+	next := "fa"
+	if v.Locale == i18n.Fa {
+		next = "en"
+	}
+	q.Set("lang", next)
+	return v.Path + "?" + q.Encode()
+}
 
 func (v *View) DT(t *time.Time) string {
 	if t == nil {
@@ -389,7 +406,7 @@ func (s *Server) applyFlash(r *http.Request, v *View) {
 		return
 	}
 	key := r.URL.Query().Get("toast")
-	v.ToastError = key == "common.denied"
+	v.ToastError = key == "common.denied" || key == "onboard.endpoint_pending"
 	if key == "" {
 		return
 	}
@@ -429,6 +446,9 @@ func (s *Server) newView(r *http.Request) *View {
 		v.CSRF, _ = r.Context().Value(ctxCSRF).(string)
 	}
 	v.Locale = s.localeFor(r)
+	if r.URL.Path == "/login" {
+		v.LoginContext = loginContext(r)
+	}
 	v.Dir = v.Locale.Dir()
 	return v
 }

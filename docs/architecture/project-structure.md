@@ -130,3 +130,6 @@ reaching templates. Existing permission scopes also protect migrated panel route
 Settings presentation metadata lives in the web layer and derives defaults/ranges from the registry;
 `settings.js` is loaded only on that route. Administration shares `ops_labels.go` and its permission/
 field partial. These presentation helpers add no REST dependency or persistence abstraction.
+Auth loads only shared UI behavior; `qr.js` is included with the QR viewer and `subscription.js`
+only on public pages with devices. `surface_errors.go` preserves page/fragment and public/admin
+boundaries without changing REST responses or successful configuration bytes.

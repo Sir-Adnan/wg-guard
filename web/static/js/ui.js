@@ -210,7 +210,11 @@ document.body.addEventListener('htmx:afterRequest', event => {
   event.target.removeAttribute('aria-busy'); recover(event.target.closest('form'));
 });
 for (const type of ['htmx:responseError', 'htmx:sendError', 'htmx:timeout']) {
-  document.body.addEventListener(type, () => { recoverAll(); toast(text('error'), 'err'); });
+  document.body.addEventListener(type, event => {
+    recoverAll();
+    const code = event.detail?.xhr?.getResponseHeader?.('X-WG-Error');
+    toast(code === 'csrf' || code === 'forbidden' ? text('error-' + code) : text('error'), 'err');
+  });
 }
 document.body.addEventListener('htmx:beforeCleanupElement', event => {
   if (activeMenu && (event.target.contains(activeMenu) || event.target.contains(menuTrigger))) closeMenu();
@@ -221,3 +225,13 @@ document.body.addEventListener('wg:toast', event => {
   toast(typeof d === 'string' ? d : d.message || d.value, d.kind);
 });
 syncTheme();
+document.addEventListener('click', event => {
+  const toggle = event.target.closest('[data-toggle-password]');
+  if (!toggle) return;
+  const input = document.getElementById(toggle.dataset.togglePassword);
+  if (!input) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  toggle.setAttribute('aria-pressed', String(show));
+});
+document.querySelector('[data-initial-focus]')?.focus();

@@ -10,7 +10,6 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
-	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 // Subscription links: admin lifecycle handlers + the public customer-facing
@@ -104,11 +103,11 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := s.Users.Get(r.Context(), userID)
 	if err != nil {
-		http.NotFound(w, r)
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.unavailable", "sub")
 		return
 	}
 	ctx := r.Context()
-	data := subPageData{Lang: "fa"}
+	data := subPageData{Lang: "fa", OnlineWindow: 180, PlanKnown: u.PlanID == nil}
 	if lang := r.URL.Query().Get("lang"); lang == "en" {
 		data.Lang = "en"
 	}
@@ -117,16 +116,20 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	}
 	cutoff := time.Now().UTC().Add(-time.Duration(data.OnlineWindow) * time.Second)
 	if devs, err := s.Devices.ListForUser(ctx, u.ID); err == nil {
+		data.DevicesKnown = true
 		data.Devices = make([]subDevice, 0, len(devs))
 		for _, d := range devs {
-			row := subDevice{D: d, Online: d.Enabled && d.LastHandshake != nil && d.LastHandshake.After(cutoff)}
+			row := subDevice{D: safeDeviceViews([]*device.Device{d})[0], Online: d.Enabled && u.Status.PeerWanted() && d.LastHandshake != nil && d.LastHandshake.After(cutoff)}
 			data.Devices = append(data.Devices, row)
 		}
 	}
 	if p, err := s.Plans.Get(ctx, deref(u.PlanID)); err == nil && u.PlanID != nil {
 		data.PlanName = p.Name
+		data.PlanKnown = true
 	}
-	data.U = u
+	data.U = &subUserView{Username: u.Username, DisplayName: u.DisplayName, Status: u.Status,
+		TrafficLimitBytes: u.TrafficLimitBytes, TrafficUsedRX: u.TrafficUsedRX, TrafficUsedTX: u.TrafficUsedTX,
+		ExpiresAt: u.ExpiresAt, DurationSeconds: u.DurationSeconds}
 	data.Used = u.TrafficUsedRX + u.TrafficUsedTX
 	data.Base = "/sub/" + url.PathEscape(r.PathValue("token"))
 	s.renderSub(w, r, "sub", data)
@@ -145,12 +148,16 @@ func (s *Server) handleSubDeviceQR(w http.ResponseWriter, r *http.Request) {
 	}
 	text, err := s.ClientConf.Render(r.Context(), d.ID)
 	if err != nil {
-		http.NotFound(w, r)
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.download_unavailable", "sub")
 		return
 	}
 	png, err := clientconf.QR(text)
 	if err != nil {
-		s.writeQRError(w, r, err)
+		status := http.StatusNotFound
+		if domain.CodeOf(err) == domain.CodeInvalidRequest {
+			status = http.StatusBadRequest
+		}
+		s.surfaceError(w, r, status, "publicsub.download_unavailable", "sub")
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
@@ -172,7 +179,7 @@ func (s *Server) handleSubDeviceConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	text, err := s.ClientConf.Render(r.Context(), d.ID)
 	if err != nil {
-		http.NotFound(w, r)
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.download_unavailable", "sub")
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -190,7 +197,7 @@ func (s *Server) subDevice(w http.ResponseWriter, r *http.Request) (*device.Devi
 	}
 	d, err := s.Devices.Get(r.Context(), r.PathValue("deviceID"))
 	if err != nil || d.UserID != userID {
-		http.NotFound(w, r)
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.unavailable", "sub")
 		return nil, false
 	}
 	return d, true
@@ -202,9 +209,9 @@ func (s *Server) resolveSubToken(w http.ResponseWriter, r *http.Request) (string
 	if err != nil {
 		if domain.CodeOf(err) != domain.CodeUserNotFound {
 			// Storage failure: log without the path (token is in it).
-			s.logError(r, "sub resolve", err)
+			s.logError(r, "sub resolve unavailable", nil)
 		}
-		http.NotFound(w, r)
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.unavailable", "sub")
 		return "", false
 	}
 	return userID, true
@@ -216,7 +223,7 @@ func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
 	now := time.Now()
 	if s.subRL.blocked(ip, now) {
 		w.Header().Set("Retry-After", "60")
-		http.Error(w, "too many requests", http.StatusTooManyRequests)
+		s.surfaceError(w, r, http.StatusTooManyRequests, "publicsub.rate_limited", "sub")
 		return true
 	}
 	s.subRL.fail(ip, now)
@@ -229,33 +236,48 @@ func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
 func (s *Server) renderSub(w http.ResponseWriter, r *http.Request, page string, data any) {
 	pt, ok := s.pages[page]
 	if !ok {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "sub")
 		return
 	}
 	v := s.newView(r)
+	v.Admin = nil
+	v.CSRF = ""
 	v.Data = data
 	v.Locale = i18n.Normalize(r.URL.Query().Get("lang"))
 	v.Dir = v.Locale.Dir()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	if err := pt.t.ExecuteTemplate(w, "sub", v); err != nil && s.Log != nil {
-		s.Log.Error("web: render sub", "page", page, "err", err)
+	if err := pt.t.ExecuteTemplate(w, "sub", v); err != nil {
+		s.logError(r, "public subscription render failed", nil)
 	}
 }
 
 // subPageData feeds the public subscription page.
 type subPageData struct {
-	U            *user.User
+	U            *subUserView
 	Used         int64  // RX+TX precomputed for the meter
 	Base         string // /sub/{token} prefix for absolute asset URLs
 	Lang         string
 	PlanName     string
+	PlanKnown    bool
+	DevicesKnown bool
 	Devices      []subDevice
 	OnlineWindow int64
 }
 
 // subDevice is one device card on the public page.
 type subDevice struct {
-	D      *device.Device
+	D      *deviceView
 	Online bool
+}
+
+// Public templates receive only customer-facing account fields and keyless
+// device summaries. Administrative notes and encrypted key carriers stay out.
+type subUserView struct {
+	Username, DisplayName        string
+	Status                       domain.UserStatus
+	TrafficLimitBytes            *int64
+	TrafficUsedRX, TrafficUsedTX int64
+	ExpiresAt                    *time.Time
+	DurationSeconds              *int64
 }

@@ -102,7 +102,7 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.logError(r, "user list", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "")
 		return
 	}
 
@@ -841,11 +841,11 @@ func (s *Server) loadUser(w http.ResponseWriter, r *http.Request) (*user.User, b
 	u, err := s.Users.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		if domain.CodeOf(err) == domain.CodeUserNotFound {
-			http.Error(w, "not found", http.StatusNotFound)
+			s.surfaceError(w, r, http.StatusNotFound, "common.error_not_found", "")
 			return nil, false
 		}
 		s.logError(r, "user load", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "")
 		return nil, false
 	}
 	return u, true
@@ -886,7 +886,7 @@ func (s *Server) actionFailed(w http.ResponseWriter, r *http.Request, err error)
 
 func (s *Server) badRequest(w http.ResponseWriter, r *http.Request, what string) {
 	s.logError(r, "bad request: "+what, nil)
-	http.Error(w, "bad request", http.StatusBadRequest)
+	s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
 }
 
 func validUserStatus(s string) bool {

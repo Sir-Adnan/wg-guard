@@ -273,11 +273,11 @@ func (s *Server) loadDevice(w http.ResponseWriter, r *http.Request) (*device.Dev
 	d, err := s.Devices.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		if domain.CodeOf(err) == domain.CodeDeviceNotFound {
-			http.Error(w, "not found", http.StatusNotFound)
+			s.surfaceError(w, r, http.StatusNotFound, "common.error_not_found", "")
 			return nil, false
 		}
 		s.logError(r, "device load", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "")
 		return nil, false
 	}
 	return d, true

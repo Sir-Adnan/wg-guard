@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ const (
 	ctxAdmin ctxKey = iota
 	ctxSession
 	ctxCSRF
+	ctxExpired
 )
 
 // adminFrom returns the authenticated panel account, or nil when anonymous.
@@ -78,6 +80,7 @@ func (s *Server) sessionMiddleware(next http.Handler) http.Handler {
 			} else {
 				// Stale or revoked cookie: drop it so templates don't loop.
 				s.clearSessionCookie(w)
+				r = r.WithContext(context.WithValue(r.Context(), ctxExpired, true))
 			}
 		}
 		next.ServeHTTP(w, r)
@@ -94,16 +97,41 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 				http.Redirect(w, r, "/onboarding", http.StatusSeeOther)
 				return
 			}
+			q := url.Values{}
+			if r.Method == http.MethodGet && r.URL.Path != "/" {
+				q.Set("next", sessionReturnPath(r))
+			}
+			if expired, _ := r.Context().Value(ctxExpired).(bool); expired {
+				q.Set("expired", "1")
+			}
+			target := "/login"
+			if len(q) > 0 {
+				target += "?" + q.Encode()
+			}
 			if isHX(r) {
-				w.Header().Set("HX-Redirect", "/login")
+				w.Header().Set("HX-Redirect", target)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
 		}
 		next(w, r)
 	}
+}
+
+func sessionReturnPath(r *http.Request) string {
+	next := r.URL.RequestURI()
+	if isHX(r) {
+		if current, err := url.Parse(r.Header.Get("HX-Current-URL")); err == nil && current.User == nil && current.Host == r.Host && (current.Scheme == "http" || current.Scheme == "https") {
+			next = current.RequestURI()
+		}
+	}
+	if parsed, err := url.Parse(next); err == nil && (parsed.Path == "/dashboard/live" || parsed.Path == "/dashboard/chart") {
+		parsed.Path = "/dashboard"
+		next = parsed.RequestURI()
+	}
+	return safeNext(next)
 }
 
 // requirePermission gates a handler behind a scope check on the session
@@ -115,7 +143,7 @@ func (s *Server) requirePermission(scope string, next http.HandlerFunc) http.Han
 		if !auth.Authorized(a.Role, a.Permissions, scope) {
 			if isHX(r) {
 				w.Header().Set("X-WG-Error", "forbidden")
-				w.WriteHeader(http.StatusForbidden)
+				s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
 				return
 			}
 			s.redirectToast(w, r, "/", "common.denied")
@@ -152,10 +180,10 @@ func (s *Server) requireCSRF(next http.Handler) http.Handler {
 		if !csrfValid(tok, csrfFrom(r)) {
 			if isHX(r) {
 				w.Header().Set("X-WG-Error", "csrf")
-				w.WriteHeader(http.StatusForbidden)
+				s.surfaceError(w, r, http.StatusForbidden, "error.csrf", "")
 				return
 			}
-			http.Error(w, "forbidden", http.StatusForbidden)
+			s.surfaceError(w, r, http.StatusForbidden, "error.csrf", "")
 			return
 		}
 		next.ServeHTTP(w, r)

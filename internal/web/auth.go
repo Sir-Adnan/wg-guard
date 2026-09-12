@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ type loginData struct {
 	Created  bool   // just finished onboarding
 	Expired  bool   // redirected here after a session expiry
 	Next     string
+	Username string
 	Endpoint string // node endpoint hint, "" during onboarding-first runs
 }
 
@@ -32,7 +34,11 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 				MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
 			})
 		}
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		target := "/login"
+		if query := loginContext(r).Encode(); query != "" {
+			target += "?" + query
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
 		return
 	}
 	if adminFrom(r) != nil {
@@ -40,6 +46,10 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	has, err := s.Admins.HasOwner(r.Context())
+	if err != nil {
+		s.surfaceError(w, r, http.StatusServiceUnavailable, "common.error_generic", "")
+		return
+	}
 	if err == nil && !has {
 		http.Redirect(w, r, "/onboarding", http.StatusSeeOther)
 		return
@@ -59,10 +69,27 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "login", "auth", data)
 }
 
+// Only navigation context belongs in locale links, never credentials.
+func loginContext(r *http.Request) url.Values {
+	q := url.Values{}
+	if next := safeNext(r.FormValue("next")); next != "" {
+		q.Set("next", next)
+	}
+	for _, name := range []string{"expired", "created"} {
+		if r.URL.Query().Get(name) == "1" {
+			q.Set(name, "1")
+		}
+	}
+	if r.URL.Query().Get("e") == "rate" {
+		q.Set("e", "rate")
+	}
+	return q
+}
+
 // handleLoginSubmit verifies credentials and mints the session cookie.
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
 		return
 	}
 	username := r.PostFormValue("username")
@@ -75,8 +102,10 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		s.loginRL.fail(ip, now)
 		s.audit(r, "auth.login_failed", username, nil)
 		w.Header().Set("X-WG-Error", "login.rate_limited")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusTooManyRequests)
-		_ = s.render(w, r, "login", "auth", loginData{Error: "login.rate_limited", Next: next})
+		_ = s.render(w, r, "login", "auth", loginData{Error: "login.rate_limited", Next: next, Username: username})
 		return
 	}
 	if username == "" || password == "" {
@@ -86,6 +115,11 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	a, err := s.Admins.Authenticate(r.Context(), username, password)
 	if err != nil {
+		if domain.CodeOf(err) == domain.CodeInternal {
+			s.logError(r, "sign-in service unavailable", nil)
+			s.surfaceError(w, r, http.StatusServiceUnavailable, "common.error_generic", "")
+			return
+		}
 		s.loginRL.fail(ip, now)
 		s.renderLoginError(w, r, "login.invalid", next)
 		return
@@ -100,7 +134,7 @@ func (s *Server) loginAfter(w http.ResponseWriter, r *http.Request, adminID, nex
 	token, expires, err := s.Sessions.Create(r.Context(), adminID, clientIP(r))
 	if err != nil {
 		s.logError(r, "session create", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "")
 		return
 	}
 	s.setSessionCookie(w, token, expires)
@@ -113,8 +147,10 @@ func (s *Server) loginAfter(w http.ResponseWriter, r *http.Request, adminID, nex
 
 func (s *Server) renderLoginError(w http.ResponseWriter, r *http.Request, key, next string) {
 	s.audit(r, "auth.login_failed", r.PostFormValue("username"), nil)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusUnauthorized)
-	_ = s.render(w, r, "login", "auth", loginData{Error: key, Next: next})
+	_ = s.render(w, r, "login", "auth", loginData{Error: key, Next: next, Username: r.PostFormValue("username")})
 }
 
 // handleLogout revokes the session and clears the cookie.
@@ -133,6 +169,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 type onboardData struct {
 	Error        string // raw message (already localized by the handler)
+	Field        string
 	Username     string
 	Endpoint     string
 	MinPass      int
@@ -152,6 +189,10 @@ func (s *Server) handleOnboardingPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	has, err := s.Admins.HasOwner(r.Context())
+	if err != nil {
+		s.surfaceError(w, r, http.StatusServiceUnavailable, "common.error_generic", "")
+		return
+	}
 	if err == nil && has {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
@@ -169,7 +210,7 @@ func (s *Server) handleOnboardingPage(w http.ResponseWriter, r *http.Request) {
 // handleOnboardingSubmit creates the owner account (once) and signs in.
 func (s *Server) handleOnboardingSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
 		return
 	}
 	ip := clientIP(r)
@@ -178,13 +219,16 @@ func (s *Server) handleOnboardingSubmit(w http.ResponseWriter, r *http.Request) 
 		if data.Error != "" {
 			s.audit(r, "onboarding.rejected", "", nil)
 		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(status)
 		_ = s.render(w, r, "onboarding", "auth", data)
 	}
 
 	if s.loginRL.blocked(ip, now) {
 		view(onboardData{
-			Error:        s.t(r, "login.rate_limited"),
+			Error:    s.t(r, "login.rate_limited"),
+			Username: r.PostFormValue("username"), Endpoint: strings.TrimSpace(r.PostFormValue("endpoint")),
 			MinPass:      auth.MinPasswordLength,
 			PasswordHint: s.t(r, "onboard.password_hint", auth.MinPasswordLength),
 		}, http.StatusTooManyRequests)
@@ -206,17 +250,20 @@ func (s *Server) handleOnboardingSubmit(w http.ResponseWriter, r *http.Request) 
 	if endpoint != "" {
 		if err := s.Settings.Validate("node.endpoint", endpoint); err != nil {
 			data.Error = s.t(r, "common.error_validation")
+			data.Field = "endpoint"
 			view(data, http.StatusUnprocessableEntity)
 			return
 		}
 	}
 	if len(password) < auth.MinPasswordLength {
 		data.Error = s.t(r, "onboard.password_short")
+		data.Field = "password"
 		view(data, http.StatusUnprocessableEntity)
 		return
 	}
 	if password != confirm {
 		data.Error = s.t(r, "onboard.password_mismatch")
+		data.Field = "password_confirm"
 		view(data, http.StatusUnprocessableEntity)
 		return
 	}
@@ -226,23 +273,27 @@ func (s *Server) handleOnboardingSubmit(w http.ResponseWriter, r *http.Request) 
 		if domain.CodeOf(err) == domain.CodeInvalidRequest {
 			// username shape violation — show as validation error
 			data.Error = s.t(r, "common.error_validation")
+			data.Field = "username"
 			view(data, http.StatusUnprocessableEntity)
 			return
 		}
 		s.logError(r, "onboarding owner create", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "")
 		return
 	}
 	if !created {
 		data.Error = s.t(r, "onboard.already_done")
+		data.Completed = true
 		view(data, http.StatusConflict)
 		return
 	}
 
+	next := "/"
 	if endpoint != "" {
 		if err := s.Settings.Set(r.Context(), "node.endpoint", endpoint); err != nil {
 			// Owner exists; endpoint stays default and is fixable in Settings.
 			s.logError(r, "onboarding endpoint set", err)
+			next = "/?toast=onboard.endpoint_pending"
 		}
 	}
 	s.audit(r, "onboarding.owner_created", username, nil)
@@ -254,7 +305,7 @@ func (s *Server) handleOnboardingSubmit(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.auditLogin(r, a.ID, a.Username, map[string]any{"onboarding": true})
-	s.loginAfter(w, r, a.ID, "/")
+	s.loginAfter(w, r, a.ID, next)
 }
 
 // handleLocaleSet stores the signed-in admin's language preference.

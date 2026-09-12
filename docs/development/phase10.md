@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0–10.4 complete with scoped verification; 10.5 is next**. The owner approved
+Status: **active; 10.0–10.5 complete with scoped verification; 10.6 is next**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
@@ -179,4 +179,11 @@ Settings keyboard/save and credential lifecycle checks. Focused review fixes and
 passed. Gzip: JS 29,434 B, CSS 16,348 B, fonts 101,750 B, SVG 3,095 B; maximum HTML 8,352 B.
 Native scrolling now settles immediately; Settings focus clears its sticky Save bar. No REST change.
 
+10.5: redesigned login/onboarding, public subscription and status-preserving page/fragment errors.
+Credentials clear on validation; safe login return survives locale/session changes and HTMX expiry;
+unknown public paths remain outside admin chrome. Lazy shared QR and public download recovery have
+scoped tests. Chrome 152.0.7977.84 passed 56 locale/theme/phone/desktop cells, onboarding/login and
+download/QR checks plus admin QR smoke; focused fixes and WSL build/unit/vet passed. Gzip: JS
+30,580 B, CSS 17,649 B, fonts 101,750 B, SVG 3,095 B; maximum public/auth HTML 2,844 B.
+QR error tests assert absence of config/secrets directly rather than limiting HTML size.
 These scoped milestones do not close RB-006 or start Phase 11; no public release is authorized.

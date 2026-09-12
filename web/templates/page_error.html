@@ -1,8 +1,12 @@
 {{define "title"}}{{.T "common.error_title"}}{{end}}
-{{define "content"}}
-<div class="empty error-state">
-  <span class="error-code ltr-data">{{.Data.Status}}</span>
-  <h1>{{.T .Data.MessageKey}}</h1>
-  <a class="btn btn--primary" href="/">{{.T "nav.dashboard"}}</a>
-</div>
+{{define "content"}}{{template "surface_error" .}}{{end}}
+{{define "subcontent"}}{{template "surface_error" .}}{{end}}
+{{define "surface_error"}}
+<section class="surface-error" role="alert" tabindex="-1">
+  <span class="surface-error-symbol" aria-hidden="true">{{.Icon "alert-circle"}}</span>
+  <span class="eyebrow ltr-data">{{.Data.Status}}</span>
+  {{if .Data.Fragment}}<h2>{{.T .Data.MessageKey}}</h2>{{else}}<h1>{{.T .Data.MessageKey}}</h1>{{end}}
+  <p>{{.T .Data.HintKey}}</p>
+  {{if .Data.ActionHref}}<a class="btn btn--primary" href="{{.Data.ActionHref}}">{{.T .Data.ActionKey}}</a>{{end}}
+</section>
 {{end}}

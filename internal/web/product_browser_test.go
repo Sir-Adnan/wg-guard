@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -47,12 +48,23 @@ func TestBrowserPhase10(t *testing.T) {
 	}
 	server := httptest.NewServer(e.handler)
 	defer server.Close()
-	payload, err := json.Marshal(map[string]string{
+	seed := map[string]string{
 		"url": server.URL, "session": cookie.Value, "sub": "/sub/" + link.Token,
 		"reader": reader.Value,
 		"csrf":   csrf,
 		"user":   uid, "device": did, "plan": pid, "iface": iid,
-	})
+	}
+	if suite := os.Getenv("WG_TEST_UI_SUITE"); suite == "10.5" || suite == "final" {
+		setup := newEnv(t)
+		setupServer := httptest.NewServer(setup.handler)
+		defer setupServer.Close()
+		seed["setupURL"] = setupServer.URL
+		seed["loginPassword"] = rand.Text()
+		if _, err := e.srv.Admins.Create(context.Background(), "browser-login", seed["loginPassword"], auth.RoleAdmin, []string{auth.ScopeStatsRead}); err != nil {
+			t.Fatal("seed login account")
+		}
+	}
+	payload, err := json.Marshal(seed)
 	if err != nil {
 		t.Fatal(err)
 	}

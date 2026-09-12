@@ -6,7 +6,7 @@ verification state. Phase execution details live in the corresponding phase docu
 
 Last updated: 2026-09-13. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
 Corrective **Phase 8.3 — Data-plane forwarding integrity** is complete. Phase 10 is active again
-at milestone 10.5: 10.0–10.4 foundations and operational/administrative page migrations are complete with
+at milestone 10.6: 10.0–10.5 foundations and page/public/auth migrations are complete with
 scoped local verification. Remaining page migration and RB-006 acceptance remain open.
 
 ## Program status
@@ -18,7 +18,7 @@ scoped local verification. Remaining page migration and RB-006 acceptance remain
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
-| 10 — Product UI/UX redesign | active; milestone 10.5 | Every route/state passes complete bilingual responsive QA |
+| 10 — Product UI/UX redesign | active; milestone 10.6 | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 

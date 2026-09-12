@@ -8,10 +8,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** 10.0–10.4 are complete; remaining page migrations and
+- **Phase 10 product UI/UX redesign:** 10.0–10.5 are complete; consistency and
   full browser/VPS acceptance remain open.
 
 ### Changed
+- **Authentication and subscriptions:** redesigned setup/sign-in and customer connection pages;
+  failed forms retain only nonsecret input, session expiry returns to a full page, and errors keep
+  their HTTP status and public/admin boundary. Shared lazy QR and public download feedback avoid
+  loading business-form scripts on anonymous pages.
 - **Settings and administration:** grouped settings explain defaults and effects while preserving
   atomic saves; backup/restore/schedule workflows support native forms and explicit availability.
   Admins, tokens, webhooks and audit use localized permissions, safe retries and clearer lifecycle

@@ -8,6 +8,8 @@
 <meta name="ui-close" content="{{.T "common.close"}}">
 <meta name="ui-confirm" content="{{.T "common.confirm"}}">
 <meta name="ui-error" content="{{.T "common.error_generic"}}">
+<meta name="ui-error-csrf" content="{{.T "error.csrf"}}">
+<meta name="ui-error-forbidden" content="{{.T "common.denied"}}">
 <meta name="ui-copied" content="{{.T "common.copied"}}">
 <meta name="ui-copy-error" content="{{.T "common.copy_failed"}}">
 <link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
@@ -38,7 +40,7 @@
 </div>
 {{end}}
 {{define "public-language"}}
-<a class="btn btn--ghost locale-choice" href="{{.Path}}?lang={{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}" rel="nofollow">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فارسی{{end}}</a>
+<a class="btn btn--ghost locale-choice" href="{{.LocaleLink}}" lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}" rel="nofollow">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فارسی{{end}}</a>
 {{end}}
 {{define "public-preferences"}}<div class="preferences">{{template "public-language" .}}{{template "theme-menu" .}}</div>{{end}}
 {{define "feedback-host"}}<div class="toasts" aria-label="{{.T "common.notifications"}}"></div>{{end}}

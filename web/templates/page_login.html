@@ -1,30 +1,13 @@
 {{define "title"}}{{.T "login.title"}}{{end}}
 {{define "content"}}
-<h1>{{.T "login.title"}}</h1>
-<p class="sub">{{.T "login.subtitle"}}</p>
-
-{{if .Data.Created}}<div class="auth-alert auth-alert--ok">{{.IconS "check"}}<span>{{.T "login.account_created"}}</span></div>{{end}}
-{{if .Data.Expired}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.T "login.session_expired"}}</span></div>{{end}}
-{{if .Data.Error}}<div class="auth-alert auth-alert--err">{{.IconS "alert-circle"}}<span>{{.T .Data.Error}}</span></div>{{end}}
-
-<form method="post" action="/login" class="auth-form">
-  <input type="hidden" name="next" value="{{.Data.Next}}">
-  <div class="field">
-    <label for="f-username">{{.T "login.username"}}</label>
-    <input class="input" id="f-username" name="username" dir="ltr" autocomplete="username"
-           spellcheck="false" required autofocus>
-  </div>
-  <div class="field">
-    <label for="f-password">{{.T "login.password"}}</label>
-    <div class="input-adj">
-      <input class="input" id="f-password" name="password" type="password" dir="ltr"
-             autocomplete="current-password" required>
-      <button type="button" class="icon-btn" data-toggle-password="f-password"
-              aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">
-        {{.IconS "eye"}}{{.IconS "eye-off"}}
-      </button>
-    </div>
-  </div>
-  <button type="submit" class="btn btn--primary btn--block">{{.IconS "log-in"}}<span>{{.T "login.submit"}}</span></button>
+<div class="access-heading"><span class="access-mark" aria-hidden="true">{{.Icon "log-in"}}</span><h1>{{.T "login.title"}}</h1><p>{{.T "login.subtitle"}}</p></div>
+{{if .Data.Created}}<div class="alert alert--success" role="status">{{.IconS "check"}}<span>{{.T "login.account_created"}}</span></div>{{end}}
+{{if .Data.Expired}}<div class="alert" role="status">{{.IconS "clock"}}<span>{{.T "login.session_expired"}}</span></div>{{end}}
+{{if .Data.Error}}<div class="alert alert--error" id="auth-message" role="alert" tabindex="-1" data-initial-focus>{{.IconS "alert-circle"}}<span>{{.T .Data.Error}}</span></div>{{end}}
+<form method="post" action="/login" class="access-form" novalidate>
+<input type="hidden" name="next" value="{{.Data.Next}}">
+<div class="field"><label for="f-username">{{.T "login.username"}}</label><input class="input ltr-data" id="f-username" name="username" dir="ltr" autocomplete="username" spellcheck="false" required value="{{.Data.Username}}" {{if eq .Data.Error "login.invalid"}}aria-invalid="true" aria-describedby="auth-message"{{end}}></div>
+<div class="field"><label for="f-password">{{.T "login.password"}}</label><div class="input-adj"><input class="input ltr-data" id="f-password" name="password" type="password" dir="ltr" autocomplete="current-password" required {{if eq .Data.Error "login.invalid"}}aria-invalid="true" aria-describedby="auth-message"{{end}}><button type="button" class="icon-btn" data-toggle-password="f-password" aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">{{.IconS "eye"}}{{.IconS "eye-off"}}</button></div></div>
+<button type="submit" class="btn btn--primary btn--block">{{.T "login.submit"}}{{.IconS "arrow-right"}}</button><p class="access-form-note">{{.T "access.signin_hint"}}</p>
 </form>
 {{end}}

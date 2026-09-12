@@ -135,8 +135,16 @@ func TestConfigDownloadsUseCanonicalBytesAndHeaders(t *testing.T) {
 		if got := response.Header().Get("Cache-Control"); got != "no-store" {
 			t.Errorf("%s oversized QR Cache-Control = %q", name, got)
 		}
-		if response.Body.Len() > 1024 {
-			t.Errorf("%s oversized QR error body is unexpectedly large: %d bytes", name, response.Body.Len())
+		body := response.Body.String()
+		if strings.Contains(body, "[Interface]") {
+			t.Errorf("%s QR error echoes configuration", name)
+		}
+		for _, line := range strings.Split(canonical, "\n") {
+			key, value, ok := strings.Cut(line, "=")
+			key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+			if ok && value != "" && (key == "PrivateKey" || key == "PresharedKey" || key == "HeaderProtectionKey") && strings.Contains(body, value) {
+				t.Errorf("%s QR error discloses %s", name, key)
+			}
 		}
 	}
 }

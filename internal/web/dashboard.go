@@ -157,7 +157,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 // handleDashboardLive reads the shared ten-second snapshot without sampling.
 func (s *Server) handleDashboardLive(w http.ResponseWriter, r *http.Request) {
 	if !dashboardReadable(r) {
-		http.Error(w, s.t(r, "common.denied"), http.StatusForbidden)
+		s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
 		return
 	}
 	if r.URL.Query().Get("view") == "history" {
@@ -174,7 +174,7 @@ func (s *Server) handleDashboardLive(w http.ResponseWriter, r *http.Request) {
 // handleDashboardChart swaps the chart card on range change.
 func (s *Server) handleDashboardChart(w http.ResponseWriter, r *http.Request) {
 	if !dashboardReadable(r) {
-		http.Error(w, s.t(r, "common.denied"), http.StatusForbidden)
+		s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
 		return
 	}
 	d := dashData{Chart: s.loadChart(r, chartRangeOf(r))}

@@ -21,7 +21,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **8.2 — Secure access & persistent manager** | Independently cached/update-aware manager, unified update center, state-aware terminal UX, port-safe exposure, Nginx coexistence, DNS-01, public-IP HTTPS, and certificate lifecycle | ✅ Complete |
 | **8.3 — Data-plane forwarding integrity** | Docker/UFW forwarding coexistence, effective route/NAT diagnostics, full tunnel-to-Internet verification, and owned firewall cleanup | ✅ Complete |
 | **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ✅ Complete |
-| **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | 🟦 Active; milestone 10.5 |
+| **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | 🟦 Active; milestone 10.6 |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ⬜ Planned |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
 

@@ -31,6 +31,11 @@ let stage = 'launch';
         locale: value, _csrf: seed.csrf,
       } });
     };
+    if (suite === '10.5' || suite === 'final') {
+      stage = 'authentication and public workflows';
+      await require('./test-web-public.cjs')({ browser, seed, final: suite === 'final' });
+      if (suite === '10.5') { await context.close(); return; }
+    }
     if (suite === '10.3-users-native') {
       stage = 'native user detail labels and device retry';
       const nativeContext = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
