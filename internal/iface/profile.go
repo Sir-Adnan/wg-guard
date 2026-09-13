@@ -175,7 +175,7 @@ type operationalProfileValues struct {
 func (g *ProfileGenerator) performance() (Obfuscation, error) {
 	return g.operational(operationalProfileValues{
 		jc: 4, jmin: 10, jmax: 40, s1: 18, s2: 31, s3: 16, s4: 20,
-		padding: [2]uint16{5, 35}, rekeyAfter: [2]uint16{110, 130},
+		padding: [2]uint16{10, 35}, rekeyAfter: [2]uint16{110, 130},
 		rekeyTimeout: [2]uint16{4, 7}, rejectAfter: [2]uint16{170, 200},
 		keepalive: [2]uint16{8, 15}, maxHandshake: [2]uint16{12, 18},
 	})
@@ -533,7 +533,7 @@ func validateOperationalGeneratedProfile(policy ProfilePolicy, profile Obfuscati
 	case ProfilePerformance:
 		if profile.Jc != 4 || profile.Jmin != 10 || profile.Jmax != 40 ||
 			profile.S1 != 18 || profile.S2 != 31 || profile.S3 != 16 || profile.S4 != 20 ||
-			!exactRanges("5-35", "110-130", "4-7", "170-200", "8-15", "12-18") ||
+			!exactRanges("10-35", "110-130", "4-7", "170-200", "8-15", "12-18") ||
 			!generatedHeadersMatch(profile, false, 0) {
 			return domain.E(domain.CodeParamConstraint, "performance profile does not match policy")
 		}

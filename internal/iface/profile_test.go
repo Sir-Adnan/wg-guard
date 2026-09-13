@@ -160,6 +160,16 @@ func TestOperationalProfilesPopulateAdvancedGeneration(t *testing.T) {
 	}
 }
 
+func TestPerformanceProfileUsesVerifiedPaddingFloor(t *testing.T) {
+	profile, err := NewProfileGenerator(deterministicProfileEntropy()).Generate(ProfilePerformance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := profile.ContentPaddingAddition.String(); got != "10-35" {
+		t.Fatalf("performance content padding = %q, want 10-35", got)
+	}
+}
+
 func TestGeneratedProfilesProperty(t *testing.T) {
 	generator := NewProfileGenerator(cryptorand.Reader)
 	var previous Obfuscation
