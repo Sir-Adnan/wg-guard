@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/testutil/qrdecode"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
@@ -502,6 +503,29 @@ func TestPlansAndInterfacesViaAPI(t *testing.T) {
 	// Delete the empty profile.
 	if rec = e.do("DELETE", "/api/v1/interfaces/"+ifc.ID, ""); rec.Code != 200 {
 		t.Fatalf("iface delete: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+type deleteFailureReconciler struct{}
+
+func (deleteFailureReconciler) Run(context.Context) (*reconcile.Report, error) {
+	return &reconcile.Report{Errors: []reconcile.InterfaceError{{Interface: "awg0", Err: "injected removal failure"}}}, nil
+}
+
+func TestInterfaceDeleteKeepsRetryStateWhenRuntimeRemovalFails(t *testing.T) {
+	e := newEnv(t)
+	ifc, err := e.ifaces.Create(context.Background(), iface.CreateInput{Name: "awg0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.srv.Reconciler = deleteFailureReconciler{}
+	rec := e.do("DELETE", "/api/v1/interfaces/"+ifc.ID, "")
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("delete status = %d, want 500: %s", rec.Code, rec.Body.String())
+	}
+	stored, err := e.ifaces.Get(context.Background(), ifc.ID)
+	if err != nil || !stored.Enabled {
+		t.Fatalf("failed runtime delete lost retry state: %+v, %v", stored, err)
 	}
 }
 

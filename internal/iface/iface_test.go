@@ -3,6 +3,7 @@ package iface
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -508,6 +509,51 @@ func TestDeleteProtectionAndLifecycle(t *testing.T) {
 	if _, err := svc.Get(ctx, ifc.ID); domain.CodeOf(err) != domain.CodeInterfaceNotFound {
 		t.Fatalf("expected INTERFACE_NOT_FOUND, got %v", err)
 	}
+}
+
+func TestDeleteReconciledDisablesBeforeRemovalAndRollsBackFailure(t *testing.T) {
+	ctx := context.Background()
+	t.Run("success", func(t *testing.T) {
+		svc := newService(t)
+		ifc, err := svc.Create(ctx, CreateInput{Name: "awg0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		called := false
+		err = svc.DeleteReconciled(ctx, ifc.ID, func() error {
+			called = true
+			stored, getErr := svc.Get(ctx, ifc.ID)
+			if getErr != nil {
+				return getErr
+			}
+			if stored.Enabled {
+				t.Fatal("interface remained enabled during runtime removal")
+			}
+			return nil
+		})
+		if err != nil || !called {
+			t.Fatalf("reconciled delete = %v, called=%v", err, called)
+		}
+		if _, err := svc.Get(ctx, ifc.ID); domain.CodeOf(err) != domain.CodeInterfaceNotFound {
+			t.Fatalf("deleted interface remains: %v", err)
+		}
+	})
+
+	t.Run("runtime failure", func(t *testing.T) {
+		svc := newService(t)
+		ifc, err := svc.Create(ctx, CreateInput{Name: "awg0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		boom := errors.New("runtime removal failed")
+		if err := svc.DeleteReconciled(ctx, ifc.ID, func() error { return boom }); !errors.Is(err, boom) {
+			t.Fatalf("delete error = %v, want runtime failure", err)
+		}
+		stored, err := svc.Get(ctx, ifc.ID)
+		if err != nil || !stored.Enabled {
+			t.Fatalf("failed delete did not restore enabled row: %+v, %v", stored, err)
+		}
+	})
 }
 
 func TestPresets(t *testing.T) {

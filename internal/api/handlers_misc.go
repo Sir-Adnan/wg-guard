@@ -305,12 +305,11 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleIfaceDelete(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r, "id")
-	if err := s.Ifaces.Delete(r.Context(), id); err != nil {
+	if err := s.Ifaces.DeleteReconciled(r.Context(), id, func() error { return s.reconcile(r) }); err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
 	s.audit(r, "interface.deleted", id, nil)
-	s.reconcile(r)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "id": id})
 }
 

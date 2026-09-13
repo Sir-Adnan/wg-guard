@@ -900,9 +900,7 @@ func classifySubmittedProfile(profile Obfuscation, requested *string, generated 
 	return string(policy), nil
 }
 
-// Delete removes an interface row. Refused while devices still reference it
-// (the caller migrates devices first — part of the rotation workflow).
-func (s *Service) Delete(ctx context.Context, id string) error {
+func (s *Service) ensureNoDevices(ctx context.Context, id string) error {
 	var count int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM devices WHERE interface_id = ?`, id).Scan(&count); err != nil {
 		return fmt.Errorf("iface: device count: %w", err)
@@ -910,12 +908,66 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if count > 0 {
 		return domain.E(domain.CodeInvalidRequest, "interface still has %d devices; migrate them first (rotation workflow)", count)
 	}
+	return nil
+}
+
+// Delete removes an interface row. Refused while devices still reference it
+// (the caller migrates devices first — part of the rotation workflow).
+// Runtime-owning callers use DeleteReconciled so the backend link is removed
+// while the ownership row still exists.
+func (s *Service) Delete(ctx context.Context, id string) error {
+	if err := s.ensureNoDevices(ctx, id); err != nil {
+		return err
+	}
 	res, err := s.db.ExecContext(ctx, `DELETE FROM tunnel_interfaces WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("iface: delete: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return domain.E(domain.CodeInterfaceNotFound, "interface %s not found", id)
+	}
+	return nil
+}
+
+// DeleteReconciled removes an interface from runtime before deleting its
+// ownership row. Reconciliation only removes disabled interfaces known to the
+// database; deleting the row first would deliberately classify the live link
+// as foreign and leave it behind. A failed runtime pass restores the original
+// enabled state so a later retry still has the complete desired state.
+func (s *Service) DeleteReconciled(ctx context.Context, id string, reconcile func() error) error {
+	ifc, err := s.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureNoDevices(ctx, id); err != nil {
+		return err
+	}
+
+	if ifc.Enabled {
+		if err := s.SetEnabled(ctx, id, false); err != nil {
+			return err
+		}
+	}
+
+	rollback := func(cause error) error {
+		if !ifc.Enabled {
+			return cause
+		}
+		restoreErr := s.SetEnabled(ctx, id, true)
+		var reconcileErr error
+		if restoreErr == nil && reconcile != nil {
+			reconcileErr = reconcile()
+		}
+		return errors.Join(cause, restoreErr, reconcileErr)
+	}
+
+	if reconcile != nil {
+		if err := reconcile(); err != nil {
+			return rollback(err)
+		}
+	}
+	if err := s.Delete(ctx, id); err != nil {
+		return rollback(err)
 	}
 	return nil
 }

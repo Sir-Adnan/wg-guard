@@ -475,12 +475,11 @@ func (s *Server) ifaceToggle(w http.ResponseWriter, r *http.Request, enable bool
 
 func (s *Server) handleIfaceDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := s.Ifaces.Delete(r.Context(), id); err != nil {
+	if err := s.Ifaces.DeleteReconciled(r.Context(), id, func() error { return s.runReconcile(r) }); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
 	s.audit(r, "interface.deleted", id, nil)
-	s.runReconcile(r)
 	s.redirectToast(w, r, operationalReturnPath(r, "/interfaces", "interfaces.read"), "ifaces.toast.deleted")
 }
 

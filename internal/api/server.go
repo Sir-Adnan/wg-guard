@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -235,11 +236,12 @@ func (s *Server) audit(r *http.Request, action, target string, meta map[string]a
 }
 
 // reconcile runs the canonical network pass after structural changes. Errors
-// are logged; serve also marks readiness unhealthy until a later pass succeeds
-// because the database remains the source of truth for retry/recovery.
-func (s *Server) reconcile(r *http.Request) {
+// are logged and returned; ordinary mutations deliberately ignore the return
+// because the database is their retry source, while destructive mutations can
+// require runtime success before removing that source of truth.
+func (s *Server) reconcile(r *http.Request) error {
 	if s.Reconciler == nil {
-		return
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -249,8 +251,18 @@ func (s *Server) reconcile(r *http.Request) {
 	}
 	if rep != nil {
 		for _, e := range rep.Errors {
-			s.Log.Warn("reconcile interface error", "interface", e.Interface,
-				"error", e.Err, "request_id", RequestID(r.Context()))
+			if s.Log != nil {
+				s.Log.Warn("reconcile interface error", "interface", e.Interface,
+					"error", e.Err, "request_id", RequestID(r.Context()))
+			}
 		}
 	}
+	if err != nil {
+		return err
+	}
+	if rep != nil && len(rep.Errors) > 0 {
+		first := rep.Errors[0]
+		return fmt.Errorf("reconcile interface %s: %s", first.Interface, first.Err)
+	}
+	return nil
 }

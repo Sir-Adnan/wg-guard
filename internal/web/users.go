@@ -985,11 +985,12 @@ func (s *Server) humanizeDomainError(r *http.Request, err error) string {
 }
 
 // runReconcile applies the complete tunnel/firewall/NAT/shaping state
-// immediately. Errors are logged and make serve readiness unhealthy until a
-// later canonical pass succeeds; the DB remains the retry source of truth.
-func (s *Server) runReconcile(r *http.Request) {
+// immediately. Errors are logged and returned; ordinary mutations keep their
+// best-effort retry semantics by ignoring the return, while destructive
+// mutations can require success before removing database ownership.
+func (s *Server) runReconcile(r *http.Request) error {
 	if s.Reconciler == nil {
-		return
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -998,11 +999,16 @@ func (s *Server) runReconcile(r *http.Request) {
 		s.Log.Warn("reconcile after mutation failed", "error", err)
 	}
 	if rep != nil && len(rep.Errors) > 0 && s.Log != nil {
-		// Per-interface failures never fail the request (boot and the
-		// accounting cycle re-derive the same state), but they must be
-		// visible — a silently missing link is how drift hides.
 		for _, e := range rep.Errors {
 			s.Log.Warn("reconcile interface error", "interface", e.Interface, "error", e.Err)
 		}
 	}
+	if err != nil {
+		return err
+	}
+	if rep != nil && len(rep.Errors) > 0 {
+		first := rep.Errors[0]
+		return fmt.Errorf("reconcile interface %s: %s", first.Interface, first.Err)
+	}
+	return nil
 }
