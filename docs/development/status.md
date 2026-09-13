@@ -22,7 +22,7 @@ counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3
 Docker doctor inspection is also mode-aware: AWG version/state comes from the runtime container,
 host network-policy checks remain local, and runtime errors are not mislabeled as missing links.
 
-## Phase 10 — Product UI/UX redesign (owner-continuation acceptance in progress)
+## Phase 10 — Product UI/UX redesign (complete, 2026-09-13)
 
 10.0 is complete: the full tracked prompt maps to milestones/routes/states, and UI/Settings/QA
 contracts are adopted. Atomic Settings saves and safe input redisplay are implemented with
@@ -63,23 +63,25 @@ and five advanced generated profile choices. The REST/OpenAPI interface preset e
 extended; other public contracts remain unchanged. Exact Ubuntu 24.04 amd64 Docker clients passed
 Performance, Balanced, Resilient, Suggested and Automatic handshake plus public payload traffic.
 `150a574` also passed real API create/delete: teardown now reconciles the owned link while its row
-still exists and restores retry state on failure. Current affected Chrome/WebKit checks pass; the
-previous complete Firefox matrix remains valid for the unchanged foundation, while a current local
-Firefox rerun was unavailable because that installed development-browser bundle could not load.
+still exists and restores retry state on failure. Targeted Chrome/WebKit checks and the earlier full
+Firefox matrix covered this refinement; the refreshed three-engine 10.7 matrix below supersedes the
+transient local-browser limitation.
 The continuation further replaces the Users/User Detail and administration layouts, repairs drawer,
 icon, copy, theme-menu and pointer-scroll defects, separates QR/config actions, and converts panel
 speed entry to MB/s while preserving Kbps in domain/REST data. Dashboard backup download and private
 streamed `.wgg` import now feed the existing staged restore review. These panel changes do not alter
 OpenAPI. Full Go checks and affected Chromium/WebKit route, interaction and consistency gates pass;
-the installed Firefox development bundle still cannot launch.
+the refreshed full matrix below reruns all three engines.
 The dashboard Update Center adds confirmed stable-panel and reviewed-core transitions through a
 fixed host-owned systemd broker. The queue admits one catalog identity, never argv or development
 refs; installation, cleanup, stale-work recovery and safe public status are automated-test covered.
 This adds only authenticated panel routes and leaves REST/OpenAPI unchanged. The refreshed
 Chromium 152/Firefox 153/WebKit 26.5 route, state, foundation and interaction matrix passes after
 affected-cell corrections; axe, delayed-font CLS, build/unit/race/vet, CI fixtures, systemd unit
-verification and Go 1.27 `govulncheck` also pass. Exact-revision VPS acceptance and integration
-remain before the continuation closes.
+verification and Go 1.27 `govulncheck` also pass. Exact revision `d9eb18e` passed a fresh Ubuntu
+24.04.4 amd64 Docker installation, matched host/container identities, private-panel health and
+authentication, real reviewed-core queue execution, idempotent broker repair and complete owned
+cleanup. The continuation is integrated into `main`; Phase 11 remains unstarted.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

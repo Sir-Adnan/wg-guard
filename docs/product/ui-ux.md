@@ -1,8 +1,8 @@
 # UI/UX design system
 
 Phase 10 design contract, approved 2026-09-10. Implementation/verification status and requirement
-ownership live in [phase10.md](../development/phase10.md). Existing pages adopt this contract in
-that order; this document is not a claim that the complete redesign is already verified.
+ownership live in [phase10.md](../development/phase10.md). Every inventoried panel, authentication
+and public-subscription surface adopts this contract; Phase 10 acceptance is complete.
 
 ## Architecture and visual direction
 

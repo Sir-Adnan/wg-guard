@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **implementation complete; owner-continuation VPS acceptance pending**. The owner approved
+Status: **complete (2026-09-13)**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
@@ -235,9 +235,8 @@ now removes runtime state while the disabled ownership row remains, restores ret
 failed reconcile, and deletes the row only after success. Full local unit/build/vet, scoped race,
 Chrome/WebKit affected-route and exact Docker API create/delete/cleanup gates pass. Current assets
 remain measured without ceilings (JS 99,356/32,338 B, CSS 123,955/24,204 B, fonts 101,716/101,750 B,
-SVG 12,669/3,225 B raw/gzip). The earlier full Firefox acceptance remains valid for unchanged
-foundations; the affected rerun could not execute because the installed local Firefox development
-bundle failed to load. No public release was made and Phase 11 remains unstarted.
+SVG 12,669/3,225 B raw/gzip). The later refreshed three-engine gate supersedes the transient local
+Firefox development-bundle failure. No public release was made and Phase 11 remains unstarted.
 
 The subsequent owner refinement rebuilds the dense Users/User Detail and administration workspaces,
 fixes viewport-bounded create drawers, copy/password action geometry, QR versus config actions,
@@ -246,8 +245,8 @@ Kbps API/domain contract. Dashboard recovery can create/download a fresh archive
 an imported `.wgg` from another node into the existing validate/review/approve workflow. Permission
 and event presets accelerate administration while retaining granular choices. This is a Web Panel
 and panel-only backup-route change; REST/OpenAPI remains unchanged. Full Go build/unit/vet and the
-affected Chromium/WebKit foundation, route, interaction and consistency gates pass. Firefox remains
-unavailable because the installed development bundle cannot launch. Current raw/gzip observations
+affected Chromium/WebKit foundation, route, interaction and consistency gates pass; the refreshed
+three-engine 10.7 matrix below closes the transient browser limitation. Current raw/gzip observations
 are JS 102,357/33,111 B, CSS 141,679/26,740 B, fonts 101,716/101,750 B and SVG 12,669/3,225 B.
 
 The dashboard node card now exposes a dedicated Update Center for administrators with
@@ -270,4 +269,14 @@ preset targets, WebKit keyboard-focus exposure, Firefox 320px user-status wrappi
 preload; a delayed-font probe now observes 0.00025 CLS. Current measured raw/gzip assets are JS
 103,005/33,291 B, CSS 146,114/27,224 B, fonts 101,716/101,750 B and SVG 12,669/3,225 B; no size
 ceiling applies. Build/unit/race/vet, CI fixtures, systemd unit verification and `govulncheck` on
-Go 1.27 pass. Exact-revision host bridge/deployment acceptance remains before integration.
+Go 1.27 pass.
+
+Exact revision `d9eb18e86e7a71c60be87fdcfb68d2feb8d789d0` passed a fresh private Ubuntu
+24.04.4 amd64 Docker installation. Host and container build identities matched; container health,
+the authenticated `/updates` boundary, root-owned systemd units, 0600 broker marker and
+`systemd-analyze verify` passed. A real queue request for the already-installed reviewed
+`awg-2026-09` bundle completed through the host oneshot with no request/running residue and a
+healthy panel. Broker repair was idempotent; dry-run removal included every broker artifact and
+complete owned removal restored the VPS to its initial clean state. Credentials and raw product
+data were not retained. The continuation was fast-forwarded into `main`; Phase 11 remains
+unstarted and no public release was created.

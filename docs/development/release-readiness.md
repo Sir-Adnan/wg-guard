@@ -4,18 +4,18 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-13. Phases 8, 8.1, 8.2, corrective 8.3 and 9 are complete. Phase 10
-implementation and refreshed local acceptance are complete; its owner-continuation exact-revision
-VPS/integration gate remains. Phase 10 passed the full three-engine route/state/accessibility/performance
+Last updated: 2026-09-13. Phases 8, 8.1, 8.2, corrective 8.3, 9 and 10 are complete. Phase 10
+passed the full three-engine route/state/accessibility/performance
 matrix, relevant exact-code Ubuntu 24.04 amd64 Docker/TLS workflows, repository gates and main CI.
 The owner-directed refinement then passed targeted Chrome/WebKit checks and exact Docker client
 traffic for all five advanced generated profiles; the additive preset enum is synchronized with
 OpenAPI. Runtime-safe interface deletion passed an exact-candidate Docker create/delete/cleanup
-gate. The earlier complete Firefox matrix is retained; a current affected-cell rerun was unavailable
-because the local installed Firefox development bundle could not load.
+gate. The refreshed acceptance reran Chromium, Firefox and WebKit across the complete matrix.
 The owner continuation also adds a catalog-only Web Panel update workflow through a fixed
 host-owned systemd bridge. Fresh Chromium/Firefox/WebKit, axe, touch/reflow, delayed-font,
-build/unit/race/vet and security gates pass; exact host execution is the remaining Phase 10 gate.
+build/unit/race/vet and security gates pass. Exact revision `d9eb18e` passed fresh Docker install,
+host/container identity, real reviewed-core broker execution, repair and complete owned cleanup on
+Ubuntu 24.04.4 amd64, then integrated into `main`.
 Phase 11 remains planned and unstarted; public release remains owner-approval gated.
 
 ## Program status
@@ -27,7 +27,7 @@ Phase 11 remains planned and unstarted; public release remains owner-approval ga
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
-| 10 — Product UI/UX redesign | acceptance refresh | Exact continuation revision passes the dedicated VPS and integration gate |
+| 10 — Product UI/UX redesign | complete | Full redesign matrix plus exact continuation VPS/broker acceptance and coherent `main` integration |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
