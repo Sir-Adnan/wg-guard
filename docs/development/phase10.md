@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0–10.6 complete with scoped verification; 10.7 acceptance is next**. The owner approved
+Status: **active; 10.0–10.6 complete; 10.7 local acceptance passed, VPS/CI acceptance pending**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
@@ -193,3 +193,16 @@ compositions in both design directions, plus eight touch cells/1,232 targets, th
 reduced motion and equivalent-zoom reflow. Fixed state/hover findings were rerun only where affected.
 Gzip: JS 29,912 B, CSS 17,193 B, fonts 101,750 B, SVG 3,137 B. Full cross-browser acceptance remains open.
 These scoped milestones do not close RB-006 or start Phase 11; no public release is authorized.
+
+10.7 local candidate: Chromium 152.0.7977.84, Firefox 153.0 and WebKit 26.5 cover all 24 app
+routes, seven auth/public surfaces and 59 state compositions across fa/en, light/dark and the full
+viewport set (5,760 composition cells per engine). Supplemental checks cover keyboard/touch,
+short landscape, equivalent 200% reflow, reduced motion, saved Light/Dark/System behavior and
+native fallbacks. Findings in focus exposure/return, QR retry, responsive cards/restore notices,
+no-script startup and chart-label readability were fixed and rerun only where affected. The final
+measurement is JS 30,699 B, CSS 17,835 B, fonts 101,750 B and SVG 3,137 B gzip; maximum checked HTML
+is 10,794 B gzip, measured fragments are 1,738–6,292 B gzip and checked pages use at most 11
+requests. The delayed-font cold-page probe observed at most 0.0201 CLS after removing the startup
+sidebar shift. WSL build/unit/race/vet, formatting, module verification and `govulncheck` with Go
+1.26.6 pass. REST/OpenAPI remains unchanged. Physical-device coverage and relevant Ubuntu 24.04
+TLS/VPS workflows, exact-revision CI/integration and RB-006 closure remain pending.

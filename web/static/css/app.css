@@ -1332,8 +1332,6 @@ a.skip-link:focus {
   .sidebar .nav-close { display: inline-grid; }
   #btn-collapse { display: none; }
   .nav a { min-height: var(--touch-h); }
-  html:not([data-ui]) .sidebar { position: static; width: 100%; height: auto; visibility: visible; translate: 0; }
-  html:not([data-ui]) .drawer-toggle { display: none; }
   .drawer-toggle { display: inline-grid; }
   .content { padding: var(--sp-4); }
   .topbar { padding: var(--sp-2) var(--sp-4); }
@@ -1456,11 +1454,6 @@ a.skip-link:focus {
 .chart-wrap { margin-block-start: var(--sp-3); }
 .chart { display: block; inline-size: 100%; block-size: auto; }
 .chart-grid { stroke: var(--border); stroke-width: 1; shape-rendering: crispEdges; }
-.chart-axis {
-  fill: var(--fg-subtle);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
 .chart-rx { fill: var(--brand); opacity: 1; }
 .chart-tx { fill: var(--fg-subtle); opacity: 1; }
 
@@ -1751,7 +1744,7 @@ dialog { max-height: calc(100dvh - 32px); overscroll-behavior: contain; }
 @media (max-width: 800px) {
   .collection:has(.entity-table) { border: 0; box-shadow: none; background: transparent; overflow: visible; }
   .entity-table tbody { display: grid; gap: var(--sp-4); }
-  .entity-table tr { border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-4); background: var(--bg-elev); box-shadow: var(--shadow-1); }
+  .entity-table tr { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-4); background: var(--bg-elev); box-shadow: var(--shadow-1); }
   .entity-table tr:last-child { border-block-end: 1px solid var(--border); }
   .entity-table .card-title { padding-block: 0 var(--sp-4); border-block-end: 1px solid var(--border); margin-block-end: var(--sp-2); }
   .entity-table td { padding-block: var(--sp-2); }
@@ -1846,8 +1839,6 @@ dialog { max-height: calc(100dvh - 32px); overscroll-behavior: contain; }
   .resource-card { padding: var(--sp-4); }
   .traffic-card .seg-group { width: 100%; }
   .traffic-card .seg { flex: 1; text-align: center; }
-  .traffic-card .chart-axis { font-size: 26px; }
-  .traffic-card .chart-axis-minor { display: none; }
   .dashboard-statuses { font-size: var(--fs-xs); gap: var(--sp-3); }
 }
 
@@ -1897,7 +1888,8 @@ html[dir="rtl"] .access-story h2 { letter-spacing: 0; max-width: 17ch; }
 }
 
 /* Recovery workspace: one archive registry and native operational editors. */
-.backup-workspace { display: grid; gap: var(--sp-6); }
+.backup-workspace { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: var(--sp-6); }
+.backup-workspace > * { min-width: 0; }
 .backup-workspace .page-head { margin: 0; }
 .backup-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
 .backup-summary .card { padding: var(--sp-5); display: grid; align-content: start; gap: var(--sp-3); margin: 0; }
@@ -1912,7 +1904,7 @@ html[dir="rtl"] .access-story h2 { letter-spacing: 0; max-width: 17ch; }
 .backup-review { display: grid; gap: var(--sp-5); }
 .backup-review .detail-list { margin: 0; }
 .backup-pending { align-items: center; flex-wrap: wrap; }
-.backup-pending > div { flex: 1 1 300px; }
+.backup-pending > div { flex: 1 1 300px; min-width: 0; overflow-wrap: anywhere; }
 .backup-pending h2 { font-size: var(--fs-md); margin-block-end: var(--sp-2); }
 .archive-name { overflow-wrap: anywhere; font-size: var(--fs-xs); }
 .backup-workspace .entity-table td > .badge { margin-inline-start: var(--sp-2); }
@@ -2084,6 +2076,11 @@ html:lang(en) body {
 .ops-audit-value>span { min-width:0; overflow-wrap:anywhere; }
 .ops-activity-details .audit-json { position:static; max-width:100%; white-space:pre-wrap; overflow-wrap:anywhere; box-shadow:none; }
 @media(max-width:600px) { .ops-activity { grid-template-columns:minmax(0,1fr); } .ops-activity time { grid-column:1; } .ops-secret .input-adj { flex-wrap:wrap; } .ops-secret .input-adj>.input { width:100%; } }
+@media (max-width: 800px) {
+  .token-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-3); }
+  .token-identity .cell-main, .token-identity .cell-sub { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+  .token-identity > .badge { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+}
 /* Public subscription: customer status, device delivery and setup guidance. */
 .publicsub-body { background:var(--bg); }
 .publicsub-frame { max-width:1100px; min-height:100dvh; margin-inline:auto; padding:0 var(--sp-5); display:flex; flex-direction:column; }
@@ -2131,6 +2128,7 @@ html:lang(en) body {
   .selection-hit, .chip-btn, .row-link, .entity-link { min-width: var(--touch-h); min-height: var(--touch-h); }
   .row-link { display: inline-flex; align-items: center; }
   .check-row, .check-label { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--touch-h); cursor: pointer; }
+  .check-row > .checkbox { flex: 0 0 24px; width: 24px; height: 24px; margin: 0; }
   .calendar .cal-day { min-width: var(--touch-h); min-height: var(--touch-h); }
   /* Keep all seven columns available when the short-height popover scrolls. */
   .calendar { scrollbar-width: none; }
@@ -2141,3 +2139,27 @@ html:lang(en) body {
   .calendar { padding: 5px; }
   .calendar .cal-grid { gap: 0; }
 }
+
+/* Interface cards must wrap long localized profile labels within their track. */
+@media (max-width: 800px) {
+  .ifaces-table tbody { grid-template-columns: minmax(0, 1fr); }
+  .ifaces-table tr { min-width: 0; }
+  .ifaces-table td { flex-wrap: wrap; }
+  .ifaces-table td > .badge { max-width: 100%; white-space: normal; }
+}
+
+/* Traffic axes stay at readable CSS sizes while only the plot scales. */
+.traffic-plot { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; row-gap: 12px; direction: ltr; padding-block-start: 8px; }
+.traffic-plot > .chart { grid-column: 2; grid-row: 1; width: 100%; height: clamp(180px, 22vw, 260px); overflow: visible; }
+.traffic-y-axis, .traffic-x-axis { font-size: 12px; line-height: 18px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.traffic-y-axis { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)) 0; align-items: start; text-align: right; }
+.traffic-y-axis > span { transform: translateY(-50%); white-space: nowrap; }
+.traffic-x-axis { grid-column: 2; display: flex; height: 18px; }
+.traffic-tick { position: relative; flex: 1 1 0; min-width: 0; }
+.traffic-tick:last-child { flex: 0 0 0; }
+.traffic-tick-label { position: absolute; left: 0; transform: translateX(-50%); white-space: nowrap; }
+.traffic-tick:first-child > .traffic-tick-label { transform: none; }
+.traffic-tick:last-child > .traffic-tick-label { transform: translateX(-100%); }
+.traffic-tick:only-child { flex: 1; text-align: center; }
+.traffic-tick:only-child > .traffic-tick-label { left: 50%; transform: translateX(-50%); }
+@media (max-width: 800px) { .traffic-tick-minor { display: none; } }

@@ -48,8 +48,12 @@ Chrome 64 locale/theme/phone/desktop cells and native device retry pass; WSL bui
 Light remains the default, English uses system typography, and assets are measured without ceilings.
 10.4 Settings/administration is implemented: all 34 settings, native backup/restore/schedules,
 admins/tokens/webhooks/audit, localized permissions and faithful failed-state handling. Scoped
-tests, Chrome 80 composition cells and WSL build/unit/vet pass. 10.5 public/auth/error migration is scoped-tested with 56 Chrome composition cells and WSL build/unit/vet. 10.6 consistency
-is next; complete browser/state/TLS/VPS acceptance remains 10.7.
+tests, Chrome 80 composition cells and WSL build/unit/vet pass. 10.5 public/auth/error migration
+is scoped-tested with 56 Chrome composition cells and WSL build/unit/vet. 10.6 consistency,
+accessibility and interaction hardening is complete with scoped checks. The 10.7 local acceptance
+matrix now covers every inventoried route/state in Chromium, Firefox and WebKit across fa/en,
+light/dark and the full viewport set; build/unit/race/vet/security and measured assets pass. Relevant
+Ubuntu 24.04 TLS/VPS workflows, exact-revision CI/integration and physical devices remain open.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

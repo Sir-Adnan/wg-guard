@@ -29,13 +29,33 @@ module.exports = async ({ browser, seed, engine }) => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1;
   }), step + ': overlay outside viewport');
-  const focusExposed = async (page, selector) => assert(await page.locator(selector).evaluate(el => {
-    const r = el.getBoundingClientRect();
-    if (el !== document.activeElement || r.top < -1 || r.bottom > innerHeight + 1) return false;
-    // Testing the center avoids shadows/borders while detecting sticky chrome occlusion.
-    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return hit === el || el.contains(hit);
-  }), step + ': focused control covered by chrome');
+  const focusExposed = async (page, selector) => {
+    const geometry = () => page.locator(selector).evaluate(el => {
+      const r = el.getBoundingClientRect();
+      const footer = document.querySelector('.settings-savebar');
+      const footerRect = footer?.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return {
+        exposed: el === document.activeElement && r.top >= -1 && r.bottom <= innerHeight + 1 && (hit === el || el.contains(hit)),
+        top: r.top, bottom: r.bottom, viewport: innerHeight,
+        footerTop: footerRect?.top ?? null, footerBottom: footerRect?.bottom ?? null,
+        hitRegion: hit === el || el.contains(hit) ? 'control' : footer?.contains(hit) ? 'savebar' : hit?.closest('.topbar') ? 'topbar' : 'other',
+      };
+    });
+    const immediate = await geometry();
+    // Native focus scrolling and the product correction settle on paint frames.
+    // Observe the actual exposed state; the test never scrolls or moves focus.
+    try {
+      await page.waitForFunction(selector => {
+        const el = document.querySelector(selector), r = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return el === document.activeElement && r.top >= -1 && r.bottom <= innerHeight + 1 && (hit === el || el.contains(hit));
+      }, selector, { polling: 'raf', timeout: 1500 });
+    } catch {
+      console.log('Focus geometry ' + step + ': ' + JSON.stringify({ immediate, settled: await geometry() }));
+      assert(false, step + ': focused control covered by chrome');
+    }
+  };
 
   const reducedMotion = async (page, scope = 'body') => {
     const count = await page.locator(scope).evaluate(root => {

@@ -1,0 +1,6 @@
+/* Native navigation fallback is loaded only when scripting is disabled. */
+@media (max-width: 960px) {
+  .sidebar { position: static; width: 100%; height: auto; visibility: visible; translate: 0; }
+  [dir="rtl"] .sidebar { translate: 0; }
+  .drawer-toggle, .sidebar .nav-close { display: none; }
+}

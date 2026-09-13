@@ -3,6 +3,7 @@
 <head>
 {{template "document-head" .}}
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
+<noscript><link rel="stylesheet" href="{{.A "/css/noscript.css"}}"></noscript>
 <script src="{{.A "/js/htmx.min.js"}}" defer></script>
 <script type="module" src="{{.A "/js/app.js"}}"></script>
 </head>

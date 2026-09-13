@@ -16,6 +16,23 @@ if (form) {
   };
   form.addEventListener("input", update);
   form.addEventListener("change", update);
+  // Engines differ in how native focus scrolling accounts for a sticky footer.
+  form.addEventListener("focusin", event => {
+    const target = event.target;
+    const bar = form.querySelector('.settings-savebar');
+    if (!(target instanceof HTMLElement) || !bar || bar.contains(target)) return;
+    // WebKit may apply native focus scrolling after the first frame callback.
+    // Check the resulting geometry in the following frame before correcting it.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (document.activeElement !== target) return;
+      const field = target.getBoundingClientRect(), footer = bar.getBoundingClientRect();
+      const header = document.querySelector('.topbar')?.getBoundingClientRect();
+      const clipped = field.top < 0 || field.bottom > innerHeight;
+      const underHeader = header && field.top < header.bottom && field.bottom > header.top;
+      const underFooter = field.bottom > footer.top && field.top < footer.bottom;
+      if (clipped || underHeader || underFooter) target.scrollIntoView({block:'center',behavior:'auto'});
+    }));
+  });
   form.addEventListener("submit", () => { submitting = true; });
   window.addEventListener("pageshow", () => { submitting = false; update(); });
   window.addEventListener("beforeunload", event => {

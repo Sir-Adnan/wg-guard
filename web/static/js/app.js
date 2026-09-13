@@ -85,7 +85,7 @@
     if (!form.matches("[data-confirm]") || form.dataset.confirmed === "1") return;
     e.preventDefault();
     pendingConfirm = { form, submitter: e.submitter };
-    const dlg = openModal("confirm-dialog");
+    const dlg = openModal("confirm-dialog", e.submitter || document.activeElement);
     if (!dlg) return;
     $("[data-confirm-title]", dlg).textContent = form.dataset.confirmTitle || "";
     const msgEl = $("[data-confirm-message]", dlg);

@@ -6,8 +6,9 @@ verification state. Phase execution details live in the corresponding phase docu
 
 Last updated: 2026-09-13. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
 Corrective **Phase 8.3 — Data-plane forwarding integrity** is complete. Phase 10 is active again
-at milestone 10.7: 10.0–10.6 page migrations and consistency hardening are complete with
-scoped local verification. Remaining page migration and RB-006 acceptance remain open.
+at milestone 10.7: 10.0–10.6 migrations and consistency hardening are complete, and the local
+three-engine route/state/accessibility/performance matrix passes. Relevant Ubuntu 24.04 TLS/VPS
+workflows, exact-revision CI/integration and RB-006 closure remain open.
 
 ## Program status
 
@@ -112,7 +113,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
 | AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | verified: bounded Docker/native service and operation sources, component filtering and follow cancellation passed the real VPS gate; Docker stderr unification regression closed before final acceptance |
 | AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | verified: Docker 16 MiB × 8 compressed local rotation, scoped native 7-day/size policy, operation journal 7-day/8 MiB and real tmpfiles expiry passed on the VPS; Docker physical age deletion remains an explicit platform limitation |
-| AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | planned |
+| AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | redesigned and scoped-tested in 10.4; final acceptance pending |
 | AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
 | AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |
 | AUD-010 | high | Interface form numeric parse errors can silently become valid zero values | Phase 8 | verified |

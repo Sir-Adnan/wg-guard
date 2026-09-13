@@ -20,9 +20,9 @@ func TestTrafficChartSVG(t *testing.T) {
 	for _, want := range []string{
 		`viewBox="0 0 720 240"`,
 		`role="img"`, `aria-label="Traffic, 3 hours"`,
-		`class="chart-rx"`, `class="chart-tx"`, `class="chart-grid"`, `class="chart-axis"`,
+		`class="chart-rx"`, `class="chart-tx"`, `class="chart-grid"`, `class="traffic-y-axis"`, `class="traffic-x-axis"`,
 		// niceMax(600) = 1000 → top gridline label 1K
-		">1K</text>",
+		">1K</span>",
 	} {
 		if !strings.Contains(svg, want) {
 			t.Fatalf("svg missing %q", want)
@@ -38,6 +38,12 @@ func TestTrafficChartSVG(t *testing.T) {
 	// Inline style attributes are forbidden (CSP style-src 'self').
 	if strings.Contains(svg, `style="`) {
 		t.Fatal("inline style attribute in SVG")
+	}
+	if strings.Contains(svg, "<text") {
+		t.Fatal("axis text must use unscaled HTML so it stays readable on narrow charts")
+	}
+	if strings.Count(svg, `class="traffic-tick"`) != len(buckets) {
+		t.Fatal("axis positions must retain the same evenly spaced bucket timeline as the plot")
 	}
 }
 

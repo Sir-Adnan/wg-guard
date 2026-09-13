@@ -219,11 +219,11 @@ let stage = 'launch';
       assert(await calendarTrigger.evaluate(el => el === document.activeElement), 'calendar returns trigger focus');
       stage = 'QR failure and retry';
       await goto('/users/' + seed.user);
-      await page.route('**/devices/*/qr', route => route.abort());
+      await page.route('**/devices/*/qr*', route => route.abort());
       await page.locator('[data-qr]').first().click();
       await page.waitForFunction(() => document.querySelector('[data-qr-retry]') && !document.querySelector('[data-qr-retry]').hidden);
       assert(await page.locator('[data-qr-state]').isVisible(), 'QR failure is visible');
-      await page.unroute('**/devices/*/qr');
+      await page.unroute('**/devices/*/qr*');
       await page.locator('[data-qr-retry]').click();
       await page.waitForFunction(() => document.querySelector('#qr-img').naturalWidth > 0);
       await page.locator('dialog[open] [data-close-modal]').first().click();
@@ -304,11 +304,11 @@ let stage = 'launch';
       await page.locator('#s-node_id').focus();
       for (let i = 0; i < 9; i++) {
         await page.keyboard.press('Tab');
-        assert(await page.evaluate(() => {
+        await page.waitForFunction(() => {
           const active = document.activeElement, bar = document.querySelector('.settings-savebar').getBoundingClientRect();
           const box = active.getBoundingClientRect();
           return active.closest('.settings-savebar') || box.bottom <= bar.top || box.top >= bar.bottom;
-        }), 'Settings keyboard focus is not obscured by Save');
+        });
       }
       await page.locator('#s-node_id').fill('Browser node');
       await page.locator('details').filter({ has: page.locator('#s-rate_limit') }).locator('summary').click();
@@ -382,6 +382,16 @@ let stage = 'launch';
       await Promise.all([page.waitForNavigation(), page.locator('.ops-audit-filter button[type="submit"]').click()]);
       assert(await page.locator('#audit-action').inputValue() === 'admins.', 'audit retains filter');
     }
+    if (suite === 'final') {
+      const fragments = [];
+      for (const [name, path] of [['live', '/dashboard/live'], ['samples', '/dashboard/live?view=history'], ['traffic', '/dashboard/chart?range=30d'], ['user-form', '/users/new']]) {
+        const response = await page.request.get(seed.url + path, {headers: {'HX-Request': 'true'}});
+        assert(response.status() === 200, 'measured fragment is available');
+        const body = await response.body();
+        fragments.push({name, raw: body.length, gzip: require('node:zlib').gzipSync(body).length});
+      }
+      console.log('Observed fragment sizes (bytes): ' + JSON.stringify(fragments));
+    }
     const operationalRoutes = ['/interfaces', '/interfaces/new', '/interfaces/' + seed.iface + '/edit', '/plans', '/plans/new', '/plans/' + seed.plan + '/edit'];
     const userRoutes = ['/users', '/users/new', '/users/' + seed.user, '/users/' + seed.user + '/edit', '/users/bulk'];
     const dashboardRoutes = ['/dashboard', '/dashboard?range=7d', '/dashboard?range=30d'];
@@ -407,16 +417,16 @@ let stage = 'launch';
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl' : 'ltr'), 'page direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, 'page theme');
             const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
-            if (!fits) console.log('overflow geometry: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('main,main section,main table,main .table-wrap,main .card')].filter(el => el.getBoundingClientRect().width > innerWidth).map(el => ({ tag: el.tagName, classes: el.className, width: Math.round(el.getBoundingClientRect().width) })).slice(0, 12))));
+            if (!fits) console.log('overflow geometry: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('main,main section,main table,main .table-wrap,main .card,main .backup-workspace')].filter(el => {const r=el.getBoundingClientRect();return r.right>innerWidth+1||r.left< -1;}).map(el => ({ tag: el.tagName, classes: el.className, width: Math.round(el.getBoundingClientRect().width),right:Math.round(el.getBoundingClientRect().right),columns:getComputedStyle(el).gridTemplateColumns })).slice(0, 12))));
             assert(fits, 'page viewport overflow');
             assert(await page.locator('main h1').count() === 1, 'single primary page heading');
             assert(await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(elements => elements.every(el => el.labels?.length || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'))), 'form controls have names');
             maxHTMLGzip = Math.max(maxHTMLGzip, require('node:zlib').gzipSync(await page.content()).length);
             if (suite === 'final' || (suite === '10.6' && ((lang === 'en' && theme === 'light' && width === 1440) || (lang === 'fa' && theme === 'dark' && width === 390)))) {
-              qa.merge(performanceSummary, await qa.measure(page));
+              qa.merge(performanceSummary, await qa.measure(page, stage));
               await qa.scan(page, stage, width === 390 || width === 1440);
             }
-            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark'))) {
+            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark') || (suite === 'final' && width === 320 && lang === 'en' && theme === 'light' && routes[index] === '/dashboard'))) {
               const fs = require('node:fs'), path = require('node:path');
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
               await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, suite + '-' + index + '-' + width + '.png'), fullPage: true });

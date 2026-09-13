@@ -32,7 +32,22 @@ module.exports=async({browser,seed,final})=>{
         assert(await page.locator('html').getAttribute('dir')===(lang==='fa'?'rtl':'ltr'),label+' direction');
         assert(await page.locator('html').getAttribute('data-theme')===theme,label+' theme');
         assert(await page.locator('main h1').count()===1,label+' primary heading');
-        assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' viewport overflow');
+        const fitsViewport=await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
+        if(!fitsViewport){
+          const geometry=await page.evaluate(()=>{
+            const rect=el=>{
+              const r=el?.getBoundingClientRect();
+              return r?{tag:el.tagName,classes:typeof el.className==='string'?el.className:'',left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width)}:null;
+            };
+            return{
+              viewport:{innerWidth,clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth},
+              landmarks:['body','.shell','.main','.content','.collection','.users-table','.users-table tbody','dialog[open]','.drawer-body'].map(selector=>rect(selector==='body'?document.body:document.querySelector(selector))),
+              elements:[...document.querySelectorAll('main,dialog[open],dialog[open] *,main *')].filter(el=>{const r=el.getBoundingClientRect();return r.right>innerWidth+1||r.left< -1;}).map(el=>{const r=el.getBoundingClientRect();return{tag:el.tagName,classes:typeof el.className==='string'?el.className:'',parent:typeof el.parentElement?.className==='string'?el.parentElement.className:'',left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width)};}).slice(0,16),
+            };
+          });
+          console.log('State overflow '+label+': '+JSON.stringify(geometry));
+        }
+        assert(fitsViewport,label+' viewport overflow');
         assert(errors===0,label+' JavaScript errors');
         maxHTML=Math.max(maxHTML,require('node:zlib').gzipSync(await page.content()).length);
         qa.merge(performanceSummary,await qa.measure(page));

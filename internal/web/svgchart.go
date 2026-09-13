@@ -17,13 +17,10 @@ type chartBucket struct {
 	TX    int64  // bytes sent
 }
 
-// SVG geometry. The viewBox is fixed; the element scales to its container.
+// Only plot geometry scales. HTML axes outside the SVG retain their CSS font
+// size at every viewport, while sharing the same chronological bucket spacing.
 const (
 	chartW, chartH = 720, 240
-	chartPadL      = 88 // readable y labels even at phone scale
-	chartPadR      = 8
-	chartPadT      = 12
-	chartPadB      = 26 // room for x-axis labels
 )
 
 // trafficChartSVG renders chronological RX/TX lines as an inline SVG. It is
@@ -48,71 +45,71 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 		return "" // caller renders the empty state
 	}
 	scale := niceMax(max)
-	plotW := float64(chartW - chartPadL - chartPadR)
-	plotH := float64(chartH - chartPadT - chartPadB)
+	plotW := float64(chartW)
+	plotH := float64(chartH)
 
 	var sb strings.Builder
+	sb.WriteString(`<div class="traffic-plot"><div class="traffic-y-axis" aria-hidden="true">`)
+	for i := 0; i <= 4; i++ {
+		val := scale/4*int64(4-i) + scale%4*int64(4-i)/4
+		sb.WriteString(`<span>` + compactBytes(val) + `</span>`)
+	}
+	sb.WriteString(`</div>`)
 	sb.WriteString(`<svg class="chart" viewBox="0 0 `)
 	sb.WriteString(strconv.Itoa(chartW))
 	sb.WriteByte(' ')
 	sb.WriteString(strconv.Itoa(chartH))
 	sb.WriteString(`" role="img" aria-label="`)
 	sb.WriteString(html.EscapeString(ariaLabel))
-	sb.WriteString(`" preserveAspectRatio="xMidYMid meet" focusable="false">`)
+	sb.WriteString(`" preserveAspectRatio="none" focusable="false">`)
 
 	// Grid + y-axis labels (4 divisions of the nice-scaled max).
 	for i := 0; i <= 4; i++ {
-		y := chartPadT + plotH*float64(i)/4
-		val := scale/4*int64(4-i) + scale%4*int64(4-i)/4
-		sb.WriteString(`<line class="chart-grid" x1="` + f1(chartPadL) +
-			`" y1="` + f1(y) + `" x2="` + f1(chartW-chartPadR) +
+		y := plotH * float64(i) / 4
+		sb.WriteString(`<line class="chart-grid" x1="0"` +
+			` y1="` + f1(y) + `" x2="` + f1(chartW) +
 			`" y2="` + f1(y) + `"/>`)
-		if val > 0 || i == 4 {
-			sb.WriteString(`<text class="chart-axis" x="` + f1(chartPadL-8) +
-				`" y="` + f1(y+4) + `" text-anchor="end">` + compactBytes(val) + `</text>`)
-		}
 	}
 
 	// Shared chronological lines with a quiet area under received traffic.
 	// Exact per-bucket values are also rendered in the accessible data table.
 	var rxPath, txPath strings.Builder
-	step := (len(buckets) + 5) / 6
 	for i, bucket := range buckets {
-		x := float64(chartPadL) + plotW/2
+		x := plotW / 2
 		if len(buckets) > 1 {
-			x = chartPadL + plotW*float64(i)/float64(len(buckets)-1)
+			x = plotW * float64(i) / float64(len(buckets)-1)
 		}
 		command := "L"
 		if i == 0 {
 			command = "M"
 		}
-		rxY := chartPadT + plotH*(1-float64(bucket.RX)/float64(scale))
-		txY := chartPadT + plotH*(1-float64(bucket.TX)/float64(scale))
+		rxY := plotH * (1 - float64(bucket.RX)/float64(scale))
+		txY := plotH * (1 - float64(bucket.TX)/float64(scale))
 		rxPath.WriteString(command + f1(x) + " " + f1(rxY))
 		txPath.WriteString(command + f1(x) + " " + f1(txY))
-		if i%step == 0 || i == len(buckets)-1 {
-			class := "chart-axis"
-			if i != 0 && i != len(buckets)-1 && (i/step)%2 == 1 {
-				class += " chart-axis-minor"
-			}
-			anchor := "middle"
-			if i == 0 {
-				anchor = "start"
-			} else if i == len(buckets)-1 {
-				anchor = "end"
-			}
-			sb.WriteString(`<text class="` + class + `" x="` + f1(x) + `" y="` + f1(chartH-8) + `" text-anchor="` + anchor + `">` + html.EscapeString(bucket.Label) + `</text>`)
-		}
 		sb.WriteString(`<g><title>` + html.EscapeString(bucket.Title) + `</title></g>`)
 		if len(buckets) == 1 {
 			sb.WriteString(`<circle class="chart-point-rx" cx="` + f1(x) + `" cy="` + f1(rxY) + `" r="3"/><circle class="chart-point-tx" cx="` + f1(x) + `" cy="` + f1(txY) + `" r="3"/>`)
 		}
 	}
 	if len(buckets) > 1 {
-		sb.WriteString(`<path class="chart-area" d="` + rxPath.String() + `L` + f1(chartW-chartPadR) + ` ` + f1(chartPadT+plotH) + `L` + f1(chartPadL) + ` ` + f1(chartPadT+plotH) + `Z"/>`)
+		sb.WriteString(`<path class="chart-area" d="` + rxPath.String() + `L` + f1(chartW) + ` ` + f1(plotH) + `L0 ` + f1(plotH) + `Z"/>`)
 	}
 	sb.WriteString(`<path class="chart-rx" d="` + rxPath.String() + `"/><path class="chart-tx" d="` + txPath.String() + `"/>`)
-	sb.WriteString(`</svg>`)
+	sb.WriteString(`</svg><div class="traffic-x-axis" aria-hidden="true">`)
+	step := (len(buckets) + 5) / 6
+	for i, bucket := range buckets {
+		sb.WriteString(`<span class="traffic-tick">`)
+		if i%step == 0 || i == len(buckets)-1 {
+			class := "traffic-tick-label"
+			if i != 0 && i != len(buckets)-1 && (i/step)%2 == 1 {
+				class += " traffic-tick-minor"
+			}
+			sb.WriteString(`<span class="` + class + `">` + html.EscapeString(bucket.Label) + `</span>`)
+		}
+		sb.WriteString(`</span>`)
+	}
+	sb.WriteString(`</div></div>`)
 	return template.HTML(sb.String())
 }
 

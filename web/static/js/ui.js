@@ -68,11 +68,11 @@ function openMenu(trigger, last = false) {
 }
 
 const invokers = new WeakMap();
-export function openModal(id) {
+export function openModal(id, invoker = document.activeElement) {
   const dialog = document.getElementById(id);
   if (!dialog?.showModal) return null;
   if (!dialog.open) {
-    invokers.set(dialog, document.activeElement);
+    invokers.set(dialog, invoker);
     closeMenu();
     dialog.showModal();
   }
@@ -133,7 +133,7 @@ document.addEventListener('click', event => {
   if (target.closest('#scrim,[data-close-nav]') || (drawerOpen && target.closest('.nav a'))) setDrawer(false);
   if (target.closest('#btn-collapse')) setCollapsed(!shell.hasAttribute('data-collapsed'));
   const opener = target.closest('[data-open-modal]');
-  if (opener) { event.preventDefault(); openModal(opener.dataset.openModal); }
+  if (opener) { event.preventDefault(); openModal(opener.dataset.openModal, opener); }
   if (target.closest('[data-close-modal]')) target.closest('dialog')?.close();
 });
 
@@ -165,6 +165,21 @@ document.addEventListener('scroll', event => {
   if (activeMenu && !activeMenu.contains(event.target)) closeMenu();
 }, true);
 window.addEventListener('resize', () => closeMenu());
+
+// WebKit can finish native focus scrolling after the first paint and leave a
+// control partly outside a short viewport. Correct the settled position while
+// preserving ordinary focus and the nearest scroll container.
+document.addEventListener('focusin', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (document.activeElement !== target) return;
+    const box = target.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > innerHeight) {
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    }
+  }));
+});
 
 // Keep submitter values successful: do not disable form controls before serialization.
 const pending = new Map();

@@ -4,6 +4,7 @@ const { openModal } = await import(document.querySelector('meta[name="ui-module"
 /* ---------- QR modal ---------- */
 
 let qrURL = "";
+let revision = 0;
 function loadQR() {
   const dialog = $("#qr-modal"), img = $("#qr-img");
   if (!dialog || !img || !qrURL) return;
@@ -22,7 +23,10 @@ function loadQR() {
     if (state) state.textContent = state.dataset.error;
     if (retry) retry.hidden = false;
   };
-  img.src = qrURL;
+  // Every open/retry requests the current configuration, including after failures.
+  const source = new URL(qrURL, location.href);
+  source.searchParams.set('_qr', String(++revision));
+  img.src = source.href;
 }
 function clearQR() {
   const img = $("#qr-img");
@@ -44,7 +48,7 @@ document.addEventListener("click", (e) => {
   if (!btn) return;
   e.preventDefault();
   qrURL = btn.dataset.qr;
-  openModal("qr-modal");
+  openModal("qr-modal", btn);
   loadQR();
 });
 
