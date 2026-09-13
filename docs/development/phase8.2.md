@@ -1,7 +1,7 @@
 # Phase 8.2 — Secure access & persistent manager
 
-Status: **complete (2026-09-09)**. Phase 9 and corrective Phase 8.3 subsequently completed;
-Phase 10 is active at milestone 10.0.
+Status: **complete (2026-09-09)**. Phase 9, corrective Phase 8.3 and Phase 10 subsequently
+completed; Phase 11 remains planned and unstarted.
 
 ## Objective and placement
 

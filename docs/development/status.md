@@ -22,7 +22,7 @@ counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3
 Docker doctor inspection is also mode-aware: AWG version/state comes from the runtime container,
 host network-policy checks remain local, and runtime errors are not mislabeled as missing links.
 
-## Phase 10 — Product UI/UX redesign (active, milestone 10.7)
+## Phase 10 — Product UI/UX redesign (complete, 2026-09-13)
 
 10.0 is complete: the full tracked prompt maps to milestones/routes/states, and UI/Settings/QA
 contracts are adopted. Atomic Settings saves and safe input redisplay are implemented with
@@ -50,10 +50,12 @@ Light remains the default, English uses system typography, and assets are measur
 admins/tokens/webhooks/audit, localized permissions and faithful failed-state handling. Scoped
 tests, Chrome 80 composition cells and WSL build/unit/vet pass. 10.5 public/auth/error migration
 is scoped-tested with 56 Chrome composition cells and WSL build/unit/vet. 10.6 consistency,
-accessibility and interaction hardening is complete with scoped checks. The 10.7 local acceptance
+accessibility and interaction hardening is complete with scoped checks. The 10.7 acceptance
 matrix now covers every inventoried route/state in Chromium, Firefox and WebKit across fa/en,
-light/dark and the full viewport set; build/unit/race/vet/security and measured assets pass. Relevant
-Ubuntu 24.04 TLS/VPS workflows, exact-revision CI/integration and physical devices remain open.
+light/dark and the full viewport set; build/unit/race/vet/security and measured assets pass. The
+exact code candidate passed fresh Ubuntu 24.04 amd64 Docker/direct-ACME deployment, live bilingual
+desktop/mobile workflows, decoded QR/config equality and clean owned removal; exact-revision main
+CI passed. Physical devices were unavailable and are not claimed. REST/OpenAPI is unchanged.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 
@@ -511,7 +513,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | 8.1 — GitHub delivery & lifecycle | complete | GitHub acquisition, terminal UX, prerequisites, compatible AWG, recovery and backup management |
 | 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 8.3 — Data-plane forwarding integrity | complete; production verified on Ubuntu 24.04.4 amd64 Docker | Runtime NAT/firewall reconciliation, scoped Docker coexistence, fail-closed diagnostics, public egress and owned cleanup |
-| 10 — Product UI/UX redesign | active; milestone 10.3 | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
+| 10 — Product UI/UX redesign | complete | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
 | 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 

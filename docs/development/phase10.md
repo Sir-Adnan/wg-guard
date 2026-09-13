@@ -1,11 +1,11 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **active; 10.0–10.6 complete; 10.7 local acceptance passed, VPS/CI acceptance pending**. The owner approved
+Status: **complete; 10.0–10.7 passed on 2026-09-13**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
-[UI/UX](../product/ui-ux.md) owns the lasting design contract. No complete-panel redesign or final
-browser/VPS acceptance is claimed.
+[UI/UX](../product/ui-ux.md) owns the lasting design contract. Phase 11 has not started and no
+public release is authorized.
 
 ## Objective and boundaries
 
@@ -194,7 +194,7 @@ reduced motion and equivalent-zoom reflow. Fixed state/hover findings were rerun
 Gzip: JS 29,912 B, CSS 17,193 B, fonts 101,750 B, SVG 3,137 B. Full cross-browser acceptance remains open.
 These scoped milestones do not close RB-006 or start Phase 11; no public release is authorized.
 
-10.7 local candidate: Chromium 152.0.7977.84, Firefox 153.0 and WebKit 26.5 cover all 24 app
+10.7: Chromium 152.0.7977.84, Firefox 153.0 and WebKit 26.5 cover all 24 app
 routes, seven auth/public surfaces and 59 state compositions across fa/en, light/dark and the full
 viewport set (5,760 composition cells per engine). Supplemental checks cover keyboard/touch,
 short landscape, equivalent 200% reflow, reduced motion, saved Light/Dark/System behavior and
@@ -204,5 +204,15 @@ measurement is JS 30,699 B, CSS 17,835 B, fonts 101,750 B and SVG 3,137 B gzip; 
 is 10,794 B gzip, measured fragments are 1,738–6,292 B gzip and checked pages use at most 11
 requests. The delayed-font cold-page probe observed at most 0.0201 CLS after removing the startup
 sidebar shift. WSL build/unit/race/vet, formatting, module verification and `govulncheck` with Go
-1.26.6 pass. REST/OpenAPI remains unchanged. Physical-device coverage and relevant Ubuntu 24.04
-TLS/VPS workflows, exact-revision CI/integration and RB-006 closure remain pending.
+1.26.6 pass. REST/OpenAPI remains unchanged.
+
+The exact code candidate `32fdbe1` then passed a fresh Ubuntu 24.04 amd64 Docker install with direct
+ACME HTTPS. Live Chrome covered secure login, Light default plus Dark/System, fa/en and RTL/LTR,
+18 app/auth/public routes at 1440/390 px, Interface/Plan/User validation and creation, device and
+bulk flows, subscription revoke/restore, atomic Settings save, backup/schedule, healthy Dashboard,
+and zero page errors or HTTP 5xx. The served QR independently decoded to the downloaded config;
+Doctor passed interface/backend, nftables, Docker forwarding, backup and access checks. Credentials,
+raw configs and QR pixels were not retained, and complete owned cleanup restored the dedicated VPS.
+The final documentation/integration revision passed the repository commit gate and exact-revision
+main CI. RB-006 is closed. Physical-device runs were unavailable and are not claimed; the complete
+emulated engine/viewport/touch coverage above is retained as the acceptance evidence.

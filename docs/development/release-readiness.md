@@ -4,11 +4,10 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-13. Phases 8, 8.1, 8.2 and **9 — Operational observability** are complete.
-Corrective **Phase 8.3 — Data-plane forwarding integrity** is complete. Phase 10 is active again
-at milestone 10.7: 10.0–10.6 migrations and consistency hardening are complete, and the local
-three-engine route/state/accessibility/performance matrix passes. Relevant Ubuntu 24.04 TLS/VPS
-workflows, exact-revision CI/integration and RB-006 closure remain open.
+Last updated: 2026-09-13. Phases 8, 8.1, 8.2, corrective 8.3, 9 and **10 — Product UI/UX
+redesign** are complete. Phase 10 passed the full three-engine route/state/accessibility/performance
+matrix, relevant exact-code Ubuntu 24.04 amd64 Docker/TLS workflows, repository gates and main CI.
+Phase 11 remains planned and unstarted; public release remains owner-approval gated.
 
 ## Program status
 
@@ -19,7 +18,7 @@ workflows, exact-revision CI/integration and RB-006 closure remain open.
 | 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
-| 10 — Product UI/UX redesign | active; milestone 10.7 | Every route/state passes complete bilingual responsive QA |
+| 10 — Product UI/UX redesign | complete | Every route/state passes complete bilingual responsive QA |
 | 11 — Production certification | planned | Material findings closed; supported compatibility cells verified |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
@@ -63,7 +62,7 @@ implementation does not cross the active phase boundary.
 | RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | verified | Storage/apply/dump/drift/API/forms/config/QR/backup paths preserve both bounds; userspace integration and exact kernel runtime/client equality passed. |
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
-| RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | in progress | Full route/state/browser matrix completed |
+| RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | verified | Full Chromium/Firefox/WebKit route/state matrix, bilingual responsive workflows, relevant live Ubuntu Docker/TLS checks and decoded QR/config equality passed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
@@ -113,7 +112,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
 | AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | verified: bounded Docker/native service and operation sources, component filtering and follow cancellation passed the real VPS gate; Docker stderr unification regression closed before final acceptance |
 | AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | verified: Docker 16 MiB × 8 compressed local rotation, scoped native 7-day/size policy, operation journal 7-day/8 MiB and real tmpfiles expiry passed on the VPS; Docker physical age deletion remains an explicit platform limitation |
-| AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | redesigned and scoped-tested in 10.4; final acceptance pending |
+| AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | verified: localized human labels/descriptions passed the final bilingual route/state and live workflow gates while machine identifiers remained stable |
 | AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
 | AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |
 | AUD-010 | high | Interface form numeric parse errors can silently become valid zero values | Phase 8 | verified |
