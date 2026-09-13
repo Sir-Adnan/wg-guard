@@ -289,9 +289,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 
 	mtu := in.MTU
 	if mtu == 0 {
-		mtu, err = s.reg.GetInt(ctx, "network.mtu")
-		if err != nil {
-			return nil, err
+		if ProfilePolicy(strings.TrimSpace(in.Preset)) == ProfileSuggested {
+			mtu = SuggestedMTU
+		} else {
+			mtu, err = s.reg.GetInt(ctx, "network.mtu")
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if mtu < 576 || mtu > 65535 {
@@ -357,7 +361,7 @@ func (s *Service) resolveCreateProfile(in *CreateInput) error {
 		if in.Obfuscation != (Obfuscation{}) {
 			return domain.E(domain.CodeParamConstraint, "plain profile cannot include explicit AWG parameters")
 		}
-	case ProfileRecommended, ProfileRandomized:
+	case ProfileRecommended, ProfilePerformance, ProfileBalanced, ProfileResilient, ProfileSuggested, ProfileRandomized:
 		if in.GeneratedProfile {
 			if err := ValidateGeneratedProfile(policy, in.Obfuscation); err != nil {
 				return err
@@ -552,6 +556,45 @@ func (s *Service) Get(ctx context.Context, id string) (*Interface, error) {
 // GetByName loads one interface by name (awgN).
 func (s *Service) GetByName(ctx context.Context, name string) (*Interface, error) {
 	return s.getBy(ctx, `name`, name)
+}
+
+// NextAvailableName returns the first free awgN slot within the configured
+// interface cap. The panel uses it as a real create-form value, not a
+// placeholder, so a blank form never fails solely because the name was empty.
+func (s *Service) NextAvailableName(ctx context.Context) (string, error) {
+	maxCount, err := s.reg.GetInt(ctx, "interfaces.max_count")
+	if err != nil {
+		return "", err
+	}
+	used := make([]bool, maxCount)
+	rows, err := s.db.QueryContext(ctx, `SELECT name FROM tunnel_interfaces`)
+	if err != nil {
+		return "", fmt.Errorf("iface: available-name scan: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return "", fmt.Errorf("iface: available-name scan: %w", err)
+		}
+		match := nameRe.FindStringSubmatch(name)
+		if match == nil {
+			continue
+		}
+		index, _ := strconv.Atoi(match[1])
+		if index >= 0 && index < len(used) {
+			used[index] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "", fmt.Errorf("iface: available-name scan: %w", err)
+	}
+	for index, taken := range used {
+		if !taken {
+			return fmt.Sprintf("awg%d", index), nil
+		}
+	}
+	return "", domain.E(domain.CodeInvalidRequest, "all %d configured interface slots are in use", maxCount)
 }
 
 func (s *Service) getBy(ctx context.Context, col, val string) (*Interface, error) {
@@ -837,7 +880,7 @@ func classifySubmittedProfile(profile Obfuscation, requested *string, generated 
 		if generated || profile != (Obfuscation{}) {
 			return "", domain.E(domain.CodeParamConstraint, "plain profile cannot include generated or explicit AWG parameters")
 		}
-	case ProfileRecommended, ProfileRandomized:
+	case ProfileRecommended, ProfilePerformance, ProfileBalanced, ProfileResilient, ProfileSuggested, ProfileRandomized:
 		if !generated {
 			return "", domain.E(domain.CodeParamConstraint, "%s classification requires a server-generated profile", policy)
 		}

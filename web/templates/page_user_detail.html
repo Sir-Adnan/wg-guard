@@ -4,7 +4,6 @@
   <div>
     <h1 class="ltr-data">{{.Data.U.Username}}</h1>
     <p>
-      {{if .Data.U.DisplayName}}{{.Data.U.DisplayName}} · {{end}}
       <span class="badge {{.StClass (printf "%v" .Data.U.Status)}}">{{.St (printf "%v" .Data.U.Status)}}</span>
       {{if .Data.U.DeletedAt}}<span class="badge badge--danger">{{.T "users.detail.deleted_badge"}}</span>{{end}}
     </p>
@@ -93,7 +92,7 @@
       <dd class="ltr-data">{{.Rel .Data.U.LastActivityAt}}</dd>
       <dt>{{.T "common.created"}}</dt>
       <dd class="ltr-data">{{.DT (timePtr .Data.U.CreatedAt)}}</dd>
-      {{if .Data.U.Note}}<dt>{{.T "common.note"}}</dt><dd>{{.Data.U.Note}}</dd>{{end}}
+	  {{if .Data.U.Note}}<dt>{{.T "common.note"}}</dt><dd class="note-copy">{{.Data.U.Note}}</dd>{{end}}
       {{if .Data.U.Tags}}<dt>{{.T "common.tags"}}</dt>
       <dd><span class="chips">{{range .Data.U.Tags}}<span class="chip ltr-data">{{.}}</span>{{end}}</span></dd>{{end}}
     </dl>

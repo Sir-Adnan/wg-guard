@@ -18,13 +18,22 @@ type ProfilePolicy string
 const (
 	ProfilePlain       ProfilePolicy = "plain"
 	ProfileRecommended ProfilePolicy = "recommended"
+	ProfilePerformance ProfilePolicy = "performance"
+	ProfileBalanced    ProfilePolicy = "balanced"
+	ProfileResilient   ProfilePolicy = "resilient"
+	ProfileSuggested   ProfilePolicy = "suggested"
 	ProfileRandomized  ProfilePolicy = "randomized"
 	ProfileCustom      ProfilePolicy = "custom"
 )
 
-// The recommended values are WG-Guard product defaults within the pinned
-// upstream constraints. Headers are generated per profile because fixed magic
-// headers make installations needlessly recognizable.
+// SuggestedMTU is the interface MTU paired with the Suggested/Expert profile.
+// DNS remains the existing global client setting, whose product
+// default is 1.1.1.1, 1.0.0.1.
+const SuggestedMTU = 1280
+
+// The legacy recommended values remain available for compatibility within the
+// pinned upstream constraints. Headers are generated per profile because fixed
+// magic headers make installations needlessly recognizable.
 const (
 	RecommendedJc   = 4
 	RecommendedJmin = 40
@@ -116,6 +125,30 @@ func (g *ProfileGenerator) Generate(policy ProfilePolicy) (Obfuscation, error) {
 			return Obfuscation{}, err
 		}
 		return validatedGenerated(policy, profile)
+	case ProfilePerformance:
+		profile, err := g.performance()
+		if err != nil {
+			return Obfuscation{}, err
+		}
+		return validatedGenerated(policy, profile)
+	case ProfileBalanced:
+		profile, err := g.balanced()
+		if err != nil {
+			return Obfuscation{}, err
+		}
+		return validatedGenerated(policy, profile)
+	case ProfileResilient:
+		profile, err := g.resilient()
+		if err != nil {
+			return Obfuscation{}, err
+		}
+		return validatedGenerated(policy, profile)
+	case ProfileSuggested:
+		profile, err := g.suggested()
+		if err != nil {
+			return Obfuscation{}, err
+		}
+		return validatedGenerated(policy, profile)
 	case ProfileRandomized:
 		profile, err := g.randomized()
 		if err != nil {
@@ -125,6 +158,133 @@ func (g *ProfileGenerator) Generate(policy ProfilePolicy) (Obfuscation, error) {
 	default:
 		return Obfuscation{}, domain.E(domain.CodeParamConstraint, "profile policy %q cannot be generated", policy)
 	}
+}
+
+type operationalProfileValues struct {
+	jc, jmin, jmax     int
+	s1, s2, s3, s4     int
+	padding            [2]uint16
+	rekeyAfter         [2]uint16
+	rekeyTimeout       [2]uint16
+	rejectAfter        [2]uint16
+	keepalive          [2]uint16
+	maxHandshake       [2]uint16
+	headerRangeMaxSpan uint32
+}
+
+func (g *ProfileGenerator) performance() (Obfuscation, error) {
+	return g.operational(operationalProfileValues{
+		jc: 4, jmin: 10, jmax: 40, s1: 18, s2: 31, s3: 16, s4: 20,
+		padding: [2]uint16{5, 35}, rekeyAfter: [2]uint16{110, 130},
+		rekeyTimeout: [2]uint16{4, 7}, rejectAfter: [2]uint16{170, 200},
+		keepalive: [2]uint16{8, 15}, maxHandshake: [2]uint16{12, 18},
+	})
+}
+
+func (g *ProfileGenerator) balanced() (Obfuscation, error) {
+	return g.operational(operationalProfileValues{
+		jc: 6, jmin: 20, jmax: 80, s1: 32, s2: 64, s3: 24, s4: 32,
+		padding: [2]uint16{10, 70}, rekeyAfter: [2]uint16{100, 125},
+		rekeyTimeout: [2]uint16{3, 7}, rejectAfter: [2]uint16{165, 210},
+		keepalive: [2]uint16{6, 15}, maxHandshake: [2]uint16{15, 22},
+		headerRangeMaxSpan: 25_000_000,
+	})
+}
+
+func (g *ProfileGenerator) resilient() (Obfuscation, error) {
+	return g.operational(operationalProfileValues{
+		jc: 12, jmin: 40, jmax: 180, s1: 96, s2: 180, s3: 48, s4: 64,
+		padding: [2]uint16{30, 180}, rekeyAfter: [2]uint16{90, 120},
+		rekeyTimeout: [2]uint16{3, 7}, rejectAfter: [2]uint16{180, 260},
+		keepalive: [2]uint16{5, 15}, maxHandshake: [2]uint16{20, 32},
+		headerRangeMaxSpan: randomizedHeaderMaxSpan,
+	})
+}
+
+func (g *ProfileGenerator) suggested() (Obfuscation, error) {
+	profile := Obfuscation{
+		Enabled: true, Jc: 5, Jmin: 10, Jmax: 50,
+		S1: 21, S2: 28, S3: 53, S4: 12,
+		H1: awgparam.ScalarU32(1), H2: awgparam.ScalarU32(2),
+		H3: awgparam.ScalarU32(3), H4: awgparam.ScalarU32(4),
+		RandomTrailers: true, DisableCookies: true,
+	}
+	var err error
+	for value, bounds := range map[*awgparam.U16Range][2]uint16{
+		&profile.ContentPaddingAddition: {10, 100},
+		&profile.RekeyAfterTime:         {100, 120},
+		&profile.RekeyTimeout:           {3, 7},
+		&profile.RejectAfterTime:        {150, 180},
+		&profile.KeepaliveTimeout:       {5, 15},
+		&profile.MaxHandshakeAttempts:   {15, 20},
+	} {
+		*value, err = awgparam.NewU16Range(bounds[0], bounds[1])
+		if err != nil {
+			return Obfuscation{}, err
+		}
+	}
+	if err := g.setHeaderProtectionKey(&profile); err != nil {
+		return Obfuscation{}, err
+	}
+	return profile, nil
+}
+
+func (g *ProfileGenerator) operational(values operationalProfileValues) (Obfuscation, error) {
+	profile := Obfuscation{
+		Enabled: true, Jc: values.jc, Jmin: values.jmin, Jmax: values.jmax,
+		S1: values.s1, S2: values.s2, S3: values.s3, S4: values.s4,
+		RandomTrailers: true, DisableCookies: true,
+	}
+	headers := [4]*awgparam.U32Range{&profile.H1, &profile.H2, &profile.H3, &profile.H4}
+	for i, band := range generatedHeaderBands {
+		if values.headerRangeMaxSpan == 0 {
+			value, err := g.uint32Inclusive(band.low, band.high)
+			if err != nil {
+				return Obfuscation{}, fmt.Errorf("generate operational H%d: %w", i+1, err)
+			}
+			*headers[i] = awgparam.ScalarU32(value)
+			continue
+		}
+		low, err := g.uint32Inclusive(band.low, band.high-values.headerRangeMaxSpan)
+		if err != nil {
+			return Obfuscation{}, fmt.Errorf("generate operational H%d low: %w", i+1, err)
+		}
+		span, err := g.uint32Inclusive(1, values.headerRangeMaxSpan)
+		if err != nil {
+			return Obfuscation{}, fmt.Errorf("generate operational H%d span: %w", i+1, err)
+		}
+		*headers[i], err = awgparam.NewU32Range(low, low+span)
+		if err != nil {
+			return Obfuscation{}, fmt.Errorf("construct operational H%d: %w", i+1, err)
+		}
+	}
+	var err error
+	for value, bounds := range map[*awgparam.U16Range][2]uint16{
+		&profile.ContentPaddingAddition: values.padding,
+		&profile.RekeyAfterTime:         values.rekeyAfter,
+		&profile.RekeyTimeout:           values.rekeyTimeout,
+		&profile.RejectAfterTime:        values.rejectAfter,
+		&profile.KeepaliveTimeout:       values.keepalive,
+		&profile.MaxHandshakeAttempts:   values.maxHandshake,
+	} {
+		*value, err = awgparam.NewU16Range(bounds[0], bounds[1])
+		if err != nil {
+			return Obfuscation{}, err
+		}
+	}
+	if err := g.setHeaderProtectionKey(&profile); err != nil {
+		return Obfuscation{}, err
+	}
+	return profile, nil
+}
+
+func (g *ProfileGenerator) setHeaderProtectionKey(profile *Obfuscation) error {
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(g.entropy, key); err != nil {
+		return fmt.Errorf("generate header protection key: %w", err)
+	}
+	profile.HeaderProtectionKey = base64.StdEncoding.EncodeToString(key)
+	return nil
 }
 
 func (g *ProfileGenerator) recommended() (Obfuscation, error) {
@@ -178,6 +338,8 @@ func (g *ProfileGenerator) randomized() (Obfuscation, error) {
 	}
 
 	profile := Obfuscation{Enabled: true, Jc: jc, Jmin: jmin, Jmax: jmax, S1: s1, S2: s2, S3: s3, S4: s4}
+	profile.RandomTrailers = true
+	profile.DisableCookies = true
 	headers := [4]*awgparam.U32Range{&profile.H1, &profile.H2, &profile.H3, &profile.H4}
 	for i, band := range generatedHeaderBands {
 		low, err := g.uint32Inclusive(band.low, band.high-randomizedHeaderMaxSpan)
@@ -194,11 +356,9 @@ func (g *ProfileGenerator) randomized() (Obfuscation, error) {
 		}
 	}
 
-	key := make([]byte, 32)
-	if _, err := io.ReadFull(g.entropy, key); err != nil {
-		return Obfuscation{}, fmt.Errorf("generate header protection key: %w", err)
+	if err := g.setHeaderProtectionKey(&profile); err != nil {
+		return Obfuscation{}, err
 	}
-	profile.HeaderProtectionKey = base64.StdEncoding.EncodeToString(key)
 
 	if profile.ContentPaddingAddition, err = g.u16Range(randomizedPaddingLowMin, randomizedPaddingLowMax, randomizedPaddingSpanMin, randomizedPaddingSpanMax); err != nil {
 		return Obfuscation{}, fmt.Errorf("generate content padding: %w", err)
@@ -277,6 +437,17 @@ func validatedGenerated(policy ProfilePolicy, profile Obfuscation) (Obfuscation,
 	return profile, nil
 }
 
+// IsGeneratedProfilePolicy reports whether policy is constructed and sealed by
+// the server rather than accepted as explicit custom values.
+func IsGeneratedProfilePolicy(policy ProfilePolicy) bool {
+	switch policy {
+	case ProfileRecommended, ProfilePerformance, ProfileBalanced, ProfileResilient, ProfileSuggested, ProfileRandomized:
+		return true
+	default:
+		return false
+	}
+}
+
 // ValidateGeneratedProfile enforces the narrower product policy on top of the
 // general pinned-runtime constraints. It is also used when a server-generated
 // panel preview is submitted for persistence.
@@ -305,6 +476,8 @@ func ValidateGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
 			}
 		}
 		return nil
+	case ProfilePerformance, ProfileBalanced, ProfileResilient, ProfileSuggested:
+		return validateOperationalGeneratedProfile(policy, profile)
 	case ProfileRandomized:
 		if profile.Jc < RandomizedJcMin || profile.Jc > RandomizedJcMax ||
 			profile.Jmin < RandomizedJminMin || profile.Jmin > RandomizedJminMax ||
@@ -325,8 +498,8 @@ func ValidateGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
 			}
 		}
 		if profile.I1 != "" || profile.I2 != "" || profile.I3 != "" || profile.I4 != "" || profile.I5 != "" ||
-			profile.RandomTrailers || profile.DisableCookies {
-			return domain.E(domain.CodeParamConstraint, "randomized profile contains unsafe or client-specific parameters")
+			!profile.RandomTrailers || !profile.DisableCookies {
+			return domain.E(domain.CodeParamConstraint, "randomized profile advanced flags/signatures do not match policy")
 		}
 		rejectLowMin := int(profile.RekeyAfterTime.High()) + randomizedRejectGapMin
 		if !validGeneratedRangeShape(profile.ContentPaddingAddition, randomizedPaddingLowMin, randomizedPaddingLowMax, randomizedPaddingSpanMin, randomizedPaddingSpanMax) ||
@@ -341,6 +514,72 @@ func ValidateGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
 	default:
 		return domain.E(domain.CodeParamConstraint, "profile policy %q is not generated", policy)
 	}
+}
+
+func validateOperationalGeneratedProfile(policy ProfilePolicy, profile Obfuscation) error {
+	if profile.I1 != "" || profile.I2 != "" || profile.I3 != "" || profile.I4 != "" || profile.I5 != "" ||
+		!profile.RandomTrailers || !profile.DisableCookies || profile.HeaderProtectionKey == "" ||
+		profile.ContentPaddingAddition.IsZero() || profile.RekeyAfterTime.IsZero() ||
+		profile.RekeyTimeout.IsZero() || profile.RejectAfterTime.IsZero() ||
+		profile.KeepaliveTimeout.IsZero() || profile.MaxHandshakeAttempts.IsZero() {
+		return domain.E(domain.CodeParamConstraint, "%s profile advanced fields/signatures do not match policy", policy)
+	}
+	exactRanges := func(padding, rekeyAfter, rekeyTimeout, rejectAfter, keepalive, handshake string) bool {
+		return profile.ContentPaddingAddition.String() == padding && profile.RekeyAfterTime.String() == rekeyAfter &&
+			profile.RekeyTimeout.String() == rekeyTimeout && profile.RejectAfterTime.String() == rejectAfter &&
+			profile.KeepaliveTimeout.String() == keepalive && profile.MaxHandshakeAttempts.String() == handshake
+	}
+	switch policy {
+	case ProfilePerformance:
+		if profile.Jc != 4 || profile.Jmin != 10 || profile.Jmax != 40 ||
+			profile.S1 != 18 || profile.S2 != 31 || profile.S3 != 16 || profile.S4 != 20 ||
+			!exactRanges("5-35", "110-130", "4-7", "170-200", "8-15", "12-18") ||
+			!generatedHeadersMatch(profile, false, 0) {
+			return domain.E(domain.CodeParamConstraint, "performance profile does not match policy")
+		}
+	case ProfileBalanced:
+		if profile.Jc != 6 || profile.Jmin != 20 || profile.Jmax != 80 ||
+			profile.S1 != 32 || profile.S2 != 64 || profile.S3 != 24 || profile.S4 != 32 ||
+			!exactRanges("10-70", "100-125", "3-7", "165-210", "6-15", "15-22") ||
+			!generatedHeadersMatch(profile, true, 25_000_000) {
+			return domain.E(domain.CodeParamConstraint, "balanced profile does not match policy")
+		}
+	case ProfileResilient:
+		if profile.Jc != 12 || profile.Jmin != 40 || profile.Jmax != 180 ||
+			profile.S1 != 96 || profile.S2 != 180 || profile.S3 != 48 || profile.S4 != 64 ||
+			!exactRanges("30-180", "90-120", "3-7", "180-260", "5-15", "20-32") ||
+			!generatedHeadersMatch(profile, true, randomizedHeaderMaxSpan) {
+			return domain.E(domain.CodeParamConstraint, "resilient profile does not match policy")
+		}
+	case ProfileSuggested:
+		if profile.Jc != 5 || profile.Jmin != 10 || profile.Jmax != 50 ||
+			profile.S1 != 21 || profile.S2 != 28 || profile.S3 != 53 || profile.S4 != 12 ||
+			profile.H1 != awgparam.ScalarU32(1) || profile.H2 != awgparam.ScalarU32(2) ||
+			profile.H3 != awgparam.ScalarU32(3) || profile.H4 != awgparam.ScalarU32(4) ||
+			!exactRanges("10-100", "100-120", "3-7", "150-180", "5-15", "15-20") {
+			return domain.E(domain.CodeParamConstraint, "suggested profile does not match policy")
+		}
+	default:
+		return domain.E(domain.CodeParamConstraint, "profile policy %q is not operational", policy)
+	}
+	return nil
+}
+
+func generatedHeadersMatch(profile Obfuscation, ranges bool, maxSpan uint32) bool {
+	for i, header := range []awgparam.U32Range{profile.H1, profile.H2, profile.H3, profile.H4} {
+		band := generatedHeaderBands[i]
+		if header.Low() < band.low || header.High() > band.high {
+			return false
+		}
+		if ranges {
+			if header.Low() >= header.High() || header.High()-header.Low() > maxSpan {
+				return false
+			}
+		} else if header.Low() != header.High() {
+			return false
+		}
+	}
+	return true
 }
 
 func hasAdvancedGeneratedFields(profile Obfuscation) bool {

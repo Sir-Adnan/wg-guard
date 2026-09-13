@@ -359,8 +359,14 @@ func TestOpenAPIProfilePolicyContract(t *testing.T) {
 	schema := content["application/json"].(map[string]any)["schema"].(map[string]any)
 	preset := schema["properties"].(map[string]any)["preset"].(map[string]any)
 	enum, ok := preset["enum"].([]any)
-	if !ok || len(enum) != 3 || enum[0] != "plain" || enum[1] != "recommended" || enum[2] != "randomized" {
+	wantRequestPolicies := []string{"plain", "recommended", "performance", "balanced", "resilient", "suggested", "randomized"}
+	if !ok || len(enum) != len(wantRequestPolicies) {
 		t.Fatalf("profile policy enum = %v", preset)
+	}
+	for index, want := range wantRequestPolicies {
+		if enum[index] != want {
+			t.Fatalf("profile policy enum = %v, want %v", enum, wantRequestPolicies)
+		}
 	}
 	if preset["description"] == nil {
 		t.Fatalf("profile policy conflict behavior is undocumented: %v", preset)
@@ -369,7 +375,7 @@ func TestOpenAPIProfilePolicyContract(t *testing.T) {
 	interfaceSchema := components["schemas"].(map[string]any)["Interface"].(map[string]any)
 	responsePreset := interfaceSchema["properties"].(map[string]any)["preset"].(map[string]any)
 	responseEnum, ok := responsePreset["enum"].([]any)
-	if !ok || len(responseEnum) != 4 || responseEnum[3] != "custom" {
+	if !ok || len(responseEnum) != len(wantRequestPolicies)+1 || responseEnum[len(responseEnum)-1] != "custom" {
 		t.Fatalf("persisted profile classification enum = %v", responsePreset)
 	}
 }

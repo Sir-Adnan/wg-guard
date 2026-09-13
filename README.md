@@ -11,8 +11,8 @@ anti-DPI capabilities.*
 
 ## Status
 
-**In active development — Phases 0–9 and corrective Phase 8.3 are complete; Phase 10 product
-UI/UX redesign is active.**
+**In active development — Phases 0–10 and corrective Phase 8.3 are complete; Phase 11 production
+certification has not started.**
 Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
 GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
 with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 added a persistent local
@@ -20,16 +20,18 @@ manager, existing-Nginx coexistence, DNS-01, trusted short-lived public-IP HTTPS
 renewal diagnostics and safe post-install access changes. Broader compatibility and public
 release work remain later. A closing installer hardening pass moved the recommended AWG core off
 the vanished PPA package pin to exact reviewed GitHub source, hardened interrupted retries, and
-  passed a fresh Ubuntu 24.04 Docker install/purge drill. Phase 9 then added bounded live
-  telemetry, safe unified Docker/native logs and enforced retention, verified under real AWG
-  traffic and failure drills on Ubuntu 24.04 amd64. See
+passed a fresh Ubuntu 24.04 Docker install/purge drill. Phase 9 then added bounded live telemetry,
+safe unified Docker/native logs and enforced retention, verified under real AWG traffic and failure
+drills on Ubuntu 24.04 amd64. Phase 10 completed the ground-up bilingual, responsive product
+redesign. See
 [ROADMAP.md](ROADMAP.md) and the
 [development status](docs/development/status.md).
 
 ## Features
 
 - **AmneziaWG tunnel profiles** (`awg0`, `awg1`, …) — each with its own obfuscation parameters,
-  listen port, subnet pool, and MTU; managed entirely from the panel
+  listen port, subnet pool, and MTU; managed entirely from the panel with server-generated
+  Performance, Balanced, Resilient, Suggested and Automatic starting profiles
 - **User management** — subscriptions with duration, expiration (including first-connection
   activation), traffic quotas (RX+TX), **independent upload/download speed limits**, device
   limits, bulk creation
@@ -168,7 +170,7 @@ Start with the [documentation index](docs/README.md):
 
 Generated configurations target AmneziaWG clients (AmneziaVPN desktop/mobile apps and the
 amneziawg-android/apple/windows forks). Plain WireGuard clients connect only to profiles created
-with the "Plain WG" (all-zero obfuscation) preset. The compatibility matrix is documented in
+with the Standard/plain (all-zero obfuscation) policy. The compatibility matrix is documented in
 [docs/integrations/amneziawg.md](docs/integrations/amneziawg.md).
 
 ## Development

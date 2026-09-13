@@ -50,6 +50,9 @@ func TestDefaultsServedWithoutRows(t *testing.T) {
 	if policy != "report" {
 		t.Fatalf("default drift policy = %q", policy)
 	}
+	if limit, err := reg.GetInt(ctx, "users.default_device_limit"); err != nil || limit != 0 {
+		t.Fatalf("default device limit = %d, %v; want unlimited (0)", limit, err)
+	}
 	if _, err := reg.Get(ctx, "no.such.key"); domain.CodeOf(err) != domain.CodeSettingUnknown {
 		t.Fatalf("unknown key must be SETTING_UNKNOWN, got %v", err)
 	}
@@ -75,6 +78,7 @@ func TestSetRawValidation(t *testing.T) {
 		{"backup.telegram_chat", "123456789", ""},
 		{"backup.telegram_chat", "chat123", domain.CodeSettingInvalid},
 		{"interfaces.max_count", "16", ""},
+		{"users.default_device_limit", "0", ""},
 	}
 	for _, tc := range cases {
 		err := reg.SetRaw(ctx, tc.key, tc.raw)

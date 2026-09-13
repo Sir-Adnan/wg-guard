@@ -1,7 +1,7 @@
 {{define "user_create_fields"}}
 {{$v := .v}}{{$d := .d}}{{$f := $d.Form}}
-<fieldset class="form-section card card--pad">
-  <legend>{{$v.T "users.form.section_account"}}</legend>
+<fieldset class="form-section card card--pad premium-form-section" id="user-account" data-section-tone="cyan">
+  <legend><span class="section-icon" aria-hidden="true">{{$v.IconS "users"}}</span><span>{{$v.T "users.form.section_account"}}</span></legend>
   <p class="section-description">{{$v.T "users.form.account_hint"}}</p>
   {{if .bulk}}
   {{template "user_field" dict "v" $v "f" $f "key" "prefix" "label" "users.bulk.prefix" "hint" "" "numeric" false}}
@@ -19,15 +19,19 @@
     <label for="u-username">{{$v.T "users.username"}}</label>
     <div class="unit-group">
       <input class="input" id="u-username" name="username" dir="ltr" spellcheck="false" autocomplete="off" required value="{{$f.V "username"}}" {{if $f.Invalid "username"}}aria-invalid="true"{{end}} aria-describedby="username-hint">
-      <button type="button" class="btn" data-generate="#u-username" aria-label="{{$v.T "users.form.generate"}}">{{$v.IconS "wand"}}</button>
+      <button type="button" class="btn btn--soft generate-name" data-generate="#u-username" aria-label="{{$v.T "users.form.generate"}}">{{$v.IconS "wand"}}<span>{{$v.T "users.form.generate_short"}}</span></button>
     </div>
     <span class="hint" id="username-hint">{{$v.T "onboard.username_hint"}}{{if $f.Invalid "username"}} <span class="field-error">{{$v.T (index $f.Fields "username")}}</span>{{end}}</span>
   </div>
   {{end}}
-  {{template "user_field" dict "v" $v "f" $f "key" "display_name" "label" "users.display_name" "hint" "" "numeric" false}}
+  <div class="field">
+    <label for="u-note">{{$v.T "users.note"}}</label>
+    <textarea class="textarea" id="u-note" name="note" rows="4" dir="auto" maxlength="2000" {{if $f.Invalid "note"}}aria-invalid="true"{{end}} aria-describedby="u-note-hint">{{$f.V "note"}}</textarea>
+    <span class="hint" id="u-note-hint">{{$v.T "users.form.note_hint"}}{{if $f.Invalid "note"}} <span class="field-error">{{$v.T (index $f.Fields "note")}}</span>{{end}}</span>
+  </div>
 </fieldset>
-<fieldset class="form-section card card--pad">
-  <legend>{{$v.T "users.form.section_limits"}}</legend>
+<fieldset class="form-section card card--pad premium-form-section" id="user-limits" data-section-tone="violet">
+  <legend><span class="section-icon" aria-hidden="true">{{$v.IconS "gauge"}}</span><span>{{$v.T "users.form.section_limits"}}</span></legend>
   <p class="section-description">{{$v.T "users.form.allowance_hint"}}</p>
   <div class="field-row">
     <div class="field">
@@ -46,12 +50,11 @@
     {{template "user_field" dict "v" $v "f" $f "key" "device_limit" "label" "users.form.device_limit" "hint" "plans.form.devices_hint" "numeric" true}}
   </div>
   {{if and (not .edit) (not .bulk) ($v.Can "devices.write")}}
-  <label class="check-row"><input class="checkbox" type="checkbox" name="auto_devices" value="1" {{if eq ($f.V "auto_devices") "1"}}checked{{end}}> <span>{{$v.T "users.form.auto_devices"}}</span></label>
-  <p class="hint">{{$v.T "users.form.configs_hint"}}</p>
+  <label class="feature-toggle"><input class="checkbox" type="checkbox" name="auto_devices" value="1" {{if eq ($f.V "auto_devices") "1"}}checked{{end}}><span class="feature-toggle-icon" aria-hidden="true">{{$v.IconS "qr-code"}}</span><span><strong>{{$v.T "users.form.auto_devices"}}</strong><small>{{$v.T "users.form.configs_hint"}}</small></span></label>
   {{end}}
 </fieldset>
-<fieldset class="form-section card card--pad">
-  <legend>{{$v.T "users.form.section_timing"}}</legend>
+<fieldset class="form-section card card--pad premium-form-section" id="user-timing" data-section-tone="amber">
+  <legend><span class="section-icon" aria-hidden="true">{{$v.IconS "clock"}}</span><span>{{$v.T "users.form.section_timing"}}</span></legend>
   <p class="section-description">{{if .edit}}{{$v.T "users.form.edit_timing_hint"}}{{else}}{{$v.T "users.form.timing_hint"}}{{end}}</p>
   <div class="field-row">
     <div class="field">
@@ -87,7 +90,7 @@
   </div>
   {{end}}
 </fieldset>
-<details class="collapse form-panel" {{if or $f.Error .edit}}open{{end}}>
+<details class="collapse form-panel premium-disclosure" {{if or $f.Error .edit}}open{{end}}>
   <summary>{{$v.IconS "settings-2"}}<span>{{$v.T "users.form.advanced"}}</span></summary>
   <div class="collapse-body">
     <p class="section-description">{{$v.T "users.form.delivery_hint"}}</p>
@@ -116,7 +119,6 @@
       {{template "user_field" dict "v" $v "f" $f "key" "speed_up" "label" "users.form.speed_up" "hint" "users.form.speed_hint" "numeric" true}}
     </div>
     {{template "user_field" dict "v" $v "f" $f "key" "tags" "label" "users.form.tags" "hint" "users.tags_hint" "numeric" false}}
-    {{template "user_field" dict "v" $v "f" $f "key" "note" "label" "users.note" "hint" "" "numeric" false}}
   </div>
 </details>
 {{end}}

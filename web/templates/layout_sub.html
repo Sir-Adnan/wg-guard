@@ -7,6 +7,7 @@
 </head>
 <body class="publicsub-body">
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
+<div class="publicsub-ambience" aria-hidden="true"><span></span><span></span></div>
 <div class="publicsub-frame">
 <header class="publicsub-bar"><div class="brand"><span class="logo">{{.IconS "shield"}}</span><span>{{.T "app.name"}}</span></div>{{template "public-preferences" .}}</header>
 <main id="main" class="publicsub-main">{{block "subcontent" .}}{{end}}</main>

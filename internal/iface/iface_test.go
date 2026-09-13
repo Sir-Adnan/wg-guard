@@ -208,6 +208,24 @@ func TestCreateGeneratedProfilePolicies(t *testing.T) {
 	}
 }
 
+func TestNextAvailableNameUsesFirstFreeConfiguredSlot(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+	if _, err := svc.Create(ctx, CreateInput{Name: "awg0"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Create(ctx, CreateInput{Name: "awg2"}); err != nil {
+		t.Fatal(err)
+	}
+	name, err := svc.NextAvailableName(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "awg1" {
+		t.Fatalf("next interface name = %q, want awg1", name)
+	}
+}
+
 func TestCreateProfilePolicyRejectsConflictsAndEntropyFailure(t *testing.T) {
 	ctx := context.Background()
 	svc := newService(t, WithProfileEntropy(errorReader{}))

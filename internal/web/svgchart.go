@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"html/template"
@@ -15,6 +16,12 @@ type chartBucket struct {
 	Title string // full tooltip text, already localized
 	RX    int64  // bytes received
 	TX    int64  // bytes sent
+}
+
+type chartInspectorPoint struct {
+	X     float64    `json:"x"`
+	Y     []*float64 `json:"y"`
+	Title string     `json:"title"`
 }
 
 // Only plot geometry scales. HTML axes outside the SVG retain their CSS font
@@ -47,9 +54,23 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 	scale := niceMax(max)
 	plotW := float64(chartW)
 	plotH := float64(chartH)
+	points := make([]chartInspectorPoint, 0, len(buckets))
+	for i, bucket := range buckets {
+		x := plotW / 2
+		if len(buckets) > 1 {
+			x = plotW * float64(i) / float64(len(buckets)-1)
+		}
+		rxY := plotH * (1 - float64(bucket.RX)/float64(scale))
+		txY := plotH * (1 - float64(bucket.TX)/float64(scale))
+		points = append(points, chartInspectorPoint{X: x, Y: []*float64{&rxY, &txY}, Title: bucket.Title})
+	}
+	encodedPoints, err := json.Marshal(points)
+	if err != nil {
+		return ""
+	}
 
 	var sb strings.Builder
-	sb.WriteString(`<div class="traffic-plot"><div class="traffic-y-axis" aria-hidden="true">`)
+	sb.WriteString(`<div class="traffic-plot interactive-chart"><div class="traffic-y-axis" aria-hidden="true">`)
 	for i := 0; i <= 4; i++ {
 		val := scale/4*int64(4-i) + scale%4*int64(4-i)/4
 		sb.WriteString(`<span>` + compactBytes(val) + `</span>`)
@@ -59,9 +80,11 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 	sb.WriteString(strconv.Itoa(chartW))
 	sb.WriteByte(' ')
 	sb.WriteString(strconv.Itoa(chartH))
-	sb.WriteString(`" role="img" aria-label="`)
+	sb.WriteString(`" role="img" tabindex="0" data-chart-interactive data-chart-points="`)
+	sb.WriteString(html.EscapeString(string(encodedPoints)))
+	sb.WriteString(`" aria-label="`)
 	sb.WriteString(html.EscapeString(ariaLabel))
-	sb.WriteString(`" preserveAspectRatio="none" focusable="false">`)
+	sb.WriteString(`" preserveAspectRatio="none" focusable="true">`)
 
 	// Grid + y-axis labels (4 divisions of the nice-scaled max).
 	for i := 0; i <= 4; i++ {
@@ -96,6 +119,7 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 		sb.WriteString(`<path class="chart-area" d="` + rxPath.String() + `L` + f1(chartW) + ` ` + f1(plotH) + `L0 ` + f1(plotH) + `Z"/>`)
 	}
 	sb.WriteString(`<path class="chart-rx" d="` + rxPath.String() + `"/><path class="chart-tx" d="` + txPath.String() + `"/>`)
+	sb.WriteString(`<g class="chart-inspector" aria-hidden="true"><line data-chart-cursor x1="0" y1="0" x2="0" y2="240"/><circle class="chart-marker-rx" data-chart-marker="0" cx="0" cy="0" r="5"/><circle class="chart-marker-tx" data-chart-marker="1" cx="0" cy="0" r="5"/></g>`)
 	sb.WriteString(`</svg><div class="traffic-x-axis" aria-hidden="true">`)
 	step := (len(buckets) + 5) / 6
 	for i, bucket := range buckets {

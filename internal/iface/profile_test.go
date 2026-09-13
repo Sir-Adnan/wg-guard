@@ -96,9 +96,67 @@ func TestProfileGenerationDeterministicShape(t *testing.T) {
 			t.Fatalf("randomized H%d range outside policy: %d-%d", i+1, h.low, h.high)
 		}
 	}
-	if randomizedA.RandomTrailers || randomizedA.DisableCookies ||
+	if !randomizedA.RandomTrailers || !randomizedA.DisableCookies ||
 		randomizedA.I1 != "" || randomizedA.I2 != "" || randomizedA.I3 != "" || randomizedA.I4 != "" || randomizedA.I5 != "" {
-		t.Fatalf("randomized profile enabled unsafe/client-specific options: %+v", randomizedA)
+		t.Fatalf("randomized profile did not apply the approved advanced flags while keeping I1-I5 empty: %+v", randomizedA)
+	}
+}
+
+func TestSuggestedProfileUsesRequestedAdvancedValues(t *testing.T) {
+	generator := NewProfileGenerator(deterministicProfileEntropy())
+	profile, err := generator.Generate(ProfileSuggested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Jc != 5 || profile.Jmin != 10 || profile.Jmax != 50 ||
+		profile.S1 != 21 || profile.S2 != 28 || profile.S3 != 53 || profile.S4 != 12 ||
+		profile.H1 != awgparam.ScalarU32(1) || profile.H2 != awgparam.ScalarU32(2) ||
+		profile.H3 != awgparam.ScalarU32(3) || profile.H4 != awgparam.ScalarU32(4) ||
+		profile.ContentPaddingAddition.String() != "10-100" ||
+		profile.RekeyAfterTime.String() != "100-120" || profile.RekeyTimeout.String() != "3-7" ||
+		profile.RejectAfterTime.String() != "150-180" || profile.KeepaliveTimeout.String() != "5-15" ||
+		profile.MaxHandshakeAttempts.String() != "15-20" {
+		t.Fatalf("suggested profile values = %+v", profile)
+	}
+	if profile.HeaderProtectionKey == "" || !profile.RandomTrailers || !profile.DisableCookies {
+		t.Fatalf("suggested advanced fields are incomplete: %+v", profile)
+	}
+	if profile.I1 != "" || profile.I2 != "" || profile.I3 != "" || profile.I4 != "" || profile.I5 != "" {
+		t.Fatalf("suggested profile must keep iOS-incompatible signatures opt-in: %+v", profile)
+	}
+	if err := ValidateGeneratedProfile(ProfileSuggested, profile); err != nil {
+		t.Fatalf("suggested profile failed its policy validator: %v", err)
+	}
+	next, err := generator.Generate(ProfileSuggested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.HeaderProtectionKey == profile.HeaderProtectionKey {
+		t.Fatal("suggested profile reused its header protection key")
+	}
+}
+
+func TestOperationalProfilesPopulateAdvancedGeneration(t *testing.T) {
+	for _, policy := range []ProfilePolicy{ProfilePerformance, ProfileBalanced, ProfileResilient, ProfileSuggested, ProfileRandomized} {
+		t.Run(string(policy), func(t *testing.T) {
+			profile, err := NewProfileGenerator(deterministicProfileEntropy()).Generate(policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !profile.Enabled || profile.S3 == 0 || profile.S4 == 0 || profile.HeaderProtectionKey == "" ||
+				profile.ContentPaddingAddition.IsZero() || profile.RekeyAfterTime.IsZero() ||
+				profile.RekeyTimeout.IsZero() || profile.RejectAfterTime.IsZero() ||
+				profile.KeepaliveTimeout.IsZero() || profile.MaxHandshakeAttempts.IsZero() ||
+				!profile.RandomTrailers || !profile.DisableCookies {
+				t.Fatalf("%s did not populate the complete advanced set: %+v", policy, profile)
+			}
+			if profile.I1 != "" || profile.I2 != "" || profile.I3 != "" || profile.I4 != "" || profile.I5 != "" {
+				t.Fatalf("%s populated I1-I5 without explicit user input: %+v", policy, profile)
+			}
+			if err := ValidateGeneratedProfile(policy, profile); err != nil {
+				t.Fatalf("%s profile validation: %v", policy, err)
+			}
+		})
 	}
 }
 
@@ -173,7 +231,7 @@ func TestIntInclusiveExceptMapsExcludedValueWithoutRetry(t *testing.T) {
 }
 
 func TestProfileGenerationReturnsEntropyErrors(t *testing.T) {
-	for _, policy := range []ProfilePolicy{ProfileRecommended, ProfileRandomized} {
+	for _, policy := range []ProfilePolicy{ProfileRecommended, ProfilePerformance, ProfileBalanced, ProfileResilient, ProfileSuggested, ProfileRandomized} {
 		profile, err := NewProfileGenerator(errorReader{}).Generate(policy)
 		if err == nil {
 			t.Fatalf("%s accepted failed entropy", policy)

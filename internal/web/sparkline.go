@@ -1,9 +1,11 @@
 package web
 
 import (
+	"encoding/json"
 	"html"
 	"html/template"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,8 +19,10 @@ const (
 )
 
 type sparkSeries struct {
-	Class  string
-	Values []telemetry.Metric
+	Class   string
+	Label   string
+	Values  []telemetry.Metric
+	Display []string
 }
 
 var sparkClasses = map[string]bool{
@@ -81,11 +85,18 @@ func timedSparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64,
 	} else if minValue == maxValue {
 		maxValue *= 2
 	}
+	points := sparkInspectorPoints(series, maxLen, maxValue, times)
+	encodedPoints, err := json.Marshal(points)
+	if err != nil {
+		return ""
+	}
 
 	var b strings.Builder
-	b.WriteString(`<svg class="sparkline" viewBox="0 0 320 100" role="img" aria-label="`)
+	b.WriteString(`<svg class="sparkline" viewBox="0 0 320 100" role="img" tabindex="0" data-chart-interactive data-chart-points="`)
+	b.WriteString(html.EscapeString(string(encodedPoints)))
+	b.WriteString(`" aria-label="`)
 	b.WriteString(html.EscapeString(ariaLabel))
-	b.WriteString(`" preserveAspectRatio="none" focusable="false">`)
+	b.WriteString(`" preserveAspectRatio="none" focusable="true">`)
 	for _, y := range []int{6, 50, 94} {
 		b.WriteString(`<path class="spark-grid" d="M6 ` + f1(float64(y)) + `H314"/>`)
 	}
@@ -111,8 +122,65 @@ func timedSparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64,
 			}
 		}
 	}
+	b.WriteString(`<g class="chart-inspector" aria-hidden="true"><line data-chart-cursor x1="0" y1="6" x2="0" y2="94"/>`)
+	for index := range series {
+		b.WriteString(`<circle data-chart-marker="` + strconv.Itoa(index) + `" cx="0" cy="0" r="4"/>`)
+	}
+	b.WriteString(`</g>`)
 	b.WriteString(`</svg>`)
 	return template.HTML(b.String())
+}
+
+func sparkInspectorPoints(series []sparkSeries, maxLen int, maxValue float64, times []time.Time) []chartInspectorPoint {
+	points := make([]chartInspectorPoint, 0, maxLen)
+	plotW := float64(sparkWidth - 2*sparkPad)
+	plotH := float64(sparkHeight - 2*sparkPad)
+	if len(times) > maxLen {
+		times = times[len(times)-maxLen:]
+	}
+	timed := len(times) == maxLen && maxLen > 1 && times[maxLen-1].After(times[0])
+	for index := 0; index < maxLen; index++ {
+		x := float64(sparkWidth) / 2
+		if maxLen > 1 {
+			x = sparkPad + plotW*float64(index)/float64(maxLen-1)
+		}
+		if timed {
+			x = sparkPad + plotW*float64(times[index].Sub(times[0]))/float64(times[maxLen-1].Sub(times[0]))
+		}
+		point := chartInspectorPoint{X: x, Y: make([]*float64, len(series))}
+		parts := make([]string, 0, len(series)+1)
+		if len(times) == maxLen {
+			parts = append(parts, times[index].UTC().Format("15:04:05 UTC"))
+		}
+		for seriesIndex, item := range series {
+			values := newestSparkValues(item.Values, maxLen)
+			offset := maxLen - len(values)
+			valueIndex := index - offset
+			if valueIndex < 0 || valueIndex >= len(values) || !validSparkMetric(values[valueIndex]) {
+				continue
+			}
+			y := sparkPad + plotH*(1-math.Min(values[valueIndex].Value, maxValue)/maxValue)
+			yCopy := y
+			point.Y[seriesIndex] = &yCopy
+			display := strconv.FormatFloat(values[valueIndex].Value, 'f', 1, 64)
+			if len(item.Display) == len(item.Values) {
+				displayIndex := len(item.Display) - len(values) + valueIndex
+				if displayIndex >= 0 && displayIndex < len(item.Display) && item.Display[displayIndex] != "" {
+					display = item.Display[displayIndex]
+				}
+			}
+			label := item.Label
+			if label == "" {
+				label = "Value"
+			}
+			parts = append(parts, label+": "+display)
+		}
+		if len(parts) > 0 {
+			point.Title = strings.Join(parts, " · ")
+			points = append(points, point)
+		}
+	}
+	return points
 }
 
 func newestSparkValues(values []telemetry.Metric, limit int) []telemetry.Metric {

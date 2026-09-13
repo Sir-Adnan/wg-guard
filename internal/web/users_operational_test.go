@@ -48,9 +48,59 @@ func TestUserFormPersistenceFailurePreservesInput(t *testing.T) {
 	if _, err := e.db.Exec(`CREATE TRIGGER reject_user BEFORE INSERT ON users BEGIN SELECT RAISE(ABORT, 'forced write failure'); END`); err != nil {
 		t.Fatal(err)
 	}
-	rec := e.post("/users", url.Values{"username": {"preserved-user"}, "display_name": {"Preserved display"}}, cookie, deriveCSRF(cookie.Value))
-	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), `value="Preserved display"`) || strings.Contains(rec.Body.String(), "forced write failure") {
+	rec := e.post("/users", url.Values{"username": {"preserved-user"}, "note": {"Preserved\nmultiline note"}}, cookie, deriveCSRF(cookie.Value))
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "Preserved\nmultiline note") || strings.Contains(rec.Body.String(), "forced write failure") {
 		t.Fatal("persistence failure must return safe retry form")
+	}
+}
+
+func TestNewUserFormDefaultsToUnlimitedWithOneReadyConfig(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	rec := e.get("/users/new", cookie)
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(body, `name="device_limit"`) ||
+		!strings.Contains(body, `name="auto_devices" value="1" checked`) {
+		t.Fatalf("new user defaults missing: %d %s", rec.Code, body)
+	}
+	if strings.Contains(body, `name="device_limit" type="text" dir="ltr" inputmode="numeric" value="1"`) ||
+		strings.Contains(body, `name="device_limit" type="text" dir="ltr" inputmode="numeric" value="3"`) {
+		t.Fatal("device limit should be blank by default")
+	}
+}
+
+func TestUserFormUsesUsernameOnlyAndMultilineNote(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	body := e.get("/users/new", cookie).Body.String()
+	if strings.Contains(body, `name="display_name"`) {
+		t.Fatal("display name remains in the panel form")
+	}
+	if !strings.Contains(body, `<textarea`) || !strings.Contains(body, `name="note"`) {
+		t.Fatal("note must be a multiline textarea")
+	}
+	userID := createUserViaForm(t, e, cookie, "legacy-user")
+	if _, err := e.db.Exec(`UPDATE users SET display_name='Legacy Alias' WHERE id=?`, userID); err != nil {
+		t.Fatal(err)
+	}
+	detail := e.get("/users/"+userID, cookie).Body.String()
+	if strings.Contains(detail, "Legacy Alias") {
+		t.Fatal("legacy display name remains visible in the panel")
+	}
+}
+
+func TestUsersPageDeclaresLiveSearchAndHiddenZeroSelection(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	createUserViaForm(t, e, cookie, "alice")
+	body := e.get("/users", cookie).Body.String()
+	for _, required := range []string{`hx-trigger="input changed delay:250ms from:#users-search`, `hx-target="#users-results"`, `id="users-results"`, `data-bulk-bar`, `hidden`} {
+		if !strings.Contains(body, required) {
+			t.Fatalf("users page missing %q", required)
+		}
 	}
 }
 
@@ -70,15 +120,18 @@ func TestUserFormsRetainAllSubmittedValues(t *testing.T) {
 	cookie := e.loginEN("owner")
 	id := createUserViaForm(t, e, cookie, "existing")
 	for _, path := range []string{"/users", "/users/" + id + "/edit", "/users/bulk"} {
-		form := url.Values{"username": {"new-name"}, "display_name": {"Keep this name"}, "note": {"Keep this note"}, "tags": {"one,  two"}, "traffic_limit_value": {"bad-quota"}, "traffic_limit_unit": {"mb"}, "duration_value": {"bad-duration"}, "duration_unit": {"hours"}, "device_limit": {"bad-limit"}, "speed_down": {"bad-down"}, "speed_up": {"bad-up"}, "prefix": {"batch-"}, "count": {"bad-count"}, "start_index": {"bad-index"}, "start_policy": {"first_connection"}}
+		form := url.Values{"username": {"new-name"}, "note": {"Keep this\nnote"}, "tags": {"one,  two"}, "traffic_limit_value": {"bad-quota"}, "traffic_limit_unit": {"mb"}, "duration_value": {"bad-duration"}, "duration_unit": {"hours"}, "device_limit": {"bad-limit"}, "speed_down": {"bad-down"}, "speed_up": {"bad-up"}, "prefix": {"batch-"}, "count": {"bad-count"}, "start_index": {"bad-index"}, "start_policy": {"first_connection"}}
 		rec := e.post(path, form, cookie, deriveCSRF(cookie.Value))
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Errorf("%s status = %d; want validation form", path, rec.Code)
 		}
-		for _, value := range []string{"Keep this name", "Keep this note", "one,  two", "bad-quota", "bad-duration", "bad-limit", "bad-down", "bad-up"} {
+		for _, value := range []string{"one,  two", "bad-quota", "bad-duration", "bad-limit", "bad-down", "bad-up"} {
 			if !strings.Contains(rec.Body.String(), `value="`+value+`"`) {
 				t.Errorf("%s lost %q", path, value)
 			}
+		}
+		if !strings.Contains(rec.Body.String(), "Keep this\nnote") {
+			t.Errorf("%s lost multiline note", path)
 		}
 		if !strings.Contains(rec.Body.String(), `aria-invalid="true"`) {
 			t.Errorf("%s missing field feedback", path)

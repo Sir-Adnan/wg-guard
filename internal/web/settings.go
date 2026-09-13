@@ -147,6 +147,9 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 			if f.Numeric {
 				f.Range = fmt.Sprintf("%d–%d", def.Min, def.Max)
 			}
+			if f.Name == "default_device_lim" && f.Default == "0" {
+				f.Default = ""
+			}
 			var err error
 			if f.Secret {
 				var secret string
@@ -157,6 +160,9 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 				value, err = s.Settings.Get(r.Context(), spec.key)
 				if err == nil {
 					f.Value = settingsValue(value)
+					if f.Name == "default_device_lim" && f.Value == "0" {
+						f.Value = ""
+					}
 				}
 			}
 			f.Unavailable = err != nil || !found
@@ -273,7 +279,11 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		case "int":
 			raw := strings.TrimSpace(r.PostFormValue(spec.form))
 			if raw == "" {
-				continue // empty integer inputs keep the stored value
+				if spec.key == "users.default_device_limit" {
+					value = 0
+					break
+				}
+				continue // other empty integer inputs keep the stored value
 			}
 			n, err := strconv.Atoi(raw)
 			if err != nil {

@@ -270,9 +270,6 @@ func (s *Server) createDefaults(r *http.Request) (quotaGB, durMonths, devLimit i
 	quotaGB, _ = s.Settings.GetInt(ctx, "users.default_quota_gb")
 	durMonths, _ = s.Settings.GetInt(ctx, "users.default_duration_months")
 	devLimit, _ = s.Settings.GetInt(ctx, "users.default_device_limit")
-	if devLimit <= 0 {
-		devLimit = 1
-	}
 	ifaceID, _ = s.Settings.GetString(ctx, "users.default_iface_id")
 	ifaces := s.ifacesForForm(r)
 	found := false
@@ -311,7 +308,9 @@ func (s *Server) newUserFormData(r *http.Request) userFormData {
 	data.DurationPresets = s.settingList(r, "users.duration_presets_months")
 	data.DefaultQuotaGB, data.DefaultDurMonths, data.DefaultDeviceLim, data.DefaultIfaceID = s.createDefaults(r)
 	data.Form = userOperationalForm(nil)
-	data.Form.Values["device_limit"] = strconv.Itoa(data.DefaultDeviceLim)
+	if data.DefaultDeviceLim > 0 {
+		data.Form.Values["device_limit"] = strconv.Itoa(data.DefaultDeviceLim)
+	}
 	data.Form.Values["interface"] = data.DefaultIfaceID
 	if data.DefaultQuotaGB > 0 {
 		data.Form.Values["traffic_limit_value"] = strconv.Itoa(data.DefaultQuotaGB)
@@ -522,7 +521,9 @@ func durationFromForm(r *http.Request) (*int64, error) {
 // (tri-state PATCH semantics, api.md).
 func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, error) {
 	in := user.Input{}
-	in.DisplayName = strPtr(r.PostFormValue("display_name"))
+	if _, submitted := r.PostForm["display_name"]; submitted {
+		in.DisplayName = strPtr(r.PostFormValue("display_name"))
+	}
 	in.Note = strPtr(r.PostFormValue("note"))
 	in.Tags = parseTags(r.PostFormValue("tags"))
 

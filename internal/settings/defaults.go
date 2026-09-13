@@ -181,7 +181,7 @@ func Defaults() []Definition {
 		// screen manages their values. default_quota_gb = 0 means "no traffic
 		// preset preselected"; default_duration_months = 0 means the create
 		// form defaults to no-expiry.
-		{Key: "users.default_device_limit", Kind: KindInt, Default: 3, Min: 1, Max: 100,
+		{Key: "users.default_device_limit", Kind: KindInt, Default: 0, Min: 0, Max: 100,
 			Category: "general"},
 		{Key: "users.default_iface_id", Kind: KindString, Default: "", Category: "general",
 			Validator: func(v any) error {

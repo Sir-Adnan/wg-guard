@@ -16,12 +16,12 @@ constraints. Preserve proven backend semantics and security while replacing weak
 compositions. No page, workflow, dialog or state may remain visually legacy at closure.
 
 Premium means precise hierarchy, spacing, typography, consistency, usability and restraint.
-Shadcn-like neutral surfaces carry the product: white/zinc light, near-black `#09090b` dark,
-monochrome primary actions, restrained semantic colors, no purple identity. Apple/iOS-like polish
-includes refined depth and responsive feedback. Glass, blur, gradients, shadows and highlights may
-support dashboard/status cards, overlays, auth/onboarding, public surfaces and other useful focal
-points, with readable fallbacks. Effects enhance hierarchy; avoid neon, excessive glow/blur,
-decorative card movement and constant animation.
+Shadcn-like neutral surfaces carry the product: cool white light and near-black dark, with a
+recognizable cyan-to-indigo accent, distinct semantic colors and readable contrast. Apple/iOS-like
+polish includes refined depth and responsive feedback. Glass, blur, gradients, shadows and
+highlights may support dashboard/status cards, operational forms, overlays, auth/onboarding, public
+surfaces and other useful focal points, with readable fallbacks. Effects enhance hierarchy; avoid
+neon, excessive glow/blur, decorative motion and continuously moving chrome.
 
 Three layers keep the system maintainable:
 
@@ -121,7 +121,9 @@ process pressure, host RX/TX, VPN rates/traffic and node/AWG health according to
 
 Use lightweight server-rendered SVG with shared chart tokens, readable labels/units/legends,
 fixed percentage scales and honest time ranges/gaps. Charts have textual summaries and accessible
-names; detail must be obtainable without hover. Line styles/labels distinguish RX/TX. Zero, empty,
+names. Pointer inspection shows the exact sample at a position; focus plus Arrow/Home/End exposes
+the same values to keyboard users, and native detail tables remain the non-hover source of truth.
+Line styles/labels distinguish RX/TX. Zero, empty,
 unavailable, stale and partial data are distinct; refresh preserves reading/focus and geometry.
 Do not imply long resource history from traffic rollups or invent new telemetry contracts for
 visual symmetry. Disk and health can use compact meters/status instead of decorative line charts.
@@ -173,6 +175,17 @@ input modes so server validation can redisplay exact invalid input. Field errors
 summary accompany a failed save; fresh secrets are cleared with explicit retry guidance. Profile
 generation remains server-owned and sealed; changing a generated value changes its provenance.
 Plain mode hides inactive parameter controls when JavaScript is available, with a native fallback.
+
+The interface form presents Standard, Performance, Balanced, Resilient, Suggested and Automatic
+profiles as a responsive selector. New forms suggest the first free `awgN`; Suggested is the
+initial enhanced profile and exposes its complete advanced set while keeping I1–I5 empty. The user
+form uses username as the sole visible identity, supports multiline notes, generates an optional
+eight-character word-plus-digits username, keeps quota/duration shortcuts in compact scrollable
+rows, and treats a blank device limit as unlimited while creating one ready configuration by
+default. A configured default device limit is shown and governs provisioning. User filtering is
+live with a native submit fallback, and bulk controls do not appear until at least one visible user
+is selected. The public subscription is a standalone connection pass with status, usage, expiry,
+device delivery and setup guidance rather than an admin-page derivative.
 
 `collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
 cards on phones. Name/edit links, availability, exact technical units and action menus have stable

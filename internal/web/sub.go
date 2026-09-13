@@ -127,7 +127,7 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 		data.PlanName = p.Name
 		data.PlanKnown = true
 	}
-	data.U = &subUserView{Username: u.Username, DisplayName: u.DisplayName, Status: u.Status,
+	data.U = &subUserView{Username: u.Username, Status: u.Status,
 		TrafficLimitBytes: u.TrafficLimitBytes, TrafficUsedRX: u.TrafficUsedRX, TrafficUsedTX: u.TrafficUsedTX,
 		ExpiresAt: u.ExpiresAt, DurationSeconds: u.DurationSeconds}
 	data.Used = u.TrafficUsedRX + u.TrafficUsedTX
@@ -274,7 +274,7 @@ type subDevice struct {
 // Public templates receive only customer-facing account fields and keyless
 // device summaries. Administrative notes and encrypted key carriers stay out.
 type subUserView struct {
-	Username, DisplayName        string
+	Username                     string
 	Status                       domain.UserStatus
 	TrafficLimitBytes            *int64
 	TrafficUsedRX, TrafficUsedTX int64

@@ -1,10 +1,10 @@
 {{define "dash_live"}}
 <div id="live" data-pause-hidden hx-get="/dashboard/live" hx-trigger="every 10s" hx-swap="outerHTML">
   <div class="metric-grid dashboard-summary">
-    <div class="metric"><span class="label">{{.IconS "users"}}{{.T "dash.users_total"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Total}}{{else}}—{{end}}</strong></div>
-    <div class="metric"><span class="label">{{.IconS "activity"}}{{.T "dash.users_active"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Active}}{{else}}—{{end}}</strong><span class="meta">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Waiting}} · {{.T "status.waiting_first_connection"}}{{end}}</span></div>
-    <div class="metric"><span class="label">{{.IconS "wifi"}}{{.T "dash.users_online"}}</span><strong class="value ltr-data">{{if .Data.Live.OnlineAvailable}}{{.N .Data.Live.Online}}{{else}}—{{end}}</strong><span class="meta">{{.T "dash.online_window" .Data.Live.OnlineWindow}}</span></div>
-    <div class="metric"><span class="label">{{.IconS "zap"}}{{.T "dash.traffic_total"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.B .Data.Live.TrafficTotal}}{{else}}—{{end}}</strong></div>
+    <div class="metric metric--cyan"><span class="metric-icon" aria-hidden="true">{{.IconS "users"}}</span><div><span class="label">{{.T "dash.users_total"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Total}}{{else}}—{{end}}</strong></div></div>
+    <div class="metric metric--violet"><span class="metric-icon" aria-hidden="true">{{.IconS "activity"}}</span><div><span class="label">{{.T "dash.users_active"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Active}}{{else}}—{{end}}</strong><span class="meta">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Waiting}} · {{.T "status.waiting_first_connection"}}{{end}}</span></div></div>
+    <div class="metric metric--emerald"><span class="metric-icon" aria-hidden="true">{{.IconS "wifi"}}</span><div><span class="label">{{.T "dash.users_online"}}</span><strong class="value ltr-data">{{if .Data.Live.OnlineAvailable}}{{.N .Data.Live.Online}}{{else}}—{{end}}</strong><span class="meta">{{.T "dash.online_window" .Data.Live.OnlineWindow}}</span></div></div>
+    <div class="metric metric--amber"><span class="metric-icon" aria-hidden="true">{{.IconS "zap"}}</span><div><span class="label">{{.T "dash.traffic_total"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.B .Data.Live.TrafficTotal}}{{else}}—{{end}}</strong></div></div>
   </div>
   {{if .Data.Live.CountersAvailable}}
   <div class="dashboard-statuses">
@@ -14,7 +14,7 @@
   </div>
   {{else}}<p class="callout callout--warn">{{.T "dash.counters_unavailable"}}</p>{{end}}
   {{$t := .Data.Live.Telemetry}}
-  <section class="live-overview" id="telemetry-card" data-health="{{$t.HealthCode}}" aria-labelledby="live-title">
+  <section class="live-overview card" id="telemetry-card" data-health="{{$t.HealthCode}}" aria-labelledby="live-title">
     <div class="section-head">
       <div><h2 id="live-title">{{.T "dash.live_health"}}</h2><p>{{.T "dash.live_source"}}</p></div>
       <span class="badge {{$t.HealthClass}}"><span class="dot"></span>{{$t.HealthLabel}}</span>
@@ -25,7 +25,7 @@
     <div class="resource-grid">
       {{range $t.Charts}}
       <section class="card resource-card">
-        <h3>{{$.T .TitleKey}}</h3>
+    <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{if eq .TitleKey "dash.cpu"}}{{$.IconS "cpu"}}{{else if eq .TitleKey "dash.memory"}}{{$.IconS "memory-stick"}}{{else if eq .TitleKey "dash.activity"}}{{$.IconS "users"}}{{else}}{{$.IconS "activity"}}{{end}}</span><h3>{{$.T .TitleKey}}</h3></div>
         {{if or (eq .TitleKey "dash.host_network") (eq .TitleKey "dash.vpn_live") (eq .TitleKey "dash.activity")}}
         <div class="resource-pair">
           <div><span class="legend-item"><span class="swatch"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.users_online"}}{{else}}{{$.T "dash.rx"}}{{end}}</span><strong class="ltr-data">{{if .Value}}{{.Value}}{{else}}—{{end}}</strong></div>
@@ -33,12 +33,12 @@
         </div>
         {{else}}<strong class="resource-value ltr-data">{{if .Value}}{{.Value}}{{else}}—{{end}}</strong>{{end}}
         <p class="resource-meta">{{if .Meta}}<bdi>{{.Meta}}</bdi>{{else if .Percent}}{{$.T "dash.percent_scale"}}{{else}}{{$.T "dash.live_window"}}{{end}}</p>
-        {{if .SVG}}<div class="spark-wrap">{{.SVG}}</div>{{else}}<div class="spark-empty">{{$.T "dash.metric_unavailable"}}</div>{{end}}
+    {{if .SVG}}<div class="spark-wrap interactive-chart">{{.SVG}}</div>{{else}}<div class="spark-empty">{{$.T "dash.metric_unavailable"}}</div>{{end}}
         <p class="chart-period ltr-data">{{$t.Window}}</p>
       </section>
       {{end}}
       <section class="card resource-card resource-disk">
-        <h3>{{.T "dash.disk"}}</h3><strong class="resource-value ltr-data">{{if $t.DiskValue}}{{$t.DiskValue}}{{else}}—{{end}}</strong>
+    <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{.IconS "hard-drive"}}</span><h3>{{.T "dash.disk"}}</h3></div><strong class="resource-value ltr-data">{{if $t.DiskValue}}{{$t.DiskValue}}{{else}}—{{end}}</strong>
         {{if $t.DiskFree}}<p class="resource-meta"><bdi>{{.T "dash.disk_free" $t.DiskFree}}</bdi></p><div class="meter {{$t.DiskClass}}" aria-hidden="true"><span class="bar"><span></span></span></div>{{else}}<p class="resource-meta">{{.T "dash.metric_unavailable"}}</p>{{end}}
         <dl class="resource-facts">
           <dt>{{.T "dash.uptime"}}</dt><dd><bdi>{{if $t.Uptime}}{{$t.Uptime}}{{else}}—{{end}}</bdi></dd>

@@ -101,8 +101,46 @@ func TestProfilePreviewRecommendedAndRandomized(t *testing.T) {
 			t.Fatalf("randomized %s = %q", key, randomized.Fields[key])
 		}
 	}
-	if randomized.Fields["obf_random_trailers"] != "" || randomized.Fields["obf_disable_cookies"] != "" {
-		t.Fatalf("unsafe flags enabled: %+v", randomized.Fields)
+	if randomized.Fields["obf_random_trailers"] != "1" || randomized.Fields["obf_disable_cookies"] != "1" {
+		t.Fatalf("approved advanced flags not enabled: %+v", randomized.Fields)
+	}
+}
+
+func TestProfilePreviewOffersOperationalPresetSet(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.login("owner")
+	csrf := deriveCSRF(cookie.Value)
+	for _, policy := range []iface.ProfilePolicy{iface.ProfilePerformance, iface.ProfileBalanced, iface.ProfileResilient, iface.ProfileSuggested, iface.ProfileRandomized} {
+		rec := e.post("/interfaces/profile-preview", url.Values{"policy": {string(policy)}}, cookie, csrf)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s preview: %d %s", policy, rec.Code, rec.Body.String())
+		}
+		preview := decodeProfilePreview(t, rec.Body.String())
+		if preview.Policy != string(policy) || preview.Token == "" || preview.Fields["obf_s3"] == "" ||
+			preview.Fields["obf_hpk"] == "" || preview.Fields["obf_random_trailers"] != "1" ||
+			preview.Fields["obf_disable_cookies"] != "1" {
+			t.Fatalf("%s preview is incomplete: %+v", policy, preview)
+		}
+		for n := 1; n <= 5; n++ {
+			if preview.Fields["obf_i"+strconv.Itoa(n)] != "" {
+				t.Fatalf("%s populated I%d", policy, n)
+			}
+		}
+	}
+}
+
+func TestNewInterfacePageSuggestsFirstFreeName(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	if _, err := e.ifaces.Create(t.Context(), iface.CreateInput{Name: "awg0"}); err != nil {
+		t.Fatal(err)
+	}
+	cookie := e.loginEN("owner")
+	rec := e.get("/interfaces/new", cookie)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `name="name" dir="ltr"`) ||
+		!strings.Contains(rec.Body.String(), `value="awg1"`) {
+		t.Fatalf("new interface did not suggest awg1: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

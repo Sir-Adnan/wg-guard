@@ -52,6 +52,7 @@
     $$("[data-bulk-action] button[type='submit']").forEach(button => { button.disabled = n === 0; });
   }
   updateBulkSelection();
+  document.body.addEventListener("htmx:afterSwap", updateBulkSelection);
   document.addEventListener("change", (e) => {
     const all = e.target.id === "sel-all";
     if (all) $$(".js-sel").forEach((c) => { c.checked = e.target.checked; });
@@ -127,12 +128,17 @@
    * browser only requests a policy and populates the returned form values. */
   const obfToggle = $("[data-obf-toggle]");
   if (obfToggle) {
-    const obfBox = obfToggle.closest(".collapse-body");
+  const obfBox = obfToggle.closest("[data-obf-box]") || obfToggle.closest(".collapse-body");
     const profilePolicy = $("[data-profile-policy]");
     const profileToken = $("[data-profile-token]");
     const profileLabel = $('[data-profile-label]');
     const syncPolicyLabel = () => {
-      if (profileLabel) profileLabel.textContent = profileLabel.dataset['policy' + (profilePolicy?.value || 'plain').replace(/^./, c => c.toUpperCase())] || profileLabel.dataset.policyCustom;
+    const policy = profilePolicy?.value || 'plain';
+    if (profileLabel) profileLabel.textContent = profileLabel.dataset['policy' + policy.replace(/^./, c => c.toUpperCase())] || profileLabel.dataset.policyCustom;
+    $$('[data-generate-obf],[data-profile-plain]', obfBox).forEach(button => {
+      const selected = button.hasAttribute('data-profile-plain') ? policy === 'plain' : button.dataset.generateObf === policy;
+      button.setAttribute('aria-pressed', String(selected));
+    });
     };
     let applyingProfile = false;
     let generatingProfile = false;
@@ -152,6 +158,8 @@
         return;
       }
       generatingProfile = true;
+      obfBox?.classList.add('is-generating');
+      obfBox?.setAttribute('aria-busy', 'true');
       const buttons = $$('[data-generate-obf]', obfBox);
       buttons.forEach((button) => { button.disabled = true; });
       try {
@@ -171,7 +179,7 @@
         obfToggle.checked = true;
         sync();
         for (const [name, value] of Object.entries(payload.fields)) {
-          const input = obfBox.querySelector('input[name="' + name + '"]');
+    const input = obfBox.querySelector('input[name="' + name + '"]') || obfToggle.form?.querySelector('[name="' + name + '"]');
           if (!input) continue;
           if (input.type === "checkbox") input.checked = value === "1";
           else input.value = value;
@@ -180,31 +188,48 @@
         if (profileToken) profileToken.value = payload.token;
         syncPolicyLabel();
         const advanced = $('#awg-advanced');
-        if (advanced && policy === 'randomized') advanced.open = true;
+    if (advanced) advanced.open = true;
       } catch {
         toast(source?.dataset.generationError || "Error", "err");
       } finally {
         applyingProfile = false;
         generatingProfile = false;
+        obfBox?.classList.remove('is-generating');
+        obfBox?.removeAttribute('aria-busy');
         buttons.forEach((button) => { button.disabled = false; });
       }
     };
 
+  const clearProfile = () => {
+    applyingProfile = true;
+    obfToggle.checked = false;
+    obfBox?.querySelectorAll('#obf-fields input').forEach(input => {
+      if (input.type === 'checkbox') input.checked = false;
+      else input.value = '';
+    });
+    if (profilePolicy) profilePolicy.value = 'plain';
+    if (profileToken) profileToken.value = '';
     sync();
+    syncPolicyLabel();
+    applyingProfile = false;
+  };
+
+    sync();
+  syncPolicyLabel();
     obfToggle.addEventListener("change", () => {
       sync();
       if (applyingProfile) return;
       if (!obfToggle.checked) {
         if (profilePolicy) profilePolicy.value = "plain";
         if (profileToken) profileToken.value = "";
-      syncPolicyLabel();
+    syncPolicyLabel();
         return;
       }
       if (profilePolicy) profilePolicy.value = "custom";
       if (profileToken) profileToken.value = "";
       syncPolicyLabel();
-      const recommended = obfBox.querySelector('[data-generate-obf="recommended"]');
-      generate("recommended", recommended);
+    const suggested = obfBox.querySelector('[data-generate-obf="suggested"]');
+    generate("suggested", suggested);
     });
 
     const markCustom = (event) => {
@@ -216,11 +241,21 @@
     obfBox.addEventListener("input", markCustom);
     obfBox.addEventListener("change", markCustom);
     obfBox.addEventListener("click", (event) => {
+    const plain = event.target.closest("[data-profile-plain]");
+    if (plain) {
+    event.preventDefault();
+    clearProfile();
+    return;
+    }
       const button = event.target.closest("[data-generate-obf]");
       if (!button) return;
       event.preventDefault();
       generate(button.dataset.generateObf, button);
     });
+  if (obfBox.dataset.autoloadProfile) {
+    const policy = obfBox.dataset.autoloadProfile;
+    generate(policy, obfBox.querySelector('[data-generate-obf="' + policy + '"]'));
+  }
   }
 
   /* ---------- preset chips (quota / duration quick fill) ---------- */
@@ -246,10 +281,8 @@
 
   /* ---------- username generator ---------- */
 
-  const WORDS = ("amber,azure,brave,calm,coral,cosmo,crimson,dawn,delta,dune,eager,echo,ember," +
-    "falcon,fjord,garnet,golden,harbor,iris,ivory,jade,lagoon,lunar,maple,meadow,nebula," +
-    "nimbus,noble,ocean,onyx,opal,orbit,pearl,polar,quartz,quiet,raven,river,sage,solar," +
-    "sprite,storm,tidal,topaz,umber,velvet,zephyr,zenith").split(",");
+    const WORDS = ("amber,azure,brave,coral,cosmo,delta,eager,ember,fjord,lunar,maple,misty," +
+      "noble,ocean,pearl,polar,quiet,raven,river,solar,storm,tidal,topaz,umber,vivid,zesty").split(",");
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   document.addEventListener("click", (e) => {
@@ -258,7 +291,8 @@
     e.preventDefault();
     const input = document.querySelector(btn.dataset.generate);
     if (!input || input.disabled) return;
-    input.value = pick(WORDS) + "-" + pick(WORDS) + "-" + Math.floor(Math.random() * 90 + 10);
+      input.value = pick(WORDS) + String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
     input.focus();
   });
 

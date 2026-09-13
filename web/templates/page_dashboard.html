@@ -1,8 +1,8 @@
 {{define "title"}}{{.T "dash.title"}}{{end}}
 {{define "content"}}
 <div class="dashboard-page">
-  <div class="page-head">
-    <div><h1>{{.T "dash.title"}}</h1><p>{{.T "dash.subtitle"}}</p></div>
+  <div class="page-head page-head--hero dashboard-hero">
+    <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "layout-dashboard"}}</span><div><span class="eyebrow">{{.T "dash.overview"}}</span><h1>{{.T "dash.title"}}</h1><p>{{.T "dash.subtitle"}}</p></div></div>
     {{if .Data.Allowed}}<span class="badge">{{.IconS "server"}}<bdi>{{.Data.NodeID}}</bdi></span>{{end}}
   </div>
   {{if .Data.Allowed}}
@@ -29,6 +29,7 @@
   <div class="empty card card--pad"><span class="empty-icon">{{.Icon "shield"}}</span><h2>{{.T "dash.access_limited"}}</h2><p>{{.T "dash.access_limited_hint"}}</p></div>
   {{end}}
 </div>
+{{if .Data.Allowed}}<script type="module" src="{{.A "/js/charts.js"}}"></script>{{end}}
 {{end}}
 
 {{define "dash_history"}}

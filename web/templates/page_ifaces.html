@@ -1,9 +1,13 @@
 {{define "title"}}{{.T "ifaces.title"}}{{end}}
 {{define "content"}}
-<div class="page-head">
-  <div>
+<div class="page-head page-head--hero entity-hero">
+  <div class="page-title-cluster">
+    <span class="page-title-icon" aria-hidden="true">{{.Icon "network"}}</span>
+    <div>
+    <span class="eyebrow">{{.T "ifaces.workspace"}}</span>
     <h1>{{.T "ifaces.title"}}</h1>
     <p>{{.T "ifaces.subtitle"}}</p>
+    </div>
   </div>
   {{if .Can "interfaces.write"}}
   <div class="actions">
@@ -14,7 +18,7 @@
 
 {{if .Data.Rows}}
 <div class="collection-head"><div><span class="eyebrow">{{.T "ifaces.list_hint"}}</span><h2>{{len .Data.Rows}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.Data.Enabled}} {{.T "forms.enabled"}}</span></div>
-<div class="table-wrap collection">
+<div class="table-wrap collection entity-collection">
   <table class="table table--cards entity-table ifaces-table">
     <thead>
       <tr>
@@ -32,9 +36,9 @@
   </table>
 </div>
 {{else}}
-<div class="table-wrap collection">
-  <div class="empty">
-    {{.Icon "network"}}
+<div class="table-wrap collection empty-collection">
+  <div class="empty empty-stage">
+    <span class="empty-visual" aria-hidden="true">{{.Icon "network"}}</span>
     <h3>{{.T "ifaces.empty.title"}}</h3>
     <p>{{.T "ifaces.empty.desc"}}</p>
     {{if .Can "interfaces.write"}}<a class="btn btn--primary" href="/interfaces/new">{{.IconS "plus"}}<span>{{.T "ifaces.empty.cta"}}</span></a>{{end}}
@@ -55,9 +59,9 @@
   <td data-label="{{$v.T "ifaces.subnet"}}" ><bdi class="ltr-data">{{$i.Subnet}}</bdi></td>
   <td data-label="{{$v.T "ifaces.obfuscation"}}">
     {{if $i.Obfuscation.Enabled}}
-    <span class="badge badge--info">{{$v.IconS "shield"}}{{$v.T "ifaces.obfuscation_on"}}</span>
+    <span class="badge badge--info">{{$v.IconS "shield"}}{{if $i.Preset}}{{$v.T (printf "ifaces.profile.%s" $i.Preset)}}{{else}}{{$v.T "ifaces.obfuscation_on"}}{{end}}</span>
     {{else}}
-    <span class="badge">{{$v.T "ifaces.obfuscation_off"}}</span>
+    <span class="badge">{{$v.T "ifaces.profile.plain"}}</span>
     {{end}}
   </td>
   <td data-label="{{$v.T "ifaces.peers"}}" >{{if $row.CountKnown}}<bdi class="ltr-data">{{$v.N (i64u $row.Devices)}}</bdi>{{else}}<span class="text-subtle">{{$v.T "forms.unavailable"}}</span>{{end}}</td>

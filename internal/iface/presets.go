@@ -19,7 +19,23 @@ func Presets() []Preset {
 		},
 		{
 			Name:        ProfileRecommended,
-			Description: "Safe product defaults with unique per-profile headers",
+			Description: "Legacy safe defaults with unique per-profile headers",
+		},
+		{
+			Name:        ProfilePerformance,
+			Description: "Low-overhead advanced profile for ordinary filtering",
+		},
+		{
+			Name:        ProfileBalanced,
+			Description: "Moderate packet variation and advanced transport protection",
+		},
+		{
+			Name:        ProfileResilient,
+			Description: "Stronger packet variation for restrictive networks",
+		},
+		{
+			Name:        ProfileSuggested,
+			Description: "Expert starting values with a fresh header-protection key",
 		},
 		{
 			Name:        ProfileRandomized,

@@ -21,6 +21,7 @@ func TestTrafficChartSVG(t *testing.T) {
 		`viewBox="0 0 720 240"`,
 		`role="img"`, `aria-label="Traffic, 3 hours"`,
 		`class="chart-rx"`, `class="chart-tx"`, `class="chart-grid"`, `class="traffic-y-axis"`, `class="traffic-x-axis"`,
+		`data-chart-interactive`, `data-chart-points=`, `class="chart-inspector"`,
 		// niceMax(600) = 1000 → top gridline label 1K
 		">1K</span>",
 	} {
@@ -106,8 +107,8 @@ func TestSparklineSVGIsDeterministicEscapedAndGapAware(t *testing.T) {
 		return telemetry.Metric{Value: value, Available: true}
 	}
 	series := []sparkSeries{
-		{Class: "spark-primary", Values: []telemetry.Metric{available(10), available(20), {}, available(30)}},
-		{Class: "spark-secondary", Values: []telemetry.Metric{available(5), available(15), available(25), available(35)}},
+		{Class: "spark-primary", Label: "CPU", Values: []telemetry.Metric{available(10), available(20), {}, available(30)}, Display: []string{"10%", "20%", "", "30%"}},
+		{Class: "spark-secondary", Label: "Memory", Values: []telemetry.Metric{available(5), available(15), available(25), available(35)}, Display: []string{"5%", "15%", "25%", "35%"}},
 	}
 	first := sparklineSVG(series, `CPU <unsafe> & "quoted"`, 100)
 	second := sparklineSVG(series, `CPU <unsafe> & "quoted"`, 100)
@@ -115,7 +116,7 @@ func TestSparklineSVGIsDeterministicEscapedAndGapAware(t *testing.T) {
 		t.Fatalf("sparkline must be non-empty and deterministic: %q / %q", first, second)
 	}
 	body := string(first)
-	for _, want := range []string{`class="sparkline"`, `class="spark-line spark-primary"`, `class="spark-line spark-secondary"`} {
+	for _, want := range []string{`class="sparkline"`, `class="spark-line spark-primary"`, `class="spark-line spark-secondary"`, `data-chart-interactive`, `data-chart-points=`, `class="chart-inspector"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("sparkline missing %q: %s", want, body)
 		}

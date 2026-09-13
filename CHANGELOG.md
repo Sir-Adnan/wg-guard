@@ -8,8 +8,8 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### Planned
-- **Phase 10 product UI/UX redesign:** 10.0–10.6 are complete;
-  full browser/VPS acceptance remain open.
+- **Phase 11 production certification:** compatibility, recovery, security and soak gates remain
+  separate from the completed product redesign. Public release still requires owner approval.
 
 ### Changed
 - **UI consistency:** improved text/control contrast and 44px touch targets, corrected RTL icon/
@@ -23,14 +23,19 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   atomic saves; backup/restore/schedule workflows support native forms and explicit availability.
   Admins, tokens, webhooks and audit use localized permissions, safe retries and clearer lifecycle
   controls. Invalid token expiry and empty webhook selections no longer silently retain unintended behavior.
-- **Users and dashboard:** redesigned account/device/subscription workflows, safe retry forms,
-  keyboard calendars and lazy QR recovery; live telemetry and traffic charts distinguish missing
-  data and provide exact non-hover values. Light is the default; English uses native typography.
-  Frontend sizes are measured without arbitrary ceilings; the lightweight architecture remains.
+- **Users and dashboard:** redesigned account/device/subscription workflows, username-only panel
+  identity, multiline notes, short username generation, live search and selection-aware bulk tools.
+  A blank device limit is unlimited and creates one ready config by default; a configured setting
+  controls the prefill and provisioning count. Premium live/traffic charts expose exact values by
+  pointer, touch, keyboard and native tables. Light remains the default; English uses native
+  typography and frontend sizes remain observable without arbitrary ceilings.
 - **Interfaces and Plans:** redesigned responsive collections and grouped forms preserve input
   on validation errors, show unavailable secondary data honestly, and apply existing read/write
-  permissions to panel routes and controls. AWG editing works without JavaScript; generated
-  profile seals and secret-safe template views are preserved. REST/OpenAPI remains unchanged.
+  permissions to panel routes and controls. New interfaces suggest the first free `awgN` and offer
+  Performance, Balanced, Resilient, Suggested and Automatic advanced profiles. Generated profiles
+  fill the 2.0/3.x fields, enable RandomTrailers/DisableCookies, keep I1–I5 opt-in and use a fresh
+  HPK; the Suggested profile defaults to MTU 1280. The REST/OpenAPI preset enum now describes these
+  server-generated policies while preserving explicit-custom and write-only-secret semantics.
 - **Phase 10 foundations:** a shared bilingual shell, preferences and feedback system provides
   consistent themes across panel/auth/subscription, keyboard menus, modal navigation focus,
   responsive sizing and reduced motion. Settings saves now validate and commit submitted fields

@@ -420,12 +420,13 @@ func TestSettingsSavePreservesEmptyAndClearSemantics(t *testing.T) {
 	e.seedOwner()
 	ctx := context.Background()
 	for key, value := range map[string]any{
-		"node.id":                   "saved-node",
-		"network.mtu":               1280,
-		"network.port_min":          31000,
-		"backup.password":           "saved-password",
-		"backup.telegram_token":     "saved-token",
-		"downloads.filename_prefix": "custom-",
+		"node.id":                    "saved-node",
+		"network.mtu":                1280,
+		"network.port_min":           31000,
+		"backup.password":            "saved-password",
+		"backup.telegram_token":      "saved-token",
+		"downloads.filename_prefix":  "custom-",
+		"users.default_device_limit": 5,
 	} {
 		if err := e.reg.Set(ctx, key, value); err != nil {
 			t.Fatalf("seed %s: %v", key, err)
@@ -435,6 +436,7 @@ func TestSettingsSavePreservesEmptyAndClearSemantics(t *testing.T) {
 	rec := e.post("/settings", url.Values{
 		"node_id":               {""},
 		"mtu":                   {""},
+		"default_device_lim":    {""},
 		"backup_password":       {"replacement-password"},
 		"backup_password_clear": {"1"},
 	}, cookie, deriveCSRF(cookie.Value))
@@ -446,6 +448,9 @@ func TestSettingsSavePreservesEmptyAndClearSemantics(t *testing.T) {
 	}
 	if got, _ := e.reg.GetInt(ctx, "network.mtu"); got != 1280 {
 		t.Fatalf("empty integer changed stored value: %d", got)
+	}
+	if got, _ := e.reg.GetInt(ctx, "users.default_device_limit"); got != 0 {
+		t.Fatalf("blank default device limit = %d, want unlimited", got)
 	}
 	if got, _ := e.reg.GetInt(ctx, "network.port_min"); got != 31000 {
 		t.Fatalf("absent integer changed stored value: %d", got)

@@ -172,18 +172,19 @@ func newTelemetryView(loc i18n.Locale, history telemetry.History) telemetryView 
 		}
 		view.Window = times[first].UTC().Format("15:04:05") + " — " + times[len(times)-1].UTC().Format("15:04:05") + " UTC"
 	}
-	view.CPUChart = timedSparklineSVG([]sparkSeries{{Class: "spark-primary", Values: cpu}}, i18n.T(loc, "dash.cpu_history"), 100, times, history.Cadence)
-	view.MemoryChart = timedSparklineSVG([]sparkSeries{{Class: "spark-primary", Values: memory}}, i18n.T(loc, "dash.memory_history"), 100, times, history.Cadence)
+	view.CPUChart = timedSparklineSVG([]sparkSeries{{Class: "spark-primary", Label: i18n.T(loc, "dash.cpu"), Values: cpu, Display: percentMetricText(cpu)}}, i18n.T(loc, "dash.cpu_history"), 100, times, history.Cadence)
+	view.MemoryChart = timedSparklineSVG([]sparkSeries{{Class: "spark-primary", Label: i18n.T(loc, "dash.memory"), Values: memory, Display: percentMetricText(memory)}}, i18n.T(loc, "dash.memory_history"), 100, times, history.Cadence)
 	view.VPNChart = timedSparklineSVG([]sparkSeries{
-		{Class: "spark-primary", Values: vpnRX},
-		{Class: "spark-secondary", Values: vpnTX},
+		{Class: "spark-primary", Label: i18n.T(loc, "dash.rx"), Values: vpnRX, Display: rateMetricText(loc, vpnRX)},
+		{Class: "spark-secondary", Label: i18n.T(loc, "dash.tx"), Values: vpnTX, Display: rateMetricText(loc, vpnTX)},
 	}, i18n.T(loc, "dash.vpn_history"), 0, times, history.Cadence)
 	view.HostChart = timedSparklineSVG([]sparkSeries{
-		{Class: "spark-primary", Values: hostRX}, {Class: "spark-secondary", Values: hostTX},
+		{Class: "spark-primary", Label: i18n.T(loc, "dash.rx"), Values: hostRX, Display: rateMetricText(loc, hostRX)},
+		{Class: "spark-secondary", Label: i18n.T(loc, "dash.tx"), Values: hostTX, Display: rateMetricText(loc, hostTX)},
 	}, i18n.T(loc, "dash.host_network"), 0, times, history.Cadence)
 	view.ActivityChart = timedSparklineSVG([]sparkSeries{
-		{Class: "spark-primary", Values: online},
-		{Class: "spark-secondary", Values: peers},
+		{Class: "spark-primary", Label: i18n.T(loc, "dash.users_online"), Values: online, Display: countMetricText(online)},
+		{Class: "spark-secondary", Label: i18n.T(loc, "dash.active_peers"), Values: peers, Display: countMetricText(peers)},
 	}, i18n.T(loc, "dash.activity_history"), 0, times, history.Cadence)
 	view.Charts = []liveChartCard{
 		{TitleKey: "dash.cpu", Value: view.CPUValue, SVG: view.CPUChart, Percent: true},
@@ -221,4 +222,32 @@ func countText(value telemetry.UintMetric) string {
 		return ""
 	}
 	return i18n.FormatInt(int64(value.Value))
+}
+
+func percentMetricText(values []telemetry.Metric) []string {
+	out := make([]string, len(values))
+	for index, value := range values {
+		if validSparkMetric(value) {
+			out[index] = fmt.Sprintf("%.1f%%", value.Value)
+		}
+	}
+	return out
+}
+
+func rateMetricText(loc i18n.Locale, values []telemetry.Metric) []string {
+	out := make([]string, len(values))
+	for index, value := range values {
+		out[index] = rateText(loc, value)
+	}
+	return out
+}
+
+func countMetricText(values []telemetry.Metric) []string {
+	out := make([]string, len(values))
+	for index, value := range values {
+		if validSparkMetric(value) && value.Value <= math.MaxInt64 {
+			out[index] = i18n.FormatInt(int64(value.Value))
+		}
+	}
+	return out
 }

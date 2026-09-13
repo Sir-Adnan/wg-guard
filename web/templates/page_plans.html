@@ -1,9 +1,13 @@
 {{define "title"}}{{.T "plans.title"}}{{end}}
 {{define "content"}}
-<div class="page-head">
-  <div>
+<div class="page-head page-head--hero entity-hero">
+  <div class="page-title-cluster">
+    <span class="page-title-icon" aria-hidden="true">{{.Icon "layers"}}</span>
+    <div>
+    <span class="eyebrow">{{.T "plans.workspace"}}</span>
     <h1>{{.T "plans.title"}}</h1>
     <p>{{.T "plans.subtitle"}}</p>
+    </div>
   </div>
   {{if .Can "plans.write"}}
   <div class="actions">
@@ -14,7 +18,7 @@
 
 {{if .Data.Rows}}
 <div class="collection-head"><div><span class="eyebrow">{{.T "plans.list_hint"}}</span><h2>{{len .Data.Rows}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.Data.Enabled}} {{.T "forms.enabled"}}</span></div>
-<div class="table-wrap collection">
+<div class="table-wrap collection entity-collection">
   <table class="table table--cards entity-table">
     <thead>
       <tr>
@@ -33,9 +37,9 @@
   </table>
 </div>
 {{else}}
-<div class="table-wrap collection">
-  <div class="empty">
-    {{.Icon "layers"}}
+<div class="table-wrap collection empty-collection">
+  <div class="empty empty-stage">
+    <span class="empty-visual" aria-hidden="true">{{.Icon "layers"}}</span>
     <h3>{{.T "plans.empty.title"}}</h3>
     <p>{{.T "plans.empty.desc"}}</p>
     {{if .Can "plans.write"}}<a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>{{end}}

@@ -1,24 +1,28 @@
 {{define "title"}}{{if .Data.I}}{{.T "ifaces.edit"}}{{else}}{{.T "ifaces.new"}}{{end}}{{end}}
 {{define "content"}}
-<div class="form-page">
-  <div class="page-head">
-    <div>
+<div class="form-page premium-form-page interface-builder">
+  <div class="page-head page-head--hero">
+    <div class="page-title-cluster">
+      <span class="page-title-icon" aria-hidden="true">{{.Icon "network"}}</span>
+      <div>
+      <span class="eyebrow">{{.T "ifaces.form.workspace"}}</span>
       <h1>{{if .Data.I}}{{.T "ifaces.edit"}}{{else}}{{.T "ifaces.new"}}{{end}}</h1>
       <p>{{.T "ifaces.form.intro"}}</p>
+      </div>
     </div>
     <div class="actions">
       <a class="btn btn--ghost" href="{{if .Can "interfaces.read"}}/interfaces{{else}}/{{end}}">{{.IconS "arrow-left"}}<span>{{.T "common.back"}}</span></a>
     </div>
   </div>
 
-  <form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="form-stack" novalidate>
+  <form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="form-stack interface-form" novalidate>
     {{template "form_feedback" .}}
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <input type="hidden" name="profile_policy" value="{{.Data.Form.V "profile_policy"}}" data-profile-policy>
     <input type="hidden" name="profile_token" value="{{.Data.Form.V "profile_token"}}" data-profile-token>
 
-    <fieldset class="form-section card card--pad">
-      <legend>{{.T "ifaces.form.section_profile"}}</legend>
+    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
+      <legend><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><span>{{.T "ifaces.form.section_profile"}}</span></legend>
       <div class="field-row">
         <div class="field">
           <label for="i-name">{{.T "ifaces.name"}}</label>
@@ -59,28 +63,32 @@
       {{end}}
     </fieldset>
 
-    <details class="collapse form-panel" {{if or (not .Data.I) (eq (.Data.Form.V "obf_enabled") "1") .Data.Form.Error}}open{{end}}>
-      <summary>{{.IconS "shield"}}<span>{{.T "ifaces.obfuscation"}}</span></summary>
-      <div class="collapse-body">
+    <section class="profile-studio card card--pad" data-obf-box {{if and (not .Data.I) (not .Data.Form.Error)}}data-autoload-profile="suggested"{{end}} aria-labelledby="profile-studio-title">
+      <div class="profile-studio-head">
+        <div><span class="section-icon" aria-hidden="true">{{.IconS "shield"}}</span><div><h2 id="profile-studio-title">{{.T "ifaces.obfuscation"}}</h2><p>{{.T "ifaces.obf.hint"}}</p></div></div>
         <div class="field">
-          <label class="check-label" for="i-obf-enabled">
+          <label class="switch-card" for="i-obf-enabled">
           <input class="checkbox" id="i-obf-enabled" type="checkbox" name="obf_enabled" value="1"
           data-obf-toggle {{if eq (.Data.Form.V "obf_enabled") "1"}}checked{{end}} {{if .Data.Form.Invalid "obf_enabled"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_enabled{{if .Data.Form.Invalid "obf_enabled"}} error-obf_enabled{{end}}">{{if .Data.Form.Invalid "obf_enabled"}}<span class="field-error" id="error-obf_enabled">{{.T (index .Data.Form.Fields "obf_enabled")}}</span>{{end}}
-          <span>{{.T "ifaces.form.obf_enable"}}</span>
+          <span class="switch-track" aria-hidden="true"></span><span>{{.T "ifaces.form.obf_enable"}}</span>
           </label>
-          <span class="hint" id="hint-obf_enabled">{{.T "ifaces.obf.hint"}}</span>
+          <span class="sr-only" id="hint-obf_enabled">{{.T "ifaces.obf.hint"}}</span>
         </div>
+      </div>
 
-
-        <div class="profile-options">
-          <button type="button" class="btn btn--sm" data-generate-obf="recommended" data-generation-error="{{.T "ifaces.obf.generation_error"}}">{{.IconS "shield"}}<span>{{.T "ifaces.obf.fill_defaults"}}</span></button>
-          <button type="button" class="btn btn--sm" data-generate-obf="randomized" data-generation-error="{{.T "ifaces.obf.generation_error"}}">{{.IconS "wand"}}<span>{{.T "ifaces.obf.randomize"}}</span></button>
-          <span class="hint">{{.T "ifaces.obf.randomize_all_hint"}}</span>
+        <div class="profile-preset-grid" role="group" aria-label="{{.T "ifaces.form.profile_policy"}}">
+          <button type="button" class="profile-preset" data-profile-plain aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "globe"}}</span><span><strong>{{.T "ifaces.profile.plain"}}</strong><small>{{.T "ifaces.profile.plain_desc"}}</small></span></button>
+          <button type="button" class="profile-preset" data-generate-obf="performance" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "zap"}}</span><span><strong>{{.T "ifaces.profile.performance"}}</strong><small>{{.T "ifaces.profile.performance_desc"}}</small></span></button>
+          <button type="button" class="profile-preset" data-generate-obf="balanced" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "gauge"}}</span><span><strong>{{.T "ifaces.profile.balanced"}}</strong><small>{{.T "ifaces.profile.balanced_desc"}}</small></span></button>
+          <button type="button" class="profile-preset" data-generate-obf="resilient" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "shield-check"}}</span><span><strong>{{.T "ifaces.profile.resilient"}}</strong><small>{{.T "ifaces.profile.resilient_desc"}}</small></span></button>
+          <button type="button" class="profile-preset is-featured" data-generate-obf="suggested" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "sparkles"}}</span><span><strong>{{.T "ifaces.profile.suggested"}}</strong><small>{{.T "ifaces.profile.suggested_desc"}}</small></span><em>{{.T "common.recommended"}}</em></button>
+          <button type="button" class="profile-preset" data-generate-obf="randomized" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "wand"}}</span><span><strong>{{.T "ifaces.profile.randomized"}}</strong><small>{{.T "ifaces.profile.randomized_desc"}}</small></span></button>
         </div>
+    <p class="profile-guidance">{{.IconS "info"}}<span>{{.T "ifaces.profile.effectiveness_hint"}}</span></p>
 
         <div class="profile-context">
           <span class="hint">{{.T "ifaces.form.profile_policy"}}</span>
-          <strong data-profile-label data-policy-plain="{{.T "ifaces.profile.plain"}}" data-policy-custom="{{.T "ifaces.profile.custom"}}" data-policy-recommended="{{.T "ifaces.profile.recommended"}}" data-policy-randomized="{{.T "ifaces.profile.randomized"}}">{{.T .Data.ProfileKey}}</strong>
+          <strong data-profile-label aria-live="polite" data-policy-plain="{{.T "ifaces.profile.plain"}}" data-policy-custom="{{.T "ifaces.profile.custom"}}" data-policy-recommended="{{.T "ifaces.profile.recommended"}}" data-policy-performance="{{.T "ifaces.profile.performance"}}" data-policy-balanced="{{.T "ifaces.profile.balanced"}}" data-policy-resilient="{{.T "ifaces.profile.resilient"}}" data-policy-suggested="{{.T "ifaces.profile.suggested"}}" data-policy-randomized="{{.T "ifaces.profile.randomized"}}">{{.T .Data.ProfileKey}}</strong>
         </div>
         {{if .Data.Form.SecretReset}}<div class="callout callout--warn">{{.IconS "shield"}}<span>{{.T "ifaces.form.secret_retry"}}</span>
         </div>{{end}}
@@ -274,11 +282,10 @@
           {{.IconS "alert-triangle"}}<span>{{.T "ifaces.rotation_warning"}}</span>
         </div>
         {{end}}
-      </div>
-    </details>
+    </section>
 
-    <fieldset class="form-section card card--pad">
-      <legend>{{.T "users.form.section_advanced"}}</legend>
+    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
+      <legend><span class="section-icon" aria-hidden="true">{{.IconS "settings-2"}}</span><span>{{.T "users.form.section_advanced"}}</span></legend>
       <div class="field">
         <label for="i-endpoint">{{.T "ifaces.endpoint_override"}}</label>
         <input class="input" id="i-endpoint" name="endpoint_override" dir="ltr" spellcheck="false"

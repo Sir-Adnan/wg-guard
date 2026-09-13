@@ -58,7 +58,13 @@ type ifaceFormData struct {
 }
 
 func (s *Server) handleIfaceNew(w http.ResponseWriter, r *http.Request) {
-	_ = s.render(w, r, "iface_form", "app", newIfaceFormData(nil))
+	data := newIfaceFormData(nil)
+	if name, err := s.Ifaces.NextAvailableName(r.Context()); err == nil {
+		data.Form.Values["name"] = name
+	} else {
+		s.logError(r, "suggest interface name", err)
+	}
+	_ = s.render(w, r, "iface_form", "app", data)
 }
 
 func (s *Server) handleIfaceEditPage(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +80,7 @@ func (s *Server) handleProfilePreview(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	policy := iface.ProfilePolicy(strings.TrimSpace(r.PostFormValue("policy")))
-	if policy != iface.ProfileRecommended && policy != iface.ProfileRandomized {
+	if !iface.IsGeneratedProfilePolicy(policy) {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_profile_policy"})
 		return
@@ -99,9 +105,13 @@ func (s *Server) handleProfilePreview(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "profile_generation_failed"})
 		return
 	}
+	fields := profileFormFields(profile)
+	if policy == iface.ProfileSuggested {
+		fields["mtu"] = strconv.Itoa(iface.SuggestedMTU)
+	}
 	_ = json.NewEncoder(w).Encode(profilePreviewResponse{
 		Policy: string(policy),
-		Fields: profileFormFields(profile),
+		Fields: fields,
 		Token:  token,
 	})
 }
@@ -404,7 +414,7 @@ func (s *Server) generatedPolicyFromForm(r *http.Request, profile iface.Obfuscat
 	policyText := strings.TrimSpace(r.PostFormValue("profile_policy"))
 	policy := iface.ProfilePolicy(policyText)
 	switch policy {
-	case iface.ProfileRecommended, iface.ProfileRandomized:
+	case iface.ProfileRecommended, iface.ProfilePerformance, iface.ProfileBalanced, iface.ProfileResilient, iface.ProfileSuggested, iface.ProfileRandomized:
 		if token := strings.TrimSpace(r.PostFormValue("profile_token")); token != "" {
 			if err := s.verifyProfilePreview(r, token, policy, profile); err != nil {
 				return "", false, err
@@ -536,7 +546,7 @@ func (s *Server) ifaceFormError(w http.ResponseWriter, r *http.Request, i *iface
 
 func (d ifaceFormData) ProfileKey() string {
 	switch d.Form.V("profile_policy") {
-	case "recommended", "randomized", "plain", "custom":
+	case "recommended", "performance", "balanced", "resilient", "suggested", "randomized", "plain", "custom":
 		return "ifaces.profile." + d.Form.V("profile_policy")
 	}
 	if d.Form.V("obf_enabled") == "1" {

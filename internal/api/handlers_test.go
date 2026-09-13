@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -674,7 +675,7 @@ func TestInterfaceGeneratedProfileAPI(t *testing.T) {
 		t.Fatalf("randomized preset response: %v", randomizedBody)
 	}
 	randomizedObf := randomizedBody["obfuscation"].(map[string]any)
-	if randomizedObf["header_protection_key_set"] != true || randomizedObf["random_trailers"] != false || randomizedObf["disable_cookies"] != false {
+	if randomizedObf["header_protection_key_set"] != true || randomizedObf["random_trailers"] != true || randomizedObf["disable_cookies"] != true {
 		t.Fatalf("randomized safety shape: %v", randomizedObf)
 	}
 	if _, ok := randomizedObf["h1"].(string); !ok {
@@ -684,10 +685,36 @@ func TestInterfaceGeneratedProfileAPI(t *testing.T) {
 		t.Fatalf("generated HPK leaked in response: %v", randomizedObf)
 	}
 
+	for index, policy := range []string{"performance", "balanced", "resilient", "suggested"} {
+		name := fmt.Sprintf("awg%d", index+2)
+		body := fmt.Sprintf(`{"name":%q,"listen_port":%d,"preset":%q}`, name, 39102+index, policy)
+		rec := e.do("POST", "/api/v1/interfaces", body)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create %s: %d %s", policy, rec.Code, rec.Body.String())
+		}
+		decoded := decodeBody(t, rec)
+		if decoded["preset"] != policy {
+			t.Fatalf("%s preset response: %v", policy, decoded)
+		}
+		obf := decoded["obfuscation"].(map[string]any)
+		if obf["enabled"] != true || obf["header_protection_key_set"] != true ||
+			obf["random_trailers"] != true || obf["disable_cookies"] != true {
+			t.Fatalf("%s advanced shape: %v", policy, obf)
+		}
+		for _, key := range []string{"i1", "i2", "i3", "i4", "i5"} {
+			if obf[key] != "" {
+				t.Fatalf("%s must leave %s empty: %v", policy, key, obf[key])
+			}
+		}
+		if policy == "suggested" && decoded["mtu"] != float64(iface.SuggestedMTU) {
+			t.Fatalf("suggested MTU = %v", decoded["mtu"])
+		}
+	}
+
 	for _, body := range []string{
-		`{"name":"awg2","preset":"recommended","obfuscation":{"enabled":false}}`,
-		`{"name":"awg2","preset":"randomized","obfuscation":{"enabled":false}}`,
-		`{"name":"awg2","preset":"unknown"}`,
+		`{"name":"awg7","preset":"recommended","obfuscation":{"enabled":false}}`,
+		`{"name":"awg7","preset":"randomized","obfuscation":{"enabled":false}}`,
+		`{"name":"awg7","preset":"unknown"}`,
 	} {
 		rec := e.do("POST", "/api/v1/interfaces", body)
 		if rec.Code != http.StatusBadRequest || errCode(t, rec) != "PARAM_CONSTRAINT" {
