@@ -230,6 +230,15 @@ Both modes retain a previous artifact; `--rollback` requires proven data compati
 `--recover` replays an interrupted journal. Unknown compatibility requires coordinated DB/key
 restoration, not just restarting old code. See [lifecycle-recovery.md](lifecycle-recovery.md).
 
+The authenticated Web Panel exposes the same stable panel and reviewed core transitions to
+`update.manage`. It writes a fixed 0600 request/status envelope under `/var/lib/wg-guard`; the
+installer-owned `wg-guard-update.path` starts a root oneshot that revalidates the catalog identity
+and invokes only bounded existing lifecycle arguments. The container receives no Docker socket,
+systemd control or general host agent. One request may be active, the oneshot is time-bounded, and
+public status persists only a safe outcome code. Fresh Docker/native installs enable the bridge;
+`sudo wg-guard update-broker-install` repairs it for an existing installation. Uninstall disables
+and removes only recognized WG-Guard-owned bridge artifacts.
+
 ## Uninstall
 
 `wg-guard uninstall --dry-run` first: stops services and removes only the state-recorded

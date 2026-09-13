@@ -183,13 +183,24 @@ window.addEventListener('resize', () => closeMenu());
 // preserving ordinary focus and the nearest scroll container.
 document.addEventListener('focusin', event => {
   const target = event.target;
-  if (!(target instanceof HTMLElement) || document.documentElement.dataset.inputModality !== 'keyboard' || !target.closest('dialog[open]')) return;
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  if (!(target instanceof HTMLElement) || document.documentElement.dataset.inputModality !== 'keyboard') return;
+  const dialog = target.closest('dialog[open]');
+  if (!dialog && (!target.closest('form') || !target.matches('input,select,textarea,button'))) return;
+  const expose = () => {
     if (document.activeElement !== target) return;
     const box = target.getBoundingClientRect();
-    if (box.top < 0 || box.bottom > innerHeight) {
-      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    if (dialog) {
+      if (box.top < 0 || box.bottom > innerHeight) target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+      return;
     }
+    const header = document.querySelector('.topbar')?.getBoundingClientRect();
+    const upper = (header?.bottom || 0) + 8, lower = innerHeight - 8;
+    if (box.top < upper) window.scrollBy({ top: box.top - upper, behavior: 'auto' });
+    else if (box.bottom > lower) window.scrollBy({ top: box.bottom - lower, behavior: 'auto' });
+  };
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    expose();
+    setTimeout(expose, 120);
   }));
 });
 

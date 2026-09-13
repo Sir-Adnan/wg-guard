@@ -35,6 +35,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
+	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
@@ -52,6 +53,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
+	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 	"github.com/Sir-Adnan/wg-guard/internal/web"
@@ -379,28 +381,30 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 
 	// Admin panel: same services, session-cookie surface (Phase 5).
 	n.webServer, err = web.New(web.Deps{
-		DB:           db,
-		Sessions:     n.sessions,
-		Admins:       admins,
-		Settings:     n.reg,
-		Ring:         n.ring,
-		Audit:        auditSvc,
-		Users:        users,
-		Devices:      devices,
-		Plans:        plans,
-		Ifaces:       ifaces,
-		Accounting:   n.accounting,
-		Links:        links,
-		Backup:       n.backup,
-		Tokens:       tokens,
-		Webhooks:     webhooksSvc,
-		Log:          logs.http,
-		Reconciler:   rec,
-		Telemetry:    n.telemetry,
-		Version:      version.Version,
-		TLSMode:      cfg.TLS.Mode,
-		NodeID:       nodeID,
-		ToolsVersion: toolsVersion,
+		DB:            db,
+		Sessions:      n.sessions,
+		Admins:        admins,
+		Settings:      n.reg,
+		Ring:          n.ring,
+		Audit:         auditSvc,
+		Users:         users,
+		Devices:       devices,
+		Plans:         plans,
+		Ifaces:        ifaces,
+		Accounting:    n.accounting,
+		Links:         links,
+		Backup:        n.backup,
+		UpdateQueue:   updatequeue.New(cfg.DataDir),
+		UpdateCatalog: distribution.NewClient(nil, distribution.Options{}),
+		Tokens:        tokens,
+		Webhooks:      webhooksSvc,
+		Log:           logs.http,
+		Reconciler:    rec,
+		Telemetry:     n.telemetry,
+		Version:       version.Version,
+		TLSMode:       cfg.TLS.Mode,
+		NodeID:        nodeID,
+		ToolsVersion:  toolsVersion,
 	})
 	if err != nil {
 		return fail(fmt.Errorf("serve: web: %w", err))

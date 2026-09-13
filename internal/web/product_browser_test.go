@@ -30,6 +30,7 @@ func TestBrowserPhase10(t *testing.T) {
 		t.Skip("set WG_TEST_BROWSER_NODE and WG_TEST_PLAYWRIGHT for browser checks")
 	}
 	e := newEnv(t)
+	wireUpdateQueue(t, e)
 	uid, did, csrf, cookie := e.seedUserWithDevice()
 	reader := e.limitedLogin(t, []string{auth.ScopePlansRead, auth.ScopeIfaceRead})
 	rec := e.post("/plans", url.Values{"name": {"Monthly / ماهانه"}, "duration_days": {"30"}, "traffic_limit_gb": {"50"}, "device_limit": {"3"}}, cookie, csrf)
@@ -140,7 +141,7 @@ func finalBrowserStates(t *testing.T) []browserState {
 	if _, err := empty.db.Exec(`DELETE FROM audit_log`); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/users", "/plans", "/interfaces", "/tokens", "/webhooks", "/audit", "/backups", "/dashboard"} {
+	for _, path := range []string{"/users", "/plans", "/interfaces", "/tokens", "/webhooks", "/audit", "/backups", "/dashboard", "/updates"} {
 		add(empty, base, cookie.Value, "empty-"+strings.TrimPrefix(path, "/"), path, 200, false)
 	}
 	add(empty, base, cookie.Value, "missing-user", "/users/not-present", 404, false)
@@ -148,6 +149,7 @@ func finalBrowserStates(t *testing.T) []browserState {
 	reader := empty.limitedLogin(t, []string{auth.ScopeUsersRead})
 	add(empty, base, reader.Value, "restricted-workspace", "/", 200, false)
 	add(empty, base, reader.Value, "permission-denied", "/settings", 200, false)
+	add(empty, base, reader.Value, "permission-denied-updates", "/updates", 200, false)
 	if _, err := empty.db.Exec(`DELETE FROM audit_log`); err != nil {
 		t.Fatal(err)
 	}

@@ -36,6 +36,7 @@ Commands:
               update manager|panel|core|all|status [flags]
               legacy panel flags remain accepted: update --release TAG,
               update --commit SHA, update --rollback, update --recover
+  update-broker-install  Repair the host bridge used by Web Panel updates
   recover-install  Safely clear a pre-runtime interrupted initial setup
               recover-install --yes
   uninstall   Remove WG-Guard (data kept unless --purge-data)
@@ -144,6 +145,16 @@ func main() {
 	case "update":
 		if err := runUpdate(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "wg-guard: update: %v\n", err)
+			os.Exit(1)
+		}
+	case "update-broker-install":
+		if err := runUpdateBrokerInstall(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: update-broker-install: %v\n", err)
+			os.Exit(1)
+		}
+	case "update-request-run":
+		if err := runUpdateRequest(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "wg-guard: update-request-run: %v\n", err)
 			os.Exit(1)
 		}
 	case "uninstall":

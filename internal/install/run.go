@@ -180,7 +180,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := preflight(ctx, h, p, out); err != nil {
 		return nil, err
 	}
-	targets := []string{ConfigPath, ComposePth, UnitPath, OperationRetentionPath}
+	targets := []string{ConfigPath, ComposePth, UnitPath, OperationRetentionPath, UpdateBrokerServicePath, UpdateBrokerPathPath, UpdateBrokerMarkerPath}
 	if p.Mode == ModeNative {
 		targets = append(targets, JournalRetentionPath)
 	}
@@ -389,6 +389,9 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		if err := installNative(ctx, h, p, st, out, o.BeforeStart); err != nil {
 			return nil, err
 		}
+	}
+	if err := EnsureUpdateBroker(ctx, h); err != nil {
+		return st, err
 	}
 
 	fmt.Fprintln(out)

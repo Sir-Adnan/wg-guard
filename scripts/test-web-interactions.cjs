@@ -198,6 +198,7 @@ module.exports = async ({ browser, seed, engine }) => {
             step = cell + ' settings focus';
             await navigate(page, '/settings');
             await hitTargets(page, cell + ' settings');
+            await page.keyboard.press('Tab');
             await page.locator('#s-session_abs').focus();
             await focusExposed(page, '#s-session_abs');
             await noOverflow(page);
@@ -246,6 +247,7 @@ module.exports = async ({ browser, seed, engine }) => {
           step = 'desktop 200% equivalent viewport ' + lang + (path === '/settings' ? ' settings' : ' user form');
           await navigate(page, path); await noOverflow(page);
           const field = path === '/settings' ? '#s-session_abs' : '#u-duration';
+          await page.keyboard.press('Tab');
           await page.locator(field).focus(); await focusExposed(page, field);
         }
       } finally { await context.close(); }

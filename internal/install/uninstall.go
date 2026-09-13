@@ -90,6 +90,10 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 		return nil, pendingOperationError(pending)
 	}
 
+	broker, err := inspectUpdateBroker(h)
+	if err != nil {
+		return nil, err
+	}
 	// What will be removed, computed up front (dry-run prints the same list).
 	var artifacts []string
 	if st.ComposePath != "" {
@@ -115,6 +119,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 		}
 	}
 	for _, path := range managedExposureArtifacts(st.Exposure) {
+		artifacts = addUnique(artifacts, path)
+	}
+	for _, path := range updateBrokerArtifacts(broker) {
 		artifacts = addUnique(artifacts, path)
 	}
 	rep.Artifacts = append(append([]string{}, artifacts...), StatePath)
@@ -156,6 +163,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	if err := j.save(h, "prepared"); err != nil {
 		return rep, err
 	}
+	if err := stopUpdateBroker(ctx, h, broker); err != nil {
+		return rep, err
+	}
 	step(out, "Stopping the node")
 	if st.Mode == ModeNative {
 		absent, err := stopNativeService(ctx, h)
@@ -193,10 +203,12 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 			fmt.Fprintf(out, "  removed %s\n", path)
 		}
 	}
-	if st.Mode == ModeNative {
+	if st.Mode == ModeNative || broker.hasUnits() {
 		if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
 			return rep, err
 		}
+	}
+	if st.Mode == ModeNative {
 		if err := runQuiet(ctx, h, []string{"systemctl", "try-restart", "systemd-journald@wg-guard.service"}, 30*time.Second); err != nil {
 			return rep, err
 		}

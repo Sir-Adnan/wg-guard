@@ -22,15 +22,20 @@ if (form) {
     const bar = form.querySelector('.settings-savebar');
     if (!(target instanceof HTMLElement) || !bar || bar.contains(target) || document.documentElement.dataset.inputModality === 'pointer') return;
     // WebKit may apply native focus scrolling after the first frame callback.
-    // Check the resulting geometry in the following frame before correcting it.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    // Move by the exact covered distance; scrollIntoView can itself ignore a
+    // sticky footer or over-apply the field's scroll margin in WebKit.
+    const expose = () => {
       if (document.activeElement !== target) return;
       const field = target.getBoundingClientRect(), footer = bar.getBoundingClientRect();
       const header = document.querySelector('.topbar')?.getBoundingClientRect();
-      const clipped = field.top < 0 || field.bottom > innerHeight;
-      const underHeader = header && field.top < header.bottom && field.bottom > header.top;
-      const underFooter = field.bottom > footer.top && field.top < footer.bottom;
-      if (clipped || underHeader || underFooter) target.scrollIntoView({block:'center',behavior:'auto'});
+      const upper = (header?.bottom || 0) + 12;
+      const lower = Math.min(innerHeight, footer.top) - 12;
+      if (field.top < upper) window.scrollBy({top: field.top - upper, behavior:'auto'});
+      else if (field.bottom > lower) window.scrollBy({top: field.bottom - lower, behavior:'auto'});
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      expose();
+      setTimeout(expose, 120);
     }));
   });
   form.addEventListener("submit", () => { submitting = true; });

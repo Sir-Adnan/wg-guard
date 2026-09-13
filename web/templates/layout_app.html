@@ -31,6 +31,7 @@
       {{end}}
       <div class="nav-label">{{.T "nav.group.system"}}</div>
       {{if .Can "backup.manage"}}<a href="/backups" aria-label="{{.T "nav.backups"}}" data-tip="{{.T "nav.backups"}}" {{if .IsActive "/backups"}}aria-current="page"{{end}}>{{.Icon "database"}}<span>{{.T "nav.backups"}}</span></a>{{end}}
+      {{if .Can "update.manage"}}<a href="/updates" aria-label="{{.T "nav.updates"}}" data-tip="{{.T "nav.updates"}}" {{if .IsActive "/updates"}}aria-current="page"{{end}}>{{.Icon "refresh-cw"}}<span>{{.T "nav.updates"}}</span></a>{{end}}
       {{if .Can "admins.manage"}}<a href="/admins" aria-label="{{.T "nav.admins"}}" data-tip="{{.T "nav.admins"}}" {{if .IsActive "/admins"}}aria-current="page"{{end}}>{{.Icon "user-plus"}}<span>{{.T "nav.admins"}}</span></a>{{end}}
       {{if .Can "api_tokens.manage"}}<a href="/tokens" aria-label="{{.T "nav.tokens"}}" data-tip="{{.T "nav.tokens"}}" {{if .IsActive "/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
       {{if .Can "webhooks.read"}}<a href="/webhooks" aria-label="{{.T "nav.webhooks"}}" data-tip="{{.T "nav.webhooks"}}" {{if .IsActive "/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}

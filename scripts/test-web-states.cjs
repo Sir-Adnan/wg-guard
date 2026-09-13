@@ -7,8 +7,13 @@ module.exports=async({browser,seed,final})=>{
   const variants=final ? ['en','fa'].flatMap(lang=>['light','dark'].flatMap(theme=>allWidths.map(width=>({lang,theme,width})))) : [{lang:'en',theme:'light',width:1440},{lang:'fa',theme:'dark',width:390}];
   let cells=0,maxHTML=0; const failures=[];
   const performanceSummary={};
+  let fromReached=!process.env.WG_TEST_UI_STATE_FROM;
   for(const state of cases){
     if(process.env.WG_TEST_UI_STATE && state.Name!==process.env.WG_TEST_UI_STATE)continue;
+    if(!process.env.WG_TEST_UI_STATE && !fromReached){
+      fromReached=state.Name===process.env.WG_TEST_UI_STATE_FROM;
+      if(!fromReached)continue;
+    }
     const context=await browser.newContext({reducedMotion:'reduce'}); await qa.install(context);
     if(state.Session)await context.addCookies([{name:'wg_session',value:state.Session,url:state.Base}]);
     const page=await context.newPage(); let lastLocale=''; let errors=0;

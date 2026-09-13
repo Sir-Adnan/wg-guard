@@ -175,6 +175,21 @@ change can finish as `pending-reboot`. Update-all stops at the first failed comp
 reports which earlier boundaries completed. It does not run a blanket `apt upgrade` or update the
 Ubuntu OS kernel.
 
+Administrators with `update.manage` can request the same verified panel/core boundaries from
+**Dashboard → Node & software → Update Center**. The Web Panel lists only published stable releases
+and reviewed core bundles; it cannot select development commits or provide command arguments.
+The host-owned systemd bridge keeps Docker/systemd control outside the web process. Fresh installs
+enable it automatically. If an upgraded development installation reports the bridge unavailable,
+repair it once under the lifecycle lock:
+
+```bash
+sudo wg-guard update-broker-install
+```
+
+The web status intentionally omits internal lifecycle errors; use
+`sudo wg-guard logs --source operations` and `sudo wg-guard status` before retrying. A queued/running operation is exclusive and
+abandoned broker work becomes retryable after the bounded service/lease window.
+
 Update, rollback, recovery and restart use the shared lifecycle lock, health checks and recovery
 journal. Do not repeatedly interrupt recovery; after a power loss or forced termination, inspect
 `sudo wg-guard status` and follow [lifecycle recovery](lifecycle-recovery.md).

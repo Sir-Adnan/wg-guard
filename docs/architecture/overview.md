@@ -82,6 +82,13 @@ native mode owns a scoped journal namespace; neither is copied into SQLite or ex
 The host-side `wg-guard logs` command normalizes both. Fixed lifecycle outcomes that occur outside
 the service manager use a separate size/time-bounded private JSONL journal under the data directory.
 
+The Web Panel's version workflow crosses the container/host boundary through `internal/updatequeue`,
+not through a Docker socket or general privileged agent. An `update.manage` request publishes one
+0600 schema-checked stable-release/core-catalog identity to the shared data directory. A fixed
+root-owned systemd path and oneshot claim it atomically and invoke only the existing bounded
+panel/core lifecycle commands. The host revalidates the selection; public status contains no
+subprocess error text. One active request, a service timeout and an expiry lease bound failures.
+
 ## Reconciliation (DB is the source of truth)
 
 On boot and continuously, kernel state is verified against the database: missing interfaces are

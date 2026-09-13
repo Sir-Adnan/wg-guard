@@ -1,6 +1,6 @@
 # Phase 10 — Product UI/UX redesign
 
-Status: **complete; 10.0–10.7 passed on 2026-09-13**. The owner approved
+Status: **implementation complete; owner-continuation VPS acceptance pending**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
 [Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
@@ -50,6 +50,7 @@ Phase 11 lifecycle finding.
 | Fast purposeful motion/reduced motion, no idle decoration | 10.1 | Overlay/loading/chart transitions and reduced-motion checks |
 | Consistent high-quality SVG/Lucide, no raster UI icons | 10.1 | Embedded sprite and notices when changed |
 | CPU/RAM/host RX-TX/VPN/active users-peers/disk/node-AWG health | 10.3 | Source/time/unit/availability and accessible chart system |
+| Dashboard backup/restore shortcuts and verified panel/core version transitions | 10.3–10.4 owner continuation | Existing backup review plus catalog-only host lifecycle bridge; no arbitrary version/command input |
 | Intentional desktop/mobile, table/cards, dialog/sheet, max widths | 10.1–10.5 | 320 through ultrawide without viewport overflow or inaccessible data |
 | Settings usefulness/defaults/grouping/duplication/help/Advanced/consequences | 10.0 contract; 10.4 UX | Atomic submitted-save boundary; one primary editor per setting |
 | Human scope/permission/webhook-event wording, stable identifiers | 10.4 | fa/en coverage and unchanged submitted identifiers |
@@ -75,7 +76,7 @@ to their parent workflow. Machine responses (`/api/v1`, health/metrics), API doc
 | Plans | `/plans`, `/new`, `/{id}/edit`, enable/disable/delete; quota/duration/rate controls and interface references | 10.2 |
 | Users | `/users`, `/new`, `/{id}`, `/{id}/edit`, `/bulk`, `/bulk-action`; filters/sort/cursor, selection, drawer/fallback, enable/disable/delete/restore/renew/add/reset traffic | 10.3 |
 | Devices/admin subscription | User device creation; `/devices/{id}` enable/disable/regenerate/delete/config/qr; user `/sub` create/regenerate/revoke/restore, share/copy | 10.3 |
-| Dashboard | `/`, `/dashboard`, `/dashboard/live`, `/dashboard/chart`; counters, attention, live resources/health, rollup periods | 10.3 |
+| Dashboard/software | `/`, `/dashboard`, `/dashboard/live`, `/dashboard/chart`, `/updates`, `/updates/status`, `/updates/request`; counters, attention, live resources/health, rollups, recovery shortcuts and verified software transitions | 10.3–10.4 |
 | Settings | GET/POST `/settings`; section links, field errors, secret set/replace/clear, saved/retry/dirty states | 10.4 |
 | Backups | `/backups`, create/delete/download/import, restore preview/confirm/cancel, schedules create/update/delete/toggle, Telegram test, pending-restart banner | 10.4 |
 | Admins/tokens | `/admins` create/password/permissions/enable/delete, owner protection; `/tokens` create/revoke, show-once secret/scopes/CIDR/expiry | 10.4 |
@@ -248,3 +249,25 @@ and panel-only backup-route change; REST/OpenAPI remains unchanged. Full Go buil
 affected Chromium/WebKit foundation, route, interaction and consistency gates pass. Firefox remains
 unavailable because the installed development bundle cannot launch. Current raw/gzip observations
 are JS 102,357/33,111 B, CSS 141,679/26,740 B, fonts 101,716/101,750 B and SVG 12,669/3,225 B.
+
+The dashboard node card now exposes a dedicated Update Center for administrators with
+`update.manage`. It separates the observed panel/AWG identities, published stable panel releases
+and the complete reviewed core-bundle catalog. Each transition requires a product confirmation;
+active status refreshes without repeating unchanged live-region output. The web process can write
+only a schema-checked catalog identity into a private fixed queue. A host-owned systemd path/oneshot
+then converts it to bounded existing lifecycle arguments, retaining backup, compatibility, health
+and rollback checks. Development commits, arbitrary argv/paths and internal errors never cross
+this panel boundary. Install/uninstall own the bridge for Docker and native deployments, and
+`update-broker-install` repairs it under the lifecycle lock. These are session-authenticated panel
+routes, so REST/OpenAPI remains unchanged.
+
+The refreshed local 10.7 gate covers 25 app routes (1,600 locale/theme/viewport cells), 61 state
+compositions (3,904 cells), 448 auth/public cells, foundation behavior and eight supplemental
+touch/orientation cells with 1,248 effective targets in Chromium 152, Firefox 153 and WebKit 26.5.
+After findings, only affected cells were rerun. Axe 4.13.0 passes 240 representative routes and
+122 representative states. The fixes include AA light-theme secondary/semantic colors, 44px user
+preset targets, WebKit keyboard-focus exposure, Firefox 320px user-status wrapping and Persian-font
+preload; a delayed-font probe now observes 0.00025 CLS. Current measured raw/gzip assets are JS
+103,005/33,291 B, CSS 146,114/27,224 B, fonts 101,716/101,750 B and SVG 12,669/3,225 B; no size
+ceiling applies. Build/unit/race/vet, CI fixtures, systemd unit verification and `govulncheck` on
+Go 1.27 pass. Exact-revision host bridge/deployment acceptance remains before integration.

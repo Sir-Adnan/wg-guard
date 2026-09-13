@@ -50,21 +50,34 @@ type CoreReport struct {
 	KernelDKMS     string     `json:"kernel_dkms_version,omitempty"`
 }
 
+var reviewedCoreBundles = []CoreBundle{
+	{
+		ID: "awg-2026-09", Source: coreSourceGitHub,
+		ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git",
+		KernelVersion: "v3.1.20260906", KernelCommit: "4569c4c67f3a57414969260cafbbd04694fbaae0", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelDKMSVersion: "1.0.0-wgguard.20260906",
+		UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
+	},
+	{
+		ID: "awg-2026-08", Source: coreSourcePackage, ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git", ToolsPackage: "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
+		KernelVersion: "v3.1.20260828", KernelCommit: "3c38e168beb7c60dec41dfe423d41555205a3dac", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelPackage: "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
+		UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
+	},
+}
+
+// ReviewedCoreBundles returns the complete newest-first compatibility catalog.
+// Callers receive a copy so the pinned lifecycle contract cannot be mutated.
+func ReviewedCoreBundles() []CoreBundle {
+	return append([]CoreBundle(nil), reviewedCoreBundles...)
+}
+
 func SelectCore(selector string) (CoreBundle, error) {
-	switch selector {
-	case "", "recommended", "latest-compatible", "awg-2026-09":
-		return CoreBundle{
-			ID: "awg-2026-09", Source: coreSourceGitHub,
-			ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git",
-			KernelVersion: "v3.1.20260906", KernelCommit: "4569c4c67f3a57414969260cafbbd04694fbaae0", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelDKMSVersion: "1.0.0-wgguard.20260906",
-			UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
-		}, nil
-	case "awg-2026-08":
-		return CoreBundle{
-			ID: "awg-2026-08", Source: coreSourcePackage, ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git", ToolsPackage: "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
-			KernelVersion: "v3.1.20260828", KernelCommit: "3c38e168beb7c60dec41dfe423d41555205a3dac", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelPackage: "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
-			UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
-		}, nil
+	if selector == "" || selector == "recommended" || selector == "latest-compatible" {
+		return reviewedCoreBundles[0], nil
+	}
+	for _, bundle := range reviewedCoreBundles {
+		if selector == bundle.ID {
+			return bundle, nil
+		}
 	}
 	return CoreBundle{}, terminalError("install.error.core.1")
 }

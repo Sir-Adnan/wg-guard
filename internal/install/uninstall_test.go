@@ -8,7 +8,43 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 )
+
+func TestUninstallStopsAndRemovesOwnedUpdateBroker(t *testing.T) {
+	for _, mode := range []Mode{ModeDocker, ModeNative} {
+		t.Run(string(mode), func(t *testing.T) {
+			h := installedFixture(t, mode)
+			h.commands = nil
+			if _, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, Stdout: io.Discard}); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range append([]string{UpdateBrokerServicePath, UpdateBrokerPathPath}, updateBrokerArtifacts(updateBrokerOwnership{service: true, path: true, marker: true})...) {
+				if _, ok := h.files[path]; ok {
+					t.Fatalf("broker artifact survived: %s", path)
+				}
+			}
+			if !h.ran("systemctl", "disable", "--now", "wg-guard-update.path") || !h.ran("systemctl", "stop", "wg-guard-update.service") || !h.ran("systemctl", "daemon-reload") {
+				t.Fatalf("broker systemd cleanup incomplete: %v", h.ranCommands())
+			}
+		})
+	}
+}
+
+func TestUninstallRefusesForeignUpdateBrokerArtifact(t *testing.T) {
+	h := installedFixture(t, ModeDocker)
+	h.files[UpdateBrokerPathPath] = memFile{data: []byte("[Path]\nPathExists=/tmp/foreign\n"), perm: 0o644}
+	if _, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, Stdout: io.Discard}); err == nil {
+		t.Fatal("uninstall removed a foreign broker unit")
+	}
+	if _, ok := h.files[UpdateBrokerPathPath]; !ok {
+		t.Fatal("foreign broker unit was removed")
+	}
+	if _, ok := h.files[updatequeue.New(DataDir).Paths().Marker]; !ok {
+		t.Fatal("owned marker was removed before ownership validation")
+	}
+}
 
 // Model systemd's absent-unit distinction and interruption at the filesystem
 // boundary, keeping the real lifecycle/state/journal implementation in use.
@@ -125,6 +161,9 @@ func (h *nativeCleanupHost) Run(ctx context.Context, args []string, d time.Durat
 		return errors.New("seed failed before unit creation")
 	}
 	if len(args) > 1 && args[0] == "systemctl" && (args[1] == "stop" || args[1] == "disable") {
+		if args[len(args)-1] == "wg-guard-update.path" || args[len(args)-1] == "wg-guard-update.service" {
+			return h.memHost.Run(ctx, args, d)
+		}
 		h.commands = append(h.commands, memCmd{argv: args})
 		if _, ok := h.files[UnitPath]; !ok {
 			return errors.New("unit not loaded")
@@ -213,7 +252,7 @@ func TestNativeCleanupResumesAfterUnitRemoval(t *testing.T) {
 	if err != nil || j.Stage != "complete" {
 		t.Fatalf("resumed uninstall not committed: %v", err)
 	}
-	if h.ran("systemctl", "stop") || h.ran("systemctl", "disable") {
+	if h.ran("systemctl", "stop", "wg-guard") || h.ran("systemctl", "disable", "wg-guard") {
 		t.Fatal("resumed uninstall mutated absent unit")
 	}
 }

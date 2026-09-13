@@ -447,7 +447,7 @@ let stage = 'launch';
       assert(await nativePage.locator('#sch-enabled').inputValue() === '0', 'native save preserves paused schedule');
       await nativeContext.close();
     }
-    const adminRoutes = ['/admins', '/tokens', '/webhooks', '/audit'];
+    const adminRoutes = ['/admins', '/tokens', '/webhooks', '/audit', '/updates'];
     if (['10.4', '10.4-settings', 'final'].includes(suite)) {
       stage = 'settings dirty and validation';
       await goto('/settings');
@@ -551,10 +551,22 @@ let stage = 'launch';
       await page.locator('#audit-action').fill('admins.');
       await Promise.all([page.waitForNavigation(), page.locator('.ops-audit-filter button[type="submit"]').click()]);
       assert(await page.locator('#audit-action').inputValue() === 'admins.', 'audit retains filter');
+      stage = 'verified update selection confirmation';
+      await goto('/updates');
+      assert(await page.locator('.software-version-card').count() === 2, 'installed panel and core identities are visible');
+      assert(await page.locator('.core-release').count() >= 2, 'reviewed core versions are listed');
+      await page.locator('.core-release button[type="submit"]').first().click();
+      assert(await page.locator('#confirm-dialog').getAttribute('open') !== null, 'software transition requires confirmation');
+      await page.locator('#confirm-dialog [data-close-modal]').last().click();
+      assert(await page.locator('#confirm-dialog').getAttribute('open') === null, 'software transition can be cancelled');
+      await page.locator('.update-release button[type="submit"]').first().click();
+      await Promise.all([page.waitForNavigation(), page.locator('#confirm-dialog [data-confirm-ok]').click()]);
+      assert(await page.locator('[data-update-state="queued"]').count() === 1, 'confirmed stable panel transition enters the host queue');
+      assert((await page.locator('#update-status-region').getAttribute('hx-get') || '').includes('state=queued'), 'queued software status polls by identity and state');
     }
     if (suite === 'final') {
       const fragments = [];
-      for (const [name, path] of [['live', '/dashboard/live'], ['samples', '/dashboard/live?view=history'], ['traffic', '/dashboard/chart?range=30d'], ['user-form', '/users/new']]) {
+      for (const [name, path] of [['live', '/dashboard/live'], ['samples', '/dashboard/live?view=history'], ['traffic', '/dashboard/chart?range=30d'], ['user-form', '/users/new'], ['update-status', '/updates/status']]) {
         const response = await page.request.get(seed.url + path, {headers: {'HX-Request': 'true'}});
         assert(response.status() === 200, 'measured fragment is available');
         const body = await response.body();
@@ -605,7 +617,7 @@ let stage = 'launch';
               qa.merge(performanceSummary, await qa.measure(page, stage));
               await qa.scan(page, stage, width === 390 || width === 1440);
             }
-            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark') || (suite === 'final' && width === 320 && lang === 'en' && theme === 'light' && routes[index] === '/dashboard'))) {
+            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks', '/updates'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark') || (suite === 'final' && width === 320 && lang === 'en' && theme === 'light' && routes[index] === '/dashboard'))) {
               const fs = require('node:fs'), path = require('node:path');
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
               await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, suite + '-' + index + '-' + width + '.png'), fullPage: true });

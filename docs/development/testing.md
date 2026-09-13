@@ -160,7 +160,7 @@ only over child stdin and are never printed or committed. It tests focus/inert/r
 dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery and representative
 locale/theme layouts. Settings errors belong to the product driver. This is not the full matrix.
 
-`go test ./internal/web -run '^TestBrowserPhase10$' -count=1 -v` uses the same opt-in runtime
+`go test ./internal/web -run '^TestBrowserPhase10$' -count=1 -v -timeout 70m` uses the same opt-in runtime
 for milestone-specific product checks (`WG_TEST_UI_SUITE`, default `10.2`). It exercises form
 errors and mutations in the isolated database, plus relevant fa/en/theme/phone/desktop pages,
 without replaying the foundation suite. `WG_TEST_BROWSER_ENGINE` defaults to `chromium`;
@@ -178,6 +178,7 @@ its own case. Virtual subscriber identities prevent matrix traffic from consumin
 the production limit and a dedicated limited-state case remain enforced.
 
 Use `WG_TEST_UI_GROUP` (`main`, `public`, `states`, `interactions`), `WG_TEST_UI_STATE`,
+`WG_TEST_UI_STATE_FROM` (resume an interrupted state matrix at one named case),
 `WG_TEST_UI_PUBLIC`, `WG_TEST_UI_LANG`, `WG_TEST_UI_THEME` and `WG_TEST_UI_WIDTH` for affected-cell
 reruns. Run full acceptance with these filters absent and a sufficient Go test timeout. No physical
 devices, physical browser zoom or assistive-technology operation are implied by emulation or axe.

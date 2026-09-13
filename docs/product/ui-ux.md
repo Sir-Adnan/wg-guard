@@ -41,7 +41,7 @@ CSP, same-origin assets, session/CSRF checks and no-store sensitive responses.
 ## Layout and navigation
 
 Desktop uses a compact permission-aware sidebar: Manage (Dashboard, Users, Plans, Interfaces),
-System (Backups, Administrators, API Tokens, Webhooks, Audit, Settings). Server authorization stays
+System (Backups, Update Center, Administrators, API Tokens, Webhooks, Audit, Settings). Server authorization stays
 authoritative; unauthorized destinations are absent. The topbar supplies page context, including
 root/dashboard equivalence, and reachable language/theme controls. Collapsed navigation still
 has accessible names and current-location state.
@@ -199,6 +199,15 @@ Dashboard recovery shortcuts create/download a fresh archive or open the restore
 Backups workspace separates create, streamed `.wgg` import and validated restore review; importing
 from another node never mutates live data. Pointer activation must not trigger keyboard-only focus
 scroll corrections on Settings, profile selectors, menus or dialogs.
+
+The dashboard node card distinguishes installed/observed software identities from available
+versions and sends authorized operators to a dedicated Update Center. Published stable panel
+releases and reviewed AmneziaWG bundles remain separate, with an explicit confirmation for every
+upgrade, downgrade or reinstall. An active operation has one concise polite status region; polling
+pauses in hidden tabs, returns no replacement for unchanged state and refreshes the catalog once
+the lifecycle operation finishes. Catalog failure, unavailable host bridge, queued, running,
+completed and failed states never imply an update was applied. Development commits and free-form
+version input are absent from the web workflow.
 
 `collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
 cards on phones. Name/edit links, availability, exact technical units and action menus have stable

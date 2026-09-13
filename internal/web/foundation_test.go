@@ -28,6 +28,14 @@ func TestShellNavigationReflectsPermissionAndRoot(t *testing.T) {
 	if strings.Contains(body, `href="/dashboard"`) {
 		t.Fatal("shell offers dashboard to an account without stats.read")
 	}
+	if strings.Contains(body, `href="/updates"`) {
+		t.Fatal("shell offers updates to an account without update.manage")
+	}
+	updater := e.limitedLogin(t, []string{auth.ScopeUpdateManage})
+	updates := e.get("/updates", updater).Body.String()
+	if !strings.Contains(updates, `href="/updates"`) || !strings.Contains(updates, `href="/updates" aria-label="Update Center" data-tip="Update Center" aria-current="page"`) {
+		t.Fatal("update manager lacks a discoverable current navigation item")
+	}
 }
 
 func TestSharedThemeAndErrorSurfaces(t *testing.T) {

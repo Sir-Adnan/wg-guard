@@ -80,6 +80,11 @@ removed when the operator explicitly purges node data.
 - Login rate limiting (per-IP and per-account lockout), audit-logged login activity.
 - Authorization is centralized: a permission registry checked server-side per handler; the UI
   never hides what the server doesn't enforce; the Owner role cannot remove itself.
+- Web-triggered updates require `update.manage` and cross to the host only as a fixed 0600 envelope
+  containing a stable release or reviewed core identity. The root-owned broker revalidates that
+  identity and maps it to closed argv; no shell text, executable path, development ref, credential,
+  raw config or lifecycle error is accepted from or returned to the panel. Docker socket/systemd
+  access is never mounted into the web container.
 - Strict request size limits, timeouts, panic recovery returning the standard error envelope.
 - Transport modes per [deployment.md](deployment.md): direct ACME/managed certificate,
   loopback-behind-proxy, and private/dev loopback HTTP — never silent public plaintext.

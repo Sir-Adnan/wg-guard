@@ -21,14 +21,7 @@
   </details>
   {{template "dash_attention" .}}
   {{template "dash_chart" .}}
-  <details class="collapse form-panel node-context">
-    <summary>{{.IconS "server"}}<span>{{.T "dash.node"}}</span></summary>
-    <dl class="detail-list collapse-body">
-      {{if .Data.Endpoint}}<dt>{{.T "dash.endpoint"}}</dt><dd class="ltr-data">{{.Data.Endpoint}}</dd>{{end}}
-      <dt>{{.T "dash.version"}}</dt><dd class="ltr-data">{{.Version}}</dd>
-      <dt>{{.T "dash.backend"}}</dt><dd><bdi>{{.Data.ToolsVersion}}</bdi></dd>
-    </dl>
-  </details>
+  <section class="card card--pad node-software" id="node-software" aria-labelledby="node-software-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><h2 id="node-software-title">{{.T "dash.node_software"}}</h2><p>{{.T "dash.node_software_hint"}}</p></div>{{if .Can "update.manage"}}<a class="btn btn--primary" href="/updates">{{.IconS "refresh-cw"}}{{.T "updates.open"}}</a>{{end}}</div><div class="node-software-grid"><div><span>{{.T "updates.panel_version"}}</span><strong class="ltr-data">{{.Version}}</strong></div><div><span>{{.T "updates.core_version"}}</span><strong class="ltr-data">{{if .Data.ToolsVersion}}{{.Data.ToolsVersion}}{{else}}—{{end}}</strong></div>{{if .Data.Endpoint}}<div><span>{{.T "dash.endpoint"}}</span><strong class="ltr-data">{{.Data.Endpoint}}</strong></div>{{end}}</div></section>
   {{else}}
   <div class="empty card card--pad"><span class="empty-icon">{{.Icon "shield"}}</span><h2>{{.T "dash.access_limited"}}</h2><p>{{.T "dash.access_limited_hint"}}</p></div>
   {{end}}

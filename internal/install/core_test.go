@@ -139,6 +139,14 @@ func (h *packageHost) Run(ctx context.Context, a []string, d time.Duration) erro
 }
 
 func TestCoreCatalogRejectsUncataloguedVersions(t *testing.T) {
+	catalog := ReviewedCoreBundles()
+	if len(catalog) != 2 || catalog[0].ID != "awg-2026-09" || catalog[1].ID != "awg-2026-08" {
+		t.Fatalf("reviewed core catalog order = %#v", catalog)
+	}
+	catalog[0].ID = "mutated"
+	if recommended, err := SelectCore("recommended"); err != nil || recommended.ID != "awg-2026-09" {
+		t.Fatal("caller mutated the reviewed core catalog")
+	}
 	for _, selector := range []string{"recommended", "latest-compatible", "awg-2026-09"} {
 		b, err := SelectCore(selector)
 		if err != nil || b.ID != "awg-2026-09" || b.ToolsCommit != "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843" || b.KernelCommit != "4569c4c67f3a57414969260cafbbd04694fbaae0" {

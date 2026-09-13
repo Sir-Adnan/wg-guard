@@ -32,6 +32,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
+	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
@@ -69,6 +70,10 @@ type Deps struct {
 	// Backup is the archive engine (panel + CLI only — ADR-0007). Wired
 	// from serve; nil in tests that don't exercise the ops screens.
 	Backup *backup.Service
+	// UpdateQueue is the data-volume side of the fixed host-owned lifecycle
+	// broker. UpdateCatalog supplies published stable versions on demand.
+	UpdateQueue   *updatequeue.Queue
+	UpdateCatalog ReleaseCatalog
 
 	// Tokens and Webhooks are the same instances the REST API uses — one
 	// business layer, two surfaces.
@@ -145,6 +150,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard/live", s.requireAuth(s.handleDashboardLive))
 	mux.HandleFunc("GET /dashboard/chart", s.requireAuth(s.handleDashboardChart))
+	mux.HandleFunc("GET /updates", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdatesPage))
+	mux.HandleFunc("GET /updates/status", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdateStatus))
+	mux.HandleFunc("POST /updates/request", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdateRequest))
 
 	// --- users ---
 	mux.HandleFunc("GET /users/bulk", s.requirePermission(auth.ScopeUsersBulk, s.handleUserBulkPage))

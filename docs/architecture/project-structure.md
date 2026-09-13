@@ -57,6 +57,8 @@ internal/
                          (Phase 6; Phase 8.1 safety and CLI extensions)
   distribution/          bounded GitHub release/commit catalog, verified private acquisition,
                          immutable source build identity and temporary toolchain (Phase 8.1)
+  updatequeue/            fixed private request/status bridge from update.manage panel actions to
+                         the host-owned verified lifecycle; catalog identities only, one active job
   terminal/              single-column English presentation, bounded/cancellable input and actual-FD
                          hidden secrets; no deployment or database business logic (Phase 8.1)
   install/               deployment layer: install plan + wizard, independent verified manager cache,
@@ -64,7 +66,7 @@ internal/
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
                          bounded fixed-metadata operation journal and Docker/native log policy,
                          update/rollback, coordinated offline restore and uninstall,
-                         versioned state/artifact contract,
+                         versioned state/artifact contract and owned systemd update path/oneshot,
                          Host seam for fault-injection/stream testing, mode-aware operational logs
                          (Phase 8.1/8.2/9; Ubuntu 24.04 amd64 verified through Phase 8.2)
   serve/                 runtime composition: config → fail-closed pending-restore/recovery gate →

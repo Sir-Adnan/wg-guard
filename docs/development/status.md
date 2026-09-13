@@ -22,7 +22,7 @@ counters, restart/idempotency and owned-rule cleanup. See [phase8.3.md](phase8.3
 Docker doctor inspection is also mode-aware: AWG version/state comes from the runtime container,
 host network-policy checks remain local, and runtime errors are not mislabeled as missing links.
 
-## Phase 10 — Product UI/UX redesign (complete, 2026-09-13)
+## Phase 10 — Product UI/UX redesign (owner-continuation acceptance in progress)
 
 10.0 is complete: the full tracked prompt maps to milestones/routes/states, and UI/Settings/QA
 contracts are adopted. Atomic Settings saves and safe input redisplay are implemented with
@@ -72,6 +72,14 @@ speed entry to MB/s while preserving Kbps in domain/REST data. Dashboard backup 
 streamed `.wgg` import now feed the existing staged restore review. These panel changes do not alter
 OpenAPI. Full Go checks and affected Chromium/WebKit route, interaction and consistency gates pass;
 the installed Firefox development bundle still cannot launch.
+The dashboard Update Center adds confirmed stable-panel and reviewed-core transitions through a
+fixed host-owned systemd broker. The queue admits one catalog identity, never argv or development
+refs; installation, cleanup, stale-work recovery and safe public status are automated-test covered.
+This adds only authenticated panel routes and leaves REST/OpenAPI unchanged. The refreshed
+Chromium 152/Firefox 153/WebKit 26.5 route, state, foundation and interaction matrix passes after
+affected-cell corrections; axe, delayed-font CLS, build/unit/race/vet, CI fixtures, systemd unit
+verification and Go 1.27 `govulncheck` also pass. Exact-revision VPS acceptance and integration
+remain before the continuation closes.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

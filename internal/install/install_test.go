@@ -15,6 +15,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
+	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 )
 
 // TestMain shrinks the health-check windows so rollback tests fail fast.
@@ -155,24 +156,56 @@ func TestRenderUnitHardening(t *testing.T) {
 	}
 }
 
+func TestRenderUpdateBrokerUnits(t *testing.T) {
+	service := RenderUpdateBrokerService()
+	for _, want := range []string{
+		"Type=oneshot",
+		"ExecStart=/usr/local/bin/wg-guard update-request-run",
+		"UMask=0077",
+		"TimeoutStartSec=45min",
+		"After=network-online.target",
+	} {
+		if !strings.Contains(service, want) {
+			t.Errorf("broker service missing %q\n%s", want, service)
+		}
+	}
+	pathUnit := RenderUpdateBrokerPath()
+	for _, want := range []string{
+		"PathExists=/var/lib/wg-guard/update-request.json",
+		"Unit=wg-guard-update.service",
+		"WantedBy=multi-user.target",
+	} {
+		if !strings.Contains(pathUnit, want) {
+			t.Errorf("broker path missing %q\n%s", want, pathUnit)
+		}
+	}
+	pathSection, installSection := strings.Index(pathUnit, "[Path]"), strings.Index(pathUnit, "[Install]")
+	trigger := strings.Index(pathUnit, "TriggerLimitIntervalSec=60")
+	if pathSection < 0 || installSection < 0 || trigger < pathSection || trigger > installSection {
+		t.Fatalf("broker trigger limit is outside [Path]:\n%s", pathUnit)
+	}
+}
+
 func TestRoute(t *testing.T) {
 	cases := map[string]string{
-		"serve":            "refuse",
-		"install":          "host",
-		"recover-install":  "host",
-		"update":           "host",
-		"uninstall":        "host",
-		"status":           "host",
-		"logs":             "host",
-		"doctor":           "host",
-		"certificate-sync": "host",
-		"exposure":         "host",
-		"backup":           "container",
-		"restore":          "host",
-		"settings":         "container",
-		"token":            "container",
-		"secrets":          "container",
-		"reconcile":        "container",
+		"serve":                 "refuse",
+		"install":               "host",
+		"recover-install":       "host",
+		"update":                "host",
+		"update-broker-install": "host",
+		"update-request-run":    "host",
+		"uninstall":             "host",
+		"status":                "host",
+		"logs":                  "host",
+		"doctor":                "host",
+		"certificate-sync":      "host",
+		"exposure":              "host",
+		"backup":                "container",
+		"restore":               "host",
+		"settings":              "container",
+		"token":                 "container",
+		"secrets":               "container",
+		"reconcile":             "container",
 	}
 	for cmd, want := range cases {
 		if got := Route(cmd); got != want {
@@ -244,6 +277,7 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	if !contains(st.ExtraFiles, OperationRetentionPath) {
 		t.Fatalf("operation retention policy is not installer-owned: %v", st.ExtraFiles)
 	}
+	assertUpdateBrokerInstalled(t, h)
 	for _, want := range [][]string{
 		{"docker", "compose", "version"},
 		{"docker", "compose", "-f", ComposePth, "up", "-d"},
@@ -318,6 +352,7 @@ func TestInstallNativeHappyPath(t *testing.T) {
 	if !contains(st.ExtraFiles, JournalRetentionPath) || !contains(st.ExtraFiles, OperationRetentionPath) {
 		t.Fatalf("retention policies are not installer-owned: %v", st.ExtraFiles)
 	}
+	assertUpdateBrokerInstalled(t, h)
 	for _, want := range [][]string{
 		{"systemctl", "daemon-reload"},
 		{"systemctl", "try-restart", "systemd-journald@wg-guard.service"},
@@ -326,6 +361,23 @@ func TestInstallNativeHappyPath(t *testing.T) {
 		if !h.ran(want...) {
 			t.Errorf("command not run: %v", want)
 		}
+	}
+}
+
+func assertUpdateBrokerInstalled(t *testing.T, h *memHost) {
+	t.Helper()
+	for path, want := range map[string]string{
+		UpdateBrokerServicePath:                 RenderUpdateBrokerService(),
+		UpdateBrokerPathPath:                    RenderUpdateBrokerPath(),
+		updatequeue.New(DataDir).Paths().Marker: string(updatequeue.ReadyMarker()),
+	} {
+		file, ok := h.files[path]
+		if !ok || string(file.data) != want {
+			t.Errorf("update broker artifact %s = %q, present=%v", path, file.data, ok)
+		}
+	}
+	if !h.ran("systemctl", "enable", "--now", "wg-guard-update.path") {
+		t.Errorf("update broker path was not enabled: %v", h.ranCommands())
 	}
 }
 
@@ -376,6 +428,17 @@ func TestInstallRefusesExistingAndBusyPort(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "already in use") {
 		t.Fatalf("busy port: want refusal, got %v", err)
+	}
+}
+
+func TestInstallRefusesExistingUpdateBrokerMarker(t *testing.T) {
+	h := newMemHost()
+	h.files[UpdateBrokerMarkerPath] = memFile{data: updatequeue.ReadyMarker(), perm: 0o600}
+	if _, err := Install(context.Background(), h, InstallOptions{Plan: Defaults(), Yes: true, Stdout: io.Discard}); err == nil {
+		t.Fatal("fresh install accepted an existing update broker marker")
+	}
+	if h.ran("modprobe") {
+		t.Fatal("fresh install mutated prerequisites around an existing broker marker")
 	}
 }
 
