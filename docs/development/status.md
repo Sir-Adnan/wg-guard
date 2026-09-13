@@ -66,6 +66,12 @@ Performance, Balanced, Resilient, Suggested and Automatic handshake plus public 
 still exists and restores retry state on failure. Current affected Chrome/WebKit checks pass; the
 previous complete Firefox matrix remains valid for the unchanged foundation, while a current local
 Firefox rerun was unavailable because that installed development-browser bundle could not load.
+The continuation further replaces the Users/User Detail and administration layouts, repairs drawer,
+icon, copy, theme-menu and pointer-scroll defects, separates QR/config actions, and converts panel
+speed entry to MB/s while preserving Kbps in domain/REST data. Dashboard backup download and private
+streamed `.wgg` import now feed the existing staged restore review. These panel changes do not alter
+OpenAPI. Full Go checks and affected Chromium/WebKit route, interaction and consistency gates pass;
+the installed Firefox development bundle still cannot launch.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

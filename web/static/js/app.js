@@ -108,16 +108,73 @@
     setTimeout(() => delete f.dataset.confirmed, 100);
   });
 
+  /* ---------- permission and webhook selection presets ---------- */
+
+  document.addEventListener('click', (event) => {
+    const scopePreset = event.target.closest('[data-scope-preset]');
+    const eventPreset = event.target.closest('[data-event-preset]');
+    const button = scopePreset || eventPreset;
+    if (!button) return;
+    event.preventDefault();
+    const fieldset = button.closest('fieldset');
+    if (!fieldset) return;
+    const boxes = $$('input[type="checkbox"]', fieldset);
+    if (eventPreset) {
+      boxes.forEach(box => { box.checked = eventPreset.dataset.eventPreset === 'all'; });
+    } else {
+      const preset = scopePreset.dataset.scopePreset;
+      const operational = new Set(['users', 'devices', 'configs', 'traffic', 'plans', 'interfaces', 'stats', 'webhooks']);
+      boxes.forEach(box => {
+        const value = box.value;
+        const family = value.split('.')[0];
+        const exact = !value.endsWith('.*');
+        box.checked = preset === 'all' ? !exact :
+          preset === 'observer' ? exact && (value.endsWith('.read') || value === 'stats.read' || value === 'audit.view') :
+          preset === 'operator' ? exact && operational.has(family) : false;
+      });
+    }
+    boxes[0]?.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
   /* ---------- copy to clipboard ---------- */
 
+  const fallbackCopy = value => {
+    const fallback = document.createElement('textarea');
+    const active = document.activeElement;
+    const x = scrollX, y = scrollY;
+    fallback.value = value;
+    fallback.setAttribute('readonly', '');
+    Object.assign(fallback.style, { position: 'fixed', inset: '0 auto auto -9999px', opacity: '0' });
+    document.body.append(fallback);
+    fallback.focus({ preventScroll: true });
+    fallback.select();
+    const copied = document.execCommand('copy');
+    fallback.remove();
+    active?.focus?.({ preventScroll: true });
+    scrollTo(x, y);
+    return copied;
+  };
+
   document.addEventListener("click", async (e) => {
-    const btn = e.target.closest("[data-copy]");
+    const btn = e.target.closest("[data-copy],[data-copy-value]");
     if (!btn) return;
     const target = $(btn.dataset.copy);
     const text = target ? (target.value ?? target.textContent) : btn.dataset.copyValue;
     if (!text) return;
     try {
-      await navigator.clipboard.writeText(text.trim());
+      const value = text.trim();
+      let copied = false;
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(value);
+          copied = true;
+        } catch {
+          copied = fallbackCopy(value);
+        }
+      } else {
+        copied = fallbackCopy(value);
+      }
+      if (!copied) throw new Error('copy unavailable');
       toast(btn.dataset.copiedMsg || document.querySelector('meta[name="ui-copied"]').content, "ok");
     } catch {
       toast(document.querySelector('meta[name="ui-copy-error"]').content, "err");

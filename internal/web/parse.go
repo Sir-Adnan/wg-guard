@@ -23,6 +23,9 @@ var errInvalid = domain.E(domain.CodeInvalidRequest, "invalid limit")
 const (
 	unitGB = int64(1e9)
 	unitMB = int64(1e6)
+	// The public REST/domain contract remains kilobits per second. The panel
+	// accepts the friendlier megabytes-per-second unit and converts exactly.
+	kbpsPerMBps = int64(8000)
 )
 
 // maxQuotaBytes is the hard quota ceiling: 1,000,000 GB.
@@ -146,6 +149,39 @@ func parseDurationSeconds(value, unit string) (*int64, error) {
 		return nil, errInvalid
 	}
 	return &secs, nil
+}
+
+// parseSpeedMBps converts the panel's decimal MB/s input into the established
+// domain/API Kbps value. The decimal must resolve to a whole Kbps so redisplay
+// is lossless; empty keeps the existing unlimited semantics.
+func parseSpeedMBps(value string) (*int, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return nil, nil
+	}
+	mant, fracLen, ok := parseMantissa(v, 15)
+	if !ok || fracLen > 6 || mant > int64(^uint(0)>>1)/kbpsPerMBps {
+		return nil, errInvalid
+	}
+	scale := pow10(fracLen)
+	product := mant * kbpsPerMBps
+	if product%scale != 0 {
+		return nil, errInvalid
+	}
+	kbps := product / scale
+	if kbps <= 0 || uint64(kbps) > uint64(^uint(0)>>1) {
+		return nil, errInvalid
+	}
+	n := int(kbps)
+	return &n, nil
+}
+
+// speedMBpsValue renders stored Kbps as the exact decimal MB/s form value.
+func speedMBpsValue(kbps *int) string {
+	if kbps == nil {
+		return ""
+	}
+	return formatScaled(int64(*kbps), kbpsPerMBps)
 }
 
 // parseDateOnly parses an exact YYYY-MM-DD expiry date as noon UTC — the

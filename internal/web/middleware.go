@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 )
 
@@ -177,6 +178,13 @@ func (s *Server) requireCSRF(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// The archive import handler validates the first tiny multipart field
+		// before it reads the streamed file. Parsing this body here would defeat
+		// streaming and could spool an untrusted multi-gigabyte archive first.
+		if r.Method == http.MethodPost && r.URL.Path == "/backups/import" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if !csrfValid(tok, csrfFrom(r)) {
 			if isHX(r) {
 				w.Header().Set("X-WG-Error", "csrf")
@@ -229,7 +237,13 @@ func requestIsHTTPS(r *http.Request) bool {
 // well under this).
 func bodyCap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
+		limit := int64(256 << 10)
+		if r.Method == http.MethodPost && r.URL.Path == "/backups/import" {
+			// Multipart framing gets a small allowance above the compressed
+			// archive bound. MaxBytesReader still streams and terminates excess.
+			limit = backup.MaxArchiveBytes + (1 << 20)
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }

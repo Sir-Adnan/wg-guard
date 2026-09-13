@@ -18,8 +18,8 @@ func createUserViaForm(t *testing.T, e *env, cookie *http.Cookie, username strin
 		"_csrf":            {deriveCSRF(cookie.Value)},
 		"username":         {username},
 		"traffic_limit_gb": {"10"},
-		"speed_down":       {"1024"},
-		"speed_up":         {"512"},
+		"speed_down":       {"0.128"},
+		"speed_up":         {"0.064"},
 		"device_limit":     {"2"},
 		"duration_days":    {"30"},
 		"start_policy":     {"immediate"},
@@ -213,7 +213,7 @@ func TestUserEditTriState(t *testing.T) {
 	// browser submits every rendered field; untouched fields round-trip
 	// their current values, which is what preserves them.
 	form := url.Values{"_csrf": {deriveCSRF(cookie.Value)}, "display_name": {"Carol"},
-		"traffic_limit_gb": {""}, "speed_down": {"1024"}, "speed_up": {"512"}, "device_limit": {"2"}}
+		"traffic_limit_gb": {""}, "speed_down": {"0.128"}, "speed_up": {"0.064"}, "device_limit": {"2"}}
 	req := httptest.NewRequest(http.MethodPost, "/users/"+id+"/edit", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)

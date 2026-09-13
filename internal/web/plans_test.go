@@ -21,7 +21,7 @@ func TestPlanCrudFlow(t *testing.T) {
 	form := url.Values{
 		"_csrf": {csrf}, "name": {"basic"}, "traffic_limit_gb": {"50"},
 		"duration_days": {"30"}, "device_limit": {"2"},
-		"speed_down": {"10240"}, "speed_up": {"5120"},
+		"speed_down": {"1.28"}, "speed_up": {"0.64"},
 		"start_policy": {"immediate"}, "enabled": {"1"},
 	}
 	rec := e.post("/plans", form, cookie, csrf)
@@ -47,7 +47,7 @@ func TestPlanCrudFlow(t *testing.T) {
 	edit := url.Values{
 		"_csrf": {csrf}, "name": {"basic-plus"}, "traffic_limit_gb": {""},
 		"duration_days": {"30"}, "device_limit": {"2"},
-		"speed_down": {"10240"}, "speed_up": {"5120"},
+		"speed_down": {"1.28"}, "speed_up": {"0.64"},
 		"start_policy": {"immediate"}, "enabled": {"1"},
 	}
 	rec = e.post("/plans/"+id+"/edit", edit, cookie, csrf)
@@ -372,7 +372,7 @@ func TestPlanFormTechnicalValuesAreLossless(t *testing.T) {
 	e.seedOwner()
 	cookie := e.login("owner")
 	csrf := deriveCSRF(cookie.Value)
-	rec := e.post("/plans", url.Values{"name": {"Exact rates"}, "device_limit": {"3"}, "speed_down": {"10240"}, "speed_up": {"5120"}}, cookie, csrf)
+	rec := e.post("/plans", url.Values{"name": {"Exact rates"}, "device_limit": {"3"}, "speed_down": {"1.28"}, "speed_up": {"0.64"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatal(rec.Code)
 	}
@@ -381,7 +381,7 @@ func TestPlanFormTechnicalValuesAreLossless(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := e.get("/plans/"+id+"/edit", cookie).Body.String()
-	for _, value := range []string{`value="10240"`, `value="5120"`} {
+	for _, value := range []string{`value="1.28"`, `value="0.64"`} {
 		if !strings.Contains(body, value) {
 			t.Errorf("missing raw numeric form %s", value)
 		}

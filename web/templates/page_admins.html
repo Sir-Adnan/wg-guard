@@ -1,31 +1,82 @@
 {{define "title"}}{{.T "admins.title"}}{{end}}
 {{define "content"}}
-<div class="page-head"><div><h1>{{.T "admins.title"}}</h1><p>{{.T "ops.admin_intro"}}</p></div>{{if .Data.Editing}}<a class="btn btn--ghost" href="/admins">{{.T "common.back"}}</a>{{end}}</div>
-<div class="form-stack">{{template "form_feedback" .}}
-{{if not .Data.Known}}{{template "ops_unavailable" .}}{{end}}{{if .Data.Editing}}
-{{$a := .Data.Editing}}
-<section class="card card--pad"><div class="collection-head"><div><h2><bdi>{{$a.Username}}</bdi></h2><p class="hint">{{.T "ops.admin_account_hint"}}</p></div><span class="badge">{{.T (printf "role.%s" $a.Role)}}</span></div>
-{{if eq (printf "%v" $a.Role) "owner"}}<p class="callout">{{.T "ops.owner_protected"}}</p>{{else}}
-<form method="post" action="/admins/{{$a.ID}}/permissions" class="form-stack" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
-{{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "permissions" "invalid" (.Data.Form.Invalid "permissions"))}}
-<div class="form-actions"><button class="btn btn--primary" type="submit">{{.T "admins.edit_permissions"}}</button></div></form>{{end}}</section>
-<section class="card card--pad"><h2>{{.T "admins.reset_password"}}</h2><p class="section-description">{{.T "admins.password_reset_hint"}}</p>
-<form method="post" action="/admins/{{$a.ID}}/password" class="form-stack" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
-{{template "ops_field" (dict "v" . "f" .Data.Form "name" "password" "label" "admins.password" "hint" "admins.password_hint" "password" true "technical" true)}}
-<div class="form-actions"><button class="btn" type="submit">{{.T "admins.reset_password"}}</button></div></form></section>
-{{else}}
-<div class="ops-account-grid">{{range .Data.Admins}}<article class="card card--pad ops-account"><div class="collection-head"><h2><bdi>{{.Username}}</bdi></h2><span class="badge {{if .Enabled}}badge--ok{{end}}">{{if .Enabled}}{{$.T "admins.enabled"}}{{else}}{{$.T "admins.disabled"}}{{end}}</span></div>
-<p>{{$.T (printf "role.%s" .Role)}} · {{if eq (printf "%v" .Role) "owner"}}{{$.T "admins.all_permissions"}}{{else if .Permissions}}{{$.T "ops.permission_count" (len .Permissions)}}{{else}}{{$.T "admins.no_permissions"}}{{end}}</p>
-<p class="hint">{{$.T "common.created"}} <span class="ltr-data">{{$.OpsTimestamp .CreatedAt}}</span></p>
-<div class="inline-actions"><a class="btn btn--sm" href="/admins?edit={{.ID}}">{{$.T "common.edit"}}</a>
-{{if ne (printf "%v" .Role) "owner"}}<form method="post" action="/admins/{{.ID}}/enable"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="enable" value="{{if .Enabled}}0{{else}}1{{end}}"><button class="btn btn--sm" type="submit">{{if .Enabled}}{{$.T "admins.disable"}}{{else}}{{$.T "admins.enable"}}{{end}}</button></form>
-<form method="post" action="/admins/{{.ID}}/delete" data-confirm data-confirm-title="{{$.T "admins.delete_title"}}" data-confirm-message="{{$.T "ops.admin_delete" .Username}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn--sm btn--danger-soft" type="submit">{{$.T "common.delete"}}</button></form>{{end}}</div></article>{{end}}</div>
-<details class="collapse form-panel" id="admin-create" {{if .Data.Form.Error}}open{{end}}><summary>{{.IconS "user-plus"}}{{.T "admins.add"}}</summary><div class="collapse-body">
-<form method="post" action="/admins/create" class="form-stack" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
-<div class="field-row">{{template "ops_field" (dict "v" . "f" .Data.Form "name" "username" "label" "admins.col_admin" "hint" "onboard.username_hint" "technical" true)}}
-{{template "ops_field" (dict "v" . "f" .Data.Form "name" "password" "label" "admins.password" "hint" "admins.password_hint" "password" true "technical" true)}}</div>
-<input type="hidden" name="role" value="admin"><p class="callout">{{.T "ops.admin_create_role"}}</p>
-{{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "permissions" "invalid" (.Data.Form.Invalid "permissions"))}}
-<div class="form-actions"><button class="btn btn--primary" type="submit">{{.T "admins.add"}}</button></div></form></div></details>
-{{end}}</div>
+<div class="ops-page admin-page">
+  <div class="page-head page-head--hero ops-hero">
+    <div class="page-title-cluster">
+      <span class="page-title-icon" aria-hidden="true">{{.Icon "user-plus"}}</span>
+      <div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "admins.title"}}</h1><p>{{.T "ops.admin_intro"}}</p></div>
+    </div>
+    <div class="actions">
+      {{if .Data.Editing}}<a class="btn btn--ghost" href="/admins">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
+      {{else}}<a class="btn btn--primary" href="#admin-create">{{.IconS "plus"}}{{.T "admins.add"}}</a>{{end}}
+    </div>
+  </div>
+  {{template "form_feedback" .}}
+  {{if not .Data.Known}}{{template "ops_unavailable" .}}{{end}}
+
+  {{if .Data.Editing}}
+    {{$a := .Data.Editing}}
+    <div class="ops-editor-grid">
+      <section class="card card--pad ops-editor-card">
+        <div class="section-head">
+          <div class="entity-heading"><span class="avatar avatar--lg" aria-hidden="true">{{.Initial $a.Username}}</span><div><span class="eyebrow">{{.T "admins.col_admin"}}</span><h2><bdi>{{$a.Username}}</bdi></h2><p class="hint">{{.T "ops.admin_account_hint"}}</p></div></div>
+          <span class="badge {{if $a.Enabled}}badge--ok{{end}}">{{if $a.Enabled}}{{.T "admins.enabled"}}{{else}}{{.T "admins.disabled"}}{{end}}</span>
+        </div>
+        {{if eq (printf "%v" $a.Role) "owner"}}
+          <div class="callout">{{.IconS "shield-check"}}<span>{{.T "ops.owner_protected"}}</span></div>
+        {{else}}
+          <form method="post" action="/admins/{{$a.ID}}/permissions" class="form-stack" novalidate>
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            {{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "permissions" "invalid" (.Data.Form.Invalid "permissions"))}}
+            <div class="form-actions"><button class="btn btn--primary" type="submit">{{.T "admins.edit_permissions"}}</button></div>
+          </form>
+        {{end}}
+      </section>
+      <section class="card card--pad ops-password-card">
+        <span class="section-icon" aria-hidden="true">{{.IconS "key"}}</span>
+        <h2>{{.T "admins.reset_password"}}</h2>
+        <p class="section-description">{{.T "admins.password_reset_hint"}}</p>
+        <form method="post" action="/admins/{{$a.ID}}/password" class="form-stack" novalidate>
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          {{template "ops_field" (dict "v" . "f" .Data.Form "name" "password" "label" "admins.password" "hint" "admins.password_hint" "password" true "technical" true)}}
+          <div class="form-actions"><button class="btn" type="submit">{{.T "admins.reset_password"}}</button></div>
+        </form>
+      </section>
+    </div>
+  {{else}}
+    {{if .Data.Admins}}
+      <section class="collection ops-roster" aria-labelledby="admin-roster-title">
+        <div class="section-head"><div><span class="eyebrow">{{.T "admins.title"}}</span><h2 id="admin-roster-title">{{len .Data.Admins}} {{.T "forms.total"}}</h2></div></div>
+        <div class="table-wrap">
+          <table class="table table--cards entity-table admin-table">
+            <thead><tr><th>{{.T "admins.col_admin"}}</th><th>{{.T "admins.col_role"}}</th><th>{{.T "admins.col_permissions"}}</th><th>{{.T "admins.col_created"}}</th><th class="text-end">{{.T "common.actions"}}</th></tr></thead>
+            <tbody>{{range .Data.Admins}}
+              <tr>
+                <td class="card-title" data-label="{{$.T "admins.col_admin"}}"><div class="id-cell"><span class="avatar" aria-hidden="true">{{$.Initial .Username}}</span><span class="id-text"><strong class="cell-main"><bdi>{{.Username}}</bdi></strong><span class="badge {{if .Enabled}}badge--ok{{end}}">{{if .Enabled}}{{$.T "admins.enabled"}}{{else}}{{$.T "admins.disabled"}}{{end}}</span></span></div></td>
+                <td data-label="{{$.T "admins.col_role"}}"><span class="badge">{{$.T (printf "role.%s" .Role)}}</span></td>
+                <td data-label="{{$.T "admins.col_permissions"}}">{{if eq (printf "%v" .Role) "owner"}}{{$.T "admins.all_permissions"}}{{else if .Permissions}}{{$.T "ops.permission_count" (len .Permissions)}}{{else}}{{$.T "admins.no_permissions"}}{{end}}</td>
+                <td data-label="{{$.T "admins.col_created"}}"><span class="ltr-data">{{$.OpsTimestamp .CreatedAt}}</span></td>
+                <td class="card-actions text-end" data-label="{{$.T "common.actions"}}"><div class="inline-actions"><a class="btn btn--sm btn--ghost" href="/admins?edit={{.ID}}">{{$.IconS "pencil"}}{{$.T "common.edit"}}</a>{{if ne (printf "%v" .Role) "owner"}}<div class="menu-anchor"><button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$.T "common.actions"}}: {{.Username}}">{{$.IconS "more-vertical"}}</button><div class="menu" role="menu"><form role="none" method="post" action="/admins/{{.ID}}/enable"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="enable" value="{{if .Enabled}}0{{else}}1{{end}}"><button type="submit" role="menuitem">{{$.IconS "power"}}<span>{{if .Enabled}}{{$.T "admins.disable"}}{{else}}{{$.T "admins.enable"}}{{end}}</span></button></form><hr><form role="none" method="post" action="/admins/{{.ID}}/delete" data-confirm data-confirm-title="{{$.T "admins.delete_title"}}" data-confirm-message="{{$.T "ops.admin_delete" .Username}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" role="menuitem" class="is-danger">{{$.IconS "trash-2"}}<span>{{$.T "common.delete"}}</span></button></form></div></div>{{end}}</div></td>
+              </tr>
+            {{end}}</tbody>
+          </table>
+        </div>
+      </section>
+    {{else if .Data.Known}}<div class="card empty empty-stage"><span class="empty-visual">{{.Icon "users"}}</span><h2>{{.T "admins.title"}}</h2><p>{{.T "admins.subtitle"}}</p></div>{{end}}
+
+    <details class="collapse form-panel ops-create-panel" id="admin-create" {{if .Data.Form.Error}}open{{end}}>
+      <summary><span class="section-icon" aria-hidden="true">{{.IconS "user-plus"}}</span><span>{{.T "admins.add"}}</span></summary>
+      <div class="collapse-body">
+        <form method="post" action="/admins/create" class="form-stack" novalidate>
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="field-row">{{template "ops_field" (dict "v" . "f" .Data.Form "name" "username" "label" "admins.col_admin" "hint" "onboard.username_hint" "technical" true)}}{{template "ops_field" (dict "v" . "f" .Data.Form "name" "password" "label" "admins.password" "hint" "admins.password_hint" "password" true "technical" true)}}</div>
+          <input type="hidden" name="role" value="admin">
+          <div class="callout">{{.IconS "shield"}}<span>{{.T "ops.admin_create_role"}}</span></div>
+          {{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "permissions" "invalid" (.Data.Form.Invalid "permissions"))}}
+          <div class="form-actions"><button class="btn btn--primary" type="submit">{{.IconS "plus"}}{{.T "admins.add"}}</button></div>
+        </form>
+      </div>
+    </details>
+  {{end}}
+</div>
 {{end}}

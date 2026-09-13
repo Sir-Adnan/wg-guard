@@ -1,13 +1,14 @@
 {{define "title"}}{{.T "settings.title"}}{{end}}
 {{define "content"}}
-<div class="page-head"><div><h1>{{.T "settings.title"}}</h1><p class="page-sub">{{.T "settings.overview"}}</p></div></div>
+<div class="page-head page-head--hero settings-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "settings-2"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "settings.title"}}</h1><p class="page-sub">{{.T "settings.overview"}}</p></div></div></div>
 <form method="post" action="/settings" class="settings-workspace" data-settings-form data-settings-retry="{{if .Data.Error}}true{{else}}false{{end}}" data-settings-clean="{{if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}" data-settings-dirty="{{.T "settings.save.dirty"}}" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
   <nav class="settings-nav" aria-label="{{.T "settings.sections"}}">
     <p class="eyebrow">{{.T "settings.sections"}}</p>
     {{range .Data.Sections}}<a href="#settings-{{.ID}}">{{$.T .Title}}</a>{{end}}
-  <p class="hint settings-blank-guide">{{.T "settings.blank_text"}}</p></nav>
+  </nav>
   <div class="settings-main form-stack">
+    <p class="callout settings-guidance">{{.IconS "info"}}<span>{{.T "settings.blank_text"}}</span></p>
     {{if .Data.Error}}<div class="form-feedback callout callout--error" id="form-errors" role="alert" tabindex="-1">{{.IconS "alert-triangle"}}<div><strong>{{.Data.Error}}</strong><p>{{.T "settings.save.retry"}}</p>{{if .Data.Field}}<a href="#s-{{.Data.Field}}">{{.T .Data.ErrorLabel}}</a>{{end}}</div></div>{{end}}
     {{if .Data.LoadFailed}}<div class="callout callout--warn" role="status">{{.IconS "alert-triangle"}}<div><strong>{{.T "settings.load.title"}}</strong><p>{{.T "settings.load.hint"}}</p><a href="/settings">{{.T "settings.reload"}}</a></div></div>{{end}}
     {{range .Data.Sections}}

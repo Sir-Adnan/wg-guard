@@ -1,151 +1,58 @@
 {{define "title"}}{{.Data.U.Username}}{{end}}
 {{define "content"}}
-<div class="page-head">
-  <div>
-    <h1 class="ltr-data">{{.Data.U.Username}}</h1>
-    <p>
-      <span class="badge {{.StClass (printf "%v" .Data.U.Status)}}">{{.St (printf "%v" .Data.U.Status)}}</span>
-      {{if .Data.U.DeletedAt}}<span class="badge badge--danger">{{.T "users.detail.deleted_badge"}}</span>{{end}}
-    </p>
-  </div>
-  <div class="actions">
-    {{if .Can "users.update"}}<a class="btn" href="/users/{{.Data.U.ID}}/edit">{{.IconS "pencil"}}<span>{{.T "common.edit"}}</span></a>{{end}}
-    <a class="btn btn--ghost" href="/users">{{.T "common.back"}}</a>
-    {{if or (.Can "users.update") (.Can "users.delete") (.Can "traffic.update")}}<div class="menu-anchor">
-      <button type="button" class="btn btn--ghost" aria-haspopup="menu" aria-expanded="false">{{.IconS "more-vertical"}}<span>{{.T "common.actions"}}</span></button>
-      <div class="menu" role="menu">
-        {{if .Can "users.update"}}<button type="button" role="menuitem" data-open-modal="renew-modal">{{.IconS "calendar"}}<span>{{.T "users.action.renew"}}</span></button>{{end}}
-        {{if .Can "traffic.update"}}<button type="button" role="menuitem" data-open-modal="traffic-modal">{{.IconS "plus"}}<span>{{.T "users.action.add_traffic"}}</span></button>
-        <form role="none" method="post" action="/users/{{.Data.U.ID}}/traffic/reset" data-confirm
-              data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" .Data.U.Username)}}"
-              data-confirm-message="{{.T "users.traffic_reset.confirm"}}"
-              data-confirm-label="{{.T "users.action.reset_traffic"}}">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.reset_traffic"}}</span></button>
-        </form>
-        {{end}}
-        {{if .Can "users.update"}}<hr>
-        {{if .Data.U.DeletedAt}}
-        <form role="none" method="post" action="/users/{{.Data.U.ID}}/restore">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.restore"}}</span></button>
-        </form>
-        {{else if eq (printf "%v" .Data.U.Status) "active"}}
-        <form role="none" method="post" action="/users/{{.Data.U.ID}}/disable">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.disable"}}</span></button>
-        </form>
-        {{else}}
-        <form role="none" method="post" action="/users/{{.Data.U.ID}}/enable">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.enable"}}</span></button>
-        </form>
-        {{end}}
-        {{end}}
-        {{if and (not .Data.U.DeletedAt) (.Can "users.delete")}}
-        <form role="none" method="post" action="/users/{{.Data.U.ID}}/delete" data-confirm
-              data-confirm-title="{{.T "common.confirm_delete"}}"
-              data-confirm-message="{{.T "users.confirm_delete" (printf "%v" .Data.U.Username)}}"
-              data-confirm-label="{{.T "users.action.delete"}}">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" role="menuitem" class="is-danger">{{.IconS "trash-2"}}<span>{{.T "users.action.delete"}}</span></button>
-        </form>
-        {{end}}
-      </div>
-    </div>{{end}}
-  </div>
-</div>
-
-<div class="user-detail-grid user-operations">
-  <div class="card card--pad">
-    <h2>{{.T "users.detail.overview"}}</h2>
-    <dl class="detail-list">
-      {{if .Can "traffic.read"}}<dt>{{.T "users.traffic"}}</dt>
-      <dd>
-        <div class="meter {{.MeterClass .Data.U.Used .Data.U.TrafficLimitBytes}}">
-          <span class="bar"><span></span></span>
-          <span class="num">{{.B .Data.U.Used}}{{if .Data.U.HasLimit}} / {{.BLim .Data.U.TrafficLimitBytes}}{{end}}</span>
-        </div>
-      </dd>
-      <dt>{{.T "users.detail.rx"}}</dt>
-      <dd><span class="ltr-data">{{.B (i64u .Data.U.TrafficUsedRX)}}</span><span class="hint user-traffic-direction">{{.T "users.detail.rx_hint"}}</span></dd>
-      <dt>{{.T "users.detail.tx"}}</dt>
-      <dd><span class="ltr-data">{{.B (i64u .Data.U.TrafficUsedTX)}}</span><span class="hint user-traffic-direction">{{.T "users.detail.tx_hint"}}</span></dd>
-      {{end}}
-      <dt>{{.T "users.speed_limit"}}</dt>
-      <dd class="ltr-data">{{.U .Data.U.SpeedLimitDownKbps}} ↓ / {{.U .Data.U.SpeedLimitUpKbps}} ↑</dd>
-      {{if .Can "devices.read"}}<dt>{{.T "users.devices"}}</dt>
-      <dd class="ltr-data">{{if .Data.DevicesKnown}}{{len .Data.Devices}}{{if .Data.U.DeviceLimit}} / {{.KD .Data.U.DeviceLimit}}{{end}}{{else}}{{.T "forms.unavailable"}}{{end}}</dd>{{end}}
-      <dt>{{.T "users.plan"}}</dt>
-      <dd>{{if not .Data.PlanKnown}}{{.T "forms.unavailable"}}{{else if .Data.PlanName}}{{.Data.PlanName}}{{else}}<span class="text-subtle">{{.T "users.no_plan"}}</span>{{end}}</dd>
-      <dt>{{.T "users.interface"}}</dt>
-      <dd>{{if not .Data.IfaceKnown}}{{.T "forms.unavailable"}}{{else if .Data.IfaceName}}<span class="ltr-data">{{.Data.IfaceName}}</span>{{else}}<span class="text-subtle">{{.T "common.none"}}</span>{{end}}</dd>
-      <dt>{{.T "users.start_policy"}}</dt>
-      <dd>{{if eq (printf "%v" .Data.U.StartPolicy) "first_connection"}}{{.T "users.start_policy.first_connection"}}{{else}}{{.T "users.start_policy.immediate"}}{{end}}</dd>
-      <dt>{{.T "users.duration"}}</dt>
-      <dd>{{if .Data.U.DurationSeconds}}{{.Dur (i64u .Data.U.DurationSeconds)}}{{else}}<span class="text-subtle">—</span>{{end}}</dd>
-      <dt>{{.T "users.expires"}}</dt>
-      <dd class="ltr-data {{.ExpiryClass .Data.U.ExpiresAt}}">{{.DT .Data.U.ExpiresAt}}</dd>
-      <dt>{{.T "users.activated"}}</dt>
-      <dd class="ltr-data">{{.DT .Data.U.ActivatedAt}}</dd>
-      <dt>{{.T "users.last_activity"}}</dt>
-      <dd class="ltr-data">{{.Rel .Data.U.LastActivityAt}}</dd>
-      <dt>{{.T "common.created"}}</dt>
-      <dd class="ltr-data">{{.DT (timePtr .Data.U.CreatedAt)}}</dd>
-	  {{if .Data.U.Note}}<dt>{{.T "common.note"}}</dt><dd class="note-copy">{{.Data.U.Note}}</dd>{{end}}
-      {{if .Data.U.Tags}}<dt>{{.T "common.tags"}}</dt>
-      <dd><span class="chips">{{range .Data.U.Tags}}<span class="chip ltr-data">{{.}}</span>{{end}}</span></dd>{{end}}
-    </dl>
-  </div>
-
-  {{if or (.Can "configs.read") (.Can "users.update")}}<div class="card card--pad subscription-card">
-    <h2>{{.T "sub.card.title"}}</h2>
-    <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p>
-    {{if not .Data.SubKnown}}
-    <div class="callout"><p>{{.T "users.sub_unavailable"}}</p><a class="btn btn--sm" href="/users/{{.Data.U.ID}}">{{.T "common.retry"}}</a></div>
-    {{else if not .Data.SubExists}}
-    {{if .Can "users.update"}}<form method="post" action="/users/{{.Data.U.ID}}/sub/create">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="btn">{{.IconS "link"}}<span>{{.T "sub.card.create"}}</span></button>
-    </form>
-    {{else}}<p class="hint">{{.T "users.sub_absent"}}</p>{{end}}
-    {{else if .Data.SubRevoked}}
-    <p class="mt-4"><span class="badge badge--danger"><span class="dot"></span>{{.T "sub.card.revoked"}}</span></p>
-    {{if .Can "users.update"}}<div class="inline-actions mt-4">
-      <form method="post" action="/users/{{.Data.U.ID}}/sub/restore">
-        <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn btn--sm">{{.IconS "rotate-ccw"}}<span>{{.T "sub.card.restore"}}</span></button>
-      </form>
-      <form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate">
-        <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn btn--sm btn--ghost">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button>
-      </form>
-    </div>{{end}}
-    {{else}}
-    {{if .Can "configs.read"}}<div class="input-adj mt-4">
-      <input class="input ltr-data" id="sub-url" readonly value="{{.Data.SubURL}}" aria-label="{{.T "sub.card.title"}}">
-      <button type="button" class="icon-btn" data-copy="#sub-url" data-copied-msg="{{.T "common.copied"}}" aria-label="{{.T "common.copy"}}">{{.IconS "copy"}}</button>
+<div class="user-detail-page">
+  <div class="page-head page-head--hero user-detail-hero">
+    <div class="user-identity-hero">
+      <span class="avatar user-avatar" aria-hidden="true">{{.Initial .Data.U.Username}}</span>
+      <div><span class="eyebrow">{{.T "users.detail.overview"}}</span><h1 class="ltr-data">{{.Data.U.Username}}</h1><div class="chips"><span class="badge {{.StClass (printf "%v" .Data.U.Status)}}"><span class="dot"></span>{{.St (printf "%v" .Data.U.Status)}}</span>{{if .Data.U.DeletedAt}}<span class="badge badge--danger">{{.T "users.detail.deleted_badge"}}</span>{{end}}</div></div>
     </div>
-    {{end}}
-    {{if .Can "users.update"}}<div class="inline-actions mt-4">
-      <form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate" data-confirm
-            data-confirm-title="{{.T "sub.card.regenerate"}}"
-            data-confirm-message="{{.T "sub.card.regenerate_confirm"}}"
-            data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.regenerate"}}">
-        <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn btn--sm">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button>
-      </form>
-      <form method="post" action="/users/{{.Data.U.ID}}/sub/revoke" data-confirm
-            data-confirm-title="{{.T "sub.card.revoke"}}"
-            data-confirm-message="{{.T "sub.card.revoke_confirm"}}"
-            data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.revoke"}}">
-        <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "unlink"}}<span>{{.T "sub.card.revoke"}}</span></button>
-      </form>
-    </div>{{end}}
-    {{end}}
-  </div>{{end}}
+    <div class="actions">
+      {{if .Can "users.update"}}<a class="btn btn--primary" href="/users/{{.Data.U.ID}}/edit">{{.IconS "pencil"}}<span>{{.T "common.edit"}}</span></a>{{end}}
+      <a class="btn btn--ghost" href="/users">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
+      {{if or (.Can "users.update") (.Can "users.delete") (.Can "traffic.update")}}<div class="menu-anchor">
+        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{.T "common.actions"}}">{{.IconS "more-vertical"}}</button>
+        <div class="menu" role="menu">
+          {{if .Can "users.update"}}<button type="button" role="menuitem" data-open-modal="renew-modal">{{.IconS "calendar"}}<span>{{.T "users.action.renew"}}</span></button>{{end}}
+          {{if .Can "traffic.update"}}<button type="button" role="menuitem" data-open-modal="traffic-modal">{{.IconS "plus"}}<span>{{.T "users.action.add_traffic"}}</span></button><form role="none" method="post" action="/users/{{.Data.U.ID}}/traffic/reset" data-confirm data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" .Data.U.Username)}}" data-confirm-message="{{.T "users.traffic_reset.confirm"}}" data-confirm-label="{{.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.reset_traffic"}}</span></button></form>{{end}}
+          {{if .Can "users.update"}}<hr>{{if .Data.U.DeletedAt}}<form role="none" method="post" action="/users/{{.Data.U.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.restore"}}</span></button></form>{{else if eq (printf "%v" .Data.U.Status) "active"}}<form role="none" method="post" action="/users/{{.Data.U.ID}}/disable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.disable"}}</span></button></form>{{else}}<form role="none" method="post" action="/users/{{.Data.U.ID}}/enable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.enable"}}</span></button></form>{{end}}{{end}}
+          {{if and (not .Data.U.DeletedAt) (.Can "users.delete")}}<hr><form role="none" method="post" action="/users/{{.Data.U.ID}}/delete" data-confirm data-confirm-title="{{.T "common.confirm_delete"}}" data-confirm-message="{{.T "users.confirm_delete" (printf "%v" .Data.U.Username)}}" data-confirm-label="{{.T "users.action.delete"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem" class="is-danger">{{.IconS "trash-2"}}<span>{{.T "users.action.delete"}}</span></button></form>{{end}}
+        </div>
+      </div>{{end}}
+    </div>
+  </div>
 
+  <div class="user-kpi-grid">
+    {{if .Can "traffic.read"}}<article class="user-kpi user-kpi--traffic"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "activity"}}</span><div><span>{{.T "users.traffic"}}</span><strong class="ltr-data">{{.B .Data.U.Used}}</strong><small>{{if .Data.U.HasLimit}}{{.T "forms.total"}} {{.BLim .Data.U.TrafficLimitBytes}}{{else}}{{.T "common.unlimited"}}{{end}}</small></div></article>{{end}}
+    {{if .Can "devices.read"}}<article class="user-kpi user-kpi--devices"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "monitor"}}</span><div><span>{{.T "users.devices"}}</span><strong class="ltr-data">{{if .Data.DevicesKnown}}{{len .Data.Devices}}{{else}}—{{end}}</strong><small>{{if .Data.U.DeviceLimit}}{{.KD .Data.U.DeviceLimit}} {{.T "forms.total"}}{{else}}{{.T "common.unlimited"}}{{end}}</small></div></article>{{end}}
+    <article class="user-kpi user-kpi--expiry"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "clock"}}</span><div><span>{{.T "users.expires"}}</span><strong class="ltr-data {{.ExpiryClass .Data.U.ExpiresAt}}">{{.D .Data.U.ExpiresAt}}</strong><small>{{.RelIn .Data.U.ExpiresAt}}</small></div></article>
+    <article class="user-kpi user-kpi--activity"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "wifi"}}</span><div><span>{{.T "users.last_activity"}}</span><strong>{{.Rel .Data.U.LastActivityAt}}</strong><small>{{.T "users.start_policy"}} · {{if eq (printf "%v" .Data.U.StartPolicy) "first_connection"}}{{.T "users.start_policy.first_connection"}}{{else}}{{.T "users.start_policy.immediate"}}{{end}}</small></div></article>
+  </div>
+
+  <div class="user-detail-layout">
+    <section class="card card--pad user-account-card">
+      <div class="section-head"><div><span class="eyebrow">{{.T "users.detail.overview"}}</span><h2>{{.T "users.detail.overview"}}</h2></div><span class="section-icon" aria-hidden="true">{{.IconS "users"}}</span></div>
+      <dl class="detail-list user-facts">
+        {{if .Can "traffic.read"}}<dt>{{.T "users.detail.rx"}}</dt><dd><span class="ltr-data">{{.B (i64u .Data.U.TrafficUsedRX)}}</span><span class="hint user-traffic-direction">{{.T "users.detail.rx_hint"}}</span></dd><dt>{{.T "users.detail.tx"}}</dt><dd><span class="ltr-data">{{.B (i64u .Data.U.TrafficUsedTX)}}</span><span class="hint user-traffic-direction">{{.T "users.detail.tx_hint"}}</span></dd>{{end}}
+        <dt>{{.T "users.speed_limit"}}</dt><dd class="ltr-data">{{.U .Data.U.SpeedLimitDownKbps}} ↓ · {{.U .Data.U.SpeedLimitUpKbps}} ↑</dd>
+        <dt>{{.T "users.plan"}}</dt><dd>{{if not .Data.PlanKnown}}{{.T "forms.unavailable"}}{{else if .Data.PlanName}}{{.Data.PlanName}}{{else}}<span class="text-subtle">{{.T "users.no_plan"}}</span>{{end}}</dd>
+        <dt>{{.T "users.interface"}}</dt><dd>{{if not .Data.IfaceKnown}}{{.T "forms.unavailable"}}{{else if .Data.IfaceName}}<span class="ltr-data">{{.Data.IfaceName}}</span>{{else}}<span class="text-subtle">{{.T "common.none"}}</span>{{end}}</dd>
+        <dt>{{.T "users.duration"}}</dt><dd>{{if .Data.U.DurationSeconds}}{{.Dur (i64u .Data.U.DurationSeconds)}}{{else}}<span class="text-subtle">—</span>{{end}}</dd>
+        <dt>{{.T "users.activated"}}</dt><dd class="ltr-data">{{.DT .Data.U.ActivatedAt}}</dd>
+        <dt>{{.T "common.created"}}</dt><dd class="ltr-data">{{.DT (timePtr .Data.U.CreatedAt)}}</dd>
+        {{if .Data.U.Tags}}<dt>{{.T "common.tags"}}</dt><dd><span class="chips">{{range .Data.U.Tags}}<span class="chip ltr-data">{{.}}</span>{{end}}</span></dd>{{end}}
+        {{if .Data.U.Note}}<dt>{{.T "common.note"}}</dt><dd class="note-copy user-note">{{.Data.U.Note}}</dd>{{end}}
+      </dl>
+    </section>
+
+    {{if or (.Can "configs.read") (.Can "users.update")}}<section class="card card--pad subscription-access-card">
+      <div class="subscription-access-head"><span class="subscription-access-icon" aria-hidden="true">{{.IconS "link"}}</span><div><span class="eyebrow">{{.T "sub.card.title"}}</span><h2>{{.T "sub.card.title"}}</h2></div></div>
+      <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p>
+      {{if not .Data.SubKnown}}<div class="callout"><p>{{.T "users.sub_unavailable"}}</p><a class="btn btn--sm" href="/users/{{.Data.U.ID}}">{{.T "common.retry"}}</a></div>
+      {{else if not .Data.SubExists}}{{if .Can "users.update"}}<form method="post" action="/users/{{.Data.U.ID}}/sub/create"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--primary btn--block">{{.IconS "link"}}<span>{{.T "sub.card.create"}}</span></button></form>{{else}}<p class="hint">{{.T "users.sub_absent"}}</p>{{end}}
+      {{else if .Data.SubRevoked}}<p><span class="badge badge--danger"><span class="dot"></span>{{.T "sub.card.revoked"}}</span></p>{{if .Can "users.update"}}<div class="inline-actions"><form method="post" action="/users/{{.Data.U.ID}}/sub/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--sm">{{.IconS "rotate-ccw"}}<span>{{.T "sub.card.restore"}}</span></button></form><form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--sm btn--ghost">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button></form></div>{{end}}
+      {{else}}{{if .Can "configs.read"}}<div class="subscription-url"><label for="sub-url">{{.T "sub.card.title"}}</label><div class="input-adj"><input class="input ltr-data" id="sub-url" readonly value="{{.Data.SubURL}}"><button type="button" class="icon-btn" data-copy="#sub-url" data-copied-msg="{{.T "common.copied"}}" aria-label="{{.T "common.copy"}}">{{.IconS "copy"}}</button></div></div>{{end}}{{if .Can "users.update"}}<div class="inline-actions"><form method="post" action="/users/{{.Data.U.ID}}/sub/regenerate" data-confirm data-confirm-title="{{.T "sub.card.regenerate"}}" data-confirm-message="{{.T "sub.card.regenerate_confirm"}}" data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.regenerate"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--sm">{{.IconS "refresh-cw"}}<span>{{.T "sub.card.regenerate"}}</span></button></form><form method="post" action="/users/{{.Data.U.ID}}/sub/revoke" data-confirm data-confirm-title="{{.T "sub.card.revoke"}}" data-confirm-message="{{.T "sub.card.revoke_confirm"}}" data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.revoke"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "unlink"}}<span>{{.T "sub.card.revoke"}}</span></button></form></div>{{end}}{{end}}
+    </section>{{end}}
+  </div>
   {{if .Can "devices.read"}}<div class="user-devices">
     <div class="card">
       <div class="card-head">

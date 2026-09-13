@@ -346,12 +346,12 @@ func (v *View) KD(n *int) string {
 	return i18n.FormatInt(int64(*n))
 }
 
-// U renders a kbps limit as text ("unlimited" when nil).
+// U renders a stored Kbps limit in the panel's MB/s unit.
 func (v *View) U(n *int) string {
 	if n == nil {
 		return v.T("common.unlimited")
 	}
-	return i18n.FormatKbps(v.Locale, *n)
+	return speedMBpsValue(n) + " MB/s"
 }
 
 // BLim renders a byte limit ("unlimited" when nil).

@@ -163,3 +163,48 @@ func TestDurationDisplayRoundTrip(t *testing.T) {
 		t.Error("nil duration should render empty/days")
 	}
 }
+
+func TestSpeedMegabytesPerSecondRoundTrip(t *testing.T) {
+	cases := []struct {
+		input   string
+		kbps    *int
+		invalid bool
+	}{
+		{"", nil, false},
+		{"1", intp(8000), false},
+		{"1.28", intp(10240), false},
+		{"0.125", intp(1000), false},
+		{"0.000125", intp(1), false},
+		{"0", nil, true},
+		{"-1", nil, true},
+		{"1e2", nil, true},
+		{"0.0001", nil, true},
+		{"invalid", nil, true},
+	}
+	for _, tc := range cases {
+		got, err := parseSpeedMBps(tc.input)
+		if tc.invalid {
+			if err == nil {
+				t.Errorf("parseSpeedMBps(%q): want error, got %v", tc.input, got)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("parseSpeedMBps(%q): %v", tc.input, err)
+			continue
+		}
+		if (got == nil) != (tc.kbps == nil) || (got != nil && *got != *tc.kbps) {
+			t.Errorf("parseSpeedMBps(%q) = %v, want %v", tc.input, got, tc.kbps)
+		}
+		if got != nil {
+			if rendered := speedMBpsValue(got); rendered != tc.input {
+				t.Errorf("speedMBpsValue(%d) = %q, want %q", *got, rendered, tc.input)
+			}
+		}
+	}
+	if speedMBpsValue(nil) != "" {
+		t.Error("unlimited speed must render as an empty form value")
+	}
+}
+
+func intp(v int) *int { return &v }

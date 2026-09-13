@@ -205,6 +205,7 @@ func (s *Server) Handler() http.Handler {
 	// --- backups (backup.manage; ADR-0007: panel/CLI only) ---
 	mux.HandleFunc("GET /backups", s.requirePermission(auth.ScopeBackupManage, s.handleBackupsPage))
 	mux.HandleFunc("POST /backups/create", s.requirePermission(auth.ScopeBackupManage, s.handleBackupCreate))
+	mux.HandleFunc("POST /backups/import", s.requirePermission(auth.ScopeBackupManage, s.handleBackupImport))
 	mux.HandleFunc("POST /backups/delete", s.requirePermission(auth.ScopeBackupManage, s.handleBackupDelete))
 	mux.HandleFunc("GET /backups/{name}/download", s.requirePermission(auth.ScopeBackupManage, s.handleBackupDownload))
 	mux.HandleFunc("POST /backups/restore", s.requirePermission(auth.ScopeBackupManage, s.handleBackupRestore))

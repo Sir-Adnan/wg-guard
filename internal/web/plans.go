@@ -118,12 +118,12 @@ func planInputFromForm(r *http.Request, isEdit bool) (plan.Input, error) {
 		return in, errInvalid
 	}
 	in.TrafficLimitBytes = limitOpt64(quota, isEdit)
-	down, err := parseKbps(r.PostFormValue("speed_down"))
+	down, err := parseSpeedMBps(r.PostFormValue("speed_down"))
 	if err != nil {
 		return in, errInvalid
 	}
 	in.SpeedLimitDownKbps = limitOptI(down, isEdit)
-	up, err := parseKbps(r.PostFormValue("speed_up"))
+	up, err := parseSpeedMBps(r.PostFormValue("speed_up"))
 	if err != nil {
 		return in, errInvalid
 	}
@@ -223,7 +223,7 @@ func newPlanFormData(p *plan.Plan, refs []ifaceRef) planFormData {
 		v := View{}
 		values["name"], values["traffic_limit_value"], values["traffic_limit_unit"] = p.Name, v.QuotaVal(p.TrafficLimitBytes), v.QuotaUnit(p.TrafficLimitBytes)
 		values["duration_value"], values["duration_unit"] = v.DurVal(p.DurationSeconds), v.DurUnit(p.DurationSeconds)
-		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(p.DeviceLimit), rawFormInt(p.SpeedLimitDownKbps), rawFormInt(p.SpeedLimitUpKbps)
+		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(p.DeviceLimit), speedMBpsValue(p.SpeedLimitDownKbps), speedMBpsValue(p.SpeedLimitUpKbps)
 		values["interface"], values["start_policy"] = deref(p.InterfaceID), string(p.StartPolicy)
 		if !p.Enabled {
 			values["enabled"] = "0"
@@ -273,11 +273,15 @@ func (s *Server) planFormError(w http.ResponseWriter, r *http.Request, err error
 		if key == "device_limit" {
 			_, e = parseInt(r.PostFormValue(key))
 		} else {
-			_, e = parseKbps(r.PostFormValue(key))
+			_, e = parseSpeedMBps(r.PostFormValue(key))
 		}
 		if e != nil {
 			d.Form.Fields[key] = "forms.error.number"
-		} else if text := strings.TrimSpace(r.PostFormValue(key)); text != "" {
+		} else if key == "device_limit" {
+			text := strings.TrimSpace(r.PostFormValue(key))
+			if text == "" {
+				continue
+			}
 			n, _ := strconv.Atoi(text)
 			if n <= 0 {
 				d.Form.Fields[key] = "forms.error.number"

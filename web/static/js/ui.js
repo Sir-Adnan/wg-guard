@@ -6,6 +6,13 @@ const focusable = root => $$('a[href],button,input,select,textarea,[tabindex]', 
   .filter(el => !el.disabled && el.tabIndex >= 0 && !el.closest('[inert]') && el.getClientRects().length);
 const restoreFocus = el => { if (el?.isConnected && !el.closest('[inert]')) el.focus({ preventScroll: true }); };
 document.documentElement.dataset.ui = 'ready';
+document.documentElement.dataset.inputModality = 'pointer';
+document.addEventListener('pointerdown', () => { document.documentElement.dataset.inputModality = 'pointer'; }, true);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Tab' || event.key.startsWith('Arrow') || ['Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
+    document.documentElement.dataset.inputModality = 'keyboard';
+  }
+}, true);
 
 export function toast(message, kind = 'ok') {
   if (!message) return;
@@ -60,7 +67,8 @@ function openMenu(trigger, last = false) {
   menu.style.position = 'fixed'; menu.style.insetInlineEnd = 'auto';
   menu.style.maxHeight = Math.max(120, innerHeight - 16) + 'px';
   menu.style.overflowY = 'auto';
-  const w = menu.offsetWidth, h = menu.offsetHeight;
+  const menuRect = menu.getBoundingClientRect();
+  const w = menuRect.width, h = menuRect.height;
   menu.style.left = Math.max(8, Math.min(document.documentElement.dir === 'rtl' ? r.left : r.right - w, innerWidth - w - 8)) + 'px';
   menu.style.top = Math.max(8, r.bottom + h + 6 > innerHeight ? r.top - h - 6 : r.bottom + 6) + 'px';
   const items = focusable(menu);
@@ -123,7 +131,11 @@ document.addEventListener('click', event => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
   const trigger = target.closest('.menu-anchor > button');
-  if (trigger) { menuTrigger === trigger ? closeMenu(true) : openMenu(trigger); return; }
+  if (trigger) {
+    event.preventDefault();
+    menuTrigger === trigger ? closeMenu(true) : openMenu(trigger);
+    return;
+  }
   const theme = target.closest('[data-theme-choice]');
   if (theme) { setTheme(theme.dataset.themeChoice); closeMenu(true); }
   else if (activeMenu && (!target.closest('.menu') || target.closest('a,button'))) {
@@ -171,7 +183,7 @@ window.addEventListener('resize', () => closeMenu());
 // preserving ordinary focus and the nearest scroll container.
 document.addEventListener('focusin', event => {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
+  if (!(target instanceof HTMLElement) || document.documentElement.dataset.inputModality !== 'keyboard' || !target.closest('dialog[open]')) return;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (document.activeElement !== target) return;
     const box = target.getBoundingClientRect();
@@ -203,6 +215,7 @@ window.addEventListener('submit', event => {
   if (event.defaultPrevented || form.method.toLowerCase() !== 'post') return;
   if (pending.has(form)) { event.preventDefault(); return; }
   markPending(form);
+  if (form.matches('[data-file-download]')) setTimeout(() => recover(form), 1500);
 });
 document.addEventListener('click', event => {
   if (event.target.closest?.('[aria-disabled="true"]')) event.preventDefault();

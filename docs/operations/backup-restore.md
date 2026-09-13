@@ -30,7 +30,8 @@ refused. Streaming bounds archive-member memory; it does not eliminate this cryp
 
 ## Sources
 
-- **Manual** — UI button or `wg-guard backup create [--password] [--output …]`.
+- **Manual** — Dashboard can create and download a fresh archive in one action; the Backups page
+  also creates local archives. CLI equivalent: `wg-guard backup create [--password] [--output …]`.
 - **Scheduled** — stored schedules (`backup_schedules`): daily@HH:MM, every-N-hours,
   weekly-day@time; stored UTC (CLI displays UTC); run in-process by the central
   scheduler (no cron dependency); per-schedule retention (default keep 14). Created in the
@@ -155,6 +156,13 @@ archive. Error causes remain available for cancellation handling but
 are excluded from public text and structured warning logs.
 
 ## Restore (panel wizard and CLI share one engine)
+
+The panel accepts a downloaded `.wgg` file from another node. The authenticated `backup.manage`
+form validates CSRF before reading the file, streams it into the private local sink under a fresh
+server-generated name, and publishes it atomically at mode 0600. Import checks the outer gzip/age
+container only; the normal restore review performs the full validation below. Compressed input is
+bounded at 8 GiB as a security limit. Import and restore remain panel/CLI operations and do not add
+a public REST endpoint.
 
 All pair replacement and interrupted recovery acquire exclusive kernel ownership in the
 shared data volume. CLI/server DB/key handles hold shared ownership until closed; rotation

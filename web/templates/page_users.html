@@ -56,14 +56,14 @@
   <table class="table table--cards entity-table users-table">
     <thead>
       <tr>
-        {{if .Can "users.bulk"}}<th class="card-hide"><label class="selection-hit"><input type="checkbox" class="checkbox" id="sel-all"><span class="sr-only">{{.T "users.selection_page"}}</span></label></th>{{end}}
-        <th>{{.T "users.username"}}</th>
-        <th>{{.T "common.status"}}</th>
-        {{if .Can "traffic.read"}}<th>{{.T "users.traffic"}}</th>{{end}}
-        <th>{{.T "users.expires"}}</th>
-        {{if .Can "devices.read"}}<th>{{.T "users.devices"}}</th>{{end}}
-        <th>{{.T "users.last_activity"}}</th>
-        <th class="text-end">{{.T "common.actions"}}</th>
+        {{if .Can "users.bulk"}}<th class="card-hide users-col--select"><label class="selection-hit"><input type="checkbox" class="checkbox" id="sel-all"><span class="sr-only">{{.T "users.selection_page"}}</span></label></th>{{end}}
+        <th class="users-col--identity">{{.T "users.username"}}</th>
+        <th class="users-col--status">{{.T "common.status"}}</th>
+        {{if .Can "traffic.read"}}<th class="users-col--traffic">{{.T "users.traffic"}}</th>{{end}}
+        <th class="users-col--expiry">{{.T "users.expires"}}</th>
+        {{if .Can "devices.read"}}<th class="users-col--devices">{{.T "users.devices"}}</th>{{end}}
+        <th class="users-col--activity">{{.T "users.last_activity"}}</th>
+        <th class="text-end users-col--actions">{{.T "common.actions"}}</th>
       </tr>
     </thead>
     <tbody>
@@ -103,7 +103,7 @@
 {{if .Can "configs.read"}}{{template "device_qr_dialog" .}}{{end}}
 
 {{if .Can "users.create"}}
-<dialog id="create-drawer" class="drawer" aria-labelledby="create-drawer-title">
+<dialog id="create-drawer" class="drawer drawer--form" aria-labelledby="create-drawer-title">
   <div class="modal-head">
     <h2 id="create-drawer-title">{{.T "users.form.new_title"}}</h2>
     <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
@@ -142,7 +142,7 @@
 {{$row := .row}}{{$u := $row.U}}{{$v := .v}}
 <tr>
   {{if $v.Can "users.bulk"}}<td class="selection-cell" data-label="{{$v.T "common.selected"}}"><label class="selection-hit"><input type="checkbox" class="checkbox js-sel" name="ids" form="users-selection" value="{{$u.ID}}"><span class="sr-only"><bdi>{{$u.Username}}</bdi></span></label></td>{{end}}
-  <td class="card-title" data-label="{{$v.T "users.username"}}">
+  <td class="card-title users-col--identity" data-label="{{$v.T "users.username"}}">
     <div class="id-cell">
       <span class="avatar" aria-hidden="true">{{slice $u.Username 0 1}}</span>
       <span class="id-text">
@@ -151,40 +151,42 @@
       {{if $row.PlanName}}<span class="chip">{{$row.PlanName}}</span>{{end}}
     </div>
   </td>
-  <td data-label="{{$v.T "common.status"}}">
+  <td class="users-col--status" data-label="{{$v.T "common.status"}}">
     <span class="badge {{$v.StClass (printf "%v" $u.Status)}}"><span class="dot"></span>{{$v.St (printf "%v" $u.Status)}}</span>
   </td>
-  {{if $v.Can "traffic.read"}}<td data-label="{{$v.T "users.traffic"}}">
+  {{if $v.Can "traffic.read"}}<td class="users-col--traffic" data-label="{{$v.T "users.traffic"}}">
     <div class="meter {{$v.MeterClass $row.Used $u.TrafficLimitBytes}}">
       <span class="bar"><span></span></span>
       <span class="num">{{$v.B $row.Used}}{{if $u.TrafficLimitBytes}} / {{$v.BLim $u.TrafficLimitBytes}}{{end}}</span>
     </div>
   </td>
   {{end}}
-  <td data-label="{{$v.T "users.expires"}}">
+  <td class="users-col--expiry" data-label="{{$v.T "users.expires"}}">
     <span class="id-text">
       <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
       {{if $u.ExpiresAt}}<span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{end}}
     </span>
   </td>
-  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}" class="ltr-data">{{if $row.DevicesKnown}}{{$v.N (i64u $row.DeviceCount)}}{{else}}{{$v.T "forms.unavailable"}}{{end}}</td>{{end}}
-  <td data-label="{{$v.T "users.last_activity"}}" class="card-hide text-subtle">{{$v.Rel $u.LastActivityAt}}</td>
-  <td class="text-end card-actions" data-label="{{$v.T "common.actions"}}">
+  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}" class="ltr-data users-col--devices">{{if $row.DevicesKnown}}{{$v.N (i64u $row.DeviceCount)}}{{else}}{{$v.T "forms.unavailable"}}{{end}}</td>{{end}}
+  <td data-label="{{$v.T "users.last_activity"}}" class="card-hide text-subtle users-col--activity">{{$v.Rel $u.LastActivityAt}}</td>
+  <td class="text-end card-actions users-col--actions" data-label="{{$v.T "common.actions"}}">
     <div class="inline-actions">
       {{if $row.SubURL}}
-      <button type="button" class="icon-btn" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "link"}}</button>
+      <button type="button" class="icon-btn" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "copy"}}</button>
       {{end}}
       {{if and $row.Devices ($v.Can "configs.read")}}
-      <div class="menu-anchor">
-        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "users.share"}}" aria-label="{{$v.T "users.share"}}">{{$v.IconS "qr-code"}}</button>
-        <div class="menu" role="menu">
-          {{if $row.SubURL}}
-          <a role="menuitem" href="{{$row.SubURL}}" target="_blank" rel="noopener">{{$v.IconS "external-link"}}<span>{{$v.T "sub.card.open"}}</span></a>
-          <button type="button" role="menuitem" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}">{{$v.IconS "copy"}}<span>{{$v.T "sub.card.copy"}}</span></button>
-          <hr>
-          {{end}}
+      <div class="menu-anchor" data-device-menu="qr">
+        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.qr"}}" aria-label="{{$v.T "devices.qr"}}">{{$v.IconS "qr-code"}}</button>
+        <div class="menu" role="menu" aria-label="{{$v.T "devices.qr"}}">
           {{range $row.Devices}}
           <a role="menuitem" href="/devices/{{.ID}}/qr" data-qr="/devices/{{.ID}}/qr">{{$v.IconS "qr-code"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "devices.qr"}}</a>
+          {{end}}
+        </div>
+      </div>
+      <div class="menu-anchor" data-device-menu="download">
+        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.download_config"}}" aria-label="{{$v.T "devices.download_config"}}">{{$v.IconS "download"}}</button>
+        <div class="menu" role="menu" aria-label="{{$v.T "devices.download_config"}}">
+          {{range $row.Devices}}
           <a role="menuitem" href="/devices/{{.ID}}/config" download>{{$v.IconS "download"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "sub.download"}}</a>
           {{end}}
         </div>

@@ -6,6 +6,10 @@
     {{if .Data.Allowed}}<span class="badge">{{.IconS "server"}}<bdi>{{.Data.NodeID}}</bdi></span>{{end}}
   </div>
   {{if .Data.Allowed}}
+  {{if .Can "backup.manage"}}<section class="dashboard-command-bar" id="dashboard-recovery" aria-labelledby="dashboard-recovery-title">
+    <div class="dashboard-command-copy"><span class="section-icon" aria-hidden="true">{{.IconS "database"}}</span><div><h2 id="dashboard-recovery-title">{{.T "dash.recovery_title"}}</h2><p>{{.T "dash.recovery_hint"}}</p></div></div>
+    <div class="actions"><form method="post" action="/backups/create" data-file-download><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="download" value="1"><button type="submit" class="btn btn--primary">{{.IconS "download"}}{{.T "dash.backup_download"}}</button></form><a class="btn" href="/backups#restore-workbench">{{.IconS "upload"}}{{.T "dash.restore_backup"}}</a></div>
+  </section>{{end}}
   {{template "dash_live" .}}
   <details class="collapse form-panel live-data"{{if .Data.History}} open{{end}}>
     <summary>{{.IconS "activity"}}<span>{{.T "dash.sample_data"}}</span></summary>

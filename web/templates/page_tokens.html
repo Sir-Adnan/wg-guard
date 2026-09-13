@@ -1,19 +1,49 @@
 {{define "title"}}{{.T "tokens.title"}}{{end}}
 {{define "content"}}
-<div class="page-head"><div><h1>{{.T "tokens.title"}}</h1><p>{{.T "ops.tokens_intro"}}</p></div></div>
-<div class="form-stack">{{template "form_feedback" .}}
-{{if .Data.Created.Secret}}<section class="card card--pad ops-secret" aria-labelledby="token-result"><h2 id="token-result">{{.T "tokens.created_title"}}</h2><p>{{.T "tokens.created_for"}} <bdi>{{.Data.Created.Name}}</bdi></p><div class="callout callout--warn">{{.T "tokens.created_warning"}}</div><label for="token-once">{{.T "tokens.created_title"}}</label><div class="input-adj"><input class="input ltr-data" id="token-once" value="{{.Data.Created.Secret}}" readonly data-token-once><button class="btn" type="button" data-copy="#token-once" data-copied-msg="{{.T "common.copied"}}">{{.T "common.copy"}}</button></div><p class="hint">{{.T "tokens.created_hint"}}</p><a class="btn" href="/tokens">{{.T "ops.secret_done"}}</a></section>{{end}}
-<details class="collapse form-panel" id="token-create" {{if .Data.Form.Error}}open{{end}}><summary>{{.IconS "key"}}{{.T "tokens.add"}}</summary><div class="collapse-body">
-<form method="post" action="/tokens/create" class="form-stack" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
-<div class="field-row">{{template "ops_field" (dict "v" . "f" .Data.Form "name" "name" "label" "tokens.col_name" "hint" "ops.token_name_hint")}}{{template "ops_field" (dict "v" . "f" .Data.Form "name" "expires_days" "label" "tokens.col_expiry" "hint" "ops.token_expiry_hint" "technical" true "numeric" true)}}</div>
-{{template "ops_field" (dict "v" . "f" .Data.Form "name" "cidr" "label" "tokens.cidr" "hint" "tokens.cidr_hint" "technical" true)}}
-{{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "scopes" "invalid" (.Data.Form.Invalid "scopes"))}}
-<div class="form-actions"><button class="btn btn--primary" type="submit">{{.T "tokens.add"}}</button></div></form></div></details>
-{{if not .Data.Known}}{{template "ops_unavailable" .}}{{else if not .Data.Tokens}}<div class="empty card"><h2>{{.T "tokens.empty_title"}}</h2><p>{{.T "tokens.empty_body"}}</p></div>{{else}}
-<div class="collection table-wrap"><table class="table table--cards entity-table"><thead><tr><th>{{.T "tokens.col_name"}}</th><th>{{.T "tokens.col_scopes"}}</th><th>{{.T "tokens.col_expiry"}}</th><th>{{.T "tokens.col_last_used"}}</th><th>{{.T "common.actions"}}</th></tr></thead><tbody>
-{{range .Data.Tokens}}<tr><td class="card-title token-identity" data-label="{{$.T "tokens.col_name"}}"><span class="cell-main"><bdi>{{.Name}}</bdi></span><span class="cell-sub ltr-data">{{.Prefix}}…</span><span class="badge {{if and .Enabled (not ($.TokenExpired .ExpiresAt))}}badge--ok{{end}}">{{if not .Enabled}}{{$.T "tokens.revoked"}}{{else if $.TokenExpired .ExpiresAt}}{{$.T "status.expired"}}{{else}}{{$.T "tokens.active"}}{{end}}</span></td>
-<td data-label="{{$.T "tokens.col_scopes"}}"><details class="ops-inline-details"><summary>{{$.T "ops.permission_count" (len .Scopes)}}</summary><ul class="ops-plain-list">{{range .Scopes}}<li>{{$.ScopeLabel .}} <small class="ltr-data">{{.}}</small></li>{{end}}</ul>{{if .CIDR}}<p class="hint">{{$.T "tokens.cidr"}}</p>{{range .CIDR}}<div class="ltr-data">{{.}}</div>{{end}}{{end}}</details></td>
-<td data-label="{{$.T "tokens.col_expiry"}}">{{if .ExpiresAt}}<span class="ltr-data">{{$.OpsTimestamp .ExpiresAt}}</span>{{else}}{{$.T "common.never"}}{{end}}</td><td data-label="{{$.T "tokens.col_last_used"}}">{{if .LastUsed}}<span class="ltr-data">{{$.OpsTimestamp .LastUsed}}</span>{{else}}{{$.T "common.never"}}{{end}}</td>
-<td class="card-actions" data-label="{{$.T "common.actions"}}">{{if .Enabled}}<form method="post" action="/tokens/{{.ID}}/revoke" data-confirm data-confirm-title="{{$.T "tokens.revoke_title"}}" data-confirm-message="{{$.T "ops.token_revoke" .Name}}" data-confirm-label="{{$.T "tokens.revoke"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn--sm btn--danger-soft" type="submit">{{$.T "tokens.revoke"}}</button></form>{{end}}</td></tr>{{end}}
-</tbody></table></div>{{end}}</div>
+<div class="ops-page token-page">
+  <div class="page-head page-head--hero ops-hero">
+    <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "key"}}</span><div><span class="eyebrow">{{.T "nav.tokens"}}</span><h1>{{.T "tokens.title"}}</h1><p>{{.T "ops.tokens_intro"}}</p></div></div>
+    <a class="btn btn--primary" href="#token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a>
+  </div>
+  {{template "form_feedback" .}}
+
+  {{if .Data.Created.Secret}}
+  <section class="card card--pad ops-secret credential-reveal" aria-labelledby="token-result">
+    <div class="credential-reveal-icon" aria-hidden="true">{{.Icon "key"}}</div>
+    <div><span class="eyebrow">{{.T "tokens.created_for"}} <bdi>{{.Data.Created.Name}}</bdi></span><h2 id="token-result">{{.T "tokens.created_title"}}</h2><p class="callout callout--warn">{{.IconS "alert-triangle"}}<span>{{.T "tokens.created_warning"}}</span></p></div>
+    <label for="token-once">{{.T "tokens.created_title"}}</label>
+    <div class="input-adj credential-value"><input class="input ltr-data" id="token-once" value="{{.Data.Created.Secret}}" readonly data-token-once><button class="btn" type="button" data-copy="#token-once" data-copied-msg="{{.T "common.copied"}}">{{.IconS "copy"}}{{.T "common.copy"}}</button></div>
+    <p class="hint">{{.T "tokens.created_hint"}}</p><a class="btn btn--soft" href="/tokens">{{.T "ops.secret_done"}}</a>
+  </section>
+  {{end}}
+
+  <details class="collapse form-panel ops-create-panel" id="token-create" {{if .Data.Form.Error}}open{{end}}>
+    <summary><span class="section-icon" aria-hidden="true">{{.IconS "key"}}</span><span>{{.T "tokens.add"}}</span></summary>
+    <div class="collapse-body"><form method="post" action="/tokens/create" class="form-stack" novalidate>
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field-row">{{template "ops_field" (dict "v" . "f" .Data.Form "name" "name" "label" "tokens.col_name" "hint" "ops.token_name_hint")}}{{template "ops_field" (dict "v" . "f" .Data.Form "name" "expires_days" "label" "tokens.col_expiry" "hint" "ops.token_expiry_hint" "technical" true "numeric" true)}}</div>
+      {{template "ops_field" (dict "v" . "f" .Data.Form "name" "cidr" "label" "tokens.cidr" "hint" "tokens.cidr_hint" "technical" true)}}
+      {{template "ops_scope_picker" (dict "v" . "groups" .Data.ScopeSet "selected" .Data.Selected "name" "scopes" "invalid" (.Data.Form.Invalid "scopes"))}}
+      <div class="form-actions"><button class="btn btn--primary" type="submit">{{.IconS "key"}}{{.T "tokens.add"}}</button></div>
+    </form></div>
+  </details>
+
+  {{if not .Data.Known}}{{template "ops_unavailable" .}}
+  {{else if not .Data.Tokens}}<div class="card empty empty-stage"><span class="empty-visual" aria-hidden="true">{{.Icon "key"}}</span><h2>{{.T "tokens.empty_title"}}</h2><p>{{.T "tokens.empty_body"}}</p><a class="btn btn--primary" href="#token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div>
+  {{else}}
+  <section class="collection ops-roster" aria-labelledby="token-roster-title">
+    <div class="section-head"><div><span class="eyebrow">{{.T "nav.tokens"}}</span><h2 id="token-roster-title">{{len .Data.Tokens}} {{.T "forms.total"}}</h2></div></div>
+    <div class="table-wrap"><table class="table table--cards entity-table token-table">
+      <thead><tr><th>{{.T "tokens.col_name"}}</th><th>{{.T "tokens.col_scopes"}}</th><th>{{.T "tokens.col_expiry"}}</th><th>{{.T "tokens.col_last_used"}}</th><th class="text-end">{{.T "common.actions"}}</th></tr></thead>
+      <tbody>{{range .Data.Tokens}}<tr>
+        <td class="card-title token-identity" data-label="{{$.T "tokens.col_name"}}"><div class="id-cell"><span class="entity-symbol" aria-hidden="true">{{$.IconS "key"}}</span><span class="id-text"><strong class="cell-main"><bdi>{{.Name}}</bdi></strong><span class="cell-sub ltr-data">{{.Prefix}}…</span></span><span class="badge {{if and .Enabled (not ($.TokenExpired .ExpiresAt))}}badge--ok{{end}}">{{if not .Enabled}}{{$.T "tokens.revoked"}}{{else if $.TokenExpired .ExpiresAt}}{{$.T "status.expired"}}{{else}}{{$.T "tokens.active"}}{{end}}</span></div></td>
+        <td data-label="{{$.T "tokens.col_scopes"}}"><details class="ops-inline-details"><summary>{{$.T "ops.permission_count" (len .Scopes)}}</summary><ul class="ops-plain-list">{{range .Scopes}}<li>{{$.ScopeLabel .}} <small class="ltr-data">{{.}}</small></li>{{end}}</ul>{{if .CIDR}}<p class="hint">{{$.T "tokens.cidr"}}</p>{{range .CIDR}}<div class="ltr-data">{{.}}</div>{{end}}{{end}}</details></td>
+        <td data-label="{{$.T "tokens.col_expiry"}}">{{if .ExpiresAt}}<span class="ltr-data">{{$.OpsTimestamp .ExpiresAt}}</span>{{else}}{{$.T "common.never"}}{{end}}</td>
+        <td data-label="{{$.T "tokens.col_last_used"}}">{{if .LastUsed}}<span class="ltr-data">{{$.OpsTimestamp .LastUsed}}</span>{{else}}{{$.T "common.never"}}{{end}}</td>
+        <td class="card-actions text-end" data-label="{{$.T "common.actions"}}">{{if .Enabled}}<form method="post" action="/tokens/{{.ID}}/revoke" data-confirm data-confirm-title="{{$.T "tokens.revoke_title"}}" data-confirm-message="{{$.T "ops.token_revoke" .Name}}" data-confirm-label="{{$.T "tokens.revoke"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn--sm btn--danger-soft" type="submit">{{$.IconS "unlink"}}{{$.T "tokens.revoke"}}</button></form>{{end}}</td>
+      </tr>{{end}}</tbody>
+    </table></div>
+  </section>
+  {{end}}
+</div>
 {{end}}

@@ -53,6 +53,11 @@ const (
 	// prefixed with ArchivePrefix (the name validator requires both).
 	ArchiveExt    = ".wgg"
 	ArchivePrefix = "wg-guard-"
+
+	// MaxArchiveBytes is the shared compressed-input safety bound for imports
+	// and restore staging. Archives stream to private files; they are never
+	// buffered at this size in memory.
+	MaxArchiveBytes int64 = 8 << 30
 )
 
 // Manifest is the self-describing header inside every archive. File hashes
@@ -480,6 +485,75 @@ func (s *Service) Open(name string) (*os.File, int64, error) {
 	return f, st.Size(), nil
 }
 
+// Import copies an operator-supplied .wgg archive into the private local sink.
+// It publishes atomically under a fresh server-generated name and validates
+// only the outer gzip/age envelope here; Stage performs the complete manifest,
+// checksum, schema and SQLite validation before a restore can be approved.
+func (s *Service) Import(ctx context.Context, originalName string, src io.Reader) (*ArchiveInfo, error) {
+	if s.Cfg == nil || src == nil || !validImportName(originalName) {
+		return nil, safetyError("archive_invalid", nil)
+	}
+	dir := s.localDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("backup: import sink: %w", err)
+	}
+	name := archiveName(s.now())
+	finalPath := filepath.Join(dir, name)
+	tmpPath := finalPath + ".tmp"
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("backup: import create: %w", err)
+	}
+	published := false
+	defer func() {
+		if !published {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	n, copyErr := io.Copy(f, io.LimitReader(restoreReader{ctx: ctx, r: src}, MaxArchiveBytes+1))
+	if copyErr == nil && n > 0 && n <= MaxArchiveBytes {
+		copyErr = f.Sync()
+	}
+	closeErr := f.Close()
+	if copyErr != nil {
+		return nil, fmt.Errorf("backup: import copy: %w", copyErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("backup: import close: %w", closeErr)
+	}
+	if n == 0 || n > MaxArchiveBytes {
+		return nil, safetyError("bounded_archive", nil)
+	}
+	probe, err := os.Open(tmpPath)
+	if err != nil {
+		return nil, err
+	}
+	_, _, sniffErr := sniffContainer(probe)
+	closeErr = probe.Close()
+	if sniffErr != nil {
+		return nil, sniffErr
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		return nil, fmt.Errorf("backup: publish import: %w", err)
+	}
+	published = true
+	if err := syncDir(dir); err != nil {
+		return nil, fmt.Errorf("backup: sync import: %w", err)
+	}
+	stat, err := os.Stat(finalPath)
+	if err != nil {
+		return nil, err
+	}
+	return &ArchiveInfo{
+		Name: name, Path: finalPath, Size: stat.Size(), ModTime: stat.ModTime(),
+		Encrypted: fileEncrypted(finalPath),
+	}, nil
+}
+
 // Delete removes one local archive (audit-logged as system; handlers audit
 // the admin actor themselves).
 func (s *Service) Delete(ctx context.Context, name string) error {
@@ -506,6 +580,12 @@ func validArchiveName(name string) bool {
 		return false
 	}
 	return strings.HasPrefix(name, ArchivePrefix)
+}
+
+func validImportName(name string) bool {
+	name = strings.TrimSpace(name)
+	return len(name) <= 255 && !strings.ContainsAny(name, `/\`) &&
+		!strings.Contains(name, "..") && strings.EqualFold(filepath.Ext(name), ArchiveExt)
 }
 
 // --- helpers -----------------------------------------------------------------

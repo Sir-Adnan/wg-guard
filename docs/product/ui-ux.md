@@ -146,6 +146,9 @@ Administration uses native forms/disclosures and selected-account editors, with 
 event labels and unchanged submitted identifiers. Valid family wildcards round-trip; owner roles
 retain service protection. Full-form webhook saves reject an empty event selection; rejected URLs
 never redisplay userinfo. Audit summaries compact UUIDs while details retain exact copyable values.
+Administrator and token editors provide observer, operator, full-access and clear presets without
+removing granular scope choices. Webhook editors provide select-all and clear actions over the
+complete event catalog.
 
 Build the strongest premium UX within the lightweight architecture, then optimize unnecessary
 cost without degrading it. There are no numerical asset-size targets, review thresholds or
@@ -184,8 +187,18 @@ eight-character word-plus-digits username, keeps quota/duration shortcuts in com
 rows, and treats a blank device limit as unlimited while creating one ready configuration by
 default. A configured default device limit is shown and governs provisioning. User filtering is
 live with a native submit fallback, and bulk controls do not appear until at least one visible user
-is selected. The public subscription is a standalone connection pass with status, usage, expiry,
+is selected. Panel speed controls use MB/s and convert exactly at the view boundary while the
+domain and public REST contract remain Kbps. User-row subscription copy has a non-Clipboard-API
+fallback; QR and configuration downloads are separate actions. The create drawer owns its header,
+scrolling body and footer as one viewport-bounded grid, while the full-page form remains the native
+fallback. The user-detail subscription card stays in document flow. The public subscription is a
+standalone connection pass with status, usage, expiry,
 device delivery and setup guidance rather than an admin-page derivative.
+
+Dashboard recovery shortcuts create/download a fresh archive or open the restore workspace. The
+Backups workspace separates create, streamed `.wgg` import and validated restore review; importing
+from another node never mutates live data. Pointer activation must not trigger keyboard-only focus
+scroll corrections on Settings, profile selectors, menus or dialogs.
 
 `collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
 cards on phones. Name/edit links, availability, exact technical units and action menus have stable

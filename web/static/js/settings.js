@@ -20,7 +20,7 @@ if (form) {
   form.addEventListener("focusin", event => {
     const target = event.target;
     const bar = form.querySelector('.settings-savebar');
-    if (!(target instanceof HTMLElement) || !bar || bar.contains(target)) return;
+    if (!(target instanceof HTMLElement) || !bar || bar.contains(target) || document.documentElement.dataset.inputModality === 'pointer') return;
     // WebKit may apply native focus scrolling after the first frame callback.
     // Check the resulting geometry in the following frame before correcting it.
     requestAnimationFrame(() => requestAnimationFrame(() => {

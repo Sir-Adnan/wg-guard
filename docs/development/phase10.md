@@ -77,7 +77,7 @@ to their parent workflow. Machine responses (`/api/v1`, health/metrics), API doc
 | Devices/admin subscription | User device creation; `/devices/{id}` enable/disable/regenerate/delete/config/qr; user `/sub` create/regenerate/revoke/restore, share/copy | 10.3 |
 | Dashboard | `/`, `/dashboard`, `/dashboard/live`, `/dashboard/chart`; counters, attention, live resources/health, rollup periods | 10.3 |
 | Settings | GET/POST `/settings`; section links, field errors, secret set/replace/clear, saved/retry/dirty states | 10.4 |
-| Backups | `/backups`, create/delete/download, restore preview/confirm/cancel, schedules create/update/delete/toggle, Telegram test, pending-restart banner | 10.4 |
+| Backups | `/backups`, create/delete/download/import, restore preview/confirm/cancel, schedules create/update/delete/toggle, Telegram test, pending-restart banner | 10.4 |
 | Admins/tokens | `/admins` create/password/permissions/enable/delete, owner protection; `/tokens` create/revoke, show-once secret/scopes/CIDR/expiry | 10.4 |
 | Webhooks/audit | `/webhooks` create/detail/update/rotate/delete/redeliver, delivery history; `/audit` filters/cursor/metadata | 10.4 |
 | Auth | `/login`, `/onboarding` GET/POST, invalid credentials/input, throttle, expired session, owner already provisioned, locale/theme | 10.5 |
@@ -237,3 +237,14 @@ remain measured without ceilings (JS 99,356/32,338 B, CSS 123,955/24,204 B, font
 SVG 12,669/3,225 B raw/gzip). The earlier full Firefox acceptance remains valid for unchanged
 foundations; the affected rerun could not execute because the installed local Firefox development
 bundle failed to load. No public release was made and Phase 11 remains unstarted.
+
+The subsequent owner refinement rebuilds the dense Users/User Detail and administration workspaces,
+fixes viewport-bounded create drawers, copy/password action geometry, QR versus config actions,
+theme/menu and pointer-scroll behavior, and presents panel speed limits in MB/s without changing the
+Kbps API/domain contract. Dashboard recovery can create/download a fresh archive; Backups can stream
+an imported `.wgg` from another node into the existing validate/review/approve workflow. Permission
+and event presets accelerate administration while retaining granular choices. This is a Web Panel
+and panel-only backup-route change; REST/OpenAPI remains unchanged. Full Go build/unit/vet and the
+affected Chromium/WebKit foundation, route, interaction and consistency gates pass. Firefox remains
+unavailable because the installed development bundle cannot launch. Current raw/gzip observations
+are JS 102,357/33,111 B, CSS 141,679/26,740 B, fonts 101,716/101,750 B and SVG 12,669/3,225 B.

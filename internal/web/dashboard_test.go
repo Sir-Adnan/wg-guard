@@ -289,6 +289,24 @@ func TestDashboardCounters(t *testing.T) {
 	}
 }
 
+func TestDashboardRecoveryActionsRespectBackupPermission(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	owner := e.loginEN("owner")
+	body := e.get("/dashboard", owner).Body.String()
+	for _, want := range []string{`action="/backups/create"`, `name="download" value="1"`, `href="/backups#restore-workbench"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("owner dashboard missing recovery action %q", want)
+		}
+	}
+
+	reader := e.limitedLogin(t, []string{auth.ScopeStatsRead})
+	body = e.get("/dashboard", reader).Body.String()
+	if strings.Contains(body, `action="/backups/create"`) || strings.Contains(body, `id="dashboard-recovery"`) {
+		t.Fatal("dashboard exposed backup controls without backup.manage")
+	}
+}
+
 func TestDashboardAttention(t *testing.T) {
 	e := newEnv(t)
 	e.seedOwner()

@@ -95,7 +95,7 @@ func (s *Service) StageOriginal(ctx context.Context, archivePath, password strin
 
 func (s *Service) stage(ctx context.Context, archivePath, password string, original bool) (*PendingRestore, *RestoreReport, error) {
 	input, err := os.Lstat(archivePath)
-	if err != nil || !input.Mode().IsRegular() || input.Size() > 8<<30 {
+	if err != nil || !input.Mode().IsRegular() || input.Size() > MaxArchiveBytes {
 		return nil, nil, safetyError("bounded_archive", nil)
 	}
 	f, err := os.Open(archivePath)
@@ -107,7 +107,7 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 	if err != nil {
 		return nil, nil, err
 	}
-	if !st.Mode().IsRegular() || st.Size() > 8<<30 {
+	if !st.Mode().IsRegular() || st.Size() > MaxArchiveBytes {
 		return nil, nil, safetyError("bounded_archive", nil)
 	}
 

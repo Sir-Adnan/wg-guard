@@ -1,17 +1,95 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 )
+
+func TestBackupImportStagesDownloadedArchiveForReview(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	created, err := e.srv.Backup.Create(context.Background(), backup.CreateOpts{Reason: "import-fixture"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(created.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.srv.Backup.Delete(context.Background(), created.Name); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := e.postBackupImport(cookie, deriveCSRF(cookie.Value), created.Name, raw)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
+	}
+	location := rec.Header().Get("Location")
+	if !strings.Contains(location, "restore=") || !strings.Contains(location, "#restore-workbench") {
+		t.Fatalf("import location = %q", location)
+	}
+	archives, err := e.srv.Backup.List()
+	if err != nil || len(archives) != 1 || archives[0].Name == created.Name {
+		t.Fatalf("imported archives = %#v, %v", archives, err)
+	}
+	page := e.get(location, cookie)
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), archives[0].Name) {
+		t.Fatal("imported archive was not selected for restore review")
+	}
+}
+
+func TestBackupImportRequiresStreamingCSRF(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	rec := e.postBackupImport(cookie, "wrong", "wg-guard-fixture.wgg", []byte{0x1f, 0x8b, 0, 0, 0, 0})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("import without valid csrf = %d", rec.Code)
+	}
+	if archives, err := e.srv.Backup.List(); err != nil || len(archives) != 0 {
+		t.Fatalf("csrf failure published archive: %#v, %v", archives, err)
+	}
+}
+
+func (e *env) postBackupImport(cookie *http.Cookie, csrf, name string, raw []byte) *httptest.ResponseRecorder {
+	e.t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField(csrfField, csrf); err != nil {
+		e.t.Fatal(err)
+	}
+	part, err := writer.CreateFormFile("archive", name)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	if _, err := part.Write(raw); err != nil {
+		e.t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		e.t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/backups/import", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	rec := httptest.NewRecorder()
+	e.handler.ServeHTTP(rec, req)
+	return rec
+}
 
 func TestBackupSafetyMessagesUseRequestLocale(t *testing.T) {
 	for _, lang := range []string{"fa", "en"} {
@@ -147,6 +225,30 @@ func TestBackupsCreateListDelete(t *testing.T) {
 	body = e.get("/backups", cookie).Body.String()
 	if strings.Contains(body, name) {
 		t.Fatal("archive still listed after delete")
+	}
+}
+
+func TestBackupCreateAndDownloadReturnsNewArchive(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	rec := e.postForm("/backups/create", url.Values{"download": {"1"}}, cookie)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create and download: %d", rec.Code)
+	}
+	if disposition := rec.Header().Get("Content-Disposition"); !strings.Contains(disposition, "attachment") || !strings.Contains(disposition, ".wgg") {
+		t.Fatalf("download disposition = %q", disposition)
+	}
+	if rec.Body.Len() == 0 {
+		t.Fatal("new archive download is empty")
+	}
+	archives, err := e.srv.Backup.List()
+	if err != nil || len(archives) != 1 {
+		t.Fatalf("created archive registry = %d, %v", len(archives), err)
+	}
+	body := e.get("/backups", cookie).Body.String()
+	if !strings.Contains(body, `id="restore-workbench"`) || !strings.Contains(body, `<select class="select" id="restore-archive" name="name"`) {
+		t.Fatal("backup page must expose the restore workbench")
 	}
 }
 
@@ -368,6 +470,12 @@ func TestBackupsRequireBackupManage(t *testing.T) {
 	}
 	if rec := e.postForm("/backups/create", url.Values{}, cookie); rec.Code != 303 {
 		t.Fatalf("limited admin created a backup: %d", rec.Code)
+	}
+	if rec := e.postBackupImport(cookie, deriveCSRF(cookie.Value), "wg-guard-fixture.wgg", []byte{0x1f, 0x8b, 0, 0, 0, 0}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("limited admin imported a backup: %d", rec.Code)
+	}
+	if archives, err := e.srv.Backup.List(); err != nil || len(archives) != 0 {
+		t.Fatalf("limited admin published an archive: %#v, %v", archives, err)
 	}
 
 	// Owner passes.

@@ -3,7 +3,9 @@ package web
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +13,8 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 )
+
+const maxStreamingCSRFBytes = 128
 
 // backupsData feeds the /backups screen: archive list, schedules, telegram
 // state, the pending-restore banner and the restore review card.
@@ -20,7 +24,6 @@ type backupsData struct {
 	Available, ArchivesKnown, SchedulesKnown, PendingKnown bool
 	TelegramReady, SettingsKnown                           bool
 	ScheduleOpen                                           bool
-	CreateOpen                                             bool
 	RestoreName                                            string
 	Form                                                   operationalForm
 
@@ -55,7 +58,7 @@ type scheduleForm struct {
 
 func (s *Server) backupsData(r *http.Request) backupsData {
 	ctx := r.Context()
-	d := backupsData{Available: s.Backup != nil, SettingsKnown: true, RestoreName: r.URL.Query().Get("restore"), Form: scheduleOperationalForm(nil), CreateOpen: r.URL.Query().Get("create") == "1" || r.URL.Path == "/backups/create"}
+	d := backupsData{Available: s.Backup != nil, SettingsKnown: true, RestoreName: r.URL.Query().Get("restore"), Form: scheduleOperationalForm(nil)}
 	if r.URL.Path == "/backups/restore" {
 		d.RestoreName = r.PostFormValue("name")
 	}
@@ -119,10 +122,15 @@ func (s *Server) handleBackupsPage(w http.ResponseWriter, r *http.Request) {
 // empty falls back to the stored backup password, plain when neither).
 func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	password := r.PostFormValue("password")
+	download := r.PostFormValue("download") == "1"
+	reason := "manual"
+	if download {
+		reason = "manual-download"
+	}
 	res, err := s.Backup.Create(r.Context(), backup.CreateOpts{
 		Password: password,
-		Reason:   "manual",
-		Deliver:  true,
+		Reason:   reason,
+		Deliver:  !download,
 	})
 	if err != nil {
 		s.backupError(w, r, err)
@@ -131,6 +139,10 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	s.audit(r, "backup.created", res.Name, map[string]any{
 		"size": res.Size, "encrypted": res.Encrypted, "delivered": res.Delivered,
 	})
+	if download {
+		s.serveBackupArchive(w, r, res.Name)
+		return
+	}
 	if len(res.Warnings) > 0 {
 		// Only safe, localized public messages enter the existing escaped PRG
 		// flash channel; engine causes (including credential URLs) stay private.
@@ -154,7 +166,10 @@ func (s *Server) handleBackupDelete(w http.ResponseWriter, r *http.Request) {
 
 // handleBackupDownload streams a local archive as an attachment.
 func (s *Server) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
+	s.serveBackupArchive(w, r, r.PathValue("name"))
+}
+
+func (s *Server) serveBackupArchive(w http.ResponseWriter, r *http.Request, name string) {
 	f, size, err := s.Backup.Open(name)
 	if err != nil {
 		s.backupError(w, r, err)
@@ -162,11 +177,56 @@ func (s *Server) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition",
 		fmt.Sprintf("attachment; filename=%q", name))
 	http.ServeContent(w, r, name, time.Now(), f)
 	_ = size
+}
+
+// handleBackupImport accepts the panel's native multipart form without
+// buffering the archive. The first field must be the small CSRF token; only
+// after it validates do we stream the following file into the private sink.
+func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
+	mr, err := r.MultipartReader()
+	if err != nil {
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
+		return
+	}
+	csrfPart, err := mr.NextPart()
+	if err != nil || csrfPart.FormName() != csrfField || csrfPart.FileName() != "" {
+		s.surfaceError(w, r, http.StatusForbidden, "error.csrf", "")
+		return
+	}
+	presented, readErr := io.ReadAll(io.LimitReader(csrfPart, maxStreamingCSRFBytes+1))
+	closeErr := csrfPart.Close()
+	tok, _ := r.Context().Value(ctxSession).(string)
+	if readErr != nil || closeErr != nil || len(presented) > maxStreamingCSRFBytes ||
+		!csrfValid(tok, string(presented)) {
+		s.surfaceError(w, r, http.StatusForbidden, "error.csrf", "")
+		return
+	}
+
+	archivePart, err := mr.NextPart()
+	if err != nil || archivePart.FormName() != "archive" || archivePart.FileName() == "" {
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
+		return
+	}
+	info, importErr := s.Backup.Import(r.Context(), archivePart.FileName(), archivePart)
+	closeErr = archivePart.Close()
+	if importErr != nil {
+		s.backupError(w, r, importErr)
+		return
+	}
+	if closeErr != nil {
+		_ = s.Backup.Delete(r.Context(), info.Name)
+		s.backupError(w, r, closeErr)
+		return
+	}
+	s.audit(r, "backup.imported", info.Name, map[string]any{"size": info.Size})
+	q := url.Values{"restore": {info.Name}, "toast": {"backups.toast.imported"}}
+	http.Redirect(w, r, "/backups?"+q.Encode()+"#restore-workbench", http.StatusSeeOther)
 }
 
 // handleBackupRestore verifies + stages an archive and renders the review

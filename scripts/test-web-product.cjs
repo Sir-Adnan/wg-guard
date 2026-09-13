@@ -17,6 +17,7 @@ let stage = 'launch';
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
     await qa.install(context);
+    if (engine === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: seed.url });
     await context.addCookies([{ name: 'wg_session', value: seed.session, url: seed.url }]);
     const page = await context.newPage();
     let runtimeErrors = 0;
@@ -177,6 +178,60 @@ let stage = 'launch';
       assert(!/Kbps/.test(await seededPlan.locator('td').nth(3).innerText()), 'device count is not a bandwidth value');
     }
     if (['10.3', '10.3-users', 'final'].includes(suite)) {
+      stage = 'interface profile layout and scroll stability';
+      await page.setViewportSize({ width: 1440, height: 700 });
+      await goto('/interfaces/new');
+      const balancedProfile = page.locator('[data-generate-obf="balanced"]');
+      await balancedProfile.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
+      const switchGeometry = await page.locator('.switch-card').evaluate(el => {
+        const track = el.querySelector('.switch-track').getBoundingClientRect();
+        const label = el.querySelector('span:last-child').getBoundingClientRect();
+        return { track, label, overlap: !(track.right <= label.left || label.right <= track.left) };
+      });
+      assert(!switchGeometry.overlap, 'obfuscation switch track and label do not overlap');
+      await balancedProfile.click();
+      await page.waitForFunction(() => document.querySelector('[data-generate-obf="balanced"]')?.getAttribute('aria-pressed') === 'true');
+      const profileScroll = await page.evaluate(() => scrollY);
+      await balancedProfile.click();
+      await page.waitForFunction(() => !document.querySelector('[data-obf-box]')?.hasAttribute('aria-busy'));
+      assert(Math.abs((await page.evaluate(() => scrollY)) - profileScroll) <= 2, 'profile selection does not jump the page');
+
+      stage = 'create-user drawer geometry';
+      await goto('/users');
+      await page.locator('[data-open-modal="create-drawer"]').click();
+      const desktopDrawer = await page.locator('#create-drawer').evaluate(dialog => {
+        const rect = dialog.getBoundingClientRect();
+        const foot = dialog.querySelector('.modal-foot').getBoundingClientRect();
+        const body = dialog.querySelector('.drawer-body');
+        const sections = [...body.querySelectorAll('.form-section')].map(section => {
+          const sectionRect = section.getBoundingClientRect();
+          return {
+            height: sectionRect.height,
+            overflowX: section.scrollWidth - section.clientWidth,
+          };
+        });
+        return {
+          ok: rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth &&
+            foot.top >= rect.top && foot.bottom <= rect.bottom && body.clientHeight > 0 &&
+            body.scrollWidth <= body.clientWidth + 1 && sections.every(section => section.height > 0 && section.overflowX <= 1),
+          rect: { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left },
+          foot: { top: foot.top, bottom: foot.bottom },
+          body: { clientHeight: body.clientHeight, clientWidth: body.clientWidth, scrollWidth: body.scrollWidth },
+          sections,
+        };
+      });
+      assert(desktopDrawer.ok, `create-user drawer and footer fit a short desktop viewport: ${JSON.stringify(desktopDrawer)}`);
+      await page.locator('#create-drawer [data-close-modal]').first().click();
+      await page.setViewportSize({ width: 390, height: 700 });
+      await page.locator('[data-open-modal="create-drawer"]').click();
+      assert(await page.locator('#create-drawer').evaluate(dialog => {
+        const rect = dialog.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth &&
+          dialog.querySelector('.modal-foot').getBoundingClientRect().bottom <= rect.bottom;
+      }), 'create-user drawer fits a phone viewport');
+      await page.locator('#create-drawer [data-close-modal]').first().click();
+      await page.setViewportSize({ width: 1440, height: 900 });
+
       stage = 'eight-character username generation';
       await goto('/users/new');
       await page.locator('[data-generate="#u-username"]').click();
@@ -186,6 +241,7 @@ let stage = 'launch';
       await goto('/users/new');
       const userForm = page.locator('form[action="/users"]');
       await userForm.locator('[name="username"]').fill('browser-user');
+      await userForm.locator('#user-advanced > summary').click();
       await userForm.locator('[name="note"]').fill('Line one\nخط دوم');
       await userForm.locator('[name="device_limit"]').evaluate(el => { el.type = 'text'; el.value = 'invalid'; });
       await submit(userForm);
@@ -199,6 +255,13 @@ let stage = 'launch';
       await submit(page.locator('form[action="/users"]'));
       assert(await page.locator('main h1').innerText() === 'browser-user', 'created user detail');
       const detailURL = page.url();
+      assert(await page.locator('.subscription-access-card').evaluate(el => getComputedStyle(el).position === 'static'), 'subscription access card is not sticky');
+      if (await page.locator('.subscription-url .input-adj').count()) {
+        assert(await page.locator('.subscription-url .input-adj').evaluate(el => {
+          const input = el.querySelector('input').getBoundingClientRect(), button = el.querySelector('button').getBoundingClientRect();
+          return input.right <= button.left || button.right <= input.left;
+        }), 'subscription copy action does not overlap its value');
+      }
       stage = 'user device QR opens';
       const qr = page.locator('[data-qr]').first();
       await qr.click();
@@ -226,6 +289,35 @@ let stage = 'launch';
       stage = 'live user search and zero-selection state';
       await goto('/users');
       assert(await page.locator('[data-bulk-bar]').isHidden(), 'bulk controls stay hidden with no selection');
+      const rowCopy = page.locator('[data-copy-value]').first();
+      const expectedCopy = await rowCopy.getAttribute('data-copy-value');
+      await rowCopy.click();
+      await page.locator('.toast--ok').waitFor({ state: 'visible' });
+      if (engine === 'chromium') {
+        assert(await page.evaluate(() => navigator.clipboard.readText()) === expectedCopy, 'user row copies the exact subscription URL');
+        const fallbackReady = await page.evaluate(() => {
+          try {
+            window.__copyFallback = false;
+            document.execCommand = command => command === 'copy' ? (window.__copyFallback = true) : false;
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('simulated denial')) } });
+            return true;
+          } catch { return false; }
+        });
+        if (fallbackReady) {
+          const copyScroll = await page.evaluate(() => scrollY);
+          await rowCopy.click();
+          await page.waitForFunction(() => window.__copyFallback === true);
+          assert(Math.abs((await page.evaluate(() => scrollY)) - copyScroll) <= 2, 'clipboard fallback preserves page position');
+        }
+      }
+      const qrMenu = page.locator('[data-device-menu="qr"]').first();
+      await qrMenu.locator(':scope > button').click();
+      assert(await qrMenu.locator('.menu [data-qr]').count() > 0 && await qrMenu.locator('.menu [download]').count() === 0, 'QR menu contains QR actions only');
+      await page.keyboard.press('Escape');
+      const downloadMenu = page.locator('[data-device-menu="download"]').first();
+      await downloadMenu.locator(':scope > button').click();
+      assert(await downloadMenu.locator('.menu [download]').count() > 0 && await downloadMenu.locator('.menu [data-qr]').count() === 0, 'download menu contains config downloads only');
+      await page.keyboard.press('Escape');
       await page.locator('#users-search').fill('ali');
       await page.waitForFunction(() => new URL(location.href).searchParams.get('q') === 'ali' && document.querySelectorAll('#users-results tbody tr').length === 1);
     assert(await page.locator('#users-results tbody tr').filter({ hasText: 'alice' }).count() === 1, 'live search returns the matching user');
@@ -299,7 +391,15 @@ let stage = 'launch';
       await submit(page.locator('form[action="/backups/create"]'));
       const archive = page.locator('.backup-archives tbody tr').first();
       assert(await archive.count() === 1, 'created archive is listed');
-      await archive.locator('a[href*="?restore="]').click();
+      const archiveDownload = await archive.locator('a[download]').getAttribute('href');
+      const archiveResponse = await page.request.get(seed.url + archiveDownload);
+      assert(archiveResponse.ok(), 'created archive can be downloaded for transfer');
+      await page.locator('#backup-archive-file').setInputFiles({
+        name: 'wg-guard-transfer.wgg', mimeType: 'application/octet-stream', buffer: await archiveResponse.body(),
+      });
+      await submit(page.locator('form[action="/backups/import"]'));
+      assert(new URL(page.url()).searchParams.has('restore'), 'imported archive is selected for restore');
+      assert(await page.locator('.backup-archives tbody tr').count() === 2, 'imported archive is kept as a distinct private copy');
       await submit(page.locator('form[action="/backups/restore"]'));
       assert(await page.locator('.backup-review').count() === 1, 'restore requires review');
       await submit(page.locator('form[action="/backups/restore/cancel"]'));
@@ -330,7 +430,16 @@ let stage = 'launch';
       await nativePage.goto(page.url());
       await nativePage.locator('#sch-name').fill('Browser schedule edited');
       stage = 'schedule native edit submit';
-      await Promise.all([nativePage.waitForNavigation(), nativePage.locator('[data-sched-form] button[type="submit"]').click()]);
+      const nativeScheduleForm = nativePage.locator('[data-sched-form]');
+      const nativeScheduleButton = nativeScheduleForm.locator('button[type="submit"]');
+      await nativeScheduleButton.evaluate(button => button.scrollIntoView({ block: 'center', behavior: 'auto' }));
+      const nativeScheduleNavigation = nativePage.waitForNavigation({ timeout: 5000 }).catch(() => null);
+      await nativeScheduleButton.evaluate(button => button.click());
+      if (!await nativeScheduleNavigation) {
+        const diagnosis = await nativeScheduleForm.evaluate(form => ({ valid: form.checkValidity(), action: new URL(form.action).pathname,
+          invalidNames: [...form.elements].filter(el => !el.checkValidity()).map(el => el.name) }));
+        throw new Error('contract: native schedule submit did not navigate ' + JSON.stringify(diagnosis));
+      }
       stage = 'schedule native saved result';
       assert(new URL(nativePage.url()).pathname === '/backups', 'native schedule update redirects successfully');
       await nativePage.locator('tbody tr').filter({ hasText: 'Browser schedule edited' }).locator('a[href*="?schedule="]').click();
@@ -344,6 +453,13 @@ let stage = 'launch';
       await goto('/settings');
       const settings = page.locator('[data-settings-form]');
       assert(await settings.locator('.settings-field').count() === 34, 'all registry settings have one editor');
+      const rateSection = page.locator('details').filter({ has: page.locator('#s-rate_limit') });
+      await rateSection.locator('summary').click();
+      await page.locator('#s-rate_limit').evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
+      const pointerScroll = await page.evaluate(() => scrollY);
+      await page.locator('#s-rate_limit').click();
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      assert(Math.abs((await page.evaluate(() => scrollY)) - pointerScroll) <= 2, 'pointer focus does not jump the settings page');
       await page.locator('#s-node_id').focus();
       for (let i = 0; i < 9; i++) {
         await page.keyboard.press('Tab');
@@ -354,7 +470,7 @@ let stage = 'launch';
         });
       }
       await page.locator('#s-node_id').fill('Browser node');
-      await page.locator('details').filter({ has: page.locator('#s-rate_limit') }).locator('summary').click();
+      if (!await rateSection.evaluate(el => el.open)) await rateSection.locator('summary').click();
       await page.locator('#s-rate_limit').fill('invalid-rate');
       await page.locator('#s-mtu').fill('invalid-mtu');
       assert(await settings.evaluate(el => el.classList.contains('is-dirty')), 'settings track unsaved edits');
@@ -375,11 +491,15 @@ let stage = 'launch';
       await page.locator('#admin-create > summary').click();
       await page.locator('#ops-username').fill('browser-admin');
       await page.locator('#ops-password').fill(require('node:crypto').randomBytes(24).toString('hex'));
+      await page.locator('#admin-create [data-scope-preset="operator"]').click();
+      assert(await page.locator('#admin-create input[value="users.create"]').isChecked() && !await page.locator('#admin-create input[value="admins.manage"]').isChecked(), 'operator preset selects operational work without administrator control');
+      await page.locator('#admin-create [data-scope-preset="none"]').click();
+      assert(await page.locator('#admin-create input[name="permissions"]:checked').count() === 0, 'permission preset clears the selection');
       const family = page.locator('#admin-create .ops-scope-group').filter({ has: page.locator('input[value="users.*"]') });
       await family.locator('summary').click();
       await family.locator('input[value="users.*"]').check();
       await submit(page.locator('form[action="/admins/create"]'));
-      await page.locator('.ops-account').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').click();
+      await page.locator('.admin-table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').click();
       const adminEdit = new URL(page.url()).pathname + new URL(page.url()).search;
       assert(await page.locator('input[value="users.*"]').isChecked(), 'stored family wildcard remains selected');
       await submit(page.locator('form[action$="/permissions"]'));
@@ -391,6 +511,9 @@ let stage = 'launch';
       await page.locator('#token-create > summary').click();
       await page.locator('#ops-name').fill('Browser token');
       await page.locator('#ops-expires_days').fill('invalid-days');
+      await page.locator('#token-create [data-scope-preset="observer"]').click();
+      assert(await page.locator('#token-create input[value="users.read"]').isChecked() && !await page.locator('#token-create input[value="users.create"]').isChecked(), 'observer preset remains read-only');
+      await page.locator('#token-create [data-scope-preset="none"]').click();
       const tokenFamily = page.locator('#token-create .ops-scope-group').filter({ has: page.locator('input[value="users.*"]') });
       await tokenFamily.locator('summary').click();
       await tokenFamily.locator('input[value="users.*"]').check();
@@ -406,11 +529,15 @@ let stage = 'launch';
       await goto('/webhooks');
       await page.locator('#webhook-create > summary').click();
       await page.locator('#ops-url').fill('https://example.com/events');
+      await page.locator('#webhook-create [data-event-preset="all"]').click();
+      assert(await page.locator('#webhook-create input[name="events"]:checked').count() === await page.locator('#webhook-create input[name="events"]').count(), 'all-events preset selects the complete catalog');
+      await page.locator('#webhook-create [data-event-preset="none"]').click();
+      assert(await page.locator('#webhook-create input[name="events"]:checked').count() === 0, 'webhook event selection can be cleared in one action');
       await page.locator('input[name="events"][value="user.created"]').check();
       await submit(page.locator('form[action="/webhooks/create"]'));
       assert((await page.locator('#hook-secret').inputValue()).length > 0, 'webhook signing secret appears once');
       await goto('/webhooks');
-      const hookLink = page.locator('.ops-account a[href^="/webhooks/"]').first();
+      const hookLink = page.locator('.webhook-card a[href^="/webhooks/"]').first();
       const hookPath = await hookLink.getAttribute('href');
       await hookLink.click();
       await page.locator('input[name="enabled"]').uncheck();
@@ -460,7 +587,16 @@ let stage = 'launch';
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl' : 'ltr'), 'page direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, 'page theme');
             const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
-            if (!fits) console.log('overflow geometry: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('main,main section,main table,main .table-wrap,main .card,main .backup-workspace')].filter(el => {const r=el.getBoundingClientRect();return r.right>innerWidth+1||r.left< -1;}).map(el => ({ tag: el.tagName, classes: el.className, width: Math.round(el.getBoundingClientRect().width),right:Math.round(el.getBoundingClientRect().right),columns:getComputedStyle(el).gridTemplateColumns })).slice(0, 12))));
+            if (!fits) console.log('overflow geometry: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('main *')].map(el => {
+              const rect = el.getBoundingClientRect(), style = getComputedStyle(el);
+              return { el, rect, style, outside: rect.right > innerWidth + 1 || rect.left < -1,
+                leaks: el.scrollWidth > el.clientWidth + 1 && !['auto', 'scroll', 'hidden', 'clip'].includes(style.overflowX) };
+            }).filter(item => item.outside || item.leaks).map(({el,rect,style,outside,leaks}) => ({
+              tag: el.tagName, id: el.id, classes: String(el.className).slice(0, 100), outside, leaks,
+              left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width),
+              clientWidth: el.clientWidth, scrollWidth: el.scrollWidth, overflowX: style.overflowX,
+              columns: style.gridTemplateColumns,
+            })).slice(0, 20))));
             assert(fits, 'page viewport overflow');
             assert(await page.locator('main h1').count() === 1, 'single primary page heading');
             assert(await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(elements => elements.every(el => el.labels?.length || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'))), 'form controls have names');

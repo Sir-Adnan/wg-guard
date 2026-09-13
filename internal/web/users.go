@@ -329,7 +329,7 @@ func userOperationalForm(u *user.User) operationalForm {
 		values["username"], values["display_name"], values["note"], values["tags"] = u.Username, u.DisplayName, u.Note, strings.Join(u.Tags, ", ")
 		values["traffic_limit_value"], values["traffic_limit_unit"] = v.QuotaVal(u.TrafficLimitBytes), v.QuotaUnit(u.TrafficLimitBytes)
 		values["duration_value"], values["duration_unit"] = v.DurVal(u.DurationSeconds), v.DurUnit(u.DurationSeconds)
-		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(u.DeviceLimit), rawFormInt(u.SpeedLimitDownKbps), rawFormInt(u.SpeedLimitUpKbps)
+		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(u.DeviceLimit), speedMBpsValue(u.SpeedLimitDownKbps), speedMBpsValue(u.SpeedLimitUpKbps)
 		values["interface"], values["plan"], values["start_policy"] = deref(u.InterfaceID), deref(u.PlanID), string(u.StartPolicy)
 	}
 	return operationalForm{Values: values, Fields: map[string]string{}}
@@ -359,11 +359,12 @@ func (s *Server) userFormError(w http.ResponseWriter, r *http.Request, u *user.U
 	if _, e := durationFromForm(r); e != nil {
 		d.Form.Fields["duration_value"] = "forms.error.duration"
 	}
-	for _, key := range []string{"device_limit", "speed_down", "speed_up"} {
-		if raw := r.PostFormValue(key); strings.TrimSpace(raw) != "" {
-			if n, e := strconv.Atoi(raw); e != nil || n <= 0 {
-				d.Form.Fields[key] = "forms.error.number"
-			}
+	if _, e := parseInt(r.PostFormValue("device_limit")); e != nil {
+		d.Form.Fields["device_limit"] = "forms.error.number"
+	}
+	for _, key := range []string{"speed_down", "speed_up"} {
+		if _, e := parseSpeedMBps(r.PostFormValue(key)); e != nil {
+			d.Form.Fields[key] = "forms.error.number"
 		}
 	}
 	if exp, e := parseDateOnly(r.PostFormValue("expires_on")); e != nil || (exp != nil && exp.Before(time.Now())) {
@@ -532,12 +533,12 @@ func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, er
 		return in, errInvalid
 	}
 	in.TrafficLimitBytes = limitOpt64(quota, isEdit)
-	down, err := parseKbps(r.PostFormValue("speed_down"))
+	down, err := parseSpeedMBps(r.PostFormValue("speed_down"))
 	if err != nil {
 		return in, errInvalid
 	}
 	in.SpeedLimitDownKbps = limitOptI(down, isEdit)
-	up, err := parseKbps(r.PostFormValue("speed_up"))
+	up, err := parseSpeedMBps(r.PostFormValue("speed_up"))
 	if err != nil {
 		return in, errInvalid
 	}

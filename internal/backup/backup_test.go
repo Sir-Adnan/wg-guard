@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,61 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 )
+
+func TestImportArchivePublishesPrivateRestorableCopy(t *testing.T) {
+	svc, dir := newService(t)
+	writeBootConfig(t, dir)
+	ctx := context.Background()
+
+	created, err := svc.Create(ctx, CreateOpts{Reason: "import-fixture"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(created.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(created.Path); err != nil {
+		t.Fatal(err)
+	}
+
+	imported, err := svc.Import(ctx, created.Name, bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if imported.Name == created.Name || imported.Size != int64(len(raw)) {
+		t.Fatalf("imported archive = %#v", imported)
+	}
+	stat, err := os.Stat(imported.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := stat.Mode(); runtime.GOOS != "windows" && mode.Perm() != 0o600 {
+		t.Fatalf("imported mode = %v, want 0600", mode)
+	}
+	if _, _, err := svc.Stage(ctx, imported.Path, ""); err != nil {
+		t.Fatalf("stage imported archive: %v", err)
+	}
+}
+
+func TestImportArchiveRejectsUnsafeInputWithoutPublishing(t *testing.T) {
+	svc, _ := newService(t)
+	for name, raw := range map[string][]byte{
+		"not-a-backup.txt": []byte("not an archive"),
+		"../escape.wgg":    []byte{0x1f, 0x8b, 0, 0, 0, 0},
+		"foreign.wgg":      []byte("not an archive"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := svc.Import(context.Background(), name, bytes.NewReader(raw)); err == nil {
+				t.Fatal("unsafe import accepted")
+			}
+		})
+	}
+	archives, err := svc.List()
+	if err != nil || len(archives) != 0 {
+		t.Fatalf("unsafe import was published: %v, %v", archives, err)
+	}
+}
 
 // newService builds a fully wired Service over a temp data dir.
 func newService(t *testing.T) (*Service, string) {

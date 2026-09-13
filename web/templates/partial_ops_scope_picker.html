@@ -2,6 +2,12 @@
 {{$v := .v}}{{$selected := .selected}}{{$name := .name}}
 <fieldset class="ops-permissions" {{if .invalid}}aria-invalid="true" aria-describedby="scope-error"{{end}}>
   <legend>{{$v.T "tokens.col_scopes"}}</legend><p class="hint">{{$v.T "ops.scope_hint"}}</p>
+  <div class="choice-presets" role="group" aria-label="{{$v.T "ops.presets"}}">
+    <button class="btn btn--sm btn--soft" type="button" data-scope-preset="observer">{{$v.T "ops.preset.observer"}}</button>
+    <button class="btn btn--sm" type="button" data-scope-preset="operator">{{$v.T "ops.preset.operator"}}</button>
+    <button class="btn btn--sm" type="button" data-scope-preset="all">{{$v.T "ops.preset.all"}}</button>
+    <button class="btn btn--sm btn--ghost" type="button" data-scope-preset="none">{{$v.T "ops.preset.none"}}</button>
+  </div>
   {{if .invalid}}<p class="field-error" id="scope-error">{{$v.T "ops.scope_error"}}</p>{{end}}
   {{range $v.UnknownChoices $selected}}<label class="check-label"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" checked><span class="ltr-data">{{.}}</span><span class="field-error">{{$v.T "ops.scope_error"}}</span></label>{{end}}
   <div class="ops-scope-grid">{{range .groups}}
@@ -21,4 +27,3 @@
 {{define "ops_unavailable"}}
 <div class="empty"><h2>{{.T "forms.unavailable"}}</h2><p>{{.T "ops.load_failed"}}</p><a class="btn" href="{{.Path}}">{{.T "common.retry"}}</a></div>
 {{end}}
-
