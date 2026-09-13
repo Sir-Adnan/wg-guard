@@ -54,7 +54,8 @@ self-inflicted outage).
   effective manager path. Missing manager binaries mean "not installed"; permission or mutation
   failures remain fatal.
 - Empty desired state and uninstall remove exactly the `wgguard` table, tagged Docker jump and
-  owned child chain. Transactional kernel-link deletion remains AUD-050 in Phase 11.
+  owned child chain. Interface deletion first disables the still-owned row and requires canonical
+  runtime reconciliation; only then is the row removed. A failed pass restores the enabled retry state.
 
 ## Sysctls & system state
 

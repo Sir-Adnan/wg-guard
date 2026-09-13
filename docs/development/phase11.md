@@ -23,8 +23,8 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 - Explicit purge ownership (AUD-040): exclude independent admitted data commands and prevent
   admission during whole-directory deletion; verify lock-inode lifecycle and interruption.
   Current operator-managed quiescence is not evidence of concurrent purge safety.
-- Interface deletion ordering (AUD-050): tear down the still-owned runtime link before final DB
-  removal, recover safely on backend/DB failure, and verify API, web and real-kernel behavior.
+- Re-certify runtime-safe interface deletion across the supported matrix. AUD-050 implementation
+  and exact Docker create/delete evidence are complete in Phase 10 and are not reopened without a regression.
 - ACME/manual/proxy/dev TLS behavior, cache/reissuance and renewal paths.
 
 ## Milestones

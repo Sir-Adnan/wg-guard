@@ -36,6 +36,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
   fill the 2.0/3.x fields, enable RandomTrailers/DisableCookies, keep I1–I5 opt-in and use a fresh
   HPK; the Suggested profile defaults to MTU 1280. The REST/OpenAPI preset enum now describes these
   server-generated policies while preserving explicit-custom and write-only-secret semantics.
+  Real client payload verification set the Performance padding range to `10-35`.
+- **Interface deletion:** an owned interface is disabled and reconciled out of the runtime before
+  its database ownership row is removed. A failed runtime pass restores the enabled row for retry,
+  preventing a live kernel link from being reclassified as foreign after an apparent successful delete.
 - **Phase 10 foundations:** a shared bilingual shell, preferences and feedback system provides
   consistent themes across panel/auth/subscription, keyboard menus, modal navigation focus,
   responsive sizing and reduced motion. Settings saves now validate and commit submitted fields

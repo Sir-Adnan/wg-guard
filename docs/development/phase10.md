@@ -144,8 +144,8 @@ RB-006 closes only when every inventory surface uses the new system, critical wo
 locale/theme/input/viewport checks, no raw key/legacy page/viewport overflow remains, accessibility
 and measured asset/HTML/performance gates pass, and docs/CI agree with the exact revision. Update
 existing docs, CHANGELOG/README/notices as affected, without redundant reports. API/OpenAPI needs
-an actual public contract change. Phase 11/12 remain separate; AUD-019/AUD-050 are not certified by
-redesigned controls. Final integration includes coherent commits, merge/push/main verification and
+an actual public contract change. Phase 11/12 remain separate; redesigned controls alone do not
+certify backend lifecycle findings. Final integration includes coherent commits, merge/push/main verification and
 temporary branch cleanup; public publication always requires explicit owner approval.
 
 ## Current evidence
@@ -216,3 +216,24 @@ raw configs and QR pixels were not retained, and complete owned cleanup restored
 The final documentation/integration revision passed the repository commit gate and exact-revision
 main CI. RB-006 is closed. Physical-device runs were unavailable and are not claimed; the complete
 emulated engine/viewport/touch coverage above is retained as the acceptance evidence.
+
+Owner-directed refinement (`d0ba6f6`, `8cf4e13`): Interfaces, Plans, Users/create/edit, Dashboard
+and the public subscription surface received a more expressive premium composition while retaining
+the shared contract. New interfaces suggest the first free `awgN` and offer Performance, Balanced,
+Resilient, Suggested and Automatic advanced profiles. Generated advanced fields and safety flags
+are populated, I1–I5 remain opt-in, every profile receives a fresh HPK, Suggested uses MTU 1280,
+and the default client DNS is `1.1.1.1, 1.0.0.1`. User search is live, zero-selection bulk chrome is
+hidden, generated usernames are exactly five letters plus three digits, blank device limit means
+unlimited/one initial config, and technical charts expose exact samples to pointer, touch and keyboard.
+The interface preset enum is the only additive REST/OpenAPI change.
+
+Exact Ubuntu 24.04 amd64 Docker clients passed Performance, Balanced, Resilient, Suggested and
+Automatic runtime/config parity, handshake, gateway, public IPv4, DNS, HTTPS and NAT. That gate
+corrected Performance padding from `5-35` to verified `10-35`. It also exposed AUD-050; `150a574`
+now removes runtime state while the disabled ownership row remains, restores retry state after a
+failed reconcile, and deletes the row only after success. Full local unit/build/vet, scoped race,
+Chrome/WebKit affected-route and exact Docker API create/delete/cleanup gates pass. Current assets
+remain measured without ceilings (JS 99,356/32,338 B, CSS 123,955/24,204 B, fonts 101,716/101,750 B,
+SVG 12,669/3,225 B raw/gzip). The earlier full Firefox acceptance remains valid for unchanged
+foundations; the affected rerun could not execute because the installed local Firefox development
+bundle failed to load. No public release was made and Phase 11 remains unstarted.

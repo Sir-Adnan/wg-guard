@@ -108,7 +108,7 @@ clean up without changing unrelated firewall state.
 
 ## Deferred
 
-Interface-delete transaction ordering (AUD-050), generic firewalld policy management, later
-Ubuntu certification, userspace-daemon lifecycle, soak/load/security certification and the full
-UI redesign remain Phases 10–11. Phase 8.3 may diagnose unsupported foreign policies but does not
-take ownership of them.
+Interface-delete transaction ordering (AUD-050) was deferred here and subsequently closed by the
+Phase 10 owner refinement. Generic firewalld policy management, later Ubuntu certification,
+userspace-daemon lifecycle and soak/load/security certification remain Phase 11. Phase 8.3 may
+diagnose unsupported foreign policies but does not take ownership of them.

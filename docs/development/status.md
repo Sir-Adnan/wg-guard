@@ -55,7 +55,17 @@ matrix now covers every inventoried route/state in Chromium, Firefox and WebKit 
 light/dark and the full viewport set; build/unit/race/vet/security and measured assets pass. The
 exact code candidate passed fresh Ubuntu 24.04 amd64 Docker/direct-ACME deployment, live bilingual
 desktop/mobile workflows, decoded QR/config equality and clean owned removal; exact-revision main
-CI passed. Physical devices were unavailable and are not claimed. REST/OpenAPI is unchanged.
+CI passed. Physical devices were unavailable and are not claimed.
+
+The owner-directed refinement adds a more expressive premium visual layer, ground-up operational
+forms, live user search, exact accessible chart inspection, the redesigned public connection pass,
+and five advanced generated profile choices. The REST/OpenAPI interface preset enum is additively
+extended; other public contracts remain unchanged. Exact Ubuntu 24.04 amd64 Docker clients passed
+Performance, Balanced, Resilient, Suggested and Automatic handshake plus public payload traffic.
+`150a574` also passed real API create/delete: teardown now reconciles the owned link while its row
+still exists and restores retry state on failure. Current affected Chrome/WebKit checks pass; the
+previous complete Firefox matrix remains valid for the unchanged foundation, while a current local
+Firefox rerun was unavailable because that installed development-browser bundle could not load.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

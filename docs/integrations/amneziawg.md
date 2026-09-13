@@ -174,8 +174,10 @@ on every network. Real compatible-client traffic remains the Phase 8 promotion g
   one drawn from each of four disjoint bands covering `5..2147483647`; they are therefore
   non-zero, distinct, non-overlapping, and not a shared installation fingerprint. S3/S4, HPK,
   I1–I5, timers/padding, RandomTrailers, and DisableCookies remain unset/off.
-- **Performance:** fixed `Jc/Jmin/Jmax=4/10/40`, `S1..S4=18/31/16/20`, bounded timing ranges,
-  and one fresh scalar in each disjoint H band. It minimizes added packet-shape overhead.
+- **Performance:** fixed `Jc/Jmin/Jmax=4/10/40`, `S1..S4=18/31/16/20`, padding `10-35`, bounded
+  timing ranges, and one fresh scalar in each disjoint H band. The lower padding bound was raised
+  from 5 after exact Docker/client payload verification; the resulting policy passed handshake,
+  gateway, public IPv4, DNS and HTTPS traffic.
 - **Balanced:** fixed `6/20/80`, `S1..S4=32/64/24/32`, bounded timing ranges, and fresh H ranges
   with spans up to 25,000,000.
 - **Resilient:** fixed `12/40/180`, `S1..S4=96/180/48/64`, broader bounded timing ranges, and
