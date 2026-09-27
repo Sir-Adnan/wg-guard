@@ -47,16 +47,36 @@ type runtimeNetworkRunner struct {
 }
 
 type reconcileSequence struct {
-	err error
+	err   error
+	calls int
 }
 
 func (r *reconcileSequence) Run(context.Context) (*reconcile.Report, error) {
+	r.calls++
 	if r.err != nil {
 		err := r.err
 		r.err = nil
 		return nil, err
 	}
 	return &reconcile.Report{}, nil
+}
+
+func TestRuntimeRepairRestoresReadinessAfterPolicyLoss(t *testing.T) {
+	var probeHealthy bool
+	inner := &reconcileSequence{err: errors.New("policy restore failed")}
+	n := &Node{runtimePolicyHealthy: func(context.Context) (bool, error) { return probeHealthy, nil }}
+	n.networkReady.Store(true)
+	n.reconciler = &serializedReconciler{inner: inner, healthy: &n.networkReady}
+	if err := n.jobRuntimeRepair(context.Background()); err == nil || n.networkReady.Load() {
+		t.Fatal("failed policy repair kept node ready")
+	}
+	if err := n.jobRuntimeRepair(context.Background()); err != nil || !n.networkReady.Load() || inner.calls != 2 {
+		t.Fatalf("policy repair did not recover: calls=%d ready=%v err=%v", inner.calls, n.networkReady.Load(), err)
+	}
+	probeHealthy = true
+	if err := n.jobRuntimeRepair(context.Background()); err != nil || inner.calls != 2 {
+		t.Fatalf("healthy policy caused unnecessary reconcile: calls=%d err=%v", inner.calls, err)
+	}
 }
 
 func (r *runtimeNetworkRunner) Run(_ context.Context, argv []string) (subprocess.Result, error) {

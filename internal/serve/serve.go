@@ -94,28 +94,29 @@ type Options struct {
 
 // Node is one running WG-Guard instance: services, HTTP server, scheduler.
 type Node struct {
-	cfg           *config.Config
-	log           *slog.Logger
-	logs          nodeLoggers
-	db            *database.DB
-	dataLease     *backup.DataLease
-	ring          *secrets.KeyRing
-	reg           *settings.Registry
-	sched         *scheduler.Scheduler
-	httpServer    *http.Server
-	listener      net.Listener
-	acmeServer    *http.Server // ACME HTTP-01 sidecar (tls.mode=acme only)
-	acmeListener  net.Listener
-	metrics       *metrics.Collector
-	telemetry     *telemetry.Sampler
-	accounting    *accounting.Service
-	backup        *backup.Service
-	apiServer     *api.Server
-	webServer     *web.Server
-	webhookWorker *webhook.Worker
-	sessions      *auth.SessionStore
-	userspace     *amneziawg.Backend
-	reconciler    accounting.Reconciler
+	cfg                  *config.Config
+	log                  *slog.Logger
+	logs                 nodeLoggers
+	db                   *database.DB
+	dataLease            *backup.DataLease
+	ring                 *secrets.KeyRing
+	reg                  *settings.Registry
+	sched                *scheduler.Scheduler
+	httpServer           *http.Server
+	listener             net.Listener
+	acmeServer           *http.Server // ACME HTTP-01 sidecar (tls.mode=acme only)
+	acmeListener         net.Listener
+	metrics              *metrics.Collector
+	telemetry            *telemetry.Sampler
+	accounting           *accounting.Service
+	backup               *backup.Service
+	apiServer            *api.Server
+	webServer            *web.Server
+	webhookWorker        *webhook.Worker
+	sessions             *auth.SessionStore
+	userspace            *amneziawg.Backend
+	reconciler           accounting.Reconciler
+	runtimePolicyHealthy func(context.Context) (bool, error)
 
 	booted       atomic.Bool
 	networkReady atomic.Bool
@@ -319,7 +320,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		DB: db, Backend: backend, Ring: n.ring, Policy: n.driftPolicy(ctx),
 	}
 	if runtimeNetworking {
-		inner = &boot.RuntimeReconciler{Deps: bootDeps}
+		runtime := &boot.RuntimeReconciler{Deps: bootDeps}
+		inner = runtime
+		n.runtimePolicyHealthy = runtime.NetworkPolicyHealthy
 	}
 	rec := &serializedReconciler{inner: inner, healthy: &n.networkReady}
 	n.reconciler = rec
@@ -471,8 +474,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.sched.Every("housekeeping", housekeepingEvery, n.jobHousekeeping)
 	n.sched.Every("backups", time.Minute, n.jobBackups)
 	n.sched.Every("telemetry", telemetryCadence(o.TelemetryCadence), n.jobTelemetry)
-	if n.userspace != nil {
-		n.sched.Every("userspace", 15*time.Second, n.jobUserspace)
+	if n.userspace != nil || n.runtimePolicyHealthy != nil {
+		n.sched.Every("runtime-repair", 15*time.Second, n.jobRuntimeRepair)
 	}
 	n.sched.Start(ctx)
 
@@ -747,8 +750,16 @@ func (n *Node) jobTelemetry(ctx context.Context) error {
 	return err
 }
 
-func (n *Node) jobUserspace(ctx context.Context) error {
-	if n.userspace == nil || !n.userspace.NeedsRepair() {
+func (n *Node) jobRuntimeRepair(ctx context.Context) error {
+	repair := n.userspace != nil && n.userspace.NeedsRepair()
+	if n.runtimePolicyHealthy != nil {
+		healthy, err := n.runtimePolicyHealthy(ctx)
+		if err != nil || !healthy {
+			n.networkReady.Store(false)
+			repair = true
+		}
+	}
+	if !repair {
 		return nil
 	}
 	_, err := n.reconciler.Run(ctx)

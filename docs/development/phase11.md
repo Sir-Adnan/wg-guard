@@ -68,7 +68,13 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
   checks pass. The full Phase 10 matrix is not being replayed.
 - After a real Ubuntu kernel upgrade on reboot, the managed module lacked current headers
   because this VPS had no `linux-headers-generic` meta-package. Managed generic installs now
-  require it; exact-host DKMS repair and reboot recertification remain pending (AUD-058).
+  require it. Exact-source native install repaired DKMS, and both kernel/userspace interfaces,
+  peers, and module survived the next reboot. Native userspace sustained 120 public HTTPS requests;
+  a separate kernel profile completed a real client handshake and HTTPS egress (AUD-058).
+- The same reboot exposed Docker resetting the host forwarding extension after native startup
+  (AUD-059). The native unit now orders after Docker when it participates in boot; a bounded
+  scheduler probe repairs later owned-rule loss through canonical reconciliation and updates
+  readiness. Exact-host repair/reboot recertification remains pending.
 - The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
   Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
   and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied

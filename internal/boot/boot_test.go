@@ -336,6 +336,33 @@ func TestRuntimeReconcilerReappliesFirewallAfterInterfaceCreation(t *testing.T) 
 	}
 }
 
+func TestRuntimePolicyProbeDetectsLostDockerJump(t *testing.T) {
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	delete(d.runner.errs, "nft list")
+	jump := "iptables -w 5 -C DOCKER-USER -m comment --comment wgguard:managed:docker-forward -j WGGUARD-FORWARD"
+	d.runner.errs[jump] = &subprocess.ExitError{Name: "iptables", ExitCode: 1}
+	d.runner.respond = func(argv []string) subprocess.Result {
+		switch strings.Join(argv, " ") {
+		case "iptables -w 5 -S FORWARD":
+			return subprocess.Result{Stdout: []byte("-P FORWARD DROP\n-A FORWARD -j DOCKER-USER\n")}
+		case "iptables -w 5 -S DOCKER-USER":
+			return subprocess.Result{Stdout: []byte("-N DOCKER-USER\n")}
+		case "iptables -w 5 -S WGGUARD-FORWARD":
+			return subprocess.Result{Stdout: []byte("-N WGGUARD-FORWARD\n-A WGGUARD-FORWARD -s 10.8.0.0/24 -i awg0 -j ACCEPT\n-A WGGUARD-FORWARD -d 10.8.0.0/24 -o awg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n")}
+		}
+		return subprocess.Result{}
+	}
+	rec := &RuntimeReconciler{Deps: Deps{DB: d.db, Run: d.runner}}
+	if healthy, err := rec.NetworkPolicyHealthy(context.Background()); err != nil || healthy {
+		t.Fatalf("lost Docker jump stayed healthy: %v, %v", healthy, err)
+	}
+	delete(d.runner.errs, jump)
+	if healthy, err := rec.NetworkPolicyHealthy(context.Background()); err != nil || !healthy {
+		t.Fatalf("complete Docker path stayed unhealthy: %v, %v", healthy, err)
+	}
+}
+
 func TestBringUpRejectsUnmanagedForwardDrop(t *testing.T) {
 	ctx := context.Background()
 	d := newDeps(t)

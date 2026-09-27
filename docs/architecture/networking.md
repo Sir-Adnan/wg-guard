@@ -49,6 +49,9 @@ self-inflicted outage).
   interface's exact pool and established/related return traffic to the same interface/pool.
   Desired rules are added before stale rules are removed; the chain is never flushed during a
   live reconcile. Docker's chains, rules and global DROP policy remain untouched.
+  Native systemd startup orders after Docker when present. The node's single scheduler probes
+  the owned table/extension path every 15 seconds and uses canonical reconciliation if another
+  service rebuilds those rules; readiness fails while repair is unsuccessful.
 - A legacy `FORWARD DROP` without complete Docker or UFW coverage is a boot/readiness error, not a
   warning beside a nonfunctional VPN. `doctor` separately verifies the nftables table and the
   effective manager path. Missing manager binaries mean "not installed"; permission or mutation

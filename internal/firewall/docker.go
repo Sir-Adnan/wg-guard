@@ -165,7 +165,10 @@ func (m *Manager) InspectForwarding(ctx context.Context, ifaces []Interface) (Fo
 	}
 	inspection.DockerUser = true
 	jump := []string{"-m", "comment", "--comment", dockerJumpComment, "-j", dockerForwardingChain}
-	if _, err := m.Run.Run(ctx, iptablesArgs(append([]string{"-C", dockerUserChain}, jump...)...)); err != nil {
+	if res, err := m.Run.Run(ctx, iptablesArgs(append([]string{"-C", dockerUserChain}, jump...)...)); err != nil {
+		if missingIPTablesObject(res, err) {
+			return inspection, nil
+		}
 		var exitErr *subprocess.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode == 1 {
 			return inspection, nil

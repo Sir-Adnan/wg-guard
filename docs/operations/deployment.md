@@ -54,6 +54,9 @@ connection is HTTPS.
 
 Same binary as a hardened systemd service (`NoNewPrivileges`, `ProtectSystem=strict`,
 `PrivateTmp`, ambient `NET_ADMIN`), same `/etc/wg-guard` + `/var/lib/wg-guard` layout.
+The unit starts after Docker when that service is also part of boot, without requiring Docker
+for native operation. Runtime policy checks restore an owned forwarding path if Docker later
+rebuilds its chains.
 Spec compliance: Docker is never *required*.
 
 ## Interactive installer

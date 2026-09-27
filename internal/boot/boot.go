@@ -70,6 +70,44 @@ func (r *RuntimeReconciler) Run(ctx context.Context) (*reconcile.Report, error) 
 	return res.Reconcile, nil
 }
 
+// NetworkPolicyHealthy is a bounded read-only check for host firewall changes
+// after startup (notably Docker rebuilding DOCKER-USER after a native boot).
+// The caller uses the canonical Run path to repair a missing owned path.
+func (r *RuntimeReconciler) NetworkPolicyHealthy(ctx context.Context) (bool, error) {
+	ifaces, err := enabledInterfaces(ctx, r.Deps.DB)
+	if err != nil {
+		return false, err
+	}
+	if len(ifaces) == 0 {
+		return true, nil
+	}
+	fw := &firewall.Manager{Run: r.Deps.Run}
+	present, err := fw.Present(ctx)
+	if err != nil || !present {
+		return false, err
+	}
+	inspection, err := fw.InspectForwarding(ctx, ifaces)
+	if err != nil {
+		return false, err
+	}
+	if inspection.DockerUser {
+		return inspection.DockerManaged, nil
+	}
+	if inspection.Policy == "DROP" {
+		findings, err := fw.Coexistence(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, finding := range findings {
+			if finding.Tool == "ufw" && finding.Active {
+				return true, nil // boot already installed the scoped UFW routes
+			}
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
 // BringUp runs the full sequence and records an audit entry.
 func BringUp(ctx context.Context, d Deps) (*Result, error) {
 	res := &Result{}

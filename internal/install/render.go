@@ -138,7 +138,7 @@ func RenderUnit(p Plan) string {
 	b.WriteString("[Unit]\n")
 	b.WriteString("Description=WG-Guard VPN node panel\n")
 	b.WriteString("Documentation=https://github.com/Sir-Adnan/wg-guard\n")
-	b.WriteString("After=network-online.target\n")
+	b.WriteString("After=network-online.target docker.service\n")
 	b.WriteString("Wants=network-online.target\n\n")
 	b.WriteString("[Service]\n")
 	b.WriteString("Type=simple\n")

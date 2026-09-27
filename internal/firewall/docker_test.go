@@ -199,6 +199,22 @@ func TestInspectForwardingDistinguishesCompleteAndPartialDockerPath(t *testing.T
 	}
 }
 
+func TestInspectForwardingTreatsLostDockerTargetAsPartial(t *testing.T) {
+	r := &dockerRunner{responses: map[string]fakeStep{
+		"iptables --version":           {stdout: "iptables v1.8.10 (nf_tables)\n"},
+		"iptables -w 5 -S FORWARD":     {stdout: "-P FORWARD DROP\n-A FORWARD -j DOCKER-USER\n"},
+		"iptables -w 5 -S DOCKER-USER": {stdout: "-N DOCKER-USER\n"},
+		"iptables -w 5 -C DOCKER-USER -m comment --comment wgguard:managed:docker-forward -j WGGUARD-FORWARD": {
+			stderr: "iptables: Chain 'WGGUARD-FORWARD' does not exist",
+			err:    &subprocess.ExitError{Name: "iptables", ExitCode: 2, Stderr: "iptables: Chain 'WGGUARD-FORWARD' does not exist"},
+		},
+	}}
+	state, err := (&Manager{Run: r}).InspectForwarding(context.Background(), []Interface{{Name: "awg0", Subnet: "10.8.0.0/24"}})
+	if err != nil || state.Policy != "DROP" || !state.DockerUser || state.DockerManaged {
+		t.Fatalf("lost Docker target = %+v, err %v", state, err)
+	}
+}
+
 func TestInspectForwardingAcceptsCanonicalIPTablesRuleOrdering(t *testing.T) {
 	r := &dockerRunner{responses: map[string]fakeStep{
 		"iptables --version":               {stdout: "iptables v1.8.10 (nf_tables)\n"},
