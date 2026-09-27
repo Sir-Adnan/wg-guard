@@ -6,9 +6,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
@@ -25,7 +23,7 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("root required for TUN")
 	}
-	daemon, err := exec.LookPath("amneziawg-go")
+	_, err := exec.LookPath("amneziawg-go")
 	if err != nil {
 		t.Skip("amneziawg-go not on PATH")
 	}
@@ -34,13 +32,9 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	name := "awg-gutest"
-	socket := "/var/run/amneziawg/" + name + ".sock"
-
-	stop := startDaemon(t, daemon, name, socket)
-	t.Cleanup(stop)
-
-	b := New(subprocess.NewSystem())
+	name := "awg7"
+	b := NewManaged(subprocess.NewSystem())
+	t.Cleanup(func() { _ = b.Close() })
 
 	v, err := b.ToolsVersion(ctx)
 	if err != nil {
@@ -69,6 +63,11 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 		ListenPort:  39417,
 		Obfuscation: obf,
 	}
+	spec := tunnel.InterfaceSpec{Name: name, BackendMode: "userspace", PrivateKey: kp.Private,
+		ListenPort: 39417, MTU: 1420, Address: "10.8.99.1/24", Obfuscation: obf}
+	if err := b.CreateInterface(ctx, spec); err != nil {
+		t.Fatalf("managed userspace create: %v", err)
+	}
 
 	// setconf + verify-after-apply against the real runtime: the renderer's
 	// output must be accepted and echoed back exactly by the pinned daemon.
@@ -82,6 +81,9 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 	}
 	if st.ListenPort != 39417 || st.Obfuscation != obf {
 		t.Fatalf("state = %+v", st)
+	}
+	if st.BackendMode != "userspace" {
+		t.Fatalf("observed mode = %q", st.BackendMode)
 	}
 	if len(st.Peers) != 0 {
 		t.Fatalf("peers = %d, want 0", len(st.Peers))
@@ -181,49 +183,22 @@ func TestIntegrationUserspaceBackend(t *testing.T) {
 	if !found {
 		t.Fatalf("interface not listed: %v", names)
 	}
-}
-
-// startDaemon runs amneziawg-go in the foreground (WG_PROCESS_FOREGROUND=1 is
-// how the upstream re-exec marks the child) and waits for its UAPI socket.
-func startDaemon(t *testing.T, daemon, name, socket string) func() {
-	t.Helper()
-	cmd := exec.Command(daemon, name)
-	cmd.Env = append(os.Environ(), "WG_PROCESS_FOREGROUND=1")
-	var logBuf strings.Builder
-	cmd.Stdout = &logBuf
-	cmd.Stderr = &logBuf
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start daemon: %v", err)
+	if err := b.userspace.processes[name].Stop(); err != nil {
+		t.Fatal(err)
 	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
-
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, err := os.Stat(socket); err == nil {
-			return func() {
-				_ = cmd.Process.Kill()
-				select {
-				case <-done:
-				case <-time.After(3 * time.Second):
-				}
-				_ = os.Remove(socket) // SIGKILL skips the daemon's cleanup
-			}
-		}
-		select {
-		case err := <-done:
-			t.Fatalf("daemon exited early: %v\n%s", err, logBuf.String())
-		case <-time.After(200 * time.Millisecond):
-		}
+	if !b.NeedsRepair() {
+		t.Fatal("stopped userspace daemon was not detected")
 	}
-	_ = cmd.Process.Kill()
-	t.Fatalf("UAPI socket %s never appeared\n%s", socket, truncate(logBuf.String(), 500))
-	return func() {}
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
+	if _, err := b.Dump(ctx, name); err != tunnel.ErrInterfaceNotFound {
+		t.Fatalf("dead daemon dump: %v", err)
 	}
-	return s[:n] + "…"
+	if err := b.CreateInterface(ctx, spec); err != nil {
+		t.Fatalf("restart managed daemon: %v", err)
+	}
+	if err := b.RemoveInterface(ctx, name); err != nil {
+		t.Fatalf("remove managed daemon: %v", err)
+	}
+	if b.NeedsRepair() {
+		t.Fatal("removed daemon still requires repair")
+	}
 }

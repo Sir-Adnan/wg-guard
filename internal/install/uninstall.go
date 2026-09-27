@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
@@ -181,6 +182,16 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 		return rep, err
 	}
 	rep.Stopped = true
+	var purgeGuard *backup.PurgeGuard
+	if o.PurgeData {
+		if _, live := h.(realHost); live {
+			purgeGuard, err = backup.AcquirePurgeGuard(st.DataDir)
+			if err != nil {
+				return rep, fmt.Errorf("uninstall: data commands are still active: %w", err)
+			}
+			defer purgeGuard.Close()
+		}
+	}
 	step(out, "Removing owned network policy")
 	if err := (&firewall.Manager{Run: uninstallFirewallRunner{host: h}}).Remove(ctx); err != nil {
 		return rep, fmt.Errorf("uninstall: remove owned network policy: %w", err)
@@ -216,7 +227,11 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	}
 
 	if o.PurgeData {
-		if err := h.RemoveAll(st.DataDir); err != nil {
+		purge := func() error { return h.RemoveAll(st.DataDir) }
+		if purgeGuard != nil {
+			purge = purgeGuard.Purge
+		}
+		if err := purge(); err != nil {
 			return rep, fmt.Errorf("uninstall: purge data: %w", err)
 		}
 		rep.PurgedData = true

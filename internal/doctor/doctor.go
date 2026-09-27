@@ -181,6 +181,13 @@ func applyFixes(ctx context.Context, d Deps) ([]string, error) {
 	if d.DB == nil || d.Reg == nil || d.Backend == nil {
 		return nil, fmt.Errorf("fix requires the database, settings and backend")
 	}
+	var userspaceProfiles int
+	if err := d.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM tunnel_interfaces WHERE enabled = 1 AND backend_mode = 'userspace'`).Scan(&userspaceProfiles); err != nil {
+		return nil, err
+	}
+	if userspaceProfiles > 0 {
+		return nil, fmt.Errorf("userspace profiles require the long-running managed node; restart the service to repair their daemon lifecycle")
+	}
 	res, err := bringUp(ctx, d)
 	if err != nil {
 		return nil, err
@@ -276,8 +283,15 @@ func (d *doctor) checkKernelModule() {
 		d.add("kernel-module", StatusPass, detail, "")
 		return
 	}
+	if d.d.DB != nil {
+		var kernelProfiles int
+		if err := d.d.DB.QueryRow(`SELECT COUNT(*) FROM tunnel_interfaces WHERE enabled = 1 AND backend_mode = 'kernel'`).Scan(&kernelProfiles); err == nil && kernelProfiles == 0 {
+			d.add("kernel-module", StatusSkip, "no enabled kernel profiles; userspace profiles require the managed daemon", "")
+			return
+		}
+	}
 	d.add("kernel-module", StatusWarn, detail,
-		"install amneziawg-dkms (docs/integrations/amneziawg.md); userspace fallback is not automatic yet, so a missing module prevents managed tunnels")
+		"install the reviewed amneziawg module for kernel profiles or select a managed userspace profile with the pinned daemon installed")
 }
 
 func (d *doctor) checkDatabase(ctx context.Context) {
@@ -312,7 +326,7 @@ func (d *doctor) checkInterfaces(ctx context.Context, toolsReady bool) {
 		return
 	}
 	rows, err := d.d.DB.QueryContext(ctx,
-		`SELECT name, listen_port FROM tunnel_interfaces WHERE enabled = 1 ORDER BY name`)
+		`SELECT name, listen_port, backend_mode FROM tunnel_interfaces WHERE enabled = 1 ORDER BY name`)
 	if err != nil {
 		d.add("interfaces", StatusSkip, "query failed: "+err.Error(), "")
 		return
@@ -321,11 +335,12 @@ func (d *doctor) checkInterfaces(ctx context.Context, toolsReady bool) {
 	type row struct {
 		name string
 		port int
+		mode string
 	}
 	var want []row
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.name, &r.port); err == nil {
+		if err := rows.Scan(&r.name, &r.port, &r.mode); err == nil {
 			want = append(want, r)
 		}
 	}
@@ -347,9 +362,12 @@ func (d *doctor) checkInterfaces(ctx context.Context, toolsReady bool) {
 		if state.ListenPort != w.port {
 			drift = append(drift, fmt.Sprintf("%s (port %d != %d)", w.name, state.ListenPort, w.port))
 		}
+		if state.BackendMode != "" && state.BackendMode != w.mode {
+			drift = append(drift, fmt.Sprintf("%s (backend %s != %s)", w.name, state.BackendMode, w.mode))
+		}
 		if n := countEnabledDevices(ctx, d.d.DB, w.name); n >= 0 && n != len(state.Peers) {
 			peerMismatch = append(peerMismatch,
-				fmt.Sprintf("%s (%d peers in kernel, %d enabled devices)", w.name, len(state.Peers), n))
+				fmt.Sprintf("%s (%d peers in backend, %d enabled devices)", w.name, len(state.Peers), n))
 		}
 	}
 	if len(unreadable) > 0 {

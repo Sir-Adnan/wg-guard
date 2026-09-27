@@ -108,7 +108,12 @@ removed when the operator explicitly purges node data.
   untrusted input, parsed strictly (see [../integrations/amneziawg.md](../integrations/amneziawg.md)).
   Applied configs are verified after apply (post-apply dump must match the applied key/port/
   obfuscation set), so a silently-ignored write becomes a hard error rather than invisible
-  drift.
+  drift. Ordinary subprocess stdout is capped at 4 MiB and stderr at 1 MiB; configured build
+  commands retain their tighter 1 MiB cap. Truncation is an explicit error, never silently parsed.
+- Explicit userspace profiles run one foreground `amneziawg-go` child per interface. The node
+  checks its pinned version and UAPI socket, never captures daemon output, refuses an active
+  unowned daemon, and terminates owned children on shutdown; Linux parent-death signaling covers
+  abrupt node exit. `/dev/net/tun` is mapped only as a device in Docker.
 - Systemd hardening in native mode; non-privileged container defaults with only `NET_ADMIN`
   added, in Docker mode.
 

@@ -22,9 +22,29 @@ const PinnedToolsVersion = "v3.1.20260812"
 // daemon — transparent to the CLI) plus iproute2 for link state. All execs go
 // through subprocess.Runner; no shell, explicit argv, timeouts.
 type Backend struct {
-	run   subprocess.Runner
-	links *network.Links
-	awg   string
+	run       subprocess.Runner
+	links     *network.Links
+	awg       string
+	userspace *userspaceManager
+}
+
+// NewManaged is the service-owned backend. A standalone CLI backend cannot
+// launch a userspace interface whose daemon would die with that short command.
+func NewManaged(run subprocess.Runner) *Backend {
+	b := New(run)
+	b.userspace = newUserspaceManager(run)
+	return b
+}
+
+func (b *Backend) Close() error {
+	if b.userspace == nil {
+		return nil
+	}
+	return b.userspace.close()
+}
+
+func (b *Backend) NeedsRepair() bool {
+	return b.userspace != nil && b.userspace.needsRepair()
 }
 
 // New returns a Backend using the `awg` binary from PATH.
@@ -74,7 +94,26 @@ func (b *Backend) ListInterfaces(ctx context.Context) ([]string, error) {
 // failure after link creation (including a failed post-apply verify) rolls
 // the link back so a failed create cannot leave half-state behind.
 func (b *Backend) CreateInterface(ctx context.Context, spec tunnel.InterfaceSpec) error {
-	if err := b.links.CreateAWG(ctx, spec.Name, spec.MTU); err != nil {
+	var err error
+	if spec.BackendMode == "userspace" {
+		if b.userspace == nil {
+			return fmt.Errorf("amneziawg: userspace interfaces require the managed node service")
+		}
+		if err = b.userspace.start(ctx, spec.Name); err != nil {
+			return fmt.Errorf("amneziawg: create link %s: %w", spec.Name, err)
+		}
+		if spec.MTU > 0 {
+			if err = b.links.SetMTU(ctx, spec.Name, spec.MTU); err != nil {
+				b.rollbackLink(ctx, spec.Name)
+				return fmt.Errorf("amneziawg: set MTU %s: %w", spec.Name, err)
+			}
+		}
+	} else if spec.BackendMode == "" || spec.BackendMode == "kernel" {
+		err = b.links.CreateAWG(ctx, spec.Name, spec.MTU)
+	} else {
+		return fmt.Errorf("amneziawg: invalid backend mode")
+	}
+	if err != nil {
 		return fmt.Errorf("amneziawg: create link %s: %w", spec.Name, err)
 	}
 	cfg := tunnel.InterfaceConfig{
@@ -110,10 +149,30 @@ func (b *Backend) CreateInterface(ctx context.Context, spec tunnel.InterfaceSpec
 
 func (b *Backend) rollbackLink(ctx context.Context, name string) {
 	// Best effort: the original error is what matters to the caller.
-	_ = b.links.Delete(ctx, name)
+	_ = b.RemoveInterface(ctx, name)
 }
 
 func (b *Backend) RemoveInterface(ctx context.Context, name string) error {
+	if b.userspace != nil {
+		owned, err := b.userspace.stop(name)
+		if err != nil {
+			return fmt.Errorf("amneziawg: stop userspace %s: %w", name, err)
+		}
+		if owned {
+			exists, err := b.links.Exists(ctx, name)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return nil
+			}
+		}
+	}
+	if active, err := userspaceSocketActive(name); err != nil {
+		return err
+	} else if active {
+		return fmt.Errorf("amneziawg: refusing to remove unmanaged userspace daemon %s", name)
+	}
 	err := b.links.Delete(ctx, name)
 	if errors.Is(err, network.ErrLinkNotFound) {
 		return tunnel.ErrInterfaceNotFound
@@ -200,6 +259,10 @@ func (b *Backend) SyncPeers(ctx context.Context, name string, peers []tunnel.Pee
 }
 
 func (b *Backend) Dump(ctx context.Context, name string) (tunnel.InterfaceState, error) {
+	mode, err := b.observedMode(name)
+	if err != nil {
+		return tunnel.InterfaceState{}, err
+	}
 	res, err := b.run.Run(ctx, []string{b.awg, "show", name, "dump"})
 	if err != nil {
 		if ifaceMissing(err, string(res.Stderr)) {
@@ -207,7 +270,9 @@ func (b *Backend) Dump(ctx context.Context, name string) (tunnel.InterfaceState,
 		}
 		return tunnel.InterfaceState{}, fmt.Errorf("amneziawg: dump %s: %w", name, err)
 	}
-	return parseDump(name, res.Stdout)
+	state, err := parseDump(name, res.Stdout)
+	state.BackendMode = mode
+	return state, err
 }
 
 // ifaceMissing classifies `awg show <name>` failures on absent interfaces.

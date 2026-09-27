@@ -84,6 +84,13 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
             await navigate(base, target, status);
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl':'ltr'), step + ' direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, step + ' theme');
+            if (name === 'subscription' && lang === 'fa') {
+              assert(await page.locator('.subscription-stat > strong.ltr-data').evaluateAll(elements =>
+                elements.length >= 2 && elements.every(el => getComputedStyle(el).textAlign === 'right')),
+                step + ' metrics align at the RTL edge');
+              assert(await page.locator('.subscription-stat--transfer > strong').evaluate(el =>
+                getComputedStyle(el).justifyContent === 'flex-end'), step + ' transfer groups align at the RTL edge');
+            }
             assert(await page.locator('main h1').count() === 1, step + ' one heading');
             assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), step + ' viewport overflow');
             assert(await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(elements => elements.every(el => el.labels?.length || el.getAttribute('aria-label'))), step + ' control names');

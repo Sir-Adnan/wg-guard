@@ -14,8 +14,9 @@ func (s *System) RunConfigured(ctx context.Context, argv []string, dir string, e
 type boundedOutput struct {
 	// Keep the buffer named: embedding would expose its ReadFrom method and
 	// let io.Copy bypass Write's limit while draining subprocess pipes.
-	buffer bytes.Buffer
-	limit  int
+	buffer    bytes.Buffer
+	limit     int
+	truncated bool
 }
 
 func (b *boundedOutput) Bytes() []byte { return b.buffer.Bytes() }
@@ -28,9 +29,13 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	remaining := b.limit - b.buffer.Len()
 	if remaining > 0 {
 		if len(p) > remaining {
+			b.truncated = true
 			p = p[:remaining]
 		}
 		_, _ = b.buffer.Write(p)
+	}
+	if remaining <= 0 && n > 0 {
+		b.truncated = true
 	}
 	return n, nil
 }

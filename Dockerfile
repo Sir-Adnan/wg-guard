@@ -37,6 +37,15 @@ RUN git -c advice.detachedHead=false clone --quiet --depth 1 \
     && git -C /src/amneziawg-tools diff --quiet ee0f0a9aa34ff0a0da4b3433b9512781cfe02843 -- \
     && make -C /src/amneziawg-tools/src
 
+FROM golang:1.27-alpine AS awg-userspace-build
+RUN apk add --no-cache git
+RUN git -c advice.detachedHead=false clone --quiet --depth 1 \
+        --branch v3.1.20260828 --single-branch \
+        https://github.com/amnezia-vpn/amneziawg-go.git /src/amneziawg-go \
+    && test "$(git -C /src/amneziawg-go rev-parse HEAD)" = "b5928efb6ca19f0153958460c3d141f04abc5c2e" \
+    && git -C /src/amneziawg-go diff --quiet b5928efb6ca19f0153958460c3d141f04abc5c2e --
+RUN cd /src/amneziawg-go && CGO_ENABLED=0 go build -trimpath -o /out/amneziawg-go .
+
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -50,8 +59,10 @@ RUN apt-get update \
 
 COPY --from=build /out/wg-guard /usr/local/bin/wg-guard
 COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
+COPY --from=awg-userspace-build /out/amneziawg-go /usr/local/bin/amneziawg-go
 
 LABEL io.wg-guard.awg-tools.commit="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
+LABEL io.wg-guard.awg-userspace.commit="b5928efb6ca19f0153958460c3d141f04abc5c2e"
 
 # Host networking is used at runtime (compose sets network_mode: host), so
 # EXPOSE is documentation only.

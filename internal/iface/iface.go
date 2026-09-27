@@ -191,11 +191,12 @@ func ValidatePortRange(min, max int) error {
 // Service wires the interface service to its dependencies. The key ring
 // encrypts the interface private key at rest (never stored plaintext).
 type Service struct {
-	db       *database.DB
-	reg      *settings.Registry
-	ring     *secrets.KeyRing
-	profiles *ProfileGenerator
-	now      func() time.Time
+	db             *database.DB
+	reg            *settings.Registry
+	ring           *secrets.KeyRing
+	profiles       *ProfileGenerator
+	now            func() time.Time
+	userspaceReady func(context.Context) error
 }
 
 // ServiceOption configures an interface service dependency.
@@ -208,6 +209,12 @@ func WithProfileEntropy(entropy io.Reader) ServiceOption {
 	return func(service *Service) {
 		service.profiles = NewProfileGenerator(entropy)
 	}
+}
+
+// WithUserspaceReadiness rejects new userspace profiles before persistence
+// when the running deployment cannot start its reviewed daemon.
+func WithUserspaceReadiness(check func(context.Context) error) ServiceOption {
+	return func(service *Service) { service.userspaceReady = check }
 }
 
 func NewService(db *database.DB, reg *settings.Registry, ring *secrets.KeyRing, options ...ServiceOption) *Service {
@@ -263,6 +270,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 	}
 	if !backendMode.Valid() {
 		return nil, domain.E(domain.CodeInvalidRequest, "backend mode %q is not kernel|userspace", backendMode)
+	}
+	if backendMode == domain.BackendUserspace && s.userspaceReady != nil {
+		if err := s.userspaceReady(ctx); err != nil {
+			return nil, domain.E(domain.CodeInvalidRequest, "userspace backend unavailable: %v", err)
+		}
 	}
 
 	port := in.ListenPort

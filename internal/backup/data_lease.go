@@ -1,8 +1,12 @@
 package backup
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -19,6 +23,7 @@ type DataLease struct {
 }
 
 const dataLeaseName = ".wg-guard-data.lock"
+const purgedMarker = 'P'
 
 func (l *DataLease) Close() {
 	if l != nil {
@@ -48,12 +53,141 @@ func (s *Service) lockData(exclusive bool) (*DataLease, error) {
 	if err := leaseLock(f, 1, exclusive); err != nil {
 		return fail()
 	}
+	if purged, err := isPurged(f); err != nil || purged {
+		f.Close()
+		return nil, fmt.Errorf("data volume was purged; reinstall the node before opening it")
+	}
 	if !exclusive {
 		if err := leaseUnlock(f, 0); err != nil {
 			return fail()
 		}
 	}
 	return &DataLease{file: f, exclusive: exclusive}, nil
+}
+
+func isPurged(f *os.File) (bool, error) {
+	var marker [1]byte
+	n, err := f.ReadAt(marker[:], 2)
+	if n == 0 && errors.Is(err, io.EOF) {
+		return false, nil
+	}
+	return n == 1 && marker[0] == purgedMarker, err
+}
+
+// PurgeGuard excludes data commands after service stop and before uninstall
+// removes its first artifact. The inode survives purge to avoid split locks.
+type PurgeGuard struct {
+	dir  string
+	file *os.File
+}
+
+func (g *PurgeGuard) Close() error { return g.file.Close() }
+
+func AcquirePurgeGuard(dir string) (*PurgeGuard, error) {
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) == string(filepath.Separator) {
+		return nil, fmt.Errorf("invalid data directory")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+	if st, err := os.Lstat(dir); err != nil || !st.IsDir() {
+		return nil, fmt.Errorf("data directory is not a regular directory")
+	}
+	f, err := openLeaseFile(filepath.Join(dir, dataLeaseName))
+	if err != nil {
+		return nil, err
+	}
+	fail := func(err error) (*PurgeGuard, error) { f.Close(); return nil, err }
+	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
+		return fail(fmt.Errorf("data ownership file is not regular"))
+	}
+	if err := leaseLock(f, 0, true); err != nil {
+		return fail(safetyError("data_busy", err))
+	}
+	if err := leaseLock(f, 1, true); err != nil {
+		return fail(safetyError("data_busy", err))
+	}
+	return &PurgeGuard{dir: dir, file: f}, nil
+}
+
+func withPurgeOwnership(dir string, action func(*os.File) error) error {
+	guard, err := AcquirePurgeGuard(dir)
+	if err != nil {
+		return err
+	}
+	defer guard.Close()
+	return action(guard.file)
+}
+
+// PurgeDataDir excludes all admitted commands and prevents new admissions
+// before removing any member. A protected tombstone stays in the empty data
+// directory until the next fresh installation explicitly resets it.
+func PurgeDataDir(dir string) error {
+	guard, err := AcquirePurgeGuard(dir)
+	if err != nil {
+		return err
+	}
+	defer guard.Close()
+	return guard.Purge()
+}
+
+func (g *PurgeGuard) Purge() error {
+	if _, err := g.file.WriteAt([]byte{purgedMarker}, 2); err != nil {
+		return err
+	}
+	if err := g.file.Sync(); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(g.dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.Name() == dataLeaseName {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(g.dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	d, err := os.Open(g.dir)
+	if err != nil {
+		return err
+	}
+	return joinSyncClose(d)
+}
+
+func joinSyncClose(d *os.File) error {
+	var err error
+	if runtime.GOOS != "windows" {
+		err = d.Sync()
+	}
+	if closeErr := d.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+// ResetPurgedDataDir admits a fresh install only when no old data member
+// survived an interrupted purge. Preserved (non-purged) data is untouched.
+func ResetPurgedDataDir(dir string) error {
+	return withPurgeOwnership(dir, func(f *os.File) error {
+		purged, err := isPurged(f)
+		if err != nil || !purged {
+			return err
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return err
+		}
+		if len(entries) != 1 || entries[0].Name() != dataLeaseName {
+			return fmt.Errorf("data purge was interrupted; finish the guided reset before installing")
+		}
+		if _, err := f.WriteAt([]byte{0}, 2); err != nil {
+			return err
+		}
+		return f.Sync()
+	})
 }
 
 // A configured pair must share its ownership directory. Independent DataDir

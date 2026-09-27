@@ -35,7 +35,8 @@ func (l *Links) CreateAWG(ctx context.Context, name string, mtu int) error {
 		return err
 	}
 	if mtu > 0 {
-		if _, err := l.run(ctx, ipArgv("link", "set", "dev", name, "mtu", fmt.Sprint(mtu))); err != nil {
+		if err := l.SetMTU(ctx, name, mtu); err != nil {
+			_ = l.Delete(ctx, name)
 			return err
 		}
 	}
@@ -52,6 +53,11 @@ func (l *Links) AddAddress(ctx context.Context, name, cidr string) error {
 // SetUp brings the link up.
 func (l *Links) SetUp(ctx context.Context, name string) error {
 	_, err := l.run(ctx, ipArgv("link", "set", "dev", name, "up"))
+	return err
+}
+
+func (l *Links) SetMTU(ctx context.Context, name string, mtu int) error {
+	_, err := l.run(ctx, ipArgv("link", "set", "dev", name, "mtu", fmt.Sprint(mtu)))
 	return err
 }
 

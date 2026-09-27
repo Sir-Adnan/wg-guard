@@ -10,25 +10,25 @@ build toolchain, which some VPS images lack.
 
 ## Decision
 
-Prefer the kernel module; fall back to the userspace daemon when DKMS prerequisites are
-unavailable. Both are transparent to WG-Guard because the `awg` CLI talks to either (netlink
-vs UAPI socket — see docs/integrations/amneziawg.md). The active backend is reported via
-`/api/v1/node` and `doctor`.
+Prefer the kernel module; offer an explicit userspace mode when the pinned daemon and TUN are
+available. Both use the `awg` CLI (netlink vs UAPI socket; see
+docs/integrations/amneziawg.md). Configuration is never silently switched between backends.
+The configured mode is reported via `/api/v1/node`; `doctor` compares it with observed runtime.
 
 ## Implementation status
 
-The decision remains the target architecture, but the Phase 8 audit found that daemon lifecycle
-orchestration has not landed: `backend_mode` is stored/reported while boot and reconciliation
-always take the kernel-link path. The adapter has been exercised against a manually started
-pinned daemon; that proves wire/config compatibility, not automatic fallback. Phase 11 owns a
-bounded supervisor, restart/failure drills, and observed backend reporting (AUD-019). Until then,
-production-managed tunnels require the kernel module and status values describe configured intent.
+Phase 11 implements one foreground daemon per userspace interface under the node process. The
+supervisor verifies the pinned daemon identity, owns its child and UAPI socket, notices failure,
+repairs through canonical reconciliation, and stops it on removal/shutdown. A pre-existing active
+unowned daemon fails closed. The exact pinned source passed WSL TUN/UAPI integration; Docker and
+native real-host certification is still required before this mode is production-certified.
+Native installs need the separately installed reviewed daemon; the managed installer continues
+to require the kernel module by default. Automatic selection on DKMS failure is not implemented.
 
 ## Consequences
 
-- Best throughput and lowest overhead in the common case. Once AUD-019 is implemented, hosts
-  without DKMS retain a managed fallback; until then they require manual daemon operation and
-  are not certified production targets.
+- Best throughput and lowest overhead in the common kernel case. Explicit userspace profiles can
+  run without DKMS after the pinned daemon and TUN are provisioned; no silent fallback is claimed.
 - Userspace mode inherits upstream userspace bug history (arm64 H4, RandomTrailers panic) —
   mitigated by avoiding the buggy feature surface and treating userspace as fallback only.
 - Doctor distinguishes backends (kernel module presence vs UAPI socket).

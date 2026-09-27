@@ -163,6 +163,7 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desired []peerDesire, knownKeys, retiredKeys map[string]bool, rep *Report) error {
 	spec := tunnel.InterfaceSpec{
 		Name:        ifc.Name,
+		BackendMode: ifc.BackendMode,
 		ListenPort:  ifc.ListenPort,
 		MTU:         ifc.MTU,
 		Address:     gatewayAddress(ifc.Subnet),
@@ -194,11 +195,12 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 	case err != nil:
 		return fmt.Errorf("dump: %w", err)
 	default:
+		backendChanged := state.BackendMode != "" && state.BackendMode != spec.BackendMode
 		modeChanged := state.Obfuscation.Enabled != spec.Obfuscation.Enabled
 		hpkRemoved := state.Obfuscation.HeaderProtectionKey != "" && spec.Obfuscation.HeaderProtectionKey == ""
 		paramDrift := state.ListenPort != ifc.ListenPort || state.Obfuscation != spec.Obfuscation
 		switch {
-		case modeChanged || hpkRemoved:
+		case backendChanged || modeChanged || hpkRemoved:
 			// Recreate: setconf cannot move between plain and obfuscated
 			// states or clear an HPK at the pinned revisions. Peers are wiped
 			// and re-synced below.
@@ -211,13 +213,15 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 			rep.InterfacesUpdated++
 			created = true
 			kind := "mode_transition"
-			if !modeChanged && hpkRemoved {
+			if backendChanged {
+				kind = "backend_transition"
+			} else if !modeChanged && hpkRemoved {
 				kind = "hpk_removal"
 			}
 			rep.Drift = append(rep.Drift, DriftItem{
 				Interface: ifc.Name, Kind: kind,
-				Detail: fmt.Sprintf("configuration required link recreation (mode changed=%v, HPK removed=%v); peers re-synced",
-					modeChanged, hpkRemoved),
+				Detail: fmt.Sprintf("configuration required link recreation (backend changed=%v, mode changed=%v, HPK removed=%v); peers re-synced",
+					backendChanged, modeChanged, hpkRemoved),
 				Action: "recreated",
 			})
 		case paramDrift:
@@ -370,14 +374,15 @@ func sameAllowedIPs(a, b []string) bool {
 
 // dbInterface is the engine's view of a tunnel_interfaces row.
 type dbInterface struct {
-	ID         string
-	Name       string
-	ListenPort int
-	Subnet     string // device pool CIDR, e.g. "10.8.0.0/24"
-	MTU        int
-	Obf        iface.Obfuscation
-	Enabled    bool
-	PrivateKey string // decrypted for backend apply
+	ID          string
+	Name        string
+	BackendMode string
+	ListenPort  int
+	Subnet      string // device pool CIDR, e.g. "10.8.0.0/24"
+	MTU         int
+	Obf         iface.Obfuscation
+	Enabled     bool
+	PrivateKey  string // decrypted for backend apply
 }
 
 // gatewayAddress derives the interface address (first host of the pool) —
@@ -425,7 +430,7 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 		h1_range, h2_range, h3_range, h4_range, i1, i2, i3, i4, i5, enabled,
 		s3, s4, header_protection_key, content_padding_addition, rekey_after_time,
 		rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
-		random_trailers, disable_cookies
+		random_trailers, disable_cookies, backend_mode
 		FROM tunnel_interfaces ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("reconcile: load interfaces: %w", err)
@@ -454,10 +459,13 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 		if err := rows.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.Subnet, &ifc.MTU, &pubkey, &privEnc,
 			&jc, &jmin, &jm, &s1, &s2, &h1, &h2, &h3, &h4, &i1, &i2, &i3, &i4, &i5, &ifc.Enabled,
 			&s3, &s4, &hpk, &padding, &rekeyAfter, &rekeyTimeout, &rejectAfter,
-			&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies); err != nil {
+			&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies, &ifc.BackendMode); err != nil {
 			return nil, fmt.Errorf("reconcile: scan interface: %w", err)
 		}
 		_ = pubkey // drift on the server key is covered by private-key apply
+		if ifc.BackendMode != "kernel" && ifc.BackendMode != "userspace" {
+			return nil, fmt.Errorf("reconcile: invalid stored backend mode for %s", ifc.Name)
+		}
 		ifc.Obf = iface.Obfuscation{
 			Enabled: jc.Valid,
 			Jc:      int(jc.Int64), Jmin: int(jmin.Int64), Jmax: int(jm.Int64),

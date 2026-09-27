@@ -63,6 +63,27 @@ func TestDefaultOwnerHookRunsAfterSettingsBeforeListener(t *testing.T) {
 	}
 }
 
+func TestInstallRejectsInvalidExplicitOwnerBeforeStatefulWork(t *testing.T) {
+	h := newMemHost()
+	p := Defaults()
+	p.PanelPort = healthServer(t, http.StatusOK)
+	_, err := Install(context.Background(), h, InstallOptions{
+		Plan: p, Yes: true, Owner: OwnerOptions{Username: "ab", PasswordFile: "/private-password"},
+	})
+	if err == nil {
+		t.Fatal("short owner username accepted")
+	}
+	if _, ok := h.files[StatePath]; ok {
+		t.Fatal("install state was created before owner validation")
+	}
+	if _, ok := h.files[JournalPath]; ok {
+		t.Fatal("lifecycle journal was created before owner validation")
+	}
+	if h.ran("apt-get") || h.ran("systemctl", "enable") || h.ran("docker", "compose", "up") {
+		t.Fatalf("prerequisites or service mutated before owner validation: %v", h.ranCommands())
+	}
+}
+
 func TestLocalOwnerTransportAndReuse(t *testing.T) {
 	h := newMemHost()
 	p := Defaults()

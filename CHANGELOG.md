@@ -7,11 +7,14 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ## [Unreleased]
 
-### Planned
-- **Phase 11 production certification:** compatibility, recovery, security and soak gates remain
-  separate from the completed product redesign. Public release still requires owner approval.
+### In progress
+- **Phase 11 production certification:** explicit managed userspace profiles, admission-safe data
+  purge, early owner validation and bounded rotation flags are implemented; full compatibility,
+  recovery, security and soak gates remain open. Public release still requires owner approval.
 
 ### Changed
+- **Persian metric alignment:** numeric and technical summaries retain LTR reading order while
+  aligning to the RTL card/table edge in the panel and public subscription page.
 - **UI consistency:** improved text/control contrast and 44px touch targets, corrected RTL icon/
   tooltip behavior and missing SVG references, and removed obsolete presentation code. Additional
   accounts are clearly administrators; the existing single-owner service rule remains unchanged.

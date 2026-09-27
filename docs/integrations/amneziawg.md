@@ -38,7 +38,13 @@ Equal module version strings do not prove equal builds: this source revision sti
 `3.1.20260812`. A differing `srcversion` requires an operator maintenance reboot; unavailable
 identity is reported as unknown and blocks managed-core readiness. No path unloads active
 tunnels. Matching loaded/disk identity does not independently attest the upstream Git commit.
-Userspace version metadata in the catalog does not implement automatic daemon lifecycle.
+Phase 11 adds explicit service-owned userspace lifecycle for profiles configured with
+`backend_mode=userspace`: pin check, foreground daemon per interface, UAPI readiness, canonical
+apply/dump and peer reconciliation, failure detection/restart, and owned teardown. It refuses an
+active unowned userspace socket. The Docker image includes the exact reviewed source build and
+maps `/dev/net/tun`; native operators must provision the same pin separately. No automatic
+kernel-to-userspace selection on module failure is implied. Real-host deployment/client evidence
+is still pending in the Phase 11 matrix.
 
 ## CLI surface (verified, tools v3.1)
 

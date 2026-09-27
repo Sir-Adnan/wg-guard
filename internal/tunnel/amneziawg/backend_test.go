@@ -77,6 +77,22 @@ func (f *fakeRunner) argvJoined() string {
 	return sb.String()
 }
 
+func TestManagedUserspaceRefusesWrongVersionBeforeLinkMutation(t *testing.T) {
+	f := &fakeRunner{}
+	f.step("amneziawg-go 0.0.20250522")
+	b := NewManaged(f)
+	err := b.CreateInterface(context.Background(), tunnel.InterfaceSpec{Name: "awg0", BackendMode: "userspace"})
+	if err == nil || !strings.Contains(err.Error(), "v3.1.20260828") {
+		t.Fatalf("unreviewed daemon accepted: %v", err)
+	}
+	if got := f.argvJoined(); got != "amneziawg-go --version\n" {
+		t.Fatalf("link mutation happened before version gate: %q", got)
+	}
+	if _, err := userspaceSocketActive("../foreign"); err == nil {
+		t.Fatal("invalid socket name accepted")
+	}
+}
+
 // confFile returns the captured content of the last rendered config file for
 // iface (setconf or syncconf).
 func (f *fakeRunner) confFile(t *testing.T, op, iface string) string {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/admin"
+	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
@@ -176,6 +178,14 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := prompt.confirm(p); err != nil {
 		return nil, err
 	}
+	// Explicit owner identity is knowable before any prerequisite, journal or
+	// data artifact is created. Interactive identity is still collected by the
+	// owner wizard before service start.
+	if name := strings.TrimSpace(o.Owner.Username); name != "" {
+		if err := admin.ValidateUsername(name); err != nil {
+			return nil, terminalError("owner.username_invalid")
+		}
+	}
 
 	if err := preflight(ctx, h, p, out); err != nil {
 		return nil, err
@@ -338,6 +348,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 	if err := h.MkdirAll(p.DataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("install: mkdir %s: %w", p.DataDir, err)
+	}
+	if _, live := h.(realHost); live {
+		if err := backup.ResetPurgedDataDir(p.DataDir); err != nil {
+			return st, fmt.Errorf("install: reopen purged data volume: %w", err)
+		}
 	}
 	if err := ensureOperationRetention(ctx, h, st, false); err != nil {
 		return st, err

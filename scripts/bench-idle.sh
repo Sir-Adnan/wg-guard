@@ -58,6 +58,11 @@ if [ -z "$TOKEN" ]; then
   echo "token create produced no plaintext:" >&2; cat "$WORK/token.err" >&2; exit 1
 fi
 
+# The fixture is deliberately local and synthetic. Disable the operator API
+# rate limit for setup so a 1000-device seed measures resource behavior, not
+# a series of expected 429 responses.
+"$BIN" settings set api.rate_limit_per_minute 0 -config "$WORK/wg-guard.toml" > /dev/null
+
 echo "starting node (backend=fake, $PEERS peers)…" >&2
 "$BIN" serve -config "$WORK/wg-guard.toml" -backend fake > "$WORK/serve.log" 2>&1 &
 SRV_PID=$!
@@ -94,11 +99,13 @@ if [ "$PEERS" -gt 0 ]; then
     "http://127.0.0.1:$PORT/api/v1/interfaces" | grep -o '"id":"[0-9a-f-]\{36\}"' | head -1 | cut -d'"' -f4)"
   # Bulk creation caps at 500 per call — chunk the population.
   REMAINING="$PEERS"
+  START_INDEX=1
   while [ "$REMAINING" -gt 0 ]; do
     CHUNK=500; [ "$REMAINING" -lt 500 ] && CHUNK="$REMAINING"
-    api -X POST -d "{\"count\":$CHUNK,\"prefix\":\"p\",\"start_index\":1,\"width\":5,\"duration_seconds\":31536000}" \
+    api -X POST -d "{\"count\":$CHUNK,\"prefix\":\"p\",\"start_index\":$START_INDEX,\"width\":5,\"duration_seconds\":31536000}" \
       "http://127.0.0.1:$PORT/api/v1/users/bulk" >/dev/null
     REMAINING=$(( REMAINING - CHUNK ))
+    START_INDEX=$(( START_INDEX + CHUNK ))
   done
   # One device per user: page through users and create a device for each.
   CURSOR=""
@@ -116,7 +123,7 @@ fi
 # Give the scheduler one full accounting cycle over the seeded state before
 # measuring (the first ensure can rebuild shaper state; steady state is the
 # quantity the budgets talk about).
-sleep 2
+sleep 35
 
 SAMPLE_EVERY=5
 SAMPLES=$(( DURATION / SAMPLE_EVERY ))

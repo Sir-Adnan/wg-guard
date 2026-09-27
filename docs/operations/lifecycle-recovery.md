@@ -73,11 +73,12 @@ archive name, SHA-256 of local bytes and whether the file has an age header. A r
 claim or a missing local file is insufficient. Archive hashing uses bounded memory; it is
 identity evidence, not a replacement for restore verification. These dedicated recovery
 archives are outside the ordinary top-level backup retention/listing and need deliberate
-retention review after the rollback window. `--purge-data` removes them with the data directory.
-Before that explicitly destructive option, stop every independent data command and prevent
-new commands until removal finishes. The existing whole-directory purge is not fenced by the
-data lease; concurrent purge safety remains AUD-040/Phase11. Default uninstall preserves data
-and does not make this destructive-maintenance guarantee.
+retention review after the rollback window. `--purge-data` removes their contents under exclusive
+data ownership. It refuses while any admitted data command is active. The data directory retains
+only the 0600 lock inode, marked purged so a new command cannot reopen an empty replacement
+volume; a fresh installer clears that marker only when no data member remains. After an
+interrupted purge, rerun the guided removal before installing again. Default uninstall preserves
+data. Older binaries without the lease protocol must be stopped separately.
 
 ## Interrupted operations
 

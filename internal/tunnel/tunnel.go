@@ -55,6 +55,7 @@ type Obfuscation struct {
 // only state the backend receives — the phase-1 draft omitted it.
 type InterfaceSpec struct {
 	Name        string
+	BackendMode string // kernel (default) or userspace
 	PrivateKey  string // base64
 	ListenPort  int
 	Fwmark      string // "" = off
@@ -97,6 +98,7 @@ type PeerState struct {
 // InterfaceState is the observed state of one interface (dump semantics).
 type InterfaceState struct {
 	Name        string
+	BackendMode string // observed mode when the real backend can identify it
 	PublicKey   string
 	ListenPort  int
 	Obfuscation Obfuscation

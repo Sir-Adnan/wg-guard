@@ -62,6 +62,19 @@ func TestCreateAWGSequence(t *testing.T) {
 	}
 }
 
+func TestCreateAWGMTUFailureRemovesPartialLink(t *testing.T) {
+	f := &fakeRunner{}
+	f.push("ip", "", "", nil)
+	f.push("ip", "", "invalid MTU", &subprocess.ExitError{Name: "ip", ExitCode: 1})
+	l := &Links{Run: f}
+	if err := l.CreateAWG(context.Background(), "awg0", 1420); err == nil {
+		t.Fatal("failed MTU accepted")
+	}
+	if want := "ip link add awg0 type amneziawg\nip link set dev awg0 mtu 1420\nip link del dev awg0\n"; f.joined() != want {
+		t.Fatalf("partial link not rolled back: %q", f.joined())
+	}
+}
+
 func TestCreateAWGNoMTU(t *testing.T) {
 	f := &fakeRunner{}
 	l := &Links{Run: f}

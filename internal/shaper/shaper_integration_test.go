@@ -4,10 +4,12 @@ package shaper
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 )
@@ -171,6 +173,57 @@ func TestIntegrationIngressIFBShaping(t *testing.T) {
 	}
 	if _, err := run.Run(ctx, []string{"ip", "link", "show", ifb}); err == nil {
 		t.Fatal("ifb device must be removed on cleanup")
+	}
+}
+
+// A real kernel/IFB scale cell: 1000 distinct client IPs and user classes in
+// both directions. This measures the tc workload; no client handshake is
+// claimed by this test. The dedicated VPS runs it for production evidence.
+func TestIntegrationThousandShapedClientIPs(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("root required")
+	}
+	if _, err := exec.LookPath("tc"); err != nil {
+		t.Skip("tc unavailable")
+	}
+	run := subprocess.NewSystem()
+	ctx := context.Background()
+	const ifc = "wgshap2"
+	ifb := IFBName(ifc)
+	if _, err := run.Run(ctx, []string{"ip", "link", "add", ifc, "type", "dummy"}); err != nil {
+		t.Skipf("test link unavailable: %v", err)
+	}
+	m := New(run)
+	t.Cleanup(func() {
+		_, _ = m.Ensure(ctx, ifc, nil)
+		_, _ = run.Run(ctx, []string{"ip", "link", "del", ifc})
+		_, _ = run.Run(ctx, []string{"ip", "link", "del", ifb})
+	})
+	groups := make([]Group, 1000)
+	for i := range groups {
+		addr := i + 2
+		groups[i] = Group{InterfaceName: ifc, UserID: fmt.Sprintf("u%04d", i),
+			IPs: []string{fmt.Sprintf("10.8.%d.%d/32", addr/256, addr%256)}, DownKbps: 1024, UpKbps: 1024}
+	}
+	start := time.Now()
+	if applied, err := m.Ensure(ctx, ifc, groups); err != nil || !applied {
+		t.Fatalf("1000-class apply: applied=%v err=%v", applied, err)
+	}
+	t.Logf("1000-class egress+IFB apply: %s", time.Since(start).Round(time.Millisecond))
+	if got := strings.Count(tcShow(t, run, "class", ifc), "htb"); got != 1000 {
+		t.Fatalf("egress classes = %d, want 1000", got)
+	}
+	if got := strings.Count(tcShow(t, run, "class", ifb), "htb"); got != 1000 {
+		t.Fatalf("IFB classes = %d, want 1000", got)
+	}
+	if got := strings.Count(tcShow(t, run, "filter", ifc), "flowid 1:"); got != 1000 {
+		t.Fatalf("egress filters = %d, want 1000", got)
+	}
+	if got := strings.Count(tcShow(t, run, "filter", ifb), "flowid 1:"); got != 1000 {
+		t.Fatalf("IFB filters = %d, want 1000", got)
+	}
+	if applied, err := m.Ensure(ctx, ifc, groups); err != nil || applied {
+		t.Fatalf("unchanged 1000-class state rebuilt: applied=%v err=%v", applied, err)
 	}
 }
 

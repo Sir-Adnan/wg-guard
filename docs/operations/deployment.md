@@ -246,6 +246,8 @@ WG-Guard-owned artifacts; data/backups and installer-installed packages are pres
 `--purge-data` / `--purge-packages` is passed. `--purge-all` implies both and additionally removes
 the fixed WG-Guard manager/cache, log and remaining configuration/lifecycle directories. It does
 not remove unrelated proxy sites, shared certificate lineages or unowned packages.
+An explicit data purge removes data members while retaining one locked, purged-marker inode in
+the empty data directory; deleting that inode by hand would defeat concurrent-admission safety.
 
 ## Host requirements
 
@@ -297,15 +299,15 @@ purge stops installer-owned Docker service/socket before removing Docker and sou
 `--prerequisites check` requires operator-provisioned prerequisites and makes no package/module
 mutations. Native tools must report the catalogued version, and managed modules need observable
 matching loaded/disk build identity. `--skip-module` explicitly delegates host module lifecycle
-to the operator, but
-still checks required native AWG tools. It does not enable or certify an automatic userspace
-fallback. A normal managed-core installation fails if the module is absent, different from disk,
+to the operator, but still checks required native AWG tools. It does not silently select
+userspace. A normal managed-core installation fails if the module is absent, different from disk,
 or its loaded build identity cannot be established.
 
 The product target is Ubuntu 24.04 or newer on amd64; Ubuntu 24.04 has completed the current
 real-host drills. Newer releases remain fail-closed when the pinned bundle is unavailable. Root
 is required. Kernel mode needs DKMS build prerequisites (`build-essential`, matching kernel
-headers). The userspace fallback architecture
-is accepted, and its config/runtime adapter is integration-tested, but WG-Guard does not yet
-supervise the daemon automatically. Until Phase 11 closes AUD-019, managed production tunnels
-require the kernel module ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).
+headers). Explicit userspace profiles now have a service-owned daemon lifecycle: the Docker
+image carries the reviewed daemon and maps `/dev/net/tun`; native nodes need that exact daemon
+installed and a usable TUN device. New profiles fail before persistence when those
+prerequisites are absent. The kernel remains the installed default, and real-host userspace
+certification is still pending ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).

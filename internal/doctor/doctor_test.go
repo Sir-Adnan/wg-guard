@@ -188,7 +188,7 @@ func TestDoctorReportOverTempNode(t *testing.T) {
 	}
 }
 
-func TestKernelModuleWarningDoesNotPromiseUnimplementedFallback(t *testing.T) {
+func TestKernelModuleWarningRequiresExplicitManagedFallback(t *testing.T) {
 	d := &doctor{}
 	d.checkKernelModule()
 	got := statusOf(&d.report, "kernel-module")
@@ -198,8 +198,19 @@ func TestKernelModuleWarningDoesNotPromiseUnimplementedFallback(t *testing.T) {
 	if strings.Contains(got.Remedy, "will use") {
 		t.Fatalf("remedy promises an unimplemented automatic fallback: %q", got.Remedy)
 	}
-	if !strings.Contains(got.Remedy, "not automatic") {
-		t.Fatalf("remedy does not disclose the fallback limitation: %q", got.Remedy)
+	if !strings.Contains(got.Remedy, "select a managed userspace profile") {
+		t.Fatalf("remedy does not disclose explicit fallback selection: %q", got.Remedy)
+	}
+}
+
+func TestOfflineDoctorFixRefusesEphemeralUserspaceRepair(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	addEnabledInterface(t, db, "awg0", 39001)
+	if _, err := db.Exec(`UPDATE tunnel_interfaces SET backend_mode = 'userspace' WHERE name = 'awg0'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := applyFixes(context.Background(), deps); err == nil || !strings.Contains(err.Error(), "restart the service") {
+		t.Fatalf("one-shot doctor claimed to repair daemon lifecycle: %v", err)
 	}
 }
 

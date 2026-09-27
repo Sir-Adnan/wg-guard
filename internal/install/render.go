@@ -33,6 +33,7 @@ func RenderCompose(p Plan) string {
 	b.WriteString("    container_name: wg-guard\n")
 	b.WriteString("    network_mode: host\n")
 	b.WriteString("    cap_add:\n      - NET_ADMIN\n")
+	b.WriteString("    devices:\n      - /dev/net/tun:/dev/net/tun\n")
 	b.WriteString("    restart: unless-stopped\n")
 	b.WriteString(dockerLogPolicy)
 	b.WriteString("    volumes:\n")

@@ -64,8 +64,11 @@ the complete network state—AWG links/peers, rendered firewall/NAT, supported m
 and shaping—so a post-start interface cannot exist without its route policy. A failure makes the
 readiness endpoint unready until a complete pass succeeds; concurrent AWG operations on one
 interface remain the race verify-after-apply exists to catch.
+Explicit userspace profiles use one pin-checked foreground daemon per interface under the node;
+the scheduler checks the bounded process/socket set and retries failed members through the same
+canonical pass. Kernel profiles retain direct link creation; active unowned daemons are refused.
 Graceful shutdown drains HTTP (both the TLS listener and, in ACME mode, the port-80 challenge
-sidecar), lets the running job finish, then closes the DB. TLS: manual cert, proxy, loopback
+sidecar), lets the running job finish, stops owned userspace children, then closes the DB. TLS: manual cert, proxy, loopback
 dev, and ACME (`autocert`; HTTP-01 sidecar + certificate cache under the data dir) — all four
 implemented, ACME verified against a public domain in Phase 7.
 

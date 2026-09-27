@@ -22,8 +22,8 @@ func TestConfiguredRunBoundsBothOutputStreams(t *testing.T) {
 	env := append(os.Environ(), "WG_GUARD_OUTPUT_FIXTURE=1")
 	result, err := NewSystem().RunConfigured(context.Background(),
 		[]string{executable, "-test.run=^TestConfiguredRunBoundsBothOutputStreams$"}, t.TempDir(), env)
-	if err != nil {
-		t.Fatal(err)
+	if err == nil || !strings.Contains(err.Error(), "safety limit") {
+		t.Fatalf("oversized output was accepted: %v", err)
 	}
 	for _, stream := range []struct {
 		name string
@@ -36,6 +36,18 @@ func TestConfiguredRunBoundsBothOutputStreams(t *testing.T) {
 		if !bytes.Equal(stream.data, bytes.Repeat([]byte{stream.want}, 1<<20)) {
 			t.Errorf("%s did not retain exactly the allowed output prefix", stream.name)
 		}
+	}
+}
+
+func TestDefaultRunRejectsOversizedOutput(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WG_GUARD_OUTPUT_FIXTURE", "1")
+	_, err = NewSystem().Run(context.Background(), []string{executable, "-test.run=^TestConfiguredRunBoundsBothOutputStreams$"})
+	if err == nil || !strings.Contains(err.Error(), "safety limit") {
+		t.Fatalf("unbounded default command output: %v", err)
 	}
 }
 

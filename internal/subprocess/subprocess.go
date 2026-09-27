@@ -86,7 +86,7 @@ func (s *System) run(ctx context.Context, argv []string, dir string, env []strin
 	cmd.Dir = dir
 	cmd.Env = env
 	cmd.WaitDelay = time.Second
-	var stdout, stderr boundedOutput
+	stdout, stderr := boundedOutput{limit: 4 << 20}, boundedOutput{limit: 1 << 20}
 	if env != nil {
 		stdout.limit = 1 << 20
 		stderr.limit = 1 << 20
@@ -96,6 +96,9 @@ func (s *System) run(ctx context.Context, argv []string, dir string, env []strin
 
 	err := cmd.Run()
 	res := Result{Stdout: stdout.Bytes(), Stderr: stderr.Bytes()}
+	if stdout.truncated || stderr.truncated {
+		return res, fmt.Errorf("subprocess: %s output exceeded its safety limit", argv[0])
+	}
 	if err != nil {
 		// A deadline/cancel kill masquerades as a signaled exit; report the
 		// context error instead of a bogus exit status (-1).

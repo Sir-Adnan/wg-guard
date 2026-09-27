@@ -15,6 +15,23 @@ import (
 // and is the golden input for the parser.
 const fixturePath = "../../../docs/integrations/fixtures/dump-awg0-userspace.txt"
 
+func FuzzParseDump(f *testing.F) {
+	if data, err := os.ReadFile(fixturePath); err == nil {
+		f.Add(data)
+	}
+	f.Add([]byte(""))
+	f.Add([]byte("private\tpublic\tbad-port\n"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > 4<<20 {
+			t.Skip()
+		} // the production subprocess cap
+		state, err := parseDump("awg0", data)
+		if err == nil && state.Name != "awg0" {
+			t.Fatal("parser returned a different interface")
+		}
+	})
+}
+
 func loadFixture(t *testing.T) []byte {
 	t.Helper()
 	data, err := os.ReadFile(fixturePath)

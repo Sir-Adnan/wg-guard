@@ -8,6 +8,18 @@ marked `requires real VPS`.
 Historical asset-budget results below describe past gates. Phase 10 replaces frontend size
 ceilings with observable measurements and efficiency review; runtime resource limits remain.
 
+## Phase 11 — Production certification (in progress, 2026-09-27)
+
+The feature-frozen branch implements explicit managed userspace daemon lifecycle, bounded CLI
+rotation parsing, early owner-name validation and admission-safe explicit data purge. The pinned
+userspace source passed a real TUN/UAPI create/config/stop/restart integration test on WSL Linux;
+purge exclusion/tombstone and malformed-input tests pass locally. The Persian numeric-card
+alignment correction passed affected Chromium/WebKit user and subscription compositions. A
+30-second 0-peer synthetic sample measured 33 MB RSS/0.00% CPU; the 100-peer ten-minute window
+measured 41 MB average/45 MB maximum RSS and 0.03% CPU. The 1000-peer workload, security/race/
+fuzz/soak, Docker image and real-host networking/recovery/TLS matrix remain unverified; RB-007 is
+open. No public release is published.
+
 ## Phase 8.3 — Data-plane forwarding integrity (complete, 2026-09-10)
 
 Real mobile/desktop clients exposed a release-blocking path that prior gates did not exercise:
@@ -81,7 +93,7 @@ affected-cell corrections; axe, delayed-font CLS, build/unit/race/vet, CI fixtur
 verification and Go 1.27 `govulncheck` also pass. Exact revision `d9eb18e` passed a fresh Ubuntu
 24.04.4 amd64 Docker installation, matched host/container identities, private-panel health and
 authentication, real reviewed-core queue execution, idempotent broker repair and complete owned
-cleanup. The continuation is integrated into `main`; Phase 11 remains unstarted.
+cleanup. The continuation is integrated into `main`; Phase 11 started afterward.
 
 The subsequent owner-reported Phase 10 follow-up is implemented and locally tested: create-user
 drawer visibility, dashboard/action feedback, QR/config group actions, administration shortcuts,
@@ -91,7 +103,7 @@ remove old runtime keys, with retry after failed sync. Chromium/WebKit affected 
 Go web/device/reconcile/database tests and asset measurement pass. Exact revision `9401937`
 passed a fresh Ubuntu 24.04.4 amd64 Docker gate: the old subscription URL returned 404 and
 the old device public key was absent from live AmneziaWG peers while replacement access worked;
-owned cleanup completed. Phase 11 and public release remain unstarted.
+owned cleanup completed. Phase 11 started afterward; public release remains unpublished.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

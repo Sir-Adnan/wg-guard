@@ -240,11 +240,15 @@ input, select, textarea { font: inherit; color: inherit; }
 .icon--lg { width: 22px; height: 22px; }
 [dir="rtl"] .icon--directional { transform: scaleX(-1); }
 
-/* data is always LTR with Latin digits, embedded inside RTL prose */
+/* Keep technical sequences in reading order without moving their visual
+   column to the left of an RTL card, table cell or summary. */
 .ltr-data {
   direction: ltr;
   unicode-bidi: isolate;
   font-variant-numeric: tabular-nums;
+}
+[dir="rtl"] .ltr-data:not(input):not(textarea):not(pre):not(code) {
+  text-align: right;
 }
 
 /* ---------- shell layout ---------- */
@@ -2563,6 +2567,7 @@ body {
 .subscription-stat .meter { margin-block-start: auto; }
 .subscription-stat .meter .bar { background: rgba(255,255,255,.1); }
 .subscription-stat--transfer > strong { display: flex; flex-wrap: wrap; gap: 10px; font-size: var(--fs-md); }
+[dir="rtl"] .subscription-stat--transfer > strong { justify-content: flex-end; }
 .publicsub-section-head { display: flex; align-items: end; justify-content: space-between; gap: var(--sp-4); margin-block-end: var(--sp-4); }
 .publicsub-section-head h2 { margin-block: 4px; font-size: clamp(22px, 3vw, 30px); }
 .publicsub-section-head p:last-child { color: var(--fg-muted); }

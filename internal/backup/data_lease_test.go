@@ -59,6 +59,71 @@ func TestDataLeaseProcess(t *testing.T) {
 	}
 }
 
+func TestPurgeExcludesReadersAndLeavesAdmissionTombstone(t *testing.T) {
+	dir := t.TempDir()
+	service := &Service{Cfg: &config.Config{
+		DataDir: dir, DatabasePath: filepath.Join(dir, "wg-guard.db"),
+		MasterKeyFile: filepath.Join(dir, "master.key"),
+	}}
+	data := filepath.Join(dir, "wg-guard.db")
+	if err := os.WriteFile(data, []byte("synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	lease, err := service.OpenData(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := PurgeDataDir(dir); err == nil {
+		t.Fatal("purge admitted while a data command held its lease")
+	}
+	if _, err := os.Stat(data); err != nil {
+		t.Fatal("content changed despite purge refusal", err)
+	}
+	lease.Close()
+	guard, err := AcquirePurgeGuard(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l, err := service.OpenData(false); err == nil {
+		l.Close()
+		t.Fatal("new data command admitted while uninstall held purge ownership")
+	}
+	if err := guard.Purge(); err != nil {
+		t.Fatal(err)
+	}
+	if err := guard.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(data); !os.IsNotExist(err) {
+		t.Fatalf("data survived explicit purge: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, dataLeaseName)); err != nil {
+		t.Fatal("persistent admission inode was removed", err)
+	}
+	if l, err := service.OpenData(false); err == nil {
+		l.Close()
+		t.Fatal("purged volume reopened before a fresh install")
+	}
+	residual := filepath.Join(dir, "interrupted-member")
+	if err := os.WriteFile(residual, []byte("synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ResetPurgedDataDir(dir); err == nil {
+		t.Fatal("fresh install admitted a partially purged volume")
+	}
+	if err := PurgeDataDir(dir); err != nil {
+		t.Fatal("retry of an interrupted purge", err)
+	}
+	if err := ResetPurgedDataDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	l, err := service.OpenData(false)
+	if err != nil {
+		t.Fatal("fresh install did not reopen purged volume", err)
+	}
+	l.Close()
+}
+
 type exitRestoreContext struct {
 	context.Context
 	calls int

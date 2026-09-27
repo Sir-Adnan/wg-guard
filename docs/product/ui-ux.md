@@ -75,7 +75,9 @@ app, auth and subscription, including a dark OS with no saved preference.
 
 Technical values (IP/CIDR/ports/keys/counters) use LTR isolation, Latin digits and tabular numerals;
 copy returns the original value, never formatted/truncated text. Mixed-language names use bidi
-isolation. Dates remain Jalali in fa and Gregorian in en; show the time basis where relevant.
+isolation. Isolation preserves the characters' reading order; metric cards, table cells and
+summaries still align their values to the locale's visual start edge (right in fa). Dates remain
+Jalali in fa and Gregorian in en; show the time basis where relevant.
 Directional navigation icons mirror appropriately; data plots/time axes do not reverse merely
 because surrounding copy is RTL. Scope/permission/event machine identifiers stay stable in forms
 and API; localized human labels/descriptions are primary UI text.

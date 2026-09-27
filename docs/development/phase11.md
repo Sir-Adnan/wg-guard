@@ -1,6 +1,6 @@
 # Phase 11 — Production certification
 
-Status: **planned; not implemented**. Starts after Phase 10 feature and UI freeze.
+Status: **in progress** on `codex/phase11-certification`; Phase 10 is frozen. No public release.
 
 ## Objective
 
@@ -45,6 +45,26 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 - No critical/high finding may remain unresolved. Medium/low deferrals require impact and reason.
 - ACME renewal uses deterministic automated tests and practical real challenge/cache/reissuance
   drills; an unobserved 60-day production interval remains labeled honestly.
+
+## Current certification evidence
+
+- Initial audit triage covers AUD-019/037/040/055. A service-owned, pin-checked userspace daemon
+  now follows the configured backend mode; its TUN/UAPI create, config, crash detection, restart
+  and removal passed the exact pinned-source WSL Linux integration test. Docker packaging and
+  real-host client traffic remain pending. This activates the existing `backend_mode` contract;
+  no REST/OpenAPI shape changed.
+- Malformed legacy rotation flags and short noninteractive owner names fail before data/service
+  mutation in focused tests. Explicit data purge now excludes admitted readers, retains a lock
+  tombstone against new admission, and requires a clean volume before reinstall; Windows and WSL
+  lock tests pass. Real-host interruption/concurrency drills remain pending.
+- Command output now has bounded capture with explicit truncation failure; a rejected userspace
+  version cannot trigger link rollback, and native offline doctor does not claim to repair a
+  daemon that its short-lived process cannot own.
+- The owner-reported Persian numeric-card alignment correction passed affected Chromium/WebKit
+  user and public-subscription compositions; the full Phase 10 matrix is not being replayed.
+- The 0-peer synthetic control-plane sample measured 33 MB RSS and 0.00% CPU over 30 seconds on
+  WSL2. The 100-peer ten-minute window measured 41 MB average/45 MB maximum RSS and 0.03% CPU,
+  within the 50 MB/0.5% budgets. The 1000-peer window and real shaping remain pending.
 
 ## Documentation
 

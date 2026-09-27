@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -113,6 +114,8 @@ type Node struct {
 	webServer     *web.Server
 	webhookWorker *webhook.Worker
 	sessions      *auth.SessionStore
+	userspace     *amneziawg.Backend
+	reconciler    accounting.Reconciler
 
 	booted       atomic.Bool
 	networkReady atomic.Bool
@@ -214,6 +217,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.db = db
 	// Any failure from here on tears the node back down.
 	fail := func(err error) (*Node, error) {
+		if n.userspace != nil {
+			_ = n.userspace.Close()
+		}
 		_ = db.Close()
 		return nil, err
 	}
@@ -281,7 +287,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 			log.Warn("dev backend active: no tunnel or firewall operations are performed on this host")
 		}
 	} else {
-		backend = amneziawg.New(runner)
+		n.userspace = amneziawg.NewManaged(runner)
+		backend = n.userspace
 		shaperMgr = shaper.New(runner)
 	}
 	runtimeNetworking := o.Backend == nil || o.Run != nil
@@ -315,6 +322,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		inner = &boot.RuntimeReconciler{Deps: bootDeps}
 	}
 	rec := &serializedReconciler{inner: inner, healthy: &n.networkReady}
+	n.reconciler = rec
 
 	// Domain services. The webhook recorder is injected into user, device
 	// and accounting so events commit in the SAME transaction as the state
@@ -325,7 +333,23 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	devices := device.NewService(db, n.ring)
 	devices.Recorder = recorder
 	plans := plan.NewService(db)
-	ifaces := iface.NewService(db, n.reg, n.ring)
+	ifaceOptions := []iface.ServiceOption{}
+	if n.userspace != nil {
+		ifaceOptions = append(ifaceOptions, iface.WithUserspaceReadiness(func(ctx context.Context) error {
+			if _, err := exec.LookPath("amneziawg-go"); err != nil {
+				return fmt.Errorf("pinned amneziawg-go is not installed")
+			}
+			if tun, err := os.Stat("/dev/net/tun"); err != nil || tun.Mode()&os.ModeDevice == 0 {
+				return fmt.Errorf("/dev/net/tun is unavailable")
+			}
+			result, err := runner.Run(ctx, []string{"amneziawg-go", "--version"})
+			if err != nil || !strings.Contains(string(result.Stdout), "v3.1.20260828") {
+				return fmt.Errorf("pinned amneziawg-go v3.1.20260828 is required")
+			}
+			return nil
+		}))
+	}
+	ifaces := iface.NewService(db, n.reg, n.ring, ifaceOptions...)
 	webhooksSvc := webhook.NewService(db, n.ring)
 	links := subscription.NewService(db, n.ring)
 
@@ -450,6 +474,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.sched.Every("housekeeping", housekeepingEvery, n.jobHousekeeping)
 	n.sched.Every("backups", time.Minute, n.jobBackups)
 	n.sched.Every("telemetry", telemetryCadence(o.TelemetryCadence), n.jobTelemetry)
+	if n.userspace != nil {
+		n.sched.Every("userspace", 15*time.Second, n.jobUserspace)
+	}
 	n.sched.Start(ctx)
 
 	serveErr := make(chan error, 1)
@@ -617,6 +644,9 @@ func (n *Node) ready() bool {
 	if !n.booted.Load() || !n.networkReady.Load() {
 		return false
 	}
+	if n.userspace != nil && n.userspace.NeedsRepair() {
+		return false
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	return n.db.PingContext(ctx) == nil
@@ -650,6 +680,11 @@ func (n *Node) Shutdown(ctx context.Context) error {
 	}
 	if n.sched != nil {
 		n.sched.Stop()
+	}
+	if n.userspace != nil {
+		if err := n.userspace.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if err := n.db.Close(); err != nil {
 		errs = append(errs, err)
@@ -712,6 +747,14 @@ func telemetryCadence(configured time.Duration) time.Duration {
 
 func (n *Node) jobTelemetry(ctx context.Context) error {
 	_, err := n.telemetry.Sample(ctx, time.Now().UTC())
+	return err
+}
+
+func (n *Node) jobUserspace(ctx context.Context) error {
+	if n.userspace == nil || !n.userspace.NeedsRepair() {
+		return nil
+	}
+	_, err := n.reconciler.Run(ctx)
 	return err
 }
 

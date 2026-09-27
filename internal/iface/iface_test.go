@@ -166,6 +166,19 @@ func TestCreateDefaults(t *testing.T) {
 	}
 }
 
+func TestUserspacePrerequisiteRefusesBeforePersistence(t *testing.T) {
+	ctx := context.Background()
+	svc := newService(t, WithUserspaceReadiness(func(context.Context) error {
+		return errors.New("pinned daemon unavailable")
+	}))
+	if _, err := svc.Create(ctx, CreateInput{Name: "awg0", BackendMode: domain.BackendUserspace}); domain.CodeOf(err) != domain.CodeInvalidRequest {
+		t.Fatalf("userspace creation error = %v", err)
+	}
+	if list, err := svc.List(ctx); err != nil || len(list) != 0 {
+		t.Fatalf("unavailable userspace profile was stored: %d rows, %v", len(list), err)
+	}
+}
+
 func TestCreateGeneratedProfilePolicies(t *testing.T) {
 	svc := newService(t, WithProfileEntropy(deterministicProfileEntropy()))
 	ctx := context.Background()

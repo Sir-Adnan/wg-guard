@@ -1,7 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
@@ -16,24 +19,24 @@ import (
 //
 //	wg-guard secrets rotate [-yes]
 func runSecrets(args []string) error {
-	var (
-		yes        bool
-		configPath = "/etc/wg-guard/wg-guard.toml"
-	)
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "rotate": // subcommand form: wg-guard secrets rotate …
-		case "-config", "--config":
-			i++
-			configPath = args[i]
-		case "-yes", "--yes":
-			yes = true
-		default:
-			return fmt.Errorf("unknown flag %q", args[i])
-		}
+	if len(args) == 0 || args[0] != "rotate" {
+		return fmt.Errorf("usage: wg-guard secrets rotate [-yes] [-config PATH]")
+	}
+	flags := flag.NewFlagSet("secrets rotate", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	configPath := flags.String("config", "/etc/wg-guard/wg-guard.toml", "node configuration")
+	yes := flags.Bool("yes", false, "confirm without a prompt")
+	if err := flags.Parse(args[1:]); err != nil {
+		return fmt.Errorf("secrets rotate: %w", err)
+	}
+	if len(flags.Args()) != 0 {
+		return fmt.Errorf("secrets rotate: unexpected argument")
+	}
+	if strings.TrimSpace(*configPath) == "" || strings.HasPrefix(*configPath, "-") {
+		return fmt.Errorf("secrets rotate: --config requires a path")
 	}
 
-	env, err := loadCLIEnvOwnership(configPath, true)
+	env, err := loadCLIEnvOwnership(*configPath, true)
 	if err != nil {
 		return err
 	}
@@ -42,7 +45,7 @@ func runSecrets(args []string) error {
 	if backup.ServiceRunning(env.Cfg.HTTPListen) {
 		return fmt.Errorf("the service is running on %s — stop it first (rotation replaces the key file the node holds)", env.Cfg.HTTPListen)
 	}
-	if !yes {
+	if !*yes {
 		fmt.Println("Rotation generates a new master key and re-encrypts every stored secret")
 		fmt.Println("(device keys, interface keys, encrypted settings). It is crash-safe:")
 		fmt.Println("an interruption leaves both key versions able to decrypt and the")
