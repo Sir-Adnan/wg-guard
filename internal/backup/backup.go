@@ -151,10 +151,12 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 
 	// 1. Consistent SQLite snapshot, compact, out of the writer's way.
 	snapPath := finalPath + ".snap"
+	// VACUUM INTO may create the destination before returning a disk-full
+	// error. Remove that partial snapshot as well as a successful one.
+	defer os.Remove(snapPath)
 	if err := s.snapshotDB(ctx, snapPath); err != nil {
 		return nil, err
 	}
-	defer os.Remove(snapPath)
 
 	// 2. Other members (missing master key degrades the archive honestly).
 	configBytes := s.configBytes()
