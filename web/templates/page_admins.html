@@ -8,7 +8,7 @@
     </div>
     <div class="actions">
       {{if .Data.Editing}}<a class="btn btn--ghost" href="/admins">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
-      {{else}}<a class="btn btn--primary" href="#admin-create">{{.IconS "plus"}}{{.T "admins.add"}}</a>{{end}}
+      {{else}}<a class="btn btn--primary" href="#admin-create" data-open-disclosure="admin-create">{{.IconS "plus"}}{{.T "admins.add"}}</a>{{end}}
     </div>
   </div>
   {{template "form_feedback" .}}

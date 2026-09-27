@@ -156,6 +156,55 @@ func TestReconcileFreshBoot(t *testing.T) {
 	}
 }
 
+func TestReconcileRetiredCredentialCannotSurviveReportPolicy(t *testing.T) {
+	h := newHarness(t, PolicyReport)
+	ctx := context.Background()
+	h.seedProfile(t, "awg0", 1, true)
+	if _, err := h.engine.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	before, err := h.backend.Dump(ctx, "awg0")
+	if err != nil || len(before.Peers) != 1 {
+		t.Fatalf("initial peer count: %d, %v", len(before.Peers), err)
+	}
+	oldKey := before.Peers[0].PublicKey
+	newKeys, err := tunnel.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deviceID, ifaceID string
+	if err := h.db.QueryRow(`SELECT id, interface_id FROM devices WHERE public_key = ?`, oldKey).Scan(&deviceID, &ifaceID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`INSERT INTO retired_peer_keys (interface_id, public_key) VALUES (?, ?)`, ifaceID, oldKey); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`UPDATE devices SET public_key = ? WHERE id = ?`, newKeys.Public, deviceID); err != nil {
+		t.Fatal(err)
+	}
+	h.backend.FailOn[fake.OpSync] = errors.New("temporary sync failure")
+	failed, err := h.engine.Run(ctx)
+	if err != nil || len(failed.Errors) != 1 {
+		t.Fatalf("expected isolated failed sync: %+v, %v", failed, err)
+	}
+	var pending int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM retired_peer_keys WHERE interface_id = ?`, ifaceID).Scan(&pending); err != nil || pending != 1 {
+		t.Fatalf("failed sync lost former-key removal intent: %d, %v", pending, err)
+	}
+
+	rep, err := h.engine.Run(ctx)
+	if err != nil || len(rep.Errors) != 0 || rep.PeersRemoved != 1 || rep.PeersAdded != 1 {
+		t.Fatalf("rotation reconcile: %+v, %v", rep, err)
+	}
+	after, err := h.backend.Dump(ctx, "awg0")
+	if err != nil || len(after.Peers) != 1 || after.Peers[0].PublicKey != newKeys.Public {
+		t.Fatalf("retired peer removal failed: %d peers, %v", len(after.Peers), err)
+	}
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM retired_peer_keys WHERE interface_id = ?`, ifaceID).Scan(&pending); err != nil || pending != 0 {
+		t.Fatalf("retired key should be acknowledged only after sync: %d, %v", pending, err)
+	}
+}
+
 func TestReconcileMissingPeerReapplied(t *testing.T) {
 	h := newHarness(t, PolicyReport)
 	ctx := context.Background()

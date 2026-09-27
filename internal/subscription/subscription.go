@@ -135,6 +135,22 @@ func (s *Service) ForUsers(ctx context.Context, userIDs []string) (map[string]*L
 // Regenerate replaces the token (the old one stops working immediately) and
 // clears the revoked flag — a fresh link is a working link.
 func (s *Service) Regenerate(ctx context.Context, userID string) (*Link, error) {
+	var link *Link
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		link, err = s.RegenerateTx(ctx, tx, userID)
+		return err
+	})
+	return link, err
+}
+
+// RegenerateTx replaces a link capability inside a caller-owned transaction.
+// Coordinated security workflows use this to rotate the link and every device
+// credential atomically. The returned token exists only in process memory.
+func (s *Service) RegenerateTx(ctx context.Context, tx *sql.Tx, userID string) (*Link, error) {
+	if tx == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "subscription transaction is required")
+	}
 	token, err := NewToken()
 	if err != nil {
 		return nil, err
@@ -144,18 +160,19 @@ func (s *Service) Regenerate(ctx context.Context, userID string) (*Link, error) 
 		return nil, fmt.Errorf("subscription: encrypt token: %w", err)
 	}
 	now := s.now().UTC()
-	res, err := s.db.ExecContext(ctx, `UPDATE sub_links SET
+	res, err := tx.ExecContext(ctx, `UPDATE sub_links SET
 		token_encrypted = ?, token_hash = ?, rotated_at = ?, revoked_at = NULL
 		WHERE user_id = ?`, enc, HashToken(token), now.Format(time.RFC3339Nano), userID)
 	if err != nil {
 		return nil, fmt.Errorf("subscription: rotate: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		// No link yet: rotate implies minting the first one.
-		if _, err := s.Ensure(ctx, userID); err != nil {
-			return nil, err
+		created := now.Format(time.RFC3339Nano)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO sub_links
+			(user_id, token_encrypted, token_hash, created_at, rotated_at, revoked_at)
+			VALUES (?, ?, ?, ?, ?, NULL)`, userID, enc, HashToken(token), created, created); err != nil {
+			return nil, fmt.Errorf("subscription: insert rotated link: %w", err)
 		}
-		return s.ForUser(ctx, userID)
 	}
 	return &Link{UserID: userID, Token: token, CreatedAt: now, RotatedAt: &now}, nil
 }

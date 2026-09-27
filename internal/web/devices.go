@@ -1,6 +1,8 @@
 package web
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
 	"net/http"
 	"strings"
@@ -233,6 +235,68 @@ func (s *Server) configFilename(r *http.Request, d *device.Device) string {
 		username = u.Username
 	}
 	return clientconf.ConfigFilename(prefix, username, d.Name, suffix)
+}
+
+// handleUserConfigsArchive returns every current device configuration in one
+// private ZIP. Configs are rendered through the same canonical renderer as
+// individual panel/API/subscription downloads and are never written to disk.
+func (s *Server) handleUserConfigsArchive(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	u, ok := s.loadUser(w, r)
+	if !ok {
+		return
+	}
+	devices, err := s.Devices.ListForUser(r.Context(), u.ID)
+	if err != nil {
+		s.writeQRError(w, r, err)
+		return
+	}
+	if len(devices) == 0 {
+		s.surfaceError(w, r, http.StatusNotFound, "devices.empty", "")
+		return
+	}
+
+	type archiveConfig struct{ name, content string }
+	configs := make([]archiveConfig, 0, len(devices))
+	seen := make(map[string]int, len(devices))
+	for _, d := range devices {
+		content, err := s.ClientConf.Render(r.Context(), d.ID)
+		if err != nil {
+			s.writeQRError(w, r, err)
+			return
+		}
+		name := s.configFilename(r, d)
+		seen[name]++
+		if seen[name] > 1 {
+			name = strings.TrimSuffix(name, ".conf") + fmt.Sprintf("-%d.conf", seen[name])
+		}
+		configs = append(configs, archiveConfig{name: name, content: content})
+	}
+
+	var payload bytes.Buffer
+	zw := zip.NewWriter(&payload)
+	for _, config := range configs {
+		header := &zip.FileHeader{Name: config.name, Method: zip.Deflate}
+		header.SetMode(0o600)
+		entry, err := zw.CreateHeader(header)
+		if err != nil {
+			s.writeQRError(w, r, err)
+			return
+		}
+		if _, err := entry.Write([]byte(config.content)); err != nil {
+			s.writeQRError(w, r, err)
+			return
+		}
+	}
+	if err := zw.Close(); err != nil {
+		s.writeQRError(w, r, err)
+		return
+	}
+	archiveName := strings.TrimSuffix(clientconf.ConfigFilename("", u.Username, "configs", ""), ".conf") + ".zip"
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+archiveName+`"`)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(payload.Bytes())
 }
 
 // handleDeviceQR streams the client config as a PNG (no-store).

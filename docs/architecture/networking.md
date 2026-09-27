@@ -79,6 +79,12 @@ transition; same-mode parameter drift applies via `setconf`. Peer reconciliation
 (re)created interface re-adds desired devices wholesale; non-WG-Guard peers are lost by
 recreation (their PSKs are unknowable) and the drift report says so.
 
+Device-key rotation, deletion and full subscription-access replacement store former public keys
+transactionally. On the next pass, those keys are treated as owned stale peers regardless of the
+unknown-peer drift policy. Removal intent survives a failed sync or restart and is acknowledged
+only after the owned interface is reconciled or confirmed absent. Reconcile passes in one process
+are serialized so a stale pass cannot finish after a newer credential replacement.
+
 ## Shaping (speed limits)
 
 Implemented in Phase 3 (egress) and Phase 4 (ingress) in `internal/shaper`. Limits are

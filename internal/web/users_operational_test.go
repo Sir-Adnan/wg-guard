@@ -254,12 +254,12 @@ func TestUserOperationalPermissions(t *testing.T) {
 			}
 		}
 	}
-	for _, path := range []string{"/users/new", "/users/" + id + "/edit", "/devices/missing/qr", "/devices/missing/config"} {
+	for _, path := range []string{"/users/new", "/users/" + id + "/edit", "/users/" + id + "/configs.zip", "/devices/missing/qr", "/devices/missing/config"} {
 		if rec := e.get(path, cookie); !strings.Contains(rec.Header().Get("Location"), "common.denied") && rec.Code != http.StatusForbidden {
 			t.Errorf("GET %s not permission denied: %d", path, rec.Code)
 		}
 	}
-	for _, path := range []string{"/users", "/users/bulk", "/users/bulk-action", "/users/" + id + "/edit", "/users/" + id + "/delete", "/users/" + id + "/disable", "/users/" + id + "/restore", "/users/" + id + "/renew", "/users/" + id + "/traffic/add", "/users/" + id + "/traffic/reset", "/users/" + id + "/devices", "/users/" + id + "/sub/create", "/devices/missing/regenerate"} {
+	for _, path := range []string{"/users", "/users/bulk", "/users/bulk-action", "/users/" + id + "/edit", "/users/" + id + "/delete", "/users/" + id + "/disable", "/users/" + id + "/restore", "/users/" + id + "/renew", "/users/" + id + "/traffic/add", "/users/" + id + "/traffic/reset", "/users/" + id + "/devices", "/users/" + id + "/sub/create", "/users/" + id + "/sub/regenerate", "/users/" + id + "/sub/revoke", "/users/" + id + "/sub/restore", "/devices/missing/regenerate"} {
 		rec := e.post(path, url.Values{}, cookie, deriveCSRF(cookie.Value))
 		if !strings.Contains(rec.Header().Get("Location"), "common.denied") && rec.Code != http.StatusForbidden {
 			t.Errorf("POST %s not permission denied: %d", path, rec.Code)

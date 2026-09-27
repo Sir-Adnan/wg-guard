@@ -280,3 +280,13 @@ healthy panel. Broker repair was idempotent; dry-run removal included every brok
 complete owned removal restored the VPS to its initial clean state. Credentials and raw product
 data were not retained. The continuation was fast-forwarded into `main`; Phase 11 remains
 unstarted and no public release was created.
+
+The later owner-reported correction repairs the create-user drawer (including WebKit focus
+visibility), dashboard spacing, clipped action tooltips, local copy feedback, toasts and inert
+administration create shortcuts. Users/User Detail gain separate all-device QR and private ZIP
+download actions; Audit gets compact event summaries; localized copy retains the AmneziaWG name.
+Subscription revoke now replaces the link and all device keys atomically, then removes former
+runtime peers under every drift policy using durable retry intent. Individual device regeneration
+and deletion use the same removal rule. No REST/OpenAPI contract changes. Focused Chromium/WebKit
+interactions, web/device/reconcile/database tests and asset measurement cover this follow-up;
+new-code real-VPS client revocation remains unverified, independent of the prior Phase 10 VPS gate.

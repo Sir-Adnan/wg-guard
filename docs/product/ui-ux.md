@@ -195,6 +195,15 @@ fallback. The user-detail subscription card stays in document flow. The public s
 standalone connection pass with status, usage, expiry,
 device delivery and setup guidance rather than an admin-page derivative.
 
+The create drawer keeps every section at natural height and scrolls its body independently;
+focused controls must stay visible in short desktop and phone viewports, including WebKit. User
+device menus separate single/all-device QR viewing from single/all-device config downloads.
+Copy confirmation appears beside its trigger, while general status toasts sit near the top with
+distinct success/error treatments. Tooltips render above clipping containers and remain available
+on keyboard focus. Subscription “revoke” explicitly replaces link and device credentials after a
+consequence confirmation; no duplicate regenerate/restore control appears in the product UI.
+Audit uses compact event summaries with progressive details and copyable full identifiers.
+
 Dashboard recovery shortcuts create/download a fresh archive or open the restore workspace. The
 Backups workspace separates create, streamed `.wgg` import and validated restore review; importing
 from another node never mutates live data. Pointer activation must not trigger keyboard-only focus

@@ -3,7 +3,7 @@
 <div class="ops-page token-page">
   <div class="page-head page-head--hero ops-hero">
     <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "key"}}</span><div><span class="eyebrow">{{.T "nav.tokens"}}</span><h1>{{.T "tokens.title"}}</h1><p>{{.T "ops.tokens_intro"}}</p></div></div>
-    <a class="btn btn--primary" href="#token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a>
+    <a class="btn btn--primary" href="#token-create" data-open-disclosure="token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a>
   </div>
   {{template "form_feedback" .}}
 
@@ -29,7 +29,7 @@
   </details>
 
   {{if not .Data.Known}}{{template "ops_unavailable" .}}
-  {{else if not .Data.Tokens}}<div class="card empty empty-stage"><span class="empty-visual" aria-hidden="true">{{.Icon "key"}}</span><h2>{{.T "tokens.empty_title"}}</h2><p>{{.T "tokens.empty_body"}}</p><a class="btn btn--primary" href="#token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div>
+  {{else if not .Data.Tokens}}<div class="card empty empty-stage"><span class="empty-visual" aria-hidden="true">{{.Icon "key"}}</span><h2>{{.T "tokens.empty_title"}}</h2><p>{{.T "tokens.empty_body"}}</p><a class="btn btn--primary" href="#token-create" data-open-disclosure="token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div>
   {{else}}
   <section class="collection ops-roster" aria-labelledby="token-roster-title">
     <div class="section-head"><div><span class="eyebrow">{{.T "nav.tokens"}}</span><h2 id="token-roster-title">{{len .Data.Tokens}} {{.T "forms.total"}}</h2></div></div>

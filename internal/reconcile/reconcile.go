@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
@@ -39,6 +40,7 @@ type Engine struct {
 	Backend tunnel.Backend
 	Ring    *secrets.KeyRing
 	Policy  Policy
+	runMu   sync.Mutex
 }
 
 // DriftItem describes one observed difference and the action taken.
@@ -74,6 +76,8 @@ type Report struct {
 // be trusted); backend failures on a single interface are collected in
 // Report.Errors and the pass continues with the remaining interfaces.
 func (e *Engine) Run(ctx context.Context) (*Report, error) {
+	e.runMu.Lock()
+	defer e.runMu.Unlock()
 	start := time.Now()
 	rep := &Report{}
 
@@ -81,14 +85,16 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
-	desired, knownKeys, err := e.loadDesiredPeers(ctx)
+	desired, knownKeys, retiredKeys, err := e.loadDesiredPeers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, ifc := range ifaces {
 		if ifc.Enabled {
-			if err := e.reconcileInterface(ctx, ifc, desired[ifc.ID], knownKeys, rep); err != nil {
+			if err := e.reconcileInterface(ctx, ifc, desired[ifc.ID], knownKeys, retiredKeys[ifc.ID], rep); err != nil {
+				rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
+			} else if err := e.ackRetiredKeys(ctx, ifc.ID, retiredKeys[ifc.ID]); err != nil {
 				rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
 			}
 			continue
@@ -106,8 +112,14 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 				Interface: ifc.Name, Kind: "unwanted_interface",
 				Detail: "profile disabled in panel", Action: "removed",
 			})
+			if err := e.ackRetiredKeys(ctx, ifc.ID, retiredKeys[ifc.ID]); err != nil {
+				rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
+			}
 		case errors.Is(err, tunnel.ErrInterfaceNotFound):
-			// Already absent: nothing to do.
+			// Already absent: former keys are no longer active either.
+			if err := e.ackRetiredKeys(ctx, ifc.ID, retiredKeys[ifc.ID]); err != nil {
+				rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
+			}
 		default:
 			rep.Errors = append(rep.Errors, InterfaceError{Interface: ifc.Name, Err: err.Error()})
 		}
@@ -148,7 +160,7 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 // reachable at link creation (verified against amneziawg-go v3.1, WSL2
 // 2026-08-29). Recreating also clears non-WG-Guard peers — their PSKs are
 // unknowable, so they cannot be reconstructed.
-func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desired []peerDesire, knownKeys map[string]bool, rep *Report) error {
+func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desired []peerDesire, knownKeys, retiredKeys map[string]bool, rep *Report) error {
 	spec := tunnel.InterfaceSpec{
 		Name:        ifc.Name,
 		ListenPort:  ifc.ListenPort,
@@ -274,7 +286,7 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 			if want[key] {
 				continue
 			}
-			if knownKeys[key] {
+			if knownKeys[key] || retiredKeys[key] {
 				// Known device, no longer peer-eligible (disabled device or
 				// user, expired, deleted…): the DB is the source of truth.
 				dirty = true
@@ -481,16 +493,15 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 
 // loadDesiredPeers returns, per interface ID, the peers that should exist:
 // enabled devices of enabled, live users whose status wants peers. It also
-// returns every public key the DB has a device row for (stale-peer
-// detection).
-func (e *Engine) loadDesiredPeers(ctx context.Context) (map[string][]peerDesire, map[string]bool, error) {
+// returns current public keys plus former keys pending verified removal.
+func (e *Engine) loadDesiredPeers(ctx context.Context) (map[string][]peerDesire, map[string]bool, map[string]map[string]bool, error) {
 	rows, err := e.DB.QueryContext(ctx, `SELECT d.id, d.interface_id, d.name, d.ipv4_address,
 		d.public_key, d.preshared_key_encrypted
 		FROM devices d JOIN users u ON u.id = d.user_id
 		WHERE u.deleted_at IS NULL AND u.enabled = 1 AND d.enabled = 1
 		  AND u.status IN ('active', 'waiting_first_connection')`)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reconcile: load devices: %w", err)
+		return nil, nil, nil, fmt.Errorf("reconcile: load devices: %w", err)
 	}
 	type row struct {
 		id, ifaceID, name, ipv4, pubkey string
@@ -502,33 +513,54 @@ func (e *Engine) loadDesiredPeers(ctx context.Context) (map[string][]peerDesire,
 		var psk []byte
 		if err := rows.Scan(&r.id, &r.ifaceID, &r.name, &r.ipv4, &r.pubkey, &psk); err != nil {
 			rows.Close()
-			return nil, nil, fmt.Errorf("reconcile: scan device: %w", err)
+			return nil, nil, nil, fmt.Errorf("reconcile: scan device: %w", err)
 		}
 		r.psk = psk
 		rs = append(rs, r)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return nil, nil, fmt.Errorf("reconcile: load devices: %w", err)
+		return nil, nil, nil, fmt.Errorf("reconcile: load devices: %w", err)
 	}
 	rows.Close()
 
 	knownKeys := map[string]bool{}
 	keyRows, err := e.DB.QueryContext(ctx, `SELECT public_key FROM devices`)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reconcile: load device keys: %w", err)
+		return nil, nil, nil, fmt.Errorf("reconcile: load device keys: %w", err)
 	}
 	defer keyRows.Close()
 	for keyRows.Next() {
 		var k string
 		if err := keyRows.Scan(&k); err != nil {
-			return nil, nil, fmt.Errorf("reconcile: scan device keys: %w", err)
+			return nil, nil, nil, fmt.Errorf("reconcile: scan device keys: %w", err)
 		}
 		knownKeys[k] = true
 	}
 	if err := keyRows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("reconcile: load device keys: %w", err)
+		return nil, nil, nil, fmt.Errorf("reconcile: load device keys: %w", err)
 	}
+	retired := map[string]map[string]bool{}
+	retiredRows, err := e.DB.QueryContext(ctx, `SELECT interface_id, public_key FROM retired_peer_keys`)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("reconcile: load retired peers: %w", err)
+	}
+	for retiredRows.Next() {
+		var ifaceID, key string
+		if err := retiredRows.Scan(&ifaceID, &key); err != nil {
+			retiredRows.Close()
+			return nil, nil, nil, fmt.Errorf("reconcile: scan retired peers: %w", err)
+		}
+		if retired[ifaceID] == nil {
+			retired[ifaceID] = map[string]bool{}
+		}
+		retired[ifaceID][key] = true
+	}
+	if err := retiredRows.Err(); err != nil {
+		retiredRows.Close()
+		return nil, nil, nil, fmt.Errorf("reconcile: load retired peers: %w", err)
+	}
+	retiredRows.Close()
 
 	out := map[string][]peerDesire{}
 	for _, r := range rs {
@@ -540,11 +572,27 @@ func (e *Engine) loadDesiredPeers(ctx context.Context) (map[string][]peerDesire,
 		if len(r.psk) > 0 {
 			pt, err := e.Ring.Decrypt(r.psk)
 			if err != nil {
-				return nil, nil, fmt.Errorf("reconcile: decrypt psk for device %s: %w", r.id, err)
+				return nil, nil, nil, fmt.Errorf("reconcile: decrypt psk for device %s: %w", r.id, err)
 			}
 			p.PresharedKey = string(pt)
 		}
 		out[r.ifaceID] = append(out[r.ifaceID], p)
 	}
-	return out, knownKeys, nil
+	return out, knownKeys, retired, nil
+}
+
+// Acknowledge only keys observed absent after a successful backend pass. A
+// failed sync leaves the durable queue intact for startup/doctor retries.
+func (e *Engine) ackRetiredKeys(ctx context.Context, ifaceID string, keys map[string]bool) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	return e.DB.WithTx(ctx, func(tx *sql.Tx) error {
+		for key := range keys {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM retired_peer_keys WHERE interface_id = ? AND public_key = ?`, ifaceID, key); err != nil {
+				return fmt.Errorf("reconcile: acknowledge retired peer: %w", err)
+			}
+		}
+		return nil
+	})
 }

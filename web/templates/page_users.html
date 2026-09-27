@@ -140,7 +140,7 @@
 
 {{define "users_row"}}
 {{$row := .row}}{{$u := $row.U}}{{$v := .v}}
-<tr>
+<tr data-qr-group>
   {{if $v.Can "users.bulk"}}<td class="selection-cell" data-label="{{$v.T "common.selected"}}"><label class="selection-hit"><input type="checkbox" class="checkbox js-sel" name="ids" form="users-selection" value="{{$u.ID}}"><span class="sr-only"><bdi>{{$u.Username}}</bdi></span></label></td>{{end}}
   <td class="card-title users-col--identity" data-label="{{$v.T "users.username"}}">
     <div class="id-cell">
@@ -178,14 +178,18 @@
       <div class="menu-anchor" data-device-menu="qr">
         <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.qr"}}" aria-label="{{$v.T "devices.qr"}}">{{$v.IconS "qr-code"}}</button>
         <div class="menu" role="menu" aria-label="{{$v.T "devices.qr"}}">
+          <button type="button" role="menuitem" data-qr-all data-qr-all-title="{{$v.T "devices.qr_all"}}">{{$v.IconS "layout-grid"}}<span>{{$v.T "devices.qr_all"}}</span></button>
+          <hr>
           {{range $row.Devices}}
-          <a role="menuitem" href="/devices/{{.ID}}/qr" data-qr="/devices/{{.ID}}/qr">{{$v.IconS "qr-code"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "devices.qr"}}</a>
+          <a role="menuitem" href="/devices/{{.ID}}/qr" data-qr="/devices/{{.ID}}/qr" data-qr-name="{{.Name}}">{{$v.IconS "qr-code"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "devices.qr"}}</a>
           {{end}}
         </div>
       </div>
       <div class="menu-anchor" data-device-menu="download">
         <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.download_config"}}" aria-label="{{$v.T "devices.download_config"}}">{{$v.IconS "download"}}</button>
         <div class="menu" role="menu" aria-label="{{$v.T "devices.download_config"}}">
+          <a role="menuitem" href="/users/{{$u.ID}}/configs.zip" download data-download-all>{{$v.IconS "archive"}}<span>{{$v.T "devices.download_all"}}</span></a>
+          <hr>
           {{range $row.Devices}}
           <a role="menuitem" href="/devices/{{.ID}}/config" download>{{$v.IconS "download"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "sub.download"}}</a>
           {{end}}

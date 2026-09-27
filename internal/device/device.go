@@ -49,6 +49,14 @@ type KeyMaterial struct {
 	PresharedEnc  []byte // optional; nil = none
 }
 
+// Rotation pairs a stored device identity with replacement key material.
+// It is used by coordinated access-rotation workflows that must replace every
+// credential for one user in the same database transaction.
+type Rotation struct {
+	DeviceID string
+	Keys     KeyMaterial
+}
+
 // Service holds device rules.
 type Service struct {
 	db   *database.DB
@@ -457,21 +465,120 @@ func (s *Service) Regenerate(ctx context.Context, id string, keys KeyMaterial) e
 	if len(keys.PrivateKeyEnc) == 0 {
 		return domain.E(domain.CodeInvalidRequest, "encrypted private key required")
 	}
-	var psk any
-	if keys.PresharedEnc != nil {
-		psk = keys.PresharedEnc
-	}
-	res, err := s.db.ExecContext(ctx, `UPDATE devices SET public_key = ?, private_key_encrypted = ?,
-		preshared_key_encrypted = ?, updated_at = ? WHERE id = ?`,
-		keys.PublicKey, keys.PrivateKeyEnc, psk, s.now().UTC().Format(time.RFC3339Nano), id)
-	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return domain.E(domain.CodeDeviceKeyExists, "key already registered")
+	return s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var ifaceID, oldKey string
+		if err := tx.QueryRowContext(ctx, `SELECT interface_id, public_key FROM devices WHERE id = ?`, id).Scan(&ifaceID, &oldKey); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
+			}
+			return fmt.Errorf("device: regenerate lookup: %w", err)
 		}
-		return fmt.Errorf("device: regenerate: %w", err)
+		if oldKey == keys.PublicKey {
+			return domain.E(domain.CodeInvalidRequest, "replacement public key must differ")
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO retired_peer_keys (interface_id, public_key) VALUES (?, ?)`, ifaceID, oldKey); err != nil {
+			return fmt.Errorf("device: retire former peer: %w", err)
+		}
+		var psk any
+		if keys.PresharedEnc != nil {
+			psk = keys.PresharedEnc
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE devices SET public_key = ?, private_key_encrypted = ?,
+			preshared_key_encrypted = ?, last_handshake_at = NULL, last_endpoint = NULL,
+			last_rx = 0, last_tx = 0, updated_at = ? WHERE id = ?`,
+			keys.PublicKey, keys.PrivateKeyEnc, psk, s.now().UTC().Format(time.RFC3339Nano), id)
+		if err != nil {
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return domain.E(domain.CodeDeviceKeyExists, "key already registered")
+			}
+			return fmt.Errorf("device: regenerate: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
+		}
+		return nil
+	})
+}
+
+// ReplaceUserCredentialsTx replaces the credentials for exactly all devices
+// currently owned by userID. The exact-set check prevents a concurrent or
+// incomplete caller snapshot from leaving one old client credential valid.
+// The caller owns tx and may atomically rotate another access capability in
+// the same transaction.
+func (s *Service) ReplaceUserCredentialsTx(ctx context.Context, tx *sql.Tx, userID string, rotations []Rotation) error {
+	if tx == nil {
+		return domain.E(domain.CodeInvalidRequest, "device credential transaction is required")
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
+	wanted := make(map[string]KeyMaterial, len(rotations))
+	for _, rotation := range rotations {
+		if rotation.DeviceID == "" {
+			return domain.E(domain.CodeInvalidRequest, "device identity is required")
+		}
+		if _, duplicate := wanted[rotation.DeviceID]; duplicate {
+			return domain.E(domain.CodeInvalidRequest, "duplicate device identity")
+		}
+		if err := tunnel.ValidatePublicKey(rotation.Keys.PublicKey); err != nil {
+			return domain.E(domain.CodeInvalidRequest, "%v", err)
+		}
+		if len(rotation.Keys.PrivateKeyEnc) == 0 {
+			return domain.E(domain.CodeInvalidRequest, "encrypted private key required")
+		}
+		wanted[rotation.DeviceID] = rotation.Keys
+	}
+
+	rows, err := tx.QueryContext(ctx, `SELECT id, interface_id, public_key FROM devices WHERE user_id = ?`, userID)
+	if err != nil {
+		return fmt.Errorf("device: access rotation list: %w", err)
+	}
+	type currentCredential struct{ id, ifaceID, publicKey string }
+	stored := make([]currentCredential, 0, len(rotations))
+	for rows.Next() {
+		var current currentCredential
+		if err := rows.Scan(&current.id, &current.ifaceID, &current.publicKey); err != nil {
+			rows.Close()
+			return fmt.Errorf("device: access rotation scan: %w", err)
+		}
+		stored = append(stored, current)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("device: access rotation close: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("device: access rotation list: %w", err)
+	}
+	if len(stored) != len(wanted) {
+		return domain.E(domain.CodeInvalidRequest, "device set changed during access rotation")
+	}
+	for _, current := range stored {
+		if keys, ok := wanted[current.id]; !ok || keys.PublicKey == current.publicKey {
+			return domain.E(domain.CodeInvalidRequest, "device set changed during access rotation")
+		}
+	}
+
+	now := s.now().UTC().Format(time.RFC3339Nano)
+	for _, current := range stored {
+		keys := wanted[current.id]
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO retired_peer_keys (interface_id, public_key)
+			VALUES (?, ?)`, current.ifaceID, current.publicKey); err != nil {
+			return fmt.Errorf("device: retire former peer: %w", err)
+		}
+		var psk any
+		if keys.PresharedEnc != nil {
+			psk = keys.PresharedEnc
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE devices SET public_key = ?, private_key_encrypted = ?,
+			preshared_key_encrypted = ?, last_handshake_at = NULL, last_endpoint = NULL,
+			last_rx = 0, last_tx = 0, updated_at = ? WHERE id = ? AND user_id = ?`,
+			keys.PublicKey, keys.PrivateKeyEnc, psk, now, current.id, userID)
+		if err != nil {
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return domain.E(domain.CodeDeviceKeyExists, "key already registered")
+			}
+			return fmt.Errorf("device: access rotation: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			return domain.E(domain.CodeDeviceNotFound, "device %s not found", current.id)
+		}
 	}
 	return nil
 }
@@ -480,15 +587,18 @@ func (s *Service) Regenerate(ctx context.Context, id string, keys KeyMaterial) e
 func (s *Service) Delete(ctx context.Context, id string) error {
 	return s.db.WithTx(ctx, func(tx *sql.Tx) error {
 		var (
-			userID, name, ipv4 string
+			userID, ifaceID, name, ipv4, oldKey string
 		)
-		err := tx.QueryRowContext(ctx, `SELECT user_id, name, ipv4_address FROM devices WHERE id = ?`, id).
-			Scan(&userID, &name, &ipv4)
+		err := tx.QueryRowContext(ctx, `SELECT user_id, interface_id, name, ipv4_address, public_key FROM devices WHERE id = ?`, id).
+			Scan(&userID, &ifaceID, &name, &ipv4, &oldKey)
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.E(domain.CodeDeviceNotFound, "device %s not found", id)
 		}
 		if err != nil {
 			return fmt.Errorf("device: delete lookup: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO retired_peer_keys (interface_id, public_key) VALUES (?, ?)`, ifaceID, oldKey); err != nil {
+			return fmt.Errorf("device: retire deleted peer: %w", err)
 		}
 		res, err := tx.ExecContext(ctx, `DELETE FROM devices WHERE id = ?`, id)
 		if err != nil {

@@ -1,190 +1,124 @@
-# WG-Guard
+<div align="center">
+  <img src="web/static/img/favicon.svg" width="88" height="88" alt="WG-Guard logo">
+  <h1>WG-Guard</h1>
+  <p><strong>A polished, self-hosted AmneziaWG node panel for modern VPN operations.</strong></p>
+  <p>One Go binary · SQLite · SSR + HTMX · English and Persian · Full RTL · REST API</p>
+  <p>
+    <a href="README.md"><strong>English</strong></a>
+    ·
+    <a href="README.fa.md">فارسی</a>
+  </p>
+  <p>
+    <img alt="Go" src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white">
+    <img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-24.04%2B-E95420?logo=ubuntu&logoColor=white">
+    <img alt="Architecture" src="https://img.shields.io/badge/Architecture-amd64-4F46E5">
+    <img alt="License" src="https://img.shields.io/badge/License-MIT-16A34A">
+  </p>
+</div>
 
-A lightweight, self-hosted **AmneziaWG** VPN node management panel for Ubuntu VPS servers.
+> [!IMPORTANT]
+> WG-Guard is in active development. Phases 0–10 are complete; Phase 11 production
+> certification and the first public release have not started. Ubuntu 24.04 LTS on amd64 is
+> the verified deployment target.
 
-One Go binary. SQLite. A premium bilingual (Persian/English) web panel with full RTL support. A
-stable REST API so Telegram bots, billing systems, and VPN platforms can manage the node
-remotely. Extremely low RAM and idle CPU — the VPN traffic gets the server's resources.
+## Why WG-Guard
 
-Think: *wg-easy simplicity + serious commercial user management + API-first design + AmneziaWG
-anti-DPI capabilities.*
+WG-Guard combines the quick setup of a small VPN panel with the controls needed to operate a
+serious node:
 
-## Status
+| | Capability |
+|---|---|
+| 🛡️ | **AmneziaWG profiles** with per-interface ports, pools, MTU and server-generated anti-DPI presets |
+| 👥 | **Commercial user controls** for quota, expiry, first-connection activation, devices, plans and independent speed limits |
+| 📱 | **Per-device delivery** with canonical .conf downloads, QR codes, bulk ZIP export and secure access replacement |
+| 📊 | **Operational dashboard** for host health, CPU, RAM, disk, live VPN rates, peers and historical traffic |
+| 🔌 | **Stable REST API** with scoped tokens, idempotency, cursor pagination, rate limits, OpenAPI and signed webhooks |
+| 💾 | **Recovery workflow** with encrypted backups, schedules, Telegram delivery, import review and staged restore |
+| 🌐 | **Premium bilingual UI** with English/Persian, RTL/LTR, light/dark/system themes and responsive desktop/mobile layouts |
+| ⚙️ | **Safe host lifecycle** for Docker or native systemd, HTTPS choices, diagnostics, rollback and clean removal |
 
-**In active development — Phases 0–10 and corrective Phase 8.3 are complete; Phase 11 production
-certification has not started.**
-Phase 8 verified AmneziaWG config/QR correctness with real clients. Phase 8.1 delivered the
-GitHub installer, recoverable lifecycle management, backups and an English-only host terminal,
-with Docker and native verification on Ubuntu 24.04 amd64. Phase 8.2 added a persistent local
-manager, existing-Nginx coexistence, DNS-01, trusted short-lived public-IP HTTPS, certificate
-renewal diagnostics and safe post-install access changes. Broader compatibility and public
-release work remain later. A closing installer hardening pass moved the recommended AWG core off
-the vanished PPA package pin to exact reviewed GitHub source, hardened interrupted retries, and
-passed a fresh Ubuntu 24.04 Docker install/purge drill. Phase 9 then added bounded live telemetry,
-safe unified Docker/native logs and enforced retention, verified under real AWG traffic and failure
-drills on Ubuntu 24.04 amd64. Phase 10 completed the ground-up bilingual, responsive product
-redesign. See
-[ROADMAP.md](ROADMAP.md) and the
-[development status](docs/development/status.md).
-
-## Features
-
-- **AmneziaWG tunnel profiles** (`awg0`, `awg1`, …) — each with its own obfuscation parameters,
-  listen port, subnet pool, and MTU; managed entirely from the panel with server-generated
-  Performance, Balanced, Resilient, Suggested and Automatic starting profiles
-- **User management** — subscriptions with duration, expiration (including first-connection
-  activation), traffic quotas (RX+TX), **independent upload/download speed limits**, device
-  limits, bulk creation
-- **Devices** — one peer per device, config/QR download, revocation, regeneration
-- **Stable REST API** (`/api/v1`) — token auth with scopes, idempotency keys, cursor pagination,
-  per-token rate limits, durable signed webhooks, OpenAPI document (`/openapi.json`, `/docs`)
-- **Premium bilingual panel** — Persian (default) and English, full RTL, light/dark themes,
-  excellent on mobile and desktop, server-rendered with HTMX — no heavy frontend runtime
-- **Backups** — manual, scheduled, Telegram delivery, optional password protection; restore with
-  server-migration support
-- **Safe Linux integration** — namespaced nftables table (never touches foreign firewall rules),
-  kernel-module AmneziaWG, drift reconciliation, and `doctor` diagnostics; pinned userspace
-  runtime compatibility is tested, while automatic fallback lifecycle remains a Phase 11 gate
-- **Operational visibility** — one bounded live CPU/RAM/network/VPN health sampler feeds the
-  dashboard/API, while `wg-guard logs` provides safe Docker/native service and lifecycle records
-  with component filters and explicit storage caps
-- **Clean deployment** — Docker by default (verified runtime image + Compose), native systemd
-  supported; private SSH access, built-in domain ACME, standard-Nginx/webroot, Cloudflare DNS-01,
-  trusted public-IP HTTPS and operator-owned proxy/certificate paths
+The panel stays lightweight: server-rendered HTML, HTMX and focused vanilla JavaScript. There is
+no SPA framework or production Node.js runtime.
 
 ## Install
 
-WG-Guard supports **Ubuntu 24.04 or newer on amd64/x86_64**. Ubuntu 24.04 LTS is the currently
-verified target. Until the first stable release is published, run:
+WG-Guard supports **Ubuntu 24.04 or newer on amd64/x86_64**. Until a stable release is published,
+install the reviewed main source:
 
-```bash
+~~~bash
 bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
-```
+~~~
 
-The first run verifies and stores the local manager, then opens its menu; it does not begin setup
-without your choice. Select **Install WG-Guard**. The terminal is English-only and **Enter** accepts
-the safest recommended answer: Docker, the compatible AmneziaWG bundle, automatic HTTPS for a
-usable domain, or private SSH access when no domain is supplied. Advanced settings contain custom
-ports, native systemd, network defaults and Telegram backup setup. Confirmations display `[Y/n]`
-or `[y/N]`; `y`, `yes`, `n`, `no` and case variants are accepted.
+The bootstrap verifies the selected revision, installs the local manager and opens an
+English-only guided menu. Choose **Install WG-Guard**; Docker is the recommended default.
+Provide a domain for automatic HTTPS, or leave it empty for private SSH-tunnel access.
 
-Fresh setup asks for an administrator username; Enter selects `admin`. At the password prompt,
-enter a password of at least 10 characters or press Enter to generate a strong one. Invalid or
-mismatched passwords are retried in place. A generated password is shown once in the final success
-card after the node is healthy; it is never stored as readable text.
+To inspect the installer first:
 
-Docker mode does not install an application tree under `/opt`. Docker stores image layers in its
-own engine data directory; WG-Guard keeps only operator-managed state in stable host paths:
-`/etc/wg-guard/compose.yaml` and boot/TLS configuration under `/etc/wg-guard`, persistent database,
-keys and backups under `/var/lib/wg-guard`, and the host manager command at
-`/usr/local/bin/wg-guard`.
-
-Private installs are reachable only through the displayed SSH tunnel. Their loopback HTTP session
-cookie is intentionally non-`Secure` so login works through that tunnel; every public or
-reverse-proxied panel path remains HTTPS and uses a `Secure` session cookie.
-
-The first development-source build can take several minutes. A published release installs much
-faster because it uses a verified prebuilt binary. When stable releases exist, the default command
-becomes the same command without `--commit main`. Long quiet operations emit a short progress
-heartbeat; detailed installer output is kept in root-only `/var/log/wg-guard/installer.log`.
-
-## Open WG-Guard again
-
-After installation, use the local manager:
-
-```bash
-sudo wg-guard
-```
-
-This starts immediately and does **not** contact GitHub. The explicit form
-`sudo wg-guard manage` is equivalent. The one-line GitHub command is different: it checks the
-selected release or `main` revision, reuses the manager when current, and downloads/builds only
-when that revision changed. A verified manager update is cached separately and never silently
-restarts or replaces the active panel service. If GitHub is temporarily unavailable, an ordinary
-check opens the last verified manager with a warning; `--refresh` remains strict and fails.
-
-Useful read-only checks:
-
-```bash
-sudo wg-guard status
-sudo wg-guard doctor
-sudo wg-guard logs                       # latest 200 records from the last 24h
-sudo wg-guard logs --follow --component awg
-sudo wg-guard logs --source operations   # install/update/rollback/uninstall outcomes
-```
-
-Updates, rollback, recovery, backups and uninstall are available from the local manager. Open its
-**Update center** with:
-
-```bash
-sudo wg-guard update
-```
-
-Press Enter for **Update everything**, or choose panel + manager, manager only, AmneziaWG core,
-or current versions. Automation uses explicit commands such as
-`sudo wg-guard update all --commit main --yes`. Panel updates create a backup and require a healthy
-restart; core updates accept only the exact WG-Guard compatibility catalog and never force-unload
-active tunnels. WG-Guard does not perform a blanket Ubuntu package or OS-kernel upgrade.
-
-For removal, open `sudo wg-guard` and choose **Uninstall / reset WG-Guard**. The recommended
-choice removes the application while keeping node data and backups. **Reset node** additionally
-deletes WG-Guard data, keys, backups and packages recorded as installer-owned while retaining the
-local manager for a quick reinstall. **Remove everything** also deletes the manager cache and
-installer logs, then exits; use the GitHub command to install again. None of these choices removes
-unrelated host services or proxy configuration. If an uninstall was interrupted, rerun the
-one-line GitHub command: the manager detects that journal, avoids the missing-config health probe,
-and promotes **Continue uninstall / reset**.
-
-The manager's **Panel access & HTTPS** section can later move a private installation to domain
-HTTPS, a standard existing Nginx, Cloudflare DNS-01, trusted public-IP HTTPS, manual/Origin CA, or
-an operator-owned proxy. Unknown port owners are never stopped, public plaintext is never offered,
-and an interrupted change has a dedicated recovery action.
-
-## Inspect before running
-
-For inspection before execution:
-
-```bash
+~~~bash
 curl --proto '=https' -fsSLo wg-guard-install.sh https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
 less wg-guard-install.sh
 bash wg-guard-install.sh --commit main
-```
+~~~
 
-The bootstrap verifies releases and checksums, or resolves `main` to an immutable commit before
-building it. It installs only missing prerequisites and refuses unsupported platforms, unknown
-AmneziaWG packages and unsafe artifacts. See the [GitHub installation guide](docs/operations/github-install.md)
-for exact releases/commits and automation, or [terminal management](docs/operations/terminal-management.md)
-for lifecycle and backup commands.
+## Operate the node
+
+~~~bash
+sudo wg-guard                         # local management menu
+sudo wg-guard status                  # service and deployment state
+sudo wg-guard doctor                  # configuration and host diagnostics
+sudo wg-guard logs                    # recent safe operational logs
+sudo wg-guard logs --follow --component awg
+sudo wg-guard update                  # verified panel/core lifecycle
+~~~
+
+The manager covers updates, rollback, panel access, backup, restore and uninstall. It never
+accepts arbitrary AmneziaWG bundles, never logs client keys or credentials, and does not remove
+unrelated host services.
+
+## Architecture at a glance
+
+~~~text
+Browser ── SSR + HTMX ── Go web panel ── domain services ── SQLite
+                           │                    │
+                           ├── REST /api/v1     ├── AmneziaWG reconciliation
+                           ├── OpenAPI          ├── nftables + shaping
+                           └── signed webhooks  └── backup + lifecycle manager
+~~~
+
+- One process and bounded background work
+- One canonical renderer for direct, API, panel and subscription configs/QR
+- Namespaced firewall ownership that leaves foreign rules untouched
+- Secret-safe storage, responses and logs
+- Docker-first deployment with native systemd support
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md):
-
-- [Product requirements](docs/product/requirements.md)
-- [Architecture overview](docs/architecture/overview.md)
-- [AmneziaWG integration](docs/integrations/amneziawg.md)
-- [Deployment](docs/operations/deployment.md) · [Backup & restore](docs/operations/backup-restore.md)
+- [Installation guide](docs/operations/github-install.md)
+- [Deployment and HTTPS](docs/operations/deployment.md)
+- [Backup and restore](docs/operations/backup-restore.md)
 - [REST API](docs/architecture/api.md)
+- [AmneziaWG compatibility](docs/integrations/amneziawg.md)
+- [Architecture](docs/architecture/overview.md)
+- [Project status](docs/development/status.md)
+- [Documentation index](docs/README.md)
 
-## Client requirements
-
-Generated configurations target AmneziaWG clients (AmneziaVPN desktop/mobile apps and the
-amneziawg-android/apple/windows forks). Plain WireGuard clients connect only to profiles created
-with the Standard/plain (all-zero obfuscation) policy. The compatibility matrix is documented in
-[docs/integrations/amneziawg.md](docs/integrations/amneziawg.md).
+Generated profiles require compatible AmneziaWG clients. Standard/plain profiles can be used
+with ordinary WireGuard clients. See the compatibility document before choosing a profile.
 
 ## Development
 
-```bash
-make build   # build ./cmd/wg-guard
-make test    # go test ./...
-make lint    # gofmt + go vet + golangci-lint
-```
+~~~bash
+make build
+make test
+make lint
+~~~
 
-See [docs/development/workflow.md](docs/development/workflow.md) and
-[AGENTS.md](AGENTS.md) for conventions.
+Read [AGENTS.md](AGENTS.md) and the [development workflow](docs/development/workflow.md) before
+contributing.
 
 ## License
 
-[MIT](LICENSE). AmneziaWG components are executed as separate processes, never vendored;
-third-party components are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+WG-Guard is available under the [MIT License](LICENSE). Third-party notices are listed in
+[THIRD_PARTY.md](THIRD_PARTY.md); AmneziaWG components run as separate processes and are not
+vendored into WG-Guard.

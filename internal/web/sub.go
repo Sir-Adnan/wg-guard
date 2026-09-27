@@ -1,11 +1,14 @@
 package web
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
@@ -51,42 +54,72 @@ func (s *Server) handleSubCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSubRegenerate(w http.ResponseWriter, r *http.Request) {
-	u, ok := s.loadUser(w, r)
-	if !ok {
-		return
-	}
-	if _, err := s.Links.Regenerate(r.Context(), u.ID); err != nil {
-		s.actionFailed(w, r, err)
-		return
-	}
-	s.audit(r, "user.sub_regenerated", u.ID, nil)
-	s.redirectToast(w, r, "/users/"+u.ID, "sub.toast.regenerated")
+	s.rotateSubscriptionAccess(w, r)
 }
 
 func (s *Server) handleSubRevoke(w http.ResponseWriter, r *http.Request) {
+	s.rotateSubscriptionAccess(w, r)
+}
+
+// rotateSubscriptionAccess is the security meaning of "revoke": replace the
+// public capability and every device key in one transaction, then reconcile
+// the canonical runtime before reporting success. Old links, configs and QR
+// payloads therefore cannot authenticate after a successful response.
+func (s *Server) rotateSubscriptionAccess(w http.ResponseWriter, r *http.Request) {
+	if !canOperate(r, auth.ScopeDevicesWrite) {
+		s.redirectToast(w, r, "/", "common.denied")
+		return
+	}
 	u, ok := s.loadUser(w, r)
 	if !ok {
 		return
 	}
-	if _, err := s.Links.SetRevoked(r.Context(), u.ID, true); err != nil {
+	devices, err := s.Devices.ListForUser(r.Context(), u.ID)
+	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.audit(r, "user.sub_revoked", u.ID, nil)
-	s.redirectToast(w, r, "/users/"+u.ID, "sub.toast.revoked")
+	rotations := make([]device.Rotation, 0, len(devices))
+	for _, d := range devices {
+		keys, keyErr := s.generateKeys(r, len(d.PSKEnc) != 0)
+		if keyErr != nil {
+			s.actionFailed(w, r, keyErr)
+			return
+		}
+		rotations = append(rotations, device.Rotation{DeviceID: d.ID, Keys: *keys})
+	}
+	err = s.DB.WithTx(r.Context(), func(tx *sql.Tx) error {
+		if err := s.Devices.ReplaceUserCredentialsTx(r.Context(), tx, u.ID, rotations); err != nil {
+			return err
+		}
+		link, err := s.Links.RegenerateTx(r.Context(), tx, u.ID)
+		if err != nil {
+			return err
+		}
+		if link.Token == "" {
+			return errors.New("subscription replacement token unavailable")
+		}
+		return nil
+	})
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	if err := s.runReconcile(r); err != nil {
+		// The new database state is intentionally retained: rolling credentials
+		// back after a requested revocation would silently make leaked configs
+		// valid again. The normal reconciler can safely retry this desired state.
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "user.sub_revoked", u.ID, map[string]any{"devices_rotated": len(rotations)})
+	s.redirectToast(w, r, "/users/"+u.ID, "sub.toast.replaced")
 }
 
 func (s *Server) handleSubRestore(w http.ResponseWriter, r *http.Request) {
-	u, ok := s.loadUser(w, r)
-	if !ok {
-		return
-	}
-	if _, err := s.Links.SetRevoked(r.Context(), u.ID, false); err != nil {
-		s.actionFailed(w, r, err)
-		return
-	}
-	s.audit(r, "user.sub_restored", u.ID, nil)
-	s.redirectToast(w, r, "/users/"+u.ID, "sub.toast.restored")
+	// Compatibility route for links revoked by older builds. Never revive the
+	// old capability; issue wholly new access with the same fail-closed flow.
+	s.rotateSubscriptionAccess(w, r)
 }
 
 // --- public: subscription page --------------------------------------------------

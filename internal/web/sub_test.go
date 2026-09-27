@@ -1,6 +1,8 @@
 package web
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -220,6 +225,214 @@ func TestSubscriptionPageLifecycle(t *testing.T) {
 	rec = e.get(e.subBase(link2.Token), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("new token page: %d", rec.Code)
+	}
+}
+
+func TestSubscriptionRevokeReplacesLinkAndEveryDeviceCredential(t *testing.T) {
+	e := newEnv(t)
+	userID, deviceID, csrf, cookie := e.seedUserWithDevice()
+
+	secondKeys, err := e.srv.generateKeys(nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := e.srv.Devices.Create(context.Background(), userID, "tablet", *secondKeys, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeLink, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeDevices, err := e.srv.Devices.ListForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeKeys := map[string]string{}
+	beforeConfigs := map[string]string{}
+	for _, d := range beforeDevices {
+		beforeKeys[d.ID] = d.PublicKey
+		beforeConfigs[d.ID], err = e.srv.ClientConf.Render(context.Background(), d.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	backend := fake.New()
+	e.srv.Reconciler = &reconcile.Engine{DB: e.db, Backend: backend, Ring: e.srv.Ring, Policy: reconcile.PolicyReport}
+	if rep, err := e.srv.Reconciler.Run(context.Background()); err != nil || len(rep.Errors) != 0 {
+		t.Fatalf("initial runtime peers: %+v, %v", rep, err)
+	}
+
+	rec := e.post("/users/"+userID+"/sub/revoke", url.Values{}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("revoke: %d", rec.Code)
+	}
+	afterLink, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil || afterLink == nil || afterLink.Token == "" || afterLink.Token == beforeLink.Token || afterLink.Revoked() {
+		t.Fatalf("revoke did not issue active replacement access: %v", err)
+	}
+	if rec := e.get(e.subBase(beforeLink.Token), nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("old subscription link remains valid: %d", rec.Code)
+	}
+	if rec := e.get(e.subBase(afterLink.Token), nil); rec.Code != http.StatusOK {
+		t.Fatalf("replacement subscription link unavailable: %d", rec.Code)
+	}
+	afterDevices, err := e.srv.Devices.ListForUser(context.Background(), userID)
+	if err != nil || len(afterDevices) != 2 {
+		t.Fatalf("replacement devices: %d, %v", len(afterDevices), err)
+	}
+	for _, d := range afterDevices {
+		if d.PublicKey == beforeKeys[d.ID] {
+			t.Errorf("device %s retained its public credential", d.ID)
+		}
+		afterConfig, renderErr := e.srv.ClientConf.Render(context.Background(), d.ID)
+		if renderErr != nil {
+			t.Fatal(renderErr)
+		}
+		if afterConfig == beforeConfigs[d.ID] {
+			t.Errorf("device %s retained its client configuration", d.ID)
+		}
+	}
+	runtime, err := backend.Dump(context.Background(), "awg0")
+	if err != nil || len(runtime.Peers) != len(afterDevices) {
+		t.Fatalf("replacement runtime peer count: %d, %v", len(runtime.Peers), err)
+	}
+	for _, peer := range runtime.Peers {
+		for _, oldKey := range beforeKeys {
+			if peer.PublicKey == oldKey {
+				t.Fatal("old client credential survived runtime reconciliation")
+			}
+		}
+	}
+	var pending int
+	if err := e.db.QueryRow(`SELECT COUNT(*) FROM retired_peer_keys`).Scan(&pending); err != nil || pending != 0 {
+		t.Fatalf("retired peer queue not acknowledged: %d, %v", pending, err)
+	}
+	if deviceID == second.ID {
+		t.Fatal("fixture devices unexpectedly share an identity")
+	}
+	body := e.get("/users/"+userID, cookie).Body.String()
+	if strings.Contains(body, `/sub/regenerate`) || strings.Contains(body, `/sub/restore`) {
+		t.Fatal("detail page still offers overlapping regenerate/restore actions")
+	}
+}
+
+func TestSubscriptionRevokeRequiresDeviceWrite(t *testing.T) {
+	e := newEnv(t)
+	userID, deviceID, _, _ := e.seedUserWithDevice()
+	if _, err := e.admins.Create(context.Background(), "user-editor", testPassword,
+		auth.RoleAdmin, []string{auth.ScopeUsersRead, auth.ScopeUsersUpdate}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := e.srv.Devices.Get(context.Background(), deviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := e.login("user-editor")
+	body := e.get("/users/"+userID, cookie).Body.String()
+	if strings.Contains(body, `action="/users/`+userID+`/sub/revoke"`) {
+		t.Fatal("revoke control exposed without device write")
+	}
+	rec := e.post("/users/"+userID+"/sub/revoke", url.Values{}, cookie, deriveCSRF(cookie.Value))
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("denial response: %d", rec.Code)
+	}
+	after, err := e.srv.Devices.Get(context.Background(), deviceID)
+	if err != nil || after.PublicKey != before.PublicKey {
+		t.Fatalf("limited administrator rotated a device: %v", err)
+	}
+	still, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil || still.Token != link.Token {
+		t.Fatalf("limited administrator rotated subscription access: %v", err)
+	}
+}
+
+func TestSubscriptionRevokeRollsBackCredentialsWhenLinkWriteFails(t *testing.T) {
+	e := newEnv(t)
+	userID, deviceID, csrf, cookie := e.seedUserWithDevice()
+	before, err := e.srv.Devices.Get(context.Background(), deviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`CREATE TRIGGER block_sub_rotation BEFORE UPDATE ON sub_links
+		BEGIN SELECT RAISE(ABORT, 'forced rollback'); END`); err != nil {
+		t.Fatal(err)
+	}
+	rec := e.post("/users/"+userID+"/sub/revoke", url.Values{}, cookie, csrf)
+	if rec.Code == http.StatusSeeOther && strings.Contains(rec.Header().Get("Location"), "sub.toast.replaced") {
+		t.Fatal("failed capability rotation reported success")
+	}
+	after, err := e.srv.Devices.Get(context.Background(), deviceID)
+	if err != nil || after.PublicKey != before.PublicKey {
+		t.Fatalf("device credential changed despite rolled-back capability: %v", err)
+	}
+	still, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil || still.Token != link.Token {
+		t.Fatalf("subscription capability changed despite rollback: %v", err)
+	}
+	var retired int
+	if err := e.db.QueryRow(`SELECT COUNT(*) FROM retired_peer_keys`).Scan(&retired); err != nil || retired != 0 {
+		t.Fatalf("retired-peer intent committed despite rollback: %d, %v", retired, err)
+	}
+}
+
+func TestUserConfigArchiveContainsCanonicalConfigs(t *testing.T) {
+	e := newEnv(t)
+	userID, _, _, cookie := e.seedUserWithDevice()
+	keys, err := e.srv.generateKeys(nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.srv.Devices.Create(context.Background(), userID, "tablet", *keys, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := e.get("/users/"+userID+"/configs.zip", cookie)
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Content-Type") != "application/zip" {
+		t.Fatalf("config archive response: %d %q", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	reader, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	devices, err := e.srv.Devices.ListForUser(context.Background(), userID)
+	if err != nil || len(reader.File) != len(devices) {
+		t.Fatalf("archive entries: %d, devices: %d, err: %v", len(reader.File), len(devices), err)
+	}
+	want := map[string]string{}
+	for _, d := range devices {
+		config, renderErr := e.srv.ClientConf.Render(context.Background(), d.ID)
+		if renderErr != nil {
+			t.Fatal(renderErr)
+		}
+		want[e.srv.configFilename(httptest.NewRequest(http.MethodGet, "/", nil), d)] = config
+	}
+	for _, file := range reader.File {
+		stream, openErr := file.Open()
+		if openErr != nil {
+			t.Fatal(openErr)
+		}
+		var content bytes.Buffer
+		_, copyErr := content.ReadFrom(stream)
+		_ = stream.Close()
+		if copyErr != nil {
+			t.Fatal(copyErr)
+		}
+		if expected, ok := want[file.Name]; !ok || content.String() != expected {
+			t.Errorf("archive entry %q is not the canonical configuration", file.Name)
+		}
+		delete(want, file.Name)
+	}
+	if len(want) != 0 {
+		t.Fatalf("archive omitted %d configurations", len(want))
 	}
 }
 

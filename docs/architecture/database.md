@@ -10,6 +10,7 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1–S4, canonical H1–H4 scalar/range text, optional I1–I5/HPK/timer/flag fields, preset name), enabled, backend mode, endpoint override |
 | `users` | id (UUIDv7), username UNIQUE, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
+| `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
 | `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
@@ -50,6 +51,11 @@ transaction with conflict retry; IPs released on permanent device delete.
 Forward-only, numbered, embedded; each applied in a transaction. Automatic pre-migration
 backup on risky upgrades and on every update. Migration tests cover fresh installs and
 upgrade-from-backup paths.
+
+Migration `0008_retired_peer_keys.sql` records former public peer identities when a device is
+rotated/deleted or a user's subscription access is replaced. The reconciler removes those peers
+even under the default report drift policy, then clears each confirmed intent. Failed syncs and
+process restarts retain the intent; only public keys are stored, never client private keys.
 
 Migration `0007_awg_ranges.sql` adds `h1_range` through `h4_range` as canonical, non-null text
 columns. Values use strict inclusive `N` or `N-M` syntax. Existing scalar values are copied as

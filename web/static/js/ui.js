@@ -14,20 +14,48 @@ document.addEventListener('keydown', event => {
   }
 }, true);
 
-export function toast(message, kind = 'ok') {
+function toastMarker(kind) {
+  const marker = document.createElement('span');
+  marker.className = 'toast-icon';
+  marker.setAttribute('aria-hidden', 'true');
+  marker.textContent = kind === 'err' ? '!' : '✓';
+  return marker;
+}
+
+function positionFeedback(item, anchor) {
+  const target = anchor.getBoundingClientRect();
+  const box = item.getBoundingClientRect();
+  const left = Math.max(8, Math.min(innerWidth - box.width - 8, target.left + target.width / 2 - box.width / 2));
+  const above = target.top - box.height - 9;
+  item.style.left = left + 'px';
+  item.style.top = (above >= 8 ? above : Math.min(innerHeight - box.height - 8, target.bottom + 9)) + 'px';
+}
+
+export function toast(message, kind = 'ok', anchor = null) {
   if (!message) return;
-  const host = $('.toasts');
-  if (!host) return;
   const item = document.createElement('div');
   item.className = 'toast toast--' + (kind === 'err' ? 'err' : 'ok');
   item.setAttribute('role', kind === 'err' ? 'alert' : 'status');
   const copy = document.createElement('span');
   copy.textContent = message;
+  item.append(toastMarker(kind), copy);
+
+  if (anchor instanceof Element && anchor.isConnected) {
+    $('.copy-feedback')?.remove();
+    item.classList.add('copy-feedback');
+    document.body.append(item);
+    positionFeedback(item, anchor);
+    setTimeout(() => item.remove(), kind === 'err' ? 5000 : 2200);
+    return;
+  }
+
+  const host = $('.toasts');
+  if (!host) return;
   const dismiss = document.createElement('button');
   dismiss.type = 'button'; dismiss.className = 'icon-btn';
   dismiss.textContent = '×'; dismiss.setAttribute('aria-label', text('close'));
   dismiss.addEventListener('click', () => item.remove());
-  item.append(copy, dismiss); host.append(item);
+  item.append(dismiss); host.append(item);
   while (host.children.length > 3) host.firstElementChild.remove();
   // Errors stay available until dismissed. A focused/hovered message never vanishes.
   if (kind !== 'err') setTimeout(() => {
@@ -48,6 +76,42 @@ function setTheme(choice) {
 
 let activeMenu = null;
 let menuTrigger = null;
+let activeTip = null;
+let tipAnchor = null;
+let priorDescription = null;
+
+function hideTip() {
+  activeTip?.remove();
+  if (tipAnchor) {
+    if (priorDescription === null) tipAnchor.removeAttribute('aria-describedby');
+    else tipAnchor.setAttribute('aria-describedby', priorDescription);
+  }
+  activeTip = tipAnchor = null;
+  priorDescription = null;
+}
+
+function showTip(anchor) {
+  if (!anchor?.dataset.tip || (anchor.closest('.nav') && shell && !shell.hasAttribute('data-collapsed'))) return;
+  if (tipAnchor === anchor) return;
+  hideTip();
+  const tip = document.createElement('div');
+  tip.id = 'ui-floating-tip';
+  tip.className = 'floating-tip is-visible';
+  tip.setAttribute('role', 'tooltip');
+  tip.textContent = anchor.dataset.tip;
+  document.body.append(tip);
+  activeTip = tip;
+  tipAnchor = anchor;
+  priorDescription = anchor.getAttribute('aria-describedby');
+  anchor.setAttribute('aria-describedby', priorDescription ? priorDescription + ' ' + tip.id : tip.id);
+  const target = anchor.getBoundingClientRect();
+  const box = tip.getBoundingClientRect();
+  const left = Math.max(8, Math.min(innerWidth - box.width - 8, target.left + target.width / 2 - box.width / 2));
+  const above = target.top - box.height - 8;
+  tip.style.left = left + 'px';
+  tip.style.top = (above >= 8 ? above : Math.min(innerHeight - box.height - 8, target.bottom + 8)) + 'px';
+}
+
 function closeMenu(returnFocus = false) {
   if (!activeMenu) return;
   activeMenu.classList.remove('is-open');
@@ -58,6 +122,7 @@ function closeMenu(returnFocus = false) {
   if (returnFocus) restoreFocus(trigger);
 }
 function openMenu(trigger, last = false) {
+  hideTip();
   closeMenu();
   const menu = $('.menu', trigger.parentElement);
   if (!menu) return;
@@ -130,6 +195,17 @@ try { if (localStorage.getItem('wg_sidebar') === '1') setCollapsed(true); } catc
 document.addEventListener('click', event => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
+  const disclosureTrigger = target.closest('[data-open-disclosure]');
+  if (disclosureTrigger) {
+    const disclosure = document.getElementById(disclosureTrigger.dataset.openDisclosure);
+    if (disclosure instanceof HTMLDetailsElement) {
+      event.preventDefault();
+      disclosure.open = true;
+      disclosure.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+      requestAnimationFrame(() => focusable(disclosure).find(el => !el.matches('summary'))?.focus({ preventScroll: true }));
+    }
+    return;
+  }
   const trigger = target.closest('.menu-anchor > button');
   if (trigger) {
     event.preventDefault();
@@ -147,6 +223,29 @@ document.addEventListener('click', event => {
   const opener = target.closest('[data-open-modal]');
   if (opener) { event.preventDefault(); openModal(opener.dataset.openModal, opener); }
   if (target.closest('[data-close-modal]')) target.closest('dialog')?.close();
+});
+
+document.addEventListener('pointerover', event => {
+  const anchor = event.target.closest?.('[data-tip]');
+  if (anchor && !anchor.contains(event.relatedTarget)) showTip(anchor);
+});
+document.addEventListener('pointerout', event => {
+  if (tipAnchor && tipAnchor.contains(event.target) && !tipAnchor.contains(event.relatedTarget)) hideTip();
+});
+document.addEventListener('focusin', event => {
+  const anchor = event.target.closest?.('[data-tip]');
+  if (anchor) showTip(anchor);
+  const body = event.target.closest?.('dialog.drawer .drawer-body');
+  if (body) requestAnimationFrame(() => {
+    if (!body.closest('dialog')?.open || !event.target.isConnected) return;
+    const view = body.getBoundingClientRect();
+    const field = event.target.getBoundingClientRect();
+    if (field.bottom > view.bottom - 8) body.scrollTop += field.bottom - view.bottom + 8;
+    else if (field.top < view.top + 8) body.scrollTop -= view.top - field.top + 8;
+  });
+});
+document.addEventListener('focusout', event => {
+  if (tipAnchor && tipAnchor.contains(event.target) && !tipAnchor.contains(event.relatedTarget)) hideTip();
 });
 
 document.addEventListener('keydown', event => {
@@ -174,9 +273,10 @@ document.addEventListener('keydown', event => {
   }
 });
 document.addEventListener('scroll', event => {
+  hideTip();
   if (activeMenu && !activeMenu.contains(event.target)) closeMenu();
 }, true);
-window.addEventListener('resize', () => closeMenu());
+window.addEventListener('resize', () => { hideTip(); closeMenu(); });
 
 // WebKit can finish native focus scrolling after the first paint and leave a
 // control partly outside a short viewport. Correct the settled position while

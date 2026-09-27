@@ -1,11 +1,39 @@
 {{define "title"}}{{.T "audit.title"}}{{end}}
 {{define "content"}}
 <div class="ops-page audit-page">
-  <div class="page-head page-head--hero ops-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "activity"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "audit.title"}}</h1><p>{{.T "ops.audit_intro"}}</p></div></div></div>
-  <form method="get" action="/audit" class="toolbar card card--pad ops-audit-filter"><div class="field"><label for="audit-action">{{.T "audit.filter_action"}}</label><div class="search-box">{{.IconS "search"}}<input class="input ltr-data" id="audit-action" name="action" value="{{.Data.Action}}" aria-describedby="audit-action-hint"></div><span class="hint" id="audit-action-hint">{{.T "ops.audit_action_hint"}}</span></div><div class="field"><label for="audit-actor">{{.T "audit.filter_actor"}}</label><div class="search-box">{{.IconS "users"}}<input class="input ltr-data" id="audit-actor" name="actor" value="{{.Data.ActorID}}" aria-describedby="audit-actor-hint"></div><span class="hint" id="audit-actor-hint">{{.T "ops.audit_actor_hint"}}</span></div><div class="filter-actions"><button class="btn btn--primary" type="submit">{{.IconS "filter"}}{{.T "audit.apply"}}</button>{{if or .Data.Action .Data.ActorID}}<a class="btn btn--ghost" href="/audit">{{.T "common.clear_filters"}}</a>{{end}}</div></form>
-  {{if not .Data.Known}}{{template "ops_unavailable" .}}{{else if not .Data.Records}}<div class="card empty empty-stage"><span class="empty-visual">{{.Icon "inbox"}}</span><h2>{{.T "audit.empty_title"}}</h2><p>{{if or .Data.Action .Data.ActorID}}{{.T "ops.audit_filtered_empty"}}{{else}}{{.T "audit.empty_body"}}{{end}}</p></div>{{else}}
-  <section class="audit-stream" aria-label="{{.T "audit.title"}}"><ol class="ops-activity-list">{{range .Data.Records}}<li class="card card--pad ops-activity"><div class="ops-activity-main"><span class="ops-activity-marker" aria-hidden="true">{{$.IconS "activity"}}</span><div><h2>{{$.OpsLabel "action" .Action}}</h2><p><span class="badge">{{$.OpsLabel "actor" (printf "%s" .ActorType)}}</span> <bdi class="ltr-data">{{$.CompactAuditID .ActorID}}</bdi></p>{{if .Target}}<p class="ops-target"><span class="text-muted">{{$.T "audit.col_target"}}</span> <bdi>{{$.CompactAuditID .Target}}</bdi></p>{{end}}</div></div><time class="ltr-data" datetime="{{.TS.Format "2006-01-02T15:04:05Z07:00"}}">{{$.OpsTimestamp .TS}}</time><details class="ops-activity-details"><summary>{{$.IconS "chevron-down"}}{{$.T "audit.metadata"}}</summary><dl><dt>{{$.T "audit.col_action"}}</dt><dd class="ltr-data">{{.Action}}</dd>{{if .ActorID}}<dt>{{$.T "audit.col_actor"}}</dt><dd class="ops-audit-value"><span class="ltr-data" id="audit-actor-{{.ID}}">{{.ActorID}}</span><button type="button" class="icon-btn" data-copy="#audit-actor-{{.ID}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{$.T "audit.col_actor"}}">{{$.IconS "copy"}}</button></dd>{{end}}{{if .Target}}<dt>{{$.T "audit.col_target"}}</dt><dd class="ops-audit-value"><span id="audit-target-{{.ID}}"><bdi>{{.Target}}</bdi></span><button type="button" class="icon-btn" data-copy="#audit-target-{{.ID}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{$.T "audit.col_target"}}">{{$.IconS "copy"}}</button></dd>{{end}}{{if .SourceIP}}<dt>{{$.T "ops.source_ip"}}</dt><dd class="ltr-data">{{.SourceIP}}</dd>{{end}}</dl>{{if and .Metadata (ne .Metadata "{}")}}<pre class="audit-json ltr-data">{{.Metadata}}</pre>{{end}}</details></li>{{end}}</ol></section>
+  <div class="page-head page-head--hero ops-hero">
+    <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "activity"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "audit.title"}}</h1><p>{{.T "ops.audit_intro"}}</p></div></div>
+  </div>
+
+  <section class="card audit-filter-panel" aria-labelledby="audit-filter-title">
+    <div class="audit-filter-head"><span class="section-icon" aria-hidden="true">{{.IconS "filter"}}</span><div><h2 id="audit-filter-title">{{.T "audit.filters"}}</h2><p>{{.T "audit.filters_hint"}}</p></div></div>
+    <form method="get" action="/audit" class="audit-filter-form">
+      <div class="field"><label for="audit-action">{{.T "audit.filter_action"}}</label><div class="search-box">{{.IconS "search"}}<input class="input ltr-data" id="audit-action" name="action" value="{{.Data.Action}}" aria-describedby="audit-action-hint"></div><span class="hint" id="audit-action-hint">{{.T "ops.audit_action_hint"}}</span></div>
+      <div class="field"><label for="audit-actor">{{.T "audit.filter_actor"}}</label><div class="search-box">{{.IconS "users"}}<input class="input ltr-data" id="audit-actor" name="actor" value="{{.Data.ActorID}}" aria-describedby="audit-actor-hint"></div><span class="hint" id="audit-actor-hint">{{.T "ops.audit_actor_hint"}}</span></div>
+      <div class="filter-actions"><button class="btn btn--primary" type="submit">{{.IconS "filter"}}{{.T "audit.apply"}}</button>{{if or .Data.Action .Data.ActorID}}<a class="btn btn--ghost" href="/audit">{{.T "common.clear_filters"}}</a>{{end}}</div>
+    </form>
+  </section>
+
+  {{if not .Data.Known}}{{template "ops_unavailable" .}}
+  {{else if not .Data.Records}}<div class="card empty empty-stage"><span class="empty-visual">{{.Icon "inbox"}}</span><h2>{{.T "audit.empty_title"}}</h2><p>{{if or .Data.Action .Data.ActorID}}{{.T "ops.audit_filtered_empty"}}{{else}}{{.T "audit.empty_body"}}{{end}}</p></div>
+  {{else}}
+  <section class="audit-results" aria-labelledby="audit-results-title">
+    <div class="audit-results-head"><div><span class="eyebrow">{{.T "audit.timeline"}}</span><h2 id="audit-results-title">{{.T "audit.events"}}</h2><p>{{.T "audit.events_hint"}}</p></div><span class="audit-page-count"><strong class="ltr-data">{{len .Data.Records}}</strong>{{.T "forms.total"}}</span></div>
+    <ol class="audit-event-list">
+      {{range .Data.Records}}
+      <li class="card audit-event-card">
+        <div class="audit-event-summary">
+          <span class="audit-event-marker" aria-hidden="true">{{$.IconS "activity"}}</span>
+          <div class="audit-event-copy"><h3>{{$.OpsLabel "action" .Action}}</h3><div class="audit-event-context"><span class="badge">{{$.OpsLabel "actor" (printf "%s" .ActorType)}}</span>{{if .ActorID}}<bdi class="ltr-data">{{$.CompactAuditID .ActorID}}</bdi>{{end}}{{if .Target}}<span aria-hidden="true">·</span><span>{{$.T "audit.col_target"}}</span><bdi>{{$.CompactAuditID .Target}}</bdi>{{end}}</div></div>
+          <time class="audit-event-time ltr-data" datetime="{{.TS.Format "2006-01-02T15:04:05Z07:00"}}">{{$.OpsTimestamp .TS}}</time>
+        </div>
+        <details class="audit-event-details"><summary>{{$.IconS "chevron-down"}}<span>{{$.T "audit.metadata"}}</span></summary><div class="audit-event-detail-body"><dl><dt>{{$.T "audit.col_action"}}</dt><dd class="ltr-data">{{.Action}}</dd>{{if .ActorID}}<dt>{{$.T "audit.col_actor"}}</dt><dd class="ops-audit-value"><span class="ltr-data" id="audit-actor-{{.ID}}">{{.ActorID}}</span><button type="button" class="icon-btn" data-copy="#audit-actor-{{.ID}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{$.T "audit.col_actor"}}">{{$.IconS "copy"}}</button></dd>{{end}}{{if .Target}}<dt>{{$.T "audit.col_target"}}</dt><dd class="ops-audit-value"><span id="audit-target-{{.ID}}"><bdi>{{.Target}}</bdi></span><button type="button" class="icon-btn" data-copy="#audit-target-{{.ID}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{$.T "audit.col_target"}}">{{$.IconS "copy"}}</button></dd>{{end}}{{if .SourceIP}}<dt>{{$.T "ops.source_ip"}}</dt><dd class="ltr-data">{{.SourceIP}}</dd>{{end}}</dl>{{if and .Metadata (ne .Metadata "{}")}}<pre class="audit-json ltr-data">{{.Metadata}}</pre>{{end}}</div></details>
+      </li>
+      {{end}}
+    </ol>
+  </section>
   {{end}}
+
   <nav class="pagination audit-pagination" aria-label="{{.T "common.page"}}"><span class="hint">{{.T "audit.page_hint"}}</span>{{if .Data.NextCursor}}<a class="btn" href="/audit?before={{.Data.NextCursor}}&action={{.Data.Action}}&actor={{.Data.ActorID}}">{{.T "audit.older"}}{{.IconS "arrow-right"}}</a>{{end}}</nav>
 </div>
 {{end}}

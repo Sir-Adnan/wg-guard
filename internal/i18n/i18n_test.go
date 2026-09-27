@@ -32,6 +32,16 @@ func TestCatalogNoEmptyValues(t *testing.T) {
 	}
 }
 
+func TestPersianCatalogPreservesAmneziaWGBrand(t *testing.T) {
+	for key, value := range catalogFA {
+		for _, localized := range []string{"آمنیژیا", "آمنژیا", "آمنزیا", "امنژیا"} {
+			if strings.Contains(value, localized) {
+				t.Errorf("fa key %q localizes the AmneziaWG brand as %q", key, localized)
+			}
+		}
+	}
+}
+
 // TestTranslate covers lookup, fallback and formatting behavior.
 func TestTranslate(t *testing.T) {
 	if got := T(En, "common.save"); got != "Save" {

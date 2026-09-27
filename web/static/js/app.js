@@ -175,9 +175,9 @@
         copied = fallbackCopy(value);
       }
       if (!copied) throw new Error('copy unavailable');
-      toast(btn.dataset.copiedMsg || document.querySelector('meta[name="ui-copied"]').content, "ok");
+      toast(btn.dataset.copiedMsg || document.querySelector('meta[name="ui-copied"]').content, "ok", btn);
     } catch {
-      toast(document.querySelector('meta[name="ui-copy-error"]').content, "err");
+      toast(document.querySelector('meta[name="ui-copy-error"]').content, "err", btn);
     }
   });
 

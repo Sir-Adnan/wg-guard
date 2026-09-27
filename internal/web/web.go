@@ -171,6 +171,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /users/{id}/renew", s.requirePermission(auth.ScopeUsersUpdate, s.handleUserRenew))
 	mux.HandleFunc("POST /users/{id}/traffic/add", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficAdd))
 	mux.HandleFunc("POST /users/{id}/traffic/reset", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficReset))
+	mux.HandleFunc("GET /users/{id}/configs.zip", s.requirePermission(auth.ScopeConfigsRead, s.handleUserConfigsArchive))
 	mux.HandleFunc("POST /users/{id}/sub/create", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubCreate))
 	mux.HandleFunc("POST /users/{id}/sub/regenerate", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubRegenerate))
 	mux.HandleFunc("POST /users/{id}/sub/revoke", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubRevoke))

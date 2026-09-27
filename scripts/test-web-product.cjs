@@ -199,6 +199,11 @@ let stage = 'launch';
       stage = 'create-user drawer geometry';
       await goto('/users');
       await page.locator('[data-open-modal="create-drawer"]').click();
+      if (process.env.WG_UI_SCREENSHOT_DIR) {
+        const fs = require('node:fs'), path = require('node:path');
+        fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+        await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'create-user-drawer-1440x700.png') });
+      }
       const desktopDrawer = await page.locator('#create-drawer').evaluate(dialog => {
         const rect = dialog.getBoundingClientRect();
         const foot = dialog.querySelector('.modal-foot').getBoundingClientRect();
@@ -208,12 +213,13 @@ let stage = 'launch';
           return {
             height: sectionRect.height,
             overflowX: section.scrollWidth - section.clientWidth,
+            overflowY: section.scrollHeight - section.clientHeight,
           };
         });
         return {
           ok: rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth &&
             foot.top >= rect.top && foot.bottom <= rect.bottom && body.clientHeight > 0 &&
-            body.scrollWidth <= body.clientWidth + 1 && sections.every(section => section.height > 0 && section.overflowX <= 1),
+            body.scrollWidth <= body.clientWidth + 1 && sections.every(section => section.height > 0 && section.overflowX <= 1 && section.overflowY <= 1),
           rect: { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left },
           foot: { top: foot.top, bottom: foot.bottom },
           body: { clientHeight: body.clientHeight, clientWidth: body.clientWidth, scrollWidth: body.scrollWidth },
@@ -229,7 +235,22 @@ let stage = 'launch';
         return rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth &&
           dialog.querySelector('.modal-foot').getBoundingClientRect().bottom <= rect.bottom;
       }), 'create-user drawer fits a phone viewport');
-      await page.locator('#create-drawer [data-close-modal]').first().click();
+      const drawer = page.locator('#create-drawer');
+      await drawer.locator('[name="username"]').fill('drawer-user');
+      await drawer.locator('[name="device_limit"]').fill('1');
+      await drawer.locator('#user-advanced > summary').click();
+      await drawer.locator('[name="note"]').fill('Created from the responsive drawer\nیادداشت پنجره');
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+      const noteGeometry = await drawer.locator('[name="note"]').evaluate(el => {
+        const dialog = el.closest('dialog').getBoundingClientRect(), field = el.getBoundingClientRect();
+        const body = el.closest('.drawer-body');
+        return {ok: field.top >= dialog.top && field.bottom <= dialog.bottom,
+          dialogTop: dialog.top, dialogBottom: dialog.bottom, fieldTop: field.top, fieldBottom: field.bottom,
+          scrollTop: body?.scrollTop, scrollHeight: body?.scrollHeight, clientHeight: body?.clientHeight};
+      });
+      assert(noteGeometry.ok, `advanced drawer controls can be scrolled fully into view: ${JSON.stringify(noteGeometry)}`);
+      await Promise.all([page.waitForNavigation(), drawer.locator('button[type="submit"]').click()]);
+      assert(await page.locator('main h1').innerText() === 'drawer-user', 'responsive drawer can complete user creation');
       await page.setViewportSize({ width: 1440, height: 900 });
 
       stage = 'eight-character username generation';
@@ -273,13 +294,19 @@ let stage = 'launch';
       const configLink = page.locator('a[download][href$="/config"]').first();
       const config = await page.request.get(new URL(await configLink.getAttribute('href'), seed.url).href);
       assert(config.status() === 200 && !!config.headers()['content-disposition'], 'config remains a download');
-      stage = 'subscription revoke and restore';
+      stage = 'subscription revoke and full credential replacement';
+      const oldSubscription = await page.locator('#sub-url').inputValue();
+      const currentConfigHref = await page.locator('a[download][href$="/config"]').first().getAttribute('href');
+      const oldConfig = await (await page.request.get(new URL(currentConfigHref, seed.url).href)).body();
       const revoke = page.locator('form[action$="/sub/revoke"]');
       await revoke.locator('button[type="submit"]').click();
       await Promise.all([page.waitForNavigation(), page.locator('[data-confirm-ok]').click()]);
-      assert(await page.locator('form[action$="/sub/restore"]').count() === 1, 'revoked subscription offers restore');
-      await submit(page.locator('form[action$="/sub/restore"]'));
-      assert(await page.locator('#sub-url').inputValue() !== '', 'restored subscription is shareable');
+      const replacementSubscription = await page.locator('#sub-url').inputValue();
+      assert(replacementSubscription && replacementSubscription !== oldSubscription, 'revoke issues a fresh shareable subscription link');
+      assert(await page.locator('form[action$="/sub/restore"],form[action$="/sub/regenerate"]').count() === 0, 'overlapping restore and regenerate actions are absent');
+      assert((await page.request.get(oldSubscription)).status() === 404, 'revoked subscription capability is dead');
+      const newConfig = await (await page.request.get(new URL(currentConfigHref, seed.url).href)).body();
+      assert(!oldConfig.equals(newConfig), 'revoke replaces the device configuration');
       stage = 'user edit validation';
       await page.goto(detailURL.replace(/\?.*$/, '') + '/edit');
       await page.locator('[name="note"]').fill('Changed\nmultiline note');
@@ -292,7 +319,8 @@ let stage = 'launch';
       const rowCopy = page.locator('[data-copy-value]').first();
       const expectedCopy = await rowCopy.getAttribute('data-copy-value');
       await rowCopy.click();
-      await page.locator('.toast--ok').waitFor({ state: 'visible' });
+      await page.locator('.copy-feedback').waitFor({ state: 'visible' });
+      assert(await page.locator('.copy-feedback').count() === 1, 'copy confirmation appears beside its initiating action');
       if (engine === 'chromium') {
         assert(await page.evaluate(() => navigator.clipboard.readText()) === expectedCopy, 'user row copies the exact subscription URL');
         const fallbackReady = await page.evaluate(() => {
@@ -311,12 +339,26 @@ let stage = 'launch';
         }
       }
       const qrMenu = page.locator('[data-device-menu="qr"]').first();
+      await qrMenu.locator(':scope > button').hover();
+      assert(await page.locator('.floating-tip.is-visible').count() === 1, 'row action tooltip is portaled above clipped collections');
       await qrMenu.locator(':scope > button').click();
       assert(await qrMenu.locator('.menu [data-qr]').count() > 0 && await qrMenu.locator('.menu [download]').count() === 0, 'QR menu contains QR actions only');
-      await page.keyboard.press('Escape');
+      assert(await qrMenu.locator('.menu [data-qr-all]').count() === 1, 'QR menu offers one all-device action');
+      await qrMenu.locator('.menu [data-qr-all]').click();
+      await page.waitForFunction(() => {
+        const images = [...document.querySelectorAll('#qr-modal[open] [data-qr-all-grid] img')];
+        return images.length > 0 && images.every(img => img.complete && img.naturalWidth > 0);
+      });
+      const rowDeviceCount = await rowCopy.locator('xpath=ancestor::tr').locator('[data-qr]:not([data-qr-all])').count();
+      assert(await page.locator('#qr-modal [data-qr-all-grid] img').count() === rowDeviceCount, 'all-device QR viewer includes every row device');
+      await page.locator('#qr-modal [data-close-modal]').click();
       const downloadMenu = page.locator('[data-device-menu="download"]').first();
       await downloadMenu.locator(':scope > button').click();
       assert(await downloadMenu.locator('.menu [download]').count() > 0 && await downloadMenu.locator('.menu [data-qr]').count() === 0, 'download menu contains config downloads only');
+      const allConfigs = downloadMenu.locator('.menu [data-download-all]');
+      assert(await allConfigs.count() === 1, 'download menu offers one all-device archive');
+      const archive = await page.request.get(new URL(await allConfigs.getAttribute('href'), seed.url).href);
+      assert(archive.status() === 200 && archive.headers()['content-type'] === 'application/zip', 'all-device configuration archive downloads');
       await page.keyboard.press('Escape');
       await page.locator('#users-search').fill('ali');
       await page.waitForFunction(() => new URL(location.href).searchParams.get('q') === 'ali' && document.querySelectorAll('#users-results tbody tr').length === 1);
@@ -355,6 +397,15 @@ let stage = 'launch';
       await page.emulateMedia({ colorScheme: 'dark' });
       await goto('/dashboard');
       assert(await page.locator('#telemetry-card').getAttribute('data-health') === 'healthy', 'normal dashboard fixture stays healthy');
+      const dashboardFlow = await page.evaluate(() => {
+        const recovery = document.querySelector('#dashboard-recovery');
+        const summary = document.querySelector('.dashboard-summary');
+        const statuses = document.querySelector('.dashboard-statuses');
+        const overview = document.querySelector('#telemetry-card');
+        const gap = (a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().bottom;
+        return { recovery: gap(recovery, summary), summary: gap(summary, statuses), statuses: gap(statuses, overview) };
+      });
+      assert(Object.values(dashboardFlow).every(gap => gap >= 12), 'dashboard surfaces keep distinct vertical spacing');
       assert(await page.locator('html').getAttribute('data-theme') === 'light', 'unsaved theme stays light on a dark OS');
       assert(await page.locator('.resource-card .sparkline').count() === 5, 'all live chart families render');
       const liveChart = page.locator('.resource-card .sparkline').first();
@@ -488,7 +539,8 @@ let stage = 'launch';
     if (['10.4', '10.4-admin', 'final'].includes(suite)) {
       stage = 'administrator create and wildcard permissions';
       await goto('/admins');
-      await page.locator('#admin-create > summary').click();
+      await page.locator('.ops-hero a[href="#admin-create"]').click();
+      assert(await page.locator('#admin-create').evaluate(el => el.open), 'administrator header action opens its form');
       await page.locator('#ops-username').fill('browser-admin');
       await page.locator('#ops-password').fill(require('node:crypto').randomBytes(24).toString('hex'));
       await page.locator('#admin-create [data-scope-preset="operator"]').click();
@@ -508,7 +560,8 @@ let stage = 'launch';
       adminRoutes.push(adminEdit);
       stage = 'token invalid expiry and one-time result';
       await goto('/tokens');
-      await page.locator('#token-create > summary').click();
+      await page.locator('.ops-hero a[href="#token-create"]').click();
+      assert(await page.locator('#token-create').evaluate(el => el.open), 'token header action opens its form');
       await page.locator('#ops-name').fill('Browser token');
       await page.locator('#ops-expires_days').fill('invalid-days');
       await page.locator('#token-create [data-scope-preset="observer"]').click();
@@ -527,7 +580,8 @@ let stage = 'launch';
       assert(await page.locator('#token-once').count() === 0, 'token secret is not redisplayed');
       stage = 'webhook create and disabled edit';
       await goto('/webhooks');
-      await page.locator('#webhook-create > summary').click();
+      await page.locator('.ops-hero a[href="#webhook-create"]').click();
+      assert(await page.locator('#webhook-create').evaluate(el => el.open), 'webhook header action opens its form');
       await page.locator('#ops-url').fill('https://example.com/events');
       await page.locator('#webhook-create [data-event-preset="all"]').click();
       assert(await page.locator('#webhook-create input[name="events"]:checked').count() === await page.locator('#webhook-create input[name="events"]').count(), 'all-events preset selects the complete catalog');
@@ -549,7 +603,7 @@ let stage = 'launch';
       stage = 'audit filtering';
       await goto('/audit');
       await page.locator('#audit-action').fill('admins.');
-      await Promise.all([page.waitForNavigation(), page.locator('.ops-audit-filter button[type="submit"]').click()]);
+      await Promise.all([page.waitForNavigation(), page.locator('.audit-filter-form button[type="submit"]').click()]);
       assert(await page.locator('#audit-action').inputValue() === 'admins.', 'audit retains filter');
       stage = 'verified update selection confirmation';
       await goto('/updates');

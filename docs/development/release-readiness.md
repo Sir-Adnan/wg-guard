@@ -4,7 +4,7 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-13. Phases 8, 8.1, 8.2, corrective 8.3, 9 and 10 are complete. Phase 10
+Last updated: 2026-09-27. Phases 8, 8.1, 8.2, corrective 8.3, 9 and 10 are complete. Phase 10
 passed the full three-engine route/state/accessibility/performance
 matrix, relevant exact-code Ubuntu 24.04 amd64 Docker/TLS workflows, repository gates and main CI.
 The owner-directed refinement then passed targeted Chrome/WebKit checks and exact Docker client
@@ -17,6 +17,9 @@ build/unit/race/vet and security gates pass. Exact revision `d9eb18e` passed fre
 host/container identity, real reviewed-core broker execution, repair and complete owned cleanup on
 Ubuntu 24.04.4 amd64, then integrated into `main`.
 Phase 11 remains planned and unstarted; public release remains owner-approval gated.
+An owner-reported Phase 10 follow-up fixes panel presentation and revoke semantics. The new
+former-peer removal behavior is locally verified against the runtime fake; exact new-code VPS
+client revocation is pending and is not implied by earlier acceptance.
 
 ## Program status
 
@@ -168,6 +171,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-051 | critical | Docker's iptables backend installs an earlier `FORWARD` policy DROP; WG-Guard's later nftables accept chain cannot override that terminal verdict, while prior real-host gates stopped at the tunnel gateway | Phase 8.3 | verified: scoped owned child chain and tagged `DOCKER-USER` jump preserve the global DROP; all supported generated profiles passed real public egress |
 | AUD-052 | critical | API/web runtime reconciliation updated interfaces and peers but not the firewall/NAT rendered state, so an interface created after startup could handshake without routed traffic | Phase 8.3 | verified: one serialized runtime reconciler now reapplies tunnel, firewall/NAT, coexistence and shaping; regression and exact fresh-install public-egress gate pass |
 | AUD-053 | high | Host-owned `doctor` used the host PATH for Docker AWG inspection; source-backed Docker installs therefore reported missing `awg` and falsely classified every enabled interface as absent even while client traffic worked; its direct offline fix path could not use container-only tools | Phase 8.3 maintenance | verified: Docker AWG probes/dumps use the runtime container, host system/network checks remain local, non-not-found errors cannot recommend recreation, and Docker fix uses managed restart/startup reconciliation; automated tests plus exact Ubuntu 24.04.4 amd64 healthy/unavailable/recovered and real missing-link repair acceptance pass |
+| AUD-054 | high | Changing a subscription token alone left issued device configs valid; rotating a device key under report drift could preserve its old runtime peer | Phase 10 owner follow-up | Local tests verify atomic token/all-device key replacement, durable former-peer removal across failed sync/restart, and the default drift policy. Exact new-code VPS client revocation remains pending. |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

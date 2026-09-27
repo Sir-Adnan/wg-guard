@@ -83,6 +83,14 @@ verification and Go 1.27 `govulncheck` also pass. Exact revision `d9eb18e` passe
 authentication, real reviewed-core queue execution, idempotent broker repair and complete owned
 cleanup. The continuation is integrated into `main`; Phase 11 remains unstarted.
 
+The subsequent owner-reported Phase 10 follow-up is implemented and locally tested: create-user
+drawer visibility, dashboard/action feedback, QR/config group actions, administration shortcuts,
+Audit layout, AmneziaWG copy and bilingual README. Subscription revocation rotates the link and
+every device credential together; a durable former-peer queue makes the default report policy
+remove old runtime keys, with retry after failed sync. Chromium/WebKit affected user workflows,
+Go web/device/reconcile/database tests and asset measurement pass. Exact new-code VPS client
+revocation is still **requires real VPS**; no Phase 11 or public release is claimed.
+
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 
 The accepted metric, log, retention and resource contracts are in [phase9.md](phase9.md) and

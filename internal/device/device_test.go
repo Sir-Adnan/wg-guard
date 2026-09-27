@@ -219,6 +219,10 @@ func TestDeleteReleasesIP(t *testing.T) {
 	if err := svc.Delete(ctx, d1.ID); err != nil {
 		t.Fatal(err)
 	}
+	var retired int
+	if err := svc.db.QueryRow(`SELECT COUNT(*) FROM retired_peer_keys WHERE interface_id = ? AND public_key = ?`, ifc.ID, d1.PublicKey).Scan(&retired); err != nil || retired != 1 {
+		t.Fatalf("deleted peer must remain pending runtime removal: %d, %v", retired, err)
+	}
 	d3, err := svc.Create(ctx, "u1", "tablet", newKeyPair(t, svc.ring), ifc.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -236,6 +240,7 @@ func TestLifecycleAndRegenerate(t *testing.T) {
 	_, _ = svc.db.Exec(`INSERT INTO users (id, username, status, enabled, created_at, updated_at)
 		VALUES ('u1', 'alice', 'active', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`)
 	d, _ := svc.Create(ctx, "u1", "phone", newKeyPair(t, svc.ring), ifc.ID)
+	oldKey := d.PublicKey
 
 	if err := svc.SetEnabled(ctx, d.ID, false); err != nil {
 		t.Fatal(err)
@@ -251,6 +256,10 @@ func TestLifecycleAndRegenerate(t *testing.T) {
 	got, _ = svc.Get(ctx, d.ID)
 	if got.PublicKey != newKeys.PublicKey {
 		t.Fatal("keys not rotated")
+	}
+	var retired int
+	if err := svc.db.QueryRow(`SELECT COUNT(*) FROM retired_peer_keys WHERE interface_id = ? AND public_key = ?`, ifc.ID, oldKey).Scan(&retired); err != nil || retired != 1 {
+		t.Fatalf("rotated peer must remain pending runtime removal: %d, %v", retired, err)
 	}
 }
 

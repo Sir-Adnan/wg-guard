@@ -82,6 +82,11 @@ Statuses: `active`, `disabled`, `suspended`, `expired`, `traffic_exceeded`,
   reset/add/remove traffic, change quota/duration/devices/speed/profile, regenerate and revoke
   device configs. Bulk create (10–100+ with shared properties), bulk actions, export (CSV/ZIP).
 
+Replacing a user's subscription access changes the public link and every device key in one
+transaction; the old link and previously issued configs/QR payloads cease to authorize access
+after runtime reconciliation succeeds. The action requires both user-update and device-write
+permission. Admins can download all current device configs as one private no-store ZIP.
+
 ## Accounting
 
 Delta-based, per-device RX/TX/total; quota applies to RX+TX by default. AWG counters reset on

@@ -149,3 +149,15 @@ func TestAdminCreateOffersOnlySupportedAccountRole(t *testing.T) {
 		t.Fatalf("unexpected accounts after rejected owner: %d, %v", len(list), err)
 	}
 }
+
+func TestAuditPageUsesCompactEventWorkspace(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	body := e.get("/audit", cookie).Body.String()
+	for _, contract := range []string{`audit-filter-panel`, `audit-event-card`, `audit-event-summary`} {
+		if !strings.Contains(body, contract) {
+			t.Errorf("audit redesign missing %s", contract)
+		}
+	}
+}
