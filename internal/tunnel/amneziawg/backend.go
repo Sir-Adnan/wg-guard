@@ -32,7 +32,7 @@ type Backend struct {
 // launch a userspace interface whose daemon would die with that short command.
 func NewManaged(run subprocess.Runner) *Backend {
 	b := New(run)
-	b.userspace = newUserspaceManager(run)
+	b.userspace = newUserspaceManager()
 	return b
 }
 

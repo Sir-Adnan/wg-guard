@@ -336,17 +336,14 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	ifaceOptions := []iface.ServiceOption{}
 	if n.userspace != nil {
 		ifaceOptions = append(ifaceOptions, iface.WithUserspaceReadiness(func(ctx context.Context) error {
-			if _, err := exec.LookPath("amneziawg-go"); err != nil {
+			path, err := exec.LookPath("amneziawg-go")
+			if err != nil {
 				return fmt.Errorf("pinned amneziawg-go is not installed")
 			}
 			if tun, err := os.Stat("/dev/net/tun"); err != nil || tun.Mode()&os.ModeDevice == 0 {
 				return fmt.Errorf("/dev/net/tun is unavailable")
 			}
-			result, err := runner.Run(ctx, []string{"amneziawg-go", "--version"})
-			if err != nil || !strings.Contains(string(result.Stdout), "v3.1.20260828") {
-				return fmt.Errorf("pinned amneziawg-go v3.1.20260828 is required")
-			}
-			return nil
+			return amneziawg.VerifyUserspaceBinary(path)
 		}))
 	}
 	ifaces := iface.NewService(db, n.reg, n.ring, ifaceOptions...)

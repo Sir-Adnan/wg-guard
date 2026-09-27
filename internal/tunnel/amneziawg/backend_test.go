@@ -77,15 +77,15 @@ func (f *fakeRunner) argvJoined() string {
 	return sb.String()
 }
 
-func TestManagedUserspaceRefusesWrongVersionBeforeLinkMutation(t *testing.T) {
+func TestManagedUserspaceRefusesUnreviewedBinaryBeforeLinkMutation(t *testing.T) {
 	f := &fakeRunner{}
-	f.step("amneziawg-go 0.0.20250522")
 	b := NewManaged(f)
+	b.userspace.binary = os.Args[0] // this test binary is not the reviewed daemon
 	err := b.CreateInterface(context.Background(), tunnel.InterfaceSpec{Name: "awg0", BackendMode: "userspace"})
-	if err == nil || !strings.Contains(err.Error(), "v3.1.20260828") {
+	if err == nil || !strings.Contains(err.Error(), "reviewed") {
 		t.Fatalf("unreviewed daemon accepted: %v", err)
 	}
-	if got := f.argvJoined(); got != "amneziawg-go --version\n" {
+	if got := f.argvJoined(); got != "" {
 		t.Fatalf("link mutation happened before version gate: %q", got)
 	}
 	if _, err := userspaceSocketActive("../foreign"); err == nil {

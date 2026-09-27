@@ -10,7 +10,7 @@
 #   docker build -t wgguard/wg-guard:latest .
 #   docker buildx build --platform linux/amd64 -t wgguard/wg-guard:latest --push .
 
-FROM golang:1.27-alpine AS build
+FROM golang:1.27.1-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -37,14 +37,16 @@ RUN git -c advice.detachedHead=false clone --quiet --depth 1 \
     && git -C /src/amneziawg-tools diff --quiet ee0f0a9aa34ff0a0da4b3433b9512781cfe02843 -- \
     && make -C /src/amneziawg-tools/src
 
-FROM golang:1.27-alpine AS awg-userspace-build
+FROM golang:1.27.1-alpine AS awg-userspace-build
 RUN apk add --no-cache git
 RUN git -c advice.detachedHead=false clone --quiet --depth 1 \
         --branch v3.1.20260828 --single-branch \
         https://github.com/amnezia-vpn/amneziawg-go.git /src/amneziawg-go \
     && test "$(git -C /src/amneziawg-go rev-parse HEAD)" = "b5928efb6ca19f0153958460c3d141f04abc5c2e" \
     && git -C /src/amneziawg-go diff --quiet b5928efb6ca19f0153958460c3d141f04abc5c2e --
-RUN cd /src/amneziawg-go && CGO_ENABLED=0 go build -trimpath -o /out/amneziawg-go .
+RUN cd /src/amneziawg-go && CGO_ENABLED=0 go build -trimpath -o /out/amneziawg-go . \
+    && go version -m /out/amneziawg-go | grep -F 'vcs.revision=b5928efb6ca19f0153958460c3d141f04abc5c2e' \
+    && go version -m /out/amneziawg-go | grep -F 'vcs.modified=false'
 
 FROM ubuntu:24.04
 

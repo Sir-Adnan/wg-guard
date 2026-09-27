@@ -15,9 +15,11 @@ rotation parsing, early owner-name validation and admission-safe explicit data p
 userspace source passed a real TUN/UAPI create/config/stop/restart integration test on WSL Linux;
 purge exclusion/tombstone and malformed-input tests pass locally. The Persian numeric-card
 alignment correction passed affected Chromium/WebKit user and subscription compositions. A
-30-second 0-peer synthetic sample measured 33 MB RSS/0.00% CPU; the 100-peer ten-minute window
-measured 41 MB average/45 MB maximum RSS and 0.03% CPU. The 1000-peer workload, security/race/
-fuzz/soak, Docker image and real-host networking/recovery/TLS matrix remain unverified; RB-007 is
+30-second 0-peer synthetic sample measured 33 MB RSS/0.00% CPU; ten-minute 100/1000-user+device
+windows measured 41/52 MB average RSS, 45/57 MB peak RSS and 0.03/0.04% CPU. Real WSL tc/IFB
+accepted 1000 classes/filters per direction in 134 ms. Full WSL race, 4.75 million parser fuzz
+executions and Go 1.27.1 reachable-vulnerability scan pass. Sustained soak, Docker image and
+real-host networking/recovery/TLS matrix remain unverified; RB-007 is
 open. No public release is published.
 
 ## Phase 8.3 — Data-plane forwarding integrity (complete, 2026-09-10)

@@ -2,13 +2,14 @@ package amneziawg
 
 import (
 	"context"
+	"debug/buildinfo"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -18,16 +19,35 @@ import (
 )
 
 const userspaceSocketDir = "/var/run/amneziawg" // pinned source ipc/uapi_unix.go
+const userspaceCommit = "b5928efb6ca19f0153958460c3d141f04abc5c2e"
+
 var userspaceName = regexp.MustCompile(`^awg[0-9]+$`)
 
 type userspaceManager struct {
 	mu        sync.Mutex
-	run       subprocess.Runner
+	binary    string
 	processes map[string]*subprocess.ManagedProcess
 }
 
-func newUserspaceManager(run subprocess.Runner) *userspaceManager {
-	return &userspaceManager{run: run, processes: make(map[string]*subprocess.ManagedProcess)}
+func newUserspaceManager() *userspaceManager {
+	return &userspaceManager{binary: "amneziawg-go", processes: make(map[string]*subprocess.ManagedProcess)}
+}
+
+// VerifyUserspaceBinary uses Go's embedded build provenance, not the pinned
+// daemon's stale self-reported version string (0.0.20250522 at this commit).
+func VerifyUserspaceBinary(path string) error {
+	info, err := buildinfo.ReadFile(path)
+	if err != nil || info.Path != "github.com/amnezia-vpn/amneziawg-go/v3" {
+		return fmt.Errorf("reviewed amneziawg-go build metadata is required")
+	}
+	settings := map[string]string{}
+	for _, item := range info.Settings {
+		settings[item.Key] = item.Value
+	}
+	if settings["vcs"] != "git" || settings["vcs.revision"] != userspaceCommit || settings["vcs.modified"] != "false" {
+		return fmt.Errorf("amneziawg-go must be built from the clean reviewed source revision")
+	}
+	return nil
 }
 
 func userspaceSocketActive(name string) (bool, error) {
@@ -59,9 +79,12 @@ func userspaceSocketActive(name string) (bool, error) {
 func (m *userspaceManager) start(ctx context.Context, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	version, err := m.run.Run(ctx, []string{"amneziawg-go", "--version"})
-	if err != nil || !strings.Contains(string(version.Stdout), "v3.1.20260828") {
-		return fmt.Errorf("pinned amneziawg-go v3.1.20260828 is required")
+	path, err := exec.LookPath(m.binary)
+	if err != nil {
+		return fmt.Errorf("reviewed amneziawg-go is not installed")
+	}
+	if err := VerifyUserspaceBinary(path); err != nil {
+		return err
 	}
 	if p := m.processes[name]; p != nil && p.Alive() {
 		return fmt.Errorf("userspace daemon already managed for %s", name)
@@ -76,7 +99,7 @@ func (m *userspaceManager) start(ctx context.Context, name string) error {
 	}
 	// The pinned daemon accepts --foreground IFACE and creates the TUN and UAPI
 	// socket itself. One child is retained per managed interface.
-	p, err := subprocess.StartManaged([]string{"amneziawg-go", "--foreground", name})
+	p, err := subprocess.StartManaged([]string{path, "--foreground", name})
 	if err != nil {
 		return fmt.Errorf("start pinned userspace daemon: %w", err)
 	}

@@ -48,7 +48,7 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 
 ## Current certification evidence
 
-- Initial audit triage covers AUD-019/037/040/055. A service-owned, pin-checked userspace daemon
+- Initial audit triage covers AUD-019/037/040/055. A service-owned, source-checked userspace daemon
   now follows the configured backend mode; its TUN/UAPI create, config, crash detection, restart
   and removal passed the exact pinned-source WSL Linux integration test. Docker packaging and
   real-host client traffic remain pending. This activates the existing `backend_mode` contract;
@@ -62,9 +62,15 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
   daemon that its short-lived process cannot own.
 - The owner-reported Persian numeric-card alignment correction passed affected Chromium/WebKit
   user and public-subscription compositions; the full Phase 10 matrix is not being replayed.
-- The 0-peer synthetic control-plane sample measured 33 MB RSS and 0.00% CPU over 30 seconds on
-  WSL2. The 100-peer ten-minute window measured 41 MB average/45 MB maximum RSS and 0.03% CPU,
-  within the 50 MB/0.5% budgets. The 1000-peer window and real shaping remain pending.
+- The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
+  Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
+  and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied
+  1000 classes/filters in each direction in 134 ms and verified idempotence; dedicated-VPS
+  recertification and traffic under load remain pending.
+- WSL full `-race ./...`, 4.75 million dump-parser fuzz executions, and `govulncheck@v1.7.0`
+  with Go 1.27.1 pass (zero reachable findings; three module advisories are not called). Go 1.26.0
+  reported standard-library findings that the patched toolchain removes. Docker now pins
+  Go 1.27.1 for the image build.
 
 ## Documentation
 

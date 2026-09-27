@@ -39,12 +39,15 @@ Equal module version strings do not prove equal builds: this source revision sti
 identity is reported as unknown and blocks managed-core readiness. No path unloads active
 tunnels. Matching loaded/disk identity does not independently attest the upstream Git commit.
 Phase 11 adds explicit service-owned userspace lifecycle for profiles configured with
-`backend_mode=userspace`: pin check, foreground daemon per interface, UAPI readiness, canonical
+`backend_mode=userspace`: source-revision check, foreground daemon per interface, UAPI readiness, canonical
 apply/dump and peer reconciliation, failure detection/restart, and owned teardown. It refuses an
 active unowned userspace socket. The Docker image includes the exact reviewed source build and
 maps `/dev/net/tun`; native operators must provision the same pin separately. No automatic
 kernel-to-userspace selection on module failure is implied. Real-host deployment/client evidence
 is still pending in the Phase 11 matrix.
+At this pinned commit, the daemon's `--version` still prints `0.0.20250522`; it is not a
+reliable source identity. WG-Guard checks the Go build metadata for module path,
+`vcs.revision=b5928ef…` and `vcs.modified=false`; builds without that provenance fail closed.
 
 ## CLI surface (verified, tools v3.1)
 

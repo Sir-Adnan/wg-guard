@@ -308,6 +308,7 @@ real-host drills. Newer releases remain fail-closed when the pinned bundle is un
 is required. Kernel mode needs DKMS build prerequisites (`build-essential`, matching kernel
 headers). Explicit userspace profiles now have a service-owned daemon lifecycle: the Docker
 image carries the reviewed daemon and maps `/dev/net/tun`; native nodes need that exact daemon
-installed and a usable TUN device. New profiles fail before persistence when those
+installed from a clean pinned Git checkout, with Go VCS build metadata, and a usable TUN device.
+The daemon's stale `--version` text is not proof of the source revision. New profiles fail before persistence when those
 prerequisites are absent. The kernel remains the installed default, and real-host userspace
 certification is still pending ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).
