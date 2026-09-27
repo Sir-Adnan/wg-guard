@@ -17,9 +17,10 @@ build/unit/race/vet and security gates pass. Exact revision `d9eb18e` passed fre
 host/container identity, real reviewed-core broker execution, repair and complete owned cleanup on
 Ubuntu 24.04.4 amd64, then integrated into `main`.
 Phase 11 remains planned and unstarted; public release remains owner-approval gated.
-An owner-reported Phase 10 follow-up fixes panel presentation and revoke semantics. The new
-former-peer removal behavior is locally verified against the runtime fake; exact new-code VPS
-client revocation is pending and is not implied by earlier acceptance.
+An owner-reported Phase 10 follow-up fixes panel presentation and revoke semantics. Exact
+revision `9401937` passed local gates and a fresh private Ubuntu 24.04.4 amd64 Docker test:
+the former URL returned 404, the former public key disappeared from live AmneziaWG peers, and
+replacement access worked; owned cleanup completed.
 
 ## Program status
 
@@ -171,7 +172,8 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-051 | critical | Docker's iptables backend installs an earlier `FORWARD` policy DROP; WG-Guard's later nftables accept chain cannot override that terminal verdict, while prior real-host gates stopped at the tunnel gateway | Phase 8.3 | verified: scoped owned child chain and tagged `DOCKER-USER` jump preserve the global DROP; all supported generated profiles passed real public egress |
 | AUD-052 | critical | API/web runtime reconciliation updated interfaces and peers but not the firewall/NAT rendered state, so an interface created after startup could handshake without routed traffic | Phase 8.3 | verified: one serialized runtime reconciler now reapplies tunnel, firewall/NAT, coexistence and shaping; regression and exact fresh-install public-egress gate pass |
 | AUD-053 | high | Host-owned `doctor` used the host PATH for Docker AWG inspection; source-backed Docker installs therefore reported missing `awg` and falsely classified every enabled interface as absent even while client traffic worked; its direct offline fix path could not use container-only tools | Phase 8.3 maintenance | verified: Docker AWG probes/dumps use the runtime container, host system/network checks remain local, non-not-found errors cannot recommend recreation, and Docker fix uses managed restart/startup reconciliation; automated tests plus exact Ubuntu 24.04.4 amd64 healthy/unavailable/recovered and real missing-link repair acceptance pass |
-| AUD-054 | high | Changing a subscription token alone left issued device configs valid; rotating a device key under report drift could preserve its old runtime peer | Phase 10 owner follow-up | Local tests verify atomic token/all-device key replacement, durable former-peer removal across failed sync/restart, and the default drift policy. Exact new-code VPS client revocation remains pending. |
+| AUD-054 | high | Changing a subscription token alone left issued device configs valid; rotating a device key under report drift could preserve its old runtime peer | Phase 10 owner follow-up | verified: atomic token/all-device key replacement, durable former-peer removal across failed sync/restart, default drift policy, and exact `9401937` Ubuntu Docker old-link 404 plus old peer absent/new peer present passed. |
+| AUD-055 | medium | A noninteractive two-character owner username was rejected after installation had written runtime artifacts, requiring guided reset instead of failing during preflight | Phase 11 lifecycle certification | Observed on the dedicated Ubuntu 24.04.4 Docker VPS during the Phase 10 follow-up gate; guided Reset node recovered and the valid-name install passed. Move username validation before stateful install work; no Phase 11 fix is claimed. |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.

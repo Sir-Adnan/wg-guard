@@ -88,8 +88,10 @@ drawer visibility, dashboard/action feedback, QR/config group actions, administr
 Audit layout, AmneziaWG copy and bilingual README. Subscription revocation rotates the link and
 every device credential together; a durable former-peer queue makes the default report policy
 remove old runtime keys, with retry after failed sync. Chromium/WebKit affected user workflows,
-Go web/device/reconcile/database tests and asset measurement pass. Exact new-code VPS client
-revocation is still **requires real VPS**; no Phase 11 or public release is claimed.
+Go web/device/reconcile/database tests and asset measurement pass. Exact revision `9401937`
+passed a fresh Ubuntu 24.04.4 amd64 Docker gate: the old subscription URL returned 404 and
+the old device public key was absent from live AmneziaWG peers while replacement access worked;
+owned cleanup completed. Phase 11 and public release remain unstarted.
 
 ## Phase 9 — Operational observability (complete, 2026-09-10)
 

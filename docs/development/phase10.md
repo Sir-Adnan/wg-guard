@@ -289,4 +289,9 @@ Subscription revoke now replaces the link and all device keys atomically, then r
 runtime peers under every drift policy using durable retry intent. Individual device regeneration
 and deletion use the same removal rule. No REST/OpenAPI contract changes. Focused Chromium/WebKit
 interactions, web/device/reconcile/database tests and asset measurement cover this follow-up;
-new-code real-VPS client revocation remains unverified, independent of the prior Phase 10 VPS gate.
+Exact revision `9401937` then passed a fresh private Ubuntu 24.04.4 amd64 Docker install:
+the former subscription URL returned 404, its former device public key was absent from the live
+AmneziaWG peer set, and the replacement URL and peer were active. Complete owned removal restored
+the VPS. A noninteractive two-character owner name caused a recoverable incomplete install before
+the successful retry; early validation remains a Phase 11 lifecycle finding. No raw configs,
+private keys or temporary credentials were retained.
