@@ -213,6 +213,31 @@ func TestServeLifecycle(t *testing.T) {
 	}
 }
 
+func TestServeRefusesMissingKeyForExistingEncryptedState(t *testing.T) {
+	cfg := testConfig(t, "127.0.0.1:0")
+	n := startNode(t, cfg)
+	encrypted, err := n.ring.EncryptString("private-test-value")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.db.Exec("INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)",
+		"backup.password", encrypted, "2026-01-01T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if err := n.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(cfg.MasterKeyFile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Start(context.Background(), Options{Config: cfg, Backend: fake.New(), Log: quietLogger()}); err == nil {
+		t.Fatal("established node started with a generated replacement key")
+	}
+	if _, err := os.Stat(cfg.MasterKeyFile); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing master key was recreated: %v", err)
+	}
+}
+
 func TestRuntimeMutationReconcilesTunnelAndFirewallTogether(t *testing.T) {
 	cfg := testConfig(t, "127.0.0.1:0")
 	backend := fake.New()

@@ -60,7 +60,7 @@ func loadCLIEnvOwnership(configPath string, exclusive bool) (*cliEnv, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
-	ring, err := secrets.LoadKeyRing(cfg.MasterKeyFile)
+	ring, err := secrets.LoadNodeKeyRing(context.Background(), db.DB, cfg.MasterKeyFile)
 	if err != nil {
 		db.Close()
 		return nil, err

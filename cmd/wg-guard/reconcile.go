@@ -61,7 +61,7 @@ func runReconcile(args []string) error {
 	if err := db.Migrate(context.Background(), quiet); err != nil {
 		return err
 	}
-	ring, err := secrets.LoadKeyRing(cfg.MasterKeyFile)
+	ring, err := secrets.LoadNodeKeyRing(context.Background(), db.DB, cfg.MasterKeyFile)
 	if err != nil {
 		return err
 	}

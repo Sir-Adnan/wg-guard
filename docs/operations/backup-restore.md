@@ -252,9 +252,10 @@ deliberate cleanup; they may contain unencrypted keys and WAL data.
 Migrating = fresh install on the new server + restore + environment review. Because client
 configs are generated on demand from current settings, confirming the public endpoint during
 review is sufficient for clients to reconnect (hostname-based endpoints need no client-side
-change at all). Degraded case, documented honestly: if the master key is unavailable, device
-private keys cannot be decrypted — peers survive (public keys in DB) but configs cannot be
-re-downloaded; devices must be re-enrolled.
+change at all). If the master key is unavailable, encrypted device keys cannot be recovered
+from public keys retained in the database. An established database with encrypted carriers
+never silently regenerates a key: boot refuses until the matching key or a coordinated backup
+is restored. Without either, device re-enrollment requires an explicit node recovery/reset.
 
 ## Security
 

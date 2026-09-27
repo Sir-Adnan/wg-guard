@@ -42,7 +42,9 @@ rows old→new; (3) on full success `.prev` is deleted. A crash at any point lea
 (current + previous) able to decrypt every stored envelope; the next boot resumes with both keys
 loaded. If the master key **and** every backup are lost, encrypted secrets (device private keys,
 webhook/Telegram credentials) are unrecoverable by design — devices can be re-enrolled, but this
-is documented honestly as data loss.
+is documented honestly as data loss. If encrypted node data exists, service startup and offline
+data commands refuse a missing or wrong master key before creating replacement key material.
+Restore the matching key or a coordinated archive.
 
 No `math/rand` for secrets; `crypto/rand` everywhere. Secrets are passed to subprocesses via
 stdin or 0600 temp files, never argv, never shell interpolation. All exec traffic goes through

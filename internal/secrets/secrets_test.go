@@ -2,10 +2,14 @@ package secrets
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/Sir-Adnan/wg-guard/internal/database"
 )
 
 func TestCipherRoundTrip(t *testing.T) {
@@ -96,6 +100,58 @@ func TestLoadKeyRingCreatesFile(t *testing.T) {
 	ct, _ := ring.EncryptString("x")
 	if _, err := ring2.DecryptString(ct); err != nil {
 		t.Fatalf("reloaded ring cannot decrypt: %v", err)
+	}
+}
+
+func TestNodeKeyRingRefusesMissingOrWrongKeyForEncryptedData(t *testing.T) {
+	dir := t.TempDir()
+	db, err := database.Open(filepath.Join(dir, "node.db"), database.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := db.Migrate(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	keyFile := filepath.Join(dir, "master.key")
+	ring, err := LoadNodeKeyRing(ctx, db.DB, keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.ReadFile(keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := ring.EncryptString("private-test-value")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)",
+		"backup.password", value, "2026-01-01T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadNodeKeyRing(ctx, db.DB, keyFile); err != nil {
+		t.Fatalf("correct existing key rejected: %v", err)
+	}
+	if err := os.Remove(keyFile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadNodeKeyRing(ctx, db.DB, keyFile); err == nil || strings.Contains(err.Error(), "private-test-value") {
+		t.Fatalf("missing key was regenerated or exposed data: %v", err)
+	}
+	if _, err := os.Stat(keyFile); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing key was recreated: %v", err)
+	}
+	wrong := bytes.Repeat([]byte{0x7f}, 32)
+	if bytes.Equal(wrong, original) {
+		t.Fatal("test replacement unexpectedly equals original key")
+	}
+	if err := os.WriteFile(keyFile, wrong, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadNodeKeyRing(ctx, db.DB, keyFile); err == nil || strings.Contains(err.Error(), "private-test-value") {
+		t.Fatalf("wrong key was accepted or exposed data: %v", err)
 	}
 }
 

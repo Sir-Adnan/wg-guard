@@ -2,7 +2,10 @@ package secrets
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
+	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -26,11 +29,18 @@ const KeyFileSuffixPrev = ".prev"
 // 32 bytes, 0600, inside a 0700 directory (best-effort on filesystems without
 // permission bits).
 func LoadKeyRing(keyFile string) (*KeyRing, error) {
+	return loadKeyRing(keyFile, true)
+}
+
+func loadKeyRing(keyFile string, create bool) (*KeyRing, error) {
 	if keyFile == "" {
 		return nil, fmt.Errorf("secrets: empty key file path")
 	}
 	data, err := os.ReadFile(keyFile)
 	if errors.Is(err, os.ErrNotExist) {
+		if !create {
+			return nil, fmt.Errorf("secrets: existing encrypted node data requires its original master key")
+		}
 		key := make([]byte, 32)
 		if _, err := rand.Read(key); err != nil {
 			return nil, fmt.Errorf("secrets: generate key: %w", err)
@@ -65,6 +75,62 @@ func LoadKeyRing(keyFile string) (*KeyRing, error) {
 	}
 	if err := ring.selfTest(); err != nil {
 		return nil, err
+	}
+	return ring, nil
+}
+
+// LoadNodeKeyRing permits first-boot key creation only when the migrated
+// database contains no encrypted carriers. Existing carriers must decrypt
+// under the on-disk key (or its rotation-window predecessor) before the node
+// or an offline data command can proceed.
+func LoadNodeKeyRing(ctx context.Context, db *sql.DB, keyFile string) (*KeyRing, error) {
+	queries := []struct {
+		statement string
+		text      bool
+	}{
+		{"SELECT private_key_encrypted FROM tunnel_interfaces LIMIT 1", false},
+		{"SELECT private_key_encrypted FROM devices LIMIT 1", false},
+		{"SELECT token_encrypted FROM sub_links LIMIT 1", false},
+		{"SELECT secret_encrypted FROM webhook_endpoints LIMIT 1", false},
+		// Keep in step with the secret definitions in internal/settings.
+		{"SELECT value FROM settings WHERE key IN ('backup.password', 'backup.telegram_token') LIMIT 1", true},
+	}
+	type sample struct {
+		value []byte
+		text  bool
+	}
+	var samples []sample
+	for _, query := range queries {
+		var value []byte
+		err := db.QueryRowContext(ctx, query.statement).Scan(&value)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("secrets: inspect encrypted node data: %w", err)
+		}
+		samples = append(samples, sample{value: value, text: query.text})
+	}
+	ring, err := loadKeyRing(keyFile, len(samples) == 0)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range samples {
+		ciphertext := item.value
+		if item.text {
+			if !bytes.HasPrefix(ciphertext, []byte("enc:")) {
+				return nil, fmt.Errorf("secrets: encrypted backup password or Telegram credential is invalid")
+			}
+			ciphertext, err = base64.StdEncoding.DecodeString(string(ciphertext[4:]))
+			if err != nil {
+				return nil, fmt.Errorf("secrets: encrypted backup password or Telegram credential is invalid")
+			}
+		}
+		plaintext, err := ring.Decrypt(ciphertext)
+		clear(plaintext)
+		if err != nil {
+			return nil, fmt.Errorf("secrets: master key does not decrypt existing node data; restore the matching key or archive")
+		}
 	}
 	return ring, nil
 }

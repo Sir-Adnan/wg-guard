@@ -243,7 +243,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	if err := db.Migrate(ctx, log); err != nil {
 		return fail(fmt.Errorf("serve: migrate: %w", err))
 	}
-	if n.ring, err = secrets.LoadKeyRing(cfg.MasterKeyFile); err != nil {
+	if n.ring, err = secrets.LoadNodeKeyRing(ctx, db.DB, cfg.MasterKeyFile); err != nil {
 		return fail(fmt.Errorf("serve: master key: %w", err))
 	}
 	if err := lease.Share(); err != nil {

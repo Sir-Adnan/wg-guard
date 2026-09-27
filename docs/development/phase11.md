@@ -74,7 +74,11 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 - The same reboot exposed Docker resetting the host forwarding extension after native startup
   (AUD-059). The native unit now orders after Docker when it participates in boot; a bounded
   scheduler probe repairs later owned-rule loss through canonical reconciliation and updates
-  readiness. Exact-host repair/reboot recertification remains pending.
+  readiness. Exact-host tagged-jump loss repaired within 7 seconds; the next reboot retained
+  both backends and a complete scoped forwarding path.
+- Existing encrypted data no longer permits automatic creation of a replacement master key.
+  Startup and offline data commands verify a sample from each present encrypted carrier;
+  focused missing/wrong-key refusal passes. Exact-host recovery remains pending (AUD-060).
 - The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
   Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
   and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied
