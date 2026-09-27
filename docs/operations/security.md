@@ -111,7 +111,7 @@ removed when the operator explicitly purges node data.
   drift. Ordinary subprocess stdout is capped at 4 MiB and stderr at 1 MiB; configured build
   commands retain their tighter 1 MiB cap. Truncation is an explicit error, never silently parsed.
 - Explicit userspace profiles run one foreground `amneziawg-go` child per interface. The node
-  checks its pinned version and UAPI socket, never captures daemon output, refuses an active
+  checks embedded pinned-source provenance and its UAPI socket, never captures daemon output, refuses an active
   unowned daemon, and terminates owned children on shutdown; Linux parent-death signaling covers
   abrupt node exit. `/dev/net/tun` is mapped only as a device in Docker.
 - Systemd hardening in native mode; non-privileged container defaults with only `NET_ADMIN`

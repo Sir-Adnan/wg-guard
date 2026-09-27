@@ -250,6 +250,12 @@ input, select, textarea { font: inherit; color: inherit; }
 [dir="rtl"] .ltr-data:not(input):not(textarea):not(pre):not(code) {
   text-align: right;
 }
+[dir="rtl"] input:is([inputmode="numeric"], [inputmode="decimal"], [data-calendar-input]) {
+  /* Keep digits/date syntax LTR while the editable value begins at the RTL edge. */
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 
 /* ---------- shell layout ---------- */
 

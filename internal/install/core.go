@@ -230,6 +230,14 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 	}
 	if !external && managedUbuntu {
+		// The running-kernel header package alone does not follow a later
+		// generic kernel upgrade. Keep DKMS headers moving with Ubuntu's
+		// generic image stream so the boot-time module can be rebuilt.
+		if strings.HasSuffix(platform.Kernel, "-generic") {
+			if err := require("linux-headers-generic", ""); err != nil {
+				return r, err
+			}
+		}
 		if b.Source == coreSourcePackage {
 			if err := require("amneziawg-dkms", b.KernelPackage); err != nil {
 				return r, err

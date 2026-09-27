@@ -63,7 +63,12 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
   version cannot trigger link rollback, and native offline doctor does not claim to repair a
   daemon that its short-lived process cannot own.
 - The owner-reported Persian numeric-card alignment correction passed affected Chromium/WebKit
-  user and public-subscription compositions; the full Phase 10 matrix is not being replayed.
+  user and public-subscription compositions. Persian numeric/date form controls now begin at
+  the RTL edge while retaining LTR value syntax; focused user/interface/plan/settings browser
+  checks pass. The full Phase 10 matrix is not being replayed.
+- After a real Ubuntu kernel upgrade on reboot, the managed module lacked current headers
+  because this VPS had no `linux-headers-generic` meta-package. Managed generic installs now
+  require it; exact-host DKMS repair and reboot recertification remain pending (AUD-058).
 - The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
   Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
   and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied

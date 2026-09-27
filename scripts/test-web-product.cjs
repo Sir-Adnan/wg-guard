@@ -652,6 +652,11 @@ let stage = 'launch';
             if(routes[index].startsWith('/dashboard'))assert(await page.locator('#telemetry-card').getAttribute('data-health')==='healthy','normal dashboard state stays healthy');
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl' : 'ltr'), 'page direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, 'page theme');
+            if (lang === 'fa') {
+              assert(await page.locator('input:is([inputmode="numeric"], [inputmode="decimal"], [data-calendar-input])').evaluateAll(elements =>
+                elements.every(el => getComputedStyle(el).textAlign === 'right' && getComputedStyle(el).direction === 'ltr')),
+                'Persian numeric and date controls align at the RTL edge while preserving LTR input order');
+            }
             if (lang === 'fa' && routes[index] === '/users/' + seed.user) {
               assert(await page.locator('.user-kpi strong.ltr-data').evaluateAll(elements =>
                 elements.length > 0 && elements.every(el => getComputedStyle(el).textAlign === 'right')),

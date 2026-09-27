@@ -17,11 +17,31 @@ type packageHost struct {
 }
 
 func newPackageHost() *packageHost {
-	return &packageHost{memHost: newMemHost(), installed: map[string]string{"procps": "system", "software-properties-common": "system", "iproute2": "system", "nftables": "system", "iptables": "system", "ca-certificates": "system", "git": "system", "kmod": "system", "dkms": "system", "build-essential": "system", "linux-headers-6.8.0-138-generic": "system"}, available: map[string]string{
-		"amneziawg-tools": "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
-		"amneziawg-dkms":  "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
-		"iptables":        "1.8.10-3ubuntu2",
+	return &packageHost{memHost: newMemHost(), installed: map[string]string{"procps": "system", "software-properties-common": "system", "iproute2": "system", "nftables": "system", "iptables": "system", "ca-certificates": "system", "git": "system", "kmod": "system", "dkms": "system", "build-essential": "system", "linux-headers-6.8.0-138-generic": "system", "linux-headers-generic": "system"}, available: map[string]string{
+		"amneziawg-tools":       "1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1",
+		"amneziawg-dkms":        "1.0.0-0~202608282205+3c38e16~ubuntu24.04.1",
+		"iptables":              "1.8.10-3ubuntu2",
+		"linux-headers-generic": "6.8.0-142.142",
 	}}
+}
+
+func TestManagedGenericCoreTracksFutureKernelHeaders(t *testing.T) {
+	h := newPackageHost()
+	delete(h.installed, "linux-headers-generic")
+	b, _ := SelectCore("awg-2026-08")
+	h.installed["amneziawg-tools"] = b.ToolsPackage
+	h.installed["amneziawg-dkms"] = b.KernelPackage
+	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
+	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
+	r, _ := InspectPlatform(context.Background(), h)
+	st := &State{}
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b,
+		PrerequisitesAuto, false, st, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !contains(h.installedArgs, "linux-headers-generic") || !contains(st.PackagesInstalled, "linux-headers-generic") {
+		t.Fatalf("generic header meta-package was not installed and recorded: args=%v packages=%v", h.installedArgs, st.PackagesInstalled)
+	}
 }
 func (h *packageHost) Output(ctx context.Context, a []string, d time.Duration) (string, error) {
 	if a[0] == "dpkg-query" {

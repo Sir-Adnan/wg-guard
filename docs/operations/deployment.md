@@ -289,6 +289,9 @@ native `awg` tool/runtime layer, and registers `amneziawg/1.0.0-wgguard.20260906
 Versioned source and a bounded installer-owned cache make retry deterministic. The package-backed
 `awg-2026-08` identity remains for legacy installed-state/update compatibility and fails closed if
 its historical exact packages are unavailable; it is not the recommended fresh-install path.
+For managed `-generic` kernels, installation also records `linux-headers-generic` alongside
+headers for the running kernel. This keeps DKMS headers available when Ubuntu later upgrades
+that kernel stream; a custom kernel flavor still requires operator-provided matching headers.
 
 APT commands wait for Ubuntu's dpkg lock rather than racing `unattended-upgrades`. The lifecycle
 journal records package intents and observed ownership before runtime mutation. A safe first-run
