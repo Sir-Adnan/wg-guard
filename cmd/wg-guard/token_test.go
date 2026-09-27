@@ -101,3 +101,26 @@ func TestTokenCLIRoundTrip(t *testing.T) {
 		t.Fatal("revoking an unknown id must fail")
 	}
 }
+
+func TestTokenMalformedArgumentsFailBeforeOpeningData(t *testing.T) {
+	for _, args := range [][]string{
+		{"create", "-config"},
+		{"create", "-name"},
+		{"create", "-scopes"},
+		{"create", "-expires-in"},
+		{"create", "-cidr"},
+		{"create", "-config", "--name", "-name", "ci", "-scopes", "users.read"},
+		{"create", "-name", "ci", "-scopes", "users.read", "-expires-in", "-1h"},
+		{"list", "-config"},
+		{"list", "extra"},
+		{"revoke", "-config"},
+		{"revoke", "one", "two"},
+		{"scopes", "extra"},
+	} {
+		t.Run(strings.Join(args, "_"), func(t *testing.T) {
+			if err := runToken(args); err == nil {
+				t.Fatal("malformed token command succeeded")
+			}
+		})
+	}
+}

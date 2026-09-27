@@ -171,7 +171,10 @@ func (m *userspaceManager) observed(name string) (string, error) {
 	return "kernel", nil
 }
 
-func (b *Backend) observedMode(name string) (string, error) {
+func (b *Backend) observedMode(ctx context.Context, name string) (string, error) {
+	if b.modeProbe != nil {
+		return b.modeProbe(ctx, name)
+	}
 	if b.userspace != nil {
 		return b.userspace.observed(name)
 	}
@@ -181,6 +184,19 @@ func (b *Backend) observedMode(name string) (string, error) {
 	}
 	if active {
 		return "", fmt.Errorf("amneziawg: userspace daemon for %s requires the managed node service", name)
+	}
+	return "kernel", nil
+}
+
+// ProbeMode inspects a live local UAPI socket without claiming daemon
+// ownership. It is only for read-only diagnostics outside the node service.
+func ProbeMode(_ context.Context, name string) (string, error) {
+	active, err := userspaceSocketActive(name)
+	if err != nil {
+		return "", err
+	}
+	if active {
+		return "userspace", nil
 	}
 	return "kernel", nil
 }

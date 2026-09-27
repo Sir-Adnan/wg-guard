@@ -48,15 +48,17 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 
 ## Current certification evidence
 
-- Initial audit triage covers AUD-019/037/040/055. A service-owned, source-checked userspace daemon
-  now follows the configured backend mode; its TUN/UAPI create, config, crash detection, restart
-  and removal passed the exact pinned-source WSL Linux integration test. Docker packaging and
-  real-host client traffic remain pending. This activates the existing `backend_mode` contract;
-  no REST/OpenAPI shape changed.
+- Initial audit triage covers AUD-019/037/040/055/056/057. A service-owned, source-checked
+  userspace daemon now follows the configured backend mode. Pinned-source WSL integration and
+  exact-image Ubuntu 24.04 Docker creation, public HTTPS client traffic, crash/restart recovery,
+  and encrypted backup/restore with peer reconciliation pass. Read-only doctor mode inspection
+  now probes the container namespace in Docker; its real-host correction gate remains pending.
+  This activates the existing `backend_mode` contract; no REST/OpenAPI shape changed.
 - Malformed legacy rotation flags and short noninteractive owner names fail before data/service
   mutation in focused tests. Explicit data purge now excludes admitted readers, retains a lock
   tombstone against new admission, and requires a clean volume before reinstall; Windows and WSL
-  lock tests pass. Real-host interruption/concurrency drills remain pending.
+  lock tests pass. Legacy token commands now reject incomplete flags before opening data.
+  Real-host purge interruption/concurrency drills remain pending.
 - Command output now has bounded capture with explicit truncation failure; a rejected userspace
   version cannot trigger link rollback, and native offline doctor does not claim to repair a
   daemon that its short-lived process cannot own.
@@ -65,8 +67,8 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 - The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
   Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
   and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied
-  1000 classes/filters in each direction in 134 ms and verified idempotence; dedicated-VPS
-  recertification and traffic under load remain pending.
+  1000 classes/filters in each direction in 134 ms and verified idempotence; the dedicated VPS
+  applied the same real-kernel workload in 405 ms. Traffic under 1000 real handshakes is unclaimed.
 - WSL full `-race ./...`, 4.75 million dump-parser fuzz executions, and `govulncheck@v1.7.0`
   with Go 1.27.1 pass (zero reachable findings; three module advisories are not called). Go 1.26.0
   reported standard-library findings that the patched toolchain removes. Docker now pins

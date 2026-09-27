@@ -26,6 +26,7 @@ type Backend struct {
 	links     *network.Links
 	awg       string
 	userspace *userspaceManager
+	modeProbe func(context.Context, string) (string, error)
 }
 
 // NewManaged is the service-owned backend. A standalone CLI backend cannot
@@ -59,6 +60,14 @@ func NewWithBinary(run subprocess.Runner, awg string) *Backend {
 		links: &network.Links{Run: run},
 		awg:   awg,
 	}
+}
+
+// NewDiagnostic uses a read-only mode probe for callers outside the service
+// that owns the userspace daemon, including the Docker host doctor.
+func NewDiagnostic(run subprocess.Runner, probe func(context.Context, string) (string, error)) *Backend {
+	b := New(run)
+	b.modeProbe = probe
+	return b
 }
 
 // ToolsVersion returns the tools version string (e.g. "v3.1.20260812") from
@@ -259,7 +268,7 @@ func (b *Backend) SyncPeers(ctx context.Context, name string, peers []tunnel.Pee
 }
 
 func (b *Backend) Dump(ctx context.Context, name string) (tunnel.InterfaceState, error) {
-	mode, err := b.observedMode(name)
+	mode, err := b.observedMode(ctx, name)
 	if err != nil {
 		return tunnel.InterfaceState{}, err
 	}

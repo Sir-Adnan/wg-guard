@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
@@ -28,9 +29,23 @@ func (r dockerExecRunner) Run(ctx context.Context, argv []string) (subprocess.Re
 
 func newDoctorInspector(state *install.State, host subprocess.Runner) *amneziawg.Backend {
 	if state != nil && state.Mode == install.ModeDocker {
-		return amneziawg.New(dockerExecRunner{host: host})
+		probe := func(ctx context.Context, name string) (string, error) {
+			// The daemon socket lives in the container mount namespace. The
+			// following script is fixed; the validated interface name is an arg.
+			res, err := host.Run(ctx, []string{"docker", "exec", "-i", install.Container,
+				"sh", "-c", "if [ -S /var/run/amneziawg/\"$1\".sock ]; then printf userspace; else printf kernel; fi", "sh", name})
+			if err != nil {
+				return "", fmt.Errorf("Docker userspace mode probe: %w", err)
+			}
+			mode := strings.TrimSpace(string(res.Stdout))
+			if mode != "kernel" && mode != "userspace" {
+				return "", fmt.Errorf("Docker userspace mode probe returned an invalid mode")
+			}
+			return mode, nil
+		}
+		return amneziawg.NewDiagnostic(dockerExecRunner{host: host}, probe)
 	}
-	return amneziawg.New(host)
+	return amneziawg.NewDiagnostic(host, amneziawg.ProbeMode)
 }
 
 // prepareDoctorFix maps Docker repair onto the managed lifecycle restart.

@@ -13,6 +13,7 @@ import (
 
 type doctorRuntimeRunner struct {
 	commands [][]string
+	mode     string
 }
 
 func (r *doctorRuntimeRunner) Run(_ context.Context, argv []string) (subprocess.Result, error) {
@@ -20,6 +21,13 @@ func (r *doctorRuntimeRunner) Run(_ context.Context, argv []string) (subprocess.
 	r.commands = append(r.commands, command)
 	if argv[len(argv)-1] == "--version" {
 		return subprocess.Result{Stdout: []byte("amneziawg-tools v3.1.20260812\n")}, nil
+	}
+	if len(argv) > 5 && argv[4] == "sh" {
+		mode := r.mode
+		if mode == "" {
+			mode = "kernel"
+		}
+		return subprocess.Result{Stdout: []byte(mode)}, nil
 	}
 	fields := []string{
 		"private", "public", "39001", "0", "0", "0", "0", "0", "0", "0",
@@ -41,10 +49,23 @@ func TestDoctorInspectorUsesRunningContainerInDockerMode(t *testing.T) {
 	}
 	want := [][]string{
 		{"docker", "exec", "-i", install.Container, "awg", "--version"},
+		{"docker", "exec", "-i", install.Container, "sh", "-c",
+			"if [ -S /var/run/amneziawg/\"$1\".sock ]; then printf userspace; else printf kernel; fi", "sh", "awg0"},
 		{"docker", "exec", "-i", install.Container, "awg", "show", "awg0", "dump"},
 	}
 	if !reflect.DeepEqual(runner.commands, want) {
 		t.Fatalf("Docker doctor commands = %#v, want %#v", runner.commands, want)
+	}
+}
+
+func TestDoctorInspectorRecognizesDockerUserspace(t *testing.T) {
+	runner := &doctorRuntimeRunner{mode: "userspace"}
+	state, err := newDoctorInspector(&install.State{Mode: install.ModeDocker}, runner).Dump(context.Background(), "awg0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.BackendMode != "userspace" {
+		t.Fatalf("Docker userspace observed as %q", state.BackendMode)
 	}
 }
 
