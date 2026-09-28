@@ -1,5 +1,31 @@
 # Testing strategy
 
+Use [workflow.md](workflow.md) to decide *when* evidence is needed and whether a prior result
+still applies. This page maps WG-Guard's test layers and retains completed phase evidence. The
+phase-specific sections below describe their original gates; statements about a then-future
+phase are historical, not instructions to rerun it now. Current claims and limits are in
+[status.md](status.md).
+
+## Current test selection
+
+Start with the affected behavior and its dependencies, then extend to the failure mode that
+matters. These are starting points, not automatic checklists:
+
+| Affected behavior | Focused evidence | Expand when |
+|---|---|---|
+| Prose, links, documented claims | Inspect changed text, local links and diff against the authoritative claim | A command/contract/example changes or source evidence is needed to justify a new claim |
+| Domain, API or SQLite | Relevant `internal/<service>`, `internal/api` and `internal/database` tests, including contract/permission and migration tests when affected | Shared models, schema, auth or public contract affects other consumers; verify their paths and OpenAPI coverage |
+| Panel, localization or assets | `internal/web` and `internal/i18n` tests for affected routes/states; inspect fa/en and RTL/LTR; browser check for changed behavior/layout | Shared shell/components, keyboard/touch, CSP, theme or cross-viewport behavior changes; use affected browser cells, then acceptance matrix if required |
+| AWG/client config, reconcile, firewall or shaping | Pinned upstream facts plus affected adapter, renderer, reconciler and network tests | Real backend/kernel, namespace or forwarded traffic changes; add integration and scoped Ubuntu host/client evidence before a production claim |
+| Auth, secrets, concurrency, backup or lifecycle | Focused security/failure-injection tests, rollback/data-preservation checks and race tests where concurrent access matters | A privilege or persistence boundary, host orchestration or recovery state changes; use isolated fixtures first, then authorized real-host acceptance |
+| Acquisition, release or resource use | Distribution/bootstrap fixtures, exact-source/build checks or targeted benchmark/asset measurements | Artifact identity, support matrix or performance claim changes; use the exact CI/release gate and relevant host evidence |
+
+`go test -race` exercises the package tests again with race instrumentation, not a different
+functional suite. A browser test skipped because its optional runtime is absent is not browser
+evidence. WSL integration, fake-backend tests, real Ubuntu host traffic and physical devices each
+prove different things. Keep the dedicated invariants and archived evidence below available for
+the specific risk; do not execute their entire historical sequence for an unrelated edit.
+
 ## Phase 8.1 installer verification
 
 [Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
@@ -69,13 +95,11 @@ identity and bidirectional counters while Docker retains `FORWARD DROP`. It also
 restart/idempotency, the exact owned rule/jump count and cleanup. The exact 2026-09-10 run is
 [recorded here](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
 
-During implementation, run focused regressions for the changed risk; run full build/unit/vet
-and relevant race/integration gates at coherent milestones. Prose-only changes do not justify
-repeating unchanged expensive suites. Root/service/data recovery paths need failure injection
-before real-host execution, not only a happy-path test after the entire installer is assembled.
-
-Nothing is "complete" without tests matching its risk. The majority of tests run without root
-and without a real VPN interface.
+For new work, apply [workflow.md](workflow.md): focused regressions during implementation and
+the evidence warranted by the delivered revision and acceptance claim. Prose-only changes do not
+justify replaying unchanged suites. Root/service/data recovery paths need failure injection before
+real-host execution, not only a happy-path test after the installer is assembled. Behavior-changing
+work needs checks matching its risk; most layers run without root or a real VPN interface.
 
 ## Layers
 

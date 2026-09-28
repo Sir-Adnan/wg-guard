@@ -9,8 +9,9 @@ documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 release passed the final gates and is public. Future releases and
-official registry images still require separate approval.
+The owner-approved v0.1.0 release passed the final gates and is public. The owner authorized
+v0.1.1 publication after its exact-source gate; later versions and official registry images
+still require separate approval.
 
 ## Program status
 

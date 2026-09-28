@@ -5,7 +5,7 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Release v0.1.0" src="https://img.shields.io/badge/release-v0.1.0-2563eb">
+    <img alt="Release v0.1.1" src="https://img.shields.io/badge/release-v0.1.1-2563eb">
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
@@ -24,7 +24,7 @@ recovery without turning the server into a large application stack.
 | 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a simple public subscription page |
 | 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
 | 🔐 | **Safe operations** — scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
-| 🌐 | **A polished panel** — English/Persian, RTL/LTR, light/dark/system themes, desktop and mobile |
+| 🌐 | **A polished panel** — English/Persian, RTL/LTR, light/dark/system modes, ten optional visual presets, desktop and mobile |
 
 ### Install
 

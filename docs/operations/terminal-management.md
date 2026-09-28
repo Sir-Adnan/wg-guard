@@ -205,7 +205,7 @@ sudo wg-guard install --commit FULL_40_CHARACTER_LOWERCASE_SHA \
 ```
 
 For a published build, replace `--commit FULL_40_CHARACTER_LOWERCASE_SHA` with
-`--release latest` or an exact tag such as `--release v0.1.0`. The GitHub bootstrap has the
+`--release latest` or an exact tag such as `--release v0.1.1`. The GitHub bootstrap has the
 same selections and forwards install flags after `--`; see [GitHub installation](github-install.md).
 
 Create the file with a trusted password manager/editor. Never place passwords, bot tokens or backup

@@ -2,7 +2,20 @@
 
 ## [Unreleased]
 
-No changes since the first release.
+No changes since v0.1.1.
+
+## [v0.1.1] — 2026-09-28
+
+This update refines the bilingual web panel; the supported Ubuntu 24.04 amd64 target and
+the `/api/v1` behavior remain unchanged.
+
+- Add ten selectable visual presets with Light/Dark variants, personal choices, and an
+  owner-controlled panel default. Preset colors, typography and shared components use a central
+  token registry; accessibility corrections preserve readable controls and status text.
+- Redesign the public subscription page for desktop and mobile. Correct RTL usage/transfer
+  presentation and hide the obsolete single-device QR state when viewing all device codes.
+- Self-host the optional Latin preset fonts and include their licenses. Clarify current API
+  automation guarantees and record future integration work without introducing new endpoints.
 
 ## [v0.1.0] — 2026-09-28
 

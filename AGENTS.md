@@ -1,70 +1,56 @@
-# AGENTS.md — operating guide for coding agents
+# Agent rules for WG-Guard
 
-WG-Guard: lightweight self-hosted AmneziaWG VPN node panel (Go + SQLite + HTMX). This file is a
-concise operating guide; **the documents under `docs/` are authoritative** — read them instead of
-guessing, and update them in the same change when behavior changes.
+WG-Guard is a Go/SQLite/HTMX panel for a self-hosted AmneziaWG node. The living `docs/`
+contracts define intended and supported behavior. Code shows implementation; relevant checks
+establish verification. Resolve a documented/code mismatch with evidence, not a new guess.
 
-## Start here
+## Find the relevant contract
 
-On a new session or when entering an unfamiliar area, orient from the documents below.
-For continuation work, reuse already-established context and read only the authoritative
-documents relevant to the current change; do not repeatedly reread unrelated docs.
+- Keep context already established in the task. For a new area, use the
+  [documentation map](docs/README.md) to locate the relevant contract; do not read every document
+  or replay completed phase evidence by default.
+- Check [status](docs/development/status.md) before making support or verification claims. Use
+  [release readiness](docs/development/release-readiness.md) for certification, blockers or release
+  decisions, not as required reading for every edit.
+- For implementation boundaries, use the relevant [architecture](docs/architecture/overview.md),
+  [project structure](docs/architecture/project-structure.md), product or operations document.
+  Before changing AmneziaWG behavior, inspect the [pinned upstream contract](docs/integrations/amneziawg.md)
+  and its cited version/evidence; gate unresolved behavior rather than inventing flags or params.
 
-1. [docs/README.md](docs/README.md) — documentation map.
-2. [docs/development/status.md](docs/development/status.md) — what is designed / implemented /
-   tested. Never claim more than this matrix says.
-3. [docs/development/release-readiness.md](docs/development/release-readiness.md) — active phase,
-   release blockers, audit findings, and future-phase ownership.
-4. [docs/development/workflow.md](docs/development/workflow.md) — build/test/lint/CI rules.
-5. [docs/architecture/overview.md](docs/architecture/overview.md) and
-   [docs/architecture/project-structure.md](docs/architecture/project-structure.md) when entering
-   an unfamiliar area or making architecture/structure-affecting changes.
-6. [docs/integrations/amneziawg.md](docs/integrations/amneziawg.md) before touching anything
-   AmneziaWG-related — upstream behavior is pinned there, not assumed from memory.
+## Preserve product and safety boundaries
 
-## Hard rules
+- Keep the Go node resource model bounded: one WG-Guard server process, one scheduler goroutine,
+  bounded queues/caches, cursor pagination and no busy loops. See
+  [architecture §Resources](docs/architecture/overview.md#resources).
+- Justify meaningful new dependencies and their maintenance cost. Production has no Node.js
+  runtime; the panel remains server-rendered HTML, HTMX and minimal vanilla JavaScript, with
+  prebuilt embedded assets. Do not trade away correctness, accessibility or product quality merely
+  for smaller assets.
+- Follow the [security model](docs/operations/security.md) for auth, secrets, subprocesses,
+  backups and host/network changes. Never log or commit credentials, tokens, private keys or raw
+  configs; pass secrets through stdin or 0600 files, not argv or shell interpolation.
+- Preserve the bilingual web contract: fa/en catalog parity, RTL/LTR layout and isolated LTR
+  technical values. The installer/host terminal stays English-only, including under environment
+  or legacy language flags. See the
+  [UI/UX contract](docs/product/ui-ux.md) for details.
+- Keep the requested change within its authorized scope. Real-host mutation, destructive data
+  operations and new public releases need scope-specific authorization; do not request it again
+  when already granted. An ordinary local check does not require permission.
 
-- **Never guess upstream behavior.** If AmneziaWG behavior is uncertain, inspect the pinned
-  version or mark the item unresolved. Do not invent CLI flags, config keys, or protocol params.
-- **Avoid unnecessary heavy dependencies.** Justify meaningful new Go modules and frontend
-  dependencies. Prefer stdlib and lightweight solutions, but do not sacrifice correctness,
-  maintainability, accessibility, or product/UI quality merely to minimize dependency or asset size.
-  No Node.js runtime in production; frontend assets are prebuilt and committed/embedded.
-- **Runtime resource budgets are requirements.** One process, one scheduler goroutine, bounded queues,
-  cursor pagination, no busy loops. See docs/architecture/overview.md §Resources.
-- **Security-sensitive code** (auth, secrets, subprocess, firewall, configs): follow
-  docs/operations/security.md. Never log keys, tokens, passwords, raw configs, or webhook
-  secrets. Secrets via argv are forbidden where stdin/file (0600) works.
-- **Localization contract**: the web UI is bilingual; its user-visible strings use
-  `internal/i18n` catalogs (fa + en, key parity tested), logical CSS and LTR technical data. The
-  installer/host terminal is English-only and must not switch from environment or legacy language
-  flags.
-- **Do not pull future-phase scope forward unnecessarily.** Work within the active ROADMAP phase.
-  A bounded prerequisite or regression fix discovered by the active phase may be handled when
-  required for correctness, but do not silently absorb unrelated future-phase work.
-- Distinguish clearly: designed / implemented / unit tested / integration tested /
-  requires real VPS verification.
+## Change, verify and report
 
-## Commands
-
-```bash
-make build       # go build ./cmd/wg-guard
-make test        # go test ./...
-make test-race   # go test -race ./...
-make fmt         # gofmt -l -w (must leave tree clean)
-make vet         # go vet ./...
-make lint        # fmt + vet + golangci-lint (when configured)
-make bench       # go test -bench ./...
-```
-
-Linux-specific integration tests use the build tag `integration` and run inside WSL2 Ubuntu
-(`wsl -d Ubuntu`) or CI. Tests must not require root or a real VPN interface except under that
-tag.
-
-## Commits
-
-Small, coherent, imperative messages (`docs: …`, `feat(user): …`, `fix(api): …`, `build: …`).
-The repository must build and pass `make test` at every commit.
-Prefer coherent milestone/change commits over micro-commits created only to checkpoint progress.
-Run targeted tests during implementation; run the required full commit gate once the coherent
-commit is ready.
+- Select checks for the behavior, dependencies and risk actually affected. During development use
+  focused checks; for delivery use the applicable gate in
+  [workflow](docs/development/workflow.md). Consult the [test map](docs/development/testing.md)
+  when specialized coverage is needed. A full suite is neither the default for each edit nor
+  forbidden when its evidence is needed.
+- Reuse a passing result only while its source, inputs, dependencies, environment and relevant
+  risk remain applicable. Do not rerun it merely because a response, document or work stage ends.
+  Distinguish fresh checks, reused evidence, unrun checks and blocked checks in the report.
+- Update the matching living docs **in the same change** when behavior, a public contract,
+  compatibility or a documented claim changes; update API/OpenAPI only for an affected public
+  contract. An internal edit that leaves those claims true needs no ceremonial doc sweep.
+- Keep commits coherent and imperative. Do not create micro-commits to checkpoint work; do not
+  claim an untested commit is verified. CI and release acceptance remain separate from focused
+  local checks. Distinguish designed, implemented, unit-tested, integration-tested and real-host
+  verified behavior. Historical phase records and fixtures are evidence, not standing work orders.

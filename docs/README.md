@@ -1,59 +1,57 @@
-# WG-Guard Documentation
+# WG-Guard documentation
 
-WG-Guard is a lightweight, self-hosted AmneziaWG VPN node management panel for Linux VPS
-servers: one Go binary, SQLite, a premium bilingual (fa/en) web panel, and a stable REST API for
-external management systems (Telegram bots, billing panels, VPN platforms).
+These are the living contracts for the Go/SQLite/HTMX AmneziaWG node panel. Choose the smallest
+set of documents relevant to the current task; this map is a route, not a reading checklist.
+Implementation and test evidence must support any claimed behavior.
 
-This directory is the authoritative documentation. Nothing important lives only in code comments
-or chat history.
+## Choose a route
 
-## Reading map
-
-| Document | Purpose |
+| Need | Start with |
 |---|---|
-| [product/requirements.md](product/requirements.md) | What WG-Guard is: product scope, user/device/profile model, lifecycle, non-goals |
-| [product/ui-ux.md](product/ui-ux.md) | Design system: tokens, components, i18n/RTL, themes, motion, performance, QA gates |
-| [architecture/overview.md](architecture/overview.md) | How it works: process model, components, key decisions, resource design |
-| [architecture/project-structure.md](architecture/project-structure.md) | Repository and package layout, naming conventions, dependency rules |
-| [architecture/database.md](architecture/database.md) | SQLite schema, invariants, allocation, retention, migration policy |
-| [architecture/api.md](architecture/api.md) | REST `/api/v1` contract: auth, errors, pagination, idempotency, versioning |
-| [architecture/networking.md](architecture/networking.md) | Tunnel interfaces, nftables ownership, sysctls, firewall coexistence, shaping |
-| [integrations/amneziawg.md](integrations/amneziawg.md) | Pinned AmneziaWG upstream: verified facts, CLI behavior, fixtures, verification log |
-| [integrations/webhooks.md](integrations/webhooks.md) | Event catalog, HMAC signature scheme, durable delivery semantics |
-| [operations/deployment.md](operations/deployment.md) | Docker (default) and native installation, TLS modes, ports, updates |
-| [development/phase8.2.md](development/phase8.2.md) | Completed secure-access, certificate-lifecycle, and persistent-manager phase |
-| [development/phase8.3.md](development/phase8.3.md) | Completed Docker/firewall forwarding-integrity correction and Internet-egress gate |
-| [operations/github-install.md](operations/github-install.md) | GitHub bootstrap, release/source acquisition, trust boundary and local candidate artifacts |
-| [operations/terminal-management.md](operations/terminal-management.md) | English terminal navigation, recommended setup, local owner, lifecycle and automation |
-| [operations/lifecycle-recovery.md](operations/lifecycle-recovery.md) | Durable lifecycle state, safe rollback, interrupted operations and recovery limits |
-| [operations/backup-restore.md](operations/backup-restore.md) | Backup archives, schedules, Telegram delivery, restore and server migration |
-| [operations/runbook.md](operations/runbook.md) | Operational procedures: install/update/uninstall, DR, doctor, incidents |
-| [operations/security.md](operations/security.md) | Threat model, secrets inventory, panel hardening, subprocess safety |
-| [development/workflow.md](development/workflow.md) | Build, test, lint, CI, release process |
-| [development/testing.md](development/testing.md) | Testing strategy: layers, fake backend, integration tags, benchmarks |
-| [development/status.md](development/status.md) | Feature matrix: designed / implemented / unit tested / integration tested / needs real VPS |
-| [development/release-readiness.md](development/release-readiness.md) | Active Phase 8–12 program: requirement ownership, blockers, audit findings, compatibility state |
-| [development/phase8.md](development/phase8.md) | Completed Phase 8 execution checklist and verification log |
-| [development/phase8.1.md](development/phase8.1.md) | Completed GitHub delivery and terminal lifecycle phase |
-| [development/phase9.md](development/phase9.md) | Completed operational-observability gate and linked real-VPS evidence |
-| [development/phase10.md](development/phase10.md) | Completed complete-panel UI/UX redesign and follow-up evidence |
-| [development/phase11.md](development/phase11.md) and [phase12.md](development/phase12.md) | Scoped production certification and completed v0.1.0 release gate |
-| [decisions/](decisions/) | Architecture Decision Records (ADRs) |
+| Current capability, supported host or verification claim | [Status matrix](development/status.md); use [release readiness](development/release-readiness.md) for blockers, certification history and release decisions |
+| Product behavior, panel UX or public API | [Requirements](product/requirements.md), [UI/UX contract](product/ui-ux.md), [API contract](architecture/api.md) as relevant |
+| Architecture or data change | [Overview](architecture/overview.md), [project structure](architecture/project-structure.md), [database](architecture/database.md) |
+| AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
+| Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
+| Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
 
-## Archived sources (frozen, provenance only)
+## Reference index
 
-- [archive/wg-guard_SPEC.md](archive/wg-guard_SPEC.md) — the original 3,461-line specification.
-  Superseded by the docs above; kept as the historical source of truth.
-- [archive/INITIAL_DELIVERABLE.md](archive/INITIAL_DELIVERABLE.md) — original upstream research
-  into the AmneziaWG ecosystem (licenses, CLI surface, known bugs). Still the reference for
-  upstream facts not yet reproduced in `integrations/amneziawg.md`.
-- [archive/ARCHITECTURE_V2_PROPOSAL.md](archive/ARCHITECTURE_V2_PROPOSAL.md) — the approved
-  architecture proposal (v2 + final-direction revisions).
+**Product and design:** [requirements](product/requirements.md) ·
+[UI/UX](product/ui-ux.md).
 
-## Rules
+**Architecture and integrations:** [overview](architecture/overview.md) ·
+[project structure](architecture/project-structure.md) · [database](architecture/database.md) ·
+[API](architecture/api.md) · [networking](architecture/networking.md) ·
+[AmneziaWG pin and verification](integrations/amneziawg.md) ·
+[webhooks](integrations/webhooks.md) · [ADRs](decisions/).
 
-- Active documents stay concise and avoid duplicating phase evidence; frozen source archives
-  and test fixtures retain their original form for provenance.
-- When implementation changes behavior, the corresponding doc is updated in the same change.
-- Anything not verified against a real environment is labeled explicitly
-  (designed / needs real VPS verification), never implied.
+**Operations:** [deployment](operations/deployment.md) ·
+[GitHub installation and acquisition](operations/github-install.md) ·
+[English terminal management](operations/terminal-management.md) ·
+[lifecycle recovery](operations/lifecycle-recovery.md) ·
+[backup and restore](operations/backup-restore.md) · [runbook](operations/runbook.md) ·
+[security](operations/security.md).
+
+**Development and current claims:** [workflow](development/workflow.md) ·
+[testing](development/testing.md) · [status](development/status.md) ·
+[release readiness](development/release-readiness.md) · [roadmap](../ROADMAP.md).
+
+**Completed phase evidence:** [Phase 8](development/phase8.md) ·
+[8.1](development/phase8.1.md) · [8.2](development/phase8.2.md) ·
+[8.3](development/phase8.3.md) · [9](development/phase9.md) ·
+[10](development/phase10.md) · [11](development/phase11.md) ·
+[12](development/phase12.md). Read only the record relevant to a changed claim or acceptance
+boundary; its historical test plan is not a standing instruction for routine edits.
+
+**Frozen provenance:** [original specification](archive/wg-guard_SPEC.md),
+[initial upstream research](archive/INITIAL_DELIVERABLE.md), and
+[architecture proposal](archive/ARCHITECTURE_V2_PROPOSAL.md). These preserve origin and context;
+the living contracts and current status above govern new work. Consult the initial research for
+upstream facts absent from the pinned integration document, then verify the relevant version
+before making a new claim. Test fixtures retain their recorded form for reproducibility.
+
+Update the matching living document in the same change when behavior, compatibility or a
+documented claim changes. An internal change that leaves those claims true does not require
+touching unrelated documents. Distinguish designed, implemented, automated-test verified and
+real-host verified behavior; do not infer one level from another.

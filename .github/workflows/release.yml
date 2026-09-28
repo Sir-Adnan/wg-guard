@@ -129,7 +129,7 @@ jobs:
           (cd "$RUNNER_TEMP/release-verify" && sha256sum --check checksums.txt)
           cmp "dist/$RELEASE_VERSION/wg-guard_linux_amd64" \
             "$RUNNER_TEMP/release-verify/wg-guard_linux_amd64"
-      - name: Publish v0.1.0
+      - name: Publish verified release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

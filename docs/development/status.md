@@ -11,14 +11,14 @@ verified checksummed assets and a successful latest-release install on the dedic
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
-**Post-release checkout (Phase 13, unreleased):** The public subscription QR visibility and
+**v0.1.1 candidate (Phase 13):** The public subscription QR visibility and
 mixed-direction usage defects are corrected; its desktop/phone composition and the ten-source
 visual preset layer are implemented. Fresh/upgrade migration, preference/owner boundaries,
 local font serving and the existing Go suite pass. Chromium and WebKit checked 80 preset × mode ×
 locale × viewport representative cells each, plus public subscription/QR flows and the eight-cell
 subscription composition set. Firefox could not launch in this Windows test environment, so its
 new Phase 13 cells remain unverified. No Phase 13 VPS or physical-device result is claimed;
-published v0.1.0 and its prior certification are unchanged. The additive external-automation API
+the prior Ubuntu production certification is not silently extended. The additive external-automation API
 is a [planned Phase 14](../../ROADMAP.md#phase-14--integration-api-for-automation), not an
 implemented V1 capability.
 
@@ -27,7 +27,7 @@ implemented V1 capability.
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, plans, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.0 contract frozen |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | V1 behavior unchanged in v0.1.1; Phase 14 automation additions remain planned |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |

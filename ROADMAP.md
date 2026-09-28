@@ -24,7 +24,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ✅ Complete |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
-| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Implemented; local Go/Chromium/WebKit gate passed, Firefox/real host unverified; v0.1.0 unchanged |
+| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Implemented; local Go/Chromium/WebKit gate passed, Firefox/real host unverified; v0.1.1 release gate pending |
 | **14 — Integration API for automation** | Additive, finance-safe lifecycle contracts for external panels/bots; resolve product semantics before implementation | Contract design planned; no new V1 endpoints yet |
 
 ## Phase gates

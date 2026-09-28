@@ -56,21 +56,21 @@ Keep the downloaded script to choose a different mode or source:
 | List stable releases | `bash wg-guard-install.sh --list-releases` |
 | Latest stable, Docker wizard | `bash wg-guard-install.sh -- --mode docker` |
 | Latest stable, native wizard | `bash wg-guard-install.sh -- --mode native` |
-| Exact published release | `bash wg-guard-install.sh --release v0.1.0` |
+| Exact published release | `bash wg-guard-install.sh --release v0.1.1` |
 | Development branch (explicit) | `bash wg-guard-install.sh --commit main` |
 
 The `--` separates bootstrap selection from installer flags. Supplying `--mode` starts installation
 directly; with no forwarded flags, the manager menu offers the same choice. `--release latest` is
 implicit in the first three installation commands. The Docker runtime image is built from the
-selected verified binary; there is no official registry image to pull for v0.1.0.
+selected verified binary; there is no official registry image to pull.
 
 For an **exact release**, pin both the entry script and the selected asset to the tag:
 
 ```bash
 curl -fsSLo wg-guard-install.sh \
-  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.1/install.sh
 less wg-guard-install.sh
-bash wg-guard-install.sh --release v0.1.0
+bash wg-guard-install.sh --release v0.1.1
 ```
 
 For a **reviewed development commit**, replace `FULL_40_CHARACTER_LOWERCASE_SHA` below with the
