@@ -7,13 +7,12 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 
 ## [Unreleased]
 
-### In progress
+### Changed
 - **Phase 11 production certification:** managed pinned-source userspace profiles, header-aware
   kernel upgrades, forwarding repair, fail-closed key/firewalld handling, bounded CLI parsing,
   admission-safe purge and complete kernel-link teardown passed targeted tests and Ubuntu 24.04
-  Docker/native drills. Final branch/CI gate remains; no public release has occurred.
-
-### Changed
+  Docker/native drills. Later Ubuntu and active firewalld remain uncertified; no public release
+  has occurred.
 - **Persian metric alignment:** numeric and technical summaries retain LTR reading order while
   aligning to the RTL card/table edge in the panel and public subscription page.
 - **UI consistency:** improved text/control contrast and 44px touch targets, corrected RTL icon/

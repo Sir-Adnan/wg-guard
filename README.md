@@ -17,8 +17,8 @@
 </div>
 
 > [!IMPORTANT]
-> WG-Guard is in active development. Phases 0–10 are complete; Phase 11 production
-> certification is underway and no public release exists. Ubuntu 24.04 LTS on amd64 is
+> WG-Guard is in active development. Phases 0–11 are complete within their documented scope;
+> Phase 12 and the first public release have not started. Ubuntu 24.04 LTS on amd64 is
 > the real-host verified deployment target.
 
 ## Why WG-Guard

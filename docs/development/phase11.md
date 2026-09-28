@@ -1,6 +1,7 @@
 # Phase 11 — Production certification
 
-Status: **in progress** on `codex/phase11-certification`; Phase 10 is frozen. No public release.
+Status: **complete for the certified Ubuntu 24.04 amd64 scope** (2026-09-28). Phase 10 is
+frozen; Phase 12 and public release have not started.
 
 ## Objective
 
@@ -68,8 +69,15 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
   scanning passed. Docker pins the patched Go toolchain. Focused Chromium/WebKit checks passed
   Persian numeric alignment without replaying the completed Phase 10 browser matrix.
 - Active firewalld is refused for enabled tunnels because its zone verdicts have no certified
-  owned allow path. Later Ubuntu releases remain unverified without a genuine host. The
-  final exact-revision repository/CI gate is pending; no public release has occurred.
+  owned allow path. Exact `fd64502` Docker/native smoke on Ubuntu 24.04 restored userspace and
+  kernel links, reported healthy forwarding and then removed both links and owned rules. A
+  read-only simulated firewalld CLI made Doctor fail explicitly. The full Windows test/build/vet
+  and WSL `-race ./...` gates passed on this code; CI on integrated `main` is the final check.
+
+The production claim is limited to the listed Ubuntu 24.04 amd64 paths. Later Ubuntu releases,
+active firewalld, real-host UFW coexistence, 1000 simultaneous handshakes, a multi-day traffic
+soak and an observed long-interval ACME renewal are unverified. UFW's scoped route behavior and
+renewal logic have automated coverage; no result is inferred for those real-host cells.
 
 ## Documentation
 
@@ -78,9 +86,9 @@ runbook/recovery, status/release tracker, requirements, and CHANGELOG with sanit
 
 ## Completion criteria
 
-RB-007 closes: supported matrix cells have real evidence, recovery and traffic drills pass,
-budgets are met or professionally revised with rationale, no unresolved critical/high finding
-remains, and the feature-frozen revision passes the complete automated suite.
+RB-007 closes for Ubuntu 24.04 amd64 Docker/native kernel/userspace and the explicitly listed
+network paths: recovery and traffic drills pass, resource budgets are met, no critical/high
+finding remains open, and the feature-frozen code passes the complete local automated suite.
 
 ## Deferred to Phase 12
 

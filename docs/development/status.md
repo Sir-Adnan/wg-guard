@@ -8,7 +8,7 @@ marked `requires real VPS`.
 Historical asset-budget results below describe past gates. Phase 10 replaces frontend size
 ceilings with observable measurements and efficiency review; runtime resource limits remain.
 
-## Phase 11 — Production certification (in progress, 2026-09-28)
+## Phase 11 — Production certification (complete for Ubuntu 24.04 amd64, 2026-09-28)
 
 The feature-frozen branch implements pinned-source managed userspace daemon lifecycle, safer
 recovery/uninstall, kernel-header persistence, bounded CLI parsing, early owner validation and
@@ -17,9 +17,11 @@ fail-closed firewalld handling. Full WSL race, 4.75 million parser fuzz executio
 measured 41/52 MB average RSS, 45/57 MB peak RSS and 0.03/0.04% CPU; real tc/IFB accepted
 1000 classes/filters in each direction in 134 ms on WSL and 405 ms on the dedicated VPS.
 Ubuntu 24.04.4 amd64 Docker/native kernel/userspace client, forwarding, reboot, recovery,
-backup/restore, key rotation, update/rollback, direct ACME and complete-removal drills passed;
-the final exact-revision repository gate remains pending. Active firewalld and later Ubuntu
-releases are not certified. No public release is published; RB-007 remains open until final gate.
+backup/restore, key rotation, update/rollback, direct ACME and complete-removal drills passed.
+Exact `fd64502` Docker/native smoke, full Windows build/test/vet and WSL race suite passed.
+Active firewalld and later Ubuntu releases are not certified; UFW's real-host cell and long
+interval/1000-handshake workloads are unclaimed. RB-007 closes for the documented 24.04 paths.
+Phase 12 and public release have not started.
 
 ## Phase 8.3 — Data-plane forwarding integrity (complete, 2026-09-10)
 
@@ -563,7 +565,7 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 8.3 — Data-plane forwarding integrity | complete; production verified on Ubuntu 24.04.4 amd64 Docker | Runtime NAT/firewall reconciliation, scoped Docker coexistence, fail-closed diagnostics, public egress and owned cleanup |
 | 10 — Product UI/UX redesign | complete | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
-| 11 — Production certification | in progress | Security/race/soak/performance and Ubuntu 24.04 Docker/native kernel/userspace/recovery drills passed; final exact-revision gate pending |
+| 11 — Production certification | complete for documented Ubuntu 24.04 amd64 paths | Security/race/soak/performance and Docker/native kernel/userspace, recovery, TLS and complete removal passed; unsupported/unverified cells are excluded |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 
 ## Requires real VPS or client verification (carried forward)

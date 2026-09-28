@@ -138,7 +138,11 @@ public release remains owner-approval gated. Detailed gate:
 Feature-freeze the product, close material security/audit findings, and test the exact release
 candidate under realistic load, networking, recovery, supported-Ubuntu, backend, and deployment
 conditions. Unsupported and unavailable matrix cells must be labeled honestly, never inferred.
-Detailed gate: [docs/development/phase11.md](docs/development/phase11.md).
+Completed 2026-09-28 for the documented Ubuntu 24.04 amd64 Docker/native kernel/userspace paths:
+real client, reboot, recovery, TLS, update/rollback, disk pressure, full cleanup, race/fuzz and
+0/100/1000 resource/shaping gates passed. Later Ubuntu releases, active firewalld, real-host UFW
+and 1000 simultaneous handshakes are not certified. Phase 12 remains next; public release still
+requires owner approval. Detailed gate: [docs/development/phase11.md](docs/development/phase11.md).
 
 ### Phase 12 — Release candidate
 

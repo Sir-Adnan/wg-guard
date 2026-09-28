@@ -4,7 +4,7 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-27. Phases 8, 8.1, 8.2, corrective 8.3, 9 and 10 are complete. Phase 10
+Last updated: 2026-09-28. Phases 8, 8.1, 8.2, corrective 8.3, 9, 10 and 11 are complete. Phase 10
 passed the full three-engine route/state/accessibility/performance
 matrix, relevant exact-code Ubuntu 24.04 amd64 Docker/TLS workflows, repository gates and main CI.
 The owner-directed refinement then passed targeted Chrome/WebKit checks and exact Docker client
@@ -16,7 +16,9 @@ host-owned systemd bridge. Fresh Chromium/Firefox/WebKit, axe, touch/reflow, del
 build/unit/race/vet and security gates pass. Exact revision `d9eb18e` passed fresh Docker install,
 host/container identity, real reviewed-core broker execution, repair and complete owned cleanup on
 Ubuntu 24.04.4 amd64, then integrated into `main`.
-Phase 11 is active on a certification branch; public release remains owner-approval gated.
+Phase 11 closes the documented Ubuntu 24.04 amd64 Docker/native kernel/userspace scope;
+later Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than
+inferred. Phase 12 has not started; public release remains owner-approval gated.
 An owner-reported Phase 10 follow-up fixes panel presentation and revoke semantics. Exact
 revision `9401937` passed local gates and a fresh private Ubuntu 24.04.4 amd64 Docker test:
 the former URL returned 404, the former public key disappeared from live AmneziaWG peers, and
@@ -32,7 +34,7 @@ replacement access worked; owned cleanup completed.
 | 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
 | 10 — Product UI/UX redesign | complete | Full redesign matrix plus exact continuation VPS/broker acceptance and coherent `main` integration |
-| 11 — Production certification | in progress | Material findings closed; supported compatibility cells verified |
+| 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
 | 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
@@ -76,7 +78,7 @@ implementation does not cross the active phase boundary.
 | RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | verified | Full Chromium/Firefox/WebKit route/state matrix, bilingual responsive workflows, relevant live Ubuntu Docker/TLS checks and decoded QR/config equality passed |
-| RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | planned | Supported cells and recovery/performance evidence recorded |
+| RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | verified for documented Ubuntu 24.04 amd64 scope | Docker/native kernel/userspace client, recovery, TLS, purge, race/fuzz/resource and shaping gates pass; later Ubuntu, active firewalld and real-host UFW are not claimed |
 | RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 | RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | verified | Cached manager/zero-network retry and public-HTTP refusal pass automated gates; real Docker Nginx/webroot and short-lived IP issuance/renewal, occupied-port refusal, rollback-safe transitions and cleanup are recorded in [Phase 8.2 evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). Cloudflare DNS-01 is automated-test verified; real issuance awaits a scoped token and is not claimed |
@@ -145,7 +147,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
 | AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
 | AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`, review closed after `fc2c537`; Docker/native rollback and failed-start recovery passed on the dedicated VPS |
-| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 + 8.2 correction | exact source-backed tools/kernel/DKMS/runtime readiness passed on Ubuntu 24.04 amd64; unsupported OS/architecture combinations fail early. Later supported Ubuntu amd64 source-build certification remains Phase 11 |
+| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 + 8.2 correction | Exact source-backed tools/kernel/DKMS/runtime readiness and a later kernel-upgrade repair passed on Ubuntu 24.04 amd64. Later Ubuntu releases remain unverified, not advertised as supported. |
 | AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and reviewed; terminal and real domain/ACME deployment gates passed |
 | AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | M2 installer parsing and M5 missing-flag/signed-chat/interval validation regressions pass; M5 independent review closed |
 | AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; review closed; safe uninstall and node recovery passed in both VPS deployment modes |
@@ -181,7 +183,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-060 | high | A missing master key on an established node could be silently regenerated, orphaning encrypted interfaces, devices, links and credentials | Phase 11 recovery certification | Verified: exact-host missing-key CLI/startup refused replacement, restored matching key recovered two backend profiles, and key rotation preserved config bytes. |
 | AUD-061 | medium | A disk-full failure during SQLite `VACUUM INTO` left a partial backup snapshot in the chosen output directory | Phase 11 disk-pressure certification | Verified: exact-host 8 KiB tmpfs refusal left no partial snapshot and the node remained healthy. |
 | AUD-062 | high | Full uninstall stopped the service and purged data but left a recorded kernel AmneziaWG link and its peers alive until manual deletion or reboot | Phase 11 removal certification | Verified at `4a603bc`: exact Ubuntu 24.04 Docker node with a kernel `awg1` peer passed full purge; both `awg0` and `awg1`, container, CLI, owned firewall and config were absent, with only the data-lock tombstone retained. |
-| AUD-063 | high | An active firewalld could add zone-level forwarding drops while `iptables FORWARD ACCEPT` let boot/readiness and doctor report a healthy VPN | Phase 11 firewall certification | Enabled tunnels now refuse active firewalld before boot mutation, runtime probe marks readiness unhealthy if it starts later, and doctor fails explicitly. Focused tests pass; firewalld is not a certified deployment policy. |
+| AUD-063 | high | An active firewalld could add zone-level forwarding drops while `iptables FORWARD ACCEPT` let boot/readiness and doctor report a healthy VPN | Phase 11 firewall certification | Verified fail-closed by focused tests and exact-host binary with a read-only simulated firewalld CLI; enabled tunnels refuse active firewalld before boot mutation, runtime readiness degrades, and Doctor fails explicitly. Real firewalld forwarding is not certified. |
 
 Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
 Add only evidence-backed findings. Do not use this table as an idea backlog.
