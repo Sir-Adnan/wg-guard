@@ -5,13 +5,16 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-09-28):** Phases 0–12 are complete within the documented Ubuntu 24.04 amd64
-scope. [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) is public with
-verified checksummed assets and a successful latest-release install on the dedicated VPS.
+**Current gate (2026-09-28):** Phases 0–13 are complete within their documented scopes.
+[v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) is the latest stable
+release. Its exact `91f0cad` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430328644)
+and the [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430987412),
+including checksummed amd64 assets and image identity. The v0.1.0 release had a successful
+latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
-**v0.1.1 candidate (Phase 13):** The public subscription QR visibility and
+**v0.1.1 follow-up (Phase 13):** The public subscription QR visibility and
 mixed-direction usage defects are corrected; its desktop/phone composition and the ten-source
 visual preset layer are implemented. Fresh/upgrade migration, preference/owner boundaries,
 local font serving and the existing Go suite pass. Chromium and WebKit checked 80 preset × mode ×

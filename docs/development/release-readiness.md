@@ -9,9 +9,10 @@ documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 release passed the final gates and is public. The owner authorized
-v0.1.1 publication after its exact-source gate; later versions and official registry images
-still require separate approval.
+The owner-approved v0.1.0 and v0.1.1 releases passed their respective gates and are public.
+The v0.1.1 `91f0cad` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430328644)
+and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430987412);
+later versions and official registry images require separate approval.
 
 ## Program status
 
@@ -200,6 +201,8 @@ or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are 
 
 ## Publication boundary
 
-The owner-approved **v0.1.0 GitHub Release** was published only after its final gates passed.
-Other tags, releases and official registry images require their own authorization. Published
-evidence and the unchanged support boundary are in [phase12.md](phase12.md).
+The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0)
+and [v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) GitHub Releases
+were published after their exact-source gates. Further tags, releases and official registry
+images require separate authorization. The support boundary remains as recorded in
+[phase12.md](phase12.md) and [status.md](status.md).

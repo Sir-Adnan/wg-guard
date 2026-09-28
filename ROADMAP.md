@@ -24,7 +24,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ✅ Complete |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
-| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Implemented; local Go/Chromium/WebKit gate passed, Firefox/real host unverified; v0.1.1 release gate pending |
+| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
 | **14 — Integration API for automation** | Additive, finance-safe lifecycle contracts for external panels/bots; resolve product semantics before implementation | Contract design planned; no new V1 endpoints yet |
 
 ## Phase gates
@@ -167,6 +167,12 @@ semantic CSS bridge, independent appearance preference scopes and source-aware S
 fa/en and light/dark, subscription QR/config checks, accessible contrast/focus and responsive
 review; changed cells are retested after fixes. Record any unavailable browser/physical-device
 cell honestly. This is new post-release work, not a retroactive Phase 10 or v0.1.0 claim.
+
+Completed 2026-09-28: [v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1)
+publishes `91f0cad` after [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430328644)
+and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430987412).
+Local Chromium/WebKit and Go checks passed; new Firefox, physical-device and VPS cells were
+not verified for this follow-up.
 
 ### Phase 14 — Integration API for automation
 
