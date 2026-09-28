@@ -1,125 +1,112 @@
 <div align="center">
-  <img src="web/static/img/favicon.svg" width="88" height="88" alt="WG-Guard logo">
+  <a href="https://github.com/Sir-Adnan/wg-guard"><img src="docs/assets/readme-hero.svg" width="100%" alt="WG-Guard — one node, clear control"></a>
   <h1>WG-Guard</h1>
-  <p><strong>A polished, self-hosted AmneziaWG node panel for modern VPN operations.</strong></p>
-  <p>One Go binary · SQLite · SSR + HTMX · English and Persian · Full RTL · REST API</p>
+  <p><strong>A considered control panel for your AmneziaWG node.</strong></p>
+  <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
+  <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <a href="README.md"><strong>English</strong></a>
-    ·
-    <a href="README.fa.md">فارسی</a>
-  </p>
-  <p>
-    <img alt="Go" src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white">
-    <img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
-    <img alt="Architecture" src="https://img.shields.io/badge/Architecture-amd64-4F46E5">
-    <img alt="License" src="https://img.shields.io/badge/License-MIT-16A34A">
+    <img alt="Release v0.1.0" src="https://img.shields.io/badge/release-v0.1.0-2563eb">
+    <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
+    <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
+    <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
   </p>
 </div>
 
-> [!IMPORTANT]
-> WG-Guard is in active development. Phases 0–11 are complete within their documented scope;
-> Phase 12 and the first public release have not started. Ubuntu 24.04 LTS on amd64 is
-> the real-host verified deployment target.
+WG-Guard brings the daily work of running a VPN node into one responsive, bilingual panel.
+It stays small and direct: Go, SQLite, server-rendered HTML, HTMX, and focused JavaScript.
+The VPN data plane stays on the host; the panel organizes access, delivery, diagnostics, and
+recovery without turning the server into a large application stack.
 
-## Why WG-Guard
-
-WG-Guard combines the quick setup of a small VPN panel with the controls needed to operate a
-serious node:
-
-| | Capability |
+| | Built for operators |
 |---|---|
-| 🛡️ | **AmneziaWG profiles** with per-interface ports, pools, MTU and server-generated anti-DPI presets |
-| 👥 | **Commercial user controls** for quota, expiry, first-connection activation, devices, plans and independent speed limits |
-| 📱 | **Per-device delivery** with canonical .conf downloads, QR codes, bulk ZIP export and secure access replacement |
-| 📊 | **Operational dashboard** for host health, CPU, RAM, disk, live VPN rates, peers and historical traffic |
-| 🔌 | **Stable REST API** with scoped tokens, idempotency, cursor pagination, rate limits, OpenAPI and signed webhooks |
-| 💾 | **Recovery workflow** with encrypted backups, schedules, Telegram delivery, import review and staged restore |
-| 🌐 | **Premium bilingual UI** with English/Persian, RTL/LTR, light/dark/system themes and responsive desktop/mobile layouts |
-| ⚙️ | **Safe host lifecycle** for Docker or native systemd, HTTPS choices, diagnostics, rollback and clean removal |
+| 🛡️ | **AmneziaWG control** — interfaces, generated anti-DPI profiles, peers, and guarded host reconciliation |
+| 👥 | **Subscriber lifecycle** — optional plans, quota, expiry, first-use activation, devices, speed limits, and secure subscription-link replacement |
+| 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a simple public subscription page |
+| 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
+| 🔐 | **Safe operations** — scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
+| 🌐 | **A polished panel** — English/Persian, RTL/LTR, light/dark/system themes, desktop and mobile |
 
-The panel stays lightweight: server-rendered HTML, HTMX and focused vanilla JavaScript. There is
-no SPA framework or production Node.js runtime.
+### Install
 
-## Install
+**Production-verified target:** Ubuntu 24.04 LTS on amd64, with root or sudo access and a
+reachable VPN endpoint. Docker is the recommended mode; native systemd is also verified.
+The installer checks and can provision its catalogued prerequisites. Keep access to the
+server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 
-The installer accepts **Ubuntu 24.04 or newer on amd64/x86_64**; production verification currently
-covers Ubuntu 24.04. Later releases need their own host certification. Until a stable release is published,
-install the reviewed main source:
+```bash
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh | bash -s -- --release v0.1.0'
+```
 
-~~~bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
-~~~
+The English-language setup guides you through the node mode, administrator account, and
+HTTPS or private access. It verifies the release asset before installing. The manager survives
+an interrupted initial setup, so a retry can start from `sudo wg-guard`.
 
-The bootstrap verifies the selected revision, installs the local manager and opens an
-English-only guided menu. Choose **Install WG-Guard**; Docker is the recommended default.
-Provide a domain for automatic HTTPS, or leave it empty for private SSH-tunnel access.
+| Panel access | When to choose it |
+|---|---|
+| **Private SSH tunnel** | No domain is ready; the panel stays on loopback and is not exposed publicly. |
+| **Managed HTTPS** | A domain or supported public-IP certificate is available. The installer handles the owned TLS path. |
+| **Existing reverse proxy** | You already operate Nginx or another HTTPS proxy; use the documented coexistence flow. |
 
-To inspect the installer first:
+To inspect the entry script before running it:
 
-~~~bash
-curl --proto '=https' -fsSLo wg-guard-install.sh https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
+```bash
+curl --proto '=https' -fsSLo wg-guard-install.sh \
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh
 less wg-guard-install.sh
-bash wg-guard-install.sh --commit main
-~~~
+bash wg-guard-install.sh --release v0.1.0
+```
 
-## Operate the node
+The [installation guide](docs/operations/github-install.md) explains noninteractive setup,
+exact-commit builds, prerequisites, and the integrity boundary.
 
-~~~bash
-sudo wg-guard                         # local management menu
-sudo wg-guard status                  # service and deployment state
-sudo wg-guard doctor                  # configuration and host diagnostics
-sudo wg-guard logs                    # recent safe operational logs
-sudo wg-guard logs --follow --component awg
-sudo wg-guard update                  # verified panel/core lifecycle
-~~~
+### First steps in the panel
 
-The manager covers updates, rollback, panel access, backup, restore and uninstall. It never
-accepts arbitrary AmneziaWG bundles, never logs client keys or credentials, and does not remove
-unrelated host services.
+1. Check the dashboard and `sudo wg-guard doctor` for a healthy node.
+2. Create an interface and choose a plain or compatible AmneziaWG profile.
+3. Add a user; use a plan only when you want shared defaults.
+4. Create or review the device, then share its QR code, config, or subscription link.
 
-## Architecture at a glance
+Replacing a subscription link also replaces its device credentials so previously issued
+links and configs stop working. Review client compatibility before changing a live profile.
 
-~~~text
-Browser ── SSR + HTMX ── Go web panel ── domain services ── SQLite
-                           │                    │
-                           ├── REST /api/v1     ├── AmneziaWG reconciliation
-                           ├── OpenAPI          ├── nftables + shaping
-                           └── signed webhooks  └── backup + lifecycle manager
-~~~
+### Run
 
-- One process and bounded background work
-- One canonical renderer for direct, API, panel and subscription configs/QR
-- Namespaced firewall ownership that leaves foreign rules untouched
-- Secret-safe storage, responses and logs
-- Docker-first deployment with native systemd support
+```bash
+sudo wg-guard             # management menu
+sudo wg-guard status      # service and deployment
+sudo wg-guard doctor      # host and tunnel diagnostics
+sudo wg-guard logs        # bounded operational logs
+sudo wg-guard update      # reviewed panel/core lifecycle
+```
 
-## Documentation
+The menu covers encrypted backups, restore review, schedules, rollback, access changes, and
+uninstall. Take a backup before moving the panel to a new server; restore checks the target
+environment and retains the database/master-key relationship. See the
+[recovery guide](docs/operations/backup-restore.md).
 
-- [Installation guide](docs/operations/github-install.md)
-- [Deployment and HTTPS](docs/operations/deployment.md)
-- [Backup and restore](docs/operations/backup-restore.md)
-- [REST API](docs/architecture/api.md)
-- [AmneziaWG compatibility](docs/integrations/amneziawg.md)
-- [Architecture](docs/architecture/overview.md)
-- [Project status](docs/development/status.md)
-- [Documentation index](docs/README.md)
+Generated AmneziaWG profiles require compatible clients; plain profiles can use standard
+WireGuard clients. Active firewalld, newer Ubuntu releases, non-amd64 hosts, and 1000
+simultaneous handshakes are outside the current production claim. The exact verified cells
+and limits are in [project status](docs/development/status.md).
 
-Generated profiles require compatible AmneziaWG clients. Standard/plain profiles can be used
-with ordinary WireGuard clients. See the compatibility document before choosing a profile.
+### API and design
 
-## Development
+The same node exposes a documented `/api/v1` for external systems. Scoped tokens,
+idempotency, cursor pagination, and signed webhook deliveries support integration without
+screen-scraping. The web panel remains server-rendered, and the host owns tunnel interfaces,
+firewall rules, and shaping. Start with the [API contract](docs/architecture/api.md) or
+[architecture overview](docs/architecture/overview.md).
 
-~~~bash
-make build
-make test
-make lint
-~~~
+### Explore
 
-Read [AGENTS.md](AGENTS.md) and the [development workflow](docs/development/workflow.md) before
-contributing.
+[Installation](docs/operations/github-install.md) ·
+[Deployment and HTTPS](docs/operations/deployment.md) ·
+[Client compatibility](docs/integrations/amneziawg.md) ·
+[REST API](docs/architecture/api.md) ·
+[Documentation map](docs/README.md)
 
-## License
-
-WG-Guard is available under the [MIT License](LICENSE). Third-party notices are listed in
-[THIRD_PARTY.md](THIRD_PARTY.md); AmneziaWG components run as separate processes and are not
-vendored into WG-Guard.
+The [release bundle](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) includes
+the Linux/amd64 binary, checksums, dependency inventory, and notices. You can verify the
+downloaded files with `sha256sum --check --ignore-missing checksums.txt`. WG-Guard is
+[MIT-licensed](LICENSE); external components and their licenses are listed in
+[THIRD_PARTY.md](THIRD_PARTY.md). Contributions start with [AGENTS.md](AGENTS.md).

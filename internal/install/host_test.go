@@ -25,16 +25,29 @@ func TestRealHostStreamReturnsContextCancellation(t *testing.T) {
 		}
 	}
 	t.Setenv("WGG_TEST_STREAM_HELPER", "1")
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var stdout bytes.Buffer
-	err := (realHost{}).Stream(ctx, []string{os.Args[0], "-test.run=^TestRealHostStreamReturnsContextCancellation$"}, &stdout, io.Discard)
-	if !errors.Is(err, context.DeadlineExceeded) {
+	err := (realHost{}).Stream(ctx, []string{os.Args[0], "-test.run=^TestRealHostStreamReturnsContextCancellation$"}, streamReadyWriter{&stdout, cancel}, io.Discard)
+	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("stream cancellation = %v", err)
 	}
 	if !strings.Contains(stdout.String(), "ready") {
 		t.Fatalf("stream did not connect stdout: %q", stdout.String())
 	}
+}
+
+type streamReadyWriter struct {
+	buf    *bytes.Buffer
+	cancel context.CancelFunc
+}
+
+func (w streamReadyWriter) Write(p []byte) (int, error) {
+	n, err := w.buf.Write(p)
+	if strings.Contains(w.buf.String(), "ready") {
+		w.cancel()
+	}
+	return n, err
 }
 
 // memHost is the in-memory Host for tests: fs in a map, commands recorded

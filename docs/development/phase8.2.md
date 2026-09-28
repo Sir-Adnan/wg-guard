@@ -1,7 +1,8 @@
 # Phase 8.2 — Secure access & persistent manager
 
-Status: **complete (2026-09-09)**. Phase 9, corrective Phase 8.3 and Phase 10 subsequently
-completed; Phase 11 remains planned and unstarted.
+Status: **complete (2026-09-09)**. Phase 9, corrective Phase 8.3, Phase 10 and the documented
+Ubuntu 24.04 scope of Phase 11 subsequently completed. Historical verification below is
+scoped to the Phase 8.2 checkpoint.
 
 ## Objective and placement
 
@@ -152,8 +153,6 @@ and runtime config.
   without abandoning setup, generate blank passwords securely with a post-health show-once card,
   route all interrupted initial installs to guided cleanup/reset, and add a separately confirmed
   complete-removal path for fixed WG-Guard data/cache/log/config ownership.
-
-Detailed task order: [Phase 8.2 implementation plan](../superpowers/plans/2026-09-09-phase8.2-secure-access-manager.md).
 
 ## Verification results
 

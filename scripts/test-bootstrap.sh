@@ -75,6 +75,7 @@ else:sys.exit(1)
 ''')
 for f in (p/'bin').iterdir():f.chmod(0o755)
 PY
+real_path=$PATH
 export PATH="$fixture/bin:$PATH"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 request_count() { if [[ -f $fixture/requests ]]; then wc -l < "$fixture/requests"; else printf '0\n'; fi; }
@@ -228,7 +229,22 @@ test -z "$(ls -A "$fixture/tmp")" || fail 'corrupt toolchain cleanup'
 touch "$fixture/nonroot"
 bash "$fixture/bootstrap" --release v1 --yes </dev/null
 test -s "$fixture/sudo-used" || fail 'non-root installation was not elevated'
-bash "$root/scripts/build-artifacts.sh" --version v1 --output "$fixture/artifacts"
+PATH="$real_path" bash "$root/scripts/build-artifacts.sh" --version v1 --output "$fixture/artifacts"
 (cd "$fixture/artifacts" && sha256sum --check checksums.txt)
+python3 - "$fixture/artifacts" "$(PATH="$real_path" git -C "$root" rev-parse HEAD)" <<'PY'
+import json, pathlib, sys, tarfile
+assets, commit = pathlib.Path(sys.argv[1]), sys.argv[2]
+metadata = json.loads((assets / 'release-metadata.json').read_text())
+sbom = json.loads((assets / 'sbom.spdx.json').read_text())
+assert metadata['version'] == 'v1' and metadata['commit'] == commit
+assert metadata['platform'] == 'linux/amd64' and len(sbom['packages']) > 10
+assert all('gozxing' not in package['name'] for package in sbom['packages'])
+with tarfile.open(assets / 'wg-guard_v1_linux_amd64.tar.gz', 'r:gz') as bundle:
+    names = bundle.getnames()
+    for name in ('wg-guard_linux_amd64', 'LICENSE', 'THIRD_PARTY.md',
+                 'third_party/licenses/Vazirmatn-OFL.txt'):
+        assert any(path.endswith('/' + name) for path in names), name
+    assert any('/licenses/go/' in name for name in names)
+PY
 test ! -e "$fixture/artifacts/wg-guard_linux_arm64" || fail 'unsupported arm64 asset created'
 printf 'bootstrap fixtures passed\n'

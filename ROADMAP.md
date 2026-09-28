@@ -22,8 +22,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **8.3 — Data-plane forwarding integrity** | Docker/UFW forwarding coexistence, effective route/NAT diagnostics, full tunnel-to-Internet verification, and owned firewall cleanup | ✅ Complete |
 | **9 — Operational observability** | Efficient live node/AWG metrics, dashboard telemetry, unified CLI logs, redaction, and bounded seven-day retention | ✅ Complete |
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ✅ Complete |
-| **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | 🔄 In progress |
-| **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ⬜ Planned |
+| **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
+| **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | 🔄 In progress |
 
 ## Phase gates
 
@@ -141,15 +141,17 @@ conditions. Unsupported and unavailable matrix cells must be labeled honestly, n
 Completed 2026-09-28 for the documented Ubuntu 24.04 amd64 Docker/native kernel/userspace paths:
 real client, reboot, recovery, TLS, update/rollback, disk pressure, full cleanup, race/fuzz and
 0/100/1000 resource/shaping gates passed. Later Ubuntu releases, active firewalld, real-host UFW
-and 1000 simultaneous handshakes are not certified. Phase 12 remains next; public release still
-requires owner approval. Detailed gate: [docs/development/phase11.md](docs/development/phase11.md).
+and 1000 simultaneous handshakes are not certified. Phase 12 is active; the owner has approved
+v0.1.0 only after its final gates. Detailed gate:
+[docs/development/phase11.md](docs/development/phase11.md).
 
 ### Phase 12 — Release candidate
 
 Freeze behavior and documentation, build and verify release artifacts from a clean revision,
 exercise installation and upgrade from those artifacts, and produce the final readiness report.
-Public tags, releases, and registry images remain approval-gated and are not published in this
-phase without explicit owner approval. Detailed gate:
+Public tags, releases, and registry images remain approval-gated. The owner has explicitly
+approved publishing **v0.1.0 after the final Phase 12 gates pass**; this does not authorize
+later releases or broaden the certified host matrix. Detailed gate:
 [docs/development/phase12.md](docs/development/phase12.md).
 
 ## Verification policy

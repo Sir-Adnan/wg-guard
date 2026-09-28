@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 310" role="img" aria-labelledby="title desc">
+  <title id="title">WG-Guard</title>
+  <desc id="desc">An abstract VPN operations dashboard with a healthy node and a traffic chart.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#071827"/>
+      <stop offset=".58" stop-color="#0b2740"/>
+      <stop offset="1" stop-color="#142b59"/>
+    </linearGradient>
+    <linearGradient id="accent" x2="1" y2="1">
+      <stop stop-color="#29d6e8"/>
+      <stop offset="1" stop-color="#6684ff"/>
+    </linearGradient>
+    <linearGradient id="chart" x2="0" y2="1">
+      <stop stop-color="#38d4e6" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#38d4e6" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="48"/></filter>
+    <filter id="shadow" x="-30%" y="-50%" width="160%" height="200%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity=".3"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="310" rx="28" fill="url(#bg)"/>
+  <circle cx="159" cy="5" r="140" fill="#2a9bc8" opacity=".2" filter="url(#blur)"/>
+  <circle cx="1000" cy="283" r="170" fill="#796cff" opacity=".15" filter="url(#blur)"/>
+  <path d="M0 70H1200M0 140H1200M0 210H1200M0 280H1200M80 0V310M160 0V310M240 0V310M320 0V310M400 0V310M480 0V310M560 0V310M640 0V310M720 0V310M800 0V310M880 0V310M960 0V310M1040 0V310M1120 0V310" stroke="#a4d7ff" stroke-opacity=".045"/>
+  <g transform="translate(61 66)">
+    <rect width="55" height="55" rx="16" fill="#32c5e0" fill-opacity=".12" stroke="#6ce0ed" stroke-opacity=".55"/>
+    <path d="M27.5 11 42 17v12c0 10-5.7 16.8-14.5 20C18.7 45.8 13 39 13 29V17z" fill="none" stroke="#75e5ec" stroke-width="2.7" stroke-linejoin="round"/>
+    <path d="m20.5 29 5.1 5.2 10-11.1" fill="none" stroke="#75e5ec" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="61" y="177" fill="#f6fbff" font-family="ui-sans-serif,system-ui,Arial" font-weight="700" font-size="48" letter-spacing="-2">WG-Guard</text>
+  <text x="64" y="211" fill="#a9c3da" font-family="ui-sans-serif,system-ui,Arial" font-size="18">One node. Clear control.</text>
+  <rect x="62" y="239" width="193" height="31" rx="15.5" fill="#2eecbf" fill-opacity=".11" stroke="#54e4ce" stroke-opacity=".42"/>
+  <circle cx="81" cy="254.5" r="4.5" fill="#54e4ce"/>
+  <text x="96" y="260" fill="#a5f5e5" font-family="ui-sans-serif,system-ui,Arial" font-size="13" font-weight="600">AmneziaWG · Online</text>
+  <g filter="url(#shadow)" transform="translate(563 39)">
+    <rect width="582" height="232" rx="20" fill="#0c192d" stroke="#55708c" stroke-opacity=".55"/>
+    <rect x="20" y="21" width="182" height="70" rx="13" fill="#142b42" stroke="#526b84" stroke-opacity=".4"/>
+    <text x="37" y="47" fill="#91aabe" font-family="ui-sans-serif,system-ui,Arial" font-size="12">NODE HEALTH</text>
+    <circle cx="45" cy="69" r="5" fill="#4ce1b7"/>
+    <text x="59" y="74" fill="#f0fff9" font-family="ui-sans-serif,system-ui,Arial" font-size="20" font-weight="600">Healthy</text>
+    <rect x="218" y="21" width="164" height="70" rx="13" fill="#142b42" stroke="#526b84" stroke-opacity=".4"/>
+    <text x="235" y="47" fill="#91aabe" font-family="ui-sans-serif,system-ui,Arial" font-size="12">ACTIVE PEERS</text>
+    <text x="235" y="76" fill="#f2f8ff" font-family="ui-sans-serif,system-ui,Arial" font-size="27" font-weight="650">128</text>
+    <rect x="398" y="21" width="164" height="70" rx="13" fill="#142b42" stroke="#526b84" stroke-opacity=".4"/>
+    <text x="415" y="47" fill="#91aabe" font-family="ui-sans-serif,system-ui,Arial" font-size="12">INTERFACES</text>
+    <text x="415" y="76" fill="#f2f8ff" font-family="ui-sans-serif,system-ui,Arial" font-size="27" font-weight="650">04</text>
+    <rect x="20" y="108" width="542" height="104" rx="13" fill="#10243a" stroke="#526b84" stroke-opacity=".35"/>
+    <text x="38" y="132" fill="#bfd3e4" font-family="ui-sans-serif,system-ui,Arial" font-size="12">TRAFFIC · LAST 24 HOURS</text>
+    <path d="M40 189 84 177 124 182 162 152 197 163 235 148 273 158 312 136 348 153 385 137 424 144 460 122 504 134 542 116V202H40Z" fill="url(#chart)"/>
+    <path d="M40 189 84 177 124 182 162 152 197 163 235 148 273 158 312 136 348 153 385 137 424 144 460 122 504 134 542 116" fill="none" stroke="url(#accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="460" cy="122" r="5" fill="#79e6ef" stroke="#10243a" stroke-width="3"/>
+  </g>
+</svg>

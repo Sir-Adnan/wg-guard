@@ -4,25 +4,12 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-28. Phases 8, 8.1, 8.2, corrective 8.3, 9, 10 and 11 are complete. Phase 10
-passed the full three-engine route/state/accessibility/performance
-matrix, relevant exact-code Ubuntu 24.04 amd64 Docker/TLS workflows, repository gates and main CI.
-The owner-directed refinement then passed targeted Chrome/WebKit checks and exact Docker client
-traffic for all five advanced generated profiles; the additive preset enum is synchronized with
-OpenAPI. Runtime-safe interface deletion passed an exact-candidate Docker create/delete/cleanup
-gate. The refreshed acceptance reran Chromium, Firefox and WebKit across the complete matrix.
-The owner continuation also adds a catalog-only Web Panel update workflow through a fixed
-host-owned systemd bridge. Fresh Chromium/Firefox/WebKit, axe, touch/reflow, delayed-font,
-build/unit/race/vet and security gates pass. Exact revision `d9eb18e` passed fresh Docker install,
-host/container identity, real reviewed-core broker execution, repair and complete owned cleanup on
-Ubuntu 24.04.4 amd64, then integrated into `main`.
-Phase 11 closes the documented Ubuntu 24.04 amd64 Docker/native kernel/userspace scope;
-later Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than
-inferred. Phase 12 has not started; public release remains owner-approval gated.
-An owner-reported Phase 10 follow-up fixes panel presentation and revoke semantics. Exact
-revision `9401937` passed local gates and a fresh private Ubuntu 24.04.4 amd64 Docker test:
-the former URL returned 404, the former public key disappeared from live AmneziaWG peers, and
-replacement access worked; owned cleanup completed.
+Last updated: 2026-09-28. Phases 8–11 and corrective 8.1–8.3 are complete within their
+documented scopes; Phase 12 is active. Phase 10 passed the three-engine route/state matrix and
+relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
+Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
+Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
+The owner explicitly approved publishing v0.1.0 only after the final Phase 12 gates pass.
 
 ## Program status
 
@@ -35,7 +22,7 @@ replacement access worked; owned cleanup completed.
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
 | 10 — Product UI/UX redesign | complete | Full redesign matrix plus exact continuation VPS/broker acceptance and coherent `main` integration |
 | 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
-| 12 — Release candidate | planned | Clean, reproducible candidate ready for owner-approved publication |
+| 12 — Release candidate | in progress | Clean, reproducible candidate ready for owner-approved v0.1.0 publication |
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.
@@ -79,7 +66,7 @@ implementation does not cross the active phase boundary.
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | verified | Full Chromium/Firefox/WebKit route/state matrix, bilingual responsive workflows, relevant live Ubuntu Docker/TLS checks and decoded QR/config equality passed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | verified for documented Ubuntu 24.04 amd64 scope | Docker/native kernel/userspace client, recovery, TLS, purge, race/fuzz/resource and shaping gates pass; later Ubuntu, active firewalld and real-host UFW are not claimed |
-| RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | planned | Clean candidate pipeline dry run and artifact install verification |
+| RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | in progress | Clean candidate pipeline dry run and artifact install verification |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 | RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | verified | Cached manager/zero-network retry and public-HTTP refusal pass automated gates; real Docker Nginx/webroot and short-lived IP issuance/renewal, occupied-port refusal, rollback-safe transitions and cleanup are recorded in [Phase 8.2 evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). Cloudflare DNS-01 is automated-test verified; real issuance awaits a scoped token and is not claimed |
 | RB-011 | Docker's earlier `FORWARD` DROP can allow AWG handshake while blocking all routed client traffic | Phase 8.3 | verified | Scoped `DOCKER-USER` coexistence, fail-closed readiness/doctor diagnostics, and exact data-plane candidate plain/recommended/randomized public-IP/DNS/HTTPS traffic with cleanup [evidence](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt) |
@@ -211,6 +198,6 @@ or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are 
 
 ## Publication boundary
 
-Phase 12 may build, checksum, install, upgrade, and inspect candidate artifacts and may prepare a
-manual publication workflow. It must stop before any final public tag, release, or registry image
-is published. Publication requires explicit project-owner approval.
+Phase 12 may build, checksum, install, upgrade, and inspect candidate artifacts. The owner has
+explicitly approved a **v0.1.0 GitHub Release after the final gates pass**; other tags, releases
+and registry images require their own authorization. If a gate fails, publication stops.

@@ -38,11 +38,16 @@ make tidy         # go mod tidy
 - Production build: `CGO_ENABLED=0` for linux/amd64.
 - `govulncheck` (tool version pinned in the workflow) scans all packages for reachable
   vulnerabilities in dependencies.
-- Release pipeline (Phase 12): checksummed binaries + provenance notes; no signing secrets in
-  the repository.
-- Phase 8.1 local candidate/acquisition contract: `bash scripts/build-artifacts.sh --version
+- The manual `Publish release` workflow accepts an exact verified `main` SHA and stable version,
+  reruns the source gates, checksums an amd64 binary/notices bundle, inventories linked Go
+  modules, builds and inspects the runtime image, attests the binary/SBOM, and only then creates
+  the tag and GitHub Release. It uses GitHub's short-lived workflow token; no publication or
+  signing secrets live in the repository. The v0.1.0 approval does not authorize other versions
+  or a public registry image.
+- Local candidate/acquisition contract: `bash scripts/build-artifacts.sh --version
   VERSION --output NEW_DIRECTORY` builds immutable local HEAD for Linux amd64 with
-  checksums; it never publishes. Linux CI runs `bash scripts/test-bootstrap.sh`. See
+  checksums, metadata, SPDX inventory and bundled notices; it never publishes. Linux CI runs
+  `bash scripts/test-bootstrap.sh`. See
   [GitHub acquisition](../operations/github-install.md) for commands and verification limits.
 - Linux CI also runs `python3 scripts/test-phase8.1-synthetic-backup.py`, the credential-free
   behavioral helper suite. It uses only synthetic local fixtures, never real Telegram delivery.

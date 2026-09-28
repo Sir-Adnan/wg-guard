@@ -1,6 +1,7 @@
 # Phase 12 — Release candidate
 
-Status: **planned; not implemented**. Starts only after Phase 11 certification closes.
+Status: **in progress** (2026-09-28). Phase 11 certification closed for the documented
+Ubuntu 24.04 amd64 paths. The owner approved publishing v0.1.0 after the final gates pass.
 
 Phase 8.1 establishes the GitHub acquisition contract and local checksummed candidate builder
 needed by the installer. This phase consumes those foundations, repeats exact-candidate tests,
@@ -8,8 +9,8 @@ and owns the final amd64 publication workflow, provenance and freeze.
 
 ## Objective
 
-Produce a clean, reproducible, installable, fully documented release candidate and stop before
-public publication pending explicit project-owner approval.
+Produce a clean, reproducible, installable, fully documented release candidate; verify it in
+the supported environment; then publish the owner-approved v0.1.0 GitHub Release.
 
 ## Scope and deliverables
 
@@ -20,7 +21,7 @@ public publication pending explicit project-owner approval.
   toolchain consistency and concise `AGENTS.md` review.
 - Versioned linux/amd64 binary, checksums, release metadata, amd64 container build,
   provenance/SBOM and reproducibility evidence where practical.
-- Manual approval-gated publication workflow; no signing or publication secrets in the repo.
+- Manual exact-commit publication workflow; no signing or publication secrets in the repo.
 - Install and upgrade both Docker and native modes from the exact candidate artifacts.
 - Final browser/API/config/QR/metrics/logging/recovery/deployment regression and CI verification.
 - Final professional readiness report with supported, unsupported, unverified and deferred work.
@@ -32,7 +33,8 @@ public publication pending explicit project-owner approval.
 3. Build/checksum/inspect amd64 candidate artifacts from a clean revision.
 4. Exercise candidate install, upgrade, rollback and smoke workflows.
 5. Run the final complete verification and CI suite; review the final diff/history.
-6. Push candidate commits, prepare the publication action, issue the readiness report, and stop.
+6. Push candidate commits, verify CI and exact artifacts, publish the owner-approved v0.1.0
+   release, verify its downloadable assets, and issue the readiness report.
 
 ## Verification
 
@@ -55,7 +57,8 @@ RB-008 and every remaining release blocker close; CI is green; candidate artifac
 upgrade successfully; checksums/metadata and support claims are verified; the readiness report
 concludes whether the product is genuinely ready.
 
-## Explicit publication boundary
+## Publication boundary
 
-Do not create the final public tag/release or publish the official registry image without explicit
-project-owner approval. Phase 12 ends by waiting for that approval.
+The owner's 2026-09-28 instruction authorizes **v0.1.0** after every Phase 12 completion gate.
+It does not authorize other versions or an official registry image. Candidate failure stops
+publication; no tag or release is created merely to mark progress.

@@ -16,10 +16,10 @@ setup. Existing installations retain their current administrator identity.
 
 ## Commands
 
-Public interactive installation from `main` while no stable release exists:
+Stable v0.1.0 interactive installation:
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh | bash -s -- --release v0.1.0'
 ```
 
 This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
@@ -37,7 +37,7 @@ For stricter inspect-before-run operation, download the entry point first:
 
 ```bash
 curl --proto '=https' -fsSLo install.sh \
-  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh
 bash install.sh --help
 bash install.sh --list-releases
 bash install.sh --release latest -- --mode native
@@ -46,8 +46,8 @@ bash install.sh --commit main -- --mode native
 bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --mode native
 ```
 
-The tag above is an example, not a claim that a release exists. Selecting `main` for the binary
-always resolves GitHub's actual `main` branch to an immutable SHA before acquisition.
+The tagged bootstrap and selected release are both fixed at v0.1.0. Selecting `main` for a
+development build instead resolves GitHub's branch to an immutable SHA before acquisition.
 
 For an immutable audit run, supply a reviewed full SHA containing the local-owner and
 coordinated-restore installer capabilities. This downloads into a uniquely created private
@@ -57,9 +57,9 @@ temporary file, propagates failure and cleans up on exit:
 bash -c 'set -euo pipefail; umask 077; ref="$1"; script=$(mktemp /tmp/wg-guard-bootstrap.XXXXXXXX); trap '\''rm -f -- "$script"'\'' EXIT; curl --proto "=https" -fsS --connect-timeout 15 --max-time 120 -o "$script" "https://raw.githubusercontent.com/Sir-Adnan/wg-guard/$ref/install.sh"; bash "$script" --commit "$ref"' -- REVIEWED_FULL_40_CHARACTER_SHA
 ```
 
-Before a compatible public release exists, use `--commit main` for the current development head
-or select an immutable reviewed SHA that has been pushed to GitHub. A local unpushed commit cannot
-be acquired remotely. Fresh noninteractive setup also needs
+Use `--commit main` only for a deliberately selected development head, or an immutable reviewed
+SHA that has been pushed to GitHub. A local unpushed commit cannot be acquired remotely.
+Fresh noninteractive setup also needs
 `--owner-password-file /root/private-file` (0600), optionally `--owner-username`; see
 [owner setup and terminal constraints](terminal-management.md).
 
@@ -146,8 +146,10 @@ the bootstrap removes its entire staging directory on success/failure.
 
 Checksums provide integrity over trusted GitHub/TLS, not independent publisher authentication.
 A compromised publisher account or a malicious explicitly selected source commit is outside
-this boundary. Release tag identity is resolved through GitHub; checksum manifests are not
-cryptographically bound to that commit. Signing/provenance and final publication remain Phase 12.
+this boundary. Release tag identity is resolved through GitHub; the asset manifest alone is not
+cryptographically bound to that commit. The v0.1.0 workflow adds exact-commit metadata, an
+SPDX inventory and GitHub Actions build attestations; consumers can inspect them against the
+tag and checksum before use.
 
 `Client.Acquire(ctx, Selection, absoluteDir)` returns
 `Build{Channel, Ref, Commit, Version, SHA256, BinaryPath}`. Release `Ref` is the exact tag; source
@@ -185,16 +187,17 @@ sha256sum --check checksums.txt
 ```
 
 The builder archives immutable local `HEAD`, builds the Linux amd64 target, stamps the full
-commit/version, and writes the exact asset names above. Uncommitted work is excluded. The output
-directory must not already exist. This creates no public tag, release, registry image or upload.
+commit/version, and writes the binary, checksums, metadata, SPDX Go-module inventory and a
+notices bundle. Uncommitted work is excluded. The output directory must not already exist.
+Local builds create no public tag, release, registry image or upload.
 
 `go test ./internal/distribution ./internal/subprocess` exercises HTTPS fixtures, malformed
 selections, integrity/size/cancellation failures, unsafe archives, toolchain checksums and an
 actual minimal source compilation. `bash scripts/test-bootstrap.sh` runs fake external utilities
 and real script logic for release/list/source/toolchain paths, integrity refusal, piped input,
-cleanup and candidate checksums. Linux CI runs those fixtures. Fixtures and cross-compilation do
-not prove clean-host source/DKMS provisioning on every later Ubuntu release or
-published-release installation.
+cleanup, candidate checksums, archive content and SBOM. Linux CI runs those fixtures. Fixtures
+and cross-compilation do not prove clean-host source/DKMS provisioning on every later Ubuntu
+release; the exact published-artifact drill is recorded in [Phase 12](../development/phase12.md).
 Separate real Docker/native evidence is linked from [Phase 8.1](../development/phase8.1.md).
 
 The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly

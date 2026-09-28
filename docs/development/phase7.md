@@ -137,8 +137,8 @@ line printed a garbled future-tense sentence ("uninstalled. will be purged") —
 
 ## Honest notes
 
-- The official registry image (`wgguard/wg-guard`) is NOT published yet — publishing versioned
-  amd64 images is the Phase 12 release pipeline. The drills used a locally-built image and
+- No public registry image was published at this checkpoint; v0.1.0 also uses the
+  installer-built local runtime image. The Phase 7 drills used a locally-built image and
   the documented `--image` override; `update` treats a failed pull as a warning for exactly
   this case.
 - ACME renewal is automatic (autocert) but the 60-day renewal itself was not observed — only

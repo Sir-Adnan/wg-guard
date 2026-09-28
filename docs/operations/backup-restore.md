@@ -217,8 +217,8 @@ unrelated foreign-key data. The environment review reads its interface inventory
 
 The panel restart path has separate coverage proving that `restore.pending` is consumed before
 the database is opened, the staged values replace later live mutations, and exactly one
-`backup.restored` audit event is written. These automated guarantees do not replace the broader
-real-host disaster-recovery drills in Phase 11.
+`backup.restored` audit event is written. Phase 11 added real-host restore, disk-pressure and
+recovery drills; their scope is recorded in [phase11.md](../development/phase11.md).
 
 ### Interrupted lifecycle recovery
 

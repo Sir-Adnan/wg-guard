@@ -1,0 +1,118 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version (for example v0.1.0)
+        required: true
+        type: string
+      commit:
+        description: Exact, already verified main commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: wg-guard-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+      - name: Verify release identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT"
+          git fetch origin main --tags
+          test "$(git rev-parse origin/main)" = "$RELEASE_COMMIT"
+          test -z "$(git status --porcelain)"
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_VERSION"; then
+            test "$(git rev-list -n 1 "$RELEASE_VERSION")" = "$RELEASE_COMMIT"
+            ! gh release view "$RELEASE_VERSION" >/dev/null 2>&1
+          fi
+      - name: Final source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test -race ./...
+          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+          bash scripts/check-assets.sh
+          bash scripts/test-bootstrap.sh
+      - name: Build and inspect immutable assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/build-artifacts.sh --version "$RELEASE_VERSION" --output "dist/$RELEASE_VERSION"
+          (cd "dist/$RELEASE_VERSION" && sha256sum --check checksums.txt)
+          test "$("dist/$RELEASE_VERSION/wg-guard_linux_amd64" version | grep -c "$RELEASE_VERSION")" -gt 0
+          python3 -m json.tool "dist/$RELEASE_VERSION/sbom.spdx.json" >/dev/null
+      - name: Build and inspect amd64 runtime image
+        shell: bash
+        run: |
+          set -euo pipefail
+          built_at=$(date -u -d "@$(git show -s --format=%ct HEAD)" +%Y-%m-%dT%H:%M:%SZ)
+          image="wg-guard:release-$RELEASE_VERSION"
+          docker build --platform linux/amd64 --build-arg "VERSION=$RELEASE_VERSION" \
+            --build-arg "COMMIT=$RELEASE_COMMIT" --build-arg "BUILD_DATE=$built_at" -t "$image" .
+          test "$(docker image inspect --format '{{.Architecture}}' "$image")" = amd64
+          docker run --rm --entrypoint /usr/local/bin/wg-guard "$image" version | grep -F "$RELEASE_VERSION"
+          asset_hash=$(sha256sum "dist/$RELEASE_VERSION/wg-guard_linux_amd64" | cut -d' ' -f1)
+          image_hash=$(docker run --rm --entrypoint sha256sum "$image" /usr/local/bin/wg-guard | cut -d' ' -f1)
+          test "$asset_hash" = "$image_hash"
+          docker run --rm --entrypoint /usr/local/bin/awg "$image" --version
+          docker run --rm --entrypoint /usr/local/bin/amneziawg-go "$image" --version
+          docker run --rm --entrypoint test "$image" -s /usr/share/doc/wg-guard/THIRD_PARTY.md
+      - name: Attest binary and release bundle
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/${{ inputs.version }}/wg-guard_linux_amd64
+            dist/${{ inputs.version }}/wg-guard_${{ inputs.version }}_linux_amd64.tar.gz
+      - name: Attest SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/${{ inputs.version }}/wg-guard_linux_amd64
+          sbom-path: dist/${{ inputs.version }}/sbom.spdx.json
+      - name: Publish verified GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_VERSION"; then
+            git tag -a "$RELEASE_VERSION" -m "WG-Guard $RELEASE_VERSION"
+            git push origin "refs/tags/$RELEASE_VERSION"
+          fi
+          awk -v header="## [$RELEASE_VERSION]" \
+            '$0 == header { copying=1; next } /^## \[/ && copying { exit } copying { print }' \
+            CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          test -s "$RUNNER_TEMP/release-notes.md"
+          gh release create "$RELEASE_VERSION" "dist/$RELEASE_VERSION/"* \
+            --verify-tag --title "WG-Guard $RELEASE_VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" --latest

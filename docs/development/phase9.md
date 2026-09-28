@@ -6,9 +6,6 @@ completed the delivery/lifecycle and secure-access prerequisites. Execution bega
 `main` revision `cb728945a348944dc86d3d485babbc1123bf4492` on 2026-09-10. Deterministic expanded
 `/proc` fixtures are part of milestone 9.1 rather than completed 9.0 evidence.
 
-Detailed dependency-ordered execution plan:
-[`../superpowers/plans/2026-09-05-phase9-operational-observability.md`](../superpowers/plans/2026-09-05-phase9-operational-observability.md).
-
 ## Objective
 
 Make node health and failures quickly understandable from the dashboard and one CLI workflow,

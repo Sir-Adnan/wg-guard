@@ -5,6 +5,7 @@ dist/
 docs/
 scripts/
 *.md
+!THIRD_PARTY.md
 *.wgg
 *.test
 coverage.out

@@ -7,8 +7,7 @@
 # network namespace with zero hot-path overhead.
 #
 # Build (supported amd64 target):
-#   docker build -t wgguard/wg-guard:latest .
-#   docker buildx build --platform linux/amd64 -t wgguard/wg-guard:latest --push .
+#   docker build --platform linux/amd64 -t wg-guard:candidate .
 
 FROM golang:1.27.1-alpine AS build
 WORKDIR /src
@@ -17,11 +16,12 @@ RUN go mod download
 COPY . .
 ARG VERSION=dev
 ARG COMMIT=none
-RUN CGO_ENABLED=0 go build -trimpath \
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -mod=readonly \
     -ldflags "-s -w \
       -X github.com/Sir-Adnan/wg-guard/internal/version.Version=${VERSION} \
       -X github.com/Sir-Adnan/wg-guard/internal/version.Commit=${COMMIT} \
-      -X github.com/Sir-Adnan/wg-guard/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      -X github.com/Sir-Adnan/wg-guard/internal/version.Date=${BUILD_DATE}" \
     -o /out/wg-guard ./cmd/wg-guard
 
 FROM ubuntu:24.04 AS awg-tools-build
@@ -51,6 +51,9 @@ RUN cd /src/amneziawg-go && CGO_ENABLED=0 go build -trimpath -o /out/amneziawg-g
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ARG VERSION=dev
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
 
 # Runtime tooling is built from the exact reviewed upstream tag and commit.
 # The host kernel module remains installer-managed and is not loaded here.
@@ -62,7 +65,15 @@ RUN apt-get update \
 COPY --from=build /out/wg-guard /usr/local/bin/wg-guard
 COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
 COPY --from=awg-userspace-build /out/amneziawg-go /usr/local/bin/amneziawg-go
+COPY --from=build /src/LICENSE /usr/share/doc/wg-guard/LICENSE
+COPY --from=build /src/THIRD_PARTY.md /usr/share/doc/wg-guard/THIRD_PARTY.md
+COPY --from=build /src/third_party/licenses /usr/share/doc/wg-guard/third_party/licenses
 
+LABEL org.opencontainers.image.source="https://github.com/Sir-Adnan/wg-guard" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.licenses="MIT"
 LABEL io.wg-guard.awg-tools.commit="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
 LABEL io.wg-guard.awg-userspace.commit="b5928efb6ca19f0153958460c3d141f04abc5c2e"
 

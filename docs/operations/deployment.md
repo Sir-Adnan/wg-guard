@@ -6,12 +6,11 @@ data paths, so backups and mode-switching are layout-independent.
 
 ## Docker mode (default)
 
-- **Official image** (`wgguard/wg-guard`): Ubuntu 24.04 base + `amneziawg-tools` built from its
-  exact reviewed GitHub tag/commit + nftables/iptables-nft + ca-certificates + the WG-Guard binary
-  ([Dockerfile](../../Dockerfile), amd64). Registry publication of versioned tags is part of
-  the Phase 12 release pipeline; until then build locally
-  (`docker build -t wgguard/wg-guard:<tag> .`) and pass `--image` to the installer, which is
-  also what `wg-guard update` consumes.
+- **Verified local runtime image**: the installer builds an Ubuntu 24.04 amd64 image from the
+  checksum-verified release binary and exact-source AmneziaWG tools/userspace components.
+  No public registry image is required or published for v0.1.0. The repository
+  [Dockerfile](../../Dockerfile) builds the same runtime composition for the Phase 12 image
+  inspection gate; an operator may supply an explicitly checked local image via `--image`.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
   `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups,
   ACME cache). The generated compose file adds a TLS-mode-aware healthcheck.
@@ -208,8 +207,8 @@ The platform policies, an expired-file cleanup and both deployment modes passed 
 ## Ports & networking defaults
 
 All values below are **recommended defaults** (sensible starting points chosen from upstream
-constraints), fully editable after install — not verified optima; guidance is revisited after
-the Phase 11 production matrix.
+constraints), fully editable after install — not verified global optima. Phase 11 certified
+the documented Ubuntu 24.04 paths, not a universal performance optimum.
 
 | Setting | Recommended default | Editable later |
 |---|---|---|

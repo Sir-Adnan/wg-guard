@@ -25,6 +25,7 @@ func TestAcquireReleaseIntegrity(t *testing.T) {
 		fail                         bool
 	}{
 		{"verified", checksum, string(binary), "wg-guard_linux_amd64", int64(len(binary)), false},
+		{"verified release manifest", checksum + strings.Repeat("0", 64) + "  sbom.spdx.json\n", string(binary), "wg-guard_linux_amd64", int64(len(binary)), false},
 		{"corrupt", checksum, "corrupt", "wg-guard_linux_amd64", 7, true},
 		{"missing checksum", "", "anything", "wg-guard_linux_amd64", 8, true},
 		{"duplicate checksum", checksum + checksum, string(binary), "wg-guard_linux_amd64", int64(len(binary)), true},

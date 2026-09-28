@@ -8,15 +8,15 @@ host-operation failure injection, narrow/wide English terminal checks, and dedic
 
 | Area | Recorded Phase 8.1 evidence | Later-phase limit |
 |---|---|---|
-| GitHub delivery | Real source acquisition/build/help, executable release/error fixtures and exact one-command management. `d30894a` passed source install/update through strict commit-bound PAX handling and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) | Published-release install remains Phase 12; no release exists yet |
+| GitHub delivery | Real source acquisition/build/help, executable release/error fixtures and exact one-command management. `d30894a` passed source install/update through strict commit-bound PAX handling and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) | Exact v0.1.0 published-asset install requires the Phase 12 gate |
 | Terminal | Final real Linux acceptance passed 17 PTY plus three nonTTY cases across 48/80/120 columns and no-color/dumb modes. Follow-up regressions verify the current English-only contract, compact recommended path, Enter defaults and installed-node fast path | Feature-frozen terminal regression is repeated in Phase 11 |
 | Runtime image | Builder/image/binary/AWG identity, real Docker deployment and fresh ACME passed on Ubuntu 24.04 amd64 | Later supported Ubuntu amd64 cells remain Phase 11 |
 | Backup/recovery | Encrypted Telegram/scheduler, sequential native and final Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
 
 Exact revisions and sanitized records live in [status.md](status.md) and
 [phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
-code. These checks do not replace Phase 11's supported-Ubuntu/backend certification or Phase 12's
-final published-artifact gate.
+code. Historical checks do not replace Phase 11's supported-Ubuntu/backend certification or
+Phase 12's final published-artifact gate.
 
 ## Phase 8.2 secure-access verification
 

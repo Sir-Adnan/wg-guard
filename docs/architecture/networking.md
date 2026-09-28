@@ -14,8 +14,8 @@ self-inflicted outage).
 - Per interface: listen port (recommended default: random 30000–50000, low-port prompt
   available), IPv4 pool (recommended default `10.8.N.0/24`, validated: RFC1918, no overlap with
   host routes or other interfaces, minimum size warnings), MTU (recommended default 1420 —
-  Phase 0 pinned the upstream constraints; transport-level overhead on real hardware is
-  confirmed in the Phase 11 production matrix before any guidance change), endpoint override
+  Phase 0 pinned the upstream constraints; this starting value is not a measured global
+  throughput optimum), endpoint override
   (host[:port]) for generated client configs.
 - Bulk peer changes use `awg syncconf` (diff-apply without resetting active sessions);
   single-peer ops use `awg set`. One `awg show awgN dump` per interface per accounting cycle
@@ -120,8 +120,8 @@ Live-pinned ingress facts (WSL2, kernel 6.18.33.1-microsoft-standard, 2026-08-30
 X type ifb` works; `tc qdisc add dev X handle ffff: ingress` + `mirred egress redirect` filters
 work; HTB on ifb works; `tc qdisc del dev X ingress` exits 0 even when absent (tolerated in the
 rebuild). Thousands of tc classes cost CPU — the per-user class design keeps the class count at
-users-with-limits, not devices. The 1000-shaped-peer tc benchmark and production degradation
-policy remain the Phase 11 certification pass.
+users-with-limits, not devices. Phase 11 measured 1000 classes/filters per direction on the
+dedicated Ubuntu 24.04 host; it did not claim 1000 simultaneous handshakes.
 
 ## Addressing
 

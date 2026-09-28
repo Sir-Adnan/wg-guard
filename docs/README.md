@@ -37,7 +37,7 @@ or chat history.
 | [development/phase8.1.md](development/phase8.1.md) | Completed GitHub delivery and terminal lifecycle phase |
 | [development/phase9.md](development/phase9.md) | Completed operational-observability gate and linked real-VPS evidence |
 | [development/phase10.md](development/phase10.md) | Completed complete-panel UI/UX redesign and follow-up evidence |
-| [development/phase11.md](development/phase11.md) through [phase12.md](development/phase12.md) | Completed scoped production certification and planned release-candidate gate |
+| [development/phase11.md](development/phase11.md) and [phase12.md](development/phase12.md) | Completed scoped production certification and active v0.1.0 release gate |
 | [decisions/](decisions/) | Architecture Decision Records (ADRs) |
 
 ## Archived sources (frozen, provenance only)
@@ -52,7 +52,8 @@ or chat history.
 
 ## Rules
 
-- Every document stays under ~400 lines and never duplicates another.
+- Active documents stay concise and avoid duplicating phase evidence; frozen source archives
+  and test fixtures retain their original form for provenance.
 - When implementation changes behavior, the corresponding doc is updated in the same change.
 - Anything not verified against a real environment is labeled explicitly
   (designed / needs real VPS verification), never implied.
