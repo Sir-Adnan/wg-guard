@@ -34,12 +34,21 @@
 دسترسی کنسول یا SSH را هنگام نصب حفظ کنید و برای HTTPS دامنه‌ای آماده داشته باشید.
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh | bash -s -- --release v0.1.0'
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
 ```
 
-نصب‌کنندهٔ انگلیسی انتخاب شیوهٔ استقرار، حساب مدیر و دسترسی HTTPS یا خصوصی را راهنمایی
-می‌کند و فایل انتشار را پیش از نصب بررسی می‌کند. مدیر محلی پس از نصب نیمه‌تمام نیز
-باقی می‌ماند تا ادامهٔ کار از `sudo wg-guard` ممکن باشد.
+این دستور اسکریپت ورودی روز را دریافت می‌کند و **آخرین انتشار پایدار** را نصب می‌کند؛
+نسخهٔ توسعهٔ شاخهٔ `main` را نصب نمی‌کند. نصب‌کنندهٔ انگلیسی انتخاب Docker یا استقرار
+بومی، حساب مدیر و دسترسی HTTPS یا خصوصی را راهنمایی می‌کند و فایل انتشار را پیش از
+نصب بررسی می‌کند. مدیر محلی پس از نصب نیمه‌تمام نیز باقی می‌ماند تا ادامهٔ کار از
+`sudo wg-guard` ممکن باشد.
+
+| هدف شما | روش |
+|---|---|
+| **آخرین انتشار پایدار با راهنما** | دستور بالا را اجرا و Docker پیشنهادی یا حالت بومی را در منو انتخاب کنید. |
+| **بازبینی پیش از اجرا** | اسکریپت را با دستورهای پایین دریافت و بخوانید، سپس محلی اجرا کنید. |
+| **نسخهٔ مشخص یا کد توسعه** | برچسب انتشار یا شناسهٔ کامل commit را صریح انتخاب کنید؛ [راهنمای نصب](docs/operations/github-install.md) را ببینید. |
+| **نصب خودکار** | گزینه‌های نصب و فایل محافظت‌شدهٔ گذرواژهٔ مدیر را بدهید؛ [راهنمای ترمینال](docs/operations/terminal-management.md) را ببینید. |
 
 | روش دسترسی به پنل | زمان انتخاب |
 |---|---|
@@ -50,14 +59,16 @@ bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsS
 برای بازبینی اسکریپت پیش از اجرا، آن را جداگانه دریافت کنید:
 
 ```bash
-curl --proto '=https' -fsSLo wg-guard-install.sh \
-  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh
+curl -fsSLo wg-guard-install.sh \
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
 less wg-guard-install.sh
-bash wg-guard-install.sh --release v0.1.0
+bash wg-guard-install.sh
 ```
 
-راهنمای [نصب از گیت‌هاب](docs/operations/github-install.md) روش نصب بدون تعامل، انتخاب
-شناسهٔ دقیق commit، پیش‌نیازها و مرزهای بررسی صحت فایل‌ها را توضیح می‌دهد.
+برای **استقرار بومی** به‌جای دستور آخر `bash wg-guard-install.sh -- --mode native`
+را اجرا کنید. راهنمای [نصب از گیت‌هاب](docs/operations/github-install.md) دستورهای
+آمادهٔ انتشار روز یا نسخهٔ مشخص، Docker و حالت بومی، کد توسعه و نصب خودکار را همراه
+با پیش‌نیازها و مرزهای بررسی صحت فایل‌ها توضیح می‌دهد.
 
 ### گام‌های نخست در پنل
 
@@ -105,7 +116,7 @@ sudo wg-guard update      # به‌روزرسانی بررسی‌شدهٔ پنل
 [رابط REST](docs/architecture/api.md) ·
 [نقشهٔ مستندات](docs/README.md)
 
-بستهٔ [انتشار](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) شامل فایل اجرایی
+بستهٔ [آخرین انتشار](https://github.com/Sir-Adnan/wg-guard/releases/latest) شامل فایل اجرایی
 لینوکس، چک‌سام، فهرست وابستگی‌ها و اطلاعیه‌های مجوز است. برای بررسی فایل‌های دریافت‌شده
 از دستور `sha256sum --check --ignore-missing checksums.txt` استفاده کنید. پروژه با [مجوز MIT](LICENSE)
 منتشر می‌شود و اجزای ثالث در [فهرست مجوزها](THIRD_PARTY.md) آمده‌اند.

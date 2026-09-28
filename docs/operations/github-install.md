@@ -16,14 +16,21 @@ setup. Existing installations retain their current administrator identity.
 
 ## Commands
 
-Stable v0.1.0 interactive installation:
+Latest published stable release, with an interactive deployment wizard:
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh | bash -s -- --release v0.1.0'
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
 ```
 
-This convenience form propagates download failure and the bootstrap reopens `/dev/tty` for
-installer input rather than consuming script bytes as answers. After installation, run
+The entry script comes from `main`, but its default selection is `--release latest`: it resolves
+the newest **published stable** GitHub release, not the development branch. `pipefail` makes a
+failed download fail the one-liner. Normal HTTPS certificate validation remains enabled. The
+longer `curl --proto '=https' --proto-redir '=https' --tlsv1.2` form is valid if an operator
+wants explicit protocol restrictions; it is optional for the everyday command. As with any
+remote-script command, inspect the script first if you need to review what will run.
+
+The bootstrap reopens `/dev/tty` for installer input rather than consuming script bytes as
+answers. After installation, run
 `sudo wg-guard`; it opens the verified local manager immediately without GitHub access. Re-running
 the one-line command downloads the small bootstrap and resolves the selected release/commit. If
 the immutable identity matches the private receipt, no binary/source/toolchain is downloaded and
@@ -33,35 +40,68 @@ Temporary GitHub or compiler failure falls back only to a valid cached manager a
 invalid selections and integrity/contract failures do not. `--refresh` always reacquires and never
 falls back. Manager refresh alone does not restart or update the installed service.
 
-For stricter inspect-before-run operation, download the entry point first:
+For inspect-before-run operation, download the entry point first:
 
 ```bash
-curl --proto '=https' -fsSLo install.sh \
+curl -fsSLo wg-guard-install.sh \
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
+less wg-guard-install.sh
+bash wg-guard-install.sh
+```
+
+Keep the downloaded script to choose a different mode or source:
+
+| Goal | Command |
+|---|---|
+| List stable releases | `bash wg-guard-install.sh --list-releases` |
+| Latest stable, Docker wizard | `bash wg-guard-install.sh -- --mode docker` |
+| Latest stable, native wizard | `bash wg-guard-install.sh -- --mode native` |
+| Exact published release | `bash wg-guard-install.sh --release v0.1.0` |
+| Development branch (explicit) | `bash wg-guard-install.sh --commit main` |
+
+The `--` separates bootstrap selection from installer flags. Supplying `--mode` starts installation
+directly; with no forwarded flags, the manager menu offers the same choice. `--release latest` is
+implicit in the first three installation commands. The Docker runtime image is built from the
+selected verified binary; there is no official registry image to pull for v0.1.0.
+
+For an **exact release**, pin both the entry script and the selected asset to the tag:
+
+```bash
+curl -fsSLo wg-guard-install.sh \
   https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh
-bash install.sh --help
-bash install.sh --list-releases
-bash install.sh --release latest -- --mode native
-bash install.sh --release v0.1.0 -- --mode native
-bash install.sh --commit main -- --mode native
-bash install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA -- --mode native
+less wg-guard-install.sh
+bash wg-guard-install.sh --release v0.1.0
 ```
 
-The tagged bootstrap and selected release are both fixed at v0.1.0. Selecting `main` for a
-development build instead resolves GitHub's branch to an immutable SHA before acquisition.
-
-For an immutable audit run, supply a reviewed full SHA containing the local-owner and
-coordinated-restore installer capabilities. This downloads into a uniquely created private
-temporary file, propagates failure and cleans up on exit:
+For a **reviewed development commit**, replace `FULL_40_CHARACTER_LOWERCASE_SHA` below with the
+same real SHA in both commands. A branch such as `main` may advance; a SHA does not.
 
 ```bash
-bash -c 'set -euo pipefail; umask 077; ref="$1"; script=$(mktemp /tmp/wg-guard-bootstrap.XXXXXXXX); trap '\''rm -f -- "$script"'\'' EXIT; curl --proto "=https" -fsS --connect-timeout 15 --max-time 120 -o "$script" "https://raw.githubusercontent.com/Sir-Adnan/wg-guard/$ref/install.sh"; bash "$script" --commit "$ref"' -- REVIEWED_FULL_40_CHARACTER_SHA
+curl -fsSLo wg-guard-install.sh \
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/FULL_40_CHARACTER_LOWERCASE_SHA/install.sh
+less wg-guard-install.sh
+bash wg-guard-install.sh --commit FULL_40_CHARACTER_LOWERCASE_SHA
 ```
 
-Use `--commit main` only for a deliberately selected development head, or an immutable reviewed
-SHA that has been pushed to GitHub. A local unpushed commit cannot be acquired remotely.
-Fresh noninteractive setup also needs
-`--owner-password-file /root/private-file` (0600), optionally `--owner-username`; see
-[owner setup and terminal constraints](terminal-management.md).
+For a stricter direct download, keep explicit protocol restrictions and `pipefail`:
+
+```bash
+bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
+```
+
+Use `--commit main` only for a deliberately selected development head; it resolves to an immutable
+SHA before the build. A local unpushed commit cannot be acquired remotely. For unattended setup,
+use a private regular owner-password file (0600), then forward the flags; never put the password
+in an argument or shell history:
+
+```bash
+bash wg-guard-install.sh --release latest -- \
+  --mode docker --yes --owner-username admin \
+  --owner-password-file /root/wg-guard-owner-password
+```
+
+The same flags work with `--mode native`. Read [owner setup and terminal constraints](terminal-management.md)
+for exposure, domain and secret handling before automating a deployment.
 
 `--release latest` is the default. The catalog is one bounded page of 30 GitHub releases; drafts,
 prereleases and unpublished entries are excluded. Latest chooses the first stable entry on

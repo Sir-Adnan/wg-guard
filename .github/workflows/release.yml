@@ -50,7 +50,9 @@ jobs:
           test -z "$(git status --porcelain)"
           if git show-ref --verify --quiet "refs/tags/$RELEASE_VERSION"; then
             test "$(git rev-list -n 1 "$RELEASE_VERSION")" = "$RELEASE_COMMIT"
-            ! gh release view "$RELEASE_VERSION" >/dev/null 2>&1
+            if gh release view "$RELEASE_VERSION" --json isDraft --jq .isDraft >/dev/null 2>&1; then
+              test "$(gh release view "$RELEASE_VERSION" --json isDraft --jq .isDraft)" = true
+            fi
           fi
       - name: Final source gates
         shell: bash
@@ -97,7 +99,7 @@ jobs:
         with:
           subject-path: dist/${{ inputs.version }}/wg-guard_linux_amd64
           sbom-path: dist/${{ inputs.version }}/sbom.spdx.json
-      - name: Publish verified GitHub release
+      - name: Stage and verify GitHub release assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -110,9 +112,25 @@ jobs:
             git push origin "refs/tags/$RELEASE_VERSION"
           fi
           awk -v header="## [$RELEASE_VERSION]" \
-            '$0 == header { copying=1; next } /^## \[/ && copying { exit } copying { print }' \
+            'index($0, header) == 1 { copying=1; next } /^## \[/ && copying { exit } copying { print }' \
             CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
           test -s "$RUNNER_TEMP/release-notes.md"
-          gh release create "$RELEASE_VERSION" "dist/$RELEASE_VERSION/"* \
-            --verify-tag --title "WG-Guard $RELEASE_VERSION" \
-            --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_VERSION" "dist/$RELEASE_VERSION/"* --clobber
+            gh release edit "$RELEASE_VERSION" --title "WG-Guard $RELEASE_VERSION" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          else
+            gh release create "$RELEASE_VERSION" "dist/$RELEASE_VERSION/"* \
+              --verify-tag --draft --title "WG-Guard $RELEASE_VERSION" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
+          mkdir "$RUNNER_TEMP/release-verify"
+          gh release download "$RELEASE_VERSION" --dir "$RUNNER_TEMP/release-verify"
+          (cd "$RUNNER_TEMP/release-verify" && sha256sum --check checksums.txt)
+          cmp "dist/$RELEASE_VERSION/wg-guard_linux_amd64" \
+            "$RUNNER_TEMP/release-verify/wg-guard_linux_amd64"
+      - name: Publish v0.1.0
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$RELEASE_VERSION" --draft=false --latest

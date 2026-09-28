@@ -204,6 +204,10 @@ sudo wg-guard install --commit FULL_40_CHARACTER_LOWERCASE_SHA \
   --owner-username admin --owner-password-file /root/wg-guard-owner-password
 ```
 
+For a published build, replace `--commit FULL_40_CHARACTER_LOWERCASE_SHA` with
+`--release latest` or an exact tag such as `--release v0.1.0`. The GitHub bootstrap has the
+same selections and forwards install flags after `--`; see [GitHub installation](github-install.md).
+
 Create the file with a trusted password manager/editor. Never place passwords, bot tokens or backup
 keys in command arguments. The installer reads bounded secret input and does not store supplied
 passwords in logs, summaries or lifecycle records. A generated interactive password is displayed

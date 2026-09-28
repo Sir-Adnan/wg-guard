@@ -34,12 +34,21 @@ The installer checks and can provision its catalogued prerequisites. Keep access
 server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 
 ```bash
-bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh | bash -s -- --release v0.1.0'
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
 ```
 
-The English-language setup guides you through the node mode, administrator account, and
-HTTPS or private access. It verifies the release asset before installing. The manager survives
-an interrupted initial setup, so a retry can start from `sudo wg-guard`.
+This fetches the current entry script and installs the **latest published stable release**;
+it does not install the development `main` build. The English-language setup guides you
+through Docker or native deployment, administrator account, and HTTPS or private access.
+It verifies the release asset before installing. The manager survives an interrupted setup,
+so a retry can start from `sudo wg-guard`.
+
+| Your goal | Use |
+|---|---|
+| **Latest stable, guided** | Run the command above; choose Docker (recommended) or native in the menu. |
+| **Inspect before running** | Download and read the script with the commands below, then run it locally. |
+| **Exact release or development commit** | Select a tag or full SHA explicitly; see the [installation guide](docs/operations/github-install.md). |
+| **Unattended setup** | Forward install flags and supply a protected owner-password file; see the [terminal guide](docs/operations/terminal-management.md). |
 
 | Panel access | When to choose it |
 |---|---|
@@ -50,14 +59,16 @@ an interrupted initial setup, so a retry can start from `sudo wg-guard`.
 To inspect the entry script before running it:
 
 ```bash
-curl --proto '=https' -fsSLo wg-guard-install.sh \
-  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.0/install.sh
+curl -fsSLo wg-guard-install.sh \
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
 less wg-guard-install.sh
-bash wg-guard-install.sh --release v0.1.0
+bash wg-guard-install.sh
 ```
 
-The [installation guide](docs/operations/github-install.md) explains noninteractive setup,
-exact-commit builds, prerequisites, and the integrity boundary.
+For a **native** installation, run `bash wg-guard-install.sh -- --mode native` instead.
+The [installation guide](docs/operations/github-install.md) gives copyable commands for
+latest and exact releases, Docker/native, development builds and unattended setup, plus
+prerequisites and integrity details.
 
 ### First steps in the panel
 
@@ -105,7 +116,7 @@ firewall rules, and shaping. Start with the [API contract](docs/architecture/api
 [REST API](docs/architecture/api.md) ·
 [Documentation map](docs/README.md)
 
-The [release bundle](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) includes
+The [latest release bundle](https://github.com/Sir-Adnan/wg-guard/releases/latest) includes
 the Linux/amd64 binary, checksums, dependency inventory, and notices. You can verify the
 downloaded files with `sha256sum --check --ignore-missing checksums.txt`. WG-Guard is
 [MIT-licensed](LICENSE); external components and their licenses are listed in
