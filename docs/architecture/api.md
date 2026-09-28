@@ -28,10 +28,13 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   body means "no change"; an explicit JSON **null** means "clear to unlimited/none" (e.g.
   `{"speed_limit_up_kbps": null}` removes only the upload cap); a value sets it. This is how
   independent up/down speed limits change one at a time without re-sending the other.
-- **Idempotency**: `Idempotency-Key` header (1–128 printable chars) persisted for create-user,
-  bulk create/action, renew, and traffic mutations — retries never duplicate effects. A replayed
-  key returns the stored response with `Idempotency-Replayed: true`; reusing a key with a
-  different request is a 409 (`IDEMPOTENCY_KEY_REUSED`). Keys are kept 24 h, then pruned.
+- **Idempotency**: `Idempotency-Key` header (1–128 printable chars) is persisted for create-user,
+  bulk create/action, renew, and traffic mutations. A same-request retry replays a stored response
+  with `Idempotency-Replayed: true`; reusing a key with a different request returns 409
+  (`IDEMPOTENCY_KEY_REUSED`). Keys are kept 24 h, then pruned. The claim and response snapshot are
+  not committed atomically with the mutation: an interruption after the mutation but before the
+  snapshot can leave an ambiguous in-flight key. V1 has no lookup-by-key or recovery endpoint;
+  external billing workflows must reconcile durable resource state and journal their operation.
 - **Rate limits**: per-token fixed 60 s window (`api.rate_limit_per_minute`, default 600; 0
   disables). Responses carry `X-RateLimit-Limit`/`X-RateLimit-Remaining`; a 429 carries
   `Retry-After`. Setting changes apply live (no restart).
@@ -57,6 +60,20 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 
 **Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
 [ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)).
+
+## Automation boundaries (current V1)
+
+`POST /users` creates a user record, not a device or usable configuration. Device creation is a
+separate request; the web panel's one-device convenience flow is not a REST guarantee. A user ID
+is an opaque string and `{id}` routes use that ID, not a username. `POST /users/{id}/renew`
+changes the expiry policy only; quota and consumed-traffic operations are separate. There is no
+atomic combined time/volume renewal, conditional reversal of a prior renewal, or batch-by-ID read.
+The customer subscription capability URL and its rotation are panel workflows, not exposed through
+token-authenticated V1 REST. Do not treat admin `/config` or `/qr` responses, which contain device
+private material, as an equivalent customer-link contract. Webhooks have durable event IDs and
+documented retry/dead-letter behavior, but no complete per-event OpenAPI payload schemas or total
+ordering guarantee across endpoints. These limits are tracked as an additive future integration phase in
+[ROADMAP.md](../../ROADMAP.md).
 
 ## Live telemetry
 

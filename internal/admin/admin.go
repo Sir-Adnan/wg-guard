@@ -55,6 +55,20 @@ func (s *Service) SetLocale(ctx context.Context, id, locale string) error {
 	return nil
 }
 
+// SetAppearancePreset stores a validated preset ID, or clears the override
+// when preset is empty. The web layer validates IDs against its local registry.
+func (s *Service) SetAppearancePreset(ctx context.Context, id, preset string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE admins SET appearance_preset = ?, updated_at = ? WHERE id = ?`,
+		preset, s.now().UTC().Format(time.RFC3339Nano), id)
+	if err != nil {
+		return fmt.Errorf("admin: set appearance: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.E(domain.CodeAdminNotFound, "admin %s not found", id)
+	}
+	return nil
+}
+
 // HasOwner reports whether an owner account exists — the onboarding gate
 // (first run shows the setup wizard instead of the login form).
 func (s *Service) HasOwner(ctx context.Context) (bool, error) {

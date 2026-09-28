@@ -24,6 +24,8 @@ type Admin struct {
 	// Locale is the panel language preference (migration 0003); normalized
 	// by the web layer, not interpreted here.
 	Locale string
+	// AppearancePreset is empty when this account inherits the panel default.
+	AppearancePreset string
 }
 
 // SessionStore manages admin_sessions: hashed tokens, absolute + idle
@@ -76,10 +78,10 @@ func (s *SessionStore) Validate(ctx context.Context, token string) (Admin, error
 	var enabled int
 	var role, permissions string
 	err := s.db.QueryRowContext(ctx, `SELECT s.last_seen_at, s.expires_at,
-		a.role, a.permissions, a.enabled, a.username, a.id, a.locale
+		a.role, a.permissions, a.enabled, a.username, a.id, a.locale, a.appearance_preset
 		FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
 		WHERE s.token_hash = ?`, hashToken(token)).
-		Scan(&lastSeenStr, &expiresStr, &role, &permissions, &enabled, &a.Username, &a.ID, &a.Locale)
+		Scan(&lastSeenStr, &expiresStr, &role, &permissions, &enabled, &a.Username, &a.ID, &a.Locale, &a.AppearancePreset)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Admin{}, domain.E(domain.CodeSessionExpired, "session not found")
 	}

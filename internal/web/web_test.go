@@ -327,6 +327,10 @@ func TestSecurityHeadersAndAssets(t *testing.T) {
 	if w2.Code != http.StatusNotModified {
 		t.Fatalf("conditional asset fetch: %d", w2.Code)
 	}
+	font := e.get("/assets/fonts/outfit.woff2", nil)
+	if font.Code != http.StatusOK || strings.Contains(font.Header().Get("Cache-Control"), "immutable") {
+		t.Fatal("CSS-relative font URLs without a hash must revalidate after an upgrade")
+	}
 }
 
 func TestHSTSRequiresTLSOrATrustedProxyPeer(t *testing.T) {

@@ -32,8 +32,10 @@ encrypted at rest and rotatable; a test-ping action verifies configuration.
 `user.created, user.updated, user.enabled, user.disabled, user.expired, user.traffic_exceeded,
 user.first_connected, device.created, device.deleted, node.started`
 
-Payload: event id, type, timestamp, node id, and a typed `data` object per event; documented in
-OpenAPI. Subscribing endpoints select which events they receive.
+Payload: event id, type, timestamp, node id, and event-specific `data`. OpenAPI currently gives an
+envelope example, not complete per-event schemas or a cross-endpoint ordering guarantee. A future
+integration contract must specify these before a reseller treats events as authoritative state.
+Subscribing endpoints select which events they receive.
 
 ## Delivery browsing (panel)
 

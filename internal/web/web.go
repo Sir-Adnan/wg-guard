@@ -93,10 +93,12 @@ type Deps struct {
 // Server is the admin panel.
 type Server struct {
 	Deps
-	assets  assetSet
-	pages   map[string]*pageTemplate
-	loginRL *ipLimiter
-	subRL   *ipLimiter // public /sub/ surface: request-rate window per IP
+	assets          assetSet
+	pages           map[string]*pageTemplate
+	visualPresets   visualPresetCatalog
+	visualPresetCSS []byte
+	loginRL         *ipLimiter
+	subRL           *ipLimiter // public /sub/ surface: request-rate window per IP
 }
 
 // New builds the panel: parse templates once, hash assets once.
@@ -113,6 +115,11 @@ func New(d Deps) (*Server, error) {
 	}
 	if s.ProfileGenerator == nil && d.Ifaces != nil {
 		s.ProfileGenerator = d.Ifaces.GenerateProfile
+	}
+	var err error
+	s.visualPresets, s.visualPresetCSS, err = loadVisualPresets()
+	if err != nil {
+		return nil, err
 	}
 	if err := s.initAssets(); err != nil {
 		return nil, err
@@ -138,6 +145,11 @@ func (s *Server) Handler() http.Handler {
 
 	// --- preferences (session) ---
 	mux.HandleFunc("POST /prefs/locale", s.requireAuth(s.handleLocaleSet))
+	mux.HandleFunc("GET /appearance", s.requireAuth(s.handleAppearancePage))
+	mux.HandleFunc("POST /appearance/me", s.requireAuth(s.handleAppearanceMe))
+	mux.HandleFunc("POST /appearance/me/reset", s.requireAuth(s.handleAppearanceMeReset))
+	mux.HandleFunc("POST /appearance/default", s.requireAuth(s.handleAppearanceDefault))
+	mux.HandleFunc("POST /appearance/default/reset", s.requireAuth(s.handleAppearanceDefaultReset))
 	mux.HandleFunc("POST /logout", s.requireAuth(s.handleLogout))
 
 	// --- public subscription pages (token-gated, rate-limited) ---

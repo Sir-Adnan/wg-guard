@@ -60,6 +60,12 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
     await page.locator('[data-qr-retry]').click();
     await page.waitForFunction(() => document.querySelector('#qr-img')?.naturalWidth > 0);
     await page.locator('#qr-modal [data-close-modal]').click();
+    step = 'public all-device QR view';
+    await page.locator('[data-qr-all]').click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#qr-modal [data-qr-all-grid] img')].every(img => img.naturalWidth > 0));
+    assert(await page.locator('#qr-modal [data-qr-single]').evaluate(el => el.hidden && getComputedStyle(el).display === 'none'), 'single QR viewer is not exposed behind all-device cards');
+    assert(await page.locator('#qr-modal [data-qr-all-grid] img').count() === await page.locator('.publicsub-device').count(), 'one QR card per actual device');
+    await page.locator('#qr-modal [data-close-modal]').click();
 
     }
     step = 'auth and public compositions';
@@ -85,11 +91,16 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl':'ltr'), step + ' direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, step + ' theme');
             if (name === 'subscription' && lang === 'fa') {
-              assert(await page.locator('.subscription-stat > strong.ltr-data').evaluateAll(elements =>
-                elements.length >= 2 && elements.every(el => getComputedStyle(el).textAlign === 'right')),
-                step + ' metrics align at the RTL edge');
-              assert(await page.locator('.subscription-stat--transfer > strong').evaluate(el =>
-                getComputedStyle(el).justifyContent === 'flex-end'), step + ' transfer groups align at the RTL edge');
+              assert(await page.locator('.subscription-stat--usage').evaluate(card => {
+                const value = card.querySelector('.subscription-usage-values');
+                return value?.querySelectorAll('.metric-quantity bdi[dir="ltr"]').length >= 2 &&
+                  value.getBoundingClientRect().right <= card.getBoundingClientRect().right &&
+                  value.scrollWidth <= value.clientWidth;
+              }), step + ' used and limit values are isolated without overflow');
+              assert(await page.locator('.subscription-stat--transfer').evaluate(card => {
+                const values = card.querySelector('.subscription-transfer-list');
+                return values?.querySelectorAll('dd .metric-quantity bdi[dir="ltr"]').length === 2 && values.scrollWidth <= values.clientWidth;
+              }), step + ' transfer values are isolated without overflow');
             }
             assert(await page.locator('main h1').count() === 1, step + ' one heading');
             assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), step + ' viewport overflow');

@@ -1,0 +1,38 @@
+{{define "title"}}{{.T "appearance.title"}}{{end}}
+{{define "content"}}
+<div class="appearance-page">
+  <header class="page-head page-head--hero">
+    <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "sparkles"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "appearance.title"}}</h1><p class="page-sub">{{.T "appearance.intro"}}</p></div></div>
+  </header>
+
+  <section class="card card--pad appearance-current" aria-labelledby="appearance-current-title">
+    <div><p class="eyebrow">{{.T "appearance.current"}}</p><h2 id="appearance-current-title"><bdi lang="en">{{.Data.EffectiveName}}</bdi></h2><p>{{if .Data.Personal}}{{.T "appearance.personal_active"}}{{else}}{{.T "appearance.inherited"}}{{end}} · {{.T "appearance.mode_independent"}}</p></div>
+    <span class="badge badge--info">{{.T (printf "theme.%s" .Data.Effective.Mode)}}</span>
+  </section>
+
+  <form method="post" action="/appearance/me" class="card card--pad appearance-form" data-appearance-form>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="section-head"><div><span class="eyebrow">{{.T "appearance.visual_presets"}}</span><h2>{{.T "appearance.choose"}}</h2><p class="section-description">{{.T "appearance.preview_hint"}}</p></div></div>
+    <fieldset class="appearance-choices" aria-label="{{.T "appearance.visual_presets"}}">
+      {{range .Data.Choices}}
+      <label class="visual-preset-choice" data-choice="{{.ID}}">
+        <input type="radio" name="preset" value="{{.ID}}" {{if eq .ID $.Data.Effective.Preset}}checked{{end}}>
+        <span class="visual-preset-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="visual-preset-name"><strong><bdi lang="en">{{.Name}}</bdi></strong><small>{{if eq .ID $.Data.PanelDefault.Preset}}{{$.T "appearance.panel_default_badge"}}{{else}}{{$.T "appearance.preview"}}{{end}}</small></span>
+        <span class="visual-preset-check" aria-hidden="true">{{$.IconS "check"}}</span>
+      </label>
+      {{end}}
+    </fieldset>
+    <div class="appearance-actions">
+      <div><button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "appearance.apply_me"}}</button><p class="hint">{{.T "appearance.personal_hint"}}</p></div>
+      {{if .Data.IsOwner}}<div class="appearance-panel-action"><label for="appearance-panel-mode">{{.T "appearance.panel_mode"}}</label><select class="select" name="mode" id="appearance-panel-mode">{{range $mode := list "light" "dark" "system"}}<option value="{{$mode}}" {{if eq $mode $.Data.PanelDefault.Mode}}selected{{end}}>{{$.T (printf "theme.%s" $mode)}}</option>{{end}}</select><label class="check-label"><input type="checkbox" class="checkbox" name="confirm" value="1">{{.T "appearance.confirm_default"}}</label><button type="submit" class="btn btn--secondary" formaction="/appearance/default" data-panel-default-submit>{{.IconS "users"}}{{.T "appearance.set_panel_default"}}</button></div>{{end}}
+    </div>
+  </form>
+
+  <div class="appearance-reset-actions">
+    <form method="post" action="/appearance/me/reset"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--ghost">{{.IconS "rotate-ccw"}}{{.T "appearance.reset_me"}}</button></form>
+    {{if .Data.IsOwner}}<form method="post" action="/appearance/default/reset"><input type="hidden" name="_csrf" value="{{.CSRF}}"><label class="check-label"><input type="checkbox" class="checkbox" name="confirm" value="1" required>{{.T "appearance.confirm_reset_default"}}</label><button type="submit" class="btn btn--ghost">{{.IconS "rotate-ccw"}}{{.T "appearance.reset_panel"}}</button></form>{{end}}
+  </div>
+</div>
+<script type="module" src="{{.A "/js/appearance.js"}}"></script>
+{{end}}

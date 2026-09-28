@@ -32,6 +32,14 @@ func TestBrowserPhase10(t *testing.T) {
 	e := newEnv(t)
 	wireUpdateQueue(t, e)
 	uid, did, csrf, cookie := e.seedUserWithDevice()
+	if suite := os.Getenv("WG_TEST_UI_SUITE"); suite == "appearance" || suite == "10.5" {
+		// Mixed MB/GB values expose bidi and line-wrapping mistakes on the
+		// customer-facing summary without relying on any real subscriber.
+		if _, err := e.db.Exec(`UPDATE users SET traffic_limit_bytes = ?, traffic_used_rx = ?, traffic_used_tx = ? WHERE id = ?`,
+			int64(20_000_000_000), int64(66_600_000), int64(4_500_000), uid); err != nil {
+			t.Fatal(err)
+		}
+	}
 	reader := e.limitedLogin(t, []string{auth.ScopePlansRead, auth.ScopeIfaceRead})
 	rec := e.post("/plans", url.Values{"name": {"Monthly / ماهانه"}, "duration_days": {"30"}, "traffic_limit_gb": {"50"}, "device_limit": {"3"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {

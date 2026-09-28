@@ -42,6 +42,47 @@ func openDatabaseThrough0006(t *testing.T) *DB {
 	return db
 }
 
+func TestMigration0009PreservesAdminPreferences(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+	if err := db.ensureMigrationsTable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"0001_init.sql", "0002_speed_limits.sql", "0003_admin_locale.sql",
+		"0004_sub_links.sql", "0005_iface_advanced.sql", "0006_backup_schedules.sql",
+		"0007_awg_ranges.sql", "0008_retired_peer_keys.sql",
+	} {
+		body, err := migrations.Read(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(string(body)); err != nil {
+			t.Fatalf("apply %s: %v", name, err)
+		}
+		if _, err := db.Exec(`INSERT INTO migrations (version, applied_at) VALUES (?, 'test')`, name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO admins (id, username, password_hash, role, locale, created_at, updated_at)
+		VALUES ('admin-1', 'owner', 'hash', 'owner', 'en', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrate(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	var locale, preset, mode string
+	if err := db.QueryRow(`SELECT locale, appearance_preset FROM admins WHERE id = 'admin-1'`).Scan(&locale, &preset); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT mode FROM appearance_defaults WHERE id = 1`).Scan(&mode); err != nil {
+		t.Fatal(err)
+	}
+	if locale != "en" || preset != "" || mode != "light" {
+		t.Fatalf("upgrade changed existing preference: locale=%q preset=%q mode=%q", locale, preset, mode)
+	}
+}
+
 func TestMigration0007AWGRanges(t *testing.T) {
 	t.Run("copies legacy values", func(t *testing.T) {
 		db := openDatabaseThrough0006(t)

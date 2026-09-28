@@ -13,6 +13,7 @@ Docker image builds and carries the pinned tools and userspace daemon as separat
 | [htmx 2.0.4](https://github.com/bigskysoftware/htmx/tree/v2.0.4) | 0BSD; [LICENSE](third_party/licenses/htmx-2.0.4-LICENSE) | Embedded prebuilt `web/static/js/htmx.min.js` |
 | [Lucide](https://github.com/lucide-icons/lucide) subset | ISC; some Feather-derived icons retain MIT notices in the [upstream license](third_party/licenses/Lucide-LICENSE) | Embedded `web/static/img/icons.svg` sprite |
 | [Vazirmatn](https://github.com/rastikerdar/vazirmatn) | SIL OFL 1.1; [license](third_party/licenses/Vazirmatn-OFL.txt) | Embedded Regular/SemiBold WOFF2 files |
+| [Outfit](https://fonts.google.com/specimen/Outfit), [Inter](https://fonts.google.com/specimen/Inter), [Geist](https://fonts.google.com/specimen/Geist), [DM Sans](https://fonts.google.com/specimen/DM+Sans), [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans) | SIL OFL 1.1; corresponding [license files](third_party/licenses/) | Self-hosted variable-weight Latin WOFF2 faces for optional visual presets; browser fetches only the selected face |
 
 The Go production binary links direct and transitive modules. `sbom.spdx.json` records exact
 linked module versions for each release build; the bundle includes the license/notice files

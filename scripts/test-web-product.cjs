@@ -43,6 +43,142 @@ let stage = 'launch';
       await require('./test-web-interactions.cjs')({browser,seed,engine});
       await context.close();return;
     }
+    if (suite === 'appearance') {
+      stage = 'visual preset preview';
+      await goto('/appearance');
+      const ids = ['claude-plus','light-green','astrovista','tiesen','minimal-neutral','whatsapp','qrafthive','designbyte','resolveai-app','enterprise-blue'];
+      let cells = 0;
+      for (const lang of ['fa','en']) {
+        await locale(lang);
+        await goto('/appearance');
+        for (const width of [1440,390]) {
+          await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+          for (const mode of ['light','dark']) {
+            await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
+            for (const id of ids) {
+              await page.locator('.visual-preset-choice[data-choice="' + id + '"]').click();
+              assert(await page.locator('html').getAttribute('data-visual-preset') === id, 'preset preview changes the root visual selection');
+              assert(await page.locator('.visual-preset-choice[data-choice="' + id + '"] input').isChecked(), 'selected preview is announced by its radio');
+              const sample = await page.evaluate(() => {
+                const style = getComputedStyle(document.documentElement);
+                const button = getComputedStyle(document.querySelector('.appearance-actions .btn--primary'));
+                const secondary = getComputedStyle(document.querySelector('.appearance-panel-action .btn--secondary'));
+                const sidebar = getComputedStyle(document.querySelector('.nav a[aria-current="page"]'));
+                const body = getComputedStyle(document.body);
+                const probe = document.createElement('span');
+                probe.style.cssText = 'position:absolute;pointer-events:none;color:var(--brand);background:var(--bg-elev)';
+                document.body.append(probe);
+                const accent = getComputedStyle(probe);
+                const accentColors = [accent.color, accent.backgroundColor];
+                probe.style.color = 'var(--fg-muted)';
+                const muted = getComputedStyle(probe);
+                const mutedColors = [muted.color, muted.backgroundColor];
+                probe.remove();
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = 1;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                const luminance = color => {
+                  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1, 1);
+                  ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+                  const rgb = ctx.getImageData(0, 0, 1, 1).data;
+                  return [0,1,2].reduce((sum, i) => {
+                    const channel = rgb[i] / 255;
+                    return sum + [0.2126,0.7152,0.0722][i] * (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+                  }, 0);
+                };
+                const contrast = (first, second) => {
+                  const a = luminance(first), b = luminance(second);
+                  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+                };
+                return {
+                  tokens: ['--bg','--brand','--sidebar-bg','--chart-first','--r-md','--icon-size'].map(key => style.getPropertyValue(key).trim()),
+                  buttonForeground: button.color,
+                  buttonBackground: button.backgroundColor,
+                  buttonImage: button.backgroundImage,
+                  contrast: {
+                    body: contrast(body.color, body.backgroundColor), button: contrast(button.color, button.backgroundColor),
+                    accent: contrast(...accentColors), muted: contrast(...mutedColors),
+                    sidebar: contrast(sidebar.color, sidebar.backgroundColor), secondary: contrast(secondary.color, secondary.backgroundColor),
+                  },
+                  fits: document.documentElement.scrollWidth <= innerWidth,
+                };
+              });
+              assert(sample.tokens.every(Boolean), 'preset owns surface, action, sidebar, chart, radius and icon tokens');
+              assert(sample.buttonImage === 'none' && sample.buttonBackground !== 'rgba(0, 0, 0, 0)', 'preset primary action uses the source solid color');
+              for (const [part, ratio] of Object.entries(sample.contrast)) assert(ratio >= 4.5, id + ' ' + mode + ' ' + lang + ' ' + part + ' contrast ' + ratio.toFixed(2));
+              assert(sample.fits, 'appearance screen fits each locale and viewport');
+              cells++;
+            }
+          }
+        }
+        if (lang === 'en') {
+          const faces = ['Outfit','Inter','Geist','DM Sans','Plus Jakarta Sans'];
+          const faceCounts = await page.evaluate(async names => Promise.all(names.map(async name =>
+            (await document.fonts.load('400 16px "' + name + '"')).length)), faces);
+          assert(faceCounts.every(count => count > 0), 'all preset Latin faces are registered and loadable');
+          const localFontResponses = await page.evaluate(async names => Promise.all(names.map(async face => {
+            const response = await fetch('/assets/fonts/' + face + '.woff2');
+            return response.ok && response.headers.get('content-type') === 'font/woff2';
+          })), ['outfit','inter','geist','dmsans','plusjakartasans']);
+          assert(localFontResponses.every(Boolean), 'all optional Latin fonts are self-hosted assets');
+        }
+      }
+      stage = 'personal preset persistence';
+      await locale('fa');
+      await goto('/appearance');
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.locator('.visual-preset-choice[data-choice="claude-plus"]').click();
+      if (process.env.WG_UI_SCREENSHOT_DIR) {
+        const fs = require('node:fs'), path = require('node:path');
+        fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+        await page.evaluate(() => scrollTo(0, 0));
+        await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'appearance-desktop.png'), fullPage: true });
+      }
+      await Promise.all([page.waitForNavigation(), page.locator('form[data-appearance-form] button[type="submit"]').first().click()]);
+      assert(await page.locator('html').getAttribute('data-visual-preset') === 'claude-plus', 'personal preset survives reload');
+      await page.setViewportSize({ width: 390, height: 844 });
+      if (process.env.WG_UI_SCREENSHOT_DIR) {
+        const path = require('node:path');
+        await page.evaluate(() => scrollTo(0, 0));
+        await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'appearance-mobile.png'), fullPage: true });
+      }
+      await goto('/dashboard');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'preset dashboard fits an RTL phone');
+      await goto('/users');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'preset table/cards fit an RTL phone');
+      await locale('en');
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await goto('/settings');
+      assert(await page.locator('html').getAttribute('dir') === 'ltr', 'appearance leaves language/direction independent');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'preset settings forms fit LTR desktop');
+      stage = 'panel default confirmation and public surface';
+      await goto('/appearance');
+      await page.locator('.visual-preset-choice[data-choice="enterprise-blue"]').click();
+      await page.locator('#appearance-panel-mode').selectOption('light');
+      await page.locator('.appearance-panel-action input[name="confirm"]').check();
+      await Promise.all([page.waitForNavigation(), page.locator('[data-panel-default-submit]').click()]);
+      assert(await page.locator('html').getAttribute('data-visual-preset') === 'claude-plus', 'panel default does not overwrite personal choice');
+      await goto(seed.sub + '?lang=fa');
+      assert(await page.locator('html').getAttribute('data-visual-preset') === 'enterprise-blue', 'public access ignores the signed-in admin preset');
+      const publicContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+      await qa.install(publicContext);
+      const publicPage = await publicContext.newPage();
+      const publicResponse = await publicPage.goto(seed.url + seed.sub + '?lang=fa');
+      assert(publicResponse.status() === 200, 'public subscription loads');
+      assert(await publicPage.locator('html').getAttribute('data-visual-preset') === 'enterprise-blue', 'public surface follows panel default');
+      assert(await publicPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'subscription mobile has no viewport overflow');
+      await publicPage.locator('[data-qr-all]').click();
+      await publicPage.waitForFunction(() => [...document.querySelectorAll('#qr-modal [data-qr-all-grid] img')].every(img => img.naturalWidth > 0));
+      assert(await publicPage.locator('#qr-modal [data-qr-single]').evaluate(el => el.hidden && getComputedStyle(el).display === 'none'), 'hidden single QR cannot appear as a broken card');
+      assert(await publicPage.locator('#qr-modal [data-qr-all-grid] img').count() === await publicPage.locator('.publicsub-device').count(), 'all-device QR count matches actual devices');
+      await publicContext.close();
+      assert(runtimeErrors === 0, 'appearance JavaScript has no runtime errors');
+      const visualCSSBytes = await page.evaluate(async () =>
+        (await (await fetch('/assets/css/visual-presets.css')).arrayBuffer()).byteLength);
+      await context.close();
+      console.log('PASS ' + engine + ' appearance: ' + cells + ' locale/viewport/mode/preset cells, personal/default persistence and mobile public QR; generated CSS ' + visualCSSBytes + ' B');
+      return;
+    }
     if ((suite === '10.5' || suite === '10.6' || suite === 'final') && (group==='all' || group==='public')) {
       stage = 'authentication and public workflows';
       await require('./test-web-public.cjs')({ browser, seed, final: suite === 'final', compositionsOnly: suite === '10.6' });

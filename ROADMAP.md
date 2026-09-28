@@ -24,6 +24,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ✅ Complete |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
+| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Implemented; local Go/Chromium/WebKit gate passed, Firefox/real host unverified; v0.1.0 unchanged |
+| **14 — Integration API for automation** | Additive, finance-safe lifecycle contracts for external panels/bots; resolve product semantics before implementation | Contract design planned; no new V1 endpoints yet |
 
 ## Phase gates
 
@@ -154,6 +156,30 @@ bootstrap installed a healthy Docker node on the dedicated Ubuntu 24.04 amd64 VP
 versions and official registry images remain approval-gated; the certified host matrix is
 unchanged. Detailed gate:
 [docs/development/phase12.md](docs/development/phase12.md).
+
+### Phase 13 — Appearance and subscription follow-up
+
+13.0 verifies the reported public QR and mixed-direction metrics against the actual web code and
+reviews the ten named TweakCN light/dark exports. 13.1 introduces the local preset registry,
+semantic CSS bridge, independent appearance preference scopes and source-aware Settings UI.
+13.2 repairs the public QR state and redesigns the subscription composition for desktop/phone.
+13.3 requires focused service/security tests, representative browser states for every preset in
+fa/en and light/dark, subscription QR/config checks, accessible contrast/focus and responsive
+review; changed cells are retested after fixes. Record any unavailable browser/physical-device
+cell honestly. This is new post-release work, not a retroactive Phase 10 or v0.1.0 claim.
+
+### Phase 14 — Integration API for automation
+
+14.0 first fixes a product contract for purchase provisioning, customer credential delivery,
+expiry/volume renewal policies, conditional reversal, idempotency recovery, webhook ordering and
+scope isolation. Confirm financial semantics and threat model with the owner before implementation.
+14.1 can add an atomic provision/result query and customer-delivery API; 14.2 can add one atomic
+time-and-volume renewal with preconditions, before/after state, operation identity and conditional
+reversal that preserves later usage; 14.3 completes webhook/schema/lookup needs and compatibility
+tests. Favor additive `/api/v1` operations with separate scopes and retained old behavior, and
+update OpenAPI and integration guides with the exact guarantees. Never infer user IDs from
+usernames, expose private keys in logs, or present several PATCH calls as an atomic purchase.
+Release/certification gates for a later version remain separately owner-approved.
 
 ## Verification policy
 

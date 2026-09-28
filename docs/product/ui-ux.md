@@ -3,6 +3,7 @@
 Phase 10 design contract, approved 2026-09-10. Implementation/verification status and requirement
 ownership live in [phase10.md](../development/phase10.md). Every inventoried panel, authentication
 and public-subscription surface adopts this contract; Phase 10 acceptance is complete.
+The post-v0.1.0 appearance extension below adds visual presets without reopening that acceptance.
 
 ## Architecture and visual direction
 
@@ -37,6 +38,39 @@ page-specific markup into every surface. Shared vanilla modules own behavior thr
 hooks; they use delegation or idempotent initialization and release stale references on swaps.
 Business-specific form code stays outside shared overlay/navigation behavior. Preserve strict
 CSP, same-origin assets, session/CSRF checks and no-store sensitive responses.
+
+## Visual presets (post-v0.1.0)
+
+`internal/web/visual_presets.json` is the reviewed local registry: WG-Guard Neutral remains the
+built-in fallback, and ten optional TweakCN exports each contain light/dark source values for
+semantic surfaces, foregrounds, actions, controls, sidebar, five chart colors, font families,
+radius, spacing, tracking and shadow ingredients. `internal/web/visual_presets.go` validates the
+allowlist and emits one cache-busted stylesheet, loaded on the Appearance screen or when a
+non-default preset is active. The source URLs and theme IDs stay with their
+values. No remote CSS, executable theme code, or production build tool is fetched at runtime.
+Shared components consume the semantic bridge; a new preset adds registry data, not conditions
+across feature pages. Hard-coded visual values that obstruct the bridge belong in shared tokens.
+
+TweakCN exports do not define WG-Guard's icon size/stroke/container or control height. Those
+project-authored metrics are separate `project_metrics` entries. The named Latin faces (Outfit,
+Inter, Geist, DM Sans and Plus Jakarta Sans) are self-hosted, Latin-only and load only when used;
+system faces stay as fallback, while Persian keeps self-hosted Vazirmatn. Technical data remains
+LTR-isolated and tabular. Project control metrics respect a 44px minimum touch target. Status
+meaning, readable contrast,
+focus visibility, accessibility, and reduced motion outrank literal source-theme fidelity.
+`project_contrast` stores the few project-authored text/action corrections needed when a source
+primary pair fails normal-text contrast; the original source value remains intact in `styles`.
+
+Appearance has distinct axes: visual preset, Light/Dark/System mode, and independent locale/
+direction/Latin technical digits. A preset changes none of the latter. The account's saved preset
+overrides the installation default; an unrecognized saved ID falls back safely. The existing
+browser theme cookie is the personal mode override; otherwise the installation mode applies,
+then built-in Light. Language remains the existing account preference; direction follows locale.
+Owner-only panel-default actions require confirmation and never rewrite personal choices. Reset
+my appearance clears the personal preset and mode override; reset panel default restores WG-Guard
+Neutral/Light. The public subscription page uses the panel preset, with its visitor's explicit
+browser mode preference still respected. The Appearance screen offers an immediate local preview
+and explicit apply/reset actions; the standard Settings page links to it.
 
 ## Layout and navigation
 
@@ -174,6 +208,10 @@ locale and layout boundary. Session expiry returns to a safe full page, includin
 QR loads on demand through a shared viewer. Public downloads give retry feedback and preserve
 the native file-link fallback. Connection-disabled states do not invent new config-access rules.
 Public presentation excludes admin notes and encrypted key carriers; capability URLs stay private.
+The public connection pass uses a compact desktop composition and a single-column phone layout.
+Usage and transfer metrics keep Latin numbers separate from localized units, so RTL never reverses
+their meaning. The all-device QR view contains exactly one image per actual device; hidden
+single-device controls must stay hidden even when component layout styles change.
 
 Interfaces and Plans use shared `form-page`/`form-stack` section cards and `form-panel` disclosures,
 with one primary save action. Technical numeric/range fields use text controls with appropriate

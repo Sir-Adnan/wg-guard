@@ -1,6 +1,6 @@
 {{define "title"}}{{.T "settings.title"}}{{end}}
 {{define "content"}}
-<div class="page-head page-head--hero settings-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "settings-2"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "settings.title"}}</h1><p class="page-sub">{{.T "settings.overview"}}</p></div></div></div>
+<div class="page-head page-head--hero settings-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "settings-2"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "settings.title"}}</h1><p class="page-sub">{{.T "settings.overview"}}</p></div></div><div class="actions"><a class="btn btn--secondary" href="/appearance">{{.IconS "sparkles"}}{{.T "appearance.title"}}</a></div></div>
 <form method="post" action="/settings" class="settings-workspace" data-settings-form data-settings-retry="{{if .Data.Error}}true{{else}}false{{end}}" data-settings-clean="{{if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}" data-settings-dirty="{{.T "settings.save.dirty"}}" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
   <nav class="settings-nav" aria-label="{{.T "settings.sections"}}">

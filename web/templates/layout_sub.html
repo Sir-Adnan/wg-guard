@@ -1,5 +1,5 @@
 {{define "sub"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
+<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
 <head>
 {{template "document-head" .}}
 <meta name="robots" content="noindex, nofollow">

@@ -37,8 +37,8 @@ var contentTypes = map[string]string{
 	".ico":   "image/x-icon",
 }
 
-// initAssets reads every static file into memory once (≈160 KB total —
-// fonts dominate) and hashes it. Request serving is then pure memory +
+// initAssets reads every static file into memory once and hashes it.
+// Request serving is then pure memory +
 // http.ServeContent, with immutable caching keyed by the ?v= hash.
 func (s *Server) initAssets() error {
 	sub, err := fs.Sub(webassets.FS, "static")
@@ -65,6 +65,10 @@ func (s *Server) initAssets() error {
 	if err != nil {
 		return fmt.Errorf("web: assets: %w", err)
 	}
+	sum := sha256.Sum256(s.visualPresetCSS)
+	set["/css/visual-presets.css"] = asset{
+		data: s.visualPresetCSS, hash: hex.EncodeToString(sum[:8]), ctype: contentTypes[".css"],
+	}
 	s.assets = set
 	return nil
 }
@@ -80,7 +84,13 @@ func (s *Server) handleAssets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", a.ctype)
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if r.URL.Query().Get("v") == a.hash {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		// CSS-relative font URLs carry no content hash. They must revalidate
+		// after an upgrade rather than keeping an old face for a year.
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+	}
 	w.Header().Set("ETag", `"`+a.hash+`"`)
 	http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(a.data))
 }
@@ -181,6 +191,7 @@ type View struct {
 	Locale       i18n.Locale
 	Dir          string
 	Theme        string // "light" | "dark" | "system"
+	Preset       string // allowlisted visual preset ID; empty/unknown resolves to built-in
 	Path         string // request path, for nav highlighting
 	PageClass    string // content width tier (" content--narrow" on form/settings routes)
 	Admin        *auth.Admin
@@ -252,6 +263,25 @@ func directionalIconClass(name string) string {
 
 // B formats a byte count with locale units.
 func (v *View) B(n int64) string { return i18n.FormatBytes(v.Locale, n) }
+
+// BParts keeps a Latin numeral and its localized unit as separate visual
+// atoms. This lets an RTL flex row preserve natural number → unit order.
+func (v *View) BParts(n int64) byteParts {
+	formatted := v.B(n)
+	if i := strings.IndexByte(formatted, ' '); i >= 0 {
+		return byteParts{Number: formatted[:i], Unit: formatted[i+1:]}
+	}
+	return byteParts{Number: formatted}
+}
+
+func (v *View) BLimParts(limit *int64) byteParts {
+	if limit == nil {
+		return byteParts{}
+	}
+	return v.BParts(*limit)
+}
+
+type byteParts struct{ Number, Unit string }
 
 // N formats an integer with grouping.
 func (v *View) N(n int64) string { return i18n.FormatInt(n) }
@@ -442,7 +472,8 @@ func (s *Server) partial(w http.ResponseWriter, r *http.Request, page, block str
 func (s *Server) newView(r *http.Request) *View {
 	v := &View{
 		Dir:       "rtl",
-		Theme:     themeFrom(r),
+		Theme:     "light",
+		Preset:    s.visualPresets.BuiltIn.ID,
 		Path:      r.URL.Path,
 		PageClass: pageClass(r.URL.Path),
 		Version:   s.Version,
@@ -453,6 +484,8 @@ func (s *Server) newView(r *http.Request) *View {
 		v.Admin = a
 		v.CSRF, _ = r.Context().Value(ctxCSRF).(string)
 	}
+	appearance := s.appearanceFor(r)
+	v.Theme, v.Preset = appearance.Mode, appearance.Preset
 	v.Locale = s.localeFor(r)
 	if r.URL.Path == "/login" {
 		v.LoginContext = loginContext(r)
@@ -484,11 +517,8 @@ func pageClass(path string) string {
 }
 
 func themeFrom(r *http.Request) string {
-	if c, err := r.Cookie(themeCookie); err == nil {
-		switch c.Value {
-		case "light", "dark", "system":
-			return c.Value
-		}
+	if choice := themeCookieChoice(r); choice != "" {
+		return choice
 	}
 	return "light"
 }

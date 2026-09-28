@@ -1,5 +1,5 @@
 {{define "auth"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
+<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
 <head>{{template "document-head" .}}<title>{{template "title" .}} · {{.T "app.name"}}</title></head>
 <body class="access-surface">
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>

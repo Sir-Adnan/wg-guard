@@ -1,5 +1,5 @@
 {{define "app"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
+<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
 <head>
 {{template "document-head" .}}
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
@@ -37,6 +37,7 @@
       {{if .Can "webhooks.read"}}<a href="/webhooks" aria-label="{{.T "nav.webhooks"}}" data-tip="{{.T "nav.webhooks"}}" {{if .IsActive "/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}
       {{if .Can "audit.view"}}<a href="/audit" aria-label="{{.T "nav.audit"}}" data-tip="{{.T "nav.audit"}}" {{if .IsActive "/audit"}}aria-current="page"{{end}}>{{.Icon "inbox"}}<span>{{.T "nav.audit"}}</span></a>{{end}}
       {{if .Can "node.settings"}}<a href="/settings" aria-label="{{.T "nav.settings"}}" data-tip="{{.T "nav.settings"}}" {{if .IsActive "/settings"}}aria-current="page"{{end}}>{{.Icon "settings-2"}}<span>{{.T "nav.settings"}}</span></a>{{end}}
+      <a href="/appearance" aria-label="{{.T "appearance.title"}}" data-tip="{{.T "appearance.title"}}" {{if .IsActive "/appearance"}}aria-current="page"{{end}}>{{.Icon "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="btn btn--ghost" id="btn-collapse" aria-label="{{.T "nav.collapse"}}" aria-expanded="true">{{.Icon "panel-left"}}<span>{{.T "nav.collapse"}}</span></button>

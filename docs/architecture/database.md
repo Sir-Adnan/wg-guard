@@ -12,8 +12,9 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
-| `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled |
+| `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional `appearance_preset` personal override |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
+| `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
 | `api_tokens` | id, name, prefix (indexed), hash, scopes JSON, expires_at, enabled, cidr allowlist, last_used_at |
 | `webhook_endpoints` | id, url, secret_encrypted, enabled, events JSON |
 | `webhook_deliveries` | id, endpoint FK, event type, payload, status (`pending\|delivered\|dead`), attempts, next_attempt_at (indexed), last error |
@@ -56,6 +57,10 @@ Migration `0008_retired_peer_keys.sql` records former public peer identities whe
 rotated/deleted or a user's subscription access is replaced. The reconciler removes those peers
 even under the default report drift policy, then clears each confirmed intent. Failed syncs and
 process restarts retain the intent; only public keys are stored, never client private keys.
+
+Migration `0009_visual_appearance.sql` adds the nullable admin preset override and the singleton
+installation default. Existing account locale and browser theme cookies remain independent;
+neither is rewritten by a visual preset migration or panel-default action.
 
 Migration `0007_awg_ranges.sql` adds `h1_range` through `h4_range` as canonical, non-null text
 columns. Values use strict inclusive `N` or `N-M` syntax. Existing scalar values are copied as

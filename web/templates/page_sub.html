@@ -4,11 +4,10 @@
   <section class="subscription-pass" data-status="{{printf "%v" .Data.U.Status}}" aria-labelledby="subscription-name">
     <span class="pass-orb pass-orb--one" aria-hidden="true"></span><span class="pass-orb pass-orb--two" aria-hidden="true"></span>
     <header class="subscription-pass-head">
-      <div class="subscription-brand"><span class="subscription-brand-icon">{{.IconS "shield-check"}}</span><span><strong>{{.T "app.name"}}</strong><small>{{.T "publicsub.your_connection"}}</small></span></div>
+      <span class="subscription-overline">{{.T "publicsub.subscription_details"}}</span>
       <span class="badge {{.StClass (printf "%v" .Data.U.Status)}}"><span class="dot"></span>{{.St (printf "%v" .Data.U.Status)}}</span>
     </header>
     <div class="subscription-identity">
-      <p class="eyebrow">{{.T "publicsub.subscription_details"}}</p>
       <h1 id="subscription-name"><bdi>{{.Data.U.Username}}</bdi></h1>
       {{if .Data.PlanName}}<span class="subscription-plan">{{.IconS "layers"}}<bdi>{{.Data.PlanName}}</bdi></span>{{else if not .Data.PlanKnown}}<span class="subscription-plan">{{.T "publicsub.plan_unavailable"}}</span>{{end}}
     </div>
@@ -19,7 +18,7 @@
     <div class="subscription-pass-stats">
       <article class="subscription-stat subscription-stat--usage">
         <span>{{.T "publicsub.data_used"}}</span>
-        <strong class="ltr-data">{{.B .Data.Used}}{{if .Data.U.TrafficLimitBytes}} <small>/ {{.BLim .Data.U.TrafficLimitBytes}}</small>{{end}}</strong>
+        <strong class="subscription-usage-values">{{with .BParts .Data.Used}}<span class="metric-quantity"><bdi dir="ltr">{{.Number}}</bdi><span>{{.Unit}}</span></span>{{end}}{{if .Data.U.TrafficLimitBytes}}<small class="subscription-usage-limit"><span aria-hidden="true">/</span> {{with .BLimParts $.Data.U.TrafficLimitBytes}}<span class="metric-quantity"><bdi dir="ltr">{{.Number}}</bdi><span>{{.Unit}}</span></span>{{end}}</small>{{end}}</strong>
         {{if not .Data.U.TrafficLimitBytes}}<small>{{.T "publicsub.unlimited_data"}}</small>{{end}}
         <div class="meter {{.MeterClass .Data.Used .Data.U.TrafficLimitBytes}}" aria-hidden="true"><span class="bar"><span></span></span></div>
       </article>
@@ -28,8 +27,7 @@
         {{if .Data.U.ExpiresAt}}<strong class="ltr-data">{{.DT .Data.U.ExpiresAt}}</strong><small>{{.RelIn .Data.U.ExpiresAt}}</small>{{else}}<strong>{{if eq (printf "%v" .Data.U.Status) "waiting_first_connection"}}{{.T "publicsub.not_started"}}{{else}}{{.T "publicsub.no_expiry"}}{{end}}</strong>{{end}}
       </article>
       <article class="subscription-stat subscription-stat--transfer">
-        <span>{{.T "publicsub.downloaded"}} / {{.T "publicsub.uploaded"}}</span>
-        <strong class="ltr-data"><bdi>↓ {{.B .Data.U.TrafficUsedTX}}</bdi><bdi>↑ {{.B .Data.U.TrafficUsedRX}}</bdi></strong>
+        <dl class="subscription-transfer-list"><div><dt>{{.T "publicsub.downloaded"}}</dt><dd>{{with .BParts .Data.U.TrafficUsedTX}}<span class="metric-quantity"><bdi dir="ltr">{{.Number}}</bdi><span>{{.Unit}}</span></span>{{end}}</dd></div><div><dt>{{.T "publicsub.uploaded"}}</dt><dd>{{with $.BParts $.Data.U.TrafficUsedRX}}<span class="metric-quantity"><bdi dir="ltr">{{.Number}}</bdi><span>{{.Unit}}</span></span>{{end}}</dd></div></dl>
         {{if .Data.U.DurationSeconds}}<small>{{.T "users.duration"}} · <bdi>{{.Dur (i64u .Data.U.DurationSeconds)}}</bdi></small>{{end}}
       </article>
     </div>
