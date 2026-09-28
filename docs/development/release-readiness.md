@@ -4,12 +4,13 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-28. Phases 8–11 and corrective 8.1–8.3 are complete within their
-documented scopes; Phase 12 is active. Phase 10 passed the three-engine route/state matrix and
+Last updated: 2026-09-28. Phases 8–12 and corrective 8.1–8.3 are complete within their
+documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner explicitly approved publishing v0.1.0 only after the final Phase 12 gates pass.
+The owner-approved v0.1.0 release passed the final gates and is public. Future releases and
+official registry images still require separate approval.
 
 ## Program status
 
@@ -22,7 +23,7 @@ The owner explicitly approved publishing v0.1.0 only after the final Phase 12 ga
 | 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
 | 10 — Product UI/UX redesign | complete | Full redesign matrix plus exact continuation VPS/broker acceptance and coherent `main` integration |
 | 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
-| 12 — Release candidate | in progress | Clean, reproducible candidate ready for owner-approved v0.1.0 publication |
+| 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.
@@ -66,7 +67,7 @@ implementation does not cross the active phase boundary.
 | RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
 | RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | verified | Full Chromium/Firefox/WebKit route/state matrix, bilingual responsive workflows, relevant live Ubuntu Docker/TLS checks and decoded QR/config equality passed |
 | RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | verified for documented Ubuntu 24.04 amd64 scope | Docker/native kernel/userspace client, recovery, TLS, purge, race/fuzz/resource and shaping gates pass; later Ubuntu, active firewalld and real-host UFW are not claimed |
-| RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | in progress | Clean candidate pipeline dry run and artifact install verification |
+| RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | verified | [v0.1.0 assets](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) and [release run](https://github.com/Sir-Adnan/wg-guard/actions/runs/36372832174) passed checksum, image identity, attestation and draft-download checks; published latest bootstrap installed on Ubuntu 24.04 amd64 |
 | RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
 | RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | verified | Cached manager/zero-network retry and public-HTTP refusal pass automated gates; real Docker Nginx/webroot and short-lived IP issuance/renewal, occupied-port refusal, rollback-safe transitions and cleanup are recorded in [Phase 8.2 evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). Cloudflare DNS-01 is automated-test verified; real issuance awaits a scoped token and is not claimed |
 | RB-011 | Docker's earlier `FORWARD` DROP can allow AWG handshake while blocking all routed client traffic | Phase 8.3 | verified | Scoped `DOCKER-USER` coexistence, fail-closed readiness/doctor diagnostics, and exact data-plane candidate plain/recommended/randomized public-IP/DNS/HTTPS traffic with cleanup [evidence](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt) |
@@ -122,7 +123,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 8.1; recertify in 11 | M5 streaming/member/total bounds and unsafe archive regressions pass in `281b607`; independent review closed |
 | AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 8.1 | M5 4096-byte stdin bound and secret-argv refusal regressions pass in `281b607`; independent review closed |
 | AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 8.2 ownership/header implementation; recertify in 11 | verified; HSTS is emitted only for proven HTTPS, proxy metadata is trusted only from private/loopback peers, and real direct/Nginx HTTPS returned one canonical header |
-| AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 8.1 inventory correction; full distribution review in 12 | Active age/ACME and terminal/system pins/imports/license files checked; Go/runtime-image distinction corrected. Complete transitive/frontend notices and release-source obligations remain Phase 12 |
+| AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 8.1 inventory correction; full distribution review in 12 | verified: current transitive linked-Go, frontend and runtime notices ship in the v0.1.0 bundle; source obligations and SPDX inventory checked in the release gate |
 | AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, ordinary dump cannot observe it, and kernel `showconf` synthesizes a phantom peer line | Phase 8 | verified |
 | AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
 | AUD-018 | medium | Restore environment review queried a nonexistent `interfaces` table, silently omitting every staged tunnel interface from the operator report | Phase 8 | verified |
@@ -153,7 +154,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-043 | high | Domain ACME currently fails whenever 80/443 are owned by another service, and no transactional standard-Nginx/shared-webroot or DNS-01 route exists | Phase 8.2 | verified; standard-Nginx/webroot passed real issuance and no-mutation conflict refusal; DNS-01 uses the protected official plugin path and passes automated secret/command tests, with real issuance unclaimed without a scoped token |
 | AUD-044 | high | Trusted public-IP certificates are now available but the installer exposes only private SSH/manual files; short-lived renewal and reload are absent | Phase 8.2 | verified; staging and production Certbot short-lived IP certificates, SAN/expiry diagnostics, automatic timer, deploy-hook Docker reload and trusted HTTPS passed on the dedicated VPS |
 | AUD-045 | high | Fresh installation depends on a retired PPA core package and retries can fail on Ubuntu maintenance locks or a stale Docker socket while losing package ownership | Phase 8.2 corrective hardening | verified; recommended exact GitHub-source tools/kernel bundle, APT lock wait, safe aborted-state ownership carry, Docker service/socket lifecycle regressions and Ubuntu 24.04.4 Docker install/purge acceptance passed |
-| AUD-046 | high | The installed-node bootstrap fast path opens `/usr/local/bin/wg-guard` before resolving `--commit main`, so a repeated one-line command can keep presenting an old manager after GitHub advances | Phase 8.2 maintenance | verified; simulated `main` advancement proves one build then metadata-only reuse, while real exact-commit Docker acceptance proved independent manager advancement with an unchanged service hash, heartbeat, current-build skip and full update backup/health/core closure. Invalid selection and strict refresh fail; only transport/compiler failure can use a verified cache. Published-release update remains unclaimed because no stable release exists |
+| AUD-046 | high | The installed-node bootstrap fast path opens `/usr/local/bin/wg-guard` before resolving `--commit main`, so a repeated one-line command can keep presenting an old manager after GitHub advances | Phase 8.2 maintenance | verified; simulated `main` advancement proves one build then metadata-only reuse, while real exact-commit Docker acceptance proved independent manager advancement with an unchanged service hash, heartbeat, current-build skip and full update backup/health/core closure. Invalid selection and strict refresh fail; only transport/compiler failure can use a verified cache. Phase 12 also proved latest stable selection and a fresh published-release Docker install; a published-release-to-newer-release update awaits a future release |
 | AUD-047 | high | An interrupted uninstall is presented as generic recovery, reads an already removed boot config, and dispatches `update --recover`, trapping the operator in a recovery loop | Phase 8.2 maintenance | fixed from the user-provided transcript: uninstall has a dedicated config-independent view and resumes its own removal with explicit keep-data/full-reset choices. Focused regressions and a real Ubuntu 24.04.4 amd64 synthetic-journal Full reset passed; API/OpenAPI is unchanged |
 | AUD-048 | high | Interactive install silently selects username `owner`; a short password is rejected only after deployment/data preparation, leaving an initial-install journal without a useful retry/reset path and causing apparent successful credentials to fail as `admin` | Phase 8.2 maintenance | verified: explicit `admin` default, shared backend validation with in-place retry, blank-password secure generation and post-completion show-once handoff, guided cleanup for every interrupted initial install, and distinct node-reset/complete-removal ownership pass automated gates. Real Docker confirmed default `admin`, short-password retry and complete removal; generated credentials were intentionally not captured |
 | AUD-049 | high | Recommended private Docker setup records loopback HTTP as proxy TLS, making the session cookie `Secure`; valid credentials are accepted but the browser cannot return the cookie over the documented SSH-tunnel HTTP URL and falls back to login | Phase 8.2 maintenance | verified: reproduced on Ubuntu 24.04.4 amd64, then fixed by resolving private exposure to loopback-only dev transport while retaining proxy mode for real HTTPS proxies. Exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie |
@@ -198,6 +199,6 @@ or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are 
 
 ## Publication boundary
 
-Phase 12 may build, checksum, install, upgrade, and inspect candidate artifacts. The owner has
-explicitly approved a **v0.1.0 GitHub Release after the final gates pass**; other tags, releases
-and registry images require their own authorization. If a gate fails, publication stops.
+The owner-approved **v0.1.0 GitHub Release** was published only after its final gates passed.
+Other tags, releases and official registry images require their own authorization. Published
+evidence and the unchanged support boundary are in [phase12.md](phase12.md).

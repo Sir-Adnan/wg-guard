@@ -37,7 +37,7 @@ or chat history.
 | [development/phase8.1.md](development/phase8.1.md) | Completed GitHub delivery and terminal lifecycle phase |
 | [development/phase9.md](development/phase9.md) | Completed operational-observability gate and linked real-VPS evidence |
 | [development/phase10.md](development/phase10.md) | Completed complete-panel UI/UX redesign and follow-up evidence |
-| [development/phase11.md](development/phase11.md) and [phase12.md](development/phase12.md) | Completed scoped production certification and active v0.1.0 release gate |
+| [development/phase11.md](development/phase11.md) and [phase12.md](development/phase12.md) | Scoped production certification and completed v0.1.0 release gate |
 | [decisions/](decisions/) | Architecture Decision Records (ADRs) |
 
 ## Archived sources (frozen, provenance only)

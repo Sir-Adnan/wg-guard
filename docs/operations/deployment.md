@@ -7,10 +7,10 @@ data paths, so backups and mode-switching are layout-independent.
 ## Docker mode (default)
 
 - **Verified local runtime image**: the installer builds an Ubuntu 24.04 amd64 image from the
-  checksum-verified release binary and exact-source AmneziaWG tools/userspace components.
+  selected verified binary and exact-source AmneziaWG tools/userspace components.
   No public registry image is required or published for v0.1.0. The repository
-  [Dockerfile](../../Dockerfile) builds the same runtime composition for the Phase 12 image
-  inspection gate; an operator may supply an explicitly checked local image via `--image`.
+  [Dockerfile](../../Dockerfile) builds the same runtime composition verified in the v0.1.0
+  release gate; an operator may supply an explicitly checked local image via `--image`.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
   `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups,
   ACME cache). The generated compose file adds a TLS-mode-aware healthcheck.

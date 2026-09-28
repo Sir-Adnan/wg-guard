@@ -1,64 +1,44 @@
-# Phase 12 — Release candidate
+# Phase 12 — v0.1.0 release
 
-Status: **in progress** (2026-09-28). Phase 11 certification closed for the documented
-Ubuntu 24.04 amd64 paths. The owner approved publishing v0.1.0 after the final gates pass.
+Status: **complete** (2026-09-28) for the documented Ubuntu 24.04 amd64 support boundary.
+The owner-approved [v0.1.0 GitHub Release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0)
+is public. Its tag resolves to `fb38c1fca0a3689b209aff6c814780cb31d1cb11`.
 
-Phase 8.1 establishes the GitHub acquisition contract and local checksummed candidate builder
-needed by the installer. This phase consumes those foundations, repeats exact-candidate tests,
-and owns the final amd64 publication workflow, provenance and freeze.
+## Delivered
 
-## Objective
+- The English/Persian READMEs, installation and recovery guidance, compatibility claims,
+  CHANGELOG, third-party notices and living status docs were aligned. Obsolete transient
+  planning files were removed; authoritative phase records and historical evidence remain.
+- An immutable Linux/amd64 binary, SHA-256 manifest, release metadata, SPDX linked-Go-module
+  inventory and notices bundle are published. The Docker runtime image is built locally from
+  the selected binary; no official registry image was published.
+- The manual exact-commit workflow runs source gates, compares the image and release binary,
+  creates binary/bundle and SBOM attestations, stages assets as a draft, downloads and verifies
+  them, then publishes. No repository publication secret is used.
 
-Produce a clean, reproducible, installable, fully documented release candidate; verify it in
-the supported environment; then publish the owner-approved v0.1.0 GitHub Release.
+## Final gate
 
-## Scope and deliverables
+- At publication, clean `main` and `origin/main` matched the release commit. The [main CI run](https://github.com/Sir-Adnan/wg-guard/actions/runs/36372371606)
+  and [release run](https://github.com/Sir-Adnan/wg-guard/actions/runs/36372832174) passed
+  formatting, vet, race, bootstrap, synthetic backup, reachable-vulnerability and artifact
+  checks. Repeated candidate builds produced identical manifests; the public manifest matches
+  the locally built final revision. The published binary's SHA-256 is
+  `a5843e8dc077737c08cd832b1f203bcaee2436e43f826df33d6b215c5a586bde`.
+- On the dedicated real Ubuntu 24.04 amd64 VPS, candidate Docker/native fresh installs,
+  updates, rollback and data-preserving lifecycle smoke passed. The exact final binary updated
+  a native node and stayed healthy. After publication, the documented unpinned bootstrap
+  selected `v0.1.0`, freshly installed Docker, and served healthy panel, OpenAPI and CSS responses;
+  host and container binary hashes matched the published asset. The test node and staging files
+  were purged afterward; the expected data-lock tombstone remains.
+- Phase 10's full bilingual browser/viewport/state matrix and Phase 11's kernel/client,
+  recovery and resource certification remain the applicable feature-frozen evidence. Phase 12
+  changed delivery, documentation and test infrastructure, so those unaffected drills were not
+  repeated. API/OpenAPI public contract did not change.
 
-- Close or explicitly defer every audit finding and release blocker with residual risk.
-- Freeze versioning, CHANGELOG/release notes, README, installation/upgrade/recovery guidance,
-  compatibility matrix, API/OpenAPI/examples, screenshots, licensing and third-party notices.
-- Final repository hygiene, history/secret/artifact checks, `.gitignore`, generated-file policy,
-  toolchain consistency and concise `AGENTS.md` review.
-- Versioned linux/amd64 binary, checksums, release metadata, amd64 container build,
-  provenance/SBOM and reproducibility evidence where practical.
-- Manual exact-commit publication workflow; no signing or publication secrets in the repo.
-- Install and upgrade both Docker and native modes from the exact candidate artifacts.
-- Final browser/API/config/QR/metrics/logging/recovery/deployment regression and CI verification.
-- Final professional readiness report with supported, unsupported, unverified and deferred work.
+## Support boundary
 
-## Milestones
-
-1. Freeze API, data migration, documentation and compatibility claims.
-2. Complete repository, license, secret, dependency and generated-artifact hygiene.
-3. Build/checksum/inspect amd64 candidate artifacts from a clean revision.
-4. Exercise candidate install, upgrade, rollback and smoke workflows.
-5. Run the final complete verification and CI suite; review the final diff/history.
-6. Push candidate commits, verify CI and exact artifacts, publish the owner-approved v0.1.0
-   release, verify its downloadable assets, and issue the readiness report.
-
-## Verification
-
-- Clean-clone deterministic builds where practical; checksum and archive-content verification.
-- linux/amd64 binary execution/package checks and amd64 image inspection via a local/test registry
-  or CI artifact without final public publication.
-- Docker/native install, health, upgrade, rollback and data-preservation smoke on real Ubuntu
-  24.04 using the exact candidate artifacts.
-- Full formatting, vet, test, race, integration, vulnerability, asset, benchmark, API/OpenAPI,
-  browser, config/QR and repository-hygiene gates.
-
-## Documentation
-
-All living documentation must agree with the candidate. Historical archives remain frozen.
-`AGENTS.md` points to authoritative current docs without duplicating them.
-
-## Completion criteria
-
-RB-008 and every remaining release blocker close; CI is green; candidate artifacts install and
-upgrade successfully; checksums/metadata and support claims are verified; the readiness report
-concludes whether the product is genuinely ready.
-
-## Publication boundary
-
-The owner's 2026-09-28 instruction authorizes **v0.1.0** after every Phase 12 completion gate.
-It does not authorize other versions or an official registry image. Candidate failure stops
-publication; no tag or release is created merely to mark progress.
+Production verification covers the recorded Ubuntu 24.04 amd64 Docker/native paths only.
+Later Ubuntu releases, active firewalld, real-host UFW coexistence, physical-device testing,
+1000 simultaneous handshakes, a multi-day traffic soak and long-interval ACME renewal remain
+uncertified. See [status.md](status.md) and [release-readiness.md](release-readiness.md).
+Future public versions and an official registry image require separate owner approval.
