@@ -434,6 +434,13 @@ func (d *doctor) checkFirewall(ctx context.Context) {
 		d.add("forwarding", StatusPass, "no enabled interfaces require forwarding", "")
 		return
 	}
+	if active, err := (&firewall.Manager{Run: d.d.Run}).FirewalldActive(ctx); err != nil {
+		d.add("forwarding", StatusFail, "inspect firewalld: "+err.Error(), "repair the host firewall manager before declaring tunnel forwarding healthy")
+		return
+	} else if active {
+		d.add("forwarding", StatusFail, "active firewalld forwarding is not certified", "disable firewalld before enabling tunnels")
+		return
+	}
 	inspection, err := (&firewall.Manager{Run: d.d.Run}).InspectForwarding(ctx, ifaces)
 	if err != nil {
 		d.add("forwarding", StatusFail, err.Error(), "wg-guard doctor --fix")

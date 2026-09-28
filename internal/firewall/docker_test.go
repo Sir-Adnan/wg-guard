@@ -2,6 +2,7 @@ package firewall
 
 import (
 	"context"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -18,9 +19,28 @@ func (r *dockerRunner) Run(_ context.Context, argv []string) (subprocess.Result,
 	r.calls = append(r.calls, joined)
 	step, ok := r.responses[joined]
 	if !ok {
+		if joined == "firewall-cmd --state" {
+			return subprocess.Result{}, &exec.Error{Name: "firewall-cmd", Err: exec.ErrNotFound}
+		}
 		return subprocess.Result{}, nil
 	}
 	return subprocess.Result{Stdout: []byte(step.stdout), Stderr: []byte(step.stderr)}, step.err
+}
+
+func TestCheckForwardingRejectsActiveFirewalldDespiteAcceptPolicy(t *testing.T) {
+	r := &dockerRunner{responses: map[string]fakeStep{
+		"firewall-cmd --state":     {stdout: "running\n"},
+		"iptables --version":       {stdout: "iptables v1.8.10 (nf_tables)\n"},
+		"iptables -w 5 -S FORWARD": {stdout: "-P FORWARD ACCEPT\n"},
+	}}
+	status, err := (&Manager{Run: r}).CheckForwarding(context.Background(),
+		[]Interface{{Name: "awg0", Subnet: "10.8.0.0/24"}}, false, nil)
+	if err == nil || !strings.Contains(err.Error(), "active firewalld") || status.Managed {
+		t.Fatalf("status=%+v err=%v", status, err)
+	}
+	if r.index("iptables -w 5 -S FORWARD") >= 0 {
+		t.Fatal("an ACCEPT policy was consulted despite active firewalld")
+	}
 }
 
 func (r *dockerRunner) index(call string) int {

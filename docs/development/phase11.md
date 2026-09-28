@@ -48,52 +48,28 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
 
 ## Current certification evidence
 
-- Initial audit triage covers AUD-019/037/040/055/056/057. A service-owned, source-checked
-  userspace daemon now follows the configured backend mode. Pinned-source WSL integration and
-  exact-image Ubuntu 24.04 Docker creation, public HTTPS client traffic, crash/restart recovery,
-  and encrypted backup/restore with peer reconciliation pass. Read-only doctor mode inspection
-  now probes the container namespace in Docker; its real-host correction gate remains pending.
-  This activates the existing `backend_mode` contract; no REST/OpenAPI shape changed.
-- Malformed legacy rotation flags and short noninteractive owner names fail before data/service
-  mutation in focused tests. Explicit data purge now excludes admitted readers, retains a lock
-  tombstone against new admission, and requires a clean volume before reinstall; Windows and WSL
-  lock tests pass. Legacy token commands now reject incomplete flags before opening data.
-  Real-host purge interruption/concurrency drills remain pending.
-- Command output now has bounded capture with explicit truncation failure; a rejected userspace
-  version cannot trigger link rollback, and native offline doctor does not claim to repair a
-  daemon that its short-lived process cannot own.
-- The owner-reported Persian numeric-card alignment correction passed affected Chromium/WebKit
-  user and public-subscription compositions. Persian numeric/date form controls now begin at
-  the RTL edge while retaining LTR value syntax; focused user/interface/plan/settings browser
-  checks pass. The full Phase 10 matrix is not being replayed.
-- After a real Ubuntu kernel upgrade on reboot, the managed module lacked current headers
-  because this VPS had no `linux-headers-generic` meta-package. Managed generic installs now
-  require it. Exact-source native install repaired DKMS, and both kernel/userspace interfaces,
-  peers, and module survived the next reboot. Native userspace sustained 120 public HTTPS requests;
-  a separate kernel profile completed a real client handshake and HTTPS egress (AUD-058).
-- The same reboot exposed Docker resetting the host forwarding extension after native startup
-  (AUD-059). The native unit now orders after Docker when it participates in boot; a bounded
-  scheduler probe repairs later owned-rule loss through canonical reconciliation and updates
-  readiness. Exact-host tagged-jump loss repaired within 7 seconds; the next reboot retained
-  both backends and a complete scoped forwarding path.
-- Existing encrypted data no longer permits automatic creation of a replacement master key.
-  Startup and offline data commands verify a sample from each present encrypted carrier;
-  focused missing/wrong-key refusal passes. Exact-host temporary key removal refused CLI/boot
-  without generating a new key, then restored to a healthy dual-backend node (AUD-060).
-- A bounded 8 KiB tmpfs backup sink exposed one partial SQLite snapshot after disk-full refusal.
-  Failed-snapshot cleanup is implemented and the exact-host retest left no partial file (AUD-061).
-- Full native removal exposed a live kernel link after data purge. Uninstall now uses the durable
-  ownership record after service stop to remove and verify kernel links, and refuses live tunnels
-  whose owner cannot be established. Focused regressions pass; exact-host retest is pending (AUD-062).
-- The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
-  Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
-  and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied
-  1000 classes/filters in each direction in 134 ms and verified idempotence; the dedicated VPS
-  applied the same real-kernel workload in 405 ms. Traffic under 1000 real handshakes is unclaimed.
-- WSL full `-race ./...`, 4.75 million dump-parser fuzz executions, and `govulncheck@v1.7.0`
-  with Go 1.27.1 pass (zero reachable findings; three module advisories are not called). Go 1.26.0
-  reported standard-library findings that the patched toolchain removes. Docker now pins
-  Go 1.27.1 for the image build.
+- Managed, source-checked userspace profiles passed real Ubuntu 24.04 Docker and native client
+  HTTPS, daemon recovery and reboot alongside kernel profiles. The native userspace client
+  sustained 120 requests over two minutes; a separate kernel client passed public HTTPS.
+  Docker-aware doctor probes the owning namespace. No REST/OpenAPI shape changed.
+- A real kernel upgrade and Docker restart exposed missing generic headers and lost native
+  forwarding rules. Header-meta provisioning, native unit ordering and bounded policy repair
+  passed subsequent reboot, deliberate rule-loss and client-traffic drills. The owned path
+  repaired within seven seconds after deliberate jump removal.
+- Encrypted backup/restore, key rotation, wrong/missing-key refusal, corrupt/missing-state
+  refusal, update/rollback, interrupted update recovery, disk-full cleanup and concurrent purge
+  refusal passed targeted automated and Ubuntu 24.04 drills. Full purge removed a real kernel
+  link with a peer as well as the userspace link; only the admission-lock tombstone remained.
+- The 0-peer control-plane sample measured 33 MB RSS/0.00% CPU. Ten-minute 100/1000-user+device
+  windows measured 41/52 MB average RSS, 45/57 MB peak RSS and 0.03/0.04% CPU, within the
+  documented runtime budgets. Real tc/IFB accepted 1000 classes/filters per direction in 134 ms
+  on WSL and 405 ms on the dedicated VPS. This does not claim 1000 simultaneous handshakes.
+- Full WSL race, 4.75 million dump-parser fuzz executions and Go 1.27.1 reachable-vulnerability
+  scanning passed. Docker pins the patched Go toolchain. Focused Chromium/WebKit checks passed
+  Persian numeric alignment without replaying the completed Phase 10 browser matrix.
+- Active firewalld is refused for enabled tunnels because its zone verdicts have no certified
+  owned allow path. Later Ubuntu releases remain unverified without a genuine host. The
+  final exact-revision repository/CI gate is pending; no public release has occurred.
 
 ## Documentation
 

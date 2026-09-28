@@ -249,14 +249,15 @@ WG-Guard-owned artifacts; data/backups and installer-installed packages are pres
 `--purge-data` / `--purge-packages` is passed. `--purge-all` implies both and additionally removes
 the fixed WG-Guard manager/cache, log and remaining configuration/lifecycle directories. It does
 not remove unrelated proxy sites, shared certificate lineages or unowned packages.
+After service stop, uninstall removes and verifies database-recorded kernel AmneziaWG links;
+an unattributed live tunnel blocks removal rather than silently surviving a data purge.
 An explicit data purge removes data members while retaining one locked, purged-marker inode in
 the empty data directory; deleting that inode by hand would defeat concurrent-admission safety.
 
 ## Host requirements
 
-Phase 8.1 prerequisites and selection are implemented, automated-test verified and exercised on
-the dedicated Ubuntu 24.04 amd64 node. Clean-image and later supported Ubuntu amd64
-package-provisioning certification remain Phase 11:
+Prerequisites and selection are implemented and real-host verified on the dedicated Ubuntu 24.04
+amd64 node. Later Ubuntu releases still need their own host certification:
 
 ```bash
 wg-guard core installed
@@ -309,12 +310,15 @@ to the operator, but still checks required native AWG tools. It does not silentl
 userspace. A normal managed-core installation fails if the module is absent, different from disk,
 or its loaded build identity cannot be established.
 
-The product target is Ubuntu 24.04 or newer on amd64; Ubuntu 24.04 has completed the current
-real-host drills. Newer releases remain fail-closed when the pinned bundle is unavailable. Root
-is required. Kernel mode needs DKMS build prerequisites (`build-essential`, matching kernel
+The installer accepts Ubuntu 24.04 or newer on amd64; production certification currently covers
+Ubuntu 24.04. Newer releases remain unverified and fail closed when the pinned bundle is unavailable.
+An active firewalld is not a certified forwarding policy: boot, runtime readiness and doctor
+fail closed for enabled tunnels until it is disabled. Docker's scoped forwarding extension
+and test-backed UFW-managed routes are the supported coexistence paths. Root is required. Kernel mode needs
+DKMS build prerequisites (`build-essential`, matching kernel
 headers). Explicit userspace profiles now have a service-owned daemon lifecycle: the Docker
 image carries the reviewed daemon and maps `/dev/net/tun`; native nodes need that exact daemon
 installed from a clean pinned Git checkout, with Go VCS build metadata, and a usable TUN device.
 The daemon's stale `--version` text is not proof of the source revision. New profiles fail before persistence when those
-prerequisites are absent. The kernel remains the installed default, and real-host userspace
-certification is still pending ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).
+prerequisites are absent. The kernel remains the installed default; Docker and native managed
+userspace client traffic passed on Ubuntu 24.04 ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).

@@ -118,6 +118,13 @@ func (m *Manager) CheckForwarding(ctx context.Context, ifaces []Interface, docke
 		status.Managed = true
 		return status, nil
 	}
+	active, err := m.FirewalldActive(ctx)
+	if err != nil {
+		return status, err
+	}
+	if active {
+		return status, fmt.Errorf("firewall: active firewalld forwarding is not certified; disable firewalld before enabling tunnels")
+	}
 	policy, available, err := m.forwardPolicy(ctx)
 	if err != nil {
 		return status, err

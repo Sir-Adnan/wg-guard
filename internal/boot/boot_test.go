@@ -264,6 +264,22 @@ func TestBringUpUfwActive(t *testing.T) {
 	}
 }
 
+func TestBringUpRejectsActiveFirewalldBeforeNetworkMutation(t *testing.T) {
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	delete(d.runner.errs, "firewall-cmd --state")
+	_, err := BringUp(t.Context(), Deps{
+		DB: d.db, Ring: d.ring, Backend: d.backend, Run: d.runner,
+		Settings: mustRegistry(t, d),
+	})
+	if err == nil || !strings.Contains(err.Error(), "active firewalld") {
+		t.Fatalf("bring up err = %v", err)
+	}
+	if calls := d.runner.joined(); strings.Contains(calls, "sysctl") || strings.Contains(calls, "nft") {
+		t.Fatalf("network changed before firewalld refusal: %s", calls)
+	}
+}
+
 func TestBringUpAllowsOwnedTunnelThroughDockerForwardDrop(t *testing.T) {
 	ctx := context.Background()
 	d := newDeps(t)
@@ -360,6 +376,16 @@ func TestRuntimePolicyProbeDetectsLostDockerJump(t *testing.T) {
 	delete(d.runner.errs, jump)
 	if healthy, err := rec.NetworkPolicyHealthy(context.Background()); err != nil || !healthy {
 		t.Fatalf("complete Docker path stayed unhealthy: %v, %v", healthy, err)
+	}
+}
+
+func TestRuntimePolicyProbeRejectsFirewalldStartedAfterBoot(t *testing.T) {
+	d := newDeps(t)
+	d.seedInterface(t, "awg0", "10.8.0.0/24", 40001)
+	delete(d.runner.errs, "firewall-cmd --state")
+	rec := &RuntimeReconciler{Deps: Deps{DB: d.db, Run: d.runner}}
+	if healthy, err := rec.NetworkPolicyHealthy(t.Context()); healthy || err == nil || !strings.Contains(err.Error(), "firewalld") {
+		t.Fatalf("active firewalld probe = %v, %v", healthy, err)
 	}
 }
 

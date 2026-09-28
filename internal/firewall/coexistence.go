@@ -49,6 +49,14 @@ func (m *Manager) Coexistence(ctx context.Context) ([]Finding, error) {
 	return out, nil
 }
 
+// FirewalldActive is a narrow read-only gate. An active firewalld can add
+// zone-level forwarding verdicts outside the iptables FORWARD policy and our
+// owned chains, so those paths are not certified by an ACCEPT policy alone.
+func (m *Manager) FirewalldActive(ctx context.Context) (bool, error) {
+	active, _, err := firewalldStatus(m.Run, ctx)
+	return active, err
+}
+
 // EnsureUfwRoutes adds the ufw forward-allow rule for each managed interface
 // when ufw is active (idempotent: `ufw route allow` on an existing rule
 // exits 0 with "Skipping adding existing rule"). The rule is additive and
@@ -118,16 +126,16 @@ func routedPolicyBlocked(defaultLine string) bool {
 
 // firewalldStatus reports (running, installed, err).
 func firewalldStatus(run subprocess.Runner, ctx context.Context) (running bool, installed bool, err error) {
-	_, rerr := run.Run(ctx, []string{"firewall-cmd", "--state"})
+	res, rerr := run.Run(ctx, []string{"firewall-cmd", "--state"})
 	if rerr != nil {
 		if errors.Is(rerr, exec.ErrNotFound) {
 			return false, false, nil
 		}
 		var ee *subprocess.ExitError
-		if errors.As(rerr, &ee) {
+		if errors.As(rerr, &ee) && strings.Contains(strings.ToLower(string(res.Stdout)+string(res.Stderr)+ee.Stderr), "not running") {
 			return false, false, nil
 		}
-		return false, false, fmt.Errorf("firewall: firewalld state: %w", rerr)
+		return false, true, fmt.Errorf("firewall: firewalld state: %w", rerr)
 	}
 	return true, true, nil
 }

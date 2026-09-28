@@ -8,9 +8,10 @@ first release — see [docs/architecture/api.md](docs/architecture/api.md).
 ## [Unreleased]
 
 ### In progress
-- **Phase 11 production certification:** explicit managed userspace profiles, admission-safe data
-  purge, early owner validation and bounded rotation flags are implemented; full compatibility,
-  recovery, security and soak gates remain open. Public release still requires owner approval.
+- **Phase 11 production certification:** managed pinned-source userspace profiles, header-aware
+  kernel upgrades, forwarding repair, fail-closed key/firewalld handling, bounded CLI parsing,
+  admission-safe purge and complete kernel-link teardown passed targeted tests and Ubuntu 24.04
+  Docker/native drills. Final branch/CI gate remains; no public release has occurred.
 
 ### Changed
 - **Persian metric alignment:** numeric and technical summaries retain LTR reading order while

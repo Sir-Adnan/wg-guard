@@ -4,10 +4,10 @@ WG-Guard is a lightweight, self-hosted **AmneziaWG VPN node management panel** f
 servers. Each server runs its own independent node. External systems (Telegram bots, billing
 systems, Guardinohub-like platforms, custom panels) manage the node through its REST API.
 
-The supported server platform is **Ubuntu 24.04 or newer on amd64/x86_64**. Ubuntu 24.04 LTS is
-the verified production baseline. Other distributions, older Ubuntu releases and other
-architectures are outside product scope; later Ubuntu releases still fail closed when the exact
-pinned AmneziaWG bundle is unavailable.
+The installer target is **Ubuntu 24.04 or newer on amd64/x86_64**. Ubuntu 24.04 LTS is the only
+real-host production-verified baseline; later releases require their own certification before a
+production support claim. Other distributions, older Ubuntu releases and other architectures are
+outside product scope. A missing exact pinned AmneziaWG bundle fails closed.
 
 Source of historical truth: the original specification (archived at
 [../archive/wg-guard_SPEC.md](../archive/wg-guard_SPEC.md)); this document is the distilled,

@@ -206,12 +206,21 @@ func TestCoexistenceUfw(t *testing.T) {
 		f := &fakeRunner{}
 		m := &Manager{Run: f}
 		f.failCmd("ufw", "command not found")
-		f.failCmd("firewall-cmd", "command not found")
+		f.steps = append(f.steps, fakeStep{err: &exec.Error{Name: "firewall-cmd", Err: exec.ErrNotFound}})
 		findings, err := m.Coexistence(ctx)
 		if err != nil || len(findings) != 0 {
 			t.Fatalf("findings=%+v err=%v", findings, err)
 		}
 	})
+}
+
+func TestFirewalldProbeFailsClosedOnUnexpectedError(t *testing.T) {
+	f := &fakeRunner{}
+	f.failCmd("firewall-cmd", "access denied by D-Bus")
+	active, err := (&Manager{Run: f}).FirewalldActive(t.Context())
+	if active || err == nil {
+		t.Fatalf("unknown firewalld error treated as inactive: active=%v err=%v", active, err)
+	}
 }
 
 func TestEnsureUfwRoutes(t *testing.T) {

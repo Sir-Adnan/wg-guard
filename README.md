@@ -10,7 +10,7 @@
   </p>
   <p>
     <img alt="Go" src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white">
-    <img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-24.04%2B-E95420?logo=ubuntu&logoColor=white">
+    <img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="Architecture" src="https://img.shields.io/badge/Architecture-amd64-4F46E5">
     <img alt="License" src="https://img.shields.io/badge/License-MIT-16A34A">
   </p>
@@ -18,8 +18,8 @@
 
 > [!IMPORTANT]
 > WG-Guard is in active development. Phases 0–10 are complete; Phase 11 production
-> certification and the first public release have not started. Ubuntu 24.04 LTS on amd64 is
-> the verified deployment target.
+> certification is underway and no public release exists. Ubuntu 24.04 LTS on amd64 is
+> the real-host verified deployment target.
 
 ## Why WG-Guard
 
@@ -42,7 +42,8 @@ no SPA framework or production Node.js runtime.
 
 ## Install
 
-WG-Guard supports **Ubuntu 24.04 or newer on amd64/x86_64**. Until a stable release is published,
+The installer accepts **Ubuntu 24.04 or newer on amd64/x86_64**; production verification currently
+covers Ubuntu 24.04. Later releases need their own host certification. Until a stable release is published,
 install the reviewed main source:
 
 ~~~bash

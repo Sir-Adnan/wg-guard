@@ -8,19 +8,18 @@ marked `requires real VPS`.
 Historical asset-budget results below describe past gates. Phase 10 replaces frontend size
 ceilings with observable measurements and efficiency review; runtime resource limits remain.
 
-## Phase 11 — Production certification (in progress, 2026-09-27)
+## Phase 11 — Production certification (in progress, 2026-09-28)
 
-The feature-frozen branch implements explicit managed userspace daemon lifecycle, bounded CLI
-rotation parsing, early owner-name validation and admission-safe explicit data purge. The pinned
-userspace source passed a real TUN/UAPI create/config/stop/restart integration test on WSL Linux;
-purge exclusion/tombstone and malformed-input tests pass locally. The Persian numeric-card
-alignment correction passed affected Chromium/WebKit user and subscription compositions. A
-30-second 0-peer synthetic sample measured 33 MB RSS/0.00% CPU; ten-minute 100/1000-user+device
-windows measured 41/52 MB average RSS, 45/57 MB peak RSS and 0.03/0.04% CPU. Real WSL tc/IFB
-accepted 1000 classes/filters per direction in 134 ms. Full WSL race, 4.75 million parser fuzz
-executions and Go 1.27.1 reachable-vulnerability scan pass. Sustained soak, Docker image and
-real-host networking/recovery/TLS matrix remain unverified; RB-007 is
-open. No public release is published.
+The feature-frozen branch implements pinned-source managed userspace daemon lifecycle, safer
+recovery/uninstall, kernel-header persistence, bounded CLI parsing, early owner validation and
+fail-closed firewalld handling. Full WSL race, 4.75 million parser fuzz executions and a Go
+1.27.1 reachable-vulnerability scan pass. Ten-minute synthetic 100/1000-user+device windows
+measured 41/52 MB average RSS, 45/57 MB peak RSS and 0.03/0.04% CPU; real tc/IFB accepted
+1000 classes/filters in each direction in 134 ms on WSL and 405 ms on the dedicated VPS.
+Ubuntu 24.04.4 amd64 Docker/native kernel/userspace client, forwarding, reboot, recovery,
+backup/restore, key rotation, update/rollback, direct ACME and complete-removal drills passed;
+the final exact-revision repository gate remains pending. Active firewalld and later Ubuntu
+releases are not certified. No public release is published; RB-007 remains open until final gate.
 
 ## Phase 8.3 — Data-plane forwarding integrity (complete, 2026-09-10)
 
@@ -152,7 +151,7 @@ The owner-approved insertion before Phase 9 is complete. Results and honest limi
 | Cloudflare DNS-01 with scoped protected token | implemented + unit tested for official plugin commands, 0600 file transport and non-disclosure; real issuance unverified because no scoped Cloudflare test token was available |
 | Let's Encrypt public-IP short-lived certificate and renewal hook | implemented + unit tested + real staging/production verified; critical IP SAN, 160-hour lifetime, timer, quiet deploy hook and healthy Docker reload passed |
 | Post-install panel-access reconfiguration and rollback | implemented + unit/failure-injection tested; real direct/private/Nginx transitions, state migration, health/certificate proof and cleanup passed |
-| Ubuntu 24.04 amd64 secure-exposure/installer matrix | Docker production verified on Ubuntu 24.04.4 amd64. Corrective fresh-install acceptance verified exact GitHub-source AWG/DKMS/runtime identity, APT-lock retry, Docker socket recovery, local rerun and source/package purge. Native rendering/restart is automated-test verified and real recertification remains Phase 11 |
+| Ubuntu 24.04 amd64 secure-exposure/installer matrix | Docker production verified on Ubuntu 24.04.4 amd64. Corrective fresh-install acceptance verified exact GitHub-source AWG/DKMS/runtime identity, APT-lock retry, Docker socket recovery, local rerun and source/package purge. Phase 11 native direct ACME/trusted HTTPS, cache reuse and invalid-manual-config refusal passed |
 
 Evidence: [dedicated-VPS acceptance](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
 DNS-01 needs no inbound validation port, but WG-Guard requests only the exact panel hostname.
@@ -174,7 +173,7 @@ The user-authorized insertion between completed Phase 8 and planned Phase 9 is c
 | Bootstrap, release/commit selection and artifact identity | implemented, reviewed and tested with unit/shell fixtures; the supported linux/amd64 artifact builds and checksums. [Real acquisition evidence](../integrations/fixtures/verify-phase8.1-acquisition-2026-09-06.txt) covers source build/help and empty-release refusal. `d30894a` adds strict commit-bound PAX metadata handling; its real source install/update and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) passed. Non-amd64 targets are outside the product contract |
 | Terminal installer and management UX | English-only compact UI implemented and automated-test verified. Recommended setup asks only for optional domain and the advanced-settings gate; Enter accepts safe defaults, while disruptive actions remain explicit. `sudo wg-guard` opens locally without download. [VPS acceptance](../integrations/fixtures/verify-phase8.1-final-terminal-2026-09-06.txt) passed 17 PTY and three nonTTY cases; follow-up regressions plus a targeted 48-column Ubuntu SSH run cover language normalization, compact widths and contract-gated bootstrap behavior for current/legacy host CLIs |
 | Local owner before public listener | atomic owner creation, protected stdin/file transport and existing-owner preservation are unit tested; owner-before-start passed in real Docker and native installs. Phase 8.2 maintenance adds explicit `admin` default, shared-policy retry and show-once generated credentials; updated real Docker acceptance is tracked above |
-| OS prerequisites and compatible AWG selection | implemented and reviewed for Ubuntu 24.04+ amd64. Phase 8.1's linked package evidence remains historical; the current recommended `awg-2026-09` exact GitHub-source tools/kernel/DKMS/runtime identity passed the Phase 8.2 corrective VPS drill without a PPA. Later supported Ubuntu releases remain a Phase 11 certification cell and fail closed when the pinned source bundle cannot be built and verified |
+| OS prerequisites and compatible AWG selection | implemented and reviewed for Ubuntu 24.04+ amd64. Phase 8.1's linked package evidence remains historical; the current recommended `awg-2026-09` exact GitHub-source tools/kernel/DKMS/runtime identity passed the Phase 8.2 corrective VPS drill without a PPA. A Phase 11 real kernel upgrade verified generic-header tracking and DKMS repair. Later Ubuntu releases remain unverified without a genuine host |
 | Transactional install/update/rollback and safe uninstall | implemented, review/failure-injection verified and passed real Docker/native install, update, two-way rollback, failed-start recovery and data-preserving uninstall |
 | Catalogued core maintenance | lock/journal/impact confirmation, retry and pending-reboot behavior are tested. The installed recommended bundle was reaffirmed; no unsupported version transition is claimed |
 | Bounded restore and cross-contract recovery | streaming preview/approval, mandatory hashes, DB/key-pair ownership and fail-closed recovery are implemented and reviewed; coordinated restore and legacy-schema recovery passed on the VPS |
@@ -374,7 +373,7 @@ amneziawg-go v3.1.20260828, and real nftables).
 | Pinned runtime facts discovered: explicit-zero obfuscation block → `EINVAL`; omitted obfuscation keys persist across setconf ⇒ plain↔obfuscated transitions recreate the link | ✅ verified in WSL2; documented in [../integrations/amneziawg.md](../integrations/amneziawg.md) |
 | `network` package: `ip link add <name> type amneziawg` (+mtu), addr, up, delete (missing-link classification), `sysctl` IPv4 forwarding (idempotent, read-before-write) | ✅ implemented + unit tested (scripted `ip`/`sysctl`); sysctl verified live in WSL2 |
 | `firewall` package: rendered-state `table inet wgguard` (forward accept priority 10, masquerade postrouting priority 100), scoped `WGGUARD-FORWARD` child chain at Docker's `DOCKER-USER` extension, effective-policy inspection, and owned cleanup | ✅ unit/integration tested; Docker `FORWARD DROP`, three-profile public egress, doctor/restart and cleanup **verified on Ubuntu 24.04.4 amd64** |
-| Firewall-manager coexistence: Docker scoped child/jump; UFW status/routed-policy and idempotent per-interface allow; firewalld detection/remedy | ✅ Docker production verified and UFW failure/missing-tool unit tested; generic firewalld automation remains Phase 11 |
+| Firewall-manager coexistence: Docker scoped child/jump; UFW status/routed-policy and idempotent per-interface allow; firewalld detection | ✅ Docker production verified and UFW failure/missing-tool unit tested; active firewalld fails boot/readiness/doctor closed and is not certified |
 | `boot` package: tooling probe → IPv4 forwarding → reconcile → firewall/NAT → manager coexistence → shaping, shared by startup and serialized runtime mutations; runtime failure degrades readiness | ✅ implemented + unit tested; post-start interface creation and restart public egress production verified |
 | `wg-guard reconcile` CLI: boot bring-up outside the service; prints versions/counters/drift/errors/coexistence findings; non-zero exit when an interface failed | ✅ implemented (manual run on VPS pending) |
 | Reconcile engine refinements: obfuscation-mode transitions recreate the link and re-sync peers; fresh-create peer adds counted; per-interface error collection | ✅ implemented + unit tested |
@@ -551,8 +550,8 @@ and interoperability evidence. The VPS gate also exposed a critical peer-sync de
 `syncconf` cleared the interface private key. The backend now preserves and post-verifies the
 complete live interface section, with unit, integration, and real-traffic regressions green.
 
-The configured userspace mode still has no production daemon lifecycle; Phase 11 AUD-019 owns
-that feature and certification. Execution: [phase8.md](phase8.md); sanitized real-host evidence:
+The configured userspace mode gained managed daemon lifecycle and Ubuntu 24.04 Docker/native
+client verification in Phase 11 (AUD-019). Phase 8 execution: [phase8.md](phase8.md); sanitized historical real-host evidence:
 [`../integrations/fixtures/verify-phase8-vps-2026-09-05.txt`](../integrations/fixtures/verify-phase8-vps-2026-09-05.txt);
 cross-phase status: [release-readiness.md](release-readiness.md).
 
@@ -564,13 +563,13 @@ cross-phase status: [release-readiness.md](release-readiness.md).
 | 9 — Operational observability | complete | Live node/AWG metrics, dashboard telemetry, CLI logs, redaction, seven-day bounded retention |
 | 8.3 — Data-plane forwarding integrity | complete; production verified on Ubuntu 24.04.4 amd64 Docker | Runtime NAT/firewall reconciliation, scoped Docker coexistence, fail-closed diagnostics, public egress and owned cleanup |
 | 10 — Product UI/UX redesign | complete | Complete shadcn-style page/state migration, Settings IA, responsive QA, fa/en copy and accessibility |
-| 11 — Production certification | planned; not implemented | Security/race/soak/performance, real traffic, recovery drills, supported-Ubuntu/backend/deployment matrix |
+| 11 — Production certification | in progress | Security/race/soak/performance and Ubuntu 24.04 Docker/native kernel/userspace/recovery drills passed; final exact-revision gate pending |
 | 12 — Release candidate | planned; not implemented | Checksummed amd64 artifacts, repository/docs/API freeze, candidate install/upgrade and final report |
 
 ## Requires real VPS or client verification (carried forward)
 
-- Phase 11: non-default/firewalld and native firewall coexistence, 1000-shaped-peer tc, later
-  supported Ubuntu releases on amd64, kernel/userspace lifecycle, recovery and TLS drills. The
-  Ubuntu 24.04 Docker `FORWARD DROP` public-egress cell is already verified by Phase 8.3.
+- Phase 11: later Ubuntu releases on amd64 and active firewalld are unverified and excluded from
+  production claims; a 1000-simultaneous-handshake stress test is not claimed. The 1000-class
+  tc/IFB, native/Docker kernel/userspace, recovery and direct TLS drills passed on Ubuntu 24.04.
 - Phase 12: installation and upgrade from the exact release-candidate artifacts. Public release
   and registry publication remain owner-approval gated.

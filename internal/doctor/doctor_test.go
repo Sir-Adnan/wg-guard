@@ -3,6 +3,7 @@ package doctor
 import (
 	"context"
 	"errors"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,6 +27,9 @@ type doctorRunner struct {
 func (r *doctorRunner) Run(_ context.Context, argv []string) (subprocess.Result, error) {
 	if result, ok := r.responses[strings.Join(argv, " ")]; ok {
 		return result, nil
+	}
+	if strings.Join(argv, " ") == "firewall-cmd --state" {
+		return subprocess.Result{}, &exec.Error{Name: "firewall-cmd", Err: exec.ErrNotFound}
 	}
 	return subprocess.Result{}, nil
 }
@@ -278,5 +282,20 @@ func TestDoctorReportsIncompleteDockerForwardingPath(t *testing.T) {
 	}
 	if !strings.Contains(got.Remedy, "doctor --fix") {
 		t.Fatalf("forwarding remedy=%q", got.Remedy)
+	}
+}
+
+func TestDoctorRejectsActiveFirewalld(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	addEnabledInterface(t, db, "awg0", 39001)
+	deps.Run = &doctorRunner{responses: map[string]subprocess.Result{
+		"firewall-cmd --state":        {Stdout: []byte("running\n")},
+		"nft list table inet wgguard": {Stdout: []byte("table inet wgguard {}\n")},
+	}}
+	doc := &doctor{d: deps}
+	doc.checkFirewall(t.Context())
+	got := statusOf(&doc.report, "forwarding")
+	if got.Status != StatusFail || !strings.Contains(got.Detail, "firewalld") {
+		t.Fatalf("forwarding check=%+v", got)
 	}
 }

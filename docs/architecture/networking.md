@@ -39,9 +39,10 @@ self-inflicted outage).
 - **Firewall coexistence**: doctor/installer detect ufw/firewalld. With ufw's default forward
   DROP policy, forwarded tunnel traffic dies before our accept rules run — so bring-up adds the
   required allow rule *through that framework* (`ufw route allow in on awgN`, idempotent) and
-  reports findings (active managers, whether the routed policy blocks forwarding, and the exact
-  remedy commands). This is the most common "installed fine, no traffic" failure and is handled
-  explicitly.
+  reports findings. An active firewalld can add independent zone-level terminal verdicts;
+  WG-Guard has no certified firewalld allow path, so boot, runtime readiness and doctor fail
+  closed for enabled tunnels until firewalld is disabled. `iptables FORWARD ACCEPT` alone is
+  not evidence of firewalld forwarding.
 - **Docker coexistence**: Docker's iptables backend can install an earlier terminal
   `FORWARD DROP`; an accept in WG-Guard's later nftables base chain cannot override it. When
   `DOCKER-USER` exists, WG-Guard attaches one tagged jump to an owned `WGGUARD-FORWARD` child

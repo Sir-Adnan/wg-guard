@@ -87,7 +87,7 @@ and without a real VPN interface.
 | Tunnel adapter | conf renderer + dump parser against golden fixtures captured from the pinned upstream ([../integrations/fixtures/](../integrations/fixtures/)), exec wrapper against a scripted fake `awg` | plain `go test` |
 | Deployment | the whole install/update/uninstall/rollback flow against an in-memory `Host` seam (fs map + recorded commands), incl. health-checked rollback with real probe endpoints on loopback | plain `go test` (`internal/install`) |
 | Integration (`integration` build tag) | real interface lifecycle, syncconf, reconcile, nftables, sysctls — userspace backend in WSL2/CI | WSL2 Ubuntu / CI runner |
-| Real VPS matrix | kernel module, netlink dump format, public NAT path, firewall coexistence, install/update/uninstall | Ubuntu 24.04 and later supported Ubuntu releases on amd64 (Phase 8.3 verifies current Docker public egress; broader Phase 11 matrix remains) |
+| Real VPS matrix | kernel/userspace backends, client/public traffic, scoped Docker/non-default forwarding, reboot, recovery, update/rollback, TLS and uninstall | Ubuntu 24.04 amd64 verified for listed paths; UFW is automated-test verified, while later releases and active firewalld are not production-certified |
 
 ## Invariants with dedicated tests
 

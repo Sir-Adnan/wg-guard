@@ -82,6 +82,13 @@ func (r *RuntimeReconciler) NetworkPolicyHealthy(ctx context.Context) (bool, err
 		return true, nil
 	}
 	fw := &firewall.Manager{Run: r.Deps.Run}
+	active, err := fw.FirewalldActive(ctx)
+	if err != nil || active {
+		if err != nil {
+			return false, err
+		}
+		return false, fmt.Errorf("active firewalld forwarding is not certified")
+	}
 	present, err := fw.Present(ctx)
 	if err != nil || !present {
 		return false, err
@@ -113,6 +120,19 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 	res := &Result{}
 
 	links := &network.Links{Run: d.Run}
+	ifaces, err := enabledInterfaces(ctx, d.DB)
+	if err != nil {
+		return nil, err
+	}
+	if len(ifaces) > 0 {
+		active, err := (&firewall.Manager{Run: d.Run}).FirewalldActive(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("boot: firewalld state: %w", err)
+		}
+		if active {
+			return nil, fmt.Errorf("boot: active firewalld forwarding is not certified; disable firewalld before enabling tunnels")
+		}
+	}
 
 	// 1. Tooling: the pinned awg CLI must be present. Version drift is
 	// reported, not fatal (the CLI surface is stable).
@@ -148,7 +168,7 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 	res.Reconcile = rep
 
 	// 4. Firewall: the table content is rendered from enabled interfaces.
-	ifaces, err := enabledInterfaces(ctx, d.DB)
+	ifaces, err = enabledInterfaces(ctx, d.DB)
 	if err != nil {
 		return nil, err
 	}

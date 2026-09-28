@@ -209,5 +209,6 @@ commands rather than treating those records as updates.
 
 Phase 8.1 certified the base transaction paths on the dedicated Docker/native VPS. Phase 8.2
 added automated exposure/certificate failure coverage and a real Docker state-migration,
-Nginx/webroot, public-IP renewal and restoration drill. Native secure-exposure recertification
-remains in the Phase 11 matrix.
+Nginx/webroot, public-IP renewal and restoration drill. Phase 11 native direct ACME issued a
+trusted domain certificate, reused its protected cache after restart and rejected an invalid
+manual-certificate change while preserving healthy HTTPS.

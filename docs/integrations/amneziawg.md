@@ -43,8 +43,9 @@ Phase 11 adds explicit service-owned userspace lifecycle for profiles configured
 apply/dump and peer reconciliation, failure detection/restart, and owned teardown. It refuses an
 active unowned userspace socket. The Docker image includes the exact reviewed source build and
 maps `/dev/net/tun`; native operators must provision the same pin separately. No automatic
-kernel-to-userspace selection on module failure is implied. Real-host deployment/client evidence
-is still pending in the Phase 11 matrix.
+kernel-to-userspace selection on module failure is implied. Managed Docker and native userspace
+profiles passed real Ubuntu 24.04 client HTTPS traffic, service recovery and reboot drills;
+later Ubuntu releases remain unverified.
 At this pinned commit, the daemon's `--version` still prints `0.0.20250522`; it is not a
 reliable source identity. WG-Guard checks the Go build metadata for module path,
 `vcs.revision=b5928ef…` and `vcs.modified=false`; builds without that provenance fail closed.
@@ -315,7 +316,7 @@ AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-�
 | **Kernel constraint enforcement** | VPS: dup-H rejected; Jmin>Jmax / S1+56==S2 accepted | differs from userspace; WG-Guard validates locally | ✅ **verified (VPS kernel)** |
 | **Peer-only syncconf interface preservation** | VPS: reproduce kernel key clearing; fixed backend snapshot/apply/post-verify; repeat full client gate | interface private key and all live interface directives remain byte-identical while peers replace; recommended/randomized handshakes and traffic pass | ✅ **verified (VPS kernel, 2026-09-05)** |
 | **Phase 8 canonical config/QR/client gate** | Exact commit-stamped Ubuntu 24.04 harness run | normalized API/DB/runtime/config/decoded-QR equality; recommended/randomized kernel traffic; recommended userspace traffic; secret scan and cleanup pass | ✅ **verified** — [`fixtures/verify-phase8-vps-2026-09-05.txt`](fixtures/verify-phase8-vps-2026-09-05.txt) |
-| Installer on later Ubuntu amd64 releases | exact source/DKMS/runtime build plus real-host certification | — | ⚠️ Phase 11 |
+| Installer on later Ubuntu amd64 releases | exact source/DKMS/runtime build plus real-host certification | no genuine later-release host available | ⚠️ unverified; no production claim |
 
 Reproduction: [`fixtures/verify-wsl2.sh`](fixtures/verify-wsl2.sh) and
 [`fixtures/verify-wsl2-runtime.sh`](fixtures/verify-wsl2-runtime.sh).

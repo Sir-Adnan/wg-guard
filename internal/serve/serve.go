@@ -751,7 +751,7 @@ func (n *Node) jobTelemetry(ctx context.Context) error {
 }
 
 func (n *Node) jobRuntimeRepair(ctx context.Context) error {
-	repair := n.userspace != nil && n.userspace.NeedsRepair()
+	repair := !n.networkReady.Load() || (n.userspace != nil && n.userspace.NeedsRepair())
 	if n.runtimePolicyHealthy != nil {
 		healthy, err := n.runtimePolicyHealthy(ctx)
 		if err != nil || !healthy {

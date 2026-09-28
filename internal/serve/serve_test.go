@@ -79,6 +79,16 @@ func TestRuntimeRepairRestoresReadinessAfterPolicyLoss(t *testing.T) {
 	}
 }
 
+func TestRuntimeRepairRechecksAfterUnsupportedPolicyClears(t *testing.T) {
+	inner := &reconcileSequence{}
+	n := &Node{runtimePolicyHealthy: func(context.Context) (bool, error) { return true, nil }}
+	n.networkReady.Store(false)
+	n.reconciler = &serializedReconciler{inner: inner, healthy: &n.networkReady}
+	if err := n.jobRuntimeRepair(t.Context()); err != nil || !n.networkReady.Load() || inner.calls != 1 {
+		t.Fatalf("cleared policy did not restore readiness: calls=%d ready=%v err=%v", inner.calls, n.networkReady.Load(), err)
+	}
+}
+
 func (r *runtimeNetworkRunner) Run(_ context.Context, argv []string) (subprocess.Result, error) {
 	r.mu.Lock()
 	r.calls = append(r.calls, strings.Join(argv, " "))
@@ -94,7 +104,7 @@ func (r *runtimeNetworkRunner) Run(_ context.Context, argv []string) (subprocess
 	case "ufw status verbose":
 		return subprocess.Result{}, &subprocess.ExitError{Name: "ufw", ExitCode: 1, Stderr: "not found"}
 	case "firewall-cmd --state":
-		return subprocess.Result{}, &subprocess.ExitError{Name: "firewall-cmd", ExitCode: 1, Stderr: "not found"}
+		return subprocess.Result{}, fmt.Errorf("firewall-cmd unavailable: %w", exec.ErrNotFound)
 	default:
 		return subprocess.Result{}, nil
 	}
