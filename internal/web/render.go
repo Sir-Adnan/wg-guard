@@ -194,6 +194,7 @@ type View struct {
 	Preset       string // allowlisted visual preset ID; empty/unknown resolves to built-in
 	Path         string // request path, for nav highlighting
 	PageClass    string // content width tier (" content--narrow" on form/settings routes)
+	SubLayout    string // public subscription composition, absent on error surfaces
 	Admin        *auth.Admin
 	CSRF         string
 	Version      string

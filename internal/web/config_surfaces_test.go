@@ -10,6 +10,7 @@ import (
 
 	restapi "github.com/Sir-Adnan/wg-guard/internal/api"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/testutil/qrdecode"
 )
@@ -63,14 +64,19 @@ func TestConfigDownloadsUseCanonicalBytesAndHeaders(t *testing.T) {
 		"admin panel":         e.get("/devices/"+deviceID+"/config", cookie),
 		"public subscription": e.get(e.subBase(link.Token)+"/devices/"+deviceID+"/config", nil),
 	}
-	wantDisposition := `attachment; filename="wg-alice-phone-v2.conf"`
+	filename := clientconf.ConfigFilename("wg", "alice", deviceID, "v2")
+	wantDisposition := `attachment; filename="` + filename + `"`
 	for name, response := range responses {
 		if response.Code != http.StatusOK {
 			t.Errorf("%s config status = %d, want 200", name, response.Code)
 			continue
 		}
 		assertCanonicalConfigBytes(t, name, []byte(canonical), response.Body.Bytes())
-		if got := response.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+		wantType := "application/octet-stream"
+		if name == "REST API" {
+			wantType = "text/plain; charset=utf-8"
+		}
+		if got := response.Header().Get("Content-Type"); got != wantType {
 			t.Errorf("%s Content-Type = %q", name, got)
 		}
 		if got := response.Header().Get("Content-Disposition"); got != wantDisposition {
@@ -92,7 +98,7 @@ func TestConfigDownloadsUseCanonicalBytesAndHeaders(t *testing.T) {
 		"admin panel":         e.get("/devices/"+deviceID+"/qr", cookie),
 		"public subscription": e.get(e.subBase(link.Token)+"/devices/"+deviceID+"/qr", nil),
 	}
-	wantQRDisposition := `inline; filename="wg-alice-phone-v2.png"`
+	wantQRDisposition := `inline; filename="` + strings.TrimSuffix(filename, ".conf") + `.png"`
 	for name, response := range qrResponses {
 		if response.Code != http.StatusOK {
 			t.Errorf("%s QR status = %d, want 200", name, response.Code)

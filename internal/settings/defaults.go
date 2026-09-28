@@ -175,6 +175,10 @@ func Defaults() []Definition {
 				}
 				return nil
 			}},
+		// One installation-wide public-page composition. Visual presets and
+		// visitor light/dark choice remain independent from this layout.
+		{Key: "subscription.layout", Kind: KindString, Default: "pass",
+			Options: []string{"pass", "split", "compact"}, Category: "general"},
 
 		// Users (defaults applied at creation; per-user overrides exist).
 		// The preset lists feed the create-user quick chips; the settings
@@ -195,8 +199,8 @@ func Defaults() []Definition {
 		{Key: "users.default_duration_months", Kind: KindInt, Default: 1, Min: 0, Max: 120,
 			Category: "general"},
 
-		// Config download filenames: [prefix]username-device[suffix].conf
-		// (sanitized to [A-Za-z0-9._-]; empty disables the part).
+		// Optional short label parts for importable .conf filenames. Each
+		// contributes at most two safe characters to a 15-character stem.
 		{Key: "downloads.filename_prefix", Kind: KindString, Default: "", Category: "general",
 			Validator: func(v any) error {
 				s := v.(string)

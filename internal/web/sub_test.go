@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -96,6 +97,9 @@ func TestPublicSubscriptionStatusAndErrorSurfaces(t *testing.T) {
 		rec := e.get(base+"?lang=en", nil)
 		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), tc.text) {
 			t.Errorf("missing status presentation %s", tc.status)
+		}
+		if wantReady := tc.status == "active" || tc.status == "waiting_first_connection"; !strings.Contains(rec.Body.String(), `data-access-ready="`+strconv.FormatBool(wantReady)+`"`) {
+			t.Errorf("wrong device-first eligibility for %s", tc.status)
 		}
 	}
 	unknown := e.get("/sub/unknown?lang=en", nil)
@@ -450,6 +454,33 @@ func TestSubPageLocaleSwitch(t *testing.T) {
 	rec = e.get(e.subBase(link.Token), nil)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `dir="rtl"`) {
 		t.Fatalf("fa sub page default: %d", rec.Code)
+	}
+}
+
+func TestSubscriptionLayoutSettingAppliesToExistingPublicLink(t *testing.T) {
+	e := newEnv(t)
+	userID, _, csrf, cookie := e.seedUserWithDevice()
+	link, err := e.srv.Links.ForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	subURL := e.subBase(link.Token)
+	for _, layout := range []string{"pass", "split", "compact"} {
+		rec := e.post("/settings", url.Values{"sub_layout": {layout}}, cookie, csrf)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("save %s: HTTP %d", layout, rec.Code)
+		}
+		page := e.get(subURL+"?lang=en", nil)
+		if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-sub-layout="`+layout+`"`) {
+			t.Fatalf("layout %s did not apply to existing link: HTTP %d", layout, page.Code)
+		}
+	}
+	bad := e.post("/settings", url.Values{"sub_layout": {"unlisted"}}, cookie, csrf)
+	if bad.Code == http.StatusSeeOther {
+		t.Fatal("unlisted layout was accepted")
+	}
+	if got, _ := e.reg.GetString(context.Background(), "subscription.layout"); got != "compact" {
+		t.Fatalf("invalid save changed layout to %q", got)
 	}
 }
 

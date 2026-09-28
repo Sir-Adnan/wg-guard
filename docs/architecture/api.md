@@ -136,8 +136,13 @@ download delegate to the same `internal/clientconf.Renderer`; no HTTP surface as
 rewrites configuration text. The canonical serialization puts all client/interface keys before
 `[Peer]`, uses the selected tunnel interface's MTU, preserves scalar/range values, validates
 stored DNS/AllowedIPs/PersistentKeepalive before decrypting keys, and ends with exactly one
-newline. Every response is `text/plain; charset=utf-8`, an attachment with the shared sanitized
-filename, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
+newline. The REST response remains `text/plain; charset=utf-8`; browser downloads use
+`application/octet-stream` to avoid the text MIME type adding a `.txt` extension on mobile.
+All are attachments
+with the same sanitized filename, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
+The filename uses up to six safe username-label characters (including optional short prefix/
+suffix parts), then a stable eight-character device-ID code. The importable profile stem stays
+within 15 ASCII characters and does not depend on the editable device name.
 
 The matching QR endpoints pass those same bytes to the single bounded QR encoder. Its PNG has a
 four-module white quiet zone, integer module scaling, and medium error correction; independent

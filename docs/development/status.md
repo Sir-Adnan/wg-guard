@@ -25,12 +25,19 @@ the prior Ubuntu production certification is not silently extended. The additive
 is a [planned Phase 14](../../ROADMAP.md#phase-14--integration-api-for-automation), not an
 implemented V1 capability.
 
+**Unreleased subscription delivery update:** Browser downloads now send `.conf` files as
+attachments with a binary media type, while the REST API keeps its text response. Shared
+filenames have a short, stable device-specific stem; Settings selects one of three responsive
+public layouts for all existing links. Focused Go and Chromium/WebKit browser checks cover the
+changed routes, 320–1440px layouts, fa/en and Light/Dark. Actual Android/iOS downloads and a
+fresh VPS deployment of this revision remain unverified; v0.1.1 artifacts do not include it.
+
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, plans, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | V1 behavior unchanged in v0.1.1; Phase 14 automation additions remain planned |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.1 V1 behavior unchanged; unreleased config filename header update is documented; Phase 14 additions remain planned |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |

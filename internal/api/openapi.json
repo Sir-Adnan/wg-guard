@@ -231,14 +231,14 @@
     },
     "/api/v1/devices/{id}/config": {
       "get": {
-        "tags": ["config"], "summary": "Download the client configuration (text)", "description": "Requires configs.read; contains the private key — treat as a secret. Returns the canonical full-field configuration bytes shared by the admin and subscription downloads, ending in exactly one newline. Response headers include `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`; the `Content-Disposition` filename is `[prefix]username-device[suffix].conf` (downloads.filename_prefix/suffix settings; prefix/suffix empty by default).", "security": [{ "BearerAuth": ["configs.read"] }],
+        "tags": ["config"], "summary": "Download the client configuration (text)", "description": "Requires configs.read; contains the private key — treat as a secret. Returns the canonical full-field configuration bytes shared by the admin and subscription downloads, ending in exactly one newline. Response headers include `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`; the `Content-Disposition` filename has a short ASCII username label (up to six characters), a hyphen, and a stable eight-character device code followed by `.conf`. Optional downloads.filename_prefix/suffix each contribute at most two characters to the label. The profile-name stem is at most 15 characters.", "security": [{ "BearerAuth": ["configs.read"] }],
         "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
         "responses": { "200": { "description": "AWG client configuration", "content": { "text/plain": { "schema": { "type": "string" } } } } }
       }
     },
     "/api/v1/devices/{id}/qr": {
       "get": {
-        "tags": ["config"], "summary": "Client configuration as a PNG QR code", "description": "Encodes the exact canonical configuration returned by the text endpoint. Returns `image/png`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and an inline `[prefix]username-device[suffix].png` filename. An oversized configuration returns `INVALID_REQUEST` instead of partial image data.", "security": [{ "BearerAuth": ["configs.read"] }],
+        "tags": ["config"], "summary": "Client configuration as a PNG QR code", "description": "Encodes the exact canonical configuration returned by the text endpoint. Returns `image/png`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and an inline `.png` filename with the same short stem as the config download. An oversized configuration returns `INVALID_REQUEST` instead of partial image data.", "security": [{ "BearerAuth": ["configs.read"] }],
         "parameters": [{ "$ref": "#/components/parameters/DeviceID" }],
         "responses": { "200": { "description": "PNG image", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } } }, "400": { "$ref": "#/components/responses/Invalid" } }
       }

@@ -208,7 +208,14 @@ locale and layout boundary. Session expiry returns to a safe full page, includin
 QR loads on demand through a shared viewer. Public downloads give retry feedback and preserve
 the native file-link fallback. Connection-disabled states do not invent new config-access rules.
 Public presentation excludes admin notes and encrypted key carriers; capability URLs stay private.
-The public connection pass uses a compact desktop composition and a single-column phone layout.
+The public page has three installation-wide layouts selected in Settings: Connection pass
+(featured status), Split workspace (device delivery beside status on wide screens and first on
+phones only while access is ready), and Compact list (short summary and device rows). They share
+one semantic content tree, the panel visual preset and the same status/QR/config behavior.
+Phone actions stack inside the device card with no horizontal clipping; public navigation does
+not cover scrolling content.
+Config downloads use a short, stable device-specific `.conf` filename and browser-safe binary
+attachment type; the REST text representation remains unchanged.
 Usage and transfer metrics keep Latin numbers separate from localized units, so RTL never reverses
 their meaning. The all-device QR view contains exactly one image per actual device; hidden
 single-device controls must stay hidden even when component layout styles change.

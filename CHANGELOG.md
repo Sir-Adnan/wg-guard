@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-No changes since v0.1.1.
+- Correct mobile `.conf` downloads and shorten stable device filenames for VPN-client import.
+- Add three selectable public subscription layouts with responsive phone and desktop compositions.
 
 ## [v0.1.1] — 2026-09-28
 

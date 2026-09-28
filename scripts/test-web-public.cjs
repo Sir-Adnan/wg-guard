@@ -44,7 +44,14 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
     await page.unroute('**/devices/*/config?*');
     step = 'public download retry';
     const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-config-download]').first().click()]);
-    assert(download.suggestedFilename().endsWith('.conf'), 'public configuration downloads as a file');
+    assert(/^[a-z0-9]{1,6}-[a-z2-7]{8}\.conf$/.test(download.suggestedFilename()), 'public configuration downloads with a short .conf filename');
+    const plainContext = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const plainPage = await plainContext.newPage();
+      await plainPage.goto(seed.url + seed.sub + '?lang=en');
+      const [nativeDownload] = await Promise.all([plainPage.waitForEvent('download'), plainPage.locator('[data-config-download]').first().click()]);
+      assert(nativeDownload.suggestedFilename() === download.suggestedFilename(), 'native download keeps the exact .conf filename');
+    } finally { await plainContext.close(); }
     step = 'public QR open';
     await page.locator('[data-qr]').first().click();
     await page.waitForFunction(() => document.querySelector('#qr-img')?.naturalWidth > 0);
@@ -69,7 +76,8 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
 
     }
     step = 'auth and public compositions';
-    const widths = final ? [320,360,390,430,768,799,800,959,960,961,1024,1280,1440,1920,2560,3440] : [390,1440];
+    const widths = final ? [320,360,390,430,768,799,800,959,960,961,1024,1280,1440,1920,2560,3440] :
+      process.env.WG_TEST_UI_PUBLIC === 'subscription' ? [320,360,390,430,768,1440] : [390,1440];
     const surfaces = [
       ['login', seed.url, '/login', 200], ['expired-login', seed.url, '/login?expired=1', 200],
       ['limited-login', seed.url, '/login?e=rate', 200], ['onboarding', seed.setupURL, '/onboarding', 200],
@@ -101,6 +109,18 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
                 const values = card.querySelector('.subscription-transfer-list');
                 return values?.querySelectorAll('dd .metric-quantity bdi[dir="ltr"]').length === 2 && values.scrollWidth <= values.clientWidth;
               }), step + ' transfer values are isolated without overflow');
+            }
+            if (name === 'subscription') {
+              assert(await page.locator('body').getAttribute('data-sub-layout') === (process.env.WG_TEST_SUB_LAYOUT || 'pass'), step + ' selected layout');
+              if (process.env.WG_TEST_VISUAL_PRESET) assert(await page.locator('html').getAttribute('data-visual-preset') === process.env.WG_TEST_VISUAL_PRESET, step + ' panel visual preset');
+              assert(await page.locator('.publicsub-device-actions').first().evaluate(actions => {
+                const card = actions.closest('.publicsub-device').getBoundingClientRect();
+                return [...actions.querySelectorAll('.btn')].every(button => {
+                  const box = button.getBoundingClientRect();
+                  return box.width >= 44 && box.height >= 44 && box.height <= 100 &&
+                    box.left >= card.left - 1 && box.right <= card.right + 1;
+                });
+              }), step + ' device actions fit within their card');
             }
             assert(await page.locator('main h1').count() === 1, step + ' one heading');
             assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), step + ' viewport overflow');
@@ -155,6 +175,8 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
   const adminPage=await admin.newPage();
   try {
     await adminPage.goto(seed.url+'/users/'+seed.user);
+    const [adminDownload] = await Promise.all([adminPage.waitForEvent('download'), adminPage.locator('a[href$="/config"][download]').first().click()]);
+    assert(/^[a-z0-9]{1,6}-[a-z2-7]{8}\.conf$/.test(adminDownload.suggestedFilename()), 'admin config download keeps the short .conf extension');
     await adminPage.locator('[data-qr]').first().click();
     await adminPage.waitForFunction(()=>document.querySelector('#qr-img')?.naturalWidth>0);
     await adminPage.locator('#qr-modal [data-close-modal]').click();

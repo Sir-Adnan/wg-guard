@@ -2,7 +2,7 @@
 const form = document.querySelector("[data-settings-form]");
 if (form) {
   const controls = [...form.elements].filter(el => el.name && el.name !== "_csrf" && !el.disabled);
-  const snapshot = () => controls.map(el => el.type === "checkbox" ? el.checked : el.value);
+  const snapshot = () => controls.map(el => el.type === "checkbox" || el.type === "radio" ? el.checked : el.value);
   const initial = snapshot();
   const retry = form.dataset.settingsRetry === "true";
   let dirty = retry;

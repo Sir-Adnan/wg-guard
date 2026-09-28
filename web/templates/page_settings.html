@@ -32,6 +32,21 @@
 {{define "settings-field"}}
 {{$v := .v}}{{$f := .f}}
 <div class="field settings-field{{if $f.Invalid}} field--invalid{{end}}">
+  {{if eq $f.Name "sub_layout"}}
+  <fieldset class="subscription-layout-picker" aria-describedby="s-{{$f.Name}}-hint s-{{$f.Name}}-meta{{if $f.Invalid}} s-{{$f.Name}}-error{{end}}">
+    <legend>{{$v.T $f.Label}}</legend>
+    <p class="hint" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
+    <div class="subscription-layout-choices">
+      {{range $f.Options}}
+      <label class="subscription-layout-choice">
+        <input type="radio" name="{{$f.Name}}" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}>
+        <span class="subscription-layout-preview" data-layout="{{.Value}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <strong>{{.Label}}</strong><small>{{if or (eq .Value "pass") (eq .Value "split") (eq .Value "compact")}}{{$v.T (printf "settings.sub_layout.%s_hint" .Value)}}{{else}}{{$v.T "settings.selection_unavailable"}}{{end}}</small>
+      </label>
+      {{end}}
+    </div>
+  </fieldset>
+  {{else}}
   <label for="s-{{$f.Name}}">{{$v.T $f.Label}}{{if $f.Unit}} <span class="text-muted">({{$v.T $f.Unit}})</span>{{end}}{{if $f.Secret}} {{if $f.Unavailable}}<span class="badge">{{$v.T "settings.unavailable"}}</span>{{else if $f.SecretSet}}<span class="badge badge--ok">{{$v.T "settings.secret_set"}}</span>{{else}}<span class="badge">{{$v.T "settings.secret_unset"}}</span>{{end}}{{end}}</label>
   <p class="hint" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
   {{if $f.Options}}
@@ -43,6 +58,7 @@
   <label class="check-label settings-secret-clear"><input type="checkbox" class="checkbox" name="{{$f.Name}}_clear" value="1"{{if $f.Clear}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}> {{$v.T "settings.secret_clear"}}</label>
   {{else}}
   <input class="input ltr-data" id="s-{{$f.Name}}" name="{{$f.Name}}"{{if $f.Numeric}} type="text" inputmode="numeric"{{else if eq $f.Name "keepalive"}} type="text"{{end}} value="{{$f.Value}}" dir="ltr" spellcheck="false" autocomplete="off" aria-describedby="s-{{$f.Name}}-hint s-{{$f.Name}}-meta{{if $f.Invalid}} s-{{$f.Name}}-error{{end}}{{if $f.Unavailable}} s-{{$f.Name}}-unavailable{{end}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
+  {{end}}
   {{end}}
   {{if $f.Invalid}}<span class="field-error" id="s-{{$f.Name}}-error">{{$v.Data.Error}}</span>{{end}}
   {{if $f.Unavailable}}<p class="field-error" id="s-{{$f.Name}}-unavailable">{{$v.T "settings.load.field"}}</p>{{end}}

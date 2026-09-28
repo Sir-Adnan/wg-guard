@@ -30,9 +30,19 @@ func TestBrowserPhase10(t *testing.T) {
 		t.Skip("set WG_TEST_BROWSER_NODE and WG_TEST_PLAYWRIGHT for browser checks")
 	}
 	e := newEnv(t)
+	if layout := os.Getenv("WG_TEST_SUB_LAYOUT"); layout != "" {
+		if err := e.reg.Set(context.Background(), "subscription.layout", layout); err != nil {
+			t.Fatal("invalid browser subscription layout")
+		}
+	}
+	if preset := os.Getenv("WG_TEST_VISUAL_PRESET"); preset != "" {
+		if _, err := e.db.Exec(`UPDATE appearance_defaults SET preset_id = ? WHERE id = 1`, preset); err != nil {
+			t.Fatal("browser preset setup failed")
+		}
+	}
 	wireUpdateQueue(t, e)
 	uid, did, csrf, cookie := e.seedUserWithDevice()
-	if suite := os.Getenv("WG_TEST_UI_SUITE"); suite == "appearance" || suite == "10.5" {
+	if suite := os.Getenv("WG_TEST_UI_SUITE"); suite == "appearance" || suite == "10.5" || suite == "10.6" {
 		// Mixed MB/GB values expose bidi and line-wrapping mistakes on the
 		// customer-facing summary without relying on any real subscriber.
 		if _, err := e.db.Exec(`UPDATE users SET traffic_limit_bytes = ?, traffic_used_rx = ?, traffic_used_tx = ? WHERE id = ?`,

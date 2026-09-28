@@ -518,8 +518,12 @@ func TestSettingsRegistryCoverageAndUnavailableValues(t *testing.T) {
 		if name == "" {
 			t.Fatalf("no field for registry key %s", def.Key)
 		}
-		if got := strings.Count(body, `name="`+name+`"`); got != 1 {
-			t.Fatalf("%s has %d editors", def.Key, got)
+		want := 1
+		if def.Key == "subscription.layout" {
+			want = len(def.Options) // one radio group with three layout choices
+		}
+		if got := strings.Count(body, `name="`+name+`"`); got != want {
+			t.Fatalf("%s has %d inputs, want %d", def.Key, got, want)
 		}
 	}
 	if strings.Contains(body, "settings.help.") || strings.Contains(body, "settings.effect.") {

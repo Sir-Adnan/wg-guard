@@ -1,6 +1,6 @@
 {{define "title"}}{{.T "sub.title"}}{{end}}
 {{define "subcontent"}}
-<div class="publicsub-product">
+<div class="publicsub-product" data-access-ready="{{.Data.U.Status.PeerWanted}}">
   <section class="subscription-pass" data-status="{{printf "%v" .Data.U.Status}}" aria-labelledby="subscription-name">
     <span class="pass-orb pass-orb--one" aria-hidden="true"></span><span class="pass-orb pass-orb--two" aria-hidden="true"></span>
     <header class="subscription-pass-head">
@@ -46,7 +46,7 @@
         <div class="publicsub-device-topline" aria-hidden="true"></div>
         <div class="publicsub-device-head"><span class="publicsub-device-icon" aria-hidden="true">{{$.Icon "monitor"}}</span><div><h3><bdi>{{.D.Name}}</bdi></h3><span class="ltr-data text-muted">{{.D.IPv4}}</span></div><span class="badge {{if .Online}}badge--ok{{end}}">{{if not .D.Enabled}}{{$.T "status.disabled"}}{{else if .Online}}{{$.T "status.online"}}{{else}}{{$.T "status.offline"}}{{end}}</span></div>
         {{if not .D.Enabled}}<p class="callout">{{$.T "publicsub.device_disabled"}}</p>{{else if not $.Data.U.Status.PeerWanted}}<p class="hint">{{$.T "publicsub.connection_paused"}}</p>{{end}}
-        <div class="publicsub-device-actions"><a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}" download data-config-download>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a><a class="btn btn--soft" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}">{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a></div>
+        <div class="publicsub-device-actions"><a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}" data-config-download>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a><a class="btn btn--soft" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}">{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a></div>
         <p class="hint publicsub-download-state" data-download-state role="status" data-loading="{{$.T "common.loading"}}" data-error="{{$.T "publicsub.download_failed"}}" data-rate-limit="{{$.T "publicsub.rate_limited"}}" data-success="{{$.T "publicsub.download_started"}}"></p>
       </article>
       {{end}}

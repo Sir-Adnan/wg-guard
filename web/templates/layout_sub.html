@@ -5,7 +5,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>{{.T "sub.title"}} · {{.T "app.name"}}</title>
 </head>
-<body class="publicsub-body">
+<body class="publicsub-body"{{if .SubLayout}} data-sub-layout="{{.SubLayout}}"{{end}}>
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
 <div class="publicsub-ambience" aria-hidden="true"><span></span><span></span></div>
 <div class="publicsub-frame">

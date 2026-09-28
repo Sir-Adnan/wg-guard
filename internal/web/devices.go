@@ -218,14 +218,14 @@ func (s *Server) handleDeviceConfig(w http.ResponseWriter, r *http.Request) {
 		s.writeQRError(w, r, err)
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+s.configFilename(r, d)+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(text))
 }
 
 // configFilename builds the download filename for a device config:
-// [prefix]username-device[suffix].conf (downloads.filename_* settings).
+// A short, stable username/device-ID stem (downloads.filename_* labels).
 func (s *Server) configFilename(r *http.Request, d *device.Device) string {
 	ctx := r.Context()
 	prefix, _ := s.Settings.GetString(ctx, "downloads.filename_prefix")
@@ -234,7 +234,7 @@ func (s *Server) configFilename(r *http.Request, d *device.Device) string {
 	if u, err := s.Users.Get(ctx, d.UserID); err == nil {
 		username = u.Username
 	}
-	return clientconf.ConfigFilename(prefix, username, d.Name, suffix)
+	return clientconf.ConfigFilename(prefix, username, d.ID, suffix)
 }
 
 // handleUserConfigsArchive returns every current device configuration in one
@@ -292,7 +292,7 @@ func (s *Server) handleUserConfigsArchive(w http.ResponseWriter, r *http.Request
 		s.writeQRError(w, r, err)
 		return
 	}
-	archiveName := strings.TrimSuffix(clientconf.ConfigFilename("", u.Username, "configs", ""), ".conf") + ".zip"
+	archiveName := clientconf.ConfigArchiveFilename(u.Username)
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+archiveName+`"`)
 	w.Header().Set("X-Content-Type-Options", "nosniff")

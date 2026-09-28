@@ -211,7 +211,7 @@ func (s *Server) handleDeviceQR(w http.ResponseWriter, r *http.Request) {
 }
 
 // configFilename builds the download filename for a device config:
-// [prefix]username-device[suffix].conf (downloads.filename_* settings) —
+// A short, stable username/device-ID stem (downloads.filename_* labels) —
 // the same rule the admin panel and public subscription page apply.
 func (s *Server) configFilename(r *http.Request, d *device.Device) string {
 	ctx := r.Context()
@@ -221,7 +221,7 @@ func (s *Server) configFilename(r *http.Request, d *device.Device) string {
 	if u, err := s.Users.Get(ctx, d.UserID); err == nil {
 		username = u.Username
 	}
-	return clientconf.ConfigFilename(prefix, username, d.Name, suffix)
+	return clientconf.ConfigFilename(prefix, username, d.ID, suffix)
 }
 
 // renderClientConfig delegates to the shared renderer (internal/clientconf)

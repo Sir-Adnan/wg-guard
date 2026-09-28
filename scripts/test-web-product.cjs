@@ -649,7 +649,7 @@ let stage = 'launch';
       stage = 'settings dirty and validation';
       await goto('/settings');
       const settings = page.locator('[data-settings-form]');
-      assert(await settings.locator('.settings-field').count() === 34, 'all registry settings have one editor');
+      assert(await settings.locator('.settings-field').count() === 35, 'all registry settings have one editor');
       const rateSection = page.locator('details').filter({ has: page.locator('#s-rate_limit') });
       await rateSection.locator('summary').click();
       await page.locator('#s-rate_limit').evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
@@ -681,6 +681,10 @@ let stage = 'launch';
       await submit(page.locator('[data-settings-form]'));
       assert(await page.locator('#s-node_id').inputValue() === 'Browser node', 'settings save completed');
       assert(!await page.locator('[data-settings-form]').evaluate(el => el.classList.contains('is-dirty')), 'saved settings are clean');
+      await page.locator('input[name="sub_layout"][value="split"]').check();
+      assert(await settings.evaluate(el => el.classList.contains('is-dirty')), 'layout radio marks settings dirty');
+      await submit(page.locator('[data-settings-form]'));
+      assert(await page.locator('input[name="sub_layout"][value="split"]').isChecked(), 'public layout selection persists');
     }
     if (['10.4', '10.4-admin', 'final'].includes(suite)) {
       stage = 'administrator create and wildcard permissions';

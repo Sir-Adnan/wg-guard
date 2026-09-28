@@ -165,6 +165,13 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: u.ExpiresAt, DurationSeconds: u.DurationSeconds}
 	data.Used = u.TrafficUsedRX + u.TrafficUsedTX
 	data.Base = "/sub/" + url.PathEscape(r.PathValue("token"))
+	data.Layout = "pass"
+	if layout, err := s.Settings.GetString(ctx, "subscription.layout"); err == nil {
+		switch layout {
+		case "pass", "split", "compact":
+			data.Layout = layout
+		}
+	}
 	s.renderSub(w, r, "sub", data)
 }
 
@@ -215,7 +222,7 @@ func (s *Server) handleSubDeviceConfig(w http.ResponseWriter, r *http.Request) {
 		s.surfaceError(w, r, http.StatusNotFound, "publicsub.download_unavailable", "sub")
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+s.configFilename(r, d)+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(text))
@@ -266,7 +273,7 @@ func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
 
 // renderSub executes a customer-facing page inside the standalone sub layout
 // with a ?lang= override (customers have no admin session/cookie).
-func (s *Server) renderSub(w http.ResponseWriter, r *http.Request, page string, data any) {
+func (s *Server) renderSub(w http.ResponseWriter, r *http.Request, page string, data subPageData) {
 	pt, ok := s.pages[page]
 	if !ok {
 		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "sub")
@@ -276,6 +283,7 @@ func (s *Server) renderSub(w http.ResponseWriter, r *http.Request, page string, 
 	v.Admin = nil
 	v.CSRF = ""
 	v.Data = data
+	v.SubLayout = data.Layout
 	v.Locale = i18n.Normalize(r.URL.Query().Get("lang"))
 	v.Dir = v.Locale.Dir()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -290,6 +298,7 @@ type subPageData struct {
 	U            *subUserView
 	Used         int64  // RX+TX precomputed for the meter
 	Base         string // /sub/{token} prefix for absolute asset URLs
+	Layout       string // installation-wide public-page composition
 	Lang         string
 	PlanName     string
 	PlanKnown    bool

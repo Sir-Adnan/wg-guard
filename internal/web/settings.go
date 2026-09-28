@@ -73,6 +73,7 @@ var settingsGroups = []settingsGroup{
 	}},
 	{"subscription", "settings.group.subscription", []settingsPresentation{
 		{"sub_base_url", "settings.sub_base_url", "settings.sub_base_url_hint", "settings.effect.links", false},
+		{"sub_layout", "settings.sub_layout", "settings.sub_layout_hint", "settings.effect.sub_layout", false},
 		{"filename_prefix", "settings.filename_prefix", "settings.filename_hint", "settings.effect.downloads", false},
 		{"filename_suffix", "settings.filename_suffix", "settings.help.filename", "settings.effect.downloads", false},
 	}},
@@ -132,6 +133,9 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 			spec := specs[p.name]
 			def, found := defs[spec.key]
 			f := settingsControl{Name: p.name, Label: p.label, Hint: p.hint, Effect: p.effect, Numeric: spec.kind == "int", Secret: spec.kind == "secret", Default: settingsValue(def.Default)}
+			if f.Name == "sub_layout" {
+				f.Default = s.t(r, "settings.sub_layout.pass")
+			}
 			switch f.Name {
 			case "default_quota_gb":
 				f.Unit = "settings.unit.gb"
@@ -198,7 +202,11 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 			} else if len(def.Options) > 0 {
 				selectedFound := false
 				for _, option := range def.Options {
-					f.Options = append(f.Options, settingsOption{option, s.t(r, "settings.drift."+option), f.Value == option})
+					labelKey := "settings.drift." + option
+					if f.Name == "sub_layout" {
+						labelKey = "settings.sub_layout." + option
+					}
+					f.Options = append(f.Options, settingsOption{option, s.t(r, labelKey), f.Value == option})
 					selectedFound = selectedFound || f.Value == option
 				}
 				if !selectedFound {
@@ -231,6 +239,7 @@ var settingSpecs = []setSpec{
 	{"users.default_device_limit", "default_device_lim", "int"},
 	{"users.default_iface_id", "default_iface_id", "str"},
 	{"subscription.base_url", "sub_base_url", "str"},
+	{"subscription.layout", "sub_layout", "str"},
 	{"downloads.filename_prefix", "filename_prefix", "str"},
 	{"downloads.filename_suffix", "filename_suffix", "str"},
 	{"network.mtu", "mtu", "int"},

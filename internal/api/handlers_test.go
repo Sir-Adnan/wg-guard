@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/testutil/qrdecode"
@@ -375,7 +376,7 @@ func TestDeviceLifecycleAndConfig(t *testing.T) {
 	}
 	for header, want := range map[string]string{
 		"Content-Type":           "text/plain; charset=utf-8",
-		"Content-Disposition":    `attachment; filename="dev-user-phone.conf"`,
+		"Content-Disposition":    `attachment; filename="` + clientconf.ConfigFilename("", "dev-user", did, "") + `"`,
 		"Cache-Control":          "no-store",
 		"X-Content-Type-Options": "nosniff",
 	} {
@@ -400,7 +401,7 @@ func TestDeviceLifecycleAndConfig(t *testing.T) {
 			len(decoded), gotSum[:8], len(canonical), wantSum[:8])
 	}
 	for header, want := range map[string]string{
-		"Content-Disposition":    `inline; filename="dev-user-phone.png"`,
+		"Content-Disposition":    `inline; filename="` + strings.TrimSuffix(clientconf.ConfigFilename("", "dev-user", did, ""), ".conf") + `.png"`,
 		"Cache-Control":          "no-store",
 		"X-Content-Type-Options": "nosniff",
 	} {

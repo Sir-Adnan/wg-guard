@@ -11,12 +11,12 @@ document.addEventListener('click', async event => {
   state.textContent = state.dataset.loading;
   try {
     const response = await fetch(link.href, { cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
-    if (!response.ok || !response.headers.get('content-type')?.startsWith('text/plain') || !response.headers.get('content-disposition')?.startsWith('attachment;')) {
+    if (!response.ok || !response.headers.get('content-type')?.startsWith('application/octet-stream') || !response.headers.get('content-disposition')?.startsWith('attachment;')) {
       state.setAttribute('role', 'alert');
       state.textContent = response.status === 429 ? state.dataset.rateLimit : state.dataset.error;
       return;
     }
-    const blob = await response.blob();
+    const blob = new Blob([await response.arrayBuffer()], { type: 'application/octet-stream' });
     const objectURL = URL.createObjectURL(blob);
     const download = document.createElement('a');
     download.href = objectURL;
