@@ -2,15 +2,114 @@ package install
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 )
+
+type linkCleanupHost struct {
+	*memHost
+	links map[string]string
+}
+
+func (h *linkCleanupHost) Output(ctx context.Context, argv []string, timeout time.Duration) (string, error) {
+	if len(argv) >= 5 && strings.Join(argv[:5], " ") == "ip -j -d link show" {
+		if len(argv) == 7 {
+			kind, ok := h.links[argv[6]]
+			if !ok {
+				message := fmt.Sprintf("Device %q does not exist.", argv[6])
+				return "", &subprocess.ExitError{Name: "ip", ExitCode: 1, Stderr: message}
+			}
+			link := runtimeLink{Name: argv[6]}
+			link.Info.Kind = kind
+			b, _ := json.Marshal([]runtimeLink{link})
+			return string(b), nil
+		}
+		var links []runtimeLink
+		for name, kind := range h.links {
+			link := runtimeLink{Name: name}
+			link.Info.Kind = kind
+			links = append(links, link)
+		}
+		b, _ := json.Marshal(links)
+		return string(b), nil
+	}
+	return h.memHost.Output(ctx, argv, timeout)
+}
+
+func (h *linkCleanupHost) Run(ctx context.Context, argv []string, timeout time.Duration) error {
+	if len(argv) == 5 && strings.Join(argv[:4], " ") == "ip link del dev" {
+		delete(h.links, argv[4])
+		return nil
+	}
+	return h.memHost.Run(ctx, argv, timeout)
+}
+
+func TestUninstallRemovesOnlyRecordedKernelLinks(t *testing.T) {
+	dir := t.TempDir()
+	db, err := database.Open(filepath.Join(dir, "wg-guard.db"), database.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrate(t.Context(), nil); err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO tunnel_interfaces
+		(id,name,listen_port,ipv4_subnet,mtu,public_key,private_key_encrypted,
+		 preset_name,enabled,backend_mode,created_at,updated_at)
+		VALUES ('iface1','awg1',39488,'10.88.0.0/24',1420,'public',x'00',
+		 'plain',1,'kernel','2026-01-01','2026-01-01')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	h := &linkCleanupHost{memHost: newMemHost(), links: map[string]string{"awg1": "amneziawg", "awg2": "amneziawg"}}
+	if err := removeOwnedRuntimeInterfaces(t.Context(), h, dir); err == nil {
+		t.Fatal("unrecorded live tunnel was silently left behind")
+	}
+	if _, present := h.links["awg1"]; present {
+		t.Fatal("recorded kernel link survived uninstall")
+	}
+	if _, present := h.links["awg2"]; !present {
+		t.Fatal("unrecorded foreign link was deleted")
+	}
+	delete(h.links, "awg2")
+	if err := removeOwnedRuntimeInterfaces(t.Context(), h, dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"dummy", "tun"} {
+		h.links["awg1"] = kind
+		if err := removeOwnedRuntimeInterfaces(t.Context(), h, dir); err == nil {
+			t.Fatalf("different link type %q was deleted", kind)
+		}
+		if h.links["awg1"] != kind {
+			t.Fatalf("different link type %q changed", kind)
+		}
+	}
+}
+
+func TestUninstallRefusesUnattributedLiveTunnel(t *testing.T) {
+	h := &linkCleanupHost{memHost: newMemHost(), links: map[string]string{"awg1": "amneziawg"}}
+	if err := removeOwnedRuntimeInterfaces(t.Context(), h, t.TempDir()); err == nil {
+		t.Fatal("missing ownership database allowed live tunnel through purge")
+	}
+	delete(h.links, "awg1")
+	if err := removeOwnedRuntimeInterfaces(t.Context(), h, t.TempDir()); err != nil {
+		t.Fatalf("empty node with no ownership database could not uninstall: %v", err)
+	}
+}
 
 func TestUninstallStopsAndRemovesOwnedUpdateBroker(t *testing.T) {
 	for _, mode := range []Mode{ModeDocker, ModeNative} {

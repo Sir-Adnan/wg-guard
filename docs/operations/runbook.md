@@ -95,7 +95,10 @@ packages are **kept** unless `--purge-data` / `--purge-packages` is passed. Unin
 the CLI itself — run it from the installed path and expect the command to disappear.
 State-derived paths are restricted to the fixed managed layout. Stop failure or an unconfirmed
 stopped service prevents artifact/data deletion. Corrupt or unsupported state refuses the
-operation. Interrupted removal can be retried from its journal; shared apt sources are retained.
+operation. After stopping the service, uninstall removes recorded kernel AmneziaWG links and
+verifies they are gone before removing data or artifacts. An unattributed live tunnel blocks
+removal; inspect ownership and remove it explicitly rather than guessing. Interrupted removal
+can be retried from its journal; shared apt sources are retained.
 The interactive manager presents this as **Uninstall / reset WG-Guard**: its recommended choice
 keeps data/backups; **Reset node** adds both purge flags but keeps the cached manager for immediate
 reinstall; **Remove everything** uses `wg-guard uninstall --purge-all --yes` to additionally remove

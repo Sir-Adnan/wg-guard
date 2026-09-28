@@ -81,7 +81,10 @@ networking, recovery, supported-Ubuntu, backend and deployment risks.
   focused missing/wrong-key refusal passes. Exact-host temporary key removal refused CLI/boot
   without generating a new key, then restored to a healthy dual-backend node (AUD-060).
 - A bounded 8 KiB tmpfs backup sink exposed one partial SQLite snapshot after disk-full refusal.
-  Failed-snapshot cleanup is implemented; the exact-host retest remains pending (AUD-061).
+  Failed-snapshot cleanup is implemented and the exact-host retest left no partial file (AUD-061).
+- Full native removal exposed a live kernel link after data purge. Uninstall now uses the durable
+  ownership record after service stop to remove and verify kernel links, and refuses live tunnels
+  whose owner cannot be established. Focused regressions pass; exact-host retest is pending (AUD-062).
 - The 0-peer synthetic control-plane sample measured 33 MB RSS/0.00% CPU over 30 seconds on WSL2.
   Ten-minute 100/1000-user+device windows measured 41/52 MB average RSS, 45/57 MB maximum RSS,
   and 0.03/0.04% CPU, below the 50/80 MB and 0.5% budgets. A real Linux tc/IFB test applied

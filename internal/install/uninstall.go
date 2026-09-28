@@ -183,13 +183,14 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	}
 	rep.Stopped = true
 	var purgeGuard *backup.PurgeGuard
-	if o.PurgeData {
-		if _, live := h.(realHost); live {
-			purgeGuard, err = backup.AcquirePurgeGuard(st.DataDir)
-			if err != nil {
-				return rep, fmt.Errorf("uninstall: data commands are still active: %w", err)
-			}
-			defer purgeGuard.Close()
+	if _, live := h.(realHost); live {
+		purgeGuard, err = backup.AcquirePurgeGuard(st.DataDir)
+		if err != nil {
+			return rep, fmt.Errorf("uninstall: data commands are still active: %w", err)
+		}
+		defer purgeGuard.Close()
+		if err := removeOwnedRuntimeInterfaces(ctx, h, st.DataDir); err != nil {
+			return rep, fmt.Errorf("uninstall: remove owned interfaces: %w", err)
 		}
 	}
 	step(out, "Removing owned network policy")
