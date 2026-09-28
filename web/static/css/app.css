@@ -461,10 +461,10 @@ input, select, textarea { font: inherit; color: inherit; }
 .btn--primary:hover { background: var(--accent-hover); color: var(--accent-fg); }
 .btn--secondary { background: var(--secondary-bg, var(--bg-subtle)); color: var(--secondary-fg, var(--fg)); }
 .btn--secondary:hover { background: var(--bg-hover); color: var(--fg); }
-.btn--danger { background: var(--danger-solid); color: #fff; }
-.btn--danger:hover { background: var(--danger-solid-hover); color: #fff; }
+.btn--danger { background: var(--danger-solid); color: var(--danger-solid-fg, #fff); }
+.btn--danger:hover { background: var(--danger-solid-hover); color: var(--danger-solid-fg, #fff); }
 .btn--danger-soft { background: var(--danger-soft); color: var(--danger); box-shadow: none; }
-.btn--danger-soft:hover { background: var(--danger-solid); color: #fff; }
+.btn--danger-soft:hover { background: var(--danger-solid); color: var(--danger-solid-fg, #fff); }
 .btn--ghost { background: transparent; box-shadow: none; }
 .btn--ghost:hover { background: var(--bg-hover); }
 .btn--sm { padding: 5px 10px; font-size: var(--fs-sm); border-radius: var(--r-sm); }

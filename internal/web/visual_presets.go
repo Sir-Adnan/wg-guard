@@ -114,7 +114,7 @@ func loadVisualPresets() (visualPresetCatalog, []byte, error) {
 				return catalog, nil, fmt.Errorf("web: invalid contrast mode for %s", p.ID)
 			}
 			for key, value := range values {
-				if key != "text_accent" && key != "action_background" && key != "action_foreground" && key != "sidebar_foreground" && key != "secondary_foreground" && key != "muted_foreground" || !safeCSSValue(value) {
+				if key != "text_accent" && key != "action_background" && key != "action_foreground" && key != "sidebar_foreground" && key != "secondary_foreground" && key != "muted_foreground" && key != "danger_text" && key != "destructive_background" && key != "destructive_foreground" || !safeCSSValue(value) {
 					return catalog, nil, fmt.Errorf("web: invalid project contrast %s for %s", key, p.ID)
 				}
 			}
@@ -184,7 +184,19 @@ func writePresetValues(out *strings.Builder, selector string, values, contrast m
 	if mutedForeground == "" {
 		mutedForeground = values["muted-foreground"]
 	}
-	fmt.Fprintf(out, "  --vp-readable-text-accent: %s;\n  --vp-readable-action-background: %s;\n  --vp-readable-action-foreground: %s;\n  --vp-readable-sidebar-foreground: %s;\n  --vp-readable-secondary-foreground: %s;\n  --vp-readable-muted-foreground: %s;\n", textAccent, actionBackground, actionForeground, sidebarForeground, secondaryForeground, mutedForeground)
+	dangerText := contrast["danger_text"]
+	if dangerText == "" {
+		dangerText = values["destructive"]
+	}
+	destructiveBackground := contrast["destructive_background"]
+	if destructiveBackground == "" {
+		destructiveBackground = values["destructive"]
+	}
+	destructiveForeground := contrast["destructive_foreground"]
+	if destructiveForeground == "" {
+		destructiveForeground = values["destructive-foreground"]
+	}
+	fmt.Fprintf(out, "  --vp-readable-text-accent: %s;\n  --vp-readable-action-background: %s;\n  --vp-readable-action-foreground: %s;\n  --vp-readable-sidebar-foreground: %s;\n  --vp-readable-secondary-foreground: %s;\n  --vp-readable-muted-foreground: %s;\n  --vp-readable-danger-text: %s;\n  --vp-readable-destructive-background: %s;\n  --vp-readable-destructive-foreground: %s;\n", textAccent, actionBackground, actionForeground, sidebarForeground, secondaryForeground, mutedForeground, dangerText, destructiveBackground, destructiveForeground)
 	opacity, _ := strconv.ParseFloat(values["shadow-opacity"], 64) // validated when the catalog loads
 	fmt.Fprintf(out, "  --vp-shadow-ink: color-mix(in srgb, var(--vp-shadow-color) %g%%, transparent);\n", opacity*100)
 	out.WriteString("}\n")
@@ -244,9 +256,10 @@ const visualPresetBridge = `
   --brand-hover: color-mix(in srgb, var(--vp-primary) 78%, var(--vp-foreground));
   --brand-soft: color-mix(in srgb, var(--vp-primary) 12%, transparent);
   --violet-soft: color-mix(in srgb, var(--vp-chart-2) 12%, transparent);
-  --danger: var(--vp-destructive);
-  --danger-solid: var(--vp-destructive);
-  --danger-solid-hover: color-mix(in srgb, var(--vp-destructive) 82%, var(--vp-foreground));
+  --danger: var(--vp-readable-danger-text);
+  --danger-solid: var(--vp-readable-destructive-background);
+  --danger-solid-fg: var(--vp-readable-destructive-foreground);
+  --danger-solid-hover: var(--vp-readable-destructive-background);
   --danger-soft: color-mix(in srgb, var(--vp-destructive) 12%, transparent);
   --ring: color-mix(in srgb, var(--vp-ring) 30%, transparent);
   --grid-line: color-mix(in srgb, var(--vp-border) 32%, transparent);

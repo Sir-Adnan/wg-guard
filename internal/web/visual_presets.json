@@ -118,7 +118,9 @@
           "sidebar_foreground": "#000000"
         },
         "dark": {
-          "text_accent": "#e9896c"
+          "text_accent": "#e9896c",
+          "destructive_foreground": "#000000",
+          "danger_text": "#f87171"
         }
       }
     },
@@ -230,7 +232,13 @@
       },
       "project_contrast": {
         "light": {
-          "text_accent": "#366b0a"
+          "text_accent": "#366b0a",
+          "danger_text": "#b91c1c",
+          "destructive_background": "#b91c1c"
+        },
+        "dark": {
+          "danger_text": "#f87171",
+          "destructive_background": "#c62b2b"
         }
       }
     },
@@ -344,12 +352,16 @@
         "light": {
           "text_accent": "#a93b18",
           "action_background": "#a93b18",
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "danger_text": "#b91c1c",
+          "destructive_background": "#b91c1c"
         },
         "dark": {
           "action_foreground": "#000000",
           "sidebar_foreground": "#000000",
-          "muted_foreground": "#a8a8a8"
+          "muted_foreground": "#a8a8a8",
+          "destructive_foreground": "#000000",
+          "danger_text": "#f87171"
         }
       }
     },
@@ -461,7 +473,12 @@
       },
       "project_contrast": {
         "dark": {
-          "text_accent": "oklch(0.72 0.16 266)"
+          "text_accent": "oklch(0.72 0.16 266)",
+          "destructive_foreground": "#000000"
+        },
+        "light": {
+          "danger_text": "oklch(0.45 0.17 23)",
+          "destructive_background": "oklch(0.45 0.17 23)"
         }
       }
     },
@@ -570,6 +587,15 @@
         "icon_stroke_width": "1.5",
         "icon_container_size": "42px",
         "control_height": "44px"
+      },
+      "project_contrast": {
+        "light": {
+          "danger_text": "oklch(0.48 0.20 27)",
+          "destructive_background": "oklch(0.48 0.20 27)"
+        },
+        "dark": {
+          "destructive_foreground": "#000000"
+        }
       }
     },
     {
@@ -677,6 +703,16 @@
         "icon_stroke_width": "1.8",
         "icon_container_size": "44px",
         "control_height": "46px"
+      },
+      "project_contrast": {
+        "light": {
+          "danger_text": "#b92d23",
+          "destructive_background": "#b92d23"
+        },
+        "dark": {
+          "destructive_foreground": "#000000",
+          "danger_text": "#f87171"
+        }
       }
     },
     {
@@ -789,7 +825,9 @@
         "light": {
           "text_accent": "#96502c",
           "action_background": "#96502c",
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "danger_text": "#b91c1c",
+          "destructive_background": "#b91c1c"
         }
       }
     },
@@ -901,10 +939,13 @@
       },
       "project_contrast": {
         "light": {
-          "text_accent": "#086b46"
+          "text_accent": "#086b46",
+          "danger_text": "#a70d4b",
+          "destructive_foreground": "#000000"
         },
         "dark": {
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "destructive_foreground": "#000000"
         }
       }
     },
@@ -1018,11 +1059,15 @@
         "dark": {
           "text_accent": "#e0bb70",
           "action_foreground": "#000000",
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "destructive_foreground": "#000000",
+          "danger_text": "#f87171"
         },
         "light": {
           "secondary_foreground": "#806326",
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "danger_text": "#b91c1c",
+          "destructive_background": "#b91c1c"
         }
       }
     },
@@ -1136,12 +1181,15 @@
         "light": {
           "text_accent": "#0059ce",
           "action_background": "#0059ce",
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "danger_text": "#b91c1c",
+          "destructive_background": "#b91c1c"
         },
         "dark": {
           "text_accent": "#6aa5ff",
           "action_foreground": "#000000",
-          "sidebar_foreground": "#000000"
+          "sidebar_foreground": "#000000",
+          "danger_text": "#f87171"
         }
       }
     }

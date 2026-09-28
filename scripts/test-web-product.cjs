@@ -65,6 +65,12 @@ let stage = 'launch';
                 const secondary = getComputedStyle(document.querySelector('.appearance-panel-action .btn--secondary'));
                 const sidebar = getComputedStyle(document.querySelector('.nav a[aria-current="page"]'));
                 const body = getComputedStyle(document.body);
+                const dangerButton = document.createElement('button');
+                dangerButton.className = 'btn btn--danger';
+                document.body.append(dangerButton);
+                const dangerStyle = getComputedStyle(dangerButton);
+                const dangerButtonColors = [dangerStyle.color, dangerStyle.backgroundColor];
+                dangerButton.remove();
                 const probe = document.createElement('span');
                 probe.style.cssText = 'position:absolute;pointer-events:none;color:var(--brand);background:var(--bg-elev)';
                 document.body.append(probe);
@@ -73,6 +79,9 @@ let stage = 'launch';
                 probe.style.color = 'var(--fg-muted)';
                 const muted = getComputedStyle(probe);
                 const mutedColors = [muted.color, muted.backgroundColor];
+                probe.style.color = 'var(--danger)';
+                const dangerText = getComputedStyle(probe);
+                const dangerTextColors = [dangerText.color, dangerText.backgroundColor];
                 probe.remove();
                 const canvas = document.createElement('canvas');
                 canvas.width = canvas.height = 1;
@@ -99,6 +108,7 @@ let stage = 'launch';
                     body: contrast(body.color, body.backgroundColor), button: contrast(button.color, button.backgroundColor),
                     accent: contrast(...accentColors), muted: contrast(...mutedColors),
                     sidebar: contrast(sidebar.color, sidebar.backgroundColor), secondary: contrast(secondary.color, secondary.backgroundColor),
+                    dangerButton: contrast(...dangerButtonColors), dangerText: contrast(...dangerTextColors),
                   },
                   fits: document.documentElement.scrollWidth <= innerWidth,
                 };

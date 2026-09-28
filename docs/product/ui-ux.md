@@ -58,7 +58,7 @@ system faces stay as fallback, while Persian keeps self-hosted Vazirmatn. Techni
 LTR-isolated and tabular. Project control metrics respect a 44px minimum touch target. Status
 meaning, readable contrast,
 focus visibility, accessibility, and reduced motion outrank literal source-theme fidelity.
-`project_contrast` stores the few project-authored text/action corrections needed when a source
+`project_contrast` stores project-authored text/action/destructive corrections needed when a source
 primary pair fails normal-text contrast; the original source value remains intact in `styles`.
 
 Appearance has distinct axes: visual preset, Light/Dark/System mode, and independent locale/
