@@ -2899,6 +2899,10 @@ body {
 .user-kpi > div > span, .user-kpi small { color: var(--fg-muted); font-size: var(--fs-xs); }
 .user-kpi strong { font-size: var(--fs-lg); overflow-wrap: anywhere; }
 .user-detail-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .72fr); gap: var(--sp-5); align-items: start; }
+.next-plan-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); align-items: stretch; margin-block-start: var(--sp-4); }
+.next-plan-actions > form { min-width: 0; margin: 0; }
+.next-plan-actions .btn { width: 100%; min-width: 0; height: 100%; padding-inline: var(--sp-2); white-space: normal; text-align: center; }
+.next-plan-actions > button:only-child { grid-column: 1 / -1; }
 .user-account-card, .subscription-access-card { margin: 0; box-shadow: var(--shadow-2); }
 .user-account-card .section-head { margin-block-end: var(--sp-4); }
 .user-account-card .section-head p { margin-block-start: 4px; color: var(--fg-muted); font-size: var(--fs-xs); }

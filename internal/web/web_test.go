@@ -170,6 +170,26 @@ func TestAnonymousRedirectsToLogin(t *testing.T) {
 	}
 }
 
+func TestResellerSessionCannotEnterUnscopedPanel(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	if _, err := e.db.Exec(`INSERT INTO resellers (id, slug, permissions, created_at, updated_at)
+		VALUES ('reseller-1', 'north', '["users.read"]', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	a, err := e.admins.Create(context.Background(), "northadmin", testPassword, auth.RoleAdmin, []string{"users.read"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`UPDATE admins SET reseller_id = 'reseller-1' WHERE id = ?`, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	cookie := e.login("northadmin")
+	if rec := e.get("/users", cookie); rec.Code != http.StatusForbidden {
+		t.Fatalf("unscoped user panel exposed to reseller: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestOnboardingFirstRun(t *testing.T) {
 	e := newEnv(t)
 

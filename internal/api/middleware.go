@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"log/slog"
 	"net/http"
@@ -160,7 +161,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		if strings.HasPrefix(r.URL.Path, "/api/v1") {
 			h := w.Header()
 			h.Set("Access-Control-Allow-Origin", "*")
-			h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key, X-Request-Id")
 			h.Set("Access-Control-Expose-Headers", "X-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After")
 			h.Set("Access-Control-Max-Age", "86400")
@@ -186,7 +187,7 @@ func maxBodyMiddleware(next http.Handler) http.Handler {
 
 // authMiddleware authenticates the bearer token and enforces the route's
 // required scope. Public routes are registered without it.
-func (s *Server) authMiddleware(required string, next http.Handler) http.Handler {
+func (s *Server) authMiddleware(route routeDef, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		const prefix = "Bearer "
@@ -201,13 +202,63 @@ func (s *Server) authMiddleware(required string, next http.Handler) http.Handler
 			writeErr(w, r, http.StatusUnauthorized, domain.CodeUnauthorized, "invalid token")
 			return
 		}
-		if !v.Authorize(required) {
+		if !v.Authorize(route.Scope) {
 			writeErr(w, r, http.StatusForbidden, domain.CodeForbidden,
-				"token lacks the required scope: "+required)
+				"token lacks the required scope: "+route.Scope)
 			return
+		}
+		if v.Token.ResellerID != nil {
+			if route.TenantPolicy == tenantDenied {
+				writeErr(w, r, http.StatusForbidden, domain.CodeForbidden,
+					"reseller access is not enabled for this operation")
+				return
+			}
+			var belongs bool
+			switch route.TenantPolicy {
+			case tenantUserList:
+				belongs = true // the list handler applies the reseller filter
+			case tenantPrincipalOperation:
+				belongs = true // operation service derives scope from verified token
+			case tenantUserID:
+				belongs, err = s.userBelongsToReseller(r.Context(), r.PathValue("id"), *v.Token.ResellerID)
+			case tenantDeviceID:
+				belongs, err = s.deviceBelongsToReseller(r.Context(), r.PathValue("id"), *v.Token.ResellerID)
+			}
+			if err != nil {
+				writeServiceErr(w, r, err)
+				return
+			}
+			if !belongs {
+				code := domain.CodeUserNotFound
+				if route.TenantPolicy == tenantDeviceID {
+					code = domain.CodeDeviceNotFound
+				}
+				writeErr(w, r, http.StatusNotFound, code, "resource not found")
+				return
+			}
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKeyToken, v)))
 	})
+}
+
+func (s *Server) userBelongsToReseller(ctx context.Context, userID, resellerID string) (bool, error) {
+	var owner sql.NullString
+	err := s.DB.QueryRowContext(ctx, `SELECT reseller_id FROM users
+		WHERE id = ? AND deleted_at IS NULL`, userID).Scan(&owner)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	return owner.Valid && owner.String == resellerID, err
+}
+
+func (s *Server) deviceBelongsToReseller(ctx context.Context, deviceID, resellerID string) (bool, error) {
+	var owner sql.NullString
+	err := s.DB.QueryRowContext(ctx, `SELECT u.reseller_id FROM devices d
+		JOIN users u ON u.id = d.user_id WHERE d.id = ? AND u.deleted_at IS NULL`, deviceID).Scan(&owner)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	return owner.Valid && owner.String == resellerID, err
 }
 
 // rateLimitEntry is one per-token fixed-window counter.

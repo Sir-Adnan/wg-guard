@@ -25,7 +25,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
-| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, four-policy renewal, conditional reversal and webhook contracts | 14.0 security fix published in v0.1.2; 14.1 in development; no new V1 endpoints on main |
+| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | 14.0 security fix published in v0.1.2; 14.1–14.4 implemented in draft PR; final compatibility/security and release gates pending |
 
 ## Phase gates
 
@@ -178,12 +178,14 @@ not verified for this follow-up.
 
 The owner chose separate reseller accounts with configurable permissions. Owner integrations may
 see the whole node; reseller panel sessions and API tokens must see only that reseller's customers.
-Time and volume renewal each offer carry-forward or replacement, giving four combinations;
-conditional reversal must preserve usage recorded afterward. These are product decisions, not
-claims that the current V1 API already implements them.
+The later owner clarification drops four combined renewal policies in favor of independent usage
+reset and one queued successor plan. A successor is an explicitly authorized entitlement, not an
+automatic purchase: the first time or quota boundary activates it once, starts a new period with
+fresh charged usage, and never overrides a manual disable or suspension. Optional unused-volume
+carry applies only when time ends first; time never carries. Plan terms are frozen when queued.
 
 1. **14.0 — Contract and security:** close the idempotency replay authorization defect; specify
-   principal ownership, least-privilege grants, purchase/result identity, renewal arithmetic and
+   principal ownership, least-privilege grants, purchase/result identity, successor activation and
    failure behavior before exposing new integration routes.
 2. **14.1 — Reseller boundary:** add owner-managed reseller accounts and permission selection,
    principal-bound tokens, row ownership and denial tests across panel, API, subscriptions,
@@ -192,12 +194,26 @@ claims that the current V1 API already implements them.
 3. **14.2 — Purchase delivery:** atomically provision a user and initial device, persist an
    inspectable operation result with its mutation, and add principal-scoped customer-link delivery
    and rotation. A lost HTTP response must not require guessing whether a purchase succeeded.
-4. **14.3 — Renewal and correction:** apply time and volume in one transaction with explicit
-   carry/reset choices, version preconditions and before/after values; conditionally reverse an
-   operation without deleting subsequent measured usage.
+4. **14.3 — Entitlement lifecycle:** preserve the existing time-only renewal and independent
+   Reset Usage. Add one owner/reseller-scoped Next Plan queue per customer, immutable plan terms,
+   bounded scheduler activation after metering and before expiry, a transactional activation
+   record, cancellation before activation and review state for incompatible account/device edits.
+   A separate immediate plan-replacement and conditional correction API is considered only if
+   integration use cases still require it; never infer payment from queueing.
 5. **14.4 — Integration completeness:** type webhook event payloads and delivery guarantees,
    expose safe delivery/reconciliation lookup where needed, add bounded batch reads if justified,
    complete OpenAPI examples and contract tests, then run one focused compatibility/security gate.
+
+The Phase 14 branch now scopes webhook creation, management, fanout, worker delivery and
+non-secret receipt lookup to owner, node operator or reseller authority. Owner-wide reseller
+event fanout requires an explicit opt-in; legacy endpoints migrate with it off. A reseller
+destination uses checked public HTTPS egress, without redirects. The typed OpenAPI webhook catalog and
+at-least-once/retry/ordering contract are complete. A batch-by-ID read is not added: the existing
+bounded user cursor (up to 500 per page), opaque resource IDs and purchase operation journal cover
+the evidenced sync/recovery workflows without a second bulk lookup contract. Immediate plan
+replacement or reversal after activation remains a separate product decision; cancel-before-
+activation and current-state reconciliation are implemented, and no financial rollback guarantee
+is implied.
 
 Keep additions compatible with `/api/v1`, use separate scopes for sensitive operations, and
 retain old endpoint behavior. Opaque IDs are not usernames; private configs and capability links

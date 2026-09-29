@@ -11,11 +11,19 @@
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
 <div class="shell" id="shell">
   <aside class="sidebar" id="sidebar" aria-label="{{.T "nav.section"}}">
-    <div class="sidebar-brand"><a class="brand" href="/">
+    <div class="sidebar-brand"><a class="brand" href="{{if .Admin.ResellerID}}/reseller/users{{else}}/{{end}}">
       <span class="logo">{{.Icon "shield"}}</span>
       <span class="brand-text">{{.T "app.name"}}<small>{{.T "app.tagline"}}</small></span>
     </a><button type="button" class="icon-btn nav-close" data-close-nav aria-label="{{.T "common.close"}}">{{.Icon "x"}}</button></div>
     <nav class="nav">
+      {{if .Admin.ResellerID}}
+      <div class="nav-label">{{.T "nav.group.manage"}}</div>
+      {{if .Can "users.read"}}<a href="/reseller/users" {{if .IsActive "/reseller/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>{{end}}
+      <div class="nav-label">{{.T "nav.group.system"}}</div>
+      {{if .Can "api_tokens.manage"}}<a href="/reseller/tokens" {{if .IsActive "/reseller/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
+      {{if .Can "webhooks.read"}}<a href="/reseller/webhooks" {{if .IsActive "/reseller/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}
+      <a href="/appearance" {{if .IsActive "/appearance"}}aria-current="page"{{end}}>{{.Icon "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
+      {{else}}
       <div class="nav-label">{{.T "nav.group.manage"}}</div>
       {{if .Can "stats.read"}}
       <a href="/dashboard" {{if or (eq .Path "/dashboard") (eq .Path "/")}}aria-current="page"{{end}} aria-label="{{.T "nav.dashboard"}}" data-tip="{{.T "nav.dashboard"}}">{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
@@ -33,11 +41,13 @@
       {{if .Can "backup.manage"}}<a href="/backups" aria-label="{{.T "nav.backups"}}" data-tip="{{.T "nav.backups"}}" {{if .IsActive "/backups"}}aria-current="page"{{end}}>{{.Icon "database"}}<span>{{.T "nav.backups"}}</span></a>{{end}}
       {{if .Can "update.manage"}}<a href="/updates" aria-label="{{.T "nav.updates"}}" data-tip="{{.T "nav.updates"}}" {{if .IsActive "/updates"}}aria-current="page"{{end}}>{{.Icon "refresh-cw"}}<span>{{.T "nav.updates"}}</span></a>{{end}}
       {{if .Can "admins.manage"}}<a href="/admins" aria-label="{{.T "nav.admins"}}" data-tip="{{.T "nav.admins"}}" {{if .IsActive "/admins"}}aria-current="page"{{end}}>{{.Icon "user-plus"}}<span>{{.T "nav.admins"}}</span></a>{{end}}
+      {{if eq (printf "%v" .Admin.Role) "owner"}}<a href="/resellers" aria-label="{{.T "resellers.title"}}" data-tip="{{.T "resellers.title"}}" {{if .IsActive "/resellers"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "resellers.title"}}</span></a>{{end}}
       {{if .Can "api_tokens.manage"}}<a href="/tokens" aria-label="{{.T "nav.tokens"}}" data-tip="{{.T "nav.tokens"}}" {{if .IsActive "/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
       {{if .Can "webhooks.read"}}<a href="/webhooks" aria-label="{{.T "nav.webhooks"}}" data-tip="{{.T "nav.webhooks"}}" {{if .IsActive "/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}
       {{if .Can "audit.view"}}<a href="/audit" aria-label="{{.T "nav.audit"}}" data-tip="{{.T "nav.audit"}}" {{if .IsActive "/audit"}}aria-current="page"{{end}}>{{.Icon "inbox"}}<span>{{.T "nav.audit"}}</span></a>{{end}}
       {{if .Can "node.settings"}}<a href="/settings" aria-label="{{.T "nav.settings"}}" data-tip="{{.T "nav.settings"}}" {{if .IsActive "/settings"}}aria-current="page"{{end}}>{{.Icon "settings-2"}}<span>{{.T "nav.settings"}}</span></a>{{end}}
       <a href="/appearance" aria-label="{{.T "appearance.title"}}" data-tip="{{.T "appearance.title"}}" {{if .IsActive "/appearance"}}aria-current="page"{{end}}>{{.Icon "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
+      {{end}}
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="btn btn--ghost" id="btn-collapse" aria-label="{{.T "nav.collapse"}}" aria-expanded="true">{{.Icon "panel-left"}}<span>{{.T "nav.collapse"}}</span></button>

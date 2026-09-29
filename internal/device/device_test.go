@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
+	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 func newService(t *testing.T) (*Service, *iface.Service) {
@@ -91,6 +93,51 @@ func TestCreateAndRoundTrip(t *testing.T) {
 	}
 	if d2.IPv4 != "10.8.0.3/32" {
 		t.Fatalf("second device IP = %q", d2.IPv4)
+	}
+}
+
+func TestUserAndInitialDeviceShareTransaction(t *testing.T) {
+	svc, ifaceSvc := newService(t)
+	ctx := context.Background()
+	if _, err := ifaceSvc.Create(ctx, iface.CreateInput{Name: "awg0"}); err != nil {
+		t.Fatal(err)
+	}
+	users := user.NewService(svc.db)
+	keys := newKeyPair(t, svc.ring)
+	err := svc.db.WithTx(ctx, func(tx *sql.Tx) error {
+		u, err := users.CreateTx(ctx, tx, user.Input{Username: "customer"})
+		if err != nil {
+			return err
+		}
+		_, err = svc.CreateTx(ctx, tx, u.ID, "", keys, "")
+		return err
+	})
+	if domain.CodeOf(err) != domain.CodeInvalidRequest {
+		t.Fatalf("invalid initial device: %v", err)
+	}
+	if _, err := users.GetByUsername(ctx, "customer"); domain.CodeOf(err) != domain.CodeUserNotFound {
+		t.Fatalf("user survived failed provisioning: %v", err)
+	}
+	var userID, deviceID string
+	if err := svc.db.WithTx(ctx, func(tx *sql.Tx) error {
+		u, err := users.CreateTx(ctx, tx, user.Input{Username: "customer"})
+		if err != nil {
+			return err
+		}
+		d, err := svc.CreateTx(ctx, tx, u.ID, "phone", keys, "")
+		if err != nil {
+			return err
+		}
+		userID, deviceID = u.ID, d.ID
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := users.Get(ctx, userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Get(ctx, deviceID); err != nil {
+		t.Fatal(err)
 	}
 }
 

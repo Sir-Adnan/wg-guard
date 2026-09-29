@@ -32,7 +32,8 @@ type Worker struct {
 
 	// HTTP client shared across deliveries: bounded connection pool, one
 	// hard timeout per request.
-	client *http.Client
+	client       *http.Client
+	publicClient *http.Client
 }
 
 const (
@@ -80,6 +81,17 @@ func NewWorker(db *database.DB, ring *secrets.KeyRing, reg *settings.Registry, l
 				IdleConnTimeout:     60 * time.Second,
 			},
 		},
+		publicClient: &http.Client{
+			Timeout:       requestTimeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+			Transport: &http.Transport{
+				DialContext:         publicWebhookDial,
+				TLSHandshakeTimeout: 5 * time.Second,
+				MaxIdleConns:        maxConcurrency * 2,
+				MaxIdleConnsPerHost: maxConcurrency,
+				IdleConnTimeout:     60 * time.Second,
+			},
+		},
 	}
 }
 
@@ -93,6 +105,7 @@ type due struct {
 	payload      string
 	eventCreated time.Time
 	attempts     int
+	resellerID   sql.NullString
 }
 
 // Pass performs one delivery pass and returns what it did.
@@ -112,11 +125,13 @@ func (w *Worker) Pass(ctx context.Context) (Report, error) {
 	var dues []due
 	err := w.db.WithTx(ctx, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `SELECT d.id, d.endpoint_id, e.url, d.event_id, d.event_type,
-				d.payload, d.attempts, ev.created_at
+				d.payload, d.attempts, ev.created_at, e.reseller_id
 			FROM webhook_deliveries d
 			JOIN webhook_endpoints e ON e.id = d.endpoint_id
 			JOIN webhook_events ev ON ev.id = d.event_id
 			WHERE d.status = 'pending' AND e.enabled = 1
+			  AND ((e.reseller_id IS NULL AND (ev.reseller_id IS NULL OR e.include_reseller_events = 1))
+			       OR e.reseller_id = ev.reseller_id)
 			  AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= ?)
 			ORDER BY d.next_attempt_at LIMIT ?`, now.Format(time.RFC3339Nano), maxBatch)
 		if err != nil {
@@ -129,7 +144,7 @@ func (w *Worker) Pass(ctx context.Context) (Report, error) {
 				created string
 			)
 			if err := rows.Scan(&d.id, &d.endpointID, &d.endpointURL, &d.eventID, &d.eventType,
-				&d.payload, &d.attempts, &created); err != nil {
+				&d.payload, &d.attempts, &created, &d.resellerID); err != nil {
 				return fmt.Errorf("webhook: scan due: %w", err)
 			}
 			d.eventCreated, _ = time.Parse(time.RFC3339Nano, created)
@@ -228,6 +243,11 @@ func (w *Worker) Pass(ctx context.Context) (Report, error) {
 
 // deliver performs one POST with the signed envelope.
 func (w *Worker) deliver(ctx context.Context, d due, secret, nodeID string) (bool, string) {
+	if d.resellerID.Valid {
+		if err := ValidateResellerURL(d.endpointURL); err != nil {
+			return false, "reseller destination is not a public HTTPS URL"
+		}
+	}
 	body, err := json.Marshal(map[string]any{
 		"id":        d.eventID,
 		"type":      d.eventType,
@@ -242,7 +262,7 @@ func (w *Worker) deliver(ctx context.Context, d due, secret, nodeID string) (boo
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, d.endpointURL, bytes.NewReader(body))
 	if err != nil {
-		return false, "build request: " + err.Error()
+		return false, "invalid endpoint URL"
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-WG-Event", d.eventType)
@@ -250,9 +270,13 @@ func (w *Worker) deliver(ctx context.Context, d due, secret, nodeID string) (boo
 	req.Header.Set("X-WG-Signature", Sign(secret, w.now().Unix(), body))
 	req.Header.Set("User-Agent", "wg-guard-webhook/1.0")
 
-	resp, err := w.client.Do(req)
+	client := w.client
+	if d.resellerID.Valid {
+		client = w.publicClient
+	}
+	resp, err := client.Do(req)
 	if err != nil {
-		return false, err.Error() // network error text; never the body
+		return false, "webhook transport failure" // URL/query or client material never stored
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {

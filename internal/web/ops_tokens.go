@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 )
@@ -31,7 +32,13 @@ func (s *Server) handleTokensPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tokensData(r *http.Request) tokensData {
-	list, err := s.Tokens.List(r.Context())
+	var list []token.Token
+	var err error
+	if adminFrom(r).Role == auth.RoleOwner {
+		list, err = s.Tokens.List(r.Context())
+	} else {
+		list, err = s.Tokens.ListGlobal(r.Context())
+	}
 	if err != nil {
 		s.logError(r, "tokens list", err)
 	}
@@ -74,7 +81,8 @@ func (s *Server) handleTokenCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	cidr := strings.TrimSpace(r.PostFormValue("cidr"))
 
-	created, secret, err := s.Tokens.Create(r.Context(), name, scopes, expires, cidr)
+	created, secret, err := s.Tokens.CreateForAdmin(r.Context(), adminFrom(r).ID, nil,
+		name, scopes, expires, cidr)
 	if err != nil {
 		s.tokenFormFailure(w, r, "", err)
 		return
@@ -89,7 +97,13 @@ func (s *Server) handleTokenCreate(w http.ResponseWriter, r *http.Request) {
 // handleTokenRevoke disables a token (rows stay for audit).
 func (s *Server) handleTokenRevoke(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := s.Tokens.Revoke(r.Context(), id); err != nil {
+	var err error
+	if adminFrom(r).Role == auth.RoleOwner {
+		err = s.Tokens.Revoke(r.Context(), id)
+	} else {
+		err = s.Tokens.RevokeGlobal(r.Context(), id)
+	}
+	if err != nil {
 		s.opsError(w, r, "/tokens", err)
 		return
 	}

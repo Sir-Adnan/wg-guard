@@ -105,6 +105,22 @@ idempotency lookup or response replay. Stored keys are isolated per token; a pre
 unknown owner is rejected until it expires rather than replayed across principals. This closes
 the released V1 replay-before-auth path, but does not make a multi-request billing workflow
 atomic or provide reseller row isolation; those are Phase 14 work.
+Reseller ownership columns and live grant ceilings are staged behind explicit route gates:
+reseller panel sessions reach only dedicated owned-customer and device reads,
+scoped token management, personal preferences and logout; operator routes remain denied.
+Reseller token listing and revocation are ownership-filtered; the owner may issue a token for a
+specific reseller without granting it node-wide access. REST allows only explicit,
+ownership-checked read routes and denies unclassified routes, mutations and global aggregates.
+Only the node owner can create or disable reseller records and bind panel accounts. Reducing a
+reseller's grants or disabling it takes effect on existing sessions and tokens at validation;
+the reseller's customers are retained. Node-wide staff management pages exclude reseller-bound
+accounts and tokens, and their write actions reject those targets. Existing unbound tokens retain
+their node-wide meaning. Only the owner can change reseller plan assignments; these form a
+fail-closed product allowlist for tenant purchases. Purchase results persist only IDs and state
+for 90 days; the caller key is hashed, while customer-link capabilities and private device
+material remain outside the operation journal. Customer-link reads and rotations are separately
+scoped, ownership-gated and no-store; rotation preserves the new DB state if runtime
+reconciliation fails, rather than reviving old credentials.
 
 ## Linux/network security
 

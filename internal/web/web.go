@@ -26,7 +26,9 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
+	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
@@ -40,16 +42,18 @@ import (
 // Deps wires the services the panel renders. The same instances the REST
 // API uses are passed in — one business layer, two surfaces.
 type Deps struct {
-	DB       *database.DB
-	Sessions *auth.SessionStore
-	Admins   *admin.Service
-	Settings *settings.Registry
-	Ring     *secrets.KeyRing
-	Audit    *audit.Service
-	Users    *user.Service
-	Devices  *device.Service
-	Plans    *plan.Service
-	Ifaces   *iface.Service
+	DB          *database.DB
+	Sessions    *auth.SessionStore
+	Admins      *admin.Service
+	Resellers   *reseller.Service
+	Settings    *settings.Registry
+	Ring        *secrets.KeyRing
+	Audit       *audit.Service
+	Users       *user.Service
+	Devices     *device.Service
+	Plans       *plan.Service
+	Integration *integration.Service
+	Ifaces      *iface.Service
 	// ProfileGenerator is the canonical server-side profile preview seam.
 	// It defaults to Ifaces.GenerateProfile; tests may replace it to exercise
 	// entropy failures without weakening the production generator.
@@ -113,6 +117,12 @@ func New(d Deps) (*Server, error) {
 			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
 		}
 	}
+	if s.Resellers == nil && s.DB != nil {
+		s.Resellers = reseller.NewService(s.DB)
+	}
+	if s.Integration == nil && s.DB != nil && s.Plans != nil {
+		s.Integration = &integration.Service{DB: s.DB, Users: s.Users, Plans: s.Plans}
+	}
 	if s.ProfileGenerator == nil && d.Ifaces != nil {
 		s.ProfileGenerator = d.Ifaces.GenerateProfile
 	}
@@ -144,13 +154,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /onboarding", s.handleOnboardingSubmit)
 
 	// --- preferences (session) ---
-	mux.HandleFunc("POST /prefs/locale", s.requireAuth(s.handleLocaleSet))
-	mux.HandleFunc("GET /appearance", s.requireAuth(s.handleAppearancePage))
-	mux.HandleFunc("POST /appearance/me", s.requireAuth(s.handleAppearanceMe))
-	mux.HandleFunc("POST /appearance/me/reset", s.requireAuth(s.handleAppearanceMeReset))
-	mux.HandleFunc("POST /appearance/default", s.requireAuth(s.handleAppearanceDefault))
-	mux.HandleFunc("POST /appearance/default/reset", s.requireAuth(s.handleAppearanceDefaultReset))
-	mux.HandleFunc("POST /logout", s.requireAuth(s.handleLogout))
+	mux.HandleFunc("POST /prefs/locale", s.requireSignedIn(s.handleLocaleSet))
+	mux.HandleFunc("GET /appearance", s.requireSignedIn(s.handleAppearancePage))
+	mux.HandleFunc("POST /appearance/me", s.requireSignedIn(s.handleAppearanceMe))
+	mux.HandleFunc("POST /appearance/me/reset", s.requireSignedIn(s.handleAppearanceMeReset))
+	mux.HandleFunc("POST /appearance/default", s.requireSignedIn(s.handleAppearanceDefault))
+	mux.HandleFunc("POST /appearance/default/reset", s.requireSignedIn(s.handleAppearanceDefaultReset))
+	mux.HandleFunc("POST /logout", s.requireSignedIn(s.handleLogout))
 
 	// --- public subscription pages (token-gated, rate-limited) ---
 	mux.HandleFunc("GET /sub/{token}", s.handleSubPage)
@@ -158,6 +168,23 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/config", s.handleSubDeviceConfig)
 
 	// --- app pages ---
+	mux.HandleFunc("GET /reseller/users", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUsers))
+	mux.HandleFunc("GET /reseller/users/{id}", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUser))
+	mux.HandleFunc("POST /reseller/users/{id}/next-plan", s.requireReseller(auth.ScopeNextPlansWrite, s.handleResellerNextPlanQueue))
+	mux.HandleFunc("POST /reseller/users/{id}/next-plan/cancel", s.requireReseller(auth.ScopeNextPlansWrite, s.handleResellerNextPlanCancel))
+	mux.HandleFunc("POST /reseller/users/{id}/traffic/reset", s.requireReseller(auth.ScopeTrafficUpdate, s.handleResellerTrafficReset))
+	mux.HandleFunc("GET /reseller/devices/{id}/config", s.requireReseller(auth.ScopeConfigsRead, s.handleResellerDeviceConfig))
+	mux.HandleFunc("GET /reseller/devices/{id}/qr", s.requireReseller(auth.ScopeConfigsRead, s.handleResellerDeviceQR))
+	mux.HandleFunc("GET /reseller/tokens", s.requireReseller(auth.ScopeAPITokensManage, s.handleResellerTokensPage))
+	mux.HandleFunc("POST /reseller/tokens", s.requireReseller(auth.ScopeAPITokensManage, s.handleResellerTokenCreate))
+	mux.HandleFunc("POST /reseller/tokens/{tokenID}/revoke", s.requireReseller(auth.ScopeAPITokensManage, s.handleResellerTokenRevoke))
+	mux.HandleFunc("GET /reseller/webhooks", s.requireReseller(auth.ScopeWebhooksRead, s.handleWebhooksPage))
+	mux.HandleFunc("POST /reseller/webhooks/create", s.requireReseller(auth.ScopeWebhooksWrite, s.handleWebhookCreate))
+	mux.HandleFunc("GET /reseller/webhooks/{id}", s.requireReseller(auth.ScopeWebhooksRead, s.handleWebhookShow))
+	mux.HandleFunc("POST /reseller/webhooks/{id}/update", s.requireReseller(auth.ScopeWebhooksWrite, s.handleWebhookUpdate))
+	mux.HandleFunc("POST /reseller/webhooks/{id}/rotate", s.requireReseller(auth.ScopeWebhooksWrite, s.handleWebhookRotate))
+	mux.HandleFunc("POST /reseller/webhooks/{id}/delete", s.requireReseller(auth.ScopeWebhooksWrite, s.handleWebhookDelete))
+	mux.HandleFunc("POST /reseller/webhooks/{id}/redeliver", s.requireReseller(auth.ScopeWebhooksWrite, s.handleWebhookRedeliver))
 	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard/live", s.requireAuth(s.handleDashboardLive))
@@ -183,6 +210,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /users/{id}/renew", s.requirePermission(auth.ScopeUsersUpdate, s.handleUserRenew))
 	mux.HandleFunc("POST /users/{id}/traffic/add", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficAdd))
 	mux.HandleFunc("POST /users/{id}/traffic/reset", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficReset))
+	mux.HandleFunc("POST /users/{id}/next-plan", s.requirePermission(auth.ScopeNextPlansWrite, s.handleUserNextPlanQueue))
+	mux.HandleFunc("POST /users/{id}/next-plan/cancel", s.requirePermission(auth.ScopeNextPlansWrite, s.handleUserNextPlanCancel))
 	mux.HandleFunc("GET /users/{id}/configs.zip", s.requirePermission(auth.ScopeConfigsRead, s.handleUserConfigsArchive))
 	mux.HandleFunc("POST /users/{id}/sub/create", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubCreate))
 	mux.HandleFunc("POST /users/{id}/sub/regenerate", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubRegenerate))
@@ -239,6 +268,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /backups/telegram-test", s.requirePermission(auth.ScopeBackupManage, s.handleTelegramTest))
 
 	// --- administrators (admins.manage) ---
+	mux.HandleFunc("GET /resellers", s.requireOwner(s.handleResellersPage))
+	mux.HandleFunc("POST /resellers", s.requireOwner(s.handleResellerCreate))
+	mux.HandleFunc("POST /resellers/{id}/permissions", s.requireOwner(s.handleResellerPermissions))
+	mux.HandleFunc("POST /resellers/{id}/plans", s.requireOwner(s.handleResellerPlans))
+	mux.HandleFunc("POST /resellers/{id}/enable", s.requireOwner(s.handleResellerEnable))
+	mux.HandleFunc("POST /resellers/{id}/admins", s.requireOwner(s.handleResellerAdminCreate))
+	mux.HandleFunc("GET /resellers/{id}/tokens", s.requireOwner(s.handleResellerTokensPage))
+	mux.HandleFunc("POST /resellers/{id}/tokens", s.requireOwner(s.handleResellerTokenCreate))
+	mux.HandleFunc("POST /resellers/{id}/tokens/{tokenID}/revoke", s.requireOwner(s.handleResellerTokenRevoke))
 	mux.HandleFunc("GET /admins", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminsPage))
 	mux.HandleFunc("POST /admins/create", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminCreate))
 	mux.HandleFunc("POST /admins/{id}/password", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminPassword))

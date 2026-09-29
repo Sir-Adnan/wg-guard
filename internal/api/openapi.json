@@ -2,7 +2,7 @@
   "openapi": "3.2.1",
   "info": {
     "title": "WG-Guard API",
-    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). All errors use one envelope (`error.code` is a stable machine code). Selected mutating endpoints accept `Idempotency-Key`; authenticated, token-scoped stored responses replay for 24 hours. Pre-scoping keys that have not expired return 409 rather than replay or repeat a mutation. An interruption before response-snapshot storage can leave an ambiguous outcome, and V1 has no lookup-by-key endpoint. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use explicit ownership-checked routes; legacy mutations and node-wide aggregates remain unavailable except owned usage reset. All errors use one envelope (`error.code` is a stable machine code). Legacy mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. New purchases commit the user, initial device, customer link and non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/" }],
@@ -10,7 +10,7 @@
   "tags": [
     { "name": "node" }, { "name": "users" }, { "name": "bulk" }, { "name": "devices" },
     { "name": "config" }, { "name": "stats" }, { "name": "plans" }, { "name": "interfaces" },
-    { "name": "settings" }, { "name": "webhooks" }, { "name": "ops" }
+    { "name": "settings" }, { "name": "webhooks" }, { "name": "integration" }, { "name": "ops" }
   ],
   "paths": {
     "/healthz": {
@@ -63,6 +63,25 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" }
         }
+      }
+    },
+    "/api/v1/purchases": {
+      "post": {
+        "tags": ["integration"], "summary": "Provision a customer, first device and subscription link atomically", "operationId": "createPurchase",
+        "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. A reseller may use only an enabled plan assigned by the owner. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions.",
+        "security": [{ "BearerAuth": ["purchases.create"] }],
+        "parameters": [{ "$ref": "#/components/parameters/IntegrationKey" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseRequest" }, "example": { "plan_id": "plan-uuid", "username": "alice", "device_name": "phone" } } } },
+        "responses": { "201": { "description": "Committed purchase; same body on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/operations/result": {
+      "get": {
+        "tags": ["integration"], "summary": "Recover a committed integration result by key", "operationId": "getOperationResult",
+        "description": "The key is supplied in a header to keep it out of URL logs. Lookup is scoped to the owner or reseller principal and retained for 90 days; a missing or expired result is 404. It does not expose subscription capabilities or private keys.",
+        "security": [{ "BearerAuth": ["operations.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/IntegrationKey" }],
+        "responses": { "200": { "description": "Previously committed result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
     },
     "/api/v1/users": {
@@ -127,6 +146,57 @@
         "responses": { "200": { "description": "Deleted" }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
     },
+    "/api/v1/users/{id}/subscription": {
+      "get": {
+        "tags": ["integration"], "summary": "Retrieve a customer's private subscription link", "operationId": "getCustomerSubscription",
+        "description": "The path is a bearer capability relative to this panel's public origin. Resolve it against the configured public base URL or the API origin before delivery. The link and device configurations are secrets; the response is no-store. Reseller tokens can read only their own customers. A missing or revoked link returns 404.",
+        "security": [{ "BearerAuth": ["subscriptions.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Private customer link", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLink" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/users/{id}/subscription/rotate": {
+      "post": {
+        "tags": ["integration"], "summary": "Revoke the old link and every old device configuration", "operationId": "rotateCustomerAccess",
+        "description": "Atomically replaces the customer link and every device key, preserving device IDs, addresses and quotas. Old links, configs and QR values stop working after successful runtime reconciliation. If reconciliation fails, the new database state is retained and the response is 503; read the current link before retrying. This operation intentionally does not use the legacy response-replay middleware.",
+        "security": [{ "BearerAuth": ["subscriptions.rotate"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "New private link and count of rotated devices", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLinkRotation" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "503": { "description": "Database rotation committed; runtime reconciliation pending" } }
+      }
+    },
+    "/api/v1/users/{id}/next-plan": {
+      "get": {
+        "tags": ["integration"], "summary": "Read the queued successor plan", "operationId": "getNextPlan",
+        "description": "Returns null when no successor is queued. Reseller tokens can read only their own customers.",
+        "security": [{ "BearerAuth": ["next_plans.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Current queue state", "content": { "application/json": { "schema": { "type": "object", "required": ["next_plan"], "properties": { "next_plan": { "anyOf": [{ "$ref": "#/components/schemas/NextPlan" }, { "type": "null" }] } } } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "put": {
+        "tags": ["integration"], "summary": "Queue or replace one authorized successor", "operationId": "putNextPlan",
+        "description": "No payment is taken. The caller must have already authorized this entitlement. Plan terms are snapshotted when queued, so later catalog edits or reseller-plan revocation do not rewrite it. At the first time or quota boundary the new plan starts once, with fresh usage counters. A manual suspension/disable blocks automatic activation. A changed current plan or incompatible device set moves the queue to needs_review. Optional carry_unused_traffic adds only unused prior traffic when time ends first, never time. Reseller tokens require an owner-assigned enabled plan. Optional Idempotency-Key provides token-scoped 24-hour replay.",
+        "security": [{ "BearerAuth": ["next_plans.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlanRequest" }, "example": { "plan_id": "plan-uuid", "carry_unused_traffic": false } } } },
+        "responses": { "200": { "description": "Queued successor", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlan" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "delete": {
+        "tags": ["integration"], "summary": "Cancel the queued successor", "operationId": "deleteNextPlan",
+        "description": "Idempotent removal; it does not reverse an already activated plan. Optional Idempotency-Key provides token-scoped 24-hour replay.",
+        "security": [{ "BearerAuth": ["next_plans.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "204": { "description": "Queue removed or already absent" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/users/{id}/next-plan/activations": {
+      "get": {
+        "tags": ["integration"], "summary": "Recover recent automatic successor activations", "operationId": "listNextPlanActivations",
+        "description": "Returns newest first, at most 100, retained for one year. Includes non-secret before/after entitlement snapshots and the actual first boundary trigger. Reseller tokens see only their own customers. This read is the fallback when an asynchronous notification is missed.",
+        "security": [{ "BearerAuth": ["next_plans.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }, { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }],
+        "responses": { "200": { "description": "Recent activations", "content": { "application/json": { "schema": { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/NextPlanActivation" } } } } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
     "/api/v1/users/{id}/enable": {
       "post": {
         "tags": ["users"], "summary": "Enable a user (returns to active/waiting)", "security": [{ "BearerAuth": ["users.update"] }],
@@ -168,7 +238,7 @@
     },
     "/api/v1/users/{id}/traffic/reset": {
       "post": {
-        "tags": ["users"], "summary": "Reset usage to zero (one-op unblock)", "description": "Idempotent with `Idempotency-Key`. Zeroes user and device totals; a traffic_exceeded account returns to active (or waiting per policy).", "security": [{ "BearerAuth": ["traffic.update"] }],
+        "tags": ["users"], "summary": "Reset usage to zero (one-op unblock)", "description": "Idempotent with `Idempotency-Key`. Zeroes user and device totals while retaining peer baselines; a traffic_exceeded account returns to active (or waiting per policy). Reseller tokens can reset only owned customers.", "security": [{ "BearerAuth": ["traffic.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "responses": { "200": { "description": "Reset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
       }
@@ -339,7 +409,7 @@
       },
       "post": {
         "tags": ["webhooks"], "summary": "Create a webhook endpoint", "description": "An empty `secret` generates one and returns it exactly once. Signing: `X-WG-Signature: t=<ts>,v1=<hex hmac-sha256(secret, \"<ts>.<body>\")>` with a ~5-minute replay window.", "security": [{ "BearerAuth": ["webhooks.write"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url", "events"], "properties": { "url": { "type": "string" }, "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }, "secret": { "type": "string" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url", "events"], "properties": { "url": { "type": "string" }, "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }, "secret": { "type": "string" }, "include_reseller_events": { "type": "boolean", "default": false, "description": "Owner-only opt-in for a node-wide endpoint to receive reseller customer events. Ordinary operator tokens cannot see or change opted-in endpoints." } } } } } },
         "responses": { "201": { "description": "Created (secret present when generated)" } }
       }
     },
@@ -352,7 +422,7 @@
       "patch": {
         "tags": ["webhooks"], "summary": "Update url/events/enabled or rotate the secret", "security": [{ "BearerAuth": ["webhooks.write"] }],
         "parameters": [{ "$ref": "#/components/parameters/WebhookID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "url": { "type": "string" }, "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }, "enabled": { "type": "boolean" }, "secret": { "type": "string", "description": "Empty string generates a new secret (returned once)" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "url": { "type": "string" }, "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }, "enabled": { "type": "boolean" }, "secret": { "type": "string", "description": "Empty string generates a new secret (returned once)" }, "include_reseller_events": { "type": "boolean", "description": "Owner-only change to node-wide reseller event fanout." } } } } } },
         "responses": { "200": { "description": "Updated" } }
       },
       "delete": {
@@ -368,6 +438,26 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["delivery_id"], "properties": { "delivery_id": { "type": "string" } } } } } },
         "responses": { "202": { "description": "Queued for redelivery" } }
       }
+    },
+    "/api/v1/webhooks/{id}/deliveries": {
+      "get": {
+        "tags": ["webhooks"], "summary": "List non-secret delivery receipts for one owned endpoint",
+        "description": "Newest first, retained for seven days. Reseller tokens see only their own endpoint and its tenant-matched events. The response never includes signed payloads, endpoint secrets or URLs. `next_before` is the last delivery ID of this page; pass it as `before` to continue. `event_id` filters exact event identity.",
+        "security": [{ "BearerAuth": ["webhooks.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/WebhookID" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } },
+          { "name": "before", "in": "query", "schema": { "type": "string" } },
+          { "name": "event_id", "in": "query", "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Receipt page", "content": { "application/json": { "schema": { "type": "object", "required": ["items", "next_before"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookReceipt" } }, "next_before": { "type": "string" } } } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries/{deliveryID}": {
+      "get": {
+        "tags": ["webhooks"], "summary": "Get one non-secret delivery receipt",
+        "security": [{ "BearerAuth": ["webhooks.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/WebhookID" }, { "name": "deliveryID", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Receipt", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookReceipt" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
     }
   },
   "components": {
@@ -375,6 +465,7 @@
       "BearerAuth": { "type": "http", "scheme": "bearer", "description": "API token: `Authorization: Bearer wg_…` with scopes; separate from admin sessions." }
     },
     "parameters": {
+      "IntegrationKey": { "name": "Idempotency-Key", "in": "header", "required": true, "description": "1–128 printable ASCII characters, without spaces. Do not put a secret here. Stable across token rotation within the same owner or reseller namespace.", "schema": { "type": "string", "minLength": 1, "maxLength": 128 } },
       "UserID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "DeviceID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "PlanID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
@@ -389,6 +480,15 @@
       "Invalid": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
     },
     "schemas": {
+      "PurchaseRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "username": { "type": "string", "description": "Optional global username; omitted uses a stable generated identifier." }, "device_name": { "type": "string", "default": "device-1" } } },
+      "OperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "plan_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "plan_id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "CustomerLink": { "type": "object", "required": ["path"], "properties": { "path": { "type": "string", "description": "Secret relative subscription path /sub/{token}; do not log or expose publicly." } } },
+      "CustomerLinkRotation": { "type": "object", "required": ["path", "devices_rotated"], "properties": { "path": { "type": "string" }, "devices_rotated": { "type": "integer", "minimum": 0 } } },
+      "NextPlanRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "carry_unused_traffic": { "type": "boolean", "default": false } } },
+      "NextPlanTerms": { "type": "object", "required": ["name", "traffic_limit_bytes", "duration_seconds", "device_limit", "speed_limit_down_kbps", "speed_limit_up_kbps", "interface_id"], "properties": { "name": { "type": "string" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "duration_seconds": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "interface_id": { "type": ["string", "null"] } } },
+      "NextPlan": { "type": "object", "required": ["user_id", "plan_id", "terms", "carry_unused_traffic", "state", "created_at"], "properties": { "user_id": { "type": "string" }, "plan_id": { "type": "string" }, "terms": { "$ref": "#/components/schemas/NextPlanTerms" }, "carry_unused_traffic": { "type": "boolean" }, "state": { "type": "string", "enum": ["queued", "needs_review"] }, "review_reason": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "NextPlanEntitlementState": { "type": "object", "required": ["plan_id", "expires_at", "traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "plan_id": { "type": ["string", "null"] }, "expires_at": { "type": ["string", "null"], "format": "date-time" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "traffic_used_rx": { "type": "integer" }, "traffic_used_tx": { "type": "integer" }, "status": { "type": "string" } } },
+      "NextPlanActivation": { "type": "object", "required": ["activation_id", "user_id", "plan_id", "trigger", "before", "after", "activated_at"], "properties": { "activation_id": { "type": "string" }, "user_id": { "type": "string" }, "plan_id": { "type": "string" }, "trigger": { "type": "string", "enum": ["time", "quota"] }, "before": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "after": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "activated_at": { "type": "string", "format": "date-time" } } },
       "Error": {
         "type": "object",
         "properties": {
@@ -642,10 +742,79 @@
         }
       },
       "WebhookEvent": { "type": "string", "enum": ["user.created", "user.updated", "user.enabled", "user.disabled", "user.expired", "user.traffic_exceeded", "user.first_connected", "device.created", "device.deleted", "node.started"] },
+      "WebhookReceipt": {
+        "type": "object", "required": ["id", "event_id", "event_type", "status", "attempts", "next_attempt_at", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "string" }, "event_id": { "type": "string" },
+          "event_type": { "$ref": "#/components/schemas/WebhookEvent" },
+          "status": { "type": "string", "enum": ["pending", "delivered", "dead"] },
+          "attempts": { "type": "integer", "minimum": 0 },
+          "next_attempt_at": { "type": ["string", "null"], "format": "date-time", "description": "Next scheduled retry while pending; null once delivered or dead." },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WebhookEnvelopeBase": {
+        "type": "object", "required": ["id", "type", "timestamp", "node_id", "data"],
+        "properties": {
+          "id": { "type": "string", "description": "Stable event ID; deduplicate redeliveries and crash retries by this value." },
+          "type": { "$ref": "#/components/schemas/WebhookEvent" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "node_id": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "WebhookUserCreatedData": { "type": "object", "required": ["user_id", "username", "status"], "properties": {
+        "user_id": { "type": "string" }, "username": { "type": "string" }, "status": { "type": "string" }
+      } },
+      "WebhookUserUpdatedData": { "type": "object", "required": ["user_id"], "properties": {
+        "user_id": { "type": "string" }, "username": { "type": "string" }, "deleted": { "type": "boolean" },
+        "plan_id": { "type": "string" }, "next_plan_trigger": { "type": "string", "enum": ["time", "quota"] }
+      } },
+      "WebhookUserStateData": { "type": "object", "required": ["user_id", "username"], "properties": {
+        "user_id": { "type": "string" }, "username": { "type": "string" }, "reason": { "type": "string" }
+      } },
+      "WebhookUserTrafficExceededData": { "type": "object", "required": ["user_id", "username", "used_bytes", "limit_bytes"], "properties": {
+        "user_id": { "type": "string" }, "username": { "type": "string" },
+        "used_bytes": { "type": "integer", "format": "int64" }, "limit_bytes": { "type": "integer", "format": "int64" }
+      } },
+      "WebhookDeviceData": { "type": "object", "required": ["device_id", "user_id", "name", "ipv4"], "properties": {
+        "device_id": { "type": "string" }, "user_id": { "type": "string" },
+        "name": { "type": "string" }, "ipv4": { "type": "string" }
+      } },
+      "WebhookNodeStartedData": { "type": "object", "required": ["node_id", "version"], "properties": {
+        "node_id": { "type": "string" }, "version": { "type": "string" }
+      } },
+      "WebhookEnvelope": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/WebhookUserCreatedEnvelope" },
+          { "$ref": "#/components/schemas/WebhookUserUpdatedEnvelope" },
+          { "$ref": "#/components/schemas/WebhookUserEnabledEnvelope" },
+          { "$ref": "#/components/schemas/WebhookUserDisabledEnvelope" },
+          { "$ref": "#/components/schemas/WebhookUserExpiredEnvelope" },
+          { "$ref": "#/components/schemas/WebhookUserTrafficExceededEnvelope" },
+          { "$ref": "#/components/schemas/WebhookUserFirstConnectedEnvelope" },
+          { "$ref": "#/components/schemas/WebhookDeviceCreatedEnvelope" },
+          { "$ref": "#/components/schemas/WebhookDeviceDeletedEnvelope" },
+          { "$ref": "#/components/schemas/WebhookNodeStartedEnvelope" }
+        ]
+      },
+      "WebhookUserCreatedEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.created" }, "data": { "$ref": "#/components/schemas/WebhookUserCreatedData" } } }] },
+      "WebhookUserUpdatedEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.updated" }, "data": { "$ref": "#/components/schemas/WebhookUserUpdatedData" } } }] },
+      "WebhookUserEnabledEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.enabled" }, "data": { "$ref": "#/components/schemas/WebhookUserStateData" } } }] },
+      "WebhookUserDisabledEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.disabled" }, "data": { "$ref": "#/components/schemas/WebhookUserStateData" } } }] },
+      "WebhookUserExpiredEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.expired" }, "data": { "$ref": "#/components/schemas/WebhookUserStateData" } } }] },
+      "WebhookUserTrafficExceededEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.traffic_exceeded" }, "data": { "$ref": "#/components/schemas/WebhookUserTrafficExceededData" } } }] },
+      "WebhookUserFirstConnectedEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "user.first_connected" }, "data": { "$ref": "#/components/schemas/WebhookUserStateData" } } }] },
+      "WebhookDeviceCreatedEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "device.created" }, "data": { "$ref": "#/components/schemas/WebhookDeviceData" } } }] },
+      "WebhookDeviceDeletedEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "device.deleted" }, "data": { "$ref": "#/components/schemas/WebhookDeviceData" } } }] },
+      "WebhookNodeStartedEnvelope": { "allOf": [{ "$ref": "#/components/schemas/WebhookEnvelopeBase" }, { "type": "object", "properties": { "type": { "const": "node.started" }, "data": { "$ref": "#/components/schemas/WebhookNodeStartedData" } } }] },
       "WebhookEndpoint": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
+          "reseller_id": { "type": "string", "description": "Present for a reseller-owned endpoint; absent for a node-wide endpoint." },
+          "include_reseller_events": { "type": "boolean", "description": "Owner-approved subscription to reseller customer events for this node-wide endpoint. Always false for a reseller endpoint." },
           "url": { "type": "string" },
           "enabled": { "type": "boolean" },
           "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } },
@@ -662,14 +831,30 @@
       }
     }
   },
-  "x-webhooks": {
-    "description": "Durable, restart-safe outbound webhooks. Deliveries POST a JSON envelope {id, type, timestamp, node_id, data} with headers X-WG-Event and X-WG-Signature: t=<ts>,v1=<hex hmac-sha256(secret, \"<ts>.<body>\")>. Retries use exponential backoff (30 s doubling, 6 h cap); after `webhooks.max_attempts` (default 12) the delivery is dead and manually redeliverable.",
-    "payloadExample": {
-      "id": "01J...",
-      "type": "user.created",
-      "timestamp": "2026-08-30T12:00:00Z",
-      "node_id": "node-1",
-      "data": { "user_id": "01J...", "username": "alice", "status": "active" }
+  "webhooks": {
+    "wgEvent": {
+      "post": {
+        "summary": "Signed WG-Guard event delivery",
+        "description": "The configured endpoint receives an at-least-once POST. Return any 2xx to acknowledge; other statuses and transport failures are retried. Deduplicate by body `id`. Delivery may reorder, including across endpoints. A reseller receiver receives only events belonging to its reseller; node.started is node-wide only. A node-wide receiver gets reseller events only after an explicit owner opt-in; existing receivers migrate with that option off.",
+        "security": [],
+        "parameters": [
+          { "name": "X-WG-Event", "in": "header", "required": true, "schema": { "$ref": "#/components/schemas/WebhookEvent" } },
+          { "name": "X-WG-Delivery", "in": "header", "required": true, "description": "Stable delivery ID for this endpoint and event.", "schema": { "type": "string" } },
+          { "name": "X-WG-Signature", "in": "header", "required": true, "description": "t=<unix_seconds>,v1=<hex HMAC-SHA256(secret, '<t>.<raw body>')>. Reject timestamps outside a five-minute replay window.", "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": {
+          "schema": { "$ref": "#/components/schemas/WebhookEnvelope" },
+          "examples": {
+            "userCreated": { "summary": "Provisioned customer", "value": { "id": "event-uuid", "type": "user.created", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "status": "active" } } },
+            "successorActivated": { "summary": "Queued successor activated", "value": { "id": "event-uuid", "type": "user.updated", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "plan_id": "plan-uuid", "next_plan_trigger": "quota" } } },
+            "quotaReached": { "summary": "Quota boundary reached", "value": { "id": "event-uuid", "type": "user.traffic_exceeded", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "used_bytes": 1073741824, "limit_bytes": 1073741824 } } }
+          }
+        } } },
+        "responses": { "200": { "description": "Any 2xx acknowledges delivery." } }
+      }
     }
+  },
+  "x-webhooks": {
+    "description": "Events and one pending delivery per subscribed enabled receiver commit with the mutation. Scheduler polls every 5 s, takes up to 64 due deliveries per pass, with up to four concurrent 10 s HTTP requests. Non-2xx and network failures retry after 30 s doubling to a 6 h cap; after webhooks.max_attempts (default 12) the delivery is dead until manually redeliverable. Retention is seven days. Crash after HTTP success but before the SQLite receipt update can duplicate a POST; receivers deduplicate by event id. There is no total, per-user, or cross-endpoint delivery ordering guarantee. Use resource GET and the scoped receipt API to reconcile state. Node-wide endpoints receive reseller events only with explicit owner opt-in."
   }
 }

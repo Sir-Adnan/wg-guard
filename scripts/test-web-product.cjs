@@ -43,6 +43,85 @@ let stage = 'launch';
       await require('./test-web-interactions.cjs')({browser,seed,engine});
       await context.close();return;
     }
+    if (group === 'reseller-webhooks') {
+      stage = 'reseller webhook panel';
+      await context.addCookies([{ name: 'wg_session', value: seed.resellerSession, url: seed.url }]);
+      for (const lang of ['fa', 'en']) {
+        const changed = await page.request.post(seed.url + '/prefs/locale', { maxRedirects: 0, form: {
+          locale: lang, _csrf: seed.resellerCSRF,
+        } });
+        assert(changed.status() === 303, 'reseller locale change');
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: width === 1440 ? 900 : 780 });
+          for (const mode of ['light', 'dark']) {
+            for (const path of ['/reseller/webhooks', '/reseller/webhooks/' + seed.resellerWebhookID]) {
+              await goto(path);
+              await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
+              const geometry = await page.locator('.webhook-page').evaluate(root => {
+                const viewport = document.documentElement.clientWidth;
+                const controls = [...root.querySelectorAll('input, button, a.btn')].filter(el => getComputedStyle(el).display !== 'none');
+                return { pageFits: document.documentElement.scrollWidth <= viewport,
+                  controlsFit: controls.every(el => { const b = el.getBoundingClientRect();
+                    return b.left >= -1 && b.right <= viewport + 1; }) };
+              });
+              assert(geometry.pageFits && geometry.controlsFit,
+                'reseller webhook controls fit ' + lang + ' ' + width + ' ' + mode + ' ' + path + ' ' + JSON.stringify(geometry));
+              assert(await page.locator('a[href="/webhooks"]').count() === 0,
+                'reseller page never links to operator webhook routes');
+              if (path.endsWith(seed.resellerWebhookID)) {
+                assert(await page.locator('form[action$="/update"]').count() === 1, 'owned webhook edit form visible');
+              }
+            }
+            if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && mode === 'dark' && width === 390) {
+              const path = require('node:path'), fs = require('node:fs');
+              fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+              await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'reseller-webhook-fa-mobile.png'), fullPage: true });
+            }
+          }
+        }
+      }
+      assert(runtimeErrors === 0, 'no browser runtime errors');
+      await context.close(); return;
+    }
+    if (group === 'next-plan') {
+      stage = 'queued successor panel';
+      const formPath = '/users/' + seed.user + '/next-plan';
+      const response = await page.request.post(seed.url + formPath, { maxRedirects: 0, form: {
+        plan_id: seed.plan, _csrf: seed.csrf,
+      } });
+      assert(response.status() === 303, 'owner can queue successor through the panel');
+      for (const lang of ['fa', 'en']) {
+        await locale(lang);
+        for (const width of [1440, 390, 320]) {
+          await page.setViewportSize({ width, height: width === 1440 ? 900 : 780 });
+          for (const mode of ['light', 'dark']) {
+            await goto('/users/' + seed.user);
+            await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
+            assert(await page.locator('.user-next-plan-card').count() === 1, 'next-plan card renders');
+            assert(await page.locator('.user-next-plan-card strong').filter({ hasText: 'Monthly / ماهانه' }).count() === 1,
+              'queued plan is visible');
+            const layout = await page.locator('.user-next-plan-card').evaluate(card => {
+              const controls = [...card.querySelectorAll('select, input:not([type="hidden"]), button')];
+              const viewport = document.documentElement.clientWidth;
+              const actions = [...card.querySelectorAll('.next-plan-actions .btn')].map(button => button.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+              return { pageFits: document.documentElement.scrollWidth <= viewport,
+                controlsFit: controls.every(control => {
+                  const box = control.getBoundingClientRect();
+                  return box.width > 0 && box.left >= -1 && box.right <= viewport + 1;
+                }), actionsAligned: actions.length === 2 && Math.abs(actions[0].top - actions[1].top) <= 2 && actions[1].left - actions[0].right >= 6 };
+            });
+            assert(layout.pageFits && layout.controlsFit && layout.actionsAligned,
+              'next-plan card and actions fit ' + lang + ' ' + width + ' ' + mode + ' ' + JSON.stringify(layout));
+            if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && mode === 'dark' && width === 390) {
+              const path = require('node:path'), fs = require('node:fs');
+              fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+              await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'next-plan-fa-mobile.png'), fullPage: true });
+            }
+          }
+        }
+      }
+      await context.close(); return;
+    }
     if (suite === 'appearance') {
       stage = 'visual preset preview';
       await goto('/appearance');

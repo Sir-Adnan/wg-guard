@@ -165,7 +165,19 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Plan, error
 
 // Get loads by ID.
 func (s *Service) Get(ctx context.Context, id string) (*Plan, error) {
-	row := s.db.QueryRowContext(ctx, planColumns+` FROM plans WHERE id = ?`, id)
+	return loadPlan(s.db.QueryRowContext(ctx, planColumns+` FROM plans WHERE id = ?`, id), id)
+}
+
+// GetTx reads the catalogued product from the same write snapshot as an
+// integration purchase and its reseller assignment.
+func (s *Service) GetTx(ctx context.Context, tx *sql.Tx, id string) (*Plan, error) {
+	if tx == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "plan transaction is required")
+	}
+	return loadPlan(tx.QueryRowContext(ctx, planColumns+` FROM plans WHERE id = ?`, id), id)
+}
+
+func loadPlan(row rowScanner, id string) (*Plan, error) {
 	p, err := scanPlan(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.E(domain.CodePlanNotFound, "plan %s not found", id)
@@ -202,6 +214,12 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	if count > 0 {
 		return domain.E(domain.CodePlanInUse, "plan is assigned to %d users", count)
+	}
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM next_plan_queue WHERE plan_id = ?`, id).Scan(&count); err != nil {
+		return fmt.Errorf("plan: queued successors: %w", err)
+	}
+	if count > 0 {
+		return domain.E(domain.CodePlanInUse, "plan is queued for %d users", count)
 	}
 	res, err := s.db.ExecContext(ctx, `DELETE FROM plans WHERE id = ?`, id)
 	if err != nil {

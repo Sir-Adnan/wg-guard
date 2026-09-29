@@ -49,6 +49,22 @@
       </details>
     </section>
 
+    {{if or (.Can "next_plans.read") (.Can "next_plans.write")}}<section class="card card--pad user-next-plan-card">
+      <div class="section-head"><div><span class="eyebrow">{{.T "users.plan"}}</span><h2>{{.T "users.next_plan.title"}}</h2><p>{{.T "users.next_plan.hint"}}</p></div><span class="section-icon" aria-hidden="true">{{.IconS "calendar"}}</span></div>
+      {{if .Data.NextPlan}}<div class="callout"><strong>{{.Data.NextPlan.Terms.Name}}</strong>{{if eq .Data.NextPlan.State "needs_review"}}<p>{{.T "users.next_plan.review"}}</p>{{end}}</div>
+      {{else}}<p class="text-muted">{{.T "users.next_plan.none"}}</p>{{end}}
+      {{if and (.Can "next_plans.write") .Data.NextPlans}}
+      <form id="next-plan-form" class="form-stack" method="post" action="/users/{{.Data.U.ID}}/next-plan">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <label for="next-plan-id">{{.T "users.next_plan.select"}}</label>
+        <select id="next-plan-id" class="input" name="plan_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+        <label class="check-row"><input class="checkbox" type="checkbox" name="carry_unused_traffic"><span>{{.T "users.next_plan.carry"}}</span></label>
+      </form>
+      <div class="next-plan-actions"><button form="next-plan-form" type="submit" class="btn btn--primary">{{.IconS "plus"}}<span>{{.T "users.next_plan.queue"}}</span></button>
+      {{if .Data.NextPlan}}<form method="post" action="/users/{{.Data.U.ID}}/next-plan/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--ghost">{{.IconS "x"}}<span>{{.T "users.next_plan.cancel"}}</span></button></form>{{end}}</div>
+      {{end}}
+    </section>{{end}}
+
     {{if or (.Can "configs.read") (.Can "users.update")}}<section class="card card--pad subscription-access-card">
       <div class="subscription-access-head"><span class="subscription-access-icon" aria-hidden="true">{{.IconS "link"}}</span><div><span class="eyebrow">{{.T "sub.card.title"}}</span><h2>{{.T "sub.card.title"}}</h2></div></div>
       <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p>

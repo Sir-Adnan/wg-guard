@@ -5,7 +5,7 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Release v0.1.2" src="https://img.shields.io/badge/release-v0.1.2-2563eb">
+    <img alt="Release v0.1.3" src="https://img.shields.io/badge/release-v0.1.3-2563eb">
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
@@ -20,10 +20,10 @@ recovery without turning the server into a large application stack.
 | | Built for operators |
 |---|---|
 | 🛡️ | **AmneziaWG control** — interfaces, generated anti-DPI profiles, peers, and guarded host reconciliation |
-| 👥 | **Subscriber lifecycle** — optional plans, quota, expiry, first-use activation, devices, speed limits, and secure subscription-link replacement |
+| 👥 | **Subscriber lifecycle** — optional plans, quota, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
 | 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a simple public subscription page |
 | 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
-| 🔐 | **Safe operations** — scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
+| 🔐 | **Safe operations** — owner/reseller permissions, scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
 | 🌐 | **A polished panel** — English/Persian, RTL/LTR, light/dark/system modes, ten optional visual presets, desktop and mobile |
 
 ### Install
@@ -102,10 +102,11 @@ and limits are in [project status](docs/development/status.md).
 
 ### API and design
 
-The same node exposes a documented `/api/v1` for external systems. Scoped tokens,
-idempotency, cursor pagination, and signed webhook deliveries support integration without
-screen-scraping. The web panel remains server-rendered, and the host owns tunnel interfaces,
-firewall rules, and shaping. Start with the [API contract](docs/architecture/api.md) or
+The same node exposes a documented `/api/v1` for external systems. An atomic purchase creates
+a user, device and customer link with a recoverable result; reseller tokens remain in their own
+customer namespace. Cursor pagination, scoped delivery receipts and signed webhooks support
+integration without screen-scraping. The web panel remains server-rendered, and the host owns
+tunnel interfaces, firewall rules, and shaping. Start with the [API contract](docs/architecture/api.md) or
 [architecture overview](docs/architecture/overview.md).
 
 ### Explore

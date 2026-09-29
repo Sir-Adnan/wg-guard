@@ -148,6 +148,46 @@ func TestSessionLifecycle(t *testing.T) {
 	}
 }
 
+func TestResellerSessionUsesCurrentGrantCeiling(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	store := NewSessionStore(db, time.Hour, 24*time.Hour)
+	if _, err := db.Exec(`INSERT INTO resellers (id, slug, permissions, created_at, updated_at)
+		VALUES ('reseller-1', 'north', '["users.read","users.create"]', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO admins (id, username, password_hash, role, permissions,
+		reseller_id, created_at, updated_at) VALUES
+		('reseller-admin', 'north-admin', 'x', 'admin',
+		 '["users.read","users.create","node.settings"]', 'reseller-1', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := store.Create(ctx, "reseller-admin", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := store.Validate(ctx, token)
+	if err != nil || a.ResellerID == nil || *a.ResellerID != "reseller-1" ||
+		!Authorized(a.Role, a.Permissions, ScopeUsersCreate) ||
+		Authorized(a.Role, a.Permissions, ScopeNodeSettings) {
+		t.Fatalf("unbounded reseller principal: %+v, %v", a, err)
+	}
+	if _, err := db.Exec(`UPDATE resellers SET permissions = '["users.read"]' WHERE id = 'reseller-1'`); err != nil {
+		t.Fatal(err)
+	}
+	a, err = store.Validate(ctx, token)
+	if err != nil || Authorized(a.Role, a.Permissions, ScopeUsersCreate) ||
+		!Authorized(a.Role, a.Permissions, ScopeUsersRead) {
+		t.Fatalf("grant change not applied to existing session: %+v, %v", a, err)
+	}
+	if _, err := db.Exec(`UPDATE resellers SET enabled = 0 WHERE id = 'reseller-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Validate(ctx, token); err == nil {
+		t.Fatal("disabled reseller session remained active")
+	}
+}
+
 func TestSessionIdleExpiry(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()

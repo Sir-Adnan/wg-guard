@@ -26,6 +26,8 @@ later versions and official registry images require separate approval.
 | 10 — Product UI/UX redesign | complete | Full redesign matrix plus exact continuation VPS/broker acceptance and coherent `main` integration |
 | 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
+| 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
+| 14 — Integration API for automation | final gate pending | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, PR/main CI and exact-source release gate |
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.
@@ -55,6 +57,7 @@ implementation does not cross the active phase boundary.
 | Supported-Ubuntu/backend/deployment matrix | 11 | Real-host evidence per supported cell; unverified later Ubuntu releases not advertised |
 | Backup/update/rollback/recovery/ACME drills | 11 | Repeatable evidence using the feature-frozen candidate |
 | API/OpenAPI synchronization | Every affected phase; 12 final | Bidirectional route/schema coverage green |
+| Reseller integration isolation and recovery | 14 | Owner/operator/reseller denial and delivery tests; atomic purchase journal; successor activation; scoped webhook fanout and receipts |
 | Documentation and repository hygiene | Every phase; 12 final | Living docs agree; no secrets or inappropriate artifacts tracked |
 | Release artifacts and publication workflow | Acquisition contract/dry-run artifacts in 8.1; final workflow/freeze in 12 | Checksums and amd64 metadata verified; publication remains manually gated |
 

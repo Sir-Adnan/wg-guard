@@ -79,6 +79,14 @@ Statuses: `active`, `disabled`, `suspended`, `expired`, `traffic_exceeded`,
 - Expiration enforcement and quota enforcement run on the internal scheduler (no external cron).
 - Quota exhaustion sets `traffic_exceeded`, preserves the account, and emits an audit event.
 - Renewal: extend from current expiration, extend from now, or set exact date.
+- A queued Next Plan is an explicitly authorized, one-time successor, not a payment instruction.
+  The first end of time or traffic activates it, starts its full duration at activation, and resets
+  charged usage while retaining raw peer baselines. Optional unused traffic carries only on time
+  expiry; unused time does not carry. Manual disable/suspension blocks activation. Only one
+  successor may be queued; it can be replaced or canceled before activation. A change to the
+  current plan or incompatible devices requires re-approval rather than silent activation.
+  Incomplete traffic observations defer activation so carried volume is never computed from stale
+  metering.
 - Operations: create/edit/enable/disable/suspend/delete (soft delete + restore)/renew/clone,
   reset/add/remove traffic, change quota/duration/devices/speed/profile, regenerate and revoke
   device configs. Bulk create (10–100+ with shared properties), bulk actions, export (CSV/ZIP).
@@ -108,8 +116,9 @@ derived (handshake within a configurable window, default 3 min).
 Phase 14 adds owner-managed **Reseller** accounts with configurable permissions and an isolated
 customer namespace. Owner integrations remain node-wide; a reseller's panel session and API
 tokens may act only within that reseller's granted scope and customer set. Neither a global
-admin permission nor a URL/ID supplied by the caller may bypass ownership checks. This is an
-approved requirement, not a current V1 capability; see [Roadmap](../../ROADMAP.md#phase-14--integration-api-for-automation).
+admin permission nor a URL/ID supplied by the caller may bypass ownership checks. The Phase 14
+implementation is on the integration branch pending its final release gate; see
+[Roadmap](../../ROADMAP.md#phase-14--integration-api-for-automation).
 
 ## Bilingual product
 

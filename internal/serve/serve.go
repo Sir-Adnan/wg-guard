@@ -40,6 +40,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
@@ -352,10 +353,12 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	ifaces := iface.NewService(db, n.reg, n.ring, ifaceOptions...)
 	webhooksSvc := webhook.NewService(db, n.ring)
 	links := subscription.NewService(db, n.ring)
+	integrations := &integration.Service{DB: db, Users: users, Devices: devices, Plans: plans, Links: links}
 
 	n.accounting = accounting.NewService(db, backend, auditSvc, shaperMgr, n.reg)
 	n.accounting.Reconciler = rec
 	n.accounting.Recorder = recorder
+	n.accounting.AfterMetering = integrations.ActivateDueNextPlans
 
 	n.webhookWorker = webhook.NewWorker(db, n.ring, n.reg, logs.webhook)
 	n.sessions = auth.NewSessionStore(db, n.sessionIdleTTL(ctx), n.sessionAbsoluteTTL(ctx))
@@ -397,6 +400,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Webhooks:     webhooksSvc,
 		Metrics:      n.metrics,
 		Telemetry:    n.telemetry,
+		Links:        links,
+		Integration:  integrations,
 		Log:          logs.http,
 		Reconciler:   rec,
 		NodeID:       nodeID,
@@ -417,6 +422,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Ifaces:        ifaces,
 		Accounting:    n.accounting,
 		Links:         links,
+		Integration:   integrations,
 		Backup:        n.backup,
 		UpdateQueue:   updatequeue.New(cfg.DataDir),
 		UpdateCatalog: distribution.NewClient(nil, distribution.Options{}),
@@ -715,10 +721,11 @@ func (n *Node) jobAccounting(ctx context.Context) error {
 		if len(rep.Errors) > 0 || rep.ShaperError != "" {
 			n.metrics.SetAccountingError(at)
 		}
-		if rep.Deltas > 0 || rep.Activated > 0 || rep.QuotaTripped > 0 || len(rep.Errors) > 0 {
+		if rep.Deltas > 0 || rep.Activated > 0 || rep.QuotaTripped > 0 || rep.NextPlanActivated > 0 || len(rep.Errors) > 0 {
 			n.logs.accounting.Debug("accounting cycle",
 				"devices", rep.Deltas, "rx", rep.RX, "tx", rep.TX,
 				"activated", rep.Activated, "quota_tripped", rep.QuotaTripped,
+				"next_plan_activated", rep.NextPlanActivated,
 				"duration", rep.Duration.Round(time.Millisecond))
 		}
 		for _, e := range rep.Errors {
@@ -803,7 +810,7 @@ func (n *Node) jobBackups(ctx context.Context) error {
 	return err
 }
 
-// jobHousekeeping prunes expired idempotency keys, dead sessions, old
+// jobHousekeeping prunes expired idempotency keys and operation results, dead sessions, old
 // samples/rollups and webhook events, and re-reads runtime-tunable API
 // settings so PATCHes apply without a restart.
 func (n *Node) jobHousekeeping(ctx context.Context) error {
@@ -812,6 +819,16 @@ func (n *Node) jobHousekeeping(ctx context.Context) error {
 		n.log.Warn("housekeeping: idempotency prune failed", "err", err)
 	} else if rows > 0 {
 		n.log.Debug("housekeeping: idempotency keys pruned", "rows", rows)
+	}
+	if rows, err := integration.Prune(ctx, n.db, now); err != nil {
+		n.log.Warn("housekeeping: integration result prune failed", "err", err)
+	} else if rows > 0 {
+		n.log.Debug("housekeeping: integration results pruned", "rows", rows)
+	}
+	if rows, err := integration.PruneNextPlanHistory(ctx, n.db, now); err != nil {
+		n.log.Warn("housekeeping: next-plan history prune failed", "err", err)
+	} else if rows > 0 {
+		n.log.Debug("housekeeping: next-plan history pruned", "rows", rows)
 	}
 	if rows, err := n.sessions.Prune(ctx, now); err != nil {
 		n.log.Warn("housekeeping: session prune failed", "err", err)

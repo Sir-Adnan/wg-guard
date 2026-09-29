@@ -98,6 +98,61 @@ func TestAuthenticate(t *testing.T) {
 	}
 }
 
+func TestDisabledResellerCannotAuthenticate(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO resellers
+		(id, slug, created_at, updated_at) VALUES ('reseller-1', 'north', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	a, err := svc.Create(ctx, "northadmin", "long-password-1", auth.RoleAdmin, []string{"users.read"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `UPDATE admins SET reseller_id = 'reseller-1' WHERE id = ?`, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Authenticate(ctx, "northadmin", "long-password-1"); err != nil {
+		t.Fatalf("enabled reseller login: %v", err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `UPDATE resellers SET enabled = 0 WHERE id = 'reseller-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Authenticate(ctx, "northadmin", "long-password-1"); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("disabled reseller login must fail: %v", err)
+	}
+}
+
+func TestResellerAdminCreationAndGrantCeiling(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO resellers
+		(id, slug, permissions, created_at, updated_at)
+		VALUES ('reseller-1', 'north', '["users.read","devices.read"]', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.CreateForReseller(ctx, "reseller-1", "badgrant", "long-password-1", []string{"users.create"}); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("grant above reseller ceiling: %v", err)
+	}
+	if _, err := svc.CreateForReseller(ctx, "reseller-1", "wildcard", "long-password-1", []string{"users.*"}); domain.CodeOf(err) != domain.CodeInvalidRequest {
+		t.Fatalf("wildcard grant: %v", err)
+	}
+	a, err := svc.CreateForReseller(ctx, "reseller-1", "northadmin", "long-password-1", []string{"users.read"})
+	if err != nil || a.ResellerID == nil || *a.ResellerID != "reseller-1" {
+		t.Fatalf("create bound admin: %+v %v", a, err)
+	}
+	list, err := svc.List(ctx)
+	if err != nil || len(list) != 1 || list[0].ResellerID == nil || *list[0].ResellerID != "reseller-1" {
+		t.Fatalf("list bound admin: %+v %v", list, err)
+	}
+	if err := svc.SetPermissions(ctx, a.ID, []string{"users.read", "users.create"}); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("updated grant above ceiling: %v", err)
+	}
+	if err := svc.SetPermissions(ctx, a.ID, []string{"users.read", "devices.read"}); err != nil {
+		t.Fatalf("update within ceiling: %v", err)
+	}
+}
+
 func TestOwnerProtection(t *testing.T) {
 	svc, _ := newService(t)
 	ctx := context.Background()

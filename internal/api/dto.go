@@ -374,10 +374,12 @@ func toIfaceDTO(i *iface.Interface) ifaceDTO {
 // --- Webhook endpoint ---
 
 type webhookEndpointDTO struct {
-	ID        string        `json:"id"`
-	URL       string        `json:"url"`
-	Enabled   bool          `json:"enabled"`
-	Events    []string      `json:"events"`
-	CreatedAt *string       `json:"created_at"`
-	Stats     webhook.Stats `json:"stats"`
+	ID                    string        `json:"id"`
+	ResellerID            *string       `json:"reseller_id,omitempty"`
+	IncludeResellerEvents bool          `json:"include_reseller_events"`
+	URL                   string        `json:"url"`
+	Enabled               bool          `json:"enabled"`
+	Events                []string      `json:"events"`
+	CreatedAt             *string       `json:"created_at"`
+	Stats                 webhook.Stats `json:"stats"`
 }

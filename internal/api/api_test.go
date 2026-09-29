@@ -282,6 +282,68 @@ func TestRouteCoverageAndMuxSync(t *testing.T) {
 	}
 }
 
+func TestWebhookOpenAPICatalogIsTyped(t *testing.T) {
+	var doc struct {
+		Webhooks   map[string]json.RawMessage `json:"webhooks"`
+		Components struct {
+			Schemas map[string]json.RawMessage `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(openapiJSON, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Webhooks["wgEvent"]) == 0 {
+		t.Fatal("OpenAPI webhook operation missing")
+	}
+	var union struct {
+		OneOf []struct {
+			Ref string `json:"$ref"`
+		} `json:"oneOf"`
+	}
+	if err := json.Unmarshal(doc.Components.Schemas["WebhookEnvelope"], &union); err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[string]bool)
+	for _, variant := range union.OneOf {
+		name := strings.TrimPrefix(variant.Ref, "#/components/schemas/")
+		var entry struct {
+			AllOf []struct {
+				Properties map[string]struct {
+					Const string `json:"const"`
+					Ref   string `json:"$ref"`
+				} `json:"properties"`
+			} `json:"allOf"`
+		}
+		if err := json.Unmarshal(doc.Components.Schemas[name], &entry); err != nil || len(entry.AllOf) != 2 {
+			t.Fatalf("invalid webhook variant %q: %v", name, err)
+		}
+		event := entry.AllOf[1].Properties["type"].Const
+		dataRef := strings.TrimPrefix(entry.AllOf[1].Properties["data"].Ref, "#/components/schemas/")
+		if event == "" || dataRef == "" || len(doc.Components.Schemas[dataRef]) == 0 || seen[event] {
+			t.Fatalf("untyped or duplicate webhook variant: %q %q", event, dataRef)
+		}
+		seen[event] = true
+	}
+	for _, event := range webhook.Catalog() {
+		if !seen[event] {
+			t.Errorf("webhook event %q lacks a typed envelope", event)
+		}
+	}
+	if len(seen) != len(webhook.Catalog()) {
+		t.Fatalf("OpenAPI declares %d variants for %d events", len(seen), len(webhook.Catalog()))
+	}
+}
+
+func TestCORSAllowsNextPlanPut(t *testing.T) {
+	e := newEnv(t)
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/users/example/next-plan", nil)
+	response := httptest.NewRecorder()
+	e.handler.ServeHTTP(response, req)
+	if response.Code != http.StatusNoContent || !strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+		t.Fatalf("next-plan preflight: %d %q", response.Code, response.Header().Get("Access-Control-Allow-Methods"))
+	}
+}
+
 func TestOpenAPIObfuscationRangeContract(t *testing.T) {
 	var doc map[string]any
 	if err := json.Unmarshal(openapiJSON, &doc); err != nil {

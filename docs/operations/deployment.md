@@ -10,7 +10,7 @@ data paths, so backups and mode-switching are layout-independent.
   selected verified binary and exact-source AmneziaWG tools/userspace components.
   No public registry image is required or published. The repository
   [Dockerfile](../../Dockerfile) builds the runtime composition verified in the v0.1.0
-  host gate; v0.1.2 does not change its network/data-plane behavior. An operator may supply
+  host gate; v0.1.3 does not change its tunnel data-plane behavior. An operator may supply
   an explicitly checked local image via `--image`.
 - **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
   `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups,

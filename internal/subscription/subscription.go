@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
 // Link is a stored subscription link. Token is the decrypted capability
@@ -86,6 +88,30 @@ func (s *Service) Ensure(ctx context.Context, userID string) (*Link, error) {
 			// A concurrent Ensure won; return the winning row.
 			return s.ForUser(ctx, userID)
 		}
+		return nil, fmt.Errorf("subscription: insert: %w", err)
+	}
+	return &Link{UserID: userID, Token: token, CreatedAt: now}, nil
+}
+
+// CreateTx issues the initial capability inside a caller-owned transaction.
+// Provisioning can therefore commit user, device and recovery link together.
+// The plaintext capability is returned in memory only, never journaled.
+func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, userID string) (*Link, error) {
+	if tx == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "subscription transaction is required")
+	}
+	token, err := NewToken()
+	if err != nil {
+		return nil, err
+	}
+	enc, err := s.ring.Encrypt([]byte(token))
+	if err != nil {
+		return nil, fmt.Errorf("subscription: encrypt token: %w", err)
+	}
+	now := s.now().UTC()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO sub_links
+		(user_id, token_encrypted, token_hash, created_at) VALUES (?, ?, ?, ?)`,
+		userID, enc, HashToken(token), now.Format(time.RFC3339Nano)); err != nil {
 		return nil, fmt.Errorf("subscription: insert: %w", err)
 	}
 	return &Link{UserID: userID, Token: token, CreatedAt: now}, nil
@@ -175,6 +201,59 @@ func (s *Service) RegenerateTx(ctx context.Context, tx *sql.Tx, userID string) (
 		}
 	}
 	return &Link{UserID: userID, Token: token, CreatedAt: now, RotatedAt: &now}, nil
+}
+
+// RotateAccess replaces the customer link and every existing device key in
+// one transaction. The old capability and configurations are retired even
+// if runtime reconciliation later needs a retry; callers reconcile before
+// reporting an access-rotation success to their client.
+func (s *Service) RotateAccess(ctx context.Context, devices *device.Service, userID string) (*Link, int, error) {
+	current, err := devices.ListForUser(ctx, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	rotations := make([]device.Rotation, 0, len(current))
+	for _, d := range current {
+		kp, err := tunnel.GenerateKeyPair()
+		if err != nil {
+			return nil, 0, err
+		}
+		privEnc, err := s.ring.Encrypt([]byte(kp.Private))
+		if err != nil {
+			return nil, 0, fmt.Errorf("subscription: encrypt device key: %w", err)
+		}
+		keys := device.KeyMaterial{PublicKey: kp.Public, PrivateKeyEnc: privEnc}
+		if len(d.PSKEnc) != 0 {
+			psk, err := tunnel.GeneratePresharedKey()
+			if err != nil {
+				return nil, 0, err
+			}
+			keys.PresharedEnc, err = s.ring.Encrypt([]byte(psk))
+			if err != nil {
+				return nil, 0, fmt.Errorf("subscription: encrypt preshared key: %w", err)
+			}
+		}
+		rotations = append(rotations, device.Rotation{DeviceID: d.ID, Keys: keys})
+	}
+	var link *Link
+	err = s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := devices.ReplaceUserCredentialsTx(ctx, tx, userID, rotations); err != nil {
+			return err
+		}
+		var err error
+		link, err = s.RegenerateTx(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
+		if link.Token == "" {
+			return domain.E(domain.CodeNodeUnavailable, "replacement link unavailable")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	return link, len(rotations), nil
 }
 
 // SetRevoked toggles the revoked flag. Revoked links answer "not found" on

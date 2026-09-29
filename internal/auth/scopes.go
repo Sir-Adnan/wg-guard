@@ -13,25 +13,31 @@ import (
 // Scope constants — the canonical permission strings. These are a V1 API
 // contract (docs/architecture/api.md): additive only, never renamed.
 const (
-	ScopeUsersRead     = "users.read"
-	ScopeUsersCreate   = "users.create"
-	ScopeUsersUpdate   = "users.update"
-	ScopeUsersDelete   = "users.delete"
-	ScopeUsersBulk     = "users.bulk"
-	ScopeDevicesRead   = "devices.read"
-	ScopeDevicesWrite  = "devices.write"
-	ScopeConfigsRead   = "configs.read"
-	ScopeTrafficRead   = "traffic.read"
-	ScopeTrafficUpdate = "traffic.update"
-	ScopePlansRead     = "plans.read"
-	ScopePlansWrite    = "plans.write"
-	ScopeStatsRead     = "stats.read"
-	ScopeNodeRead      = "node.read"
-	ScopeNodeSettings  = "node.settings"
-	ScopeWebhooksRead  = "webhooks.read"
-	ScopeWebhooksWrite = "webhooks.write"
-	ScopeIfaceRead     = "interfaces.read"
-	ScopeIfaceWrite    = "interfaces.write"
+	ScopeUsersRead           = "users.read"
+	ScopeUsersCreate         = "users.create"
+	ScopeUsersUpdate         = "users.update"
+	ScopeUsersDelete         = "users.delete"
+	ScopeUsersBulk           = "users.bulk"
+	ScopeDevicesRead         = "devices.read"
+	ScopeDevicesWrite        = "devices.write"
+	ScopeConfigsRead         = "configs.read"
+	ScopeTrafficRead         = "traffic.read"
+	ScopeTrafficUpdate       = "traffic.update"
+	ScopePlansRead           = "plans.read"
+	ScopePlansWrite          = "plans.write"
+	ScopeStatsRead           = "stats.read"
+	ScopeNodeRead            = "node.read"
+	ScopeNodeSettings        = "node.settings"
+	ScopeWebhooksRead        = "webhooks.read"
+	ScopeWebhooksWrite       = "webhooks.write"
+	ScopeIfaceRead           = "interfaces.read"
+	ScopeIfaceWrite          = "interfaces.write"
+	ScopePurchasesCreate     = "purchases.create"
+	ScopeOperationsRead      = "operations.read"
+	ScopeSubscriptionsRead   = "subscriptions.read"
+	ScopeSubscriptionsRotate = "subscriptions.rotate"
+	ScopeNextPlansRead       = "next_plans.read"
+	ScopeNextPlansWrite      = "next_plans.write"
 
 	// Panel/CLI-only scopes (not part of the token REST surface).
 	ScopeAuditView       = "audit.view"
@@ -56,9 +62,48 @@ var scopes = map[string]bool{
 	ScopeNodeRead:  true, ScopeNodeSettings: true,
 	ScopeWebhooksRead: true, ScopeWebhooksWrite: true,
 	ScopeIfaceRead: true, ScopeIfaceWrite: true,
+	ScopePurchasesCreate: true, ScopeOperationsRead: true,
+	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
+	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
 	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
 	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
 	ScopeUpdateManage: true,
+}
+
+// resellerGrantable is a closed allowlist: a newly registered node-level
+// scope never becomes available to existing reseller accounts implicitly.
+var resellerGrantable = map[string]bool{
+	ScopeUsersRead: true, ScopeUsersCreate: true,
+	ScopeUsersUpdate: true, ScopeUsersDelete: true,
+	ScopeUsersBulk: true, ScopeDevicesRead: true,
+	ScopeDevicesWrite: true, ScopeConfigsRead: true,
+	ScopeTrafficRead: true, ScopeTrafficUpdate: true,
+	ScopePlansRead: true, ScopeIfaceRead: true,
+	ScopeStatsRead: true, ScopeWebhooksRead: true,
+	ScopeWebhooksWrite: true, ScopeAPITokensManage: true,
+	ScopePurchasesCreate: true, ScopeOperationsRead: true,
+	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
+	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
+}
+
+func ResellerGrantable(scope string) bool { return resellerGrantable[scope] }
+
+func ValidResellerGrants(scopes []string) bool {
+	for _, scope := range scopes {
+		if !ResellerGrantable(scope) {
+			return false
+		}
+	}
+	return true
+}
+
+func ResellerScopes() []string {
+	out := make([]string, 0, len(resellerGrantable))
+	for scope := range resellerGrantable {
+		out = append(out, scope)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // AllScopes returns every registered scope, sorted (OpenAPI + UI pickers).

@@ -8,9 +8,16 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 
 - **Auth**: `Authorization: Bearer wg_…` API tokens with scopes (users.read/create/update/delete/
   bulk, devices.*, configs.read, traffic.read/update, plans.read/write, stats.read, node.read,
-  node.settings, webhooks.read/write, interfaces.*). Tokens are separate from admin sessions; the
+  node.settings, webhooks.read/write, interfaces.*, purchases.create, operations.read and
+  subscriptions.read/rotate). Tokens are separate from admin sessions; the
   `wg-guard token create|list|revoke|scopes` CLI mints them (the panel's token screen is the
-  day-to-day manager).
+  day-to-day manager). Panel-issued tokens are bound to the issuing account and cannot retain
+  permissions removed from that account. Existing CLI/pre-Phase-14 tokens remain node-wide and
+  should be reviewed by the owner when enabling reseller integrations. Reseller-bound tokens may
+  use explicitly tenant-gated customer reads, usage reset, successor-plan and customer-link
+  actions, plan-gated purchase/result operations, and owned webhook endpoints/receipts when
+  granted the corresponding scopes. Lists are ownership-filtered. Other mutations,
+  unclassified routes and global aggregates remain denied.
 - **Errors**: one envelope — `{"error": {"code", "message", "request_id"}}` with stable codes
   (`USER_NOT_FOUND`, `USERNAME_EXISTS`, `DEVICE_LIMIT_REACHED`, `TRAFFIC_EXCEEDED`, `INVALID_REQUEST`,
   `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `NODE_UNAVAILABLE`, `INTERNAL_ERROR`, …). No stack
@@ -29,7 +36,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   `{"speed_limit_up_kbps": null}` removes only the upload cap); a value sets it. This is how
   independent up/down speed limits change one at a time without re-sending the other.
 - **Idempotency**: `Idempotency-Key` header (1–128 printable chars) is persisted for create-user,
-  bulk create/action, renew, and traffic mutations. Authentication, scope checks and rate limits
+  bulk create/action, renew, traffic mutations and successor-plan queue/cancel. Authentication, scope checks and rate limits
   precede every replay. Keys are isolated per verified API token: the same token and request
   replay the stored response with `Idempotency-Replayed: true`; a different request using that
   token's key returns 409 (`IDEMPOTENCY_KEY_REUSED`). Keys remain valid for 24 h, with expired
@@ -37,13 +44,16 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   its caller must reconcile the previous result before using a fresh key. The claim and response
   snapshot are not committed atomically with the mutation: an interruption after the mutation but
   before the snapshot can leave an ambiguous in-flight key. V1 has no lookup-by-key or recovery
-  endpoint; external billing workflows must reconcile durable resource state and journal their
-  operation until Phase 14's operation contract is implemented.
+  endpoint; external billing workflows using these legacy routes must still reconcile durable
+  resource state. New `/purchases` uses an atomic result journal instead: the key is scoped to
+  the owner or reseller identity, survives token rotation within that identity, and can be
+  looked up for 90 days. Identical retries return the prior result; changed payloads return 409.
+  Keys are hashed at rest and must not contain secrets.
 - **Rate limits**: per-token fixed 60 s window (`api.rate_limit_per_minute`, default 600; 0
   disables). Responses carry `X-RateLimit-Limit`/`X-RateLimit-Remaining`; a 429 carries
   `Retry-After`. Setting changes apply live (no restart).
-- **Sensitive endpoints** (`/config`, `/qr`): require `configs.read`, always
-  `Cache-Control: no-store`; private keys are never logged.
+- **Sensitive endpoints** (`/config`, `/qr`, customer subscription link): require their explicit
+  scopes, always `Cache-Control: no-store`; private keys and link capabilities are never logged.
 - **Config generation is on demand**: client configs are a pure function of current settings, so
   endpoint/DNS/MTU changes propagate to every new download immediately.
 
@@ -53,13 +63,14 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 |---|---|
 | Node | `GET /node`, `GET /node/health`, `GET /node/stats` |
 | Users | `POST/GET /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/enable\|disable\|renew`, `POST /users/{id}/traffic/add\|set\|reset`, `GET /users/{id}/traffic` (series) |
+| Integration | `POST /purchases`, `GET /operations/result` (both use an `Idempotency-Key` header), `GET /users/{id}/subscription` (private relative customer link), `POST /users/{id}/subscription/rotate` (link and all device keys), `GET/PUT/DELETE /users/{id}/next-plan` (one authorized successor), `GET /users/{id}/next-plan/activations` (bounded recovery history) |
 | Bulk | `POST /users/bulk`, `POST /users/bulk-action` (`{action, user_ids, params}`) |
 | Devices | `GET/POST /users/{id}/devices`, `GET/PATCH/DELETE /devices/{id}`, `POST /devices/{id}/enable\|disable\|regenerate`, `GET /devices/{id}/config\|qr` |
 | Stats | `GET /stats`, `GET /node/telemetry`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
 | Plans | `GET/POST /plans`, `GET/PATCH/DELETE /plans/{id}` |
 | Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation) |
 | Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope) |
-| Webhooks | `GET/POST /webhooks`, `PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver` |
+| Webhooks | `GET/POST /webhooks`, `PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
 | Ops | `GET /healthz` (public liveness), `GET /readyz`, `GET /openapi.json`, `GET /docs`; `GET /metrics` (config-gated, served outside `/api/v1`) |
 
 **Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
@@ -67,26 +78,41 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 
 ## Automation boundaries (current V1)
 
-`POST /users` creates a user record, not a device or usable configuration. Device creation is a
-separate request; the web panel's one-device convenience flow is not a REST guarantee. A user ID
-is an opaque string and `{id}` routes use that ID, not a username. `POST /users/{id}/renew`
-changes the expiry policy only; quota and consumed-traffic operations are separate. There is no
-atomic combined time/volume renewal, conditional reversal of a prior renewal, or batch-by-ID read.
-The customer subscription capability URL and its rotation are panel workflows, not exposed through
-token-authenticated V1 REST. Do not treat admin `/config` or `/qr` responses, which contain device
-private material, as an equivalent customer-link contract. Webhooks have durable event IDs and
-documented retry/dead-letter behavior, but no complete per-event OpenAPI payload schemas or total
-ordering guarantee across endpoints. These limits are tracked as an additive future integration phase in
-[ROADMAP.md](../../ROADMAP.md).
+Legacy `POST /users` creates a user record, not a device or usable configuration. The new
+`POST /purchases` uses an enabled plan and commits the user, initial device, customer link and
+non-secret result together. Reseller purchases require owner-assigned plan access; owner
+integrations may use any enabled plan. Omitted usernames are generated deterministically from
+the principal and key. Reconciliation follows the database commit, so `committed` does not
+assert a successful live handshake. A user ID is opaque and `{id}` is not a username.
+Legacy `POST /users/{id}/renew` changes the expiry policy only; quota and consumed-traffic
+operations are separate. `POST /users/{id}/traffic/reset` is the independent one-op Reset Usage
+action; a reseller with `traffic.update` may invoke it only for an owned customer. There is no
+four-policy combined renewal or batch-by-ID read.
+`GET/PUT/DELETE /users/{id}/next-plan` uses dedicated read/write scopes and ownership checks.
+One explicitly authorized successor is queued per customer; putting another replaces it. This
+does not charge the customer. Plan terms are copied at queue time, and later catalog edits or
+reseller-plan access changes do not silently alter a paid successor. The first actual time or
+quota boundary activates it once, starting the new duration then and resetting charged usage;
+raw peer baselines remain intact. Optional unused-volume carry applies only on time expiry.
+Manual disable/suspension pauses activation; current-plan or device incompatibility sets a
+visible `needs_review` state. The periodic pass inspects at most 50 due successors per cycle.
+An incomplete tunnel dump defers this pass so stale metering cannot over-credit carried traffic.
+The queue can be canceled before activation; cancellation is not reversal of an activated plan.
+The bounded activation read returns the latest 20 (up to 100) non-secret before/after records
+for one year so a bot can recover a missed asynchronous transition.
+The customer subscription capability path is readable via a scoped, no-store REST endpoint;
+rotation uses a separate sensitive scope and atomically replaces the link and all device keys.
+The new state is retained if runtime reconciliation fails, and a 503 tells the caller to inspect
+the current link before retrying. Do not treat admin `/config` or `/qr` responses, which contain
+device private material, as an equivalent customer-link contract. Webhooks now have per-event
+OpenAPI schemas, tenant-scoped fanout and non-secret delivery receipts. Their at-least-once
+delivery has no total or per-user ordering guarantee; consumers reconcile with resource GETs.
+See [the delivery contract](../integrations/webhooks.md).
 
-**Phase 14 direction (not current V1 behavior):** Owner integrations retain node-wide authority;
-reseller panel accounts and their tokens are restricted to users owned by that reseller, with
-configurable grants that cannot exceed the reseller's current permissions. Ownership applies to
-every read, mutation, aggregate, config, public-link management action and webhook, not only list
-filters. New purchase operations will commit the initial user, device and recoverable result
-together. Renewal will combine time and volume with independent carry/replace choices, explicit
-preconditions and a conditional reversal that leaves later usage intact. New customer-link APIs
-will treat the link as a capability secret. Existing V1 endpoints keep their meanings.
+Owner integrations retain node-wide authority. Reseller sessions/tokens are restricted to their
+owned customers and endpoints under configurable live grants. One queued successor and owned
+Reset Usage cover the requested lifecycle; a combined four-policy renewal or immediate plan
+replacement/correction is not part of this contract. Existing V1 endpoints keep their meanings.
 
 ## Live telemetry
 
@@ -170,14 +196,19 @@ transaction as the state change, so an accepted request can never lose its event
 at 6 h), capped concurrency, dead-letter after `webhooks.max_attempts` (default 12), manual
 redeliver. The worker runs one delivery pass every 5 s on the central scheduler; event rows are
 pruned after 7 days. Endpoint secrets are AES-GCM encrypted at rest and shown exactly once at
-creation — they can be rotated but never re-displayed. Event catalog and payload schemas:
+creation — they can be rotated but never re-displayed. The owner can manage every endpoint;
+ordinary node admins/tokens are limited to node-wide endpoints without owner-only reseller
+fanout opt-in, and reseller endpoint CRUD, receipts and fanout are tenant-scoped. Existing
+node-wide endpoints migrate with cross-reseller fanout off. Reseller destinations use public
+HTTPS with checked IP dialing and no redirects. Event catalog, payload schemas and
+reconciliation guidance:
 [../integrations/webhooks.md](../integrations/webhooks.md).
 
 ## OpenAPI
 
 `/openapi.json` (+ lightweight `/docs` reference) is hand-authored. A route-coverage test checks
 that every registered route appears with the correct scope and that the document has no stale
-paths; focused contract tests cover selected schemas and behavior.
+paths; focused contract tests cover selected schemas, the full typed webhook catalog and behavior.
 The description uses OpenAPI 3.2.1 and JSON Schema null unions. Its `info.version` remains
 `1.0.0` for the unchanged V1 API contract; the `openapi` field versions the description format,
 not a WG-Guard release or a new endpoint set. Consumers parsing the description need tooling
