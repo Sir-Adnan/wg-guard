@@ -78,6 +78,25 @@ func NewService(db *database.DB, ring *secrets.KeyRing) *Service {
 // limit check → free-IP allocation → insert. Concurrent creates serialize on
 // the write lock, so the limit can never be exceeded by a race (tested).
 func (s *Service) Create(ctx context.Context, userID string, name string, keys KeyMaterial, interfaceID string) (*Device, error) {
+	var d *Device
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		d, err = s.CreateTx(ctx, tx, userID, name, keys, interfaceID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// CreateTx provisions a peer in an existing write transaction. The caller
+// can commit the user, device and operation result together; allocation and
+// device-limit checks retain their serialized transaction boundary.
+func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, userID string, name string, keys KeyMaterial, interfaceID string) (*Device, error) {
+	if tx == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "device transaction is required")
+	}
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > 64 {
 		return nil, domain.E(domain.CodeInvalidRequest, "device name must be 1-64 characters")
@@ -101,7 +120,7 @@ func (s *Service) Create(ctx context.Context, userID string, name string, keys K
 		UpdatedAt:  s.now().UTC(),
 	}
 
-	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+	err := func() error {
 		// User must exist, be live, and be peer-eligible.
 		var status string
 		var enabled int
@@ -200,7 +219,7 @@ func (s *Service) Create(ctx context.Context, userID string, name string, keys K
 			})
 		}
 		return nil
-	})
+	}()
 	if err != nil {
 		return nil, err
 	}

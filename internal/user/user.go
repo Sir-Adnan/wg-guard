@@ -109,6 +109,24 @@ func NewService(db *database.DB) *Service {
 // first_connection it waits for the first handshake (the accounting cycle
 // marks it). The insert and its webhook event share one transaction.
 func (s *Service) Create(ctx context.Context, in Input) (*User, error) {
+	var u *User
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		u, err = s.CreateTx(ctx, tx, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// CreateTx lets an integration provision the account and its initial device
+// in one caller-owned transaction. Events remain inside that transaction.
+func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, in Input) (*User, error) {
+	if tx == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "user transaction is required")
+	}
 	if !usernameRe.MatchString(in.Username) {
 		return nil, domain.E(domain.CodeInvalidRequest, "username must be 3-32 chars: letters, digits, '_' or '-'")
 	}
@@ -116,18 +134,15 @@ func (s *Service) Create(ctx context.Context, in Input) (*User, error) {
 		return nil, err
 	}
 	u := s.buildCreate(in)
-	if err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := s.insert(ctx, tx, u); err != nil {
-			return err
-		}
-		if s.Recorder != nil {
-			return s.Recorder.RecordTx(tx, "user.created", map[string]any{
-				"user_id": u.ID, "username": u.Username, "status": string(u.Status),
-			})
-		}
-		return nil
-	}); err != nil {
+	if err := s.insert(ctx, tx, u); err != nil {
 		return nil, err
+	}
+	if s.Recorder != nil {
+		if err := s.Recorder.RecordTx(tx, "user.created", map[string]any{
+			"user_id": u.ID, "username": u.Username, "status": string(u.Status),
+		}); err != nil {
+			return nil, err
+		}
 	}
 	return u, nil
 }

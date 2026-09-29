@@ -91,6 +91,30 @@ func (s *Service) Ensure(ctx context.Context, userID string) (*Link, error) {
 	return &Link{UserID: userID, Token: token, CreatedAt: now}, nil
 }
 
+// CreateTx issues the initial capability inside a caller-owned transaction.
+// Provisioning can therefore commit user, device and recovery link together.
+// The plaintext capability is returned in memory only, never journaled.
+func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, userID string) (*Link, error) {
+	if tx == nil {
+		return nil, domain.E(domain.CodeInvalidRequest, "subscription transaction is required")
+	}
+	token, err := NewToken()
+	if err != nil {
+		return nil, err
+	}
+	enc, err := s.ring.Encrypt([]byte(token))
+	if err != nil {
+		return nil, fmt.Errorf("subscription: encrypt token: %w", err)
+	}
+	now := s.now().UTC()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO sub_links
+		(user_id, token_encrypted, token_hash, created_at) VALUES (?, ?, ?, ?)`,
+		userID, enc, HashToken(token), now.Format(time.RFC3339Nano)); err != nil {
+		return nil, fmt.Errorf("subscription: insert: %w", err)
+	}
+	return &Link{UserID: userID, Token: token, CreatedAt: now}, nil
+}
+
 // ForUser returns the user's link, or (nil, nil) when none exists yet.
 func (s *Service) ForUser(ctx context.Context, userID string) (*Link, error) {
 	row := s.db.QueryRowContext(ctx, subColumns+` FROM sub_links WHERE user_id = ?`, userID)

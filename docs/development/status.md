@@ -50,7 +50,9 @@ ownership-checked customer reads; mutations and global aggregates remain denied.
 Legacy node-operator admin/token screens cannot manage reseller-bound identities.
 The owner can assign enabled plans to each reseller for future purchases; removing an assignment
 does not alter existing customers.
-Purchase/renewal operations and their host verification remain in development.
+User, initial-device and subscription-link services now expose shared-transaction provisioning
+seams, with rollback and commit tests; the recoverable purchase endpoint, renewal operations and
+their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|
