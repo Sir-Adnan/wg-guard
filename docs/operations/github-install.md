@@ -56,7 +56,7 @@ Keep the downloaded script to choose a different mode or source:
 | List stable releases | `bash wg-guard-install.sh --list-releases` |
 | Latest stable, Docker wizard | `bash wg-guard-install.sh -- --mode docker` |
 | Latest stable, native wizard | `bash wg-guard-install.sh -- --mode native` |
-| Exact published release | `bash wg-guard-install.sh --release v0.1.1` |
+| Exact published release | `bash wg-guard-install.sh --release v0.1.2` |
 | Development branch (explicit) | `bash wg-guard-install.sh --commit main` |
 
 The `--` separates bootstrap selection from installer flags. Supplying `--mode` starts installation
@@ -68,9 +68,9 @@ For an **exact release**, pin both the entry script and the selected asset to th
 
 ```bash
 curl -fsSLo wg-guard-install.sh \
-  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.1/install.sh
+  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/v0.1.2/install.sh
 less wg-guard-install.sh
-bash wg-guard-install.sh --release v0.1.1
+bash wg-guard-install.sh --release v0.1.2
 ```
 
 For a **reviewed development commit**, replace `FULL_40_CHARACTER_LOWERCASE_SHA` below with the

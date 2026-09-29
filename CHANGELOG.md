@@ -7,6 +7,13 @@
 - Keep the public theme menu aligned and visible in RTL/LTR on phones and desktops; soften shared
   button shadows and touch hover treatment.
 
+## [v0.1.2] — 2026-09-29
+
+Security update for the V1 API. Idempotent responses now pass token authentication and live
+authorization before replay; keys are isolated per token, and ambiguous legacy entries fail
+closed. This prevents a matching unauthenticated, revoked, or differently scoped request from
+receiving a stored response. No Phase 14 reseller or purchase API work is included.
+
 ## [v0.1.1] — 2026-09-28
 
 This update refines the bilingual web panel; the supported Ubuntu 24.04 amd64 target and
