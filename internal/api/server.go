@@ -240,12 +240,14 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/settings", Scope: "node.settings", Handler: s.handleSettingsUpdate})
 
 	// --- Webhooks ---
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/webhooks", Scope: "webhooks.read", Handler: s.handleWebhookList})
-	add(routeDef{Method: http.MethodPost, Path: "/api/v1/webhooks", Scope: "webhooks.write", Handler: s.handleWebhookCreate})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/webhooks/{id}", Scope: "webhooks.read", Handler: s.handleWebhookGet})
-	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/webhooks/{id}", Scope: "webhooks.write", Handler: s.handleWebhookUpdate})
-	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/webhooks/{id}", Scope: "webhooks.write", Handler: s.handleWebhookDelete})
-	add(routeDef{Method: http.MethodPost, Path: "/api/v1/webhooks/{id}/redeliver", Scope: "webhooks.write", Handler: s.handleWebhookRedeliver})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/webhooks", Scope: "webhooks.read", Handler: s.handleWebhookList, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodPost, Path: "/api/v1/webhooks", Scope: "webhooks.write", Handler: s.handleWebhookCreate, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/webhooks/{id}", Scope: "webhooks.read", Handler: s.handleWebhookGet, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/webhooks/{id}", Scope: "webhooks.write", Handler: s.handleWebhookUpdate, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/webhooks/{id}", Scope: "webhooks.write", Handler: s.handleWebhookDelete, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodPost, Path: "/api/v1/webhooks/{id}/redeliver", Scope: "webhooks.write", Handler: s.handleWebhookRedeliver, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/webhooks/{id}/deliveries", Scope: "webhooks.read", Handler: s.handleWebhookReceipts, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/webhooks/{id}/deliveries/{deliveryID}", Scope: "webhooks.read", Handler: s.handleWebhookReceipt, TenantPolicy: tenantPrincipalOperation})
 }
 
 // audit records one API action with the token actor and request context.

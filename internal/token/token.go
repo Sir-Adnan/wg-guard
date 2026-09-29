@@ -39,6 +39,7 @@ type Token struct {
 	Scopes          []string
 	ResellerID      *string // nil = node-wide operator token
 	IssuedByAdminID *string // nil only for pre-Phase-14/CLI operator tokens
+	ownerAuthority  bool    // verification-time issuer role; legacy CLI tokens are node-wide
 	ExpiresAt       *time.Time
 	Enabled         bool
 	CIDR            []string
@@ -345,7 +346,14 @@ func (s *Service) applyPrincipalCeiling(ctx context.Context, t *Token) error {
 		effective = append(effective, scope)
 	}
 	t.Scopes = effective
+	t.ownerAuthority = t.IssuedByAdminID == nil || issuerRole == auth.RoleOwner
 	return nil
+}
+
+// NodeOwnerAuthority identifies verified owner-issued or legacy host CLI
+// tokens. Ordinary node admins retain only the global operator namespace.
+func (v *Verified) NodeOwnerAuthority() bool {
+	return v != nil && v.Token.ResellerID == nil && v.Token.ownerAuthority
 }
 
 // Authorize checks a required scope against the token's grants.

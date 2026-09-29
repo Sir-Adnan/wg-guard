@@ -37,7 +37,7 @@ func TestMigrateFresh(t *testing.T) {
 		"0004_sub_links.sql", "0005_iface_advanced.sql", "0006_backup_schedules.sql",
 		"0007_awg_ranges.sql", "0008_retired_peer_keys.sql", "0009_visual_appearance.sql",
 		"0010_reseller_ownership.sql", "0011_reseller_plan_access.sql",
-		"0012_integration_operations.sql", "0013_next_plan_queue.sql"}
+		"0012_integration_operations.sql", "0013_next_plan_queue.sql", "0014_webhook_owner_fanout.sql"}
 	if len(versions) != len(want) {
 		t.Fatalf("unexpected applied versions: %v", versions)
 	}

@@ -116,8 +116,9 @@ derived (handshake within a configurable window, default 3 min).
 Phase 14 adds owner-managed **Reseller** accounts with configurable permissions and an isolated
 customer namespace. Owner integrations remain node-wide; a reseller's panel session and API
 tokens may act only within that reseller's granted scope and customer set. Neither a global
-admin permission nor a URL/ID supplied by the caller may bypass ownership checks. This is an
-approved requirement, not a current V1 capability; see [Roadmap](../../ROADMAP.md#phase-14--integration-api-for-automation).
+admin permission nor a URL/ID supplied by the caller may bypass ownership checks. The Phase 14
+implementation is on the integration branch pending its final release gate; see
+[Roadmap](../../ROADMAP.md#phase-14--integration-api-for-automation).
 
 ## Bilingual product
 

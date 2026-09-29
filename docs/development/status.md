@@ -22,8 +22,8 @@ locale × viewport representative cells each, plus public subscription/QR flows 
 subscription composition set. Firefox could not launch in this Windows test environment, so its
 new Phase 13 cells remain unverified. No Phase 13 VPS or physical-device result is claimed;
 the prior Ubuntu production certification is not silently extended. The additive external-automation API
-is a [planned Phase 14](../../ROADMAP.md#phase-14--integration-api-for-automation), not an
-implemented V1 capability.
+is developed on the [Phase 14 branch](../../ROADMAP.md#phase-14--integration-api-for-automation)
+and is not in the published v0.1.2 artifacts.
 
 **Unreleased subscription delivery update:** Browser downloads now send `.conf` files as
 attachments with a binary media type, while the REST API keeps its text response. Shared
@@ -34,44 +34,39 @@ Chromium/WebKit browser checks cover the changed routes, 320–1440px layouts, f
 Actual Android/iOS downloads and a fresh VPS deployment of this revision remain unverified;
 v0.1.2 artifacts do not include it.
 
-**Phase 14 development:** The owner approved isolated reseller accounts and tokens, then replaced
-the proposed four-way time/volume renewal with independent Reset Usage and a queued Next Plan.
-The 14.0
-idempotency hardening authenticates before replay, scopes keys per token and rejects active
-pre-upgrade keys. Targeted API tests cover anonymous, wrong-scope and revoked-token replays,
-cross-token key reuse and legacy-key fail-closed behavior. The security correction shipped in
-v0.1.2. In the Phase 14 branch, the ownership migration preserves operator rows and rejects
-orphan assignments; reseller grants and principal-bound tokens have live ceilings. An owner-only
-panel page can manage reseller grants and linked accounts; service/web tests cover its authority
-and disabled-account behavior. Reseller sessions reach only dedicated customer-list/detail and
-owned device config/QR reads, scoped token management, personal preferences and logout;
-operator routes remain denied. Owner-issued reseller tokens and reseller-issued tokens share the
-same live grant ceiling and conditional token revoke boundary. REST allows only explicit
-ownership-checked customer reads; mutations and global aggregates remain denied.
-Legacy node-operator admin/token screens cannot manage reseller-bound identities.
-The owner can assign enabled plans to each reseller for future purchases; removing an assignment
-does not alter existing customers.
-The purchase API now commits user, first device, customer link and non-secret 90-day result in
-one transaction; same-principal retries and result lookup survive token rotation. Reseller
-purchases require an assigned enabled plan. Service/API rollback, replay, key-conflict and
-cross-principal tests pass; customer links are a separate scoped, no-store read. A second scope
-atomically rotates the link and every device key; owner/reseller and old-credential tests pass.
-The Phase 14 branch now has an owned usage-reset route and one queued successor per user. Plan
-terms are snapshotted at queue time; a bounded pass after metering activates a successor at the
-first time/quota boundary, resets charged usage and device totals in the same transaction, records
-the transition, and leaves manually disabled/suspended users blocked. An optional carry toggle
-adds unused volume only when time ends first. Changed current plans or incompatible devices move
-the queue to needs_review. Service/API, fresh-migration and focused Chromium layout checks pass;
-upgrade migration, physical-device and real-host behavior of this unreleased code are not yet verified.
-Typed tenant webhooks, final integration gates and any separately justified immediate plan
-replacement/correction contract remain open.
+**Phase 14 development:** The 14.0 idempotency replay correction shipped in v0.1.2. The branch
+adds owner-managed reseller accounts, live permission ceilings, owner-assigned plan access,
+principal-bound API tokens, scoped customer/device reads and dedicated reseller panel routes.
+The purchase API commits user, first device, customer link and a 90-day non-secret operation
+result together; key replay and lookup survive token rotation within the principal. Separate
+scopes read/rotate customer links; rotation replaces every device key. Owner/reseller service,
+API and panel tests cover cross-principal denial, rollback, replay and old credentials.
+
+The owner replaced the proposed four-policy renewal with independent Reset Usage and one queued
+Next Plan per customer. Queued terms are frozen; the bounded scheduler activates at the first
+time/quota boundary, resets charged usage in one transaction and records before/after state.
+Manual blocks remain effective, and incompatible edits move the queue to review. Service/API,
+fresh-migration and focused Chromium layout checks passed on the branch. Existing time-only
+renewal remains unchanged.
+
+Phase 14.4 adds typed webhook payload schemas and examples, tenant-scoped event fanout and worker
+delivery, explicit owner opt-in for cross-reseller node-wide fanout (legacy destinations default
+off), an owned reseller webhook panel/API, a public-HTTPS egress policy for reseller receivers,
+and bounded non-secret delivery receipts. Local webhook/API/panel tests cover owner, node-operator
+and reseller boundaries, cross-tenant poison rows, signature/retry behavior and receipt paging.
+The applicable Go package tests passed on this development revision, including a local legacy-row
+upgrade through migration 0014; final PR/main CI and the exact-source release gate are still
+pending. Physical-device and new real-host behavior of this unreleased revision are not claimed.
+Batch-by-ID and post-activation financial
+reversal were not added because the evidenced workflows use cursor/operation/activation recovery
+and no safe reversal contract has been approved.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, plans, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.2 secures idempotent replay; unreleased config filename header and OpenAPI 3.2.1 format updates add no endpoint; Phase 14 integration additions remain pending |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.2 secures idempotent replay; Phase 14 purchase, successor and scoped webhook additions await final CI/release; no new real-host claim |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |

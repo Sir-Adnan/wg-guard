@@ -18,9 +18,9 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
 | `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
 | `api_tokens` | id, name, prefix (indexed), hash, scopes JSON, expires_at, enabled, cidr allowlist, last_used_at, optional reseller_id and issuer admin ID |
-| `webhook_endpoints` | id, url, secret_encrypted, enabled, events JSON, optional reseller_id |
+| `webhook_endpoints` | id, url, secret_encrypted, enabled, events JSON, optional reseller_id, owner-only include_reseller_events opt-in (legacy rows default off) |
 | `webhook_deliveries` | id, endpoint FK, event type, payload, status (`pending\|delivered\|dead`), attempts, next_attempt_at (indexed), last error |
-| `webhook_events` | durable event rows inserted in the same transaction as the state change; optional reseller_id for future scoped fanout |
+| `webhook_events` | durable event rows inserted in the same transaction as the state change; reseller_id classified from the persisted user for tenant-scoped fanout |
 | `audit_log` | ts, actor type/id, action, target, source IP, request id, safe metadata |
 | `idempotency_keys` | hashed token-scoped key, request hash, response snapshot, expires_at; active legacy raw keys fail closed during the upgrade window |
 | `integration_operations` | hashed owner/reseller-scoped key, request hash, non-secret committed result, expiry; purchase result is inserted with user/device/link in one transaction |

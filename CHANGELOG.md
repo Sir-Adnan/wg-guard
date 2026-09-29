@@ -2,10 +2,25 @@
 
 ## [Unreleased]
 
+## [v0.1.3] — 2026-09-29
+
+- Add owner-managed reseller accounts with live grant ceilings, isolated customer views, scoped
+  API tokens, assigned plans and reseller webhook management.
+- Add an atomic purchase operation that creates a user, first device and customer link together;
+  committed results can be recovered for 90 days by the same owner or reseller identity. Add
+  scoped customer-link retrieval and rotation of the link plus every device key.
+- Add independent Reset Usage and one queued Next Plan per customer, with frozen terms,
+  first-boundary activation, optional unused-volume carry on time expiry, and activation history.
+- Publish typed webhook payloads, tenant-safe fanout with owner-only opt-in for reseller events,
+  public-HTTPS egress for reseller receivers, non-secret paginated delivery receipts and explicit
+  at-least-once/ordering guarantees. Existing endpoints do not gain reseller events on upgrade.
 - Correct mobile `.conf` downloads and shorten stable device filenames for VPN-client import.
 - Add three selectable public subscription layouts with responsive phone and desktop compositions.
 - Keep the public theme menu aligned and visible in RTL/LTR on phones and desktops; soften shared
   button shadows and touch hover treatment.
+
+The previous v0.1.2 security correction remains included. The support target is Ubuntu 24.04
+amd64; new physical-device and real-host verification is not claimed for this revision.
 
 ## [v0.1.2] — 2026-09-29
 

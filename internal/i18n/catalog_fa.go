@@ -1281,6 +1281,8 @@ var catalogFA = map[string]string{
 	"hooks.toast.redeliver":               "تحویل دوباره در صف قرار گرفت.",
 	"hooks.toast.updated":                 "مقصد به‌روزرسانی شد.",
 	"hooks.url_hint":                      "HTTPS توصیه می‌شود؛ محتوای درخواست، JSON رخداد است و طبق مستندات امضا می‌شود.",
+	"hooks.owner_fanout":                  "دریافت رخدادهای مشتریان رسیلرها",
+	"hooks.owner_fanout_hint":             "فقط مالک می‌تواند رخدادهای همهٔ رسیلرها را به این مقصد بفرستد. برای مقصدهای قدیمی این گزینه تا انتخاب صریح شما خاموش می‌ماند.",
 	"tokens.active":                       "فعال",
 	"tokens.add":                          "ایجاد توکن",
 	"tokens.cidr":                         "مجاز مرجع IP (CIDR)",

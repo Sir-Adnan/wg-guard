@@ -25,7 +25,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
-| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | 14.0 security fix published in v0.1.2; 14.1–14.3 changes in draft PR; webhook and final gates pending |
+| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | 14.0 security fix published in v0.1.2; 14.1–14.4 implemented in draft PR; final compatibility/security and release gates pending |
 
 ## Phase gates
 
@@ -203,6 +203,17 @@ carry applies only when time ends first; time never carries. Plan terms are froz
 5. **14.4 — Integration completeness:** type webhook event payloads and delivery guarantees,
    expose safe delivery/reconciliation lookup where needed, add bounded batch reads if justified,
    complete OpenAPI examples and contract tests, then run one focused compatibility/security gate.
+
+The Phase 14 branch now scopes webhook creation, management, fanout, worker delivery and
+non-secret receipt lookup to owner, node operator or reseller authority. Owner-wide reseller
+event fanout requires an explicit opt-in; legacy endpoints migrate with it off. A reseller
+destination uses checked public HTTPS egress, without redirects. The typed OpenAPI webhook catalog and
+at-least-once/retry/ordering contract are complete. A batch-by-ID read is not added: the existing
+bounded user cursor (up to 500 per page), opaque resource IDs and purchase operation journal cover
+the evidenced sync/recovery workflows without a second bulk lookup contract. Immediate plan
+replacement or reversal after activation remains a separate product decision; cancel-before-
+activation and current-state reconciliation are implemented, and no financial rollback guarantee
+is implied.
 
 Keep additions compatible with `/api/v1`, use separate scopes for sensitive operations, and
 retain old endpoint behavior. Opaque IDs are not usernames; private configs and capability links

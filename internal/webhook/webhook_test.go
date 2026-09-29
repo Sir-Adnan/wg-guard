@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -108,6 +110,174 @@ func TestRecordTxFansOutToSubscribedEndpoints(t *testing.T) {
 	}
 }
 
+func TestTenantFanoutAndScopedReceipts(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for _, statement := range []string{
+		`INSERT INTO resellers (id, slug, created_at, updated_at) VALUES ('r1','r1','now','now'),('r2','r2','now','now')`,
+		`INSERT INTO users (id, username, reseller_id, created_at, updated_at) VALUES
+		 ('u1','tenant-one','r1','now','now'),('u2','tenant-two','r2','now','now'),('u3','operator',NULL,'now','now')`,
+	} {
+		if _, err := e.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	global, _, err := e.svc.Create(ctx, "https://global.example/hook", []string{EventUserCreated, EventNodeStarted}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerWide, _, err := e.svc.CreateOwner(ctx, true, "https://owner.example/hook", []string{EventUserCreated, EventNodeStarted}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, _, err := e.svc.CreateFor(ctx, strPtr("r1"), "https://r1.example/hook", []string{EventUserCreated}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, _, err := e.svc.CreateFor(ctx, strPtr("r2"), "https://r2.example/hook", []string{EventUserCreated}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.svc.CreateFor(ctx, strPtr("r1"), "https://r1.example/node", []string{EventNodeStarted}, ""); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("reseller node event accepted: %v", err)
+	}
+	for _, id := range []string{"u1", "u2", "u3", "unknown"} {
+		if err := e.db.WithTx(ctx, func(tx *sql.Tx) error {
+			return e.rec.RecordTx(tx, EventUserCreated, map[string]any{"user_id": id, "username": id, "reseller_id": "r2"})
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := e.rec.Emit(ctx, e.db, EventNodeStarted, map[string]any{"node_id": "node"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		id   string
+		want int
+	}{{global.ID, 3}, {ownerWide.ID, 5}, {r1.ID, 1}, {r2.ID, 1}} {
+		var got int
+		if err := e.db.QueryRow(`SELECT COUNT(*) FROM webhook_deliveries WHERE endpoint_id = ?`, tc.id).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		if got != tc.want {
+			t.Errorf("endpoint %s received %d, want %d", tc.id, got, tc.want)
+		}
+	}
+	if _, err := e.svc.GetFor(ctx, "r2", r1.ID); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign GetFor: %v", err)
+	}
+	disabled := false
+	if _, _, err := e.svc.UpdateFor(ctx, "r2", r1.ID, EndpointUpdate{Enabled: &disabled}); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign UpdateFor: %v", err)
+	}
+	if err := e.svc.DeleteFor(ctx, "r2", r1.ID); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign DeleteFor: %v", err)
+	}
+	if got, err := e.svc.ListFor(ctx, "r1"); err != nil || len(got) != 1 || got[0].ID != r1.ID {
+		t.Fatalf("ListFor = %v, %v", got, err)
+	}
+	page, next, err := e.svc.Receipts(ctx, strPtr("r1"), r1.ID, 1, "", "")
+	if err != nil || len(page) != 1 || next != "" {
+		t.Fatalf("receipt page = %v %q %v", page, next, err)
+	}
+	if _, _, err := e.svc.Receipts(ctx, strPtr("r2"), r1.ID, 1, "", ""); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign receipts: %v", err)
+	}
+	if _, err := e.svc.ReceiptByID(ctx, strPtr("r2"), r1.ID, page[0].ID); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign receipt: %v", err)
+	}
+	if err := e.svc.RedeliverFor(ctx, "r2", r1.ID, page[0].ID); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign redelivery: %v", err)
+	}
+}
+
+func TestWorkerSkipsLegacyCrossTenantDelivery(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for _, statement := range []string{
+		`INSERT INTO resellers (id, slug, created_at, updated_at) VALUES ('r1','r1','now','now'),('r2','r2','now','now')`,
+		`INSERT INTO users (id, username, reseller_id, created_at, updated_at) VALUES ('u1','tenant-one','r1','now','now')`,
+	} {
+		if _, err := e.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ep, _, err := e.svc.CreateFor(ctx, strPtr("r2"), "https://r2.example/hook", []string{EventUserCreated}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.db.WithTx(ctx, func(tx *sql.Tx) error {
+		return e.rec.RecordTx(tx, EventUserCreated, map[string]any{"user_id": "u1"})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var eventID string
+	if err := e.db.QueryRow(`SELECT id FROM webhook_events`).Scan(&eventID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`INSERT INTO webhook_deliveries
+		(id, endpoint_id, event_id, event_type, payload, status, attempts, next_attempt_at, last_error, created_at, updated_at)
+		VALUES ('bad', ?, ?, ?, '{}', 'pending', 0, '2020-01-01T00:00:00Z', '', '2020-01-01T00:00:00Z', '2020-01-01T00:00:00Z')`, ep.ID, eventID, EventUserCreated); err != nil {
+		t.Fatal(err)
+	}
+	worker := NewWorker(e.db, e.ring, nil, nil)
+	if report, err := worker.Pass(ctx); err != nil || report.Attempted != 0 {
+		t.Fatalf("cross-tenant delivery attempted: %+v %v", report, err)
+	}
+	if _, err := e.svc.ReceiptByID(ctx, strPtr("r2"), ep.ID, "bad"); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("cross-tenant receipt visible: %v", err)
+	}
+	if err := e.svc.RedeliverFor(ctx, "r2", ep.ID, "bad"); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("cross-tenant redelivery: %v", err)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return fn(r) }
+
+func TestResellerDeliveryUsesRestrictedClient(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for _, statement := range []string{
+		`INSERT INTO resellers (id, slug, created_at, updated_at) VALUES ('r1','r1','now','now')`,
+		`INSERT INTO users (id, username, reseller_id, created_at, updated_at) VALUES ('u1','tenant-one','r1','now','now')`,
+	} {
+		if _, err := e.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := e.svc.CreateFor(ctx, strPtr("r1"), "https://receiver.example/hook", []string{EventUserCreated}, "test-secret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.rec.Emit(ctx, e.db, EventUserCreated, map[string]any{"user_id": "u1", "username": "tenant-one"}); err != nil {
+		t.Fatal(err)
+	}
+	worker := NewWorker(e.db, e.ring, nil, nil)
+	called := 0
+	worker.publicClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		called++
+		if r.URL.Host != "receiver.example" || r.Header.Get("X-WG-Delivery") == "" {
+			t.Errorf("unexpected tenant request: %s", r.URL.Host)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var event struct {
+			ID   string `json:"id"`
+			Data struct {
+				UserID string `json:"user_id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(body, &event); err != nil || event.ID == "" || event.Data.UserID != "u1" {
+			t.Errorf("tenant body: %v %v", event, err)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(""))}, nil
+	})}
+	report, err := worker.Pass(ctx)
+	if err != nil || report.Delivered != 1 || called != 1 {
+		t.Fatalf("restricted delivery: %+v %d %v", report, called, err)
+	}
+}
+
 func TestValidateURL(t *testing.T) {
 	for _, ok := range []string{"https://hooks.example/x", "http://10.0.0.5:9000/hook"} {
 		if err := ValidateURL(ok); err != nil {
@@ -121,6 +291,37 @@ func TestValidateURL(t *testing.T) {
 	}
 	if err := ValidateEvents([]string{"user.created", "nope"}); err == nil {
 		t.Error("unknown event accepted")
+	}
+}
+
+func TestResellerWebhookEgressPolicy(t *testing.T) {
+	for _, raw := range []string{
+		"http://hooks.example/hook", "https://127.0.0.1/hook",
+		"https://10.4.0.1/hook", "https://100.64.0.1/hook",
+		"https://[::ffff:127.0.0.1]/hook", "https://user:pass@hooks.example/hook",
+	} {
+		if err := ValidateResellerURL(raw); err == nil {
+			t.Errorf("unsafe reseller destination accepted: %s", raw)
+		}
+	}
+	if err := ValidateResellerURL("https://hooks.example/hook"); err != nil {
+		t.Fatalf("public hostname rejected: %v", err)
+	}
+	for _, address := range []string{"127.0.0.1:443", "[::1]:443", "192.168.1.10:443", "100.64.0.1:443"} {
+		if conn, err := publicWebhookDial(context.Background(), "tcp", address); err == nil {
+			conn.Close()
+			t.Errorf("private dial accepted: %s", address)
+		}
+	}
+	if !publicWebhookAddr(netip.MustParseAddr("1.1.1.1")) || !publicWebhookAddr(netip.MustParseAddr("2606:4700:4700::1111")) {
+		t.Fatal("public IP rejected")
+	}
+	if publicWebhookAddr(netip.MustParseAddr("2001:db8::1")) {
+		t.Fatal("documentation IPv6 accepted")
+	}
+	w := NewWorker(nil, nil, nil, nil)
+	if err := w.publicClient.CheckRedirect(nil, nil); err != http.ErrUseLastResponse {
+		t.Fatalf("redirect policy = %v", err)
 	}
 }
 

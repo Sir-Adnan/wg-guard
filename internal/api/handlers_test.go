@@ -466,10 +466,13 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/api/v1/stats", "/api/v1/node/telemetry",
-		"/api/v1/plans", "/api/v1/interfaces", "/api/v1/webhooks"} {
+		"/api/v1/plans", "/api/v1/interfaces"} {
 		if rec := send(http.MethodGet, path, ""); rec.Code != http.StatusForbidden {
 			t.Fatalf("global aggregate %s = %d", path, rec.Code)
 		}
+	}
+	if rec := send(http.MethodGet, "/api/v1/webhooks", ""); rec.Code != http.StatusOK || len(decodeBody(t, rec)["items"].([]any)) != 0 {
+		t.Fatalf("reseller webhook list must start empty and remain scoped: %d", rec.Code)
 	}
 	if rec := send(http.MethodPost, "/api/v1/users", `{"username":"blocked-create"}`); rec.Code != http.StatusForbidden {
 		t.Fatalf("ungated create = %d", rec.Code)
@@ -1061,9 +1064,183 @@ func TestWebhookEndToEnd(t *testing.T) {
 	if err := e.db.QueryRow(`SELECT id FROM webhook_deliveries`).Scan(&deliveryID); err != nil {
 		t.Fatal(err)
 	}
+	receipt := e.do("GET", "/api/v1/webhooks/"+wh["id"].(string)+"/deliveries/"+deliveryID, "")
+	if receipt.Code != http.StatusOK {
+		t.Fatalf("delivery receipt: %d", receipt.Code)
+	}
+	if state := decodeBody(t, receipt); state["status"] != "dead" || state["next_attempt_at"] != nil {
+		t.Fatalf("dead receipt retains next retry: %v", state)
+	}
 	body, _ := json.Marshal(map[string]string{"delivery_id": deliveryID})
 	rec = e.do("POST", "/api/v1/webhooks/"+wh["id"].(string)+"/redeliver", string(body))
 	if rec.Code != 202 {
 		t.Fatalf("redeliver: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestResellerWebhookAPIIsolationAndRecovery(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for _, statement := range []string{
+		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at) VALUES
+		 ('r1','r1','["webhooks.read","webhooks.write"]','now','now'),
+		 ('r2','r2','["webhooks.read","webhooks.write"]','now','now')`,
+		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
+		 VALUES ('owner-webhooks','owner-webhooks','hash','owner','now','now'),
+		 ('operator-webhooks','operator-webhooks','hash','admin','now','now')`,
+		`UPDATE admins SET permissions = '["webhooks.read","webhooks.write","api_tokens.manage"]' WHERE id = 'operator-webhooks'`,
+		`INSERT INTO users (id, username, reseller_id, created_at, updated_at) VALUES
+		 ('u1','hook-r1','r1','now','now'),('u2','hook-r2','r2','now','now')`,
+	} {
+		if _, err := e.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	makeToken := func(id string) string {
+		t.Helper()
+		_, plain, err := e.tokens.CreateForAdmin(ctx, "owner-webhooks", &id, "hook-bot-"+id,
+			[]string{"webhooks.read", "webhooks.write"}, nil, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return plain
+	}
+	tokens := map[string]string{"r1": makeToken("r1"), "r2": makeToken("r2"), "owner": e.plainTok}
+	_, operatorToken, err := e.tokens.CreateForAdmin(ctx, "operator-webhooks", nil, "operator-hook-bot",
+		[]string{"webhooks.read", "webhooks.write"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens["operator"] = operatorToken
+	send := func(who, method, path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+tokens[who])
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		response := httptest.NewRecorder()
+		e.handler.ServeHTTP(response, req)
+		return response
+	}
+	create := func(who string) string {
+		t.Helper()
+		res := send(who, http.MethodPost, "/api/v1/webhooks", `{"url":"https://hooks.example/`+who+`","events":["user.created"]}`)
+		if res.Code != http.StatusCreated {
+			t.Fatalf("%s create = %d: %s", who, res.Code, res.Body.String())
+		}
+		return decodeBody(t, res)["id"].(string)
+	}
+	r1, r2, owner := create("r1"), create("r2"), create("owner")
+	operatorList := send("operator", http.MethodGet, "/api/v1/webhooks", "")
+	if operatorList.Code != http.StatusOK {
+		t.Fatalf("operator list = %d", operatorList.Code)
+	}
+	operatorItems := decodeBody(t, operatorList)["items"].([]any)
+	if len(operatorItems) != 1 || operatorItems[0].(map[string]any)["id"] != owner {
+		t.Fatalf("operator saw tenant endpoints: %v", operatorItems)
+	}
+	for _, method := range []string{http.MethodGet, http.MethodDelete} {
+		if res := send("operator", method, "/api/v1/webhooks/"+r1, ""); res.Code != http.StatusNotFound {
+			t.Fatalf("operator foreign %s = %d", method, res.Code)
+		}
+	}
+	if res := send("operator", http.MethodPost, "/api/v1/webhooks",
+		`{"url":"https://operator.example/hook","events":["user.created"],"include_reseller_events":true}`); res.Code != http.StatusForbidden {
+		t.Fatalf("operator opted into reseller events: %d", res.Code)
+	}
+	if res := send("r1", http.MethodPost, "/api/v1/webhooks",
+		`{"url":"https://r1.example/hook","events":["user.created"],"include_reseller_events":true}`); res.Code != http.StatusForbidden {
+		t.Fatalf("reseller opted into all events: %d", res.Code)
+	}
+	operatorEndpoint := create("operator")
+	if res := send("owner", http.MethodPatch, "/api/v1/webhooks/"+owner,
+		`{"include_reseller_events":true}`); res.Code != http.StatusOK {
+		t.Fatalf("owner fanout opt-in = %d: %s", res.Code, res.Body.String())
+	}
+	operatorList = send("operator", http.MethodGet, "/api/v1/webhooks", "")
+	operatorItems = decodeBody(t, operatorList)["items"].([]any)
+	if len(operatorItems) != 1 || operatorItems[0].(map[string]any)["id"] != operatorEndpoint {
+		t.Fatalf("operator saw opted-in endpoint: %v", operatorItems)
+	}
+	if res := send("operator", http.MethodGet, "/api/v1/webhooks/"+owner, ""); res.Code != http.StatusNotFound {
+		t.Fatalf("operator saw owner-wide endpoint: %d", res.Code)
+	}
+	if res := send("operator", http.MethodGet, "/api/v1/webhooks/"+owner+"/deliveries", ""); res.Code != http.StatusNotFound {
+		t.Fatalf("operator saw owner-wide receipts: %d", res.Code)
+	}
+	if res := send("r1", http.MethodPost, "/api/v1/webhooks", `{"url":"https://hooks.example/node","events":["node.started"]}`); res.Code != http.StatusForbidden {
+		t.Fatalf("tenant node event = %d", res.Code)
+	}
+	list := send("r1", http.MethodGet, "/api/v1/webhooks", "")
+	if list.Code != http.StatusOK {
+		t.Fatalf("tenant list = %d", list.Code)
+	}
+	items := decodeBody(t, list)["items"].([]any)
+	if len(items) != 1 || items[0].(map[string]any)["id"] != r1 {
+		t.Fatalf("tenant list leaked: %v", items)
+	}
+	if items[0].(map[string]any)["reseller_id"] != "r1" {
+		t.Fatalf("tenant endpoint ownership missing: %v", items[0])
+	}
+	for _, id := range []string{r2, owner} {
+		for _, method := range []string{http.MethodGet, http.MethodPatch, http.MethodDelete} {
+			body := ""
+			if method == http.MethodPatch {
+				body = `{"enabled":false}`
+			}
+			res := send("r1", method, "/api/v1/webhooks/"+id, body)
+			if res.Code != http.StatusNotFound {
+				t.Fatalf("foreign %s = %d: %s", method, res.Code, res.Body.String())
+			}
+		}
+	}
+	for _, id := range []string{"u1", "u1", "u2"} {
+		if err := e.rec.Emit(ctx, e.db, webhook.EventUserCreated, map[string]any{"user_id": id, "username": id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ownerReceipts := send("owner", http.MethodGet, "/api/v1/webhooks/"+owner+"/deliveries", "")
+	if ownerReceipts.Code != http.StatusOK || len(decodeBody(t, ownerReceipts)["items"].([]any)) != 3 {
+		t.Fatalf("owner opted-in endpoint did not receive all tenants: %d", ownerReceipts.Code)
+	}
+	operatorReceipts := send("operator", http.MethodGet, "/api/v1/webhooks/"+operatorEndpoint+"/deliveries", "")
+	if operatorReceipts.Code != http.StatusOK || len(decodeBody(t, operatorReceipts)["items"].([]any)) != 0 {
+		t.Fatalf("ordinary operator received tenant event: %d", operatorReceipts.Code)
+	}
+	if res := send("operator", http.MethodGet, "/api/v1/webhooks/"+r1+"/deliveries", ""); res.Code != http.StatusNotFound {
+		t.Fatalf("operator saw reseller receipts: %d", res.Code)
+	}
+	first := send("r1", http.MethodGet, "/api/v1/webhooks/"+r1+"/deliveries?limit=1", "")
+	if first.Code != http.StatusOK {
+		t.Fatalf("receipt list = %d: %s", first.Code, first.Body.String())
+	}
+	page := decodeBody(t, first)
+	firstItems := page["items"].([]any)
+	if len(firstItems) != 1 || page["next_before"] == "" {
+		t.Fatalf("first receipt page: %v", page)
+	}
+	if strings.Contains(first.Body.String(), "payload") || strings.Contains(first.Body.String(), "secret") {
+		t.Fatal("receipt exposed sensitive fields")
+	}
+	deliveryID := firstItems[0].(map[string]any)["id"].(string)
+	second := send("r1", http.MethodGet, "/api/v1/webhooks/"+r1+"/deliveries?limit=1&before="+page["next_before"].(string), "")
+	if second.Code != http.StatusOK || len(decodeBody(t, second)["items"].([]any)) != 1 {
+		t.Fatalf("second receipt page = %d: %s", second.Code, second.Body.String())
+	}
+	for _, path := range []string{
+		"/api/v1/webhooks/" + r2 + "/deliveries",
+		"/api/v1/webhooks/" + owner + "/deliveries",
+		"/api/v1/webhooks/" + r2 + "/deliveries/" + deliveryID,
+	} {
+		if res := send("r1", http.MethodGet, path, ""); res.Code != http.StatusNotFound {
+			t.Fatalf("foreign receipt %s = %d", path, res.Code)
+		}
+	}
+	if res := send("r1", http.MethodGet, "/api/v1/webhooks/"+r1+"/deliveries/"+deliveryID, ""); res.Code != http.StatusOK {
+		t.Fatalf("own receipt = %d: %s", res.Code, res.Body.String())
+	}
+	if res := send("r1", http.MethodPost, "/api/v1/webhooks/"+r2+"/redeliver", `{"delivery_id":"`+deliveryID+`"}`); res.Code != http.StatusNotFound {
+		t.Fatalf("foreign redelivery = %d", res.Code)
 	}
 }

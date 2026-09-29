@@ -1281,6 +1281,8 @@ var catalogEN = map[string]string{
 	"hooks.toast.redeliver":               "Delivery requeued.",
 	"hooks.toast.updated":                 "Endpoint updated.",
 	"hooks.url_hint":                      "HTTPS recommended; the payload is the event JSON, signed as documented.",
+	"hooks.owner_fanout":                  "Include reseller customer events",
+	"hooks.owner_fanout_hint":             "Owner only. Send events from every reseller to this endpoint. Existing endpoints stay off until you enable this explicitly.",
 	"tokens.active":                       "Active",
 	"tokens.add":                          "Create token",
 	"tokens.cidr":                         "IP allowlist (CIDR)",

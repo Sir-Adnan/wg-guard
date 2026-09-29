@@ -129,7 +129,7 @@ func TestMigration0010PreservesOperatorRowsAndEnforcesOwnershipReferences(t *tes
 		(SELECT COUNT(*) FROM admins WHERE id = 'owner-1' AND reseller_id IS NULL) +
 		(SELECT COUNT(*) FROM users WHERE id = 'user-1' AND reseller_id IS NULL) +
 		(SELECT COUNT(*) FROM api_tokens WHERE id = 'token-1' AND reseller_id IS NULL AND issued_by_admin_id IS NULL) +
-		(SELECT COUNT(*) FROM webhook_endpoints WHERE id = 'hook-1' AND reseller_id IS NULL) +
+		(SELECT COUNT(*) FROM webhook_endpoints WHERE id = 'hook-1' AND reseller_id IS NULL AND include_reseller_events = 0) +
 		(SELECT COUNT(*) FROM webhook_events WHERE id = 'event-1' AND reseller_id IS NULL)`).Scan(&globalRows); err != nil {
 		t.Fatal(err)
 	}

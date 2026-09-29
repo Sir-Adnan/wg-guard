@@ -369,7 +369,15 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 // --- Webhooks ---
 
 func (s *Server) handleWebhookList(w http.ResponseWriter, r *http.Request) {
-	eps, err := s.Webhooks.List(r.Context())
+	var eps []webhook.EndpointWithStats
+	var err error
+	if resellerID := webhookScope(r); resellerID != nil {
+		eps, err = s.Webhooks.ListFor(r.Context(), *resellerID)
+	} else if webhookGlobalOnly(r) {
+		eps, err = s.Webhooks.ListGlobal(r.Context())
+	} else {
+		eps, err = s.Webhooks.List(r.Context())
+	}
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
@@ -377,7 +385,8 @@ func (s *Server) handleWebhookList(w http.ResponseWriter, r *http.Request) {
 	items := make([]webhookEndpointDTO, 0, len(eps))
 	for _, ep := range eps {
 		items = append(items, webhookEndpointDTO{
-			ID: ep.ID, URL: ep.URL, Enabled: ep.Enabled, Events: ep.Events,
+			ID: ep.ID, ResellerID: ep.ResellerID, IncludeResellerEvents: ep.IncludeResellerEvents,
+			URL: ep.URL, Enabled: ep.Enabled, Events: ep.Events,
 			CreatedAt: jsonTime(&ep.CreatedAt), Stats: ep.Stats,
 		})
 	}
@@ -386,20 +395,36 @@ func (s *Server) handleWebhookList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		URL    string   `json:"url"`
-		Events []string `json:"events"`
-		Secret string   `json:"secret"`
+		URL                   string   `json:"url"`
+		Events                []string `json:"events"`
+		Secret                string   `json:"secret"`
+		IncludeResellerEvents bool     `json:"include_reseller_events"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	ep, secret, err := s.Webhooks.Create(r.Context(), req.URL, req.Events, req.Secret)
+	if req.IncludeResellerEvents && !TokenFrom(r.Context()).NodeOwnerAuthority() {
+		writeErr(w, r, http.StatusForbidden, domain.CodeForbidden, "only the owner can subscribe to reseller events")
+		return
+	}
+	var ep *webhook.Endpoint
+	var secret string
+	var err error
+	if TokenFrom(r.Context()).NodeOwnerAuthority() {
+		ep, secret, err = s.Webhooks.CreateOwner(r.Context(), req.IncludeResellerEvents, req.URL, req.Events, req.Secret)
+	} else {
+		ep, secret, err = s.Webhooks.CreateFor(r.Context(), webhookScope(r), req.URL, req.Events, req.Secret)
+	}
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
 	s.audit(r, "webhook.created", ep.ID, map[string]any{"url_host": hostOf(ep.URL)})
-	resp := map[string]any{"id": ep.ID, "url": ep.URL, "enabled": ep.Enabled, "events": ep.Events}
+	resp := map[string]any{"id": ep.ID, "url": ep.URL, "enabled": ep.Enabled, "events": ep.Events,
+		"include_reseller_events": ep.IncludeResellerEvents}
+	if ep.ResellerID != nil {
+		resp["reseller_id"] = *ep.ResellerID
+	}
 	if secret != "" {
 		// Generated secret: returned exactly once, never stored in plaintext
 		// and never logged (webhooks.md).
@@ -409,13 +434,22 @@ func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleWebhookGet(w http.ResponseWriter, r *http.Request) {
-	ep, err := s.Webhooks.Get(r.Context(), pathID(r, "id"))
+	var ep *webhook.Endpoint
+	var err error
+	if resellerID := webhookScope(r); resellerID != nil {
+		ep, err = s.Webhooks.GetFor(r.Context(), *resellerID, pathID(r, "id"))
+	} else if webhookGlobalOnly(r) {
+		ep, err = s.Webhooks.GetGlobal(r.Context(), pathID(r, "id"))
+	} else {
+		ep, err = s.Webhooks.Get(r.Context(), pathID(r, "id"))
+	}
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, webhookEndpointDTO{
-		ID: ep.ID, URL: ep.URL, Enabled: ep.Enabled, Events: ep.Events,
+		ID: ep.ID, ResellerID: ep.ResellerID, IncludeResellerEvents: ep.IncludeResellerEvents,
+		URL: ep.URL, Enabled: ep.Enabled, Events: ep.Events,
 		CreatedAt: jsonTime(&ep.CreatedAt),
 	})
 }
@@ -423,23 +457,43 @@ func (s *Server) handleWebhookGet(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWebhookUpdate(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r, "id")
 	var req struct {
-		URL     *string  `json:"url"`
-		Events  []string `json:"events"`
-		Enabled *bool    `json:"enabled"`
-		Secret  *string  `json:"secret"`
+		URL                   *string  `json:"url"`
+		Events                []string `json:"events"`
+		Enabled               *bool    `json:"enabled"`
+		Secret                *string  `json:"secret"`
+		IncludeResellerEvents *bool    `json:"include_reseller_events"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	ep, secret, err := s.Webhooks.Update(r.Context(), id, webhook.EndpointUpdate{
+	in := webhook.EndpointUpdate{
 		URL: req.URL, Events: req.Events, Enabled: req.Enabled, Secret: req.Secret,
-	})
+		IncludeResellerEvents: req.IncludeResellerEvents,
+	}
+	if in.IncludeResellerEvents != nil && !TokenFrom(r.Context()).NodeOwnerAuthority() {
+		writeErr(w, r, http.StatusForbidden, domain.CodeForbidden, "only the owner can change reseller event fanout")
+		return
+	}
+	var ep *webhook.Endpoint
+	var secret string
+	var err error
+	if resellerID := webhookScope(r); resellerID != nil {
+		ep, secret, err = s.Webhooks.UpdateFor(r.Context(), *resellerID, id, in)
+	} else if webhookGlobalOnly(r) {
+		ep, secret, err = s.Webhooks.UpdateGlobal(r.Context(), id, in)
+	} else {
+		ep, secret, err = s.Webhooks.Update(r.Context(), id, in)
+	}
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
 	s.audit(r, "webhook.updated", id, nil)
-	resp := map[string]any{"id": ep.ID, "url": ep.URL, "enabled": ep.Enabled, "events": ep.Events}
+	resp := map[string]any{"id": ep.ID, "url": ep.URL, "enabled": ep.Enabled, "events": ep.Events,
+		"include_reseller_events": ep.IncludeResellerEvents}
+	if ep.ResellerID != nil {
+		resp["reseller_id"] = *ep.ResellerID
+	}
 	if secret != "" {
 		resp["secret"] = secret
 	}
@@ -448,7 +502,15 @@ func (s *Server) handleWebhookUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r, "id")
-	if err := s.Webhooks.Delete(r.Context(), id); err != nil {
+	var err error
+	if resellerID := webhookScope(r); resellerID != nil {
+		err = s.Webhooks.DeleteFor(r.Context(), *resellerID, id)
+	} else if webhookGlobalOnly(r) {
+		err = s.Webhooks.DeleteGlobal(r.Context(), id)
+	} else {
+		err = s.Webhooks.Delete(r.Context(), id)
+	}
+	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
@@ -464,12 +526,72 @@ func (s *Server) handleWebhookRedeliver(w http.ResponseWriter, r *http.Request) 
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := s.Webhooks.Redeliver(r.Context(), id, req.DeliveryID); err != nil {
+	var err error
+	if resellerID := webhookScope(r); resellerID != nil {
+		err = s.Webhooks.RedeliverFor(r.Context(), *resellerID, id, req.DeliveryID)
+	} else if webhookGlobalOnly(r) {
+		err = s.Webhooks.RedeliverGlobal(r.Context(), id, req.DeliveryID)
+	} else {
+		err = s.Webhooks.Redeliver(r.Context(), id, req.DeliveryID)
+	}
+	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
 	s.audit(r, "webhook.redelivered", id, map[string]any{"delivery_id": req.DeliveryID})
 	writeJSON(w, http.StatusAccepted, map[string]any{"queued": true})
+}
+
+func webhookScope(r *http.Request) *string {
+	return TokenFrom(r.Context()).Token.ResellerID
+}
+
+func webhookGlobalOnly(r *http.Request) bool {
+	return webhookScope(r) == nil && !TokenFrom(r.Context()).NodeOwnerAuthority()
+}
+
+func (s *Server) handleWebhookReceipts(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limit := 50
+	if value := q.Get("limit"); value != "" {
+		var err error
+		limit, err = atoi(value)
+		if err != nil {
+			writeErr(w, r, http.StatusBadRequest, "INVALID_REQUEST", "limit must be 1..100")
+			return
+		}
+	}
+	var items []webhook.Receipt
+	var next string
+	var err error
+	if webhookGlobalOnly(r) {
+		items, next, err = s.Webhooks.ReceiptsGlobal(r.Context(), pathID(r, "id"), limit, q.Get("before"), q.Get("event_id"))
+	} else {
+		items, next, err = s.Webhooks.Receipts(r.Context(), webhookScope(r), pathID(r, "id"), limit, q.Get("before"), q.Get("event_id"))
+	}
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	if items == nil {
+		items = []webhook.Receipt{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "next_before": next})
+}
+
+func (s *Server) handleWebhookReceipt(w http.ResponseWriter, r *http.Request) {
+	var item *webhook.Receipt
+	var err error
+	if webhookGlobalOnly(r) {
+		item, err = s.Webhooks.ReceiptByIDGlobal(r.Context(), pathID(r, "id"), r.PathValue("deliveryID"))
+	} else {
+		item, err = s.Webhooks.ReceiptByID(r.Context(), webhookScope(r), pathID(r, "id"), r.PathValue("deliveryID"))
+	}
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func hostOf(raw string) string {

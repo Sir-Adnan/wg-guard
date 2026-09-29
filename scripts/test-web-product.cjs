@@ -43,6 +43,46 @@ let stage = 'launch';
       await require('./test-web-interactions.cjs')({browser,seed,engine});
       await context.close();return;
     }
+    if (group === 'reseller-webhooks') {
+      stage = 'reseller webhook panel';
+      await context.addCookies([{ name: 'wg_session', value: seed.resellerSession, url: seed.url }]);
+      for (const lang of ['fa', 'en']) {
+        const changed = await page.request.post(seed.url + '/prefs/locale', { maxRedirects: 0, form: {
+          locale: lang, _csrf: seed.resellerCSRF,
+        } });
+        assert(changed.status() === 303, 'reseller locale change');
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: width === 1440 ? 900 : 780 });
+          for (const mode of ['light', 'dark']) {
+            for (const path of ['/reseller/webhooks', '/reseller/webhooks/' + seed.resellerWebhookID]) {
+              await goto(path);
+              await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
+              const geometry = await page.locator('.webhook-page').evaluate(root => {
+                const viewport = document.documentElement.clientWidth;
+                const controls = [...root.querySelectorAll('input, button, a.btn')].filter(el => getComputedStyle(el).display !== 'none');
+                return { pageFits: document.documentElement.scrollWidth <= viewport,
+                  controlsFit: controls.every(el => { const b = el.getBoundingClientRect();
+                    return b.left >= -1 && b.right <= viewport + 1; }) };
+              });
+              assert(geometry.pageFits && geometry.controlsFit,
+                'reseller webhook controls fit ' + lang + ' ' + width + ' ' + mode + ' ' + path + ' ' + JSON.stringify(geometry));
+              assert(await page.locator('a[href="/webhooks"]').count() === 0,
+                'reseller page never links to operator webhook routes');
+              if (path.endsWith(seed.resellerWebhookID)) {
+                assert(await page.locator('form[action$="/update"]').count() === 1, 'owned webhook edit form visible');
+              }
+            }
+            if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && mode === 'dark' && width === 390) {
+              const path = require('node:path'), fs = require('node:fs');
+              fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+              await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'reseller-webhook-fa-mobile.png'), fullPage: true });
+            }
+          }
+        }
+      }
+      assert(runtimeErrors === 0, 'no browser runtime errors');
+      await context.close(); return;
+    }
     if (group === 'next-plan') {
       stage = 'queued successor panel';
       const formPath = '/users/' + seed.user + '/next-plan';

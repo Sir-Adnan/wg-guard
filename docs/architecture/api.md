@@ -14,9 +14,10 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   day-to-day manager). Panel-issued tokens are bound to the issuing account and cannot retain
   permissions removed from that account. Existing CLI/pre-Phase-14 tokens remain node-wide and
   should be reviewed by the owner when enabling reseller integrations. Reseller-bound tokens may
-  use only explicitly tenant-gated reads for users, devices/configs, per-user statistics and
-  customer links, plus plan-gated purchase/result operations. Lists are ownership-filtered.
-  Other mutations, unclassified routes and global aggregates remain denied.
+  use explicitly tenant-gated customer reads, usage reset, successor-plan and customer-link
+  actions, plan-gated purchase/result operations, and owned webhook endpoints/receipts when
+  granted the corresponding scopes. Lists are ownership-filtered. Other mutations,
+  unclassified routes and global aggregates remain denied.
 - **Errors**: one envelope — `{"error": {"code", "message", "request_id"}}` with stable codes
   (`USER_NOT_FOUND`, `USERNAME_EXISTS`, `DEVICE_LIMIT_REACHED`, `TRAFFIC_EXCEEDED`, `INVALID_REQUEST`,
   `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `NODE_UNAVAILABLE`, `INTERNAL_ERROR`, …). No stack
@@ -69,7 +70,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 | Plans | `GET/POST /plans`, `GET/PATCH/DELETE /plans/{id}` |
 | Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation) |
 | Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope) |
-| Webhooks | `GET/POST /webhooks`, `PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver` |
+| Webhooks | `GET/POST /webhooks`, `PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
 | Ops | `GET /healthz` (public liveness), `GET /readyz`, `GET /openapi.json`, `GET /docs`; `GET /metrics` (config-gated, served outside `/api/v1`) |
 
 **Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
@@ -102,20 +103,16 @@ for one year so a bot can recover a missed asynchronous transition.
 The customer subscription capability path is readable via a scoped, no-store REST endpoint;
 rotation uses a separate sensitive scope and atomically replaces the link and all device keys.
 The new state is retained if runtime reconciliation fails, and a 503 tells the caller to inspect
-the current link before retrying. Do not treat admin `/config` or `/qr` responses, which contain device
-private material, as an equivalent customer-link contract. Webhooks have durable event IDs and
-documented retry/dead-letter behavior, but no complete per-event OpenAPI payload schemas or total
-ordering guarantee across endpoints. These limits are tracked as an additive future integration phase in
-[ROADMAP.md](../../ROADMAP.md).
+the current link before retrying. Do not treat admin `/config` or `/qr` responses, which contain
+device private material, as an equivalent customer-link contract. Webhooks now have per-event
+OpenAPI schemas, tenant-scoped fanout and non-secret delivery receipts. Their at-least-once
+delivery has no total or per-user ordering guarantee; consumers reconcile with resource GETs.
+See [the delivery contract](../integrations/webhooks.md).
 
-**Remaining Phase 14 direction:** Owner integrations retain node-wide authority;
-reseller panel accounts and their tokens are restricted to users owned by that reseller, with
-configurable grants that cannot exceed the reseller's current permissions. Ownership applies to
-every read, mutation, aggregate, config, public-link management action and webhook, not only list
-filters. The purchase/result flow, customer-link delivery and credential rotation are implemented
-in the Phase 14 branch. The one-successor queue and owned Reset Usage are also implemented there;
-immediate plan replacement/correction remains a separately assessed integration need. Tenant
-webhook fanout also remains. Existing V1 endpoints keep their meanings.
+Owner integrations retain node-wide authority. Reseller sessions/tokens are restricted to their
+owned customers and endpoints under configurable live grants. One queued successor and owned
+Reset Usage cover the requested lifecycle; a combined four-policy renewal or immediate plan
+replacement/correction is not part of this contract. Existing V1 endpoints keep their meanings.
 
 ## Live telemetry
 
@@ -199,14 +196,19 @@ transaction as the state change, so an accepted request can never lose its event
 at 6 h), capped concurrency, dead-letter after `webhooks.max_attempts` (default 12), manual
 redeliver. The worker runs one delivery pass every 5 s on the central scheduler; event rows are
 pruned after 7 days. Endpoint secrets are AES-GCM encrypted at rest and shown exactly once at
-creation — they can be rotated but never re-displayed. Event catalog and payload schemas:
+creation — they can be rotated but never re-displayed. The owner can manage every endpoint;
+ordinary node admins/tokens are limited to node-wide endpoints without owner-only reseller
+fanout opt-in, and reseller endpoint CRUD, receipts and fanout are tenant-scoped. Existing
+node-wide endpoints migrate with cross-reseller fanout off. Reseller destinations use public
+HTTPS with checked IP dialing and no redirects. Event catalog, payload schemas and
+reconciliation guidance:
 [../integrations/webhooks.md](../integrations/webhooks.md).
 
 ## OpenAPI
 
 `/openapi.json` (+ lightweight `/docs` reference) is hand-authored. A route-coverage test checks
 that every registered route appears with the correct scope and that the document has no stale
-paths; focused contract tests cover selected schemas and behavior.
+paths; focused contract tests cover selected schemas, the full typed webhook catalog and behavior.
 The description uses OpenAPI 3.2.1 and JSON Schema null unions. Its `info.version` remains
 `1.0.0` for the unchanged V1 API contract; the `openapi` field versions the description format,
 not a WG-Guard release or a new endpoint set. Consumers parsing the description need tooling
