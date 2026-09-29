@@ -108,7 +108,9 @@ atomic or provide reseller row isolation; those are Phase 14 work.
 Reseller ownership columns and live grant ceilings are being added without exposing a partial
 tenant surface: the operator panel denies reseller sessions; REST allows only explicit,
 ownership-checked read routes and denies unclassified routes, mutations and global aggregates.
-Existing unbound tokens retain their node-wide meaning.
+Only the node owner can create or disable reseller records and bind panel accounts. Reducing a
+reseller's grants or disabling it takes effect on existing sessions and tokens at validation;
+the reseller's customers are retained. Existing unbound tokens retain their node-wide meaning.
 
 ## Linux/network security
 

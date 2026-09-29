@@ -40,8 +40,10 @@ idempotency hardening authenticates before replay, scopes keys per token and rej
 pre-upgrade keys. Targeted API tests cover anonymous, wrong-scope and revoked-token replays,
 cross-token key reuse and legacy-key fail-closed behavior. The security correction shipped in
 v0.1.2. In the Phase 14 branch, the ownership migration preserves operator rows and rejects
-orphan assignments; reseller grants and principal-bound tokens have live ceilings. The operator
-panel still denies reseller sessions. REST allows only explicit ownership-checked customer reads;
+orphan assignments; reseller grants and principal-bound tokens have live ceilings. An owner-only
+panel page can manage reseller grants and linked accounts; service/web tests cover its authority
+and disabled-account behavior. The operator panel still denies reseller sessions. REST allows
+only explicit ownership-checked customer reads;
 mutations and global aggregates remain denied. Purchase/renewal operations and their host
 verification remain in development.
 

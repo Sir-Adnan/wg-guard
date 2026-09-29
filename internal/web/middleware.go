@@ -160,6 +160,18 @@ func (s *Server) requirePermission(scope string, next http.HandlerFunc) http.Han
 	})
 }
 
+// requireOwner keeps reseller administration with the node's single owner;
+// an operator's admins.manage grant does not imply tenant creation authority.
+func (s *Server) requireOwner(next http.HandlerFunc) http.HandlerFunc {
+	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if adminFrom(r).Role != auth.RoleOwner {
+			s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
+			return
+		}
+		next(w, r)
+	})
+}
+
 // needsOnboarding reports whether the node has no owner yet (first run).
 // One indexed COUNT on a table with a handful of rows — cheap per request.
 func (s *Server) needsOnboarding(r *http.Request) bool {

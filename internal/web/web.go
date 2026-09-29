@@ -27,6 +27,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
+	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
@@ -40,16 +41,17 @@ import (
 // Deps wires the services the panel renders. The same instances the REST
 // API uses are passed in — one business layer, two surfaces.
 type Deps struct {
-	DB       *database.DB
-	Sessions *auth.SessionStore
-	Admins   *admin.Service
-	Settings *settings.Registry
-	Ring     *secrets.KeyRing
-	Audit    *audit.Service
-	Users    *user.Service
-	Devices  *device.Service
-	Plans    *plan.Service
-	Ifaces   *iface.Service
+	DB        *database.DB
+	Sessions  *auth.SessionStore
+	Admins    *admin.Service
+	Resellers *reseller.Service
+	Settings  *settings.Registry
+	Ring      *secrets.KeyRing
+	Audit     *audit.Service
+	Users     *user.Service
+	Devices   *device.Service
+	Plans     *plan.Service
+	Ifaces    *iface.Service
 	// ProfileGenerator is the canonical server-side profile preview seam.
 	// It defaults to Ifaces.GenerateProfile; tests may replace it to exercise
 	// entropy failures without weakening the production generator.
@@ -112,6 +114,9 @@ func New(d Deps) (*Server, error) {
 		s.ClientConf = &clientconf.Renderer{
 			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
 		}
+	}
+	if s.Resellers == nil && s.DB != nil {
+		s.Resellers = reseller.NewService(s.DB)
 	}
 	if s.ProfileGenerator == nil && d.Ifaces != nil {
 		s.ProfileGenerator = d.Ifaces.GenerateProfile
@@ -239,6 +244,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /backups/telegram-test", s.requirePermission(auth.ScopeBackupManage, s.handleTelegramTest))
 
 	// --- administrators (admins.manage) ---
+	mux.HandleFunc("GET /resellers", s.requireOwner(s.handleResellersPage))
+	mux.HandleFunc("POST /resellers", s.requireOwner(s.handleResellerCreate))
+	mux.HandleFunc("POST /resellers/{id}/permissions", s.requireOwner(s.handleResellerPermissions))
+	mux.HandleFunc("POST /resellers/{id}/enable", s.requireOwner(s.handleResellerEnable))
+	mux.HandleFunc("POST /resellers/{id}/admins", s.requireOwner(s.handleResellerAdminCreate))
 	mux.HandleFunc("GET /admins", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminsPage))
 	mux.HandleFunc("POST /admins/create", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminCreate))
 	mux.HandleFunc("POST /admins/{id}/password", s.requirePermission(auth.ScopeAdminsManage, s.handleAdminPassword))

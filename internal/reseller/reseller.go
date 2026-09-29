@@ -74,6 +74,9 @@ func (s *Service) Create(ctx context.Context, slug, displayName string, scopes [
 		VALUES (?, ?, ?, ?, 1, ?, ?)`, a.ID, a.Slug, a.DisplayName, string(raw),
 		now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano))
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: resellers.slug") {
+			return nil, domain.E(domain.CodeInvalidRequest, "reseller identifier already exists")
+		}
 		return nil, fmt.Errorf("reseller: create: %w", err)
 	}
 	return a, nil

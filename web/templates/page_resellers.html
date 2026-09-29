@@ -1,0 +1,46 @@
+{{define "title"}}{{.T "resellers.title"}}{{end}}
+{{define "content"}}
+<div class="ops-page reseller-page">
+  <div class="page-head page-head--hero ops-hero">
+    <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "users"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "resellers.title"}}</h1><p>{{.T "resellers.intro"}}</p></div></div>
+    <div class="actions"><a class="btn btn--primary" href="#reseller-create" data-open-disclosure="reseller-create">{{.IconS "plus"}}{{.T "resellers.add"}}</a></div>
+  </div>
+  {{template "form_feedback" .}}
+  {{if not .Data.Known}}{{template "ops_unavailable" .}}{{end}}
+
+  {{if .Data.Known}}
+  <section class="collection ops-roster" aria-labelledby="reseller-list-title">
+    <div class="section-head"><div><span class="eyebrow">{{.T "resellers.title"}}</span><h2 id="reseller-list-title">{{len .Data.Cards}} {{.T "forms.total"}}</h2></div></div>
+    {{if .Data.Cards}}<div class="webhook-grid">{{range .Data.Cards}}
+      {{$card := .}}
+      <article class="card card--pad reseller-card">
+        <div class="section-head"><div><h3>{{if .Account.DisplayName}}{{.Account.DisplayName}}{{else}}<bdi class="ltr-data">{{.Account.Slug}}</bdi>{{end}}</h3><p class="hint ltr-data">{{.Account.Slug}}</p></div><span class="badge {{if .Account.Enabled}}badge--ok{{end}}">{{if .Account.Enabled}}{{$.T "admins.enabled"}}{{else}}{{$.T "admins.disabled"}}{{end}}</span></div>
+        <p class="hint">{{$.T "resellers.grant_hint"}}</p>
+        <form method="post" action="/resellers/{{.Account.ID}}/permissions" class="form-stack">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <fieldset class="ops-permissions"><legend>{{$.T "resellers.permissions"}}</legend><div class="ops-event-grid">{{range $.Data.Scopes}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="permissions" value="{{.}}" {{if $.HasChoice $card.Account.Permissions .}}checked{{end}}><span><strong>{{$.ScopeLabel .}}</strong><small>{{$.ScopeDescription .}}</small></span></label>{{end}}</div></fieldset>
+          <div class="form-actions"><button class="btn btn--primary" type="submit">{{$.T "resellers.save_permissions"}}</button></div>
+        </form>
+        <div class="section-head"><div><h4>{{$.T "resellers.accounts"}}</h4></div><form method="post" action="/resellers/{{.Account.ID}}/enable" {{if .Account.Enabled}}data-confirm data-confirm-title="{{$.T "resellers.disable"}}" data-confirm-message="{{$.T "resellers.disable_confirm"}}" data-confirm-label="{{$.T "resellers.disable"}}"{{end}}><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="enable" value="{{if .Account.Enabled}}0{{else}}1{{end}}"><button class="btn btn--sm btn--ghost" type="submit">{{if .Account.Enabled}}{{$.T "resellers.disable"}}{{else}}{{$.T "resellers.enable"}}{{end}}</button></form></div>
+        {{if .Admins}}<ul class="ops-plain-list">{{range .Admins}}<li><bdi class="ltr-data">{{.Username}}</bdi> <span class="badge {{if .Enabled}}badge--ok{{end}}">{{if .Enabled}}{{$.T "admins.enabled"}}{{else}}{{$.T "admins.disabled"}}{{end}}</span></li>{{end}}</ul>{{else}}<p class="hint">{{$.T "resellers.no_accounts"}}</p>{{end}}
+        <details class="collapse form-panel"><summary>{{$.IconS "user-plus"}}{{$.T "resellers.add_account"}}</summary><div class="collapse-body"><form method="post" action="/resellers/{{.Account.ID}}/admins" class="form-stack">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <div class="field-row"><div class="field"><label for="reseller-{{.Account.ID}}-username">{{$.T "admins.col_admin"}}</label><input class="input ltr-data" id="reseller-{{.Account.ID}}-username" name="username" required autocomplete="off"></div><div class="field"><label for="reseller-{{.Account.ID}}-password">{{$.T "admins.password"}}</label><input class="input ltr-data" id="reseller-{{.Account.ID}}-password" name="password" type="password" required autocomplete="new-password"></div></div>
+          <fieldset class="ops-permissions"><legend>{{$.T "resellers.account_permissions"}}</legend><p class="hint">{{$.T "resellers.account_hint"}}</p><div class="ops-event-grid">{{range $card.Account.Permissions}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="permissions" value="{{.}}"><span><strong>{{$.ScopeLabel .}}</strong><small>{{$.ScopeDescription .}}</small></span></label>{{end}}</div></fieldset>
+          <div class="form-actions"><button class="btn btn--primary" type="submit">{{$.T "resellers.add_account"}}</button></div>
+        </form></div></details>
+      </article>
+    {{end}}</div>{{else}}<div class="card empty empty-stage"><span class="empty-visual">{{.Icon "users"}}</span><h2>{{.T "resellers.empty"}}</h2><p>{{.T "resellers.empty_hint"}}</p></div>{{end}}
+  </section>
+
+  <details class="collapse form-panel ops-create-panel" id="reseller-create" {{if .Data.Form.Error}}open{{end}}><summary><span class="section-icon" aria-hidden="true">{{.IconS "plus"}}</span>{{.T "resellers.add"}}</summary><div class="collapse-body">
+    <form method="post" action="/resellers" class="form-stack" novalidate>
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field-row"><div class="field"><label for="reseller-slug">{{.T "resellers.slug"}}</label><input class="input ltr-data" id="reseller-slug" name="slug" value="{{.Data.Form.V "slug"}}" required pattern="[a-z][a-z0-9-]{2,31}" aria-describedby="reseller-slug-help"><span class="hint" id="reseller-slug-help">{{.T "resellers.slug_hint"}}</span></div><div class="field"><label for="reseller-display">{{.T "resellers.display_name"}}</label><input class="input" id="reseller-display" name="display_name" value="{{.Data.Form.V "display_name"}}" maxlength="80"></div></div>
+      <fieldset class="ops-permissions"><legend>{{.T "resellers.permissions"}}</legend><p class="hint">{{.T "resellers.grant_hint"}}</p><div class="ops-event-grid">{{range .Data.Scopes}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="permissions" value="{{.}}" {{if $.HasChoice $.Data.Selected .}}checked{{end}}><span><strong>{{$.ScopeLabel .}}</strong><small>{{$.ScopeDescription .}}</small></span></label>{{end}}</div></fieldset>
+      <div class="form-actions"><button class="btn btn--primary" type="submit">{{.T "resellers.add"}}</button></div>
+    </form>
+  </div></details>
+  {{end}}
+</div>
+{{end}}
