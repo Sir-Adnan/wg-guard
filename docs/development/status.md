@@ -47,6 +47,7 @@ owned device config/QR reads, scoped token management, personal preferences and 
 operator routes remain denied. Owner-issued reseller tokens and reseller-issued tokens share the
 same live grant ceiling and conditional token revoke boundary. REST allows only explicit
 ownership-checked customer reads; mutations and global aggregates remain denied.
+Legacy node-operator admin/token screens cannot manage reseller-bound identities.
 Purchase/renewal operations and their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |

@@ -355,7 +355,12 @@ func (v *Verified) Authorize(required string) bool {
 
 // List returns all tokens without secrets.
 func (s *Service) List(ctx context.Context) ([]Token, error) {
-	return s.list(ctx, nil)
+	return s.list(ctx, nil, false)
+}
+
+// ListGlobal excludes tenant tokens from node-operator token management.
+func (s *Service) ListGlobal(ctx context.Context) ([]Token, error) {
+	return s.list(ctx, nil, true)
 }
 
 // ListForReseller returns only tokens bound to one reseller. The owner-only
@@ -364,15 +369,17 @@ func (s *Service) ListForReseller(ctx context.Context, resellerID string) ([]Tok
 	if resellerID == "" {
 		return nil, domain.E(domain.CodeInvalidRequest, "reseller ID is required")
 	}
-	return s.list(ctx, &resellerID)
+	return s.list(ctx, &resellerID, false)
 }
 
-func (s *Service) list(ctx context.Context, resellerID *string) ([]Token, error) {
+func (s *Service) list(ctx context.Context, resellerID *string, globalOnly bool) ([]Token, error) {
 	query := `SELECT id, name, prefix, scopes, expires_at, enabled,
 		cidr_allowlist, last_used_at, created_at, reseller_id, issued_by_admin_id FROM api_tokens`
 	var rows *sql.Rows
 	var err error
-	if resellerID == nil {
+	if globalOnly {
+		rows, err = s.db.QueryContext(ctx, query+` WHERE reseller_id IS NULL ORDER BY created_at`)
+	} else if resellerID == nil {
 		rows, err = s.db.QueryContext(ctx, query+` ORDER BY created_at`)
 	} else {
 		rows, err = s.db.QueryContext(ctx, query+` WHERE reseller_id = ? ORDER BY created_at`, *resellerID)
@@ -445,6 +452,20 @@ func (s *Service) RevokeForReseller(ctx context.Context, id, resellerID string) 
 		WHERE id = ? AND reseller_id = ?`, id, resellerID)
 	if err != nil {
 		return fmt.Errorf("token: reseller revoke: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.E(domain.CodeNotFound, "token not found")
+	}
+	return nil
+}
+
+// RevokeGlobal allows a node operator to manage only node-wide tokens. The
+// owner can still use Revoke to manage every token.
+func (s *Service) RevokeGlobal(ctx context.Context, id string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE api_tokens SET enabled = 0
+		WHERE id = ? AND reseller_id IS NULL`, id)
+	if err != nil {
+		return fmt.Errorf("token: global revoke: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return domain.E(domain.CodeNotFound, "token not found")

@@ -113,7 +113,9 @@ specific reseller without granting it node-wide access. REST allows only explici
 ownership-checked read routes and denies unclassified routes, mutations and global aggregates.
 Only the node owner can create or disable reseller records and bind panel accounts. Reducing a
 reseller's grants or disabling it takes effect on existing sessions and tokens at validation;
-the reseller's customers are retained. Existing unbound tokens retain their node-wide meaning.
+the reseller's customers are retained. Node-wide staff management pages exclude reseller-bound
+accounts and tokens, and their write actions reject those targets. Existing unbound tokens retain
+their node-wide meaning.
 
 ## Linux/network security
 

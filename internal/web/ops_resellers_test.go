@@ -64,6 +64,14 @@ func TestOwnerManagesResellerBoundary(t *testing.T) {
 	if !bound {
 		t.Fatal("panel account was not bound to reseller")
 	}
+	staffCookie := e.loginEN("staff")
+	if body := e.get("/admins", staffCookie).Body.String(); strings.Contains(body, "northadmin") {
+		t.Fatal("node operator saw reseller-bound account in admin list")
+	}
+	boundID := e.adminID("northadmin")
+	if rec := e.postForm("/admins/"+boundID+"/password", url.Values{"password": {"another-long-pass"}}, staffCookie); rec.Code != http.StatusForbidden {
+		t.Fatalf("node operator changed reseller-bound account: %d", rec.Code)
+	}
 	if rec := e.postForm("/resellers/"+id+"/enable", url.Values{"enable": {"0"}}, owner); rec.Code != http.StatusSeeOther {
 		t.Fatalf("disable reseller: %d", rec.Code)
 	}

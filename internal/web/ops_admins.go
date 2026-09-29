@@ -68,6 +68,15 @@ func (s *Server) handleAdminsPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminPageData(r *http.Request, edit string) adminsData {
 	list, err := s.Admins.List(r.Context())
+	if err == nil && adminFrom(r).Role != auth.RoleOwner {
+		filtered := list[:0]
+		for _, a := range list {
+			if a.ResellerID == nil {
+				filtered = append(filtered, a)
+			}
+		}
+		list = filtered
+	}
 	d := adminsData{Known: err == nil, Admins: list, ScopeSet: scopeGroups(), Form: operationalForm{Values: map[string]string{"username": "", "role": "admin"}, Fields: map[string]string{}}}
 	for i := range list {
 		if list[i].ID == edit {
@@ -137,6 +146,9 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 // revokes that account's sessions itself).
 func (s *Server) handleAdminPassword(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.mayManageAdminTarget(w, r, id) {
+		return
+	}
 	if err := s.Admins.SetPassword(r.Context(), id, r.PostFormValue("password")); err != nil {
 		s.adminFormFailure(w, r, id, "password", err)
 		return
@@ -148,6 +160,9 @@ func (s *Server) handleAdminPassword(w http.ResponseWriter, r *http.Request) {
 // handleAdminPermissions replaces the permission set.
 func (s *Server) handleAdminPermissions(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.mayManageAdminTarget(w, r, id) {
+		return
+	}
 	perms := r.Form["permissions"]
 	if err := s.Admins.SetPermissions(r.Context(), id, perms); err != nil {
 		s.adminFormFailure(w, r, id, "permissions", err)
@@ -160,6 +175,9 @@ func (s *Server) handleAdminPermissions(w http.ResponseWriter, r *http.Request) 
 // handleAdminEnable flips the enabled flag (disabled admins cannot sign in).
 func (s *Server) handleAdminEnable(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.mayManageAdminTarget(w, r, id) {
+		return
+	}
 	enable := r.PostFormValue("enable") == "1"
 	if err := s.Admins.SetEnabled(r.Context(), id, enable); err != nil {
 		s.opsError(w, r, "/admins", err)
@@ -175,12 +193,31 @@ func (s *Server) handleAdminEnable(w http.ResponseWriter, r *http.Request) {
 // handleAdminDelete removes one administrator.
 func (s *Server) handleAdminDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.mayManageAdminTarget(w, r, id) {
+		return
+	}
 	if err := s.Admins.Delete(r.Context(), id); err != nil {
 		s.opsError(w, r, "/admins", err)
 		return
 	}
 	s.audit(r, "admins.deleted", id, nil)
 	s.redirectToast(w, r, "/admins", "admins.toast.deleted")
+}
+
+func (s *Server) mayManageAdminTarget(w http.ResponseWriter, r *http.Request, id string) bool {
+	if adminFrom(r).Role == auth.RoleOwner {
+		return true
+	}
+	target, err := s.Admins.Get(r.Context(), id)
+	if err != nil {
+		s.opsError(w, r, "/admins", err)
+		return false
+	}
+	if target.ResellerID != nil {
+		s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
+		return false
+	}
+	return true
 }
 
 // opsError maps known service errors onto a redisplay; unexpected ones log

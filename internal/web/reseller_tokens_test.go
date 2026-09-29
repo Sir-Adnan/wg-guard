@@ -49,6 +49,20 @@ func TestResellerTokenPanelStaysInTenant(t *testing.T) {
 	if _, err := e.srv.Tokens.Verify(ctx, globalSecret, ""); err != nil {
 		t.Fatalf("global token affected by reseller: %v", err)
 	}
+	if _, err := e.admins.Create(ctx, "operator", testPassword, "admin", []string{"api_tokens.manage"}); err != nil {
+		t.Fatal(err)
+	}
+	operator := e.loginEN("operator")
+	if body := e.get("/tokens", operator).Body.String(); !strings.Contains(body, "owner bot") || strings.Contains(body, "north bot") {
+		t.Fatal("node operator token list included a reseller token")
+	}
+	if rec := e.postForm("/tokens/"+northTokens[0].ID+"/revoke", url.Values{}, operator); rec.Code != http.StatusSeeOther {
+		t.Fatalf("node operator foreign revoke response: %d", rec.Code)
+	}
+	northTokens, err = e.srv.Tokens.ListForReseller(ctx, north.ID)
+	if err != nil || !northTokens[0].Enabled {
+		t.Fatalf("node operator revoked reseller token: %+v %v", northTokens, err)
+	}
 	if rec := e.postForm("/reseller/tokens/"+northTokens[0].ID+"/revoke", url.Values{}, reseller); rec.Code != http.StatusSeeOther {
 		t.Fatalf("own revoke response: %d", rec.Code)
 	}

@@ -395,6 +395,12 @@ func (s *Service) get(ctx context.Context, id string) (*Admin, error) {
 	return &a, nil
 }
 
+// Get returns one account without its password hash. Panel target checks use
+// this to keep reseller-bound identities out of node-operator workflows.
+func (s *Service) Get(ctx context.Context, id string) (*Admin, error) {
+	return s.get(ctx, id)
+}
+
 // ValidateUsername applies the shared administrator identity policy. The
 // installer calls this before sending credentials to the bootstrap command.
 func ValidateUsername(u string) error {
