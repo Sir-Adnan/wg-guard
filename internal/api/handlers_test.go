@@ -404,7 +404,7 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	otherUser, otherDevice := create("owner-customer")
 	for _, statement := range []string{
 		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at) VALUES
-			('reseller-1', 'north', '["users.read","users.create","devices.read","configs.read","stats.read"]', 'test', 'test')`,
+			('reseller-1', 'north', '["users.read","users.create","devices.read","configs.read","stats.read","traffic.read","plans.read","interfaces.read","webhooks.read"]', 'test', 'test')`,
 		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
 			VALUES ('owner-1', 'owner', 'hash', 'owner', 'test', 'test')`,
 	} {
@@ -417,7 +417,7 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	}
 	resellerID := "reseller-1"
 	_, plain, err := e.tokens.CreateForAdmin(ctx, "owner-1", &resellerID, "north bot",
-		[]string{"users.read", "users.create", "devices.read", "configs.read", "stats.read"}, nil, "")
+		[]string{"users.read", "users.create", "devices.read", "configs.read", "stats.read", "traffic.read", "plans.read", "interfaces.read", "webhooks.read"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +440,10 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/users/" + ownedUser,
 		"/api/v1/users/" + ownedUser + "/devices",
+		"/api/v1/users/" + ownedUser + "/stats",
+		"/api/v1/users/" + ownedUser + "/traffic",
 		"/api/v1/devices/" + ownedDevice,
+		"/api/v1/devices/" + ownedDevice + "/stats",
 		"/api/v1/devices/" + ownedDevice + "/config",
 		"/api/v1/devices/" + ownedDevice + "/qr",
 	} {
@@ -451,7 +454,10 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/users/" + otherUser,
 		"/api/v1/users/" + otherUser + "/devices",
+		"/api/v1/users/" + otherUser + "/stats",
+		"/api/v1/users/" + otherUser + "/traffic",
 		"/api/v1/devices/" + otherDevice,
+		"/api/v1/devices/" + otherDevice + "/stats",
 		"/api/v1/devices/" + otherDevice + "/config",
 		"/api/v1/devices/" + otherDevice + "/qr",
 	} {
@@ -459,7 +465,8 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 			t.Fatalf("foreign read %s = %d", path, rec.Code)
 		}
 	}
-	for _, path := range []string{"/api/v1/stats", "/api/v1/node/telemetry"} {
+	for _, path := range []string{"/api/v1/stats", "/api/v1/node/telemetry",
+		"/api/v1/plans", "/api/v1/interfaces", "/api/v1/webhooks"} {
 		if rec := send(http.MethodGet, path, ""); rec.Code != http.StatusForbidden {
 			t.Fatalf("global aggregate %s = %d", path, rec.Code)
 		}
