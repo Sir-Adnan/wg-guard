@@ -153,7 +153,9 @@ func TestOpenAPITelemetryContract(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"cpu_percent", "host_rx_bytes_per_second", "online_users"} {
-		if properties[name].(map[string]any)["nullable"] != true {
+		property := properties[name].(map[string]any)
+		types, ok := property["type"].([]any)
+		if !ok || len(types) != 2 || types[1] != "null" {
 			t.Errorf("%s must be nullable", name)
 		}
 	}

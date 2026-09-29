@@ -162,6 +162,10 @@ creation — they can be rotated but never re-displayed. Event catalog and paylo
 
 ## OpenAPI
 
-`/openapi.json` (+ lightweight `/docs` reference) is hand-authored and kept accurate by a
-route-coverage test: every registered route must appear in the document with correct auth and
-pagination declarations.
+`/openapi.json` (+ lightweight `/docs` reference) is hand-authored. A route-coverage test checks
+that every registered route appears with the correct scope and that the document has no stale
+paths; focused contract tests cover selected schemas and behavior.
+The description uses OpenAPI 3.2.1 and JSON Schema null unions. Its `info.version` remains
+`1.0.0` for the unchanged V1 API contract; the `openapi` field versions the description format,
+not a WG-Guard release or a new endpoint set. Consumers parsing the description need tooling
+that understands OpenAPI 3.2; existing HTTP clients do not change.
