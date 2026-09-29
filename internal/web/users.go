@@ -13,6 +13,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -751,7 +752,42 @@ func (s *Server) handleUserTrafficReset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.audit(r, "user.traffic_reset", u.ID, nil)
+	s.runReconcile(r)
 	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.traffic_reset", u.Username)
+}
+
+func (s *Server) handleUserNextPlanQueue(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.loadUser(w, r)
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.badRequest(w, r, "bad form")
+		return
+	}
+	queued, err := s.Integration.QueueNextPlan(r.Context(), integration.QueueNextPlanInput{
+		UserID: u.ID, PlanID: r.PostFormValue("plan_id"),
+		CarryUnusedTraffic: r.PostFormValue("carry_unused_traffic") == "on",
+	})
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "user.next_plan_queued", u.ID, map[string]any{"plan_id": queued.PlanID})
+	s.redirectToast(w, r, "/users/"+u.ID, "users.next_plan.queued")
+}
+
+func (s *Server) handleUserNextPlanCancel(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.loadUser(w, r)
+	if !ok {
+		return
+	}
+	if err := s.Integration.CancelNextPlan(r.Context(), u.ID, nil); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "user.next_plan_canceled", u.ID, nil)
+	s.redirectToast(w, r, "/users/"+u.ID, "users.next_plan.canceled")
 }
 
 // --- bulk -----------------------------------------------------------------------

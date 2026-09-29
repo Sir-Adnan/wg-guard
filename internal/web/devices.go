@@ -12,6 +12,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
@@ -54,6 +55,8 @@ type userDetailData struct {
 	IfaceKnown   bool
 	SubKnown     bool
 	SubRevoked   bool
+	NextPlan     *integration.NextPlan
+	NextPlans    []*planRef
 }
 
 // userDetailUser wraps user.User with display helpers that templates cannot
@@ -80,6 +83,24 @@ func (s *Server) handleUserDetail(w http.ResponseWriter, r *http.Request) {
 	if p, err := s.Plans.Get(ctx, deref(u.PlanID)); err == nil && u.PlanID != nil {
 		data.PlanName = p.Name
 		data.PlanKnown = true
+	}
+	if s.Integration != nil && canOperate(r, auth.ScopeNextPlansRead) {
+		if queued, err := s.Integration.NextPlanForUser(ctx, u.ID, nil); err == nil {
+			data.NextPlan = queued
+		} else {
+			s.logError(r, "next plan read", err)
+		}
+	}
+	if canOperate(r, auth.ScopeNextPlansWrite) {
+		if available, err := s.Plans.List(ctx); err == nil {
+			for _, p := range available {
+				if p.Enabled {
+					data.NextPlans = append(data.NextPlans, &planRef{ID: p.ID, Name: p.Name})
+				}
+			}
+		} else {
+			s.logError(r, "next plan catalog", err)
+		}
 	}
 	if f, err := s.Ifaces.Get(ctx, deref(u.InterfaceID)); err == nil && u.InterfaceID != nil {
 		data.IfaceName = f.Name

@@ -59,6 +59,11 @@ func TestBrowserPhase10(t *testing.T) {
 	if err := e.db.QueryRow(`SELECT id FROM plans LIMIT 1`).Scan(&pid); err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("WG_TEST_UI_SUITE") == "next-plan" {
+		if _, err := e.db.Exec(`UPDATE users SET traffic_limit_bytes = 1000000 WHERE id = ?`, uid); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := e.db.QueryRow(`SELECT id FROM tunnel_interfaces LIMIT 1`).Scan(&iid); err != nil {
 		t.Fatal(err)
 	}

@@ -79,6 +79,14 @@ Statuses: `active`, `disabled`, `suspended`, `expired`, `traffic_exceeded`,
 - Expiration enforcement and quota enforcement run on the internal scheduler (no external cron).
 - Quota exhaustion sets `traffic_exceeded`, preserves the account, and emits an audit event.
 - Renewal: extend from current expiration, extend from now, or set exact date.
+- A queued Next Plan is an explicitly authorized, one-time successor, not a payment instruction.
+  The first end of time or traffic activates it, starts its full duration at activation, and resets
+  charged usage while retaining raw peer baselines. Optional unused traffic carries only on time
+  expiry; unused time does not carry. Manual disable/suspension blocks activation. Only one
+  successor may be queued; it can be replaced or canceled before activation. A change to the
+  current plan or incompatible devices requires re-approval rather than silent activation.
+  Incomplete traffic observations defer activation so carried volume is never computed from stale
+  metering.
 - Operations: create/edit/enable/disable/suspend/delete (soft delete + restore)/renew/clone,
   reset/add/remove traffic, change quota/duration/devices/speed/profile, regenerate and revoke
   device configs. Bulk create (10–100+ with shared properties), bulk actions, export (CSV/ZIP).

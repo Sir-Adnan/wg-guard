@@ -36,6 +36,8 @@ const (
 	ScopeOperationsRead      = "operations.read"
 	ScopeSubscriptionsRead   = "subscriptions.read"
 	ScopeSubscriptionsRotate = "subscriptions.rotate"
+	ScopeNextPlansRead       = "next_plans.read"
+	ScopeNextPlansWrite      = "next_plans.write"
 
 	// Panel/CLI-only scopes (not part of the token REST surface).
 	ScopeAuditView       = "audit.view"
@@ -62,6 +64,7 @@ var scopes = map[string]bool{
 	ScopeIfaceRead: true, ScopeIfaceWrite: true,
 	ScopePurchasesCreate: true, ScopeOperationsRead: true,
 	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
+	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
 	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
 	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
 	ScopeUpdateManage: true,
@@ -80,6 +83,7 @@ var resellerGrantable = map[string]bool{
 	ScopeWebhooksWrite: true, ScopeAPITokensManage: true,
 	ScopePurchasesCreate: true, ScopeOperationsRead: true,
 	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
+	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
 }
 
 func ResellerGrantable(scope string) bool { return resellerGrantable[scope] }

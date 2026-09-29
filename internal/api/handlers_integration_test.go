@@ -115,7 +115,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if rec := send(e.plainTok, http.MethodPost, path, "order-1", `{"plan_id":"`+p.ID+`","username":"other"}`); rec.Code != http.StatusConflict || errCode(t, rec) != domain.CodeIdempotencyKeyReused {
 		t.Fatalf("key payload conflict: %d", rec.Code)
 	}
-	r, err := reseller.NewService(e.db).Create(ctx, "north", "North", []string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate"})
+	r, err := reseller.NewService(e.db).Create(ctx, "north", "North", []string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate", "traffic.update"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	}
 	resellerToken, err := func() (string, error) {
 		_, secret, err := e.tokens.CreateForAdmin(ctx, "owner-1", &r.ID, "north bot",
-			[]string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate"}, nil, "")
+			[]string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate", "traffic.update"}, nil, "")
 		return secret, err
 	}()
 	if err != nil {
@@ -142,6 +142,9 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if rec := send(resellerToken, http.MethodPost, "/api/v1/users/"+firstBody["user_id"].(string)+"/subscription/rotate", "", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("owner customer access rotated by reseller: %d", rec.Code)
 	}
+	if rec := send(resellerToken, http.MethodPost, "/api/v1/users/"+firstBody["user_id"].(string)+"/traffic/reset", "reset-foreign", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("owner usage reset by reseller: %d", rec.Code)
+	}
 	if rec := send(resellerToken, http.MethodPost, path, "order-1", resellerBody); rec.Code != http.StatusForbidden {
 		t.Fatalf("unassigned plan: %d", rec.Code)
 	}
@@ -155,10 +158,101 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if rec := send(resellerToken, http.MethodGet, "/api/v1/users/"+decodeBody(t, owned)["user_id"].(string)+"/subscription", "", ""); rec.Code != http.StatusOK {
 		t.Fatalf("owned customer link: %d", rec.Code)
 	}
+	ownedID := decodeBody(t, owned)["user_id"].(string)
+	if rec := send(resellerToken, http.MethodPost, "/api/v1/users/"+ownedID+"/traffic/reset", "reset-owned", ""); rec.Code != http.StatusOK {
+		t.Fatalf("owned usage reset: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(resellerToken, http.MethodPost, "/api/v1/users/"+ownedID+"/traffic/reset", "reset-owned", ""); rec.Code != http.StatusOK || rec.Header().Get("Idempotency-Replayed") != "true" {
+		t.Fatalf("owned usage reset replay: %d", rec.Code)
+	}
 	if rec := send(resellerToken, http.MethodGet, "/api/v1/operations/result", "owner-only", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("foreign result exposed: %d", rec.Code)
 	}
 	if rec := send(resellerToken, http.MethodGet, "/api/v1/operations/result", "order-1", ""); rec.Code != http.StatusOK || decodeBody(t, rec)["user_id"] != decodeBody(t, owned)["user_id"] {
 		t.Fatalf("own result lookup: %d", rec.Code)
+	}
+}
+
+func TestNextPlanRoutesAreScopedAndRecoverable(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	ifc, err := e.ifaces.Create(ctx, iface.CreateInput{Name: "awg0", ListenPort: 39001, Subnet: "10.77.0.0/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(86400)
+	current, err := e.plans.Create(ctx, plan.Input{Name: "Current", InterfaceID: domain.OptString{Set: true, Value: ifc.ID},
+		TrafficLimitBytes: domain.OptInt64{Set: true, Value: 1000000}, DurationSeconds: &duration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := e.plans.Create(ctx, plan.Input{Name: "Next", InterfaceID: domain.OptString{Set: true, Value: ifc.ID},
+		TrafficLimitBytes: domain.OptInt64{Set: true, Value: 2000000}, DurationSeconds: &duration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	send := func(token, method, path, key, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		if key != "" {
+			req.Header.Set("Idempotency-Key", key)
+		}
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		w := httptest.NewRecorder()
+		e.handler.ServeHTTP(w, req)
+		return w
+	}
+	created := send(e.plainTok, http.MethodPost, "/api/v1/purchases", "next-order", `{"plan_id":"`+current.ID+`"}`)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("purchase: %d %s", created.Code, created.Body.String())
+	}
+	uid := decodeBody(t, created)["user_id"].(string)
+	path := "/api/v1/users/" + uid + "/next-plan"
+	if rec := send(e.plainTok, http.MethodGet, path, "", ""); rec.Code != http.StatusOK || decodeBody(t, rec)["next_plan"] != nil {
+		t.Fatalf("empty queue: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(e.plainTok, http.MethodGet, path+"/activations", "", ""); rec.Code != http.StatusOK {
+		t.Fatalf("empty activation history: %d", rec.Code)
+	}
+	queuedBody := `{"plan_id":"` + next.ID + `"}`
+	if rec := send(e.plainTok, http.MethodPut, path, "queue-1", queuedBody); rec.Code != http.StatusOK || decodeBody(t, rec)["state"] != "queued" {
+		t.Fatalf("queue: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(e.plainTok, http.MethodPut, path, "queue-1", queuedBody); rec.Code != http.StatusOK || rec.Header().Get("Idempotency-Replayed") != "true" {
+		t.Fatalf("queue replay: %d", rec.Code)
+	}
+	r, err := reseller.NewService(e.db).Create(ctx, "north-next", "North", []string{"next_plans.read", "next_plans.write"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.ExecContext(ctx, `INSERT INTO admins
+		(id, username, password_hash, role, created_at, updated_at)
+		VALUES ('owner-next', 'owner-next', 'x', 'owner', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	_, tokenSecret, err := e.tokens.CreateForAdmin(ctx, "owner-next", &r.ID, "next bot", []string{"next_plans.read", "next_plans.write"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodDelete} {
+		body := ""
+		if method == http.MethodPut {
+			body = queuedBody
+		}
+		if rec := send(tokenSecret, method, path, "", body); rec.Code != http.StatusNotFound {
+			t.Fatalf("foreign next-plan %s: %d", method, rec.Code)
+		}
+	}
+	if rec := send(tokenSecret, http.MethodGet, path+"/activations", "", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("foreign activation history: %d", rec.Code)
+	}
+	if rec := send(e.plainTok, http.MethodDelete, path, "cancel-1", ""); rec.Code != http.StatusNoContent {
+		t.Fatalf("cancel: %d", rec.Code)
+	}
+	if rec := send(e.plainTok, http.MethodGet, path, "", ""); rec.Code != http.StatusOK || decodeBody(t, rec)["next_plan"] != nil {
+		t.Fatalf("queue survived cancel: %d", rec.Code)
 	}
 }

@@ -215,6 +215,12 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if count > 0 {
 		return domain.E(domain.CodePlanInUse, "plan is assigned to %d users", count)
 	}
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM next_plan_queue WHERE plan_id = ?`, id).Scan(&count); err != nil {
+		return fmt.Errorf("plan: queued successors: %w", err)
+	}
+	if count > 0 {
+		return domain.E(domain.CodePlanInUse, "plan is queued for %d users", count)
+	}
 	res, err := s.db.ExecContext(ctx, `DELETE FROM plans WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("plan: delete: %w", err)

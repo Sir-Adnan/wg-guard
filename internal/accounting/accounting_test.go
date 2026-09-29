@@ -742,3 +742,43 @@ func TestReconcilerRunsOnTransitions(t *testing.T) {
 		t.Fatalf("expiry must trigger reconcile, runs=%d", runs)
 	}
 }
+
+func TestAfterMeteringRunsBeforePeerReconciliation(t *testing.T) {
+	e := newEnv(t)
+	uid := e.seedUser(t, "next-plan", "active", nil, "immediate")
+	e.seedDevice(t, uid, "phone", keyA, 0, 0)
+	called, reconciled := false, false
+	e.svc.AfterMetering = func(context.Context) (int, error) {
+		called = true
+		return 1, nil
+	}
+	e.svc.Reconciler = reconcilerFunc(func(context.Context) (*reconcile.Report, error) {
+		if !called {
+			t.Fatal("peer reconciliation ran before the successor transition")
+		}
+		reconciled = true
+		return &reconcile.Report{}, nil
+	})
+	rep, err := e.svc.RunCycle(context.Background())
+	if err != nil || rep.NextPlanActivated != 1 || !reconciled {
+		t.Fatalf("successor hook: %+v reconciled=%v err=%v", rep, reconciled, err)
+	}
+}
+
+func TestAfterMeteringWaitsForCompleteInterfaceDump(t *testing.T) {
+	e := newEnv(t)
+	called := false
+	e.svc.AfterMetering = func(context.Context) (int, error) {
+		called = true
+		return 1, nil
+	}
+	if err := e.backend.RemoveInterface(context.Background(), ifaceName); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.RunCycle(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("successor activated while metering was incomplete")
+	}
+}

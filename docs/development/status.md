@@ -34,8 +34,9 @@ Chromium/WebKit browser checks cover the changed routes, 320–1440px layouts, f
 Actual Android/iOS downloads and a fresh VPS deployment of this revision remain unverified;
 v0.1.2 artifacts do not include it.
 
-**Phase 14 development:** The owner approved isolated reseller accounts and tokens, and four
-independent carry/replace combinations for time and volume with conditional reversal. The 14.0
+**Phase 14 development:** The owner approved isolated reseller accounts and tokens, then replaced
+the proposed four-way time/volume renewal with independent Reset Usage and a queued Next Plan.
+The 14.0
 idempotency hardening authenticates before replay, scopes keys per token and rejects active
 pre-upgrade keys. Targeted API tests cover anonymous, wrong-scope and revoked-token replays,
 cross-token key reuse and legacy-key fail-closed behavior. The security correction shipped in
@@ -55,7 +56,15 @@ one transaction; same-principal retries and result lookup survive token rotation
 purchases require an assigned enabled plan. Service/API rollback, replay, key-conflict and
 cross-principal tests pass; customer links are a separate scoped, no-store read. A second scope
 atomically rotates the link and every device key; owner/reseller and old-credential tests pass.
-Combined renewal, conditional reversal and their host verification remain in development.
+The Phase 14 branch now has an owned usage-reset route and one queued successor per user. Plan
+terms are snapshotted at queue time; a bounded pass after metering activates a successor at the
+first time/quota boundary, resets charged usage and device totals in the same transaction, records
+the transition, and leaves manually disabled/suspended users blocked. An optional carry toggle
+adds unused volume only when time ends first. Changed current plans or incompatible devices move
+the queue to needs_review. Service/API, fresh-migration and focused Chromium layout checks pass;
+upgrade migration, physical-device and real-host behavior of this unreleased code are not yet verified.
+Typed tenant webhooks, final integration gates and any separately justified immediate plan
+replacement/correction contract remain open.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|

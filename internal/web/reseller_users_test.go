@@ -4,9 +4,12 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -83,5 +86,65 @@ func TestResellerPortalReadBoundary(t *testing.T) {
 	}
 	if rec := e.get("/reseller/users", cookie); rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/login") {
 		t.Fatalf("disabled reseller retained session: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestResellerNextPlanAndUsageActionsStayOwned(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	e.seedIface()
+	ctx := context.Background()
+	north, err := e.srv.Resellers.Create(ctx, "next-north", "North", []string{
+		"users.read", "next_plans.read", "next_plans.write", "traffic.update"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.admins.CreateForReseller(ctx, north.ID, "north-next", testPassword,
+		[]string{"users.read", "next_plans.read", "next_plans.write", "traffic.update"}); err != nil {
+		t.Fatal(err)
+	}
+	var ifaceID string
+	if err := e.db.QueryRowContext(ctx, `SELECT id FROM tunnel_interfaces LIMIT 1`).Scan(&ifaceID); err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(86400)
+	p, err := e.srv.Plans.Create(ctx, plan.Input{Name: "Reseller successor",
+		InterfaceID:       domain.OptString{Set: true, Value: ifaceID},
+		TrafficLimitBytes: domain.OptInt64{Set: true, Value: 2000000}, DurationSeconds: &duration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.srv.Resellers.SetPlans(ctx, north.ID, []string{p.ID}); err != nil {
+		t.Fatal(err)
+	}
+	owned, err := e.srv.Users.Create(ctx, user.Input{Username: "north-next-user", ResellerID: &north.ID,
+		TrafficLimitBytes: domain.OptInt64{Set: true, Value: 1000000}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := e.srv.Users.Create(ctx, user.Input{Username: "owner-next-user",
+		TrafficLimitBytes: domain.OptInt64{Set: true, Value: 1000000}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := e.loginEN("north-next")
+	csrf := deriveCSRF(cookie.Value)
+	if rec := e.get("/reseller/users/"+owned.ID, cookie); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Reseller successor") {
+		t.Fatalf("assigned plan form: %d", rec.Code)
+	}
+	if rec := e.post("/reseller/users/"+owned.ID+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("owned queue: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := e.post("/reseller/users/"+foreign.ID+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusNotFound {
+		t.Fatalf("foreign queue: %d", rec.Code)
+	}
+	if rec := e.post("/users/"+owned.ID+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusForbidden {
+		t.Fatalf("operator route used from reseller session: %d", rec.Code)
+	}
+	if rec := e.post("/reseller/users/"+owned.ID+"/traffic/reset", url.Values{}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("owned reset: %d", rec.Code)
+	}
+	if rec := e.post("/reseller/users/"+foreign.ID+"/traffic/reset", url.Values{}, cookie, csrf); rec.Code != http.StatusNotFound {
+		t.Fatalf("foreign reset: %d", rec.Code)
 	}
 }

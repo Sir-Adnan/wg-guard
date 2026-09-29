@@ -2,7 +2,7 @@
   "openapi": "3.2.1",
   "info": {
     "title": "WG-Guard API",
-    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use only explicit ownership-checked customer reads and the plan-gated purchase/result operations; legacy mutations and node-wide aggregates remain unavailable. All errors use one envelope (`error.code` is a stable machine code). Legacy mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. New purchases commit the user, initial device, customer link and non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use explicit ownership-checked routes; legacy mutations and node-wide aggregates remain unavailable except owned usage reset. All errors use one envelope (`error.code` is a stable machine code). Legacy mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. New purchases commit the user, initial device, customer link and non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/" }],
@@ -164,6 +164,39 @@
         "responses": { "200": { "description": "New private link and count of rotated devices", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLinkRotation" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "503": { "description": "Database rotation committed; runtime reconciliation pending" } }
       }
     },
+    "/api/v1/users/{id}/next-plan": {
+      "get": {
+        "tags": ["integration"], "summary": "Read the queued successor plan", "operationId": "getNextPlan",
+        "description": "Returns null when no successor is queued. Reseller tokens can read only their own customers.",
+        "security": [{ "BearerAuth": ["next_plans.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Current queue state", "content": { "application/json": { "schema": { "type": "object", "required": ["next_plan"], "properties": { "next_plan": { "anyOf": [{ "$ref": "#/components/schemas/NextPlan" }, { "type": "null" }] } } } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "put": {
+        "tags": ["integration"], "summary": "Queue or replace one authorized successor", "operationId": "putNextPlan",
+        "description": "No payment is taken. The caller must have already authorized this entitlement. Plan terms are snapshotted when queued, so later catalog edits or reseller-plan revocation do not rewrite it. At the first time or quota boundary the new plan starts once, with fresh usage counters. A manual suspension/disable blocks automatic activation. A changed current plan or incompatible device set moves the queue to needs_review. Optional carry_unused_traffic adds only unused prior traffic when time ends first, never time. Reseller tokens require an owner-assigned enabled plan. Optional Idempotency-Key provides token-scoped 24-hour replay.",
+        "security": [{ "BearerAuth": ["next_plans.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlanRequest" }, "example": { "plan_id": "plan-uuid", "carry_unused_traffic": false } } } },
+        "responses": { "200": { "description": "Queued successor", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlan" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "delete": {
+        "tags": ["integration"], "summary": "Cancel the queued successor", "operationId": "deleteNextPlan",
+        "description": "Idempotent removal; it does not reverse an already activated plan. Optional Idempotency-Key provides token-scoped 24-hour replay.",
+        "security": [{ "BearerAuth": ["next_plans.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "204": { "description": "Queue removed or already absent" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/users/{id}/next-plan/activations": {
+      "get": {
+        "tags": ["integration"], "summary": "Recover recent automatic successor activations", "operationId": "listNextPlanActivations",
+        "description": "Returns newest first, at most 100, retained for one year. Includes non-secret before/after entitlement snapshots and the actual first boundary trigger. Reseller tokens see only their own customers. This read is the fallback when an asynchronous notification is missed.",
+        "security": [{ "BearerAuth": ["next_plans.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }, { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }],
+        "responses": { "200": { "description": "Recent activations", "content": { "application/json": { "schema": { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/NextPlanActivation" } } } } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
     "/api/v1/users/{id}/enable": {
       "post": {
         "tags": ["users"], "summary": "Enable a user (returns to active/waiting)", "security": [{ "BearerAuth": ["users.update"] }],
@@ -205,7 +238,7 @@
     },
     "/api/v1/users/{id}/traffic/reset": {
       "post": {
-        "tags": ["users"], "summary": "Reset usage to zero (one-op unblock)", "description": "Idempotent with `Idempotency-Key`. Zeroes user and device totals; a traffic_exceeded account returns to active (or waiting per policy).", "security": [{ "BearerAuth": ["traffic.update"] }],
+        "tags": ["users"], "summary": "Reset usage to zero (one-op unblock)", "description": "Idempotent with `Idempotency-Key`. Zeroes user and device totals while retaining peer baselines; a traffic_exceeded account returns to active (or waiting per policy). Reseller tokens can reset only owned customers.", "security": [{ "BearerAuth": ["traffic.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "responses": { "200": { "description": "Reset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
       }
@@ -431,6 +464,11 @@
       "OperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "plan_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "plan_id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
       "CustomerLink": { "type": "object", "required": ["path"], "properties": { "path": { "type": "string", "description": "Secret relative subscription path /sub/{token}; do not log or expose publicly." } } },
       "CustomerLinkRotation": { "type": "object", "required": ["path", "devices_rotated"], "properties": { "path": { "type": "string" }, "devices_rotated": { "type": "integer", "minimum": 0 } } },
+      "NextPlanRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "carry_unused_traffic": { "type": "boolean", "default": false } } },
+      "NextPlanTerms": { "type": "object", "required": ["name", "traffic_limit_bytes", "duration_seconds", "device_limit", "speed_limit_down_kbps", "speed_limit_up_kbps", "interface_id"], "properties": { "name": { "type": "string" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "duration_seconds": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "interface_id": { "type": ["string", "null"] } } },
+      "NextPlan": { "type": "object", "required": ["user_id", "plan_id", "terms", "carry_unused_traffic", "state", "created_at"], "properties": { "user_id": { "type": "string" }, "plan_id": { "type": "string" }, "terms": { "$ref": "#/components/schemas/NextPlanTerms" }, "carry_unused_traffic": { "type": "boolean" }, "state": { "type": "string", "enum": ["queued", "needs_review"] }, "review_reason": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "NextPlanEntitlementState": { "type": "object", "required": ["plan_id", "expires_at", "traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "plan_id": { "type": ["string", "null"] }, "expires_at": { "type": ["string", "null"], "format": "date-time" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "traffic_used_rx": { "type": "integer" }, "traffic_used_tx": { "type": "integer" }, "status": { "type": "string" } } },
+      "NextPlanActivation": { "type": "object", "required": ["activation_id", "user_id", "plan_id", "trigger", "before", "after", "activated_at"], "properties": { "activation_id": { "type": "string" }, "user_id": { "type": "string" }, "plan_id": { "type": "string" }, "trigger": { "type": "string", "enum": ["time", "quota"] }, "before": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "after": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "activated_at": { "type": "string", "format": "date-time" } } },
       "Error": {
         "type": "object",
         "properties": {

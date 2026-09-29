@@ -68,6 +68,9 @@ type Service struct {
 	// Recorder (optional) emits durable webhook events for lifecycle
 	// transitions. Nil = no events (tests).
 	Recorder EventRecorder
+	// AfterMetering runs bounded entitlement transitions after fresh usage is
+	// committed and before peer reconciliation/expiry. Nil in older tests.
+	AfterMetering func(context.Context) (int, error)
 
 	samples accumulator
 }
@@ -107,20 +110,23 @@ type CycleError struct {
 
 // CycleReport summarizes one accounting cycle. It carries no key material.
 type CycleReport struct {
-	Interfaces    int
-	Deltas        int    // devices with traffic this cycle
-	RX, TX        uint64 // delta sums
-	Activated     int    // first-connection activations
-	QuotaTripped  int    // users flipped to traffic_exceeded
-	ShaperApplied bool
-	ShaperError   string
-	Errors        []CycleError
-	Reconciled    *reconcile.Report // set when transitions triggered a pass
-	Duration      time.Duration
+	Interfaces        int
+	Deltas            int    // devices with traffic this cycle
+	RX, TX            uint64 // delta sums
+	Activated         int    // first-connection activations
+	QuotaTripped      int    // users flipped to traffic_exceeded
+	NextPlanActivated int    // queued successors activated after fresh metering
+	ShaperApplied     bool
+	ShaperError       string
+	Errors            []CycleError
+	Reconciled        *reconcile.Report // set when transitions triggered a pass
+	Duration          time.Duration
 }
 
 // ReconcileNeeded reports whether the cycle changed who may hold peers.
-func (r *CycleReport) ReconcileNeeded() bool { return r.Activated > 0 || r.QuotaTripped > 0 }
+func (r *CycleReport) ReconcileNeeded() bool {
+	return r.Activated > 0 || r.QuotaTripped > 0 || r.NextPlanActivated > 0
+}
 
 // RunCycle dumps every enabled interface once, then applies all deltas,
 // activity, and lifecycle transitions in one transaction.
@@ -138,9 +144,11 @@ func (s *Service) RunCycle(ctx context.Context) (*CycleReport, error) {
 	// Dumps run OUTSIDE the write transaction: subprocesses must never hold
 	// the SQLite write lock.
 	observed := map[string]tunnel.PeerState{}
+	meteringComplete := true
 	for _, ifc := range ifaces {
 		st, err := s.backend.Dump(ctx, ifc.name)
 		if err != nil {
+			meteringComplete = false
 			if errors.Is(err, tunnel.ErrInterfaceNotFound) {
 				continue // reconciler's business, not accounting's
 			}
@@ -166,6 +174,15 @@ func (s *Service) RunCycle(ctx context.Context) (*CycleReport, error) {
 	}
 
 	s.record(ctx, pendingAudit)
+	// An incomplete dump cannot establish the remaining volume to carry
+	// into a successor. Defer all automatic activation until a clean cycle.
+	if s.AfterMetering != nil && meteringComplete {
+		count, err := s.AfterMetering(ctx)
+		rep.NextPlanActivated = count
+		if err != nil {
+			rep.Errors = append(rep.Errors, CycleError{Interface: "*", Err: "next-plan activation: " + err.Error()})
+		}
+	}
 
 	// Enforcement that changed peer eligibility must actually stop traffic.
 	if s.Reconciler != nil && rep.ReconcileNeeded() {

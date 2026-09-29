@@ -7,6 +7,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -22,9 +23,11 @@ type resellerUsersData struct {
 }
 
 type resellerUserData struct {
-	User    *user.User
-	Used    int64
-	Devices []*deviceView
+	User      *user.User
+	Used      int64
+	Devices   []*deviceView
+	NextPlan  *integration.NextPlan
+	NextPlans []*planRef
 }
 
 func (s *Server) handleResellerUsers(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +79,29 @@ func (s *Server) handleResellerUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := resellerUserData{User: u, Used: u.TrafficUsedRX + u.TrafficUsedTX}
+	if auth.Allows(adminFrom(r).Permissions, auth.ScopeNextPlansRead) {
+		queued, err := s.Integration.NextPlanForUser(r.Context(), u.ID, adminFrom(r).ResellerID)
+		if err != nil {
+			s.logError(r, "reseller next plan unavailable", err)
+			s.surfaceError(w, r, http.StatusServiceUnavailable, "common.error_generic", "")
+			return
+		}
+		d.NextPlan = queued
+	}
+	if auth.Allows(adminFrom(r).Permissions, auth.ScopeNextPlansWrite) {
+		ids, err := s.Resellers.Plans(r.Context(), *adminFrom(r).ResellerID)
+		if err != nil {
+			s.logError(r, "reseller plans unavailable", err)
+			s.surfaceError(w, r, http.StatusServiceUnavailable, "common.error_generic", "")
+			return
+		}
+		for _, id := range ids {
+			p, err := s.Plans.Get(r.Context(), id)
+			if err == nil && p.Enabled {
+				d.NextPlans = append(d.NextPlans, &planRef{ID: p.ID, Name: p.Name})
+			}
+		}
+	}
 	if auth.Allows(adminFrom(r).Permissions, auth.ScopeDevicesRead) {
 		devices, err := s.Devices.ListForUser(r.Context(), u.ID)
 		if err != nil {
@@ -86,6 +112,54 @@ func (s *Server) handleResellerUser(w http.ResponseWriter, r *http.Request) {
 		d.Devices = safeDeviceViews(devices)
 	}
 	_ = s.render(w, r, "reseller_user", "app", d)
+}
+
+func (s *Server) handleResellerNextPlanQueue(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.resellerOwnedUser(w, r, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.badRequest(w, r, "bad form")
+		return
+	}
+	queued, err := s.Integration.QueueNextPlan(r.Context(), integration.QueueNextPlanInput{
+		UserID: u.ID, PlanID: r.PostFormValue("plan_id"), ResellerID: adminFrom(r).ResellerID,
+		CarryUnusedTraffic: r.PostFormValue("carry_unused_traffic") == "on",
+	})
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "user.next_plan_queued", u.ID, map[string]any{"plan_id": queued.PlanID})
+	s.redirectToast(w, r, "/reseller/users/"+u.ID, "users.next_plan.queued")
+}
+
+func (s *Server) handleResellerNextPlanCancel(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.resellerOwnedUser(w, r, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	if err := s.Integration.CancelNextPlan(r.Context(), u.ID, adminFrom(r).ResellerID); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "user.next_plan_canceled", u.ID, nil)
+	s.redirectToast(w, r, "/reseller/users/"+u.ID, "users.next_plan.canceled")
+}
+
+func (s *Server) handleResellerTrafficReset(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.resellerOwnedUser(w, r, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	if err := s.Accounting.ResetTraffic(r.Context(), u.ID, s.actorFrom(r)); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "user.traffic_reset", u.ID, nil)
+	s.runReconcile(r)
+	s.redirectToast(w, r, "/reseller/users/"+u.ID, "users.toast.traffic_reset", u.Username)
 }
 
 func (s *Server) resellerOwnedDevice(w http.ResponseWriter, r *http.Request) (*device.Device, bool) {

@@ -35,7 +35,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   `{"speed_limit_up_kbps": null}` removes only the upload cap); a value sets it. This is how
   independent up/down speed limits change one at a time without re-sending the other.
 - **Idempotency**: `Idempotency-Key` header (1–128 printable chars) is persisted for create-user,
-  bulk create/action, renew, and traffic mutations. Authentication, scope checks and rate limits
+  bulk create/action, renew, traffic mutations and successor-plan queue/cancel. Authentication, scope checks and rate limits
   precede every replay. Keys are isolated per verified API token: the same token and request
   replay the stored response with `Idempotency-Replayed: true`; a different request using that
   token's key returns 409 (`IDEMPOTENCY_KEY_REUSED`). Keys remain valid for 24 h, with expired
@@ -62,7 +62,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 |---|---|
 | Node | `GET /node`, `GET /node/health`, `GET /node/stats` |
 | Users | `POST/GET /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/enable\|disable\|renew`, `POST /users/{id}/traffic/add\|set\|reset`, `GET /users/{id}/traffic` (series) |
-| Integration | `POST /purchases`, `GET /operations/result` (both use an `Idempotency-Key` header), `GET /users/{id}/subscription` (private relative customer link), `POST /users/{id}/subscription/rotate` (link and all device keys) |
+| Integration | `POST /purchases`, `GET /operations/result` (both use an `Idempotency-Key` header), `GET /users/{id}/subscription` (private relative customer link), `POST /users/{id}/subscription/rotate` (link and all device keys), `GET/PUT/DELETE /users/{id}/next-plan` (one authorized successor), `GET /users/{id}/next-plan/activations` (bounded recovery history) |
 | Bulk | `POST /users/bulk`, `POST /users/bulk-action` (`{action, user_ids, params}`) |
 | Devices | `GET/POST /users/{id}/devices`, `GET/PATCH/DELETE /devices/{id}`, `POST /devices/{id}/enable\|disable\|regenerate`, `GET /devices/{id}/config\|qr` |
 | Stats | `GET /stats`, `GET /node/telemetry`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
@@ -83,9 +83,22 @@ non-secret result together. Reseller purchases require owner-assigned plan acces
 integrations may use any enabled plan. Omitted usernames are generated deterministically from
 the principal and key. Reconciliation follows the database commit, so `committed` does not
 assert a successful live handshake. A user ID is opaque and `{id}` is not a username.
-Legacy `POST /users/{id}/renew`
-changes the expiry policy only; quota and consumed-traffic operations are separate. There is no
-atomic combined time/volume renewal, conditional reversal of a prior renewal, or batch-by-ID read.
+Legacy `POST /users/{id}/renew` changes the expiry policy only; quota and consumed-traffic
+operations are separate. `POST /users/{id}/traffic/reset` is the independent one-op Reset Usage
+action; a reseller with `traffic.update` may invoke it only for an owned customer. There is no
+four-policy combined renewal or batch-by-ID read.
+`GET/PUT/DELETE /users/{id}/next-plan` uses dedicated read/write scopes and ownership checks.
+One explicitly authorized successor is queued per customer; putting another replaces it. This
+does not charge the customer. Plan terms are copied at queue time, and later catalog edits or
+reseller-plan access changes do not silently alter a paid successor. The first actual time or
+quota boundary activates it once, starting the new duration then and resetting charged usage;
+raw peer baselines remain intact. Optional unused-volume carry applies only on time expiry.
+Manual disable/suspension pauses activation; current-plan or device incompatibility sets a
+visible `needs_review` state. The periodic pass inspects at most 50 due successors per cycle.
+An incomplete tunnel dump defers this pass so stale metering cannot over-credit carried traffic.
+The queue can be canceled before activation; cancellation is not reversal of an activated plan.
+The bounded activation read returns the latest 20 (up to 100) non-secret before/after records
+for one year so a bot can recover a missed asynchronous transition.
 The customer subscription capability path is readable via a scoped, no-store REST endpoint;
 rotation uses a separate sensitive scope and atomically replaces the link and all device keys.
 The new state is retained if runtime reconciliation fails, and a 503 tells the caller to inspect
@@ -100,9 +113,9 @@ reseller panel accounts and their tokens are restricted to users owned by that r
 configurable grants that cannot exceed the reseller's current permissions. Ownership applies to
 every read, mutation, aggregate, config, public-link management action and webhook, not only list
 filters. The purchase/result flow, customer-link delivery and credential rotation are implemented
-in the Phase 14 branch. Renewal still needs independent time/volume carry or replace choices,
-explicit preconditions and conditional reversal preserving later usage; tenant webhook fanout
-also remains. Existing V1 endpoints keep their meanings.
+in the Phase 14 branch. The one-successor queue and owned Reset Usage are also implemented there;
+immediate plan replacement/correction remains a separately assessed integration need. Tenant
+webhook fanout also remains. Existing V1 endpoints keep their meanings.
 
 ## Live telemetry
 

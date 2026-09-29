@@ -26,6 +26,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -41,17 +42,18 @@ import (
 // Deps wires the services the panel renders. The same instances the REST
 // API uses are passed in — one business layer, two surfaces.
 type Deps struct {
-	DB        *database.DB
-	Sessions  *auth.SessionStore
-	Admins    *admin.Service
-	Resellers *reseller.Service
-	Settings  *settings.Registry
-	Ring      *secrets.KeyRing
-	Audit     *audit.Service
-	Users     *user.Service
-	Devices   *device.Service
-	Plans     *plan.Service
-	Ifaces    *iface.Service
+	DB          *database.DB
+	Sessions    *auth.SessionStore
+	Admins      *admin.Service
+	Resellers   *reseller.Service
+	Settings    *settings.Registry
+	Ring        *secrets.KeyRing
+	Audit       *audit.Service
+	Users       *user.Service
+	Devices     *device.Service
+	Plans       *plan.Service
+	Integration *integration.Service
+	Ifaces      *iface.Service
 	// ProfileGenerator is the canonical server-side profile preview seam.
 	// It defaults to Ifaces.GenerateProfile; tests may replace it to exercise
 	// entropy failures without weakening the production generator.
@@ -118,6 +120,9 @@ func New(d Deps) (*Server, error) {
 	if s.Resellers == nil && s.DB != nil {
 		s.Resellers = reseller.NewService(s.DB)
 	}
+	if s.Integration == nil && s.DB != nil && s.Plans != nil {
+		s.Integration = &integration.Service{DB: s.DB, Users: s.Users, Plans: s.Plans}
+	}
 	if s.ProfileGenerator == nil && d.Ifaces != nil {
 		s.ProfileGenerator = d.Ifaces.GenerateProfile
 	}
@@ -165,6 +170,9 @@ func (s *Server) Handler() http.Handler {
 	// --- app pages ---
 	mux.HandleFunc("GET /reseller/users", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUsers))
 	mux.HandleFunc("GET /reseller/users/{id}", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUser))
+	mux.HandleFunc("POST /reseller/users/{id}/next-plan", s.requireReseller(auth.ScopeNextPlansWrite, s.handleResellerNextPlanQueue))
+	mux.HandleFunc("POST /reseller/users/{id}/next-plan/cancel", s.requireReseller(auth.ScopeNextPlansWrite, s.handleResellerNextPlanCancel))
+	mux.HandleFunc("POST /reseller/users/{id}/traffic/reset", s.requireReseller(auth.ScopeTrafficUpdate, s.handleResellerTrafficReset))
 	mux.HandleFunc("GET /reseller/devices/{id}/config", s.requireReseller(auth.ScopeConfigsRead, s.handleResellerDeviceConfig))
 	mux.HandleFunc("GET /reseller/devices/{id}/qr", s.requireReseller(auth.ScopeConfigsRead, s.handleResellerDeviceQR))
 	mux.HandleFunc("GET /reseller/tokens", s.requireReseller(auth.ScopeAPITokensManage, s.handleResellerTokensPage))
@@ -195,6 +203,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /users/{id}/renew", s.requirePermission(auth.ScopeUsersUpdate, s.handleUserRenew))
 	mux.HandleFunc("POST /users/{id}/traffic/add", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficAdd))
 	mux.HandleFunc("POST /users/{id}/traffic/reset", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficReset))
+	mux.HandleFunc("POST /users/{id}/next-plan", s.requirePermission(auth.ScopeNextPlansWrite, s.handleUserNextPlanQueue))
+	mux.HandleFunc("POST /users/{id}/next-plan/cancel", s.requirePermission(auth.ScopeNextPlansWrite, s.handleUserNextPlanCancel))
 	mux.HandleFunc("GET /users/{id}/configs.zip", s.requirePermission(auth.ScopeConfigsRead, s.handleUserConfigsArchive))
 	mux.HandleFunc("POST /users/{id}/sub/create", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubCreate))
 	mux.HandleFunc("POST /users/{id}/sub/regenerate", s.requirePermission(auth.ScopeUsersUpdate, s.handleSubRegenerate))

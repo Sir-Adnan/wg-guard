@@ -291,6 +291,9 @@ func (s *Server) handleTrafficReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "user.traffic_reset", id, nil)
+	// A traffic_exceeded account can become active here; restore its peer
+	// promptly instead of waiting for a later runtime repair pass.
+	s.reconcile(r)
 	u, err := s.Users.Get(r.Context(), id)
 	if err != nil {
 		writeServiceErr(w, r, err)
