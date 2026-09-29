@@ -40,6 +40,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
@@ -397,6 +398,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Webhooks:     webhooksSvc,
 		Metrics:      n.metrics,
 		Telemetry:    n.telemetry,
+		Links:        links,
 		Log:          logs.http,
 		Reconciler:   rec,
 		NodeID:       nodeID,
@@ -803,7 +805,7 @@ func (n *Node) jobBackups(ctx context.Context) error {
 	return err
 }
 
-// jobHousekeeping prunes expired idempotency keys, dead sessions, old
+// jobHousekeeping prunes expired idempotency keys and operation results, dead sessions, old
 // samples/rollups and webhook events, and re-reads runtime-tunable API
 // settings so PATCHes apply without a restart.
 func (n *Node) jobHousekeeping(ctx context.Context) error {
@@ -812,6 +814,11 @@ func (n *Node) jobHousekeeping(ctx context.Context) error {
 		n.log.Warn("housekeeping: idempotency prune failed", "err", err)
 	} else if rows > 0 {
 		n.log.Debug("housekeeping: idempotency keys pruned", "rows", rows)
+	}
+	if rows, err := integration.Prune(ctx, n.db, now); err != nil {
+		n.log.Warn("housekeeping: integration result prune failed", "err", err)
+	} else if rows > 0 {
+		n.log.Debug("housekeeping: integration results pruned", "rows", rows)
 	}
 	if rows, err := n.sessions.Prune(ctx, now); err != nil {
 		n.log.Warn("housekeeping: session prune failed", "err", err)

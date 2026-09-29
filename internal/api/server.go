@@ -13,10 +13,12 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
@@ -26,20 +28,22 @@ import (
 // Deps wires everything the REST surface needs. Nil-able collaborators
 // (audit, metrics, accounting) degrade gracefully for tests.
 type Deps struct {
-	DB         *database.DB
-	Tokens     *token.Service
-	Users      *user.Service
-	Devices    *device.Service
-	Plans      *plan.Service
-	Ifaces     *iface.Service
-	Settings   *settings.Registry
-	Ring       *secrets.KeyRing
-	Audit      *audit.Service
-	Accounting *accounting.Service
-	Webhooks   *webhook.Service
-	Metrics    *metrics.Collector
-	Telemetry  *telemetry.Sampler
-	Log        *slog.Logger
+	DB          *database.DB
+	Tokens      *token.Service
+	Users       *user.Service
+	Devices     *device.Service
+	Plans       *plan.Service
+	Ifaces      *iface.Service
+	Settings    *settings.Registry
+	Ring        *secrets.KeyRing
+	Audit       *audit.Service
+	Accounting  *accounting.Service
+	Webhooks    *webhook.Service
+	Metrics     *metrics.Collector
+	Telemetry   *telemetry.Sampler
+	Links       *subscription.Service
+	Integration *integration.Service
+	Log         *slog.Logger
 
 	// ClientConf renders client configs + QR (shared with the web panel).
 	ClientConf *clientconf.Renderer
@@ -67,27 +71,35 @@ type Server struct {
 // routeDef is one registered route — the single source of truth shared by
 // the mux, the OpenAPI coverage test, and the route smoke test.
 type routeDef struct {
-	Method     string
-	Path       string
-	Scope      string // "" = public
-	Handler    http.HandlerFunc
-	Idempotent bool
-	Paginated  bool
-	NoStore    bool       // sensitive response (config/qr)
-	TenantRead tenantRead // zero value denies reseller-bound tokens
+	Method       string
+	Path         string
+	Scope        string // "" = public
+	Handler      http.HandlerFunc
+	Idempotent   bool
+	Paginated    bool
+	NoStore      bool         // sensitive response (config/qr)
+	TenantPolicy tenantPolicy // zero value denies reseller-bound tokens
 }
 
-type tenantRead uint8
+type tenantPolicy uint8
 
 const (
-	tenantDenied tenantRead = iota
+	tenantDenied tenantPolicy = iota
 	tenantUserList
 	tenantUserID
 	tenantDeviceID
+	tenantPrincipalOperation // own namespace is derived from the verified token
 )
 
 // New builds the server and registers every route.
 func New(d Deps) *Server {
+	if d.Links == nil && d.DB != nil && d.Ring != nil {
+		d.Links = subscription.NewService(d.DB, d.Ring)
+	}
+	if d.Integration == nil && d.Links != nil {
+		d.Integration = &integration.Service{DB: d.DB, Users: d.Users, Devices: d.Devices,
+			Plans: d.Plans, Links: d.Links}
+	}
 	if d.ClientConf == nil {
 		d.ClientConf = &clientconf.Renderer{
 			Devices: d.Devices, Ifaces: d.Ifaces, Settings: d.Settings,
@@ -169,9 +181,12 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/telemetry", Scope: "stats.read", Handler: s.handleTelemetry})
 
 	// --- Users ---
+	add(routeDef{Method: http.MethodPost, Path: "/api/v1/purchases", Scope: "purchases.create", Handler: s.handlePurchase, TenantPolicy: tenantPrincipalOperation})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/operations/result", Scope: "operations.read", Handler: s.handleOperationResult, TenantPolicy: tenantPrincipalOperation})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users", Scope: "users.create", Handler: s.handleUserCreate, Idempotent: true})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users", Scope: "users.read", Handler: s.handleUserList, Paginated: true, TenantRead: tenantUserList})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}", Scope: "users.read", Handler: s.handleUserGet, TenantRead: tenantUserID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users", Scope: "users.read", Handler: s.handleUserList, Paginated: true, TenantPolicy: tenantUserList})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}", Scope: "users.read", Handler: s.handleUserGet, TenantPolicy: tenantUserID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/subscription", Scope: "subscriptions.read", Handler: s.handleCustomerLink, NoStore: true, TenantPolicy: tenantUserID})
 	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/users/{id}", Scope: "users.update", Handler: s.handleUserUpdate})
 	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/users/{id}", Scope: "users.delete", Handler: s.handleUserDelete})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/enable", Scope: "users.update", Handler: s.handleUserEnable})
@@ -180,26 +195,26 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/traffic/add", Scope: "traffic.update", Handler: s.handleTrafficAdd, Idempotent: true})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/traffic/set", Scope: "traffic.update", Handler: s.handleTrafficSet, Idempotent: true})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/traffic/reset", Scope: "traffic.update", Handler: s.handleTrafficReset, Idempotent: true})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/traffic", Scope: "traffic.read", Handler: s.handleTrafficSeries, TenantRead: tenantUserID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/traffic", Scope: "traffic.read", Handler: s.handleTrafficSeries, TenantPolicy: tenantUserID})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/bulk", Scope: "users.bulk", Handler: s.handleBulkCreate, Idempotent: true})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/bulk-action", Scope: "users.bulk", Handler: s.handleBulkAction, Idempotent: true})
 
 	// --- Devices ---
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/devices", Scope: "devices.read", Handler: s.handleDeviceListForUser, TenantRead: tenantUserID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/devices", Scope: "devices.read", Handler: s.handleDeviceListForUser, TenantPolicy: tenantUserID})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/devices", Scope: "devices.write", Handler: s.handleDeviceCreate})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}", Scope: "devices.read", Handler: s.handleDeviceGet, TenantRead: tenantDeviceID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}", Scope: "devices.read", Handler: s.handleDeviceGet, TenantPolicy: tenantDeviceID})
 	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/devices/{id}", Scope: "devices.write", Handler: s.handleDeviceUpdate})
 	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/devices/{id}", Scope: "devices.write", Handler: s.handleDeviceDelete})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/devices/{id}/enable", Scope: "devices.write", Handler: s.handleDeviceEnable})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/devices/{id}/disable", Scope: "devices.write", Handler: s.handleDeviceDisable})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/devices/{id}/regenerate", Scope: "devices.write", Handler: s.handleDeviceRegenerate})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/config", Scope: "configs.read", Handler: s.handleDeviceConfig, NoStore: true, TenantRead: tenantDeviceID})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/qr", Scope: "configs.read", Handler: s.handleDeviceQR, NoStore: true, TenantRead: tenantDeviceID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/config", Scope: "configs.read", Handler: s.handleDeviceConfig, NoStore: true, TenantPolicy: tenantDeviceID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/qr", Scope: "configs.read", Handler: s.handleDeviceQR, NoStore: true, TenantPolicy: tenantDeviceID})
 
 	// --- Stats ---
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/stats", Scope: "stats.read", Handler: s.handleStats})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/stats", Scope: "stats.read", Handler: s.handleUserStats, TenantRead: tenantUserID})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/stats", Scope: "stats.read", Handler: s.handleDeviceStats, TenantRead: tenantDeviceID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/stats", Scope: "stats.read", Handler: s.handleUserStats, TenantPolicy: tenantUserID})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/stats", Scope: "stats.read", Handler: s.handleDeviceStats, TenantPolicy: tenantDeviceID})
 
 	// --- Plans ---
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/plans", Scope: "plans.read", Handler: s.handlePlanList})

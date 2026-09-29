@@ -208,15 +208,17 @@ func (s *Server) authMiddleware(route routeDef, next http.Handler) http.Handler 
 			return
 		}
 		if v.Token.ResellerID != nil {
-			if route.TenantRead == tenantDenied {
+			if route.TenantPolicy == tenantDenied {
 				writeErr(w, r, http.StatusForbidden, domain.CodeForbidden,
 					"reseller access is not enabled for this operation")
 				return
 			}
 			var belongs bool
-			switch route.TenantRead {
+			switch route.TenantPolicy {
 			case tenantUserList:
 				belongs = true // the list handler applies the reseller filter
+			case tenantPrincipalOperation:
+				belongs = true // operation service derives scope from verified token
 			case tenantUserID:
 				belongs, err = s.userBelongsToReseller(r.Context(), r.PathValue("id"), *v.Token.ResellerID)
 			case tenantDeviceID:
@@ -228,7 +230,7 @@ func (s *Server) authMiddleware(route routeDef, next http.Handler) http.Handler 
 			}
 			if !belongs {
 				code := domain.CodeUserNotFound
-				if route.TenantRead == tenantDeviceID {
+				if route.TenantPolicy == tenantDeviceID {
 					code = domain.CodeDeviceNotFound
 				}
 				writeErr(w, r, http.StatusNotFound, code, "resource not found")

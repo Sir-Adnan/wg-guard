@@ -50,9 +50,11 @@ ownership-checked customer reads; mutations and global aggregates remain denied.
 Legacy node-operator admin/token screens cannot manage reseller-bound identities.
 The owner can assign enabled plans to each reseller for future purchases; removing an assignment
 does not alter existing customers.
-User, initial-device and subscription-link services now expose shared-transaction provisioning
-seams, with rollback and commit tests; the recoverable purchase endpoint, renewal operations and
-their host verification remain in development.
+The purchase API now commits user, first device, customer link and non-secret 90-day result in
+one transaction; same-principal retries and result lookup survive token rotation. Reseller
+purchases require an assigned enabled plan. Service/API rollback, replay, key-conflict and
+cross-principal tests pass; customer links are a separate scoped, no-store read. Combined renewal,
+conditional reversal, link rotation and their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|

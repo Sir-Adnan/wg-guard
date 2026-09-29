@@ -116,7 +116,10 @@ reseller's grants or disabling it takes effect on existing sessions and tokens a
 the reseller's customers are retained. Node-wide staff management pages exclude reseller-bound
 accounts and tokens, and their write actions reject those targets. Existing unbound tokens retain
 their node-wide meaning. Only the owner can change reseller plan assignments; these form a
-fail-closed product allowlist for future tenant provisioning.
+fail-closed product allowlist for tenant purchases. Purchase results persist only IDs and state
+for 90 days; the caller key is hashed, while customer-link capabilities and private device
+material remain outside the operation journal. The customer-link API is ownership-gated and
+no-store.
 
 ## Linux/network security
 

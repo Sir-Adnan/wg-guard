@@ -70,7 +70,7 @@ func mapError(err error) (int, string) {
 		return http.StatusNotFound, code
 	case domain.CodeUsernameExists, domain.CodeDeviceLimitReached, domain.CodeDevicePoolExhausted,
 		domain.CodeDeviceKeyExists, domain.CodePlanInUse, domain.CodeInterfaceNameTaken,
-		domain.CodePortInUse, domain.CodeSubnetOverlap:
+		domain.CodePortInUse, domain.CodeSubnetOverlap, domain.CodeIdempotencyKeyReused:
 		return http.StatusConflict, code
 	case domain.CodeRateLimited:
 		return http.StatusTooManyRequests, code

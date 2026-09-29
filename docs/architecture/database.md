@@ -13,7 +13,7 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
 | `resellers` | id, unique slug, display name, permission ceiling, enabled; Phase 14 tenant identity |
-| `reseller_plan_access` | reseller_id + plan_id; owner-assigned products permitted for future purchases, without changing existing subscriptions |
+| `reseller_plan_access` | reseller_id + plan_id; owner-assigned products permitted for tenant purchases, without changing existing subscriptions |
 | `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional reseller_id and `appearance_preset` personal override |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
 | `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
@@ -23,6 +23,7 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `webhook_events` | durable event rows inserted in the same transaction as the state change; optional reseller_id for future scoped fanout |
 | `audit_log` | ts, actor type/id, action, target, source IP, request id, safe metadata |
 | `idempotency_keys` | hashed token-scoped key, request hash, response snapshot, expires_at; active legacy raw keys fail closed during the upgrade window |
+| `integration_operations` | hashed owner/reseller-scoped key, request hash, non-secret committed result, expiry; purchase result is inserted with user/device/link in one transaction |
 | `settings` | key, value (JSON), updated_at |
 | `backup_schedules` | id, mode (daily@time / every-N-hours / weekly), time UTC, retention, enabled |
 | `traffic_samples` | device FK, ts, rx_delta, tx_delta (bounded: 24–48 h) |
@@ -69,7 +70,10 @@ references without reassigning existing users, accounts, tokens or webhook rows.
 existing node-wide operator namespace. The foreign keys prevent orphan assignments; reseller
 access uses explicit route gates while other routes remain closed. Migration tests verify
 legacy-row preservation and ownership references. Migration `0011_reseller_plan_access.sql`
-adds the owner-controlled plan allowlist used by future reseller purchase operations.
+adds the owner-controlled plan allowlist used by reseller purchase operations.
+Migration `0012_integration_operations.sql` adds the 90-day result journal. The scheduler prunes
+expired rows in bounded batches; plaintext caller keys, link capabilities and private configs
+never enter this table.
 
 Migration `0007_awg_ranges.sql` adds `h1_range` through `h4_range` as canonical, non-null text
 columns. Values use strict inclusive `N` or `N-M` syntax. Existing scalar values are copied as

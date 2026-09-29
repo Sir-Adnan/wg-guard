@@ -2,7 +2,7 @@
   "openapi": "3.2.1",
   "info": {
     "title": "WG-Guard API",
-    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens currently have access only to explicitly ownership-checked customer read routes; mutations and node-wide aggregates remain unavailable until Phase 14 isolation is complete. All errors use one envelope (`error.code` is a stable machine code). Selected mutating endpoints accept `Idempotency-Key`; authenticated, token-scoped stored responses replay for 24 hours. Pre-scoping keys that have not expired return 409 rather than replay or repeat a mutation. An interruption before response-snapshot storage can leave an ambiguous outcome, and V1 has no lookup-by-key endpoint. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use only explicit ownership-checked customer reads and the plan-gated purchase/result operations; legacy mutations and node-wide aggregates remain unavailable. All errors use one envelope (`error.code` is a stable machine code). Legacy mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. New purchases commit the user, initial device, customer link and non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/" }],
@@ -10,7 +10,7 @@
   "tags": [
     { "name": "node" }, { "name": "users" }, { "name": "bulk" }, { "name": "devices" },
     { "name": "config" }, { "name": "stats" }, { "name": "plans" }, { "name": "interfaces" },
-    { "name": "settings" }, { "name": "webhooks" }, { "name": "ops" }
+    { "name": "settings" }, { "name": "webhooks" }, { "name": "integration" }, { "name": "ops" }
   ],
   "paths": {
     "/healthz": {
@@ -63,6 +63,25 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" }
         }
+      }
+    },
+    "/api/v1/purchases": {
+      "post": {
+        "tags": ["integration"], "summary": "Provision a customer, first device and subscription link atomically", "operationId": "createPurchase",
+        "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. A reseller may use only an enabled plan assigned by the owner. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions.",
+        "security": [{ "BearerAuth": ["purchases.create"] }],
+        "parameters": [{ "$ref": "#/components/parameters/IntegrationKey" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseRequest" }, "example": { "plan_id": "plan-uuid", "username": "alice", "device_name": "phone" } } } },
+        "responses": { "201": { "description": "Committed purchase; same body on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/operations/result": {
+      "get": {
+        "tags": ["integration"], "summary": "Recover a committed integration result by key", "operationId": "getOperationResult",
+        "description": "The key is supplied in a header to keep it out of URL logs. Lookup is scoped to the owner or reseller principal and retained for 90 days; a missing or expired result is 404. It does not expose subscription capabilities or private keys.",
+        "security": [{ "BearerAuth": ["operations.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/IntegrationKey" }],
+        "responses": { "200": { "description": "Previously committed result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
     },
     "/api/v1/users": {
@@ -125,6 +144,15 @@
         "tags": ["users"], "summary": "Soft-delete a user (username stays reserved; peers removed)", "security": [{ "BearerAuth": ["users.delete"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "responses": { "200": { "description": "Deleted" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/users/{id}/subscription": {
+      "get": {
+        "tags": ["integration"], "summary": "Retrieve a customer's private subscription link", "operationId": "getCustomerSubscription",
+        "description": "The path is a bearer capability relative to this panel's public origin. Resolve it against the configured public base URL or the API origin before delivery. The link and device configurations are secrets; the response is no-store. Reseller tokens can read only their own customers. A missing or revoked link returns 404.",
+        "security": [{ "BearerAuth": ["subscriptions.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Private customer link", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLink" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
     },
     "/api/v1/users/{id}/enable": {
@@ -375,6 +403,7 @@
       "BearerAuth": { "type": "http", "scheme": "bearer", "description": "API token: `Authorization: Bearer wg_…` with scopes; separate from admin sessions." }
     },
     "parameters": {
+      "IntegrationKey": { "name": "Idempotency-Key", "in": "header", "required": true, "description": "1–128 printable ASCII characters, without spaces. Do not put a secret here. Stable across token rotation within the same owner or reseller namespace.", "schema": { "type": "string", "minLength": 1, "maxLength": 128 } },
       "UserID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "DeviceID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "PlanID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
@@ -389,6 +418,9 @@
       "Invalid": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
     },
     "schemas": {
+      "PurchaseRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "username": { "type": "string", "description": "Optional global username; omitted uses a stable generated identifier." }, "device_name": { "type": "string", "default": "device-1" } } },
+      "OperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "plan_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "plan_id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "CustomerLink": { "type": "object", "required": ["path"], "properties": { "path": { "type": "string", "description": "Secret relative subscription path /sub/{token}; do not log or expose publicly." } } },
       "Error": {
         "type": "object",
         "properties": {
