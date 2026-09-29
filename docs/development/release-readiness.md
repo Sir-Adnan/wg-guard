@@ -1,6 +1,6 @@
 # Release-readiness program
 
-Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase order and gates;
+Living tracker for the approved release program through Phase 14. `ROADMAP.md` owns phase order and gates;
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
@@ -9,9 +9,9 @@ documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0, v0.1.1 and v0.1.2 releases passed their respective gates and are public.
-The v0.1.2 `6eaa5ac` security source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36536918308)
-and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36537556493);
+The owner-approved v0.1.0, v0.1.1, v0.1.2 and v0.1.3 releases passed their respective gates and
+are public. The v0.1.3 `4177b282` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
+and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000);
 later versions and official registry images require separate approval.
 
 ## Program status
@@ -27,7 +27,7 @@ later versions and official registry images require separate approval.
 | 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
-| 14 — Integration API for automation | final gate pending | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, PR/main CI and exact-source release gate |
+| 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, PR/main CI and exact-source v0.1.3 release gate; no new real-host claim |
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.
@@ -159,7 +159,7 @@ medium (material product/operations weakness), low (polish/maintainability). Sta
 | AUD-043 | high | Domain ACME currently fails whenever 80/443 are owned by another service, and no transactional standard-Nginx/shared-webroot or DNS-01 route exists | Phase 8.2 | verified; standard-Nginx/webroot passed real issuance and no-mutation conflict refusal; DNS-01 uses the protected official plugin path and passes automated secret/command tests, with real issuance unclaimed without a scoped token |
 | AUD-044 | high | Trusted public-IP certificates are now available but the installer exposes only private SSH/manual files; short-lived renewal and reload are absent | Phase 8.2 | verified; staging and production Certbot short-lived IP certificates, SAN/expiry diagnostics, automatic timer, deploy-hook Docker reload and trusted HTTPS passed on the dedicated VPS |
 | AUD-045 | high | Fresh installation depends on a retired PPA core package and retries can fail on Ubuntu maintenance locks or a stale Docker socket while losing package ownership | Phase 8.2 corrective hardening | verified; recommended exact GitHub-source tools/kernel bundle, APT lock wait, safe aborted-state ownership carry, Docker service/socket lifecycle regressions and Ubuntu 24.04.4 Docker install/purge acceptance passed |
-| AUD-046 | high | The installed-node bootstrap fast path opens `/usr/local/bin/wg-guard` before resolving `--commit main`, so a repeated one-line command can keep presenting an old manager after GitHub advances | Phase 8.2 maintenance | verified; simulated `main` advancement proves one build then metadata-only reuse, while real exact-commit Docker acceptance proved independent manager advancement with an unchanged service hash, heartbeat, current-build skip and full update backup/health/core closure. Invalid selection and strict refresh fail; only transport/compiler failure can use a verified cache. Phase 12 also proved latest stable selection and a fresh published-release Docker install; a published-release-to-newer-release update awaits a future release |
+| AUD-046 | high | The installed-node bootstrap fast path opens `/usr/local/bin/wg-guard` before resolving `--commit main`, so a repeated one-line command can keep presenting an old manager after GitHub advances | Phase 8.2 maintenance | verified; simulated `main` advancement proves one build then metadata-only reuse, while real exact-commit Docker acceptance proved independent manager advancement with an unchanged service hash, heartbeat, current-build skip and full update backup/health/core closure. Invalid selection and strict refresh fail; only transport/compiler failure can use a verified cache. Phase 12 also proved latest stable selection and a fresh published-release Docker install; a live published-release-to-newer-release update remains unverified |
 | AUD-047 | high | An interrupted uninstall is presented as generic recovery, reads an already removed boot config, and dispatches `update --recover`, trapping the operator in a recovery loop | Phase 8.2 maintenance | fixed from the user-provided transcript: uninstall has a dedicated config-independent view and resumes its own removal with explicit keep-data/full-reset choices. Focused regressions and a real Ubuntu 24.04.4 amd64 synthetic-journal Full reset passed; API/OpenAPI is unchanged |
 | AUD-048 | high | Interactive install silently selects username `owner`; a short password is rejected only after deployment/data preparation, leaving an initial-install journal without a useful retry/reset path and causing apparent successful credentials to fail as `admin` | Phase 8.2 maintenance | verified: explicit `admin` default, shared backend validation with in-place retry, blank-password secure generation and post-completion show-once handoff, guided cleanup for every interrupted initial install, and distinct node-reset/complete-removal ownership pass automated gates. Real Docker confirmed default `admin`, short-password retry and complete removal; generated credentials were intentionally not captured |
 | AUD-049 | high | Recommended private Docker setup records loopback HTTP as proxy TLS, making the session cookie `Secure`; valid credentials are accepted but the browser cannot return the cookie over the documented SSH-tunnel HTTP URL and falls back to login | Phase 8.2 maintenance | verified: reproduced on Ubuntu 24.04.4 amd64, then fixed by resolving private exposure to loopback-only dev transport while retaining proxy mode for real HTTPS proxies. Exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie |
@@ -205,8 +205,9 @@ or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are 
 ## Publication boundary
 
 The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0),
-[v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) and
-[v0.1.2 security update](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2)
+[v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1),
+[v0.1.2 security update](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) and
+[v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3)
 were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).

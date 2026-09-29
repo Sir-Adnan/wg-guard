@@ -25,7 +25,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
-| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | 14.0 security fix published in v0.1.2; 14.1–14.4 implemented in draft PR; final compatibility/security and release gates pending |
+| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; 14.0 in v0.1.2, 14.1–14.4 in v0.1.3 after PR/main CI and exact-source release gate |
 
 ## Phase gates
 
@@ -204,7 +204,7 @@ carry applies only when time ends first; time never carries. Plan terms are froz
    expose safe delivery/reconciliation lookup where needed, add bounded batch reads if justified,
    complete OpenAPI examples and contract tests, then run one focused compatibility/security gate.
 
-The Phase 14 branch now scopes webhook creation, management, fanout, worker delivery and
+The v0.1.3 source scopes webhook creation, management, fanout, worker delivery and
 non-secret receipt lookup to owner, node operator or reseller authority. Owner-wide reseller
 event fanout requires an explicit opt-in; legacy endpoints migrate with it off. A reseller
 destination uses checked public HTTPS egress, without redirects. The typed OpenAPI webhook catalog and
@@ -217,8 +217,10 @@ is implied.
 
 Keep additions compatible with `/api/v1`, use separate scopes for sensitive operations, and
 retain old endpoint behavior. Opaque IDs are not usernames; private configs and capability links
-must not enter logs, audit metadata or operation journals. Existing release/certification evidence
-does not certify Phase 14 or an unpublished revision. Any later release remains owner-approved.
+must not enter logs, audit metadata or operation journals. [v0.1.3 main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
+and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000)
+certify the listed source/artifact checks; no new physical-device or VPS cell is inferred from
+them. Future public releases still require owner approval.
 
 ## Verification policy
 

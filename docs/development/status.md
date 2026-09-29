@@ -5,11 +5,12 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-09-29):** Phases 0–13 are complete within their documented scopes.
-[v0.1.2](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) is the latest stable
-security release. Its exact `6eaa5ac` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36536918308)
-and the [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36537556493),
-including checksummed amd64 assets and image identity. The v0.1.0 release had a successful
+**Current gate (2026-09-29):** Phases 0–14 are complete within their documented scopes.
+[v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) is the latest stable
+release. Its exact `4177b282` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
+and the [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000),
+including both Go race jobs, checksummed amd64 assets, image/binary identity, attestations and
+downloaded draft-asset verification. The v0.1.0 release had a successful
 latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
@@ -21,20 +22,18 @@ local font serving and the existing Go suite pass. Chromium and WebKit checked 8
 locale × viewport representative cells each, plus public subscription/QR flows and the eight-cell
 subscription composition set. Firefox could not launch in this Windows test environment, so its
 new Phase 13 cells remain unverified. No Phase 13 VPS or physical-device result is claimed;
-the prior Ubuntu production certification is not silently extended. The additive external-automation API
-is developed on the [Phase 14 branch](../../ROADMAP.md#phase-14--integration-api-for-automation)
-and is not in the published v0.1.2 artifacts.
+the prior Ubuntu production certification is not silently extended. Phase 14 integration work
+shipped in v0.1.3 under the separate source/release gates below.
 
-**Unreleased subscription delivery update:** Browser downloads now send `.conf` files as
+**v0.1.3 subscription delivery update:** Browser downloads now send `.conf` files as
 attachments with a binary media type, while the REST API keeps its text response. Shared
 filenames have a short, stable device-specific stem; Settings selects one of three responsive
 public layouts for all existing links. The public theme menu is aligned and operable across
 RTL/LTR and responsive widths, and shared button elevation is restrained. Focused Go and
 Chromium/WebKit browser checks cover the changed routes, 320–1440px layouts, fa/en and Light/Dark.
-Actual Android/iOS downloads and a fresh VPS deployment of this revision remain unverified;
-v0.1.2 artifacts do not include it.
+Actual Android/iOS downloads and a fresh VPS deployment of this revision remain unverified.
 
-**Phase 14 development:** The 14.0 idempotency replay correction shipped in v0.1.2. The branch
+**Phase 14 integration release:** The 14.0 idempotency replay correction shipped in v0.1.2. v0.1.3
 adds owner-managed reseller accounts, live permission ceilings, owner-assigned plan access,
 principal-bound API tokens, scoped customer/device reads and dedicated reseller panel routes.
 The purchase API commits user, first device, customer link and a 90-day non-secret operation
@@ -46,7 +45,7 @@ The owner replaced the proposed four-policy renewal with independent Reset Usage
 Next Plan per customer. Queued terms are frozen; the bounded scheduler activates at the first
 time/quota boundary, resets charged usage in one transaction and records before/after state.
 Manual blocks remain effective, and incompatible edits move the queue to review. Service/API,
-fresh-migration and focused Chromium layout checks passed on the branch. Existing time-only
+fresh-migration and focused Chromium layout checks passed. Existing time-only
 renewal remains unchanged.
 
 Phase 14.4 adds typed webhook payload schemas and examples, tenant-scoped event fanout and worker
@@ -54,9 +53,12 @@ delivery, explicit owner opt-in for cross-reseller node-wide fanout (legacy dest
 off), an owned reseller webhook panel/API, a public-HTTPS egress policy for reseller receivers,
 and bounded non-secret delivery receipts. Local webhook/API/panel tests cover owner, node-operator
 and reseller boundaries, cross-tenant poison rows, signature/retry behavior and receipt paging.
-The applicable Go package tests passed on this development revision, including a local legacy-row
-upgrade through migration 0014; final PR/main CI and the exact-source release gate are still
-pending. Physical-device and new real-host behavior of this unreleased revision are not claimed.
+The applicable Go package tests and local legacy-row upgrade through migration 0014 passed.
+The exact PR source passed [CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557270951);
+the squashed main commit passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
+and the [v0.1.3 release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000).
+The reseller webhook panel also passed focused Chromium checks at 320/390/1440 px in fa/en and
+Light/Dark. Physical-device and new real-host behavior of v0.1.3 are not claimed.
 Batch-by-ID and post-activation financial
 reversal were not added because the evidenced workflows use cursor/operation/activation recovery
 and no safe reversal contract has been approved.
@@ -66,7 +68,7 @@ and no safe reversal contract has been approved.
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, plans, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.2 secures idempotent replay; Phase 14 purchase, successor and scoped webhook additions await final CI/release; no new real-host claim |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt tests | Exact v0.1.3 source passed PR/main and release gates; earlier panel/API workflows served published OpenAPI | Phase 14 purchase, successor and scoped webhook additions have no new real-host claim |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |
