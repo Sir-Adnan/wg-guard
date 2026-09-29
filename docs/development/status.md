@@ -48,6 +48,8 @@ operator routes remain denied. Owner-issued reseller tokens and reseller-issued 
 same live grant ceiling and conditional token revoke boundary. REST allows only explicit
 ownership-checked customer reads; mutations and global aggregates remain denied.
 Legacy node-operator admin/token screens cannot manage reseller-bound identities.
+The owner can assign enabled plans to each reseller for future purchases; removing an assignment
+does not alter existing customers.
 Purchase/renewal operations and their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |

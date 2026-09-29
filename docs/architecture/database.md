@@ -12,7 +12,8 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
-| `resellers` | id, unique slug, display name, permission ceiling, enabled; Phase 14 isolation carrier, not yet an enabled login surface |
+| `resellers` | id, unique slug, display name, permission ceiling, enabled; Phase 14 tenant identity |
+| `reseller_plan_access` | reseller_id + plan_id; owner-assigned products permitted for future purchases, without changing existing subscriptions |
 | `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional reseller_id and `appearance_preset` personal override |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
 | `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
@@ -66,8 +67,9 @@ neither is rewritten by a visual preset migration or panel-default action.
 Migration `0010_reseller_ownership.sql` adds the reseller identity and nullable ownership
 references without reassigning existing users, accounts, tokens or webhook rows. NULL remains the
 existing node-wide operator namespace. The foreign keys prevent orphan assignments; reseller
-login/API access is not enabled until every relevant read, mutation and event path applies row
-ownership. Migration tests verify legacy-row preservation and ownership references.
+access uses explicit route gates while other routes remain closed. Migration tests verify
+legacy-row preservation and ownership references. Migration `0011_reseller_plan_access.sql`
+adds the owner-controlled plan allowlist used by future reseller purchase operations.
 
 Migration `0007_awg_ranges.sql` adds `h1_range` through `h4_range` as canonical, non-null text
 columns. Values use strict inclusive `N` or `N-M` syntax. Existing scalar values are copied as

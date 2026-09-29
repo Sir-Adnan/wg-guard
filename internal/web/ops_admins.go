@@ -159,6 +159,10 @@ func (s *Server) handleAdminPassword(w http.ResponseWriter, r *http.Request) {
 
 // handleAdminPermissions replaces the permission set.
 func (s *Server) handleAdminPermissions(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
+		return
+	}
 	id := r.PathValue("id")
 	if !s.mayManageAdminTarget(w, r, id) {
 		return

@@ -254,6 +254,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /resellers", s.requireOwner(s.handleResellersPage))
 	mux.HandleFunc("POST /resellers", s.requireOwner(s.handleResellerCreate))
 	mux.HandleFunc("POST /resellers/{id}/permissions", s.requireOwner(s.handleResellerPermissions))
+	mux.HandleFunc("POST /resellers/{id}/plans", s.requireOwner(s.handleResellerPlans))
 	mux.HandleFunc("POST /resellers/{id}/enable", s.requireOwner(s.handleResellerEnable))
 	mux.HandleFunc("POST /resellers/{id}/admins", s.requireOwner(s.handleResellerAdminCreate))
 	mux.HandleFunc("GET /resellers/{id}/tokens", s.requireOwner(s.handleResellerTokensPage))

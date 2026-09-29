@@ -13,12 +13,16 @@ import (
 type resellerCard struct {
 	Account reseller.Account
 	Admins  []admin.Admin
+	PlanIDs []string
 }
+
+type resellerPlanOption struct{ ID, Name string }
 
 type resellersData struct {
 	Cards    []resellerCard
 	Known    bool
 	Scopes   []string
+	Plans    []resellerPlanOption
 	Selected []string
 	Form     operationalForm
 }
@@ -38,8 +42,25 @@ func (s *Server) resellerPageData(r *http.Request) resellersData {
 		s.logError(r, "reseller admins unavailable", nil)
 		return d
 	}
+	plans, err := s.Plans.List(r.Context())
+	if err != nil {
+		d.Known = false
+		s.logError(r, "reseller plans unavailable", nil)
+		return d
+	}
+	for _, p := range plans {
+		if p.Enabled {
+			d.Plans = append(d.Plans, resellerPlanOption{ID: p.ID, Name: p.Name})
+		}
+	}
 	for _, account := range accounts {
 		card := resellerCard{Account: account}
+		card.PlanIDs, err = s.Resellers.Plans(r.Context(), account.ID)
+		if err != nil {
+			d.Known = false
+			s.logError(r, "reseller plan assignments unavailable", nil)
+			return d
+		}
 		for _, a := range admins {
 			if a.ResellerID != nil && *a.ResellerID == account.ID {
 				card.Admins = append(card.Admins, a)
@@ -73,12 +94,30 @@ func (s *Server) handleResellerCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleResellerPermissions(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
+		return
+	}
 	id := r.PathValue("id")
 	if err := s.Resellers.SetPermissions(r.Context(), id, r.Form["permissions"]); err != nil {
 		s.opsError(w, r, "/resellers", err)
 		return
 	}
 	s.audit(r, "resellers.permissions_updated", id, map[string]any{"count": len(r.Form["permissions"])})
+	s.redirectToast(w, r, "/resellers", "resellers.saved")
+}
+
+func (s *Server) handleResellerPlans(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
+		return
+	}
+	id := r.PathValue("id")
+	if err := s.Resellers.SetPlans(r.Context(), id, r.Form["plans"]); err != nil {
+		s.opsError(w, r, "/resellers", err)
+		return
+	}
+	s.audit(r, "resellers.plans_updated", id, map[string]any{"count": len(r.Form["plans"])})
 	s.redirectToast(w, r, "/resellers", "resellers.saved")
 }
 

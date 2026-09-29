@@ -115,7 +115,8 @@ Only the node owner can create or disable reseller records and bind panel accoun
 reseller's grants or disabling it takes effect on existing sessions and tokens at validation;
 the reseller's customers are retained. Node-wide staff management pages exclude reseller-bound
 accounts and tokens, and their write actions reject those targets. Existing unbound tokens retain
-their node-wide meaning.
+their node-wide meaning. Only the owner can change reseller plan assignments; these form a
+fail-closed product allowlist for future tenant provisioning.
 
 ## Linux/network security
 

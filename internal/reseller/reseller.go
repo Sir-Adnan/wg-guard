@@ -133,6 +133,68 @@ func (s *Service) SetEnabled(ctx context.Context, id string, enabled bool) error
 	return requireUpdated(res)
 }
 
+// SetPlans replaces the owner's product assignment atomically. An empty
+// selection closes provisioning without altering existing subscriptions.
+func (s *Service) SetPlans(ctx context.Context, id string, planIDs []string) error {
+	if len(planIDs) > 128 {
+		return domain.E(domain.CodeInvalidRequest, "too many reseller plans")
+	}
+	seen := make(map[string]bool, len(planIDs))
+	return s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var found int
+		if err := tx.QueryRowContext(ctx, `SELECT 1 FROM resellers WHERE id = ?`, id).Scan(&found); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.E(domain.CodeNotFound, "reseller not found")
+			}
+			return fmt.Errorf("reseller: plan owner: %w", err)
+		}
+		for _, planID := range planIDs {
+			if planID == "" || seen[planID] {
+				return domain.E(domain.CodeInvalidRequest, "invalid or duplicate plan assignment")
+			}
+			seen[planID] = true
+			var enabled int
+			err := tx.QueryRowContext(ctx, `SELECT enabled FROM plans WHERE id = ?`, planID).Scan(&enabled)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return domain.E(domain.CodeInvalidRequest, "plan is unavailable")
+				}
+				return fmt.Errorf("reseller: plan lookup: %w", err)
+			}
+			if enabled != 1 {
+				return domain.E(domain.CodeInvalidRequest, "plan is unavailable")
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM reseller_plan_access WHERE reseller_id = ?`, id); err != nil {
+			return fmt.Errorf("reseller: clear plans: %w", err)
+		}
+		for _, planID := range planIDs {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO reseller_plan_access (reseller_id, plan_id) VALUES (?, ?)`, id, planID); err != nil {
+				return fmt.Errorf("reseller: assign plan: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
+func (s *Service) Plans(ctx context.Context, id string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT plan_id FROM reseller_plan_access
+		WHERE reseller_id = ? ORDER BY plan_id`, id)
+	if err != nil {
+		return nil, fmt.Errorf("reseller: plans: %w", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var planID string
+		if err := rows.Scan(&planID); err != nil {
+			return nil, fmt.Errorf("reseller: plan scan: %w", err)
+		}
+		ids = append(ids, planID)
+	}
+	return ids, rows.Err()
+}
+
 func requireUpdated(res sql.Result) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return domain.E(domain.CodeNotFound, "reseller not found")

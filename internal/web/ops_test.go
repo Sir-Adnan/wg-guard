@@ -46,6 +46,13 @@ func TestAdminsScreenLifecycle(t *testing.T) {
 	if rec.Code != 303 {
 		t.Fatalf("create admin: %d", rec.Code)
 	}
+	if rec := e.postForm("/admins/"+e.adminID("ops")+"/permissions", url.Values{"permissions": {"users.read"}}, cookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("update admin permissions: %d", rec.Code)
+	}
+	updated, err := e.admins.Get(context.Background(), e.adminID("ops"))
+	if err != nil || len(updated.Permissions) != 1 || updated.Permissions[0] != "users.read" {
+		t.Fatalf("admin permissions were not applied: %+v %v", updated, err)
+	}
 	body = e.get("/admins", cookie).Body.String()
 	if !strings.Contains(body, "ops") || !strings.Contains(body, "No permissions") == false {
 		// The matrix chip shows the count; either rendering proves the row.
