@@ -40,6 +40,43 @@ func newServiceClock(t *testing.T) *Service {
 	return svc
 }
 
+func TestResellerOwnershipAssignmentAndFilteredList(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+	if _, err := svc.db.Exec(`INSERT INTO resellers (id, slug, created_at, updated_at)
+		VALUES ('reseller-1', 'north', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	resellerID := "reseller-1"
+	owned, err := svc.Create(ctx, Input{Username: "owned-user", ResellerID: &resellerID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Create(ctx, Input{Username: "global-user"}); err != nil {
+		t.Fatal(err)
+	}
+	bulk, err := svc.CreateBulk(ctx, "bulk", 2, 1, 2, Input{ResellerID: &resellerID})
+	if err != nil || len(bulk.Users) != 2 {
+		t.Fatalf("owned bulk create: %+v, %v", bulk, err)
+	}
+	got, err := svc.Get(ctx, owned.ID)
+	if err != nil || got.ResellerID == nil || *got.ResellerID != resellerID {
+		t.Fatalf("owner did not round-trip: %+v, %v", got, err)
+	}
+	page, err := svc.ListPage(ctx, ListQuery{Filter: ListFilter{ResellerID: &resellerID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 3 {
+		t.Fatalf("filtered customer count = %d", len(page.Items))
+	}
+	for _, u := range page.Items {
+		if u.ResellerID == nil || *u.ResellerID != resellerID {
+			t.Fatalf("global user leaked into tenant list: %+v", u)
+		}
+	}
+}
+
 // captureRecorder records events emitted through the service seam.
 type captureRecorder struct {
 	events []captureEvent

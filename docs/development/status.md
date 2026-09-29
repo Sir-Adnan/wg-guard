@@ -42,8 +42,8 @@ cross-token key reuse and legacy-key fail-closed behavior. This is development e
 the 14.1 ownership migration preserves existing operator rows and rejects orphan assignments;
 the internal reseller registry validates a closed customer-scope grant set. Session and token
 verification apply current account/grant ceilings, and panel-issued tokens bind to their issuer.
-Reseller-bound principals are denied by the existing panel/API until row isolation is complete.
-Purchase/renewal operations,
+The existing panel denies reseller sessions; REST exposes only explicitly guarded customer reads,
+while mutations and global aggregates remain denied. Purchase/renewal operations,
 host verification and a new release are pending.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |

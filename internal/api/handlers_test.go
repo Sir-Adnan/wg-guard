@@ -378,11 +378,33 @@ func TestIdempotencyKeysArePerTokenAndLegacyKeysFailClosed(t *testing.T) {
 	}
 }
 
-func TestResellerTokenCannotUseUnscopedV1Routes(t *testing.T) {
+func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	e := newEnv(t)
+	ctx := context.Background()
+	if _, err := e.ifaces.Create(ctx, iface.CreateInput{Name: "awg0", ListenPort: 39001, Subnet: "10.77.0.0/24"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.reg.Set(ctx, "node.endpoint", "vpn.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	create := func(username string) (string, string) {
+		t.Helper()
+		rec := e.do(http.MethodPost, "/api/v1/users", `{"username":"`+username+`"}`)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create user: %d %s", rec.Code, rec.Body.String())
+		}
+		userID := decodeBody(t, rec)["id"].(string)
+		rec = e.do(http.MethodPost, "/api/v1/users/"+userID+"/devices", `{"name":"phone"}`)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create device: %d %s", rec.Code, rec.Body.String())
+		}
+		return userID, decodeBody(t, rec)["id"].(string)
+	}
+	ownedUser, ownedDevice := create("north-customer")
+	otherUser, otherDevice := create("owner-customer")
 	for _, statement := range []string{
-		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at)
-			VALUES ('reseller-1', 'north', '["users.read"]', 'test', 'test')`,
+		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at) VALUES
+			('reseller-1', 'north', '["users.read","users.create","devices.read","configs.read","stats.read"]', 'test', 'test')`,
 		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
 			VALUES ('owner-1', 'owner', 'hash', 'owner', 'test', 'test')`,
 	} {
@@ -390,12 +412,60 @@ func TestResellerTokenCannotUseUnscopedV1Routes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.db.Exec(`UPDATE api_tokens SET reseller_id = 'reseller-1',
-		issued_by_admin_id = 'owner-1' WHERE name = 'test-token'`); err != nil {
+	if _, err := e.db.Exec(`UPDATE users SET reseller_id = 'reseller-1' WHERE id = ?`, ownedUser); err != nil {
 		t.Fatal(err)
 	}
-	if rec := e.do(http.MethodGet, "/api/v1/users", ""); rec.Code != http.StatusForbidden {
-		t.Fatalf("unscoped user list exposed to reseller: %d %s", rec.Code, rec.Body.String())
+	resellerID := "reseller-1"
+	_, plain, err := e.tokens.CreateForAdmin(ctx, "owner-1", &resellerID, "north bot",
+		[]string{"users.read", "users.create", "devices.read", "configs.read", "stats.read"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	send := func(method, path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+plain)
+		rec := httptest.NewRecorder()
+		e.handler.ServeHTTP(rec, req)
+		return rec
+	}
+	list := send(http.MethodGet, "/api/v1/users", "")
+	if list.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", list.Code, list.Body.String())
+	}
+	items := decodeBody(t, list)["items"].([]any)
+	if len(items) != 1 || items[0].(map[string]any)["id"] != ownedUser {
+		t.Fatalf("reseller list escaped ownership: %v", items)
+	}
+	for _, path := range []string{
+		"/api/v1/users/" + ownedUser,
+		"/api/v1/users/" + ownedUser + "/devices",
+		"/api/v1/devices/" + ownedDevice,
+		"/api/v1/devices/" + ownedDevice + "/config",
+		"/api/v1/devices/" + ownedDevice + "/qr",
+	} {
+		if rec := send(http.MethodGet, path, ""); rec.Code != http.StatusOK {
+			t.Fatalf("owned read %s = %d", path, rec.Code)
+		}
+	}
+	for _, path := range []string{
+		"/api/v1/users/" + otherUser,
+		"/api/v1/users/" + otherUser + "/devices",
+		"/api/v1/devices/" + otherDevice,
+		"/api/v1/devices/" + otherDevice + "/config",
+		"/api/v1/devices/" + otherDevice + "/qr",
+	} {
+		if rec := send(http.MethodGet, path, ""); rec.Code != http.StatusNotFound {
+			t.Fatalf("foreign read %s = %d", path, rec.Code)
+		}
+	}
+	for _, path := range []string{"/api/v1/stats", "/api/v1/node/telemetry"} {
+		if rec := send(http.MethodGet, path, ""); rec.Code != http.StatusForbidden {
+			t.Fatalf("global aggregate %s = %d", path, rec.Code)
+		}
+	}
+	if rec := send(http.MethodPost, "/api/v1/users", `{"username":"blocked-create"}`); rec.Code != http.StatusForbidden {
+		t.Fatalf("ungated create = %d", rec.Code)
 	}
 }
 

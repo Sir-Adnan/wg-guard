@@ -106,8 +106,9 @@ unknown owner is rejected until it expires rather than replayed across principal
 the released V1 replay-before-auth path, but does not make a multi-request billing workflow
 atomic or provide reseller row isolation; those are Phase 14 work.
 Reseller ownership columns and live grant ceilings are being added without exposing a partial
-tenant surface: current panel and REST middleware deny reseller-bound principals until their
-data paths pass ownership tests. Existing unbound tokens retain their node-wide meaning.
+tenant surface: the operator panel denies reseller sessions; REST allows only explicit,
+ownership-checked read routes and denies unclassified routes, mutations and global aggregates.
+Existing unbound tokens retain their node-wide meaning.
 
 ## Linux/network security
 

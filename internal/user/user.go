@@ -29,6 +29,7 @@ import (
 // User is a stored subscription owner.
 type User struct {
 	ID                 string
+	ResellerID         *string // nil = node-wide operator namespace
 	Username           string
 	DisplayName        string
 	Note               string
@@ -67,6 +68,7 @@ var prefixRe = regexp.MustCompile(`^[a-zA-Z0-9_-]*$`)
 // derived duration; Renew keeps its own mode-based signature.
 type Input struct {
 	Username           string
+	ResellerID         *string // internal principal assignment, never raw client input
 	DisplayName        *string
 	Note               *string
 	Tags               []string
@@ -133,6 +135,7 @@ func (s *Service) Create(ctx context.Context, in Input) (*User, error) {
 func (s *Service) buildCreate(in Input) *User {
 	u := &User{
 		ID:              domain.NewID(),
+		ResellerID:      in.ResellerID,
 		Username:        in.Username,
 		DeviceLimit:     in.DeviceLimit.Resolve(nil),
 		PlanID:          resolveString(in.PlanID, nil),
@@ -199,11 +202,11 @@ func (s *Service) insert(ctx context.Context, tx *sql.Tx, u *User) error {
 		disableReason = string(*u.DisableReason)
 	}
 	_, err := tx.ExecContext(ctx, `INSERT INTO users
-		(id, username, display_name, note, tags, status, disable_reason, traffic_limit_bytes,
+		(id, reseller_id, username, display_name, note, tags, status, disable_reason, traffic_limit_bytes,
 		 speed_limit_down_kbps, speed_limit_up_kbps, device_limit, plan_id, interface_id, start_policy,
 		 duration_seconds, activated_at, expires_at, enabled, metadata, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Username, u.DisplayName, u.Note, tagsJSON, string(u.Status), disableReason,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, nullText(u.ResellerID), u.Username, u.DisplayName, u.Note, tagsJSON, string(u.Status), disableReason,
 		nullI64(u.TrafficLimitBytes), nullInt(u.SpeedLimitDownKbps), nullInt(u.SpeedLimitUpKbps),
 		nullInt(u.DeviceLimit),
 		nullText(u.PlanID), nullText(u.InterfaceID), string(u.StartPolicy), nullI64(u.DurationSeconds),
@@ -325,6 +328,7 @@ type ListQuery struct {
 
 // ListFilter mirrors the SPEC §22 filter set.
 type ListFilter struct {
+	ResellerID      *string // internal principal filter, never caller-supplied
 	Username        *string // substring, case-insensitive
 	Status          *domain.UserStatus
 	TrafficExceeded *bool // true → status=traffic_exceeded
@@ -418,6 +422,10 @@ func (s *Service) ListPage(ctx context.Context, q ListQuery) (*Page, error) {
 	where.WriteString("deleted_at IS NULL")
 	args := []any{}
 	f := q.Filter
+	if f.ResellerID != nil {
+		where.WriteString(" AND reseller_id = ?")
+		args = append(args, *f.ResellerID)
+	}
 	if f.Username != nil && *f.Username != "" {
 		where.WriteString(" AND username LIKE ? ESCAPE '\\'")
 		args = append(args, "%"+escapeLike(*f.Username)+"%")
@@ -842,7 +850,8 @@ func (s *Service) save(ctx context.Context, tx *sql.Tx, u *User) error {
 const userColumns = `SELECT id, username, display_name, note, tags, status, disable_reason,
 	traffic_limit_bytes, traffic_used_rx, traffic_used_tx, speed_limit_down_kbps,
 	speed_limit_up_kbps, device_limit, plan_id, interface_id, start_policy, duration_seconds,
-	activated_at, expires_at, last_activity_at, enabled, metadata, deleted_at, created_at, updated_at`
+	activated_at, expires_at, last_activity_at, enabled, metadata, deleted_at, created_at, updated_at,
+	reseller_id`
 
 func scanUser(row rowScanner) (*User, error) {
 	var (
@@ -868,12 +877,16 @@ func scanUser(row rowScanner) (*User, error) {
 		deleted      sql.NullString
 		createdStr   string
 		updatedStr   string
+		resellerID   sql.NullString
 	)
 	if err := row.Scan(&u.ID, &u.Username, &displayName, &note, &tags, &status, &reason,
 		&traffic, &u.TrafficUsedRX, &u.TrafficUsedTX, &down, &up, &devices,
 		&planID, &ifaceID, &policy, &duration, &activated, &expires,
-		&lastActivity, &enabled, &meta, &deleted, &createdStr, &updatedStr); err != nil {
+		&lastActivity, &enabled, &meta, &deleted, &createdStr, &updatedStr, &resellerID); err != nil {
 		return nil, err
+	}
+	if resellerID.Valid {
+		u.ResellerID = &resellerID.String
 	}
 	u.DisplayName = displayName.String
 	u.Note = note.String

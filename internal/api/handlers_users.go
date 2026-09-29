@@ -19,8 +19,13 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	var resellerID *string
+	if verified := TokenFrom(r.Context()); verified != nil {
+		resellerID = verified.Token.ResellerID
+	}
 	u, err := s.Users.Create(r.Context(), user.Input{
 		Username:           req.Username,
+		ResellerID:         resellerID,
 		DisplayName:        req.DisplayName,
 		Note:               req.Note,
 		Tags:               req.Tags,
@@ -106,6 +111,9 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 	}
 	if v := q.Get("interface_id"); v != "" {
 		f.InterfaceID = &v
+	}
+	if verified := TokenFrom(r.Context()); verified != nil {
+		f.ResellerID = verified.Token.ResellerID
 	}
 	lq.Filter = f
 
@@ -314,7 +322,12 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	var resellerID *string
+	if verified := TokenFrom(r.Context()); verified != nil {
+		resellerID = verified.Token.ResellerID
+	}
 	res, err := s.Users.CreateBulk(r.Context(), req.Prefix, req.Count, req.StartIndex, req.Width, user.Input{
+		ResellerID:         resellerID,
 		DisplayName:        req.DisplayName,
 		Note:               req.Note,
 		Tags:               req.Tags,
