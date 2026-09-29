@@ -78,14 +78,20 @@ func TestBrowserPhase10(t *testing.T) {
 	if os.Getenv("WG_TEST_UI_GROUP") == "reseller-webhooks" {
 		account, err := e.srv.Resellers.Create(context.Background(), "browser-hooks", "Browser hooks",
 			[]string{"webhooks.read", "webhooks.write"})
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		if _, err := e.admins.CreateForReseller(context.Background(), account.ID, "browser-hooks", testPassword,
-			[]string{"webhooks.read", "webhooks.write"}); err != nil { t.Fatal(err) }
+			[]string{"webhooks.read", "webhooks.write"}); err != nil {
+			t.Fatal(err)
+		}
 		resellerCookie := e.loginEN("browser-hooks")
 		resellerSession, resellerCSRF = resellerCookie.Value, deriveCSRF(resellerCookie.Value)
 		endpoint, _, err := e.srv.Webhooks.CreateFor(context.Background(), &account.ID,
 			"https://hooks.example/browser", []string{"user.created"}, "")
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		resellerWebhookID = endpoint.ID
 	}
 	server := httptest.NewServer(browserQAHandler(e, false))
