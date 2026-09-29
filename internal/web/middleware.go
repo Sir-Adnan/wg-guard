@@ -92,6 +92,20 @@ func (s *Server) sessionMiddleware(next http.Handler) http.Handler {
 // redirect to /login; htmx requests answer 401 with HX-Redirect so the swap
 // replaces the whole document.
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return s.requireSignedIn(func(w http.ResponseWriter, r *http.Request) {
+		// Operator routes have node-wide assumptions. A reseller enters only
+		// explicitly owned, tenant-specific routes.
+		if adminFrom(r).ResellerID != nil {
+			s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
+			return
+		}
+		next(w, r)
+	})
+}
+
+// requireSignedIn is used only by account-local preferences, logout and the
+// explicit reseller surface. It makes no node-wide authorization claim.
+func (s *Server) requireSignedIn(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if adminFrom(r) == nil {
 			if s.needsOnboarding(r) {
@@ -115,12 +129,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 			http.Redirect(w, r, target, http.StatusSeeOther)
-			return
-		}
-		// A reseller may not enter the existing operator panel until its user,
-		// device, aggregate and secret-bearing routes all enforce ownership.
-		if adminFrom(r).ResellerID != nil {
-			s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
 			return
 		}
 		next(w, r)
@@ -165,6 +173,17 @@ func (s *Server) requirePermission(scope string, next http.HandlerFunc) http.Han
 func (s *Server) requireOwner(next http.HandlerFunc) http.HandlerFunc {
 	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		if adminFrom(r).Role != auth.RoleOwner {
+			s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
+			return
+		}
+		next(w, r)
+	})
+}
+
+func (s *Server) requireReseller(scope string, next http.HandlerFunc) http.HandlerFunc {
+	return s.requireSignedIn(func(w http.ResponseWriter, r *http.Request) {
+		a := adminFrom(r)
+		if a.ResellerID == nil || !auth.Allows(a.Permissions, scope) {
 			s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
 			return
 		}

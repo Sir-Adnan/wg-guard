@@ -42,7 +42,11 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if adminFrom(r) != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		target := "/"
+		if adminFrom(r).ResellerID != nil {
+			target = "/reseller/users"
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
 		return
 	}
 	has, err := s.Admins.HasOwner(r.Context())
@@ -126,6 +130,9 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.auditLogin(r, a.ID, a.Username, nil)
+	if a.ResellerID != nil {
+		next = "/reseller/users"
+	}
 	s.loginAfter(w, r, a.ID, next)
 }
 
@@ -326,6 +333,9 @@ func (s *Server) handleLocaleSet(w http.ResponseWriter, r *http.Request) {
 	back := safeNext(r.PostFormValue("next"))
 	if back == "" {
 		back = "/"
+	}
+	if a.ResellerID != nil && back != "/appearance" && !strings.HasPrefix(back, "/reseller/") {
+		back = "/reseller/users"
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }

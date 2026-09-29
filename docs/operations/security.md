@@ -106,7 +106,8 @@ unknown owner is rejected until it expires rather than replayed across principal
 the released V1 replay-before-auth path, but does not make a multi-request billing workflow
 atomic or provide reseller row isolation; those are Phase 14 work.
 Reseller ownership columns and live grant ceilings are being added without exposing a partial
-tenant surface: the operator panel denies reseller sessions; REST allows only explicit,
+tenant surface: reseller panel sessions reach only dedicated owned-customer and device reads,
+personal preferences and logout; operator routes remain denied. REST allows only explicit,
 ownership-checked read routes and denies unclassified routes, mutations and global aggregates.
 Only the node owner can create or disable reseller records and bind panel accounts. Reducing a
 reseller's grants or disabling it takes effect on existing sessions and tokens at validation;

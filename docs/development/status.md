@@ -42,8 +42,9 @@ cross-token key reuse and legacy-key fail-closed behavior. The security correcti
 v0.1.2. In the Phase 14 branch, the ownership migration preserves operator rows and rejects
 orphan assignments; reseller grants and principal-bound tokens have live ceilings. An owner-only
 panel page can manage reseller grants and linked accounts; service/web tests cover its authority
-and disabled-account behavior. The operator panel still denies reseller sessions. REST allows
-only explicit ownership-checked customer reads;
+and disabled-account behavior. Reseller sessions reach only dedicated customer-list/detail and
+owned device config/QR reads, plus personal preferences and logout; operator routes remain denied.
+REST allows only explicit ownership-checked customer reads;
 mutations and global aggregates remain denied. Purchase/renewal operations and their host
 verification remain in development.
 

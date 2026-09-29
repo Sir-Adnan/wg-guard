@@ -149,13 +149,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /onboarding", s.handleOnboardingSubmit)
 
 	// --- preferences (session) ---
-	mux.HandleFunc("POST /prefs/locale", s.requireAuth(s.handleLocaleSet))
-	mux.HandleFunc("GET /appearance", s.requireAuth(s.handleAppearancePage))
-	mux.HandleFunc("POST /appearance/me", s.requireAuth(s.handleAppearanceMe))
-	mux.HandleFunc("POST /appearance/me/reset", s.requireAuth(s.handleAppearanceMeReset))
-	mux.HandleFunc("POST /appearance/default", s.requireAuth(s.handleAppearanceDefault))
-	mux.HandleFunc("POST /appearance/default/reset", s.requireAuth(s.handleAppearanceDefaultReset))
-	mux.HandleFunc("POST /logout", s.requireAuth(s.handleLogout))
+	mux.HandleFunc("POST /prefs/locale", s.requireSignedIn(s.handleLocaleSet))
+	mux.HandleFunc("GET /appearance", s.requireSignedIn(s.handleAppearancePage))
+	mux.HandleFunc("POST /appearance/me", s.requireSignedIn(s.handleAppearanceMe))
+	mux.HandleFunc("POST /appearance/me/reset", s.requireSignedIn(s.handleAppearanceMeReset))
+	mux.HandleFunc("POST /appearance/default", s.requireSignedIn(s.handleAppearanceDefault))
+	mux.HandleFunc("POST /appearance/default/reset", s.requireSignedIn(s.handleAppearanceDefaultReset))
+	mux.HandleFunc("POST /logout", s.requireSignedIn(s.handleLogout))
 
 	// --- public subscription pages (token-gated, rate-limited) ---
 	mux.HandleFunc("GET /sub/{token}", s.handleSubPage)
@@ -163,6 +163,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/config", s.handleSubDeviceConfig)
 
 	// --- app pages ---
+	mux.HandleFunc("GET /reseller/users", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUsers))
+	mux.HandleFunc("GET /reseller/users/{id}", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUser))
+	mux.HandleFunc("GET /reseller/devices/{id}/config", s.requireReseller(auth.ScopeConfigsRead, s.handleResellerDeviceConfig))
+	mux.HandleFunc("GET /reseller/devices/{id}/qr", s.requireReseller(auth.ScopeConfigsRead, s.handleResellerDeviceQR))
 	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard/live", s.requireAuth(s.handleDashboardLive))
