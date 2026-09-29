@@ -4,6 +4,8 @@
 
 - Correct mobile `.conf` downloads and shorten stable device filenames for VPN-client import.
 - Add three selectable public subscription layouts with responsive phone and desktop compositions.
+- Keep the public theme menu aligned and visible in RTL/LTR on phones and desktops; soften shared
+  button shadows and touch hover treatment.
 
 ## [v0.1.1] — 2026-09-28
 

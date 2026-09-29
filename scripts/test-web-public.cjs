@@ -135,6 +135,33 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR,{recursive:true});
               await page.screenshot({path:pathModule.join(process.env.WG_UI_SCREENSHOT_DIR,'10.5-'+name+'-'+width+'.png'),fullPage:true});
             }
+            if (name === 'subscription') {
+              const trigger = page.locator('.publicsub-bar [data-theme-menu] > button');
+              await trigger.click();
+              const position = await page.locator('.publicsub-bar [data-theme-menu] .menu').evaluate(menu => {
+                const button = menu.parentElement.querySelector('button').getBoundingClientRect();
+                const box = menu.getBoundingClientRect();
+                const rtl = document.documentElement.dir === 'rtl';
+                return {
+                  visible: getComputedStyle(menu).visibility === 'visible' && box.width > 0 && box.height > 0,
+                  inside: box.left >= 8 && box.right <= innerWidth - 8 && box.top >= 8 && box.bottom <= innerHeight - 8,
+                  aligned: Math.abs(rtl ? box.left - button.left : box.right - button.right) <= 2,
+                  topmost: menu.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)),
+                };
+              });
+              assert(position.visible && position.inside && position.aligned && position.topmost, step + ' theme menu stays visible beside its trigger');
+              if (process.env.WG_UI_SCREENSHOT_DIR && width === 390 && lang === 'fa' && theme === 'light') {
+                const fs = require('node:fs'), path = require('node:path');
+                fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+                await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'subscription-theme-menu-390.png') });
+              }
+              const next = theme === 'light' ? 'dark' : 'light';
+              await page.locator('[data-theme-choice="' + next + '"]').click();
+              assert(await page.locator('html').getAttribute('data-theme') === next, step + ' theme toggle applies');
+              await page.reload();
+              assert(await page.locator('html').getAttribute('data-theme') === next, step + ' theme choice persists');
+              await context.addCookies([{ name: 'wg_theme', value: theme, url: seed.url }]);
+            }
             cells++;
           }
         }

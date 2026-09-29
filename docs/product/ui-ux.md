@@ -213,7 +213,10 @@ The public page has three installation-wide layouts selected in Settings: Connec
 phones only while access is ready), and Compact list (short summary and device rows). They share
 one semantic content tree, the panel visual preset and the same status/QR/config behavior.
 Phone actions stack inside the device card with no horizontal clipping; public navigation does
-not cover scrolling content.
+not cover scrolling content. The public theme menu stays next to its trigger and inside the
+viewport in both directions; changing Light/Dark/System remains a visitor preference. Shared
+buttons use restrained elevation, with color, border and focus state carrying the interaction
+instead of a large ambient shadow or persistent touch-hover glow.
 Config downloads use a short, stable device-specific `.conf` filename and browser-safe binary
 attachment type; the REST text representation remains unchanged.
 Usage and transfer metrics keep Latin numbers separate from localized units, so RTL never reverses

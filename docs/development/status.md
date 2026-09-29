@@ -28,9 +28,11 @@ implemented V1 capability.
 **Unreleased subscription delivery update:** Browser downloads now send `.conf` files as
 attachments with a binary media type, while the REST API keeps its text response. Shared
 filenames have a short, stable device-specific stem; Settings selects one of three responsive
-public layouts for all existing links. Focused Go and Chromium/WebKit browser checks cover the
-changed routes, 320–1440px layouts, fa/en and Light/Dark. Actual Android/iOS downloads and a
-fresh VPS deployment of this revision remain unverified; v0.1.1 artifacts do not include it.
+public layouts for all existing links. The public theme menu is aligned and operable across
+RTL/LTR and responsive widths, and shared button elevation is restrained. Focused Go and
+Chromium/WebKit browser checks cover the changed routes, 320–1440px layouts, fa/en and Light/Dark.
+Actual Android/iOS downloads and a fresh VPS deployment of this revision remain unverified;
+v0.1.1 artifacts do not include it.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|
