@@ -43,10 +43,11 @@ v0.1.2. In the Phase 14 branch, the ownership migration preserves operator rows 
 orphan assignments; reseller grants and principal-bound tokens have live ceilings. An owner-only
 panel page can manage reseller grants and linked accounts; service/web tests cover its authority
 and disabled-account behavior. Reseller sessions reach only dedicated customer-list/detail and
-owned device config/QR reads, plus personal preferences and logout; operator routes remain denied.
-REST allows only explicit ownership-checked customer reads;
-mutations and global aggregates remain denied. Purchase/renewal operations and their host
-verification remain in development.
+owned device config/QR reads, scoped token management, personal preferences and logout;
+operator routes remain denied. Owner-issued reseller tokens and reseller-issued tokens share the
+same live grant ceiling and conditional token revoke boundary. REST allows only explicit
+ownership-checked customer reads; mutations and global aggregates remain denied.
+Purchase/renewal operations and their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|

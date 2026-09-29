@@ -221,4 +221,24 @@ func TestCreateForAdminBindsPrincipalAndRejectsOvergrant(t *testing.T) {
 	if err != nil || !v.Authorize("users.read") || v.Authorize("node.settings") {
 		t.Fatalf("bound token verification = %+v, %v", v, err)
 	}
+	global, globalSecret, err := svc.Create(ctx, "owner bot", []string{"users.read"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := svc.ListForReseller(ctx, resellerID)
+	if err != nil || len(listed) != 1 || listed[0].ID != tok.ID || listed[0].ResellerID == nil {
+		t.Fatalf("tenant token list escaped ownership: %+v, %v", listed, err)
+	}
+	if err := svc.RevokeForReseller(ctx, global.ID, resellerID); domain.CodeOf(err) != domain.CodeNotFound {
+		t.Fatalf("foreign token revoke result: %v", err)
+	}
+	if _, err := svc.Verify(ctx, globalSecret, ""); err != nil {
+		t.Fatalf("foreign token was affected: %v", err)
+	}
+	if err := svc.RevokeForReseller(ctx, tok.ID, resellerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Verify(ctx, plaintext, ""); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("owned token was not revoked: %v", err)
+	}
 }

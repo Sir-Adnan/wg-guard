@@ -355,8 +355,28 @@ func (v *Verified) Authorize(required string) bool {
 
 // List returns all tokens without secrets.
 func (s *Service) List(ctx context.Context) ([]Token, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, prefix, scopes, expires_at, enabled,
-		cidr_allowlist, last_used_at, created_at FROM api_tokens ORDER BY created_at`)
+	return s.list(ctx, nil)
+}
+
+// ListForReseller returns only tokens bound to one reseller. The owner-only
+// global List method remains separate so a tenant caller cannot omit a filter.
+func (s *Service) ListForReseller(ctx context.Context, resellerID string) ([]Token, error) {
+	if resellerID == "" {
+		return nil, domain.E(domain.CodeInvalidRequest, "reseller ID is required")
+	}
+	return s.list(ctx, &resellerID)
+}
+
+func (s *Service) list(ctx context.Context, resellerID *string) ([]Token, error) {
+	query := `SELECT id, name, prefix, scopes, expires_at, enabled,
+		cidr_allowlist, last_used_at, created_at, reseller_id, issued_by_admin_id FROM api_tokens`
+	var rows *sql.Rows
+	var err error
+	if resellerID == nil {
+		rows, err = s.db.QueryContext(ctx, query+` ORDER BY created_at`)
+	} else {
+		rows, err = s.db.QueryContext(ctx, query+` WHERE reseller_id = ? ORDER BY created_at`, *resellerID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("token: list: %w", err)
 	}
@@ -364,17 +384,24 @@ func (s *Service) List(ctx context.Context) ([]Token, error) {
 	var out []Token
 	for rows.Next() {
 		var (
-			t         Token
-			scopesRaw string
-			cidrRaw   string
-			expRaw    sql.NullString
-			lastRaw   sql.NullString
-			enabled   int
-			createdAt string
+			t                      Token
+			scopesRaw              string
+			cidrRaw                string
+			expRaw                 sql.NullString
+			lastRaw                sql.NullString
+			enabled                int
+			createdAt              string
+			resellerRaw, issuerRaw sql.NullString
 		)
 		if err := rows.Scan(&t.ID, &t.Name, &t.Prefix, &scopesRaw, &expRaw, &enabled,
-			&cidrRaw, &lastRaw, &createdAt); err != nil {
+			&cidrRaw, &lastRaw, &createdAt, &resellerRaw, &issuerRaw); err != nil {
 			return nil, fmt.Errorf("token: scan: %w", err)
+		}
+		if resellerRaw.Valid {
+			t.ResellerID = &resellerRaw.String
+		}
+		if issuerRaw.Valid {
+			t.IssuedByAdminID = &issuerRaw.String
 		}
 		_ = json.Unmarshal([]byte(scopesRaw), &t.Scopes)
 		t.Enabled = enabled == 1
@@ -404,6 +431,23 @@ func (s *Service) Revoke(ctx context.Context, id string) error {
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return domain.E(domain.CodeNotFound, "token %s not found", id)
+	}
+	return nil
+}
+
+// RevokeForReseller is a single conditional write: a foreign token is
+// indistinguishable from a missing one and can never be revoked by a tenant.
+func (s *Service) RevokeForReseller(ctx context.Context, id, resellerID string) error {
+	if resellerID == "" {
+		return domain.E(domain.CodeInvalidRequest, "reseller ID is required")
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE api_tokens SET enabled = 0
+		WHERE id = ? AND reseller_id = ?`, id, resellerID)
+	if err != nil {
+		return fmt.Errorf("token: reseller revoke: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.E(domain.CodeNotFound, "token not found")
 	}
 	return nil
 }

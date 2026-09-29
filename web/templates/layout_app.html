@@ -20,6 +20,7 @@
       <div class="nav-label">{{.T "nav.group.manage"}}</div>
       {{if .Can "users.read"}}<a href="/reseller/users" {{if .IsActive "/reseller/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>{{end}}
       <div class="nav-label">{{.T "nav.group.system"}}</div>
+      {{if .Can "api_tokens.manage"}}<a href="/reseller/tokens" {{if .IsActive "/reseller/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
       <a href="/appearance" {{if .IsActive "/appearance"}}aria-current="page"{{end}}>{{.Icon "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
       {{else}}
       <div class="nav-label">{{.T "nav.group.manage"}}</div>
