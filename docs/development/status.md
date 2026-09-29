@@ -34,6 +34,13 @@ Chromium/WebKit browser checks cover the changed routes, 320–1440px layouts, f
 Actual Android/iOS downloads and a fresh VPS deployment of this revision remain unverified;
 v0.1.1 artifacts do not include it.
 
+**Phase 14 development:** The owner approved isolated reseller accounts and tokens, and four
+independent carry/replace combinations for time and volume with conditional reversal. The 14.0
+idempotency hardening authenticates before replay, scopes keys per token and rejects active
+pre-upgrade keys. Targeted API tests cover anonymous, wrong-scope and revoked-token replays,
+cross-token key reuse and legacy-key fail-closed behavior. This is development evidence only;
+reseller isolation, purchase/renewal operations, host verification and a new release are pending.
+
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |

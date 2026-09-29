@@ -2,7 +2,7 @@
   "openapi": "3.2.1",
   "info": {
     "title": "WG-Guard API",
-    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). All errors use one envelope (`error.code` is a stable machine code). Selected mutating endpoints accept `Idempotency-Key`; stored responses replay for 24 hours. An interruption before response-snapshot storage can leave an ambiguous outcome, and V1 has no lookup-by-key endpoint. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). All errors use one envelope (`error.code` is a stable machine code). Selected mutating endpoints accept `Idempotency-Key`; authenticated, token-scoped stored responses replay for 24 hours. Pre-scoping keys that have not expired return 409 rather than replay or repeat a mutation. An interruption before response-snapshot storage can leave an ambiguous outcome, and V1 has no lookup-by-key endpoint. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/" }],

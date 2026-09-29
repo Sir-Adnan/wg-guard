@@ -25,7 +25,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
-| **14 — Integration API for automation** | Additive, finance-safe lifecycle contracts for external panels/bots; resolve product semantics before implementation | Contract design planned; no new V1 endpoints yet |
+| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, four-policy renewal, conditional reversal and webhook contracts | 14.0 active; no new V1 endpoints yet |
 
 ## Phase gates
 
@@ -176,16 +176,33 @@ not verified for this follow-up.
 
 ### Phase 14 — Integration API for automation
 
-14.0 first fixes a product contract for purchase provisioning, customer credential delivery,
-expiry/volume renewal policies, conditional reversal, idempotency recovery, webhook ordering and
-scope isolation. Confirm financial semantics and threat model with the owner before implementation.
-14.1 can add an atomic provision/result query and customer-delivery API; 14.2 can add one atomic
-time-and-volume renewal with preconditions, before/after state, operation identity and conditional
-reversal that preserves later usage; 14.3 completes webhook/schema/lookup needs and compatibility
-tests. Favor additive `/api/v1` operations with separate scopes and retained old behavior, and
-update OpenAPI and integration guides with the exact guarantees. Never infer user IDs from
-usernames, expose private keys in logs, or present several PATCH calls as an atomic purchase.
-Release/certification gates for a later version remain separately owner-approved.
+The owner chose separate reseller accounts with configurable permissions. Owner integrations may
+see the whole node; reseller panel sessions and API tokens must see only that reseller's customers.
+Time and volume renewal each offer carry-forward or replacement, giving four combinations;
+conditional reversal must preserve usage recorded afterward. These are product decisions, not
+claims that the current V1 API already implements them.
+
+1. **14.0 — Contract and security:** close the idempotency replay authorization defect; specify
+   principal ownership, least-privilege grants, purchase/result identity, renewal arithmetic and
+   failure behavior before exposing new integration routes.
+2. **14.1 — Reseller boundary:** add owner-managed reseller accounts and permission selection,
+   principal-bound tokens, row ownership and denial tests across panel, API, subscriptions,
+   statistics and webhook delivery. Do not expose a reseller login until every reachable route
+   enforces the boundary.
+3. **14.2 — Purchase delivery:** atomically provision a user and initial device, persist an
+   inspectable operation result with its mutation, and add principal-scoped customer-link delivery
+   and rotation. A lost HTTP response must not require guessing whether a purchase succeeded.
+4. **14.3 — Renewal and correction:** apply time and volume in one transaction with explicit
+   carry/reset choices, version preconditions and before/after values; conditionally reverse an
+   operation without deleting subsequent measured usage.
+5. **14.4 — Integration completeness:** type webhook event payloads and delivery guarantees,
+   expose safe delivery/reconciliation lookup where needed, add bounded batch reads if justified,
+   complete OpenAPI examples and contract tests, then run one focused compatibility/security gate.
+
+Keep additions compatible with `/api/v1`, use separate scopes for sensitive operations, and
+retain old endpoint behavior. Opaque IDs are not usernames; private configs and capability links
+must not enter logs, audit metadata or operation journals. Existing release/certification evidence
+does not certify Phase 14 or an unpublished revision. Any later release remains owner-approved.
 
 ## Verification policy
 

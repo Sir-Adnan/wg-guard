@@ -94,12 +94,12 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	for _, r := range s.routes {
 		h := http.Handler(r.Handler)
+		if r.Idempotent {
+			h = s.idem.wrap(h)
+		}
 		if r.Scope != "" {
 			h = s.rateLimitMiddleware(h)
 			h = s.authMiddleware(r.Scope, h)
-		}
-		if r.Idempotent {
-			h = s.idem.wrap(h)
 		}
 		mux.HandleFunc(r.Method+" "+r.Path, h.ServeHTTP)
 	}

@@ -100,6 +100,12 @@ removed when the operator explicitly purges node data.
   rollback. Cloudflare tokens are bounded hidden input or 0600 files, never argv/state/output;
   managed certificate keys are 0600 and deploy hooks accept only the recorded lineage.
 
+For REST mutations, authentication, current token scopes and rate limits are checked before
+idempotency lookup or response replay. Stored keys are isolated per token; a pre-upgrade key with
+unknown owner is rejected until it expires rather than replayed across principals. This closes
+the released V1 replay-before-auth path, but does not make a multi-request billing workflow
+atomic or provide reseller row isolation; those are Phase 14 work.
+
 ## Linux/network security
 
 - NAT/general rules stay in the namespaced nftables table; Docker coexistence uses only one tagged

@@ -21,12 +21,12 @@ current product contract.
 4. Maintainability — clean, modular, idiomatic Go; focused docs.
 5. API stability — `/api/v1` is a contract from V1.
 6. Premium UI/UX — bilingual (fa/en), full RTL, light/dark, excellent on mobile and desktop.
-7. Frontend performance — server-rendered, tiny payloads, no heavy runtime.
+7. Frontend performance — server-rendered, efficient payloads, no heavy runtime.
 8. Ease of installation — polished interactive installer, Docker default.
 
 ## Non-goals
 
-- No multi-node controller, reseller system, or centralized management.
+- No multi-node controller or centralized management.
 - No redesign of WireGuard cryptography or custom obfuscation schemes.
 - No PostgreSQL/MySQL/Redis/RabbitMQ/Node.js runtime/nginx requirement.
 - No auto-updates; updates are administrator-initiated.
@@ -98,12 +98,18 @@ derived (handshake within a configurable window, default 3 min).
 
 ## Roles & API
 
-- **Owner** (full access, immutable) + **Admins** with centrally registered permissions
-  (users.*, devices.*, configs.view, plans.manage, stats.view, audit.view, api_tokens.manage,
-  webhooks.manage, server.view/manage, backup.manage, update.manage, admins.manage).
+- **Owner** (full access, immutable) + **Admins** with centrally registered permissions;
+  the exact current grants are in [the API contract](../architecture/api.md) and
+  `internal/auth/scopes.go`.
 - **API tokens** separate from admin sessions: `wg_…`, hashed at rest, scopes, optional CIDR
   allowlist, expiry, revocation.
 - The web panel and REST API share one business layer — no duplicated logic.
+
+Phase 14 adds owner-managed **Reseller** accounts with configurable permissions and an isolated
+customer namespace. Owner integrations remain node-wide; a reseller's panel session and API
+tokens may act only within that reseller's granted scope and customer set. Neither a global
+admin permission nor a URL/ID supplied by the caller may bypass ownership checks. This is an
+approved requirement, not a current V1 capability; see [Roadmap](../../ROADMAP.md#phase-14--integration-api-for-automation).
 
 ## Bilingual product
 

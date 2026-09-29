@@ -23,11 +23,13 @@ import (
 // stored, on failure the row is released so the client can retry.
 //
 // Semantics:
-//   - same key + same request hash + stored response → replay it
+//   - same token + key + request hash + stored response → replay it
 //     (Idempotency-Replayed: true);
-//   - same key, different request → 409 IDEMPOTENCY_KEY_REUSED;
+//   - same token + key, different request → 409 IDEMPOTENCY_KEY_REUSED;
 //   - same key while the first request is still in flight → 409 (rare: the
 //     window is the handler duration);
+//   - an unexpired key from a pre-scoping build → 409, never an unsafe replay
+//     or a second mutation during the upgrade window;
 //   - no key header → the handler runs normally.
 type idempotencyStore struct {
 	db *database.DB
@@ -54,6 +56,12 @@ func (st *idempotencyStore) wrap(next http.Handler) http.Handler {
 				"Idempotency-Key must be 1-128 printable characters")
 			return
 		}
+		verified := TokenFrom(r.Context())
+		if verified == nil {
+			writeErr(w, r, http.StatusUnauthorized, domain.CodeUnauthorized, "missing bearer token")
+			return
+		}
+		storedKey := scopedIdempotencyKey(verified.Token.ID, key)
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -62,17 +70,27 @@ func (st *idempotencyStore) wrap(next http.Handler) http.Handler {
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		hash := requestHash(r.Method, r.URL.Path, body)
+		legacy, err := st.legacyKeyActive(r.Context(), key)
+		if err != nil {
+			writeServiceErr(w, r, err)
+			return
+		}
+		if legacy {
+			writeErr(w, r, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED",
+				"Idempotency-Key predates token-scoped replay; reconcile the prior result before using a new key")
+			return
+		}
 
 		// Claim the key. The PRIMARY KEY is the arbiter: a concurrent claim
 		// fails the insert and resolves below.
-		claimed, err := st.claim(r.Context(), key, hash)
+		claimed, err := st.claim(r.Context(), storedKey, hash)
 		if err != nil {
 			writeServiceErr(w, r, err)
 			return
 		}
 		if !claimed {
 			// Key exists: replay, in-flight conflict, or request mismatch.
-			snapshot, hashMatch, err := st.lookup(r.Context(), key, hash)
+			snapshot, hashMatch, err := st.lookup(r.Context(), storedKey, hash)
 			if err != nil {
 				writeServiceErr(w, r, err)
 				return
@@ -99,14 +117,21 @@ func (st *idempotencyStore) wrap(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 
 		if rec.status >= 200 && rec.status < 300 {
-			_ = st.store(r.Context(), key, idemResponse{Status: rec.status, Body: rec.buf.Bytes()})
+			_ = st.store(r.Context(), storedKey, idemResponse{Status: rec.status, Body: rec.buf.Bytes()})
 		} else {
-			_ = st.release(r.Context(), key) // failures are retryable
+			_ = st.release(r.Context(), storedKey) // failures are retryable
 		}
 	})
 }
 
 func (st *idempotencyStore) claim(ctx context.Context, key, hash string) (bool, error) {
+	// The scheduler may not have pruned an expired row yet. Retire it here so
+	// the documented TTL is effective at the request boundary.
+	if _, err := st.db.ExecContext(ctx,
+		`DELETE FROM idempotency_keys WHERE key = ? AND expires_at <= ?`,
+		key, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		return false, err
+	}
 	_, err := st.db.ExecContext(ctx, `INSERT INTO idempotency_keys
 		(key, request_hash, response_snapshot, expires_at) VALUES (?, ?, '', ?)`,
 		key, hash, time.Now().UTC().Add(idempotencyTTL).Format(time.RFC3339Nano))
@@ -117,6 +142,17 @@ func (st *idempotencyStore) claim(ctx context.Context, key, hash string) (bool, 
 		return false, nil
 	}
 	return false, err
+}
+
+func (st *idempotencyStore) legacyKeyActive(ctx context.Context, key string) (bool, error) {
+	var found int
+	err := st.db.QueryRowContext(ctx,
+		`SELECT 1 FROM idempotency_keys WHERE key = ? AND expires_at > ?`,
+		key, time.Now().UTC().Format(time.RFC3339Nano)).Scan(&found)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (st *idempotencyStore) lookup(ctx context.Context, key, hash string) (*idemResponse, bool, error) {
@@ -182,4 +218,11 @@ func requestHash(method, path string, body []byte) string {
 	h.Write([]byte{0})
 	h.Write(body)
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func scopedIdempotencyKey(tokenID, clientKey string) string {
+	// A versioned, fixed-size key avoids exposing either caller input or token
+	// identity in the idempotency table and separates independent integrations.
+	sum := sha256.Sum256([]byte(tokenID + "\x00" + clientKey))
+	return "v2:" + hex.EncodeToString(sum[:])
 }

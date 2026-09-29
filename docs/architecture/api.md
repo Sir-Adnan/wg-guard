@@ -29,12 +29,16 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   `{"speed_limit_up_kbps": null}` removes only the upload cap); a value sets it. This is how
   independent up/down speed limits change one at a time without re-sending the other.
 - **Idempotency**: `Idempotency-Key` header (1–128 printable chars) is persisted for create-user,
-  bulk create/action, renew, and traffic mutations. A same-request retry replays a stored response
-  with `Idempotency-Replayed: true`; reusing a key with a different request returns 409
-  (`IDEMPOTENCY_KEY_REUSED`). Keys are kept 24 h, then pruned. The claim and response snapshot are
-  not committed atomically with the mutation: an interruption after the mutation but before the
-  snapshot can leave an ambiguous in-flight key. V1 has no lookup-by-key or recovery endpoint;
-  external billing workflows must reconcile durable resource state and journal their operation.
+  bulk create/action, renew, and traffic mutations. Authentication, scope checks and rate limits
+  precede every replay. Keys are isolated per verified API token: the same token and request
+  replay the stored response with `Idempotency-Replayed: true`; a different request using that
+  token's key returns 409 (`IDEMPOTENCY_KEY_REUSED`). Keys remain valid for 24 h, with expired
+  rows retired on reuse. An unexpired key written before token scoping fails closed with 409;
+  its caller must reconcile the previous result before using a fresh key. The claim and response
+  snapshot are not committed atomically with the mutation: an interruption after the mutation but
+  before the snapshot can leave an ambiguous in-flight key. V1 has no lookup-by-key or recovery
+  endpoint; external billing workflows must reconcile durable resource state and journal their
+  operation until Phase 14's operation contract is implemented.
 - **Rate limits**: per-token fixed 60 s window (`api.rate_limit_per_minute`, default 600; 0
   disables). Responses carry `X-RateLimit-Limit`/`X-RateLimit-Remaining`; a 429 carries
   `Retry-After`. Setting changes apply live (no restart).
@@ -74,6 +78,15 @@ private material, as an equivalent customer-link contract. Webhooks have durable
 documented retry/dead-letter behavior, but no complete per-event OpenAPI payload schemas or total
 ordering guarantee across endpoints. These limits are tracked as an additive future integration phase in
 [ROADMAP.md](../../ROADMAP.md).
+
+**Phase 14 direction (not current V1 behavior):** Owner integrations retain node-wide authority;
+reseller panel accounts and their tokens are restricted to users owned by that reseller, with
+configurable grants that cannot exceed the reseller's current permissions. Ownership applies to
+every read, mutation, aggregate, config, public-link management action and webhook, not only list
+filters. New purchase operations will commit the initial user, device and recoverable result
+together. Renewal will combine time and volume with independent carry/replace choices, explicit
+preconditions and a conditional reversal that leaves later usage intact. New customer-link APIs
+will treat the link as a capability secret. Existing V1 endpoints keep their meanings.
 
 ## Live telemetry
 

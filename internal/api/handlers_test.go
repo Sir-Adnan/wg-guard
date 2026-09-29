@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
@@ -288,6 +289,92 @@ func TestIdempotency(t *testing.T) {
 	e.handler.ServeHTTP(r5, req5)
 	if r5.Code != 201 {
 		t.Fatalf("retry after failure: %d %s", r5.Code, r5.Body.String())
+	}
+}
+
+func TestIdempotencyReplayRequiresAuthorization(t *testing.T) {
+	e := newEnv(t)
+	const body = `{"username":"replay-protected"}`
+	send := func(plaintext string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
+		req.Header.Set("Idempotency-Key", "replay-protected-key")
+		if plaintext != "" {
+			req.Header.Set("Authorization", "Bearer "+plaintext)
+		}
+		rec := httptest.NewRecorder()
+		e.handler.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := send(e.plainTok); rec.Code != http.StatusCreated {
+		t.Fatalf("initial create: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(""); rec.Code != http.StatusUnauthorized || rec.Header().Get("Idempotency-Replayed") != "" {
+		t.Fatalf("anonymous replay: %d, replay=%q", rec.Code, rec.Header().Get("Idempotency-Replayed"))
+	}
+	_, limited, err := e.tokens.Create(context.Background(), "read-only", []string{"users.read"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec := send(limited); rec.Code != http.StatusForbidden || rec.Header().Get("Idempotency-Replayed") != "" {
+		t.Fatalf("unauthorized replay: %d, replay=%q", rec.Code, rec.Header().Get("Idempotency-Replayed"))
+	}
+	all, err := e.tokens.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, tok := range all {
+		if tok.Name == "test-token" {
+			found = true
+			if err := e.tokens.Revoke(context.Background(), tok.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("test token not found for revocation")
+	}
+	if rec := send(e.plainTok); rec.Code != http.StatusUnauthorized || rec.Header().Get("Idempotency-Replayed") != "" {
+		t.Fatalf("revoked-token replay: %d, replay=%q", rec.Code, rec.Header().Get("Idempotency-Replayed"))
+	}
+}
+
+func TestIdempotencyKeysArePerTokenAndLegacyKeysFailClosed(t *testing.T) {
+	e := newEnv(t)
+	_, second, err := e.tokens.Create(context.Background(), "second-creator", []string{"users.create"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	send := func(plaintext, key, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+plaintext)
+		req.Header.Set("Idempotency-Key", key)
+		rec := httptest.NewRecorder()
+		e.handler.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := send(e.plainTok, "shared-key", `{"username":"first-client"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("first token create: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(second, "shared-key", `{"username":"second-client"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("second token must own its key namespace: %d %s", rec.Code, rec.Body.String())
+	}
+	const legacyKey = "pre-upgrade-key"
+	legacySnapshot, err := json.Marshal(idemResponse{Status: http.StatusCreated, Body: []byte(`{"id":"old-result"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = e.db.Exec(`INSERT INTO idempotency_keys (key, request_hash, response_snapshot, expires_at)
+		VALUES (?, ?, ?, ?)`, legacyKey, requestHash(http.MethodPost, "/api/v1/users", []byte(`{"username":"legacy-client"}`)), string(legacySnapshot),
+		time.Now().UTC().Add(time.Hour).Format(time.RFC3339Nano))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec := send(e.plainTok, legacyKey, `{"username":"legacy-client"}`); rec.Code != http.StatusConflict || rec.Header().Get("Idempotency-Replayed") != "" {
+		t.Fatalf("legacy key must neither replay nor repeat an effect: %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := e.users.GetByUsername(context.Background(), "legacy-client"); err == nil {
+		t.Fatal("legacy-key retry created a duplicate user")
 	}
 }
 
