@@ -15,11 +15,13 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 )
 
 // Admin is a stored panel account.
 type Admin struct {
 	ID          string
+	ResellerID  *string // nil = node-wide operator account
 	Username    string
 	Role        auth.Role
 	Permissions []string
@@ -101,10 +103,31 @@ func (s *Service) BootstrapOwner(ctx context.Context, username, password string)
 
 // Create adds an account. Owner creation is refused once an owner exists.
 func (s *Service) Create(ctx context.Context, username, password string, role auth.Role, permissions []string) (*Admin, error) {
+	return s.create(ctx, username, password, role, permissions, nil)
+}
+
+// CreateForReseller creates a tenant-bound panel identity. The owner chooses
+// its initial grants, which may not exceed the reseller's current ceiling.
+func (s *Service) CreateForReseller(ctx context.Context, resellerID, username, password string, permissions []string) (*Admin, error) {
+	if resellerID == "" {
+		return nil, domain.E(domain.CodeInvalidRequest, "reseller ID is required")
+	}
+	return s.create(ctx, username, password, auth.RoleAdmin, permissions, &resellerID)
+}
+
+func (s *Service) create(ctx context.Context, username, password string, role auth.Role, permissions []string, resellerID *string) (*Admin, error) {
 	if !role.Valid() {
 		return nil, domain.E(domain.CodeInvalidRequest, "invalid role %q", role)
 	}
+	if resellerID != nil {
+		if err := s.validateResellerGrants(ctx, *resellerID, permissions); err != nil {
+			return nil, err
+		}
+	}
 	if role == auth.RoleOwner {
+		if resellerID != nil {
+			return nil, domain.E(domain.CodeInvalidRequest, "reseller cannot be owner")
+		}
 		var count int
 		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE role = 'owner'`).Scan(&count); err != nil {
 			return nil, fmt.Errorf("admin: count owners: %w", err)
@@ -125,6 +148,7 @@ func (s *Service) Create(ctx context.Context, username, password string, role au
 	}
 	a := &Admin{
 		ID:          domain.NewID(),
+		ResellerID:  resellerID,
 		Username:    username,
 		Role:        role,
 		Permissions: permissions,
@@ -138,11 +162,13 @@ func (s *Service) Create(ctx context.Context, username, password string, role au
 	// The predicate and insert execute in one SQLite write statement. Both
 	// web bootstrap and direct Create therefore share the same atomic gate,
 	// including across independent processes/DB connections.
-	res, err := s.db.ExecContext(ctx, `INSERT INTO admins (id, username, password_hash, role, permissions, enabled, created_at, updated_at)
-		SELECT ?, ?, ?, ?, ?, 1, ?, ?
-		WHERE ? != 'owner' OR NOT EXISTS (SELECT 1 FROM admins WHERE role = 'owner')`,
+	res, err := s.db.ExecContext(ctx, `INSERT INTO admins (id, username, password_hash, role, permissions, enabled, created_at, updated_at, reseller_id)
+		SELECT ?, ?, ?, ?, ?, 1, ?, ?, ?
+		WHERE (? != 'owner' OR NOT EXISTS (SELECT 1 FROM admins WHERE role = 'owner'))
+		AND (? IS NULL OR EXISTS (SELECT 1 FROM resellers WHERE id = ? AND enabled = 1))`,
 		a.ID, a.Username, hash, string(role), string(permsJSON),
-		a.CreatedAt.Format(time.RFC3339Nano), a.CreatedAt.Format(time.RFC3339Nano), string(role))
+		a.CreatedAt.Format(time.RFC3339Nano), a.CreatedAt.Format(time.RFC3339Nano), resellerID,
+		string(role), resellerID, resellerID)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, domain.E(domain.CodeAdminExists, "username %q is taken", username)
@@ -152,25 +178,52 @@ func (s *Service) Create(ctx context.Context, username, password string, role au
 	if n, err := res.RowsAffected(); err != nil {
 		return nil, fmt.Errorf("admin: create result: %w", err)
 	} else if n == 0 {
+		if resellerID != nil {
+			return nil, domain.E(domain.CodeForbidden, "reseller is unavailable")
+		}
 		return nil, domain.E(domain.CodeOwnerProtected, "an owner already exists; there is exactly one owner per node")
 	}
 	return a, nil
+}
+
+func (s *Service) validateResellerGrants(ctx context.Context, resellerID string, permissions []string) error {
+	if _, err := reseller.ValidatePermissions(permissions); err != nil {
+		return err
+	}
+	account, err := reseller.NewService(s.db).Get(ctx, resellerID)
+	if err != nil {
+		return err
+	}
+	if !account.Enabled {
+		return domain.E(domain.CodeForbidden, "reseller is disabled")
+	}
+	for _, permission := range permissions {
+		if !auth.Allows(account.Permissions, permission) {
+			return domain.E(domain.CodeForbidden, "permission exceeds reseller ceiling")
+		}
+	}
+	return nil
 }
 
 // Authenticate verifies credentials for login; returns the account (never
 // the hash). Disabled accounts fail closed.
 func (s *Service) Authenticate(ctx context.Context, username, password string) (*Admin, error) {
 	var (
-		a          Admin
-		hash       string
-		role       string
-		perms      string
-		enabled    int
-		createdStr string
+		a               Admin
+		hash            string
+		role            string
+		perms           string
+		enabled         int
+		resellerID      sql.NullString
+		resellerEnabled sql.NullInt64
+		createdStr      string
 	)
-	err := s.db.QueryRowContext(ctx, `SELECT id, username, password_hash, role, permissions, enabled, created_at
-		FROM admins WHERE username = ?`, username).
-		Scan(&a.ID, &a.Username, &hash, &role, &perms, &enabled, &createdStr)
+	err := s.db.QueryRowContext(ctx, `SELECT a.id, a.username, a.password_hash, a.role,
+		a.permissions, a.enabled, a.created_at, a.reseller_id, r.enabled
+		FROM admins a LEFT JOIN resellers r ON r.id = a.reseller_id
+		WHERE a.username = ?`, username).
+		Scan(&a.ID, &a.Username, &hash, &role, &perms, &enabled, &createdStr,
+			&resellerID, &resellerEnabled)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Burn comparable time to blunt username probing.
 		_, _ = auth.VerifyPassword(password, dummyHash)
@@ -183,10 +236,13 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 	if err != nil || !ok {
 		return nil, domain.E(domain.CodeCredentialInvalid, "invalid credentials")
 	}
-	if enabled == 0 {
+	if enabled == 0 || (resellerID.Valid && (!resellerEnabled.Valid || resellerEnabled.Int64 != 1)) {
 		return nil, domain.E(domain.CodeForbidden, "account disabled")
 	}
 	a.Role = auth.Role(role)
+	if resellerID.Valid {
+		a.ResellerID = &resellerID.String
+	}
 	a.Enabled = true
 	_ = json.Unmarshal([]byte(perms), &a.Permissions)
 	a.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdStr)
@@ -199,7 +255,7 @@ var dummyHash = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAA
 
 // List returns all accounts (no hashes).
 func (s *Service) List(ctx context.Context) ([]Admin, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, username, role, permissions, enabled, created_at
+	rows, err := s.db.QueryContext(ctx, `SELECT id, username, role, permissions, enabled, created_at, reseller_id
 		FROM admins ORDER BY created_at`)
 	if err != nil {
 		return nil, fmt.Errorf("admin: list: %w", err)
@@ -213,9 +269,13 @@ func (s *Service) List(ctx context.Context) ([]Admin, error) {
 			perms      string
 			enabled    int
 			createdStr string
+			resellerID sql.NullString
 		)
-		if err := rows.Scan(&a.ID, &a.Username, &role, &perms, &enabled, &createdStr); err != nil {
+		if err := rows.Scan(&a.ID, &a.Username, &role, &perms, &enabled, &createdStr, &resellerID); err != nil {
 			return nil, fmt.Errorf("admin: scan: %w", err)
+		}
+		if resellerID.Valid {
+			a.ResellerID = &resellerID.String
 		}
 		a.Role = auth.Role(role)
 		a.Enabled = enabled == 1
@@ -254,6 +314,11 @@ func (s *Service) SetPermissions(ctx context.Context, id string, permissions []s
 	}
 	if a.Role == auth.RoleOwner {
 		return errOwnerProtected()
+	}
+	if a.ResellerID != nil {
+		if err := s.validateResellerGrants(ctx, *a.ResellerID, permissions); err != nil {
+			return err
+		}
 	}
 	permsJSON, _ := json.Marshal(permissions)
 	_, err = s.db.ExecContext(ctx, `UPDATE admins SET permissions = ?, updated_at = ? WHERE id = ?`,
@@ -309,10 +374,11 @@ func (s *Service) get(ctx context.Context, id string) (*Admin, error) {
 		perms      string
 		enabled    int
 		createdStr string
+		resellerID sql.NullString
 	)
-	err := s.db.QueryRowContext(ctx, `SELECT id, username, role, permissions, enabled, created_at
+	err := s.db.QueryRowContext(ctx, `SELECT id, username, role, permissions, enabled, created_at, reseller_id
 		FROM admins WHERE id = ?`, id).
-		Scan(&a.ID, &a.Username, &role, &perms, &enabled, &createdStr)
+		Scan(&a.ID, &a.Username, &role, &perms, &enabled, &createdStr, &resellerID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.E(domain.CodeAdminNotFound, "admin %s not found", id)
 	}
@@ -320,6 +386,9 @@ func (s *Service) get(ctx context.Context, id string) (*Admin, error) {
 		return nil, fmt.Errorf("admin: get: %w", err)
 	}
 	a.Role = auth.Role(role)
+	if resellerID.Valid {
+		a.ResellerID = &resellerID.String
+	}
 	a.Enabled = enabled == 1
 	_ = json.Unmarshal([]byte(perms), &a.Permissions)
 	a.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdStr)
