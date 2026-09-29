@@ -1,8 +1,6 @@
 package web
 
 import (
-	"database/sql"
-	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -74,37 +72,12 @@ func (s *Server) rotateSubscriptionAccess(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	devices, err := s.Devices.ListForUser(r.Context(), u.ID)
+	_, rotatedCount, err := s.Links.RotateAccess(r.Context(), s.Devices, u.ID)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	rotations := make([]device.Rotation, 0, len(devices))
-	for _, d := range devices {
-		keys, keyErr := s.generateKeys(r, len(d.PSKEnc) != 0)
-		if keyErr != nil {
-			s.actionFailed(w, r, keyErr)
-			return
-		}
-		rotations = append(rotations, device.Rotation{DeviceID: d.ID, Keys: *keys})
-	}
-	err = s.DB.WithTx(r.Context(), func(tx *sql.Tx) error {
-		if err := s.Devices.ReplaceUserCredentialsTx(r.Context(), tx, u.ID, rotations); err != nil {
-			return err
-		}
-		link, err := s.Links.RegenerateTx(r.Context(), tx, u.ID)
-		if err != nil {
-			return err
-		}
-		if link.Token == "" {
-			return errors.New("subscription replacement token unavailable")
-		}
-		return nil
-	})
-	if err != nil {
-		s.actionFailed(w, r, err)
-		return
-	}
+	s.audit(r, "user.sub_revoked", u.ID, map[string]any{"devices_rotated": rotatedCount})
 	if err := s.runReconcile(r); err != nil {
 		// The new database state is intentionally retained: rolling credentials
 		// back after a requested revocation would silently make leaked configs
@@ -112,7 +85,6 @@ func (s *Server) rotateSubscriptionAccess(w http.ResponseWriter, r *http.Request
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.audit(r, "user.sub_revoked", u.ID, map[string]any{"devices_rotated": len(rotations)})
 	s.redirectToast(w, r, "/users/"+u.ID, "sub.toast.replaced")
 }
 

@@ -118,8 +118,9 @@ accounts and tokens, and their write actions reject those targets. Existing unbo
 their node-wide meaning. Only the owner can change reseller plan assignments; these form a
 fail-closed product allowlist for tenant purchases. Purchase results persist only IDs and state
 for 90 days; the caller key is hashed, while customer-link capabilities and private device
-material remain outside the operation journal. The customer-link API is ownership-gated and
-no-store.
+material remain outside the operation journal. Customer-link reads and rotations are separately
+scoped, ownership-gated and no-store; rotation preserves the new DB state if runtime
+reconciliation fails, rather than reviving old credentials.
 
 ## Linux/network security
 

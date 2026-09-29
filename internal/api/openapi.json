@@ -155,6 +155,15 @@
         "responses": { "200": { "description": "Private customer link", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLink" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
     },
+    "/api/v1/users/{id}/subscription/rotate": {
+      "post": {
+        "tags": ["integration"], "summary": "Revoke the old link and every old device configuration", "operationId": "rotateCustomerAccess",
+        "description": "Atomically replaces the customer link and every device key, preserving device IDs, addresses and quotas. Old links, configs and QR values stop working after successful runtime reconciliation. If reconciliation fails, the new database state is retained and the response is 503; read the current link before retrying. This operation intentionally does not use the legacy response-replay middleware.",
+        "security": [{ "BearerAuth": ["subscriptions.rotate"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "New private link and count of rotated devices", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLinkRotation" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "503": { "description": "Database rotation committed; runtime reconciliation pending" } }
+      }
+    },
     "/api/v1/users/{id}/enable": {
       "post": {
         "tags": ["users"], "summary": "Enable a user (returns to active/waiting)", "security": [{ "BearerAuth": ["users.update"] }],
@@ -421,6 +430,7 @@
       "PurchaseRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "username": { "type": "string", "description": "Optional global username; omitted uses a stable generated identifier." }, "device_name": { "type": "string", "default": "device-1" } } },
       "OperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "plan_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "plan_id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
       "CustomerLink": { "type": "object", "required": ["path"], "properties": { "path": { "type": "string", "description": "Secret relative subscription path /sub/{token}; do not log or expose publicly." } } },
+      "CustomerLinkRotation": { "type": "object", "required": ["path", "devices_rotated"], "properties": { "path": { "type": "string" }, "devices_rotated": { "type": "integer", "minimum": 0 } } },
       "Error": {
         "type": "object",
         "properties": {

@@ -13,7 +13,6 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
-	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
@@ -104,7 +103,6 @@ func TestUserAndInitialDeviceShareTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	users := user.NewService(svc.db)
-	links := subscription.NewService(svc.db, svc.ring)
 	keys := newKeyPair(t, svc.ring)
 	err := svc.db.WithTx(ctx, func(tx *sql.Tx) error {
 		u, err := users.CreateTx(ctx, tx, user.Input{Username: "customer"})
@@ -120,7 +118,7 @@ func TestUserAndInitialDeviceShareTransaction(t *testing.T) {
 	if _, err := users.GetByUsername(ctx, "customer"); domain.CodeOf(err) != domain.CodeUserNotFound {
 		t.Fatalf("user survived failed provisioning: %v", err)
 	}
-	var userID, deviceID, issuedLink string
+	var userID, deviceID string
 	if err := svc.db.WithTx(ctx, func(tx *sql.Tx) error {
 		u, err := users.CreateTx(ctx, tx, user.Input{Username: "customer"})
 		if err != nil {
@@ -131,11 +129,6 @@ func TestUserAndInitialDeviceShareTransaction(t *testing.T) {
 			return err
 		}
 		userID, deviceID = u.ID, d.ID
-		link, err := links.CreateTx(ctx, tx, u.ID)
-		if err != nil {
-			return err
-		}
-		issuedLink = link.Token
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -145,9 +138,6 @@ func TestUserAndInitialDeviceShareTransaction(t *testing.T) {
 	}
 	if _, err := svc.Get(ctx, deviceID); err != nil {
 		t.Fatal(err)
-	}
-	if got, err := links.Resolve(ctx, issuedLink); err != nil || got != userID {
-		t.Fatalf("provisioned subscription link: %q %v", got, err)
 	}
 }
 

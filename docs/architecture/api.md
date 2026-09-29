@@ -9,7 +9,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 - **Auth**: `Authorization: Bearer wg_…` API tokens with scopes (users.read/create/update/delete/
   bulk, devices.*, configs.read, traffic.read/update, plans.read/write, stats.read, node.read,
   node.settings, webhooks.read/write, interfaces.*, purchases.create, operations.read and
-  subscriptions.read). Tokens are separate from admin sessions; the
+  subscriptions.read/rotate). Tokens are separate from admin sessions; the
   `wg-guard token create|list|revoke|scopes` CLI mints them (the panel's token screen is the
   day-to-day manager). Panel-issued tokens are bound to the issuing account and cannot retain
   permissions removed from that account. Existing CLI/pre-Phase-14 tokens remain node-wide and
@@ -62,7 +62,7 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
 |---|---|
 | Node | `GET /node`, `GET /node/health`, `GET /node/stats` |
 | Users | `POST/GET /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/enable\|disable\|renew`, `POST /users/{id}/traffic/add\|set\|reset`, `GET /users/{id}/traffic` (series) |
-| Integration | `POST /purchases`, `GET /operations/result` (both use an `Idempotency-Key` header), `GET /users/{id}/subscription` (private relative customer link) |
+| Integration | `POST /purchases`, `GET /operations/result` (both use an `Idempotency-Key` header), `GET /users/{id}/subscription` (private relative customer link), `POST /users/{id}/subscription/rotate` (link and all device keys) |
 | Bulk | `POST /users/bulk`, `POST /users/bulk-action` (`{action, user_ids, params}`) |
 | Devices | `GET/POST /users/{id}/devices`, `GET/PATCH/DELETE /devices/{id}`, `POST /devices/{id}/enable\|disable\|regenerate`, `GET /devices/{id}/config\|qr` |
 | Stats | `GET /stats`, `GET /node/telemetry`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
@@ -87,7 +87,9 @@ Legacy `POST /users/{id}/renew`
 changes the expiry policy only; quota and consumed-traffic operations are separate. There is no
 atomic combined time/volume renewal, conditional reversal of a prior renewal, or batch-by-ID read.
 The customer subscription capability path is readable via a scoped, no-store REST endpoint;
-rotation remains a panel workflow. Do not treat admin `/config` or `/qr` responses, which contain device
+rotation uses a separate sensitive scope and atomically replaces the link and all device keys.
+The new state is retained if runtime reconciliation fails, and a 503 tells the caller to inspect
+the current link before retrying. Do not treat admin `/config` or `/qr` responses, which contain device
 private material, as an equivalent customer-link contract. Webhooks have durable event IDs and
 documented retry/dead-letter behavior, but no complete per-event OpenAPI payload schemas or total
 ordering guarantee across endpoints. These limits are tracked as an additive future integration phase in
@@ -97,10 +99,10 @@ ordering guarantee across endpoints. These limits are tracked as an additive fut
 reseller panel accounts and their tokens are restricted to users owned by that reseller, with
 configurable grants that cannot exceed the reseller's current permissions. Ownership applies to
 every read, mutation, aggregate, config, public-link management action and webhook, not only list
-filters. The purchase/result flow and read-only customer-link delivery are implemented in the
-Phase 14 branch. Renewal still needs independent time/volume carry or replace choices, explicit
-preconditions and conditional reversal preserving later usage; link rotation and tenant webhook
-fanout also remain. Existing V1 endpoints keep their meanings.
+filters. The purchase/result flow, customer-link delivery and credential rotation are implemented
+in the Phase 14 branch. Renewal still needs independent time/volume carry or replace choices,
+explicit preconditions and conditional reversal preserving later usage; tenant webhook fanout
+also remains. Existing V1 endpoints keep their meanings.
 
 ## Live telemetry
 

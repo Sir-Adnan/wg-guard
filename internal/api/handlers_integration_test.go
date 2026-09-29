@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,8 +11,15 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
+	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 )
+
+type failingAccessReconciler struct{}
+
+func (failingAccessReconciler) Run(context.Context) (*reconcile.Report, error) {
+	return nil, errors.New("synthetic reconcile failure")
+}
 
 func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	e := newEnv(t)
@@ -60,6 +68,39 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 		!strings.HasPrefix(decodeBody(t, ownerLink)["path"].(string), "/sub/") {
 		t.Fatalf("owner customer link delivery: %d", ownerLink.Code)
 	}
+	oldLinkPath := decodeBody(t, ownerLink)["path"].(string)
+	oldDevice, err := e.devices.Get(ctx, firstBody["device_id"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotated := send(e.plainTok, http.MethodPost,
+		"/api/v1/users/"+firstBody["user_id"].(string)+"/subscription/rotate", "", "")
+	if rotated.Code != http.StatusOK || rotated.Header().Get("Cache-Control") != "no-store" ||
+		decodeBody(t, rotated)["path"] == oldLinkPath {
+		t.Fatalf("customer access rotation: %d", rotated.Code)
+	}
+	newDevice, err := e.devices.Get(ctx, firstBody["device_id"].(string))
+	if err != nil || newDevice.PublicKey == oldDevice.PublicKey {
+		t.Fatalf("device credential survived rotation: %v", err)
+	}
+	if _, err := e.srv.Links.Resolve(ctx, strings.TrimPrefix(oldLinkPath, "/sub/")); domain.CodeOf(err) != domain.CodeUserNotFound {
+		t.Fatalf("old link survived rotation: %v", err)
+	}
+	committedPath := decodeBody(t, rotated)["path"].(string)
+	e.srv.Reconciler = failingAccessReconciler{}
+	failedRuntime := send(e.plainTok, http.MethodPost,
+		"/api/v1/users/"+firstBody["user_id"].(string)+"/subscription/rotate", "", "")
+	if failedRuntime.Code != http.StatusServiceUnavailable || errCode(t, failedRuntime) != domain.CodeNodeUnavailable {
+		t.Fatalf("reconcile failure response: %d", failedRuntime.Code)
+	}
+	e.srv.Reconciler = nil
+	if _, err := e.srv.Links.Resolve(ctx, strings.TrimPrefix(committedPath, "/sub/")); domain.CodeOf(err) != domain.CodeUserNotFound {
+		t.Fatalf("failed runtime revived previous link: %v", err)
+	}
+	currentLink := send(e.plainTok, http.MethodGet, "/api/v1/users/"+firstBody["user_id"].(string)+"/subscription", "", "")
+	if currentLink.Code != http.StatusOK || decodeBody(t, currentLink)["path"] == committedPath {
+		t.Fatalf("committed rotation was rolled back: %d", currentLink.Code)
+	}
 	if rec := send("", http.MethodPost, path, "order-1", body); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("anonymous replay: %d", rec.Code)
 	}
@@ -74,7 +115,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if rec := send(e.plainTok, http.MethodPost, path, "order-1", `{"plan_id":"`+p.ID+`","username":"other"}`); rec.Code != http.StatusConflict || errCode(t, rec) != domain.CodeIdempotencyKeyReused {
 		t.Fatalf("key payload conflict: %d", rec.Code)
 	}
-	r, err := reseller.NewService(e.db).Create(ctx, "north", "North", []string{"purchases.create", "operations.read", "users.read", "subscriptions.read"})
+	r, err := reseller.NewService(e.db).Create(ctx, "north", "North", []string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +126,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	}
 	resellerToken, err := func() (string, error) {
 		_, secret, err := e.tokens.CreateForAdmin(ctx, "owner-1", &r.ID, "north bot",
-			[]string{"purchases.create", "operations.read", "users.read", "subscriptions.read"}, nil, "")
+			[]string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate"}, nil, "")
 		return secret, err
 	}()
 	if err != nil {
@@ -97,6 +138,9 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	}
 	if rec := send(resellerToken, http.MethodGet, "/api/v1/users/"+firstBody["user_id"].(string)+"/subscription", "", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("owner customer link exposed to reseller: %d", rec.Code)
+	}
+	if rec := send(resellerToken, http.MethodPost, "/api/v1/users/"+firstBody["user_id"].(string)+"/subscription/rotate", "", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("owner customer access rotated by reseller: %d", rec.Code)
 	}
 	if rec := send(resellerToken, http.MethodPost, path, "order-1", resellerBody); rec.Code != http.StatusForbidden {
 		t.Fatalf("unassigned plan: %d", rec.Code)

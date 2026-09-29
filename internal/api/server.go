@@ -187,6 +187,7 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users", Scope: "users.read", Handler: s.handleUserList, Paginated: true, TenantPolicy: tenantUserList})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}", Scope: "users.read", Handler: s.handleUserGet, TenantPolicy: tenantUserID})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/users/{id}/subscription", Scope: "subscriptions.read", Handler: s.handleCustomerLink, NoStore: true, TenantPolicy: tenantUserID})
+	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/subscription/rotate", Scope: "subscriptions.rotate", Handler: s.handleCustomerLinkRotate, NoStore: true, TenantPolicy: tenantUserID})
 	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/users/{id}", Scope: "users.update", Handler: s.handleUserUpdate})
 	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/users/{id}", Scope: "users.delete", Handler: s.handleUserDelete})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/enable", Scope: "users.update", Handler: s.handleUserEnable})

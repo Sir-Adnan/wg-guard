@@ -223,6 +223,8 @@ var catalogEN = map[string]string{
 	"ops.family.subscriptions":                  "Customer links",
 	"ops.scope.subscriptions.read":              "Read customer links",
 	"ops.scope_help.subscriptions.read":         "Deliver the private subscription link for an owned customer.",
+	"ops.scope.subscriptions.rotate":            "Rotate customer access",
+	"ops.scope_help.subscriptions.rotate":       "Replace a customer's link and every device credential together.",
 	"ops.scope_help.users.read":                 "Read user lists, account details and assigned limits.",
 	"ops.scope.users.create":                    "Create users",
 	"ops.scope_help.users.create":               "Provision new individual accounts.",

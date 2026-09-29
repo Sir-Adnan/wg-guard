@@ -223,6 +223,8 @@ var catalogFA = map[string]string{
 	"ops.family.subscriptions":                  "لینک‌های مشتری",
 	"ops.scope.subscriptions.read":              "دیدن لینک مشتری",
 	"ops.scope_help.subscriptions.read":         "تحویل لینک اشتراک خصوصی مشتری مجاز.",
+	"ops.scope.subscriptions.rotate":            "چرخاندن دسترسی مشتری",
+	"ops.scope_help.subscriptions.rotate":       "جایگزینی هم‌زمان لینک مشتری و همهٔ کلیدهای دستگاه‌های او.",
 	"ops.scope_help.users.read":                 "دیدن فهرست کاربران، جزئیات حساب و محدودیت‌ها.",
 	"ops.scope.users.create":                    "ساخت کاربران",
 	"ops.scope_help.users.create":               "ساخت حساب کاربری جدید.",

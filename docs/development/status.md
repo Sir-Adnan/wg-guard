@@ -53,8 +53,9 @@ does not alter existing customers.
 The purchase API now commits user, first device, customer link and non-secret 90-day result in
 one transaction; same-principal retries and result lookup survive token rotation. Reseller
 purchases require an assigned enabled plan. Service/API rollback, replay, key-conflict and
-cross-principal tests pass; customer links are a separate scoped, no-store read. Combined renewal,
-conditional reversal, link rotation and their host verification remain in development.
+cross-principal tests pass; customer links are a separate scoped, no-store read. A second scope
+atomically rotates the link and every device key; owner/reseller and old-credential tests pass.
+Combined renewal, conditional reversal and their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|

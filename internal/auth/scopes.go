@@ -13,28 +13,29 @@ import (
 // Scope constants — the canonical permission strings. These are a V1 API
 // contract (docs/architecture/api.md): additive only, never renamed.
 const (
-	ScopeUsersRead         = "users.read"
-	ScopeUsersCreate       = "users.create"
-	ScopeUsersUpdate       = "users.update"
-	ScopeUsersDelete       = "users.delete"
-	ScopeUsersBulk         = "users.bulk"
-	ScopeDevicesRead       = "devices.read"
-	ScopeDevicesWrite      = "devices.write"
-	ScopeConfigsRead       = "configs.read"
-	ScopeTrafficRead       = "traffic.read"
-	ScopeTrafficUpdate     = "traffic.update"
-	ScopePlansRead         = "plans.read"
-	ScopePlansWrite        = "plans.write"
-	ScopeStatsRead         = "stats.read"
-	ScopeNodeRead          = "node.read"
-	ScopeNodeSettings      = "node.settings"
-	ScopeWebhooksRead      = "webhooks.read"
-	ScopeWebhooksWrite     = "webhooks.write"
-	ScopeIfaceRead         = "interfaces.read"
-	ScopeIfaceWrite        = "interfaces.write"
-	ScopePurchasesCreate   = "purchases.create"
-	ScopeOperationsRead    = "operations.read"
-	ScopeSubscriptionsRead = "subscriptions.read"
+	ScopeUsersRead           = "users.read"
+	ScopeUsersCreate         = "users.create"
+	ScopeUsersUpdate         = "users.update"
+	ScopeUsersDelete         = "users.delete"
+	ScopeUsersBulk           = "users.bulk"
+	ScopeDevicesRead         = "devices.read"
+	ScopeDevicesWrite        = "devices.write"
+	ScopeConfigsRead         = "configs.read"
+	ScopeTrafficRead         = "traffic.read"
+	ScopeTrafficUpdate       = "traffic.update"
+	ScopePlansRead           = "plans.read"
+	ScopePlansWrite          = "plans.write"
+	ScopeStatsRead           = "stats.read"
+	ScopeNodeRead            = "node.read"
+	ScopeNodeSettings        = "node.settings"
+	ScopeWebhooksRead        = "webhooks.read"
+	ScopeWebhooksWrite       = "webhooks.write"
+	ScopeIfaceRead           = "interfaces.read"
+	ScopeIfaceWrite          = "interfaces.write"
+	ScopePurchasesCreate     = "purchases.create"
+	ScopeOperationsRead      = "operations.read"
+	ScopeSubscriptionsRead   = "subscriptions.read"
+	ScopeSubscriptionsRotate = "subscriptions.rotate"
 
 	// Panel/CLI-only scopes (not part of the token REST surface).
 	ScopeAuditView       = "audit.view"
@@ -59,7 +60,8 @@ var scopes = map[string]bool{
 	ScopeNodeRead:  true, ScopeNodeSettings: true,
 	ScopeWebhooksRead: true, ScopeWebhooksWrite: true,
 	ScopeIfaceRead: true, ScopeIfaceWrite: true,
-	ScopePurchasesCreate: true, ScopeOperationsRead: true, ScopeSubscriptionsRead: true,
+	ScopePurchasesCreate: true, ScopeOperationsRead: true,
+	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
 	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
 	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
 	ScopeUpdateManage: true,
@@ -76,7 +78,8 @@ var resellerGrantable = map[string]bool{
 	ScopePlansRead: true, ScopeIfaceRead: true,
 	ScopeStatsRead: true, ScopeWebhooksRead: true,
 	ScopeWebhooksWrite: true, ScopeAPITokensManage: true,
-	ScopePurchasesCreate: true, ScopeOperationsRead: true, ScopeSubscriptionsRead: true,
+	ScopePurchasesCreate: true, ScopeOperationsRead: true,
+	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
 }
 
 func ResellerGrantable(scope string) bool { return resellerGrantable[scope] }

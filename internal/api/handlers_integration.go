@@ -91,3 +91,28 @@ func (s *Server) handleCustomerLink(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]string{"path": "/sub/" + url.PathEscape(link.Token)})
 }
+
+func (s *Server) handleCustomerLinkRotate(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.Users.Get(r.Context(), id); err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	link, count, err := s.Links.RotateAccess(r.Context(), s.Devices, id)
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	s.audit(r, "user.sub_revoked", id, map[string]any{"devices_rotated": count})
+	if err := s.reconcile(r); err != nil {
+		// The new credentials remain committed. Reversing them would revive
+		// potentially leaked access; reconciliation is retryable.
+		writeErr(w, r, http.StatusServiceUnavailable, domain.CodeNodeUnavailable,
+			"access was rotated; runtime reconciliation is pending")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{
+		"path": "/sub/" + url.PathEscape(link.Token), "devices_rotated": count,
+	})
+}
