@@ -86,8 +86,8 @@ The [manual release workflow](../../.github/workflows/release.yml) takes an exac
 SHA and version, reruns source gates, builds/checksums the binary and bundle, checks image/binary
 identity, attests the binary and SBOM, verifies downloaded draft assets, then publishes. A new
 public version or official registry image needs its own owner approval. Existing v0.1.0 evidence
-is in [phase12.md](phase12.md); v0.1.1 was separately authorized and published, while later
-versions are not authorized.
+is in [phase12.md](phase12.md); v0.1.1 and the v0.1.2 security update were separately authorized
+and published. Later versions are not authorized.
 For local immutable candidate
 artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
 

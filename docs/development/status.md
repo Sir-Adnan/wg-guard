@@ -5,10 +5,10 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-09-28):** Phases 0–13 are complete within their documented scopes.
-[v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) is the latest stable
-release. Its exact `91f0cad` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430328644)
-and the [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430987412),
+**Current gate (2026-09-29):** Phases 0–13 are complete within their documented scopes.
+[v0.1.2](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) is the latest stable
+security release. Its exact `6eaa5ac` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36536918308)
+and the [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36537556493),
 including checksummed amd64 assets and image identity. The v0.1.0 release had a successful
 latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
@@ -38,15 +38,15 @@ v0.1.1 artifacts do not include it.
 independent carry/replace combinations for time and volume with conditional reversal. The 14.0
 idempotency hardening authenticates before replay, scopes keys per token and rejects active
 pre-upgrade keys. Targeted API tests cover anonymous, wrong-scope and revoked-token replays,
-cross-token key reuse and legacy-key fail-closed behavior. This is development evidence only;
-reseller isolation, purchase/renewal operations, host verification and a new release are pending.
+cross-token key reuse and legacy-key fail-closed behavior. The security correction is in v0.1.2;
+reseller isolation, purchase/renewal operations and their host verification remain in development.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, plans, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.1 V1 behavior unchanged; unreleased config filename header and OpenAPI 3.2.1 format updates add no endpoint; Phase 14 additions remain planned |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests | Exercised through exact-code panel/API workflows; published build served OpenAPI | v0.1.2 secures idempotent replay; unreleased config filename header and OpenAPI 3.2.1 format updates add no endpoint; Phase 14 integration additions remain pending |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |

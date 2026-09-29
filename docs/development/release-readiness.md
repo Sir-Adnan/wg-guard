@@ -4,14 +4,14 @@ Living tracker for the approved Phase 8–12 program. `ROADMAP.md` owns phase or
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-28. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-09-29. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 and v0.1.1 releases passed their respective gates and are public.
-The v0.1.1 `91f0cad` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430328644)
-and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430987412);
+The owner-approved v0.1.0, v0.1.1 and v0.1.2 releases passed their respective gates and are public.
+The v0.1.2 `6eaa5ac` security source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36536918308)
+and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36537556493);
 later versions and official registry images require separate approval.
 
 ## Program status
@@ -201,8 +201,9 @@ or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are 
 
 ## Publication boundary
 
-The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0)
-and [v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) GitHub Releases
+The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0),
+[v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) and
+[v0.1.2 security update](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2)
 were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).
