@@ -258,7 +258,7 @@ func (s *Service) ActivateDueNextPlans(ctx context.Context) (int, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT q.user_id FROM next_plan_queue q JOIN users u ON u.id = q.user_id
 		WHERE q.state = 'queued' AND u.deleted_at IS NULL AND u.enabled = 1
 		AND u.status IN ('active', 'waiting_first_connection', 'expired', 'traffic_exceeded')
-		AND ((u.expires_at IS NOT NULL AND u.expires_at <= ?) OR
+		AND ((u.expires_at IS NOT NULL AND unixepoch(u.expires_at) <= unixepoch(?)) OR
 			(u.traffic_limit_bytes IS NOT NULL AND
 			 (u.traffic_used_rx >= u.traffic_limit_bytes OR
 			  u.traffic_used_tx >= u.traffic_limit_bytes - u.traffic_used_rx)))

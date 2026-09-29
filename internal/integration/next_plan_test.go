@@ -219,3 +219,21 @@ func TestNextPlanUnavailableInterfaceNeedsReview(t *testing.T) {
 		t.Fatalf("review state: %+v %v", queued, err)
 	}
 }
+
+func TestNextPlanExactSecondExpiryIsNotSkipped(t *testing.T) {
+	svc, _, ring, currentID, nextID := nextPlanFixture(t)
+	ctx := context.Background()
+	uid := buyNextPlanUser(t, svc, ring, currentID, "exact-second-expiry", nil)
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Add(time.Hour).Truncate(time.Second).Add(700 * time.Millisecond)
+	svc.Now = func() time.Time { return now }
+	if _, err := svc.DB.ExecContext(ctx, `UPDATE users SET expires_at = ? WHERE id = ?`,
+		now.Truncate(time.Second).Format(time.RFC3339Nano), uid); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := svc.ActivateDueNextPlans(ctx); err != nil || n != 1 {
+		t.Fatalf("exact-second expiry missed: %d %v", n, err)
+	}
+}
