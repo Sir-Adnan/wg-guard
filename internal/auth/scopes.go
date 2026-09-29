@@ -61,6 +61,39 @@ var scopes = map[string]bool{
 	ScopeUpdateManage: true,
 }
 
+// resellerGrantable is a closed allowlist: a newly registered node-level
+// scope never becomes available to existing reseller accounts implicitly.
+var resellerGrantable = map[string]bool{
+	ScopeUsersRead: true, ScopeUsersCreate: true,
+	ScopeUsersUpdate: true, ScopeUsersDelete: true,
+	ScopeUsersBulk: true, ScopeDevicesRead: true,
+	ScopeDevicesWrite: true, ScopeConfigsRead: true,
+	ScopeTrafficRead: true, ScopeTrafficUpdate: true,
+	ScopePlansRead: true, ScopeIfaceRead: true,
+	ScopeStatsRead: true, ScopeWebhooksRead: true,
+	ScopeWebhooksWrite: true, ScopeAPITokensManage: true,
+}
+
+func ResellerGrantable(scope string) bool { return resellerGrantable[scope] }
+
+func ValidResellerGrants(scopes []string) bool {
+	for _, scope := range scopes {
+		if !ResellerGrantable(scope) {
+			return false
+		}
+	}
+	return true
+}
+
+func ResellerScopes() []string {
+	out := make([]string, 0, len(resellerGrantable))
+	for scope := range resellerGrantable {
+		out = append(out, scope)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // AllScopes returns every registered scope, sorted (OpenAPI + UI pickers).
 func AllScopes() []string {
 	out := make([]string, 0, len(scopes))

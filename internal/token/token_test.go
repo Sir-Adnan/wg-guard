@@ -134,3 +134,91 @@ func TestScopeValidationAtCreate(t *testing.T) {
 		t.Fatal("global wildcard accepted at create")
 	}
 }
+
+func TestResellerTokenUsesLiveOwnerAndIssuerCeilings(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+	if _, err := svc.db.Exec(`INSERT INTO resellers (id, slug, permissions, created_at, updated_at)
+		VALUES ('reseller-1', 'north', '["users.read","users.create"]', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.Exec(`INSERT INTO admins (id, username, password_hash, role, permissions,
+		reseller_id, created_at, updated_at) VALUES
+		('issuer-1', 'north-issuer', 'x', 'admin',
+		 '["users.read","users.create","node.settings"]', 'reseller-1', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	tok, plaintext, err := svc.Create(ctx, "bound bot", []string{"users.read", "users.create", "node.settings"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.Exec(`UPDATE api_tokens SET reseller_id = 'reseller-1',
+		issued_by_admin_id = 'issuer-1' WHERE id = ?`, tok.ID); err != nil {
+		t.Fatal(err)
+	}
+	v, err := svc.Verify(ctx, plaintext, "")
+	if err != nil || !v.Authorize("users.read") || !v.Authorize("users.create") || v.Authorize("node.settings") {
+		t.Fatalf("tenant token escaped its ceiling: %+v, %v", v, err)
+	}
+	if _, err := svc.db.Exec(`UPDATE resellers SET permissions = '["users.read"]' WHERE id = 'reseller-1'`); err != nil {
+		t.Fatal(err)
+	}
+	v, err = svc.Verify(ctx, plaintext, "")
+	if err != nil || v.Authorize("users.create") || !v.Authorize("users.read") {
+		t.Fatalf("reseller grant revocation not applied: %+v, %v", v, err)
+	}
+	if _, err := svc.db.Exec(`UPDATE resellers SET enabled = 0 WHERE id = 'reseller-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Verify(ctx, plaintext, ""); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("disabled reseller token remained valid: %v", err)
+	}
+	if _, err := svc.db.Exec(`UPDATE resellers SET enabled = 1 WHERE id = 'reseller-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.Exec(`UPDATE admins SET enabled = 0 WHERE id = 'issuer-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Verify(ctx, plaintext, ""); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("disabled issuer token remained valid: %v", err)
+	}
+}
+
+func TestCreateForAdminBindsPrincipalAndRejectsOvergrant(t *testing.T) {
+	svc := newService(t)
+	ctx := context.Background()
+	for _, statement := range []string{
+		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at)
+			VALUES ('reseller-1', 'north', '["users.read","api_tokens.manage"]', 'test', 'test')`,
+		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
+			VALUES ('owner-1', 'owner', 'x', 'owner', 'test', 'test')`,
+		`INSERT INTO admins (id, username, password_hash, role, permissions, created_at, updated_at)
+			VALUES ('staff-1', 'staff', 'x', 'admin', '["api_tokens.manage","users.read"]', 'test', 'test')`,
+		`INSERT INTO admins (id, username, password_hash, role, permissions, reseller_id,
+			created_at, updated_at) VALUES ('reseller-admin', 'northadmin', 'x', 'admin',
+			'["api_tokens.manage","users.read"]', 'reseller-1', 'test', 'test')`,
+	} {
+		if _, err := svc.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resellerID := "reseller-1"
+	if _, _, err := svc.CreateForAdmin(ctx, "staff-1", &resellerID, "bad target", []string{"users.read"}, nil, ""); err == nil {
+		t.Fatal("global staff issued a reseller token")
+	}
+	if _, _, err := svc.CreateForAdmin(ctx, "staff-1", nil, "overgrant", []string{"users.create"}, nil, ""); err == nil {
+		t.Fatal("staff issued a scope it does not hold")
+	}
+	if _, _, err := svc.CreateForAdmin(ctx, "owner-1", &resellerID, "bad scope", []string{"node.settings"}, nil, ""); err == nil {
+		t.Fatal("owner issued an operator-only scope to a reseller")
+	}
+	tok, plaintext, err := svc.CreateForAdmin(ctx, "reseller-admin", nil, "own bot", []string{"users.read"}, nil, "")
+	if err != nil || tok.ResellerID == nil || *tok.ResellerID != resellerID ||
+		tok.IssuedByAdminID == nil || *tok.IssuedByAdminID != "reseller-admin" {
+		t.Fatalf("reseller token binding = %+v, %v", tok, err)
+	}
+	v, err := svc.Verify(ctx, plaintext, "")
+	if err != nil || !v.Authorize("users.read") || v.Authorize("node.settings") {
+		t.Fatalf("bound token verification = %+v, %v", v, err)
+	}
+}

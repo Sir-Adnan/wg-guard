@@ -39,7 +39,12 @@ independent carry/replace combinations for time and volume with conditional reve
 idempotency hardening authenticates before replay, scopes keys per token and rejects active
 pre-upgrade keys. Targeted API tests cover anonymous, wrong-scope and revoked-token replays,
 cross-token key reuse and legacy-key fail-closed behavior. This is development evidence only;
-reseller isolation, purchase/renewal operations, host verification and a new release are pending.
+the 14.1 ownership migration preserves existing operator rows and rejects orphan assignments;
+the internal reseller registry validates a closed customer-scope grant set. Session and token
+verification apply current account/grant ceilings, and panel-issued tokens bind to their issuer.
+Reseller-bound principals are denied by the existing panel/API until row isolation is complete.
+Purchase/renewal operations,
+host verification and a new release are pending.
 
 | Capability | Implemented and automated | Real-host / browser evidence | Current limit |
 |---|---|---|---|

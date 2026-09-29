@@ -117,6 +117,12 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
 		}
+		// A reseller may not enter the existing operator panel until its user,
+		// device, aggregate and secret-bearing routes all enforce ownership.
+		if adminFrom(r).ResellerID != nil {
+			s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
+			return
+		}
 		next(w, r)
 	}
 }

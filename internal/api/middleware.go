@@ -201,6 +201,13 @@ func (s *Server) authMiddleware(required string, next http.Handler) http.Handler
 			writeErr(w, r, http.StatusUnauthorized, domain.CodeUnauthorized, "invalid token")
 			return
 		}
+		// Phase 14 ownership carriers exist before every REST route has a
+		// tenant-safe implementation. Keep bound tokens closed until then.
+		if v.Token.ResellerID != nil {
+			writeErr(w, r, http.StatusForbidden, domain.CodeForbidden,
+				"reseller API access is not enabled")
+			return
+		}
 		if !v.Authorize(required) {
 			writeErr(w, r, http.StatusForbidden, domain.CodeForbidden,
 				"token lacks the required scope: "+required)

@@ -21,6 +21,7 @@ type Admin struct {
 	Role        Role
 	Permissions []string
 	Enabled     bool
+	ResellerID  *string // nil = node-wide operator; non-nil = customer namespace
 	// Locale is the panel language preference (migration 0003); normalized
 	// by the web layer, not interpreted here.
 	Locale string
@@ -77,11 +78,16 @@ func (s *SessionStore) Validate(ctx context.Context, token string) (Admin, error
 	var lastSeenStr, expiresStr string
 	var enabled int
 	var role, permissions string
+	var resellerID, resellerPermissions sql.NullString
+	var resellerEnabled sql.NullInt64
 	err := s.db.QueryRowContext(ctx, `SELECT s.last_seen_at, s.expires_at,
-		a.role, a.permissions, a.enabled, a.username, a.id, a.locale, a.appearance_preset
+		a.role, a.permissions, a.enabled, a.username, a.id, a.locale, a.appearance_preset,
+		a.reseller_id, r.enabled, r.permissions
 		FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
+		LEFT JOIN resellers r ON r.id = a.reseller_id
 		WHERE s.token_hash = ?`, hashToken(token)).
-		Scan(&lastSeenStr, &expiresStr, &role, &permissions, &enabled, &a.Username, &a.ID, &a.Locale, &a.AppearancePreset)
+		Scan(&lastSeenStr, &expiresStr, &role, &permissions, &enabled, &a.Username, &a.ID, &a.Locale, &a.AppearancePreset,
+			&resellerID, &resellerEnabled, &resellerPermissions)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Admin{}, domain.E(domain.CodeSessionExpired, "session not found")
 	}
@@ -114,6 +120,26 @@ func (s *SessionStore) Validate(ctx context.Context, token string) (Admin, error
 	a.Enabled = true
 	if err := json.Unmarshal([]byte(permissions), &a.Permissions); err != nil && permissions != "" {
 		return Admin{}, fmt.Errorf("auth: permissions JSON: %w", err)
+	}
+	if resellerID.Valid {
+		if a.Role == RoleOwner || resellerEnabled.Int64 != 1 || !resellerPermissions.Valid {
+			return Admin{}, domain.E(domain.CodeForbidden, "reseller account unavailable")
+		}
+		var ceiling []string
+		if err := json.Unmarshal([]byte(resellerPermissions.String), &ceiling); err != nil {
+			return Admin{}, fmt.Errorf("auth: reseller permissions JSON: %w", err)
+		}
+		if !ValidResellerGrants(ceiling) {
+			return Admin{}, domain.E(domain.CodeForbidden, "reseller grants unavailable")
+		}
+		a.ResellerID = &resellerID.String
+		grants := []string{}
+		for _, scope := range ResellerScopes() {
+			if Allows(a.Permissions, scope) && Allows(ceiling, scope) {
+				grants = append(grants, scope)
+			}
+		}
+		a.Permissions = grants
 	}
 
 	if now.Sub(lastSeen) > time.Minute {

@@ -378,6 +378,27 @@ func TestIdempotencyKeysArePerTokenAndLegacyKeysFailClosed(t *testing.T) {
 	}
 }
 
+func TestResellerTokenCannotUseUnscopedV1Routes(t *testing.T) {
+	e := newEnv(t)
+	for _, statement := range []string{
+		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at)
+			VALUES ('reseller-1', 'north', '["users.read"]', 'test', 'test')`,
+		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
+			VALUES ('owner-1', 'owner', 'hash', 'owner', 'test', 'test')`,
+	} {
+		if _, err := e.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := e.db.Exec(`UPDATE api_tokens SET reseller_id = 'reseller-1',
+		issued_by_admin_id = 'owner-1' WHERE name = 'test-token'`); err != nil {
+		t.Fatal(err)
+	}
+	if rec := e.do(http.MethodGet, "/api/v1/users", ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("unscoped user list exposed to reseller: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRateLimit(t *testing.T) {
 	e := newEnv(t)
 	if err := e.srv.Settings.Set(context.Background(), "api.rate_limit_per_minute", 3); err != nil {

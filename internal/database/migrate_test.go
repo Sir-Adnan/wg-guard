@@ -83,6 +83,74 @@ func TestMigration0009PreservesAdminPreferences(t *testing.T) {
 	}
 }
 
+func TestMigration0010PreservesOperatorRowsAndEnforcesOwnershipReferences(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+	if err := db.ensureMigrationsTable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"0001_init.sql", "0002_speed_limits.sql", "0003_admin_locale.sql",
+		"0004_sub_links.sql", "0005_iface_advanced.sql", "0006_backup_schedules.sql",
+		"0007_awg_ranges.sql", "0008_retired_peer_keys.sql", "0009_visual_appearance.sql",
+	} {
+		body, err := migrations.Read(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(string(body)); err != nil {
+			t.Fatalf("apply %s: %v", name, err)
+		}
+		if _, err := db.Exec(`INSERT INTO migrations (version, applied_at) VALUES (?, 'test')`, name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, statement := range []string{
+		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
+			VALUES ('owner-1', 'owner', 'hash', 'owner', 'test', 'test')`,
+		`INSERT INTO users (id, username, created_at, updated_at)
+			VALUES ('user-1', 'legacy-user', 'test', 'test')`,
+		`INSERT INTO api_tokens (id, name, prefix, token_hash, created_at)
+			VALUES ('token-1', 'legacy-token', 'prefix', 'hash', 'test')`,
+		`INSERT INTO webhook_endpoints (id, url, secret_encrypted, created_at)
+			VALUES ('hook-1', 'https://example.com/hook', X'01', 'test')`,
+		`INSERT INTO webhook_events (id, event_type, payload, created_at)
+			VALUES ('event-1', 'user.created', '{}', 'test')`,
+	} {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatalf("seed legacy row: %v", err)
+		}
+	}
+	if err := db.Migrate(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	var globalRows int
+	if err := db.QueryRow(`SELECT
+		(SELECT COUNT(*) FROM admins WHERE id = 'owner-1' AND reseller_id IS NULL) +
+		(SELECT COUNT(*) FROM users WHERE id = 'user-1' AND reseller_id IS NULL) +
+		(SELECT COUNT(*) FROM api_tokens WHERE id = 'token-1' AND reseller_id IS NULL AND issued_by_admin_id IS NULL) +
+		(SELECT COUNT(*) FROM webhook_endpoints WHERE id = 'hook-1' AND reseller_id IS NULL) +
+		(SELECT COUNT(*) FROM webhook_events WHERE id = 'event-1' AND reseller_id IS NULL)`).Scan(&globalRows); err != nil {
+		t.Fatal(err)
+	}
+	if globalRows != 5 {
+		t.Fatalf("migration changed %d of 5 existing owner-side rows", 5-globalRows)
+	}
+	if _, err := db.Exec(`INSERT INTO resellers (id, slug, created_at, updated_at)
+		VALUES ('reseller-1', 'north', 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE users SET reseller_id = 'missing' WHERE id = 'user-1'`); err == nil {
+		t.Fatal("unknown reseller ownership was accepted")
+	}
+	if _, err := db.Exec(`UPDATE users SET reseller_id = 'reseller-1' WHERE id = 'user-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`DELETE FROM resellers WHERE id = 'reseller-1'`); err == nil {
+		t.Fatal("reseller with an owned user was deleted")
+	}
+}
+
 func TestMigration0007AWGRanges(t *testing.T) {
 	t.Run("copies legacy values", func(t *testing.T) {
 		db := openDatabaseThrough0006(t)

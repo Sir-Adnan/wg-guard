@@ -33,15 +33,17 @@ const lookupLen = 8
 
 // Token is a stored API token.
 type Token struct {
-	ID        string
-	Name      string
-	Prefix    string
-	Scopes    []string
-	ExpiresAt *time.Time
-	Enabled   bool
-	CIDR      []string
-	LastUsed  *time.Time
-	CreatedAt time.Time
+	ID              string
+	Name            string
+	Prefix          string
+	Scopes          []string
+	ResellerID      *string // nil = node-wide operator token
+	IssuedByAdminID *string // nil only for pre-Phase-14/CLI operator tokens
+	ExpiresAt       *time.Time
+	Enabled         bool
+	CIDR            []string
+	LastUsed        *time.Time
+	CreatedAt       time.Time
 }
 
 // Service creates and verifies API tokens.
@@ -57,6 +59,11 @@ func NewService(db *database.DB) *Service {
 // Create mints a token. The plaintext is returned exactly once and never
 // logged; only its SHA-256 and lookup prefix are stored.
 func (s *Service) Create(ctx context.Context, name string, scopes []string, expiresAt *time.Time, cidrAllowlist string) (*Token, string, error) {
+	return s.create(ctx, name, scopes, expiresAt, cidrAllowlist, nil, nil)
+}
+
+func (s *Service) create(ctx context.Context, name string, scopes []string, expiresAt *time.Time,
+	cidrAllowlist string, issuerID, resellerID *string) (*Token, string, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, "", domain.E(domain.CodeInvalidRequest, "token name is required")
 	}
@@ -72,14 +79,9 @@ func (s *Service) Create(ctx context.Context, name string, scopes []string, expi
 	sum := sha256.Sum256([]byte(plaintext))
 	prefix := plaintext[:len(Prefix)+lookupLen]
 	t := &Token{
-		ID:        domain.NewID(),
-		Name:      name,
-		Prefix:    prefix,
-		Scopes:    scopes,
-		ExpiresAt: expiresAt,
-		Enabled:   true,
-		CIDR:      splitCIDR(cidrAllowlist),
-		CreatedAt: s.now().UTC(),
+		ID: domain.NewID(), Name: name, Prefix: prefix, Scopes: scopes,
+		ExpiresAt: expiresAt, Enabled: true, CIDR: splitCIDR(cidrAllowlist),
+		CreatedAt: s.now().UTC(), ResellerID: resellerID, IssuedByAdminID: issuerID,
 	}
 	var exp any
 	if expiresAt != nil {
@@ -87,13 +89,98 @@ func (s *Service) Create(ctx context.Context, name string, scopes []string, expi
 	}
 	scopesJSON, _ := json.Marshal(scopes)
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO api_tokens
-		(id, name, prefix, token_hash, scopes, expires_at, enabled, cidr_allowlist, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+		(id, name, prefix, token_hash, scopes, expires_at, enabled, cidr_allowlist, created_at,
+		 reseller_id, issued_by_admin_id)
+		VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
 		t.ID, t.Name, prefix, hex.EncodeToString(sum[:]), string(scopesJSON), exp, cidrAllowlist,
-		t.CreatedAt.Format(time.RFC3339Nano)); err != nil {
+		t.CreatedAt.Format(time.RFC3339Nano), nullableID(resellerID), nullableID(issuerID)); err != nil {
 		return nil, "", fmt.Errorf("token: create: %w", err)
 	}
 	return t, plaintext, nil
+}
+
+func nullableID(id *string) any {
+	if id == nil {
+		return nil
+	}
+	return *id
+}
+
+// CreateForAdmin binds a panel-minted token to its current issuer and,
+// optionally, one reseller. The owner may choose a reseller; a reseller can
+// only issue within its own namespace and current grant ceiling. Operator
+// admins cannot assign a tenant on behalf of the owner.
+func (s *Service) CreateForAdmin(ctx context.Context, adminID string, targetResellerID *string,
+	name string, scopes []string, expiresAt *time.Time, cidrAllowlist string) (*Token, string, error) {
+	var role, raw string
+	var enabled int
+	var issuerReseller sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT role, permissions, enabled, reseller_id
+		FROM admins WHERE id = ?`, adminID).Scan(&role, &raw, &enabled, &issuerReseller)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, "", domain.E(domain.CodeForbidden, "token issuer unavailable")
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("token: issuer lookup: %w", err)
+	}
+	if enabled != 1 {
+		return nil, "", domain.E(domain.CodeForbidden, "token issuer unavailable")
+	}
+	var issuerGrants []string
+	if err := json.Unmarshal([]byte(raw), &issuerGrants); err != nil {
+		return nil, "", domain.E(domain.CodeForbidden, "token issuer grants unavailable")
+	}
+	issuerRole := auth.Role(role)
+	if !issuerRole.Valid() || !auth.Authorized(issuerRole, issuerGrants, auth.ScopeAPITokensManage) {
+		return nil, "", domain.E(domain.CodeForbidden, "token issuer lacks permission")
+	}
+	if issuerRole == auth.RoleOwner && issuerReseller.Valid {
+		return nil, "", domain.E(domain.CodeForbidden, "owner cannot belong to a reseller")
+	}
+	resellerID := targetResellerID
+	if issuerReseller.Valid {
+		if targetResellerID != nil && *targetResellerID != issuerReseller.String {
+			return nil, "", domain.E(domain.CodeForbidden, "cannot issue another reseller's token")
+		}
+		resellerID = &issuerReseller.String
+	} else if resellerID != nil && issuerRole != auth.RoleOwner {
+		return nil, "", domain.E(domain.CodeForbidden, "only the owner may issue for a reseller")
+	}
+	if err := auth.ValidateScopes(scopes); err != nil {
+		return nil, "", domain.E(domain.CodeInvalidRequest, "scopes: %v", err)
+	}
+	var resellerGrants []string
+	if resellerID != nil {
+		var resellerEnabled int
+		err := s.db.QueryRowContext(ctx, `SELECT permissions, enabled FROM resellers WHERE id = ?`,
+			*resellerID).Scan(&raw, &resellerEnabled)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", domain.E(domain.CodeForbidden, "reseller unavailable")
+		}
+		if err != nil {
+			return nil, "", fmt.Errorf("token: reseller lookup: %w", err)
+		}
+		if resellerEnabled != 1 {
+			return nil, "", domain.E(domain.CodeForbidden, "reseller unavailable")
+		}
+		if err := json.Unmarshal([]byte(raw), &resellerGrants); err != nil || !auth.ValidResellerGrants(resellerGrants) ||
+			!auth.Authorized(auth.RoleAdmin, resellerGrants, auth.ScopeAPITokensManage) && issuerRole != auth.RoleOwner {
+			return nil, "", domain.E(domain.CodeForbidden, "reseller grants unavailable")
+		}
+		if !auth.ValidResellerGrants(scopes) {
+			return nil, "", domain.E(domain.CodeForbidden, "token includes operator-only scopes")
+		}
+	}
+	for _, scope := range auth.AllScopes() {
+		if !auth.Allows(scopes, scope) {
+			continue
+		}
+		if (issuerRole != auth.RoleOwner && !auth.Allows(issuerGrants, scope)) ||
+			(resellerID != nil && !auth.Allows(resellerGrants, scope)) {
+			return nil, "", domain.E(domain.CodeForbidden, "token scopes exceed current grants")
+		}
+	}
+	return s.create(ctx, name, scopes, expiresAt, cidrAllowlist, &adminID, resellerID)
 }
 
 // Verified is the result of a successful verification.
@@ -110,19 +197,21 @@ func (s *Service) Verify(ctx context.Context, plaintext, remoteIP string) (*Veri
 	}
 	prefix := plaintext[:len(Prefix)+lookupLen]
 	var (
-		t         Token
-		hash      string
-		scopesRaw string
-		cidrRaw   string
-		expRaw    sql.NullString
-		lastRaw   sql.NullString
-		enabled   int
-		createdAt string
+		t                      Token
+		hash                   string
+		scopesRaw              string
+		cidrRaw                string
+		expRaw                 sql.NullString
+		lastRaw                sql.NullString
+		resellerRaw, issuerRaw sql.NullString
+		enabled                int
+		createdAt              string
 	)
 	err := s.db.QueryRowContext(ctx, `SELECT id, name, prefix, token_hash, scopes, expires_at,
-		enabled, cidr_allowlist, last_used_at, created_at
+		enabled, cidr_allowlist, last_used_at, created_at, reseller_id, issued_by_admin_id
 		FROM api_tokens WHERE prefix = ?`, prefix).
-		Scan(&t.ID, &t.Name, &t.Prefix, &hash, &scopesRaw, &expRaw, &enabled, &cidrRaw, &lastRaw, &createdAt)
+		Scan(&t.ID, &t.Name, &t.Prefix, &hash, &scopesRaw, &expRaw, &enabled, &cidrRaw, &lastRaw, &createdAt,
+			&resellerRaw, &issuerRaw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.E(domain.CodeTokenInvalid, "token not found")
 	}
@@ -154,6 +243,15 @@ func (s *Service) Verify(ctx context.Context, plaintext, remoteIP string) (*Veri
 		// access; the token simply fails authorization later.
 		t.Scopes = nil
 	}
+	if resellerRaw.Valid {
+		t.ResellerID = &resellerRaw.String
+	}
+	if issuerRaw.Valid {
+		t.IssuedByAdminID = &issuerRaw.String
+	}
+	if err := s.applyPrincipalCeiling(ctx, &t); err != nil {
+		return nil, err
+	}
 	t.CIDR = splitCIDR(cidrRaw)
 	t.Enabled = true
 	if createdAt != "" {
@@ -177,6 +275,77 @@ func (s *Service) Verify(ctx context.Context, plaintext, remoteIP string) (*Veri
 			s.now().UTC().Format(time.RFC3339Nano), t.ID)
 	}
 	return &Verified{Token: t}, nil
+}
+
+// applyPrincipalCeiling reads current account grants on every verification.
+// Disabling a reseller or revoking an issuer's permissions therefore takes
+// effect without rotating or deleting its already-minted tokens.
+func (s *Service) applyPrincipalCeiling(ctx context.Context, t *Token) error {
+	var issuerRole auth.Role
+	var issuerGrants []string
+	if t.IssuedByAdminID != nil {
+		var role, raw string
+		var enabled int
+		var issuerReseller sql.NullString
+		err := s.db.QueryRowContext(ctx, `SELECT role, permissions, enabled, reseller_id
+			FROM admins WHERE id = ?`, *t.IssuedByAdminID).
+			Scan(&role, &raw, &enabled, &issuerReseller)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.E(domain.CodeForbidden, "token issuer unavailable")
+		}
+		if err != nil {
+			return fmt.Errorf("token: issuer lookup: %w", err)
+		}
+		if enabled != 1 {
+			return domain.E(domain.CodeForbidden, "token issuer unavailable")
+		}
+		issuerRole = auth.Role(role)
+		if !issuerRole.Valid() || (issuerReseller.Valid &&
+			(t.ResellerID == nil || issuerReseller.String != *t.ResellerID)) ||
+			(t.ResellerID != nil && !issuerReseller.Valid && issuerRole != auth.RoleOwner) {
+			return domain.E(domain.CodeForbidden, "token issuer mismatch")
+		}
+		if err := json.Unmarshal([]byte(raw), &issuerGrants); err != nil {
+			return domain.E(domain.CodeForbidden, "token issuer grants unavailable")
+		}
+	} else if t.ResellerID != nil {
+		return domain.E(domain.CodeForbidden, "reseller token lacks an issuer")
+	}
+
+	var resellerGrants []string
+	if t.ResellerID != nil {
+		var raw string
+		var enabled int
+		err := s.db.QueryRowContext(ctx, `SELECT permissions, enabled FROM resellers WHERE id = ?`,
+			*t.ResellerID).Scan(&raw, &enabled)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.E(domain.CodeForbidden, "reseller unavailable")
+		}
+		if err != nil {
+			return fmt.Errorf("token: reseller lookup: %w", err)
+		}
+		if enabled != 1 {
+			return domain.E(domain.CodeForbidden, "reseller unavailable")
+		}
+		if err := json.Unmarshal([]byte(raw), &resellerGrants); err != nil {
+			return domain.E(domain.CodeForbidden, "reseller grants unavailable")
+		}
+		if !auth.ValidResellerGrants(resellerGrants) {
+			return domain.E(domain.CodeForbidden, "reseller grants unavailable")
+		}
+	}
+
+	effective := []string{}
+	for _, scope := range auth.AllScopes() {
+		if !auth.Allows(t.Scopes, scope) ||
+			(t.IssuedByAdminID != nil && issuerRole != auth.RoleOwner && !auth.Allows(issuerGrants, scope)) ||
+			(t.ResellerID != nil && (!auth.ResellerGrantable(scope) || !auth.Allows(resellerGrants, scope))) {
+			continue
+		}
+		effective = append(effective, scope)
+	}
+	t.Scopes = effective
+	return nil
 }
 
 // Authorize checks a required scope against the token's grants.

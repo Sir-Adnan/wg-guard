@@ -74,7 +74,8 @@ func (s *Server) handleTokenCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	cidr := strings.TrimSpace(r.PostFormValue("cidr"))
 
-	created, secret, err := s.Tokens.Create(r.Context(), name, scopes, expires, cidr)
+	created, secret, err := s.Tokens.CreateForAdmin(r.Context(), adminFrom(r).ID, nil,
+		name, scopes, expires, cidr)
 	if err != nil {
 		s.tokenFormFailure(w, r, "", err)
 		return

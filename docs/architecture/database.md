@@ -3,24 +3,25 @@
 SQLite in WAL mode, foreign keys ON, `busy_timeout=5s`, capped page cache (low-RAM requirement).
 Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All timestamps UTC.
 
-## Schema (Phase 1 implements; this is the contract)
+## Schema
 
 | Table | Purpose / key columns |
 |---|---|
 | `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1–S4, canonical H1–H4 scalar/range text, optional I1–I5/HPK/timer/flag fields, preset name), enabled, backend mode, endpoint override |
-| `users` | id (UUIDv7), username UNIQUE, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
+| `users` | id (UUIDv7), username UNIQUE, nullable reseller_id owner, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
 | `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
-| `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional `appearance_preset` personal override |
+| `resellers` | id, unique slug, display name, permission ceiling, enabled; Phase 14 isolation carrier, not yet an enabled login surface |
+| `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional reseller_id and `appearance_preset` personal override |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
 | `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
-| `api_tokens` | id, name, prefix (indexed), hash, scopes JSON, expires_at, enabled, cidr allowlist, last_used_at |
-| `webhook_endpoints` | id, url, secret_encrypted, enabled, events JSON |
+| `api_tokens` | id, name, prefix (indexed), hash, scopes JSON, expires_at, enabled, cidr allowlist, last_used_at, optional reseller_id and issuer admin ID |
+| `webhook_endpoints` | id, url, secret_encrypted, enabled, events JSON, optional reseller_id |
 | `webhook_deliveries` | id, endpoint FK, event type, payload, status (`pending\|delivered\|dead`), attempts, next_attempt_at (indexed), last error |
-| `webhook_events` | durable event rows inserted in the same transaction as the state change |
+| `webhook_events` | durable event rows inserted in the same transaction as the state change; optional reseller_id for future scoped fanout |
 | `audit_log` | ts, actor type/id, action, target, source IP, request id, safe metadata |
-| `idempotency_keys` | key, request hash, response snapshot, expires_at |
+| `idempotency_keys` | hashed token-scoped key, request hash, response snapshot, expires_at; active legacy raw keys fail closed during the upgrade window |
 | `settings` | key, value (JSON), updated_at |
 | `backup_schedules` | id, mode (daily@time / every-N-hours / weekly), time UTC, retention, enabled |
 | `traffic_samples` | device FK, ts, rx_delta, tx_delta (bounded: 24–48 h) |
@@ -61,6 +62,12 @@ process restarts retain the intent; only public keys are stored, never client pr
 Migration `0009_visual_appearance.sql` adds the nullable admin preset override and the singleton
 installation default. Existing account locale and browser theme cookies remain independent;
 neither is rewritten by a visual preset migration or panel-default action.
+
+Migration `0010_reseller_ownership.sql` adds the reseller identity and nullable ownership
+references without reassigning existing users, accounts, tokens or webhook rows. NULL remains the
+existing node-wide operator namespace. The foreign keys prevent orphan assignments; reseller
+login/API access is not enabled until every relevant read, mutation and event path applies row
+ownership. Migration tests verify legacy-row preservation and ownership references.
 
 Migration `0007_awg_ranges.sql` adds `h1_range` through `h4_range` as canonical, non-null text
 columns. Values use strict inclusive `N` or `N-M` syntax. Existing scalar values are copied as

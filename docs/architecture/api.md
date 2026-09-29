@@ -10,7 +10,10 @@ External systems integrate from `GET /api/v1/node/health` alone (capability disc
   bulk, devices.*, configs.read, traffic.read/update, plans.read/write, stats.read, node.read,
   node.settings, webhooks.read/write, interfaces.*). Tokens are separate from admin sessions; the
   `wg-guard token create|list|revoke|scopes` CLI mints them (the panel's token screen is the
-  day-to-day manager).
+  day-to-day manager). Panel-issued tokens are bound to the issuing account and cannot retain
+  permissions removed from that account. Existing CLI/pre-Phase-14 tokens remain node-wide and
+  should be reviewed by the owner when enabling reseller integrations. Reseller-bound tokens are
+  currently denied by all V1 routes until route-by-route ownership enforcement is complete.
 - **Errors**: one envelope — `{"error": {"code", "message", "request_id"}}` with stable codes
   (`USER_NOT_FOUND`, `USERNAME_EXISTS`, `DEVICE_LIMIT_REACHED`, `TRAFFIC_EXCEEDED`, `INVALID_REQUEST`,
   `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `NODE_UNAVAILABLE`, `INTERNAL_ERROR`, …). No stack
