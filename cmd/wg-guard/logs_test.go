@@ -44,6 +44,10 @@ func TestParseLogsOptions(t *testing.T) {
 			args:     []string{"--source", "operations", "--since", "7d"},
 			wantTail: 200, wantSince: now.Add(-7 * 24 * time.Hour), wantSource: "operations",
 		},
+		{
+			name: "installer follow", args: []string{"--source", "installer", "--follow"},
+			wantTail: 200, wantFollow: true, wantSource: "installer",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -77,6 +81,8 @@ func TestParseLogsOptionsRejectsUnsafeOrUnboundedInput(t *testing.T) {
 		{"component injection", []string{"--component", "http --follow"}},
 		{"operations follow", []string{"--source", "operations", "--follow"}},
 		{"operations component", []string{"--source", "operations", "--component", "http"}},
+		{"installer component", []string{"--source", "installer", "--component", "http"}},
+		{"installer since", []string{"--source", "installer", "--since", "1h"}},
 		{"extra arg", []string{"unexpected"}},
 		{"unknown source", []string{"--source", "docker"}},
 	} {

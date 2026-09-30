@@ -19,6 +19,7 @@ import (
 const (
 	LogSourceService    = "service"
 	LogSourceOperations = "operations"
+	LogSourceInstaller  = "installer"
 	DefaultLogTail      = 200
 	MaxLogTail          = 10_000
 	MaxLogSince         = 7 * 24 * time.Hour
@@ -45,7 +46,7 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 	if options.Tail < 1 || options.Tail > MaxLogTail {
 		return fmt.Errorf("logs: tail must be between 1 and %d", MaxLogTail)
 	}
-	if options.Since.IsZero() {
+	if options.Source != LogSourceInstaller && options.Since.IsZero() {
 		return fmt.Errorf("logs: since is required")
 	}
 	if options.Component != "" {
@@ -62,6 +63,10 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 		if options.Component != "" {
 			return fmt.Errorf("logs: component filtering is available only for the service source")
 		}
+	case LogSourceInstaller:
+		if options.Component != "" || !options.Since.IsZero() {
+			return fmt.Errorf("logs: installer source does not support component or since filters")
+		}
 	default:
 		return fmt.Errorf("logs: unknown source %q", options.Source)
 	}
@@ -73,6 +78,9 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 	}
 	if options.Source == LogSourceOperations {
 		return streamOperationLogs(ctx, h, options, stdout)
+	}
+	if options.Source == LogSourceInstaller {
+		return streamInstallerLogs(ctx, h, options, stdout, stderr)
 	}
 	if state == nil {
 		return fmt.Errorf("logs: WG-Guard is not installed")
@@ -99,6 +107,87 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 	}
 	if err := h.Stream(ctx, argv, logOutput, sourceStderr); err != nil {
 		return fmt.Errorf("logs: %s source: %w", state.Mode, err)
+	}
+	return nil
+}
+
+// streamInstallerLogs reads only the two root-private, size-bounded installer
+// files. Follow uses GNU tail's name-following mode to survive rotation; argv
+// contains only fixed paths and validated numeric limits, never shell input.
+func streamInstallerLogs(ctx context.Context, host Host, options LogOptions, stdout, stderr io.Writer) error {
+	paths := []string{InstallerLogPath + ".1", InstallerLogPath}
+	if _, real := host.(realHost); real {
+		for _, file := range paths {
+			if err := safeHostPath(file); err != nil {
+				return fmt.Errorf("logs: unsafe installer log path: %w", err)
+			}
+		}
+	}
+	if options.Follow {
+		if err := checkInstallerLog(host, InstallerLogPath); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("logs: installer log is not present yet; run setup or update first")
+			}
+			return err
+		}
+		return host.Stream(ctx, []string{"tail", "--lines", strconv.Itoa(options.Tail), "--follow=name", "--retry", "--", InstallerLogPath}, stdout, stderr)
+	}
+	lines := make([][]byte, 0, min(options.Tail, 256))
+	found := false
+	for _, file := range paths {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := checkInstallerLog(host, file); errors.Is(err, fs.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		found = true
+		reader, err := host.Open(file)
+		if err != nil {
+			return fmt.Errorf("logs: open installer source: %w", err)
+		}
+		err = eachBoundedLogLine(reader, func(line []byte) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			lines = append(lines, bytes.Clone(line))
+			if len(lines) > options.Tail {
+				lines[0] = nil
+				lines = lines[1:]
+			}
+			return nil
+		})
+		closeErr := reader.Close()
+		if err != nil || closeErr != nil {
+			return fmt.Errorf("logs: read installer source: %w", errors.Join(err, closeErr))
+		}
+	}
+	if !found {
+		return fmt.Errorf("logs: installer log is not present yet; run setup or update first")
+	}
+	for _, line := range lines {
+		if _, err := stdout.Write(line); err != nil {
+			return fmt.Errorf("logs: installer output: %w", err)
+		}
+	}
+	return nil
+}
+
+func checkInstallerLog(host Host, file string) error {
+	info, err := host.Stat(file)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fs.ErrNotExist
+		}
+		return fmt.Errorf("logs: inspect installer source: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > installerLogLimit {
+		return fmt.Errorf("logs: installer source has an invalid type or size")
+	}
+	if _, real := host.(realHost); real && info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("logs: installer source is not private")
 	}
 	return nil
 }

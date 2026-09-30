@@ -5,14 +5,15 @@ func init() {
 	// both catalogs so a legacy locale flag cannot reintroduce mixed-direction
 	// terminal copy while catalog parity remains intact.
 	terminalUpdate := map[string]string{
-		"update.subtitle":       "Safe component maintenance",
-		"update.title":          "Update center",
-		"update.all":            "Update everything · recommended",
-		"update.panel":          "WG-Guard panel + manager",
-		"update.manager":        "Manager only",
-		"update.core":           "AmneziaWG core",
-		"update.status":         "Current versions",
-		"manage.logs":           "Operational logs · last 24 hours",
+		"update.subtitle":  "Safe component maintenance",
+		"update.title":     "Update center",
+		"update.all":       "Update everything · recommended",
+		"update.panel":     "WG-Guard panel + manager",
+		"update.manager":   "Manager only",
+		"update.core":      "AmneziaWG core",
+		"update.status":    "Current versions",
+		"manage.logs":      "Logs · recent and live",
+		"manage.logs_menu": "Choose log source", "manage.logs_service": "Service · all components", "manage.logs_component": "Service · choose component", "manage.logs_installer": "Installer and update commands", "manage.logs_operations": "Lifecycle outcomes", "manage.logs_components": "Choose service component", "manage.logs_view": "How to view logs", "manage.logs_recent": "Last 200 lines", "manage.logs_live": "Last 200 lines + live follow", "manage.logs_stop": "Press Ctrl+C to stop following; reopen the manager with sudo wg-guard.", "manage.logs_output": "Log output",
 		"update.manager_review": "Update the local manager? The running panel and VPN connections will not restart.",
 		"update.core_review":    "Update to the reviewed compatible AmneziaWG bundle? A reboot may be required; active tunnels are never force-unloaded.",
 		"update.all_review":     "Update manager, panel and compatible AmneziaWG core? A backup is created before the panel restart; stop on the first failed safety gate.",

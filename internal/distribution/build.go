@@ -21,10 +21,12 @@ import (
 var goDirective = regexp.MustCompile(`(?m)^go (1\.[0-9]+(?:\.[0-9]+)?)\s*$`)
 
 func (c *Client) buildSource(ctx context.Context, b Build, stage string) (string, error) {
+	c.progress("Downloading pinned source")
 	archive := filepath.Join(stage, "source.tar.gz")
 	if _, err := c.download(ctx, strings.TrimRight(c.options.SourceBase, "/")+"/Sir-Adnan/wg-guard/tar.gz/"+b.Commit, archive, maxSource, 0); err != nil {
 		return "", err
 	}
+	c.progress("Inspecting source archive")
 	source := filepath.Join(stage, "source")
 	if err := extractArchive(ctx, archive, source, "wg-guard-"+b.Commit, 512<<20); err != nil {
 		return "", err
@@ -47,11 +49,13 @@ func (c *Client) buildSource(ctx context.Context, b Build, stage string) (string
 	result, probeErr := runner.RunConfigured(ctx, []string{compiler, "version"}, stage, env)
 	fields := strings.Fields(string(result.Stdout))
 	if probeErr != nil || len(fields) < 3 || !version.IsValid(fields[2]) || version.Compare(fields[2], minimum) < 0 {
+		c.progress("Downloading official Go toolchain")
 		compiler, err = c.downloadCompiler(ctx, minimum, stage)
 		if err != nil {
 			return "", err
 		}
 	}
+	c.progress("Compiling WG-Guard manager")
 	output := filepath.Join(stage, "candidate.part")
 	flags := "-s -w -X github.com/Sir-Adnan/wg-guard/internal/version.Version=" + b.Version + " -X github.com/Sir-Adnan/wg-guard/internal/version.Commit=" + b.Commit
 	_, err = runner.RunConfigured(ctx, []string{compiler, "build", "-trimpath", "-buildvcs=false", "-mod=readonly", "-modcacherw", "-ldflags", flags, "-o", output, "./cmd/wg-guard"}, source, env)

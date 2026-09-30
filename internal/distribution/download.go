@@ -49,6 +49,7 @@ func (c *Client) Acquire(ctx context.Context, s Selection, dir string) (build Bu
 	var part string
 	switch s.Channel {
 	case "release":
+		c.progress("Resolving published release")
 		var r Release
 		r, err = c.release(ctx, s.Ref)
 		if err != nil {
@@ -70,6 +71,7 @@ func (c *Client) Acquire(ctx context.Context, s Selection, dir string) (build Bu
 			return Build{}, err
 		}
 		sumPath := filepath.Join(stage, "checksums.txt")
+		c.progress("Downloading release checksums")
 		if _, err = c.download(ctx, checks.URL, sumPath, 64<<10, checks.Size); err != nil {
 			return Build{}, err
 		}
@@ -84,14 +86,17 @@ func (c *Client) Acquire(ctx context.Context, s Selection, dir string) (build Bu
 			return Build{}, err
 		}
 		part = filepath.Join(stage, "candidate.part")
+		c.progress("Downloading release binary")
 		b.SHA256, err = c.download(ctx, bin.URL, part, maxBinary, bin.Size)
 		if err != nil {
 			return Build{}, err
 		}
+		c.progress("Verifying release checksum")
 		if b.SHA256 != expected {
 			return Build{}, fmt.Errorf("distribution: SHA-256 mismatch")
 		}
 	case "commit":
+		c.progress("Resolving pinned source commit")
 		b, err = c.Resolve(ctx, s)
 		if err != nil {
 			return Build{}, err

@@ -215,7 +215,8 @@ test ! -e "$fixture/input" || fail 'piped script consumed as answers'
 test -z "$(ls -A "$fixture/tmp")" || fail 'piped cleanup'
 source_output=$(FIXTURE_SLOW_BUILD=1 bash "$fixture/bootstrap" --commit main --yes </dev/null 2>&1)
 case "$source_output" in *'SYNTHETIC COMPILER NOISE'*) fail 'successful source build leaked compiler noise';; esac
-case "$source_output" in *'Still working'*'elapsed'*) :;; *) fail 'long source build omitted progress heartbeat';; esac
+case "$source_output" in *'[RUN] Compiling WG-Guard manager'*'[OK] Compiling WG-Guard manager'*) :;; *) fail 'source build omitted contextual compiler progress';; esac
+case "$source_output" in *'Still working'*) fail 'source build kept the generic heartbeat';; esac
 test -s "$fixture/build-args" || fail 'source build did not execute'
 rm "$fixture/build-args"
 touch "$fixture/old-go"

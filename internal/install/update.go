@@ -109,7 +109,11 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 		return terminalError("install.error.backup_required")
 	}
 	if !o.SkipBackup && !o.Rollback {
-		previous.Backup, err = createBackup(ctx, h, st, j.ID)
+		err = trackedTask(out, "Creating pre-update backup", func() error {
+			var backupErr error
+			previous.Backup, backupErr = createBackup(ctx, h, st, j.ID)
+			return backupErr
+		})
 		if err != nil {
 			return err
 		}
@@ -167,7 +171,9 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if err = startService(ctx, h, st); err != nil {
 		return fail(err)
 	}
-	if err = waitHealthyRecorded(ctx, h, st, updateHealthWindow, o.Stdout); err != nil {
+	if err = trackedTask(out, "Waiting for updated panel health", func() error {
+		return waitHealthyRecorded(ctx, h, st, updateHealthWindow, o.Stdout)
+	}); err != nil {
 		return fail(err)
 	}
 	if err = saveState(h, &next); err != nil {

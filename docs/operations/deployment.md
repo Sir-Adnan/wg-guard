@@ -182,7 +182,9 @@ Docker container stdout and stderr are merged into this one redirectable log str
 application logger writes structured records to stderr; native journal records already arrive on
 stdout. Source command failures still return a nonzero CLI status.
 `--source operations` instead reads the fixed, private lifecycle journal without requiring install
-state; follow/component apply only to service logs. Raw logs remain local; there is no panel/API
+state. `--source installer` reads the current and rotated root-private host command log without
+install state and can follow new lines by name through rotation. Follow applies to service and
+installer logs; component filtering applies only to service logs. Raw logs remain local; there is no panel/API
 log endpoint.
 
 Docker Compose selects the efficient `local` driver with compression, `max-size=16m` and

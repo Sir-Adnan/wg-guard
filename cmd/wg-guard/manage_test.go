@@ -65,11 +65,11 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 		first string
 		want  []string
 	}{
-		{managerFresh, "install_cached", []string{"install_cached", "install_choose", "readiness", "help_short"}},
-		{managerInstalled, "lifecycle", []string{"lifecycle", "access", "backups", "operations", "uninstall"}},
-		{managerInstallRecovery, "cleanup_install", []string{"cleanup_install", "readiness"}},
-		{managerUninstallRecovery, "uninstall_resume", []string{"uninstall_resume"}},
-		{managerRecovery, "recover_now", []string{"recover_now", "lifecycle", "access", "backups", "operations"}},
+		{managerFresh, "install_cached", []string{"install_cached", "install_choose", "readiness", "help_short", "logs"}},
+		{managerInstalled, "lifecycle", []string{"lifecycle", "access", "backups", "operations", "logs", "uninstall"}},
+		{managerInstallRecovery, "cleanup_install", []string{"cleanup_install", "readiness", "logs"}},
+		{managerUninstallRecovery, "uninstall_resume", []string{"uninstall_resume", "logs"}},
+		{managerRecovery, "recover_now", []string{"recover_now", "lifecycle", "access", "backups", "operations", "logs"}},
 	}
 	for _, tc := range cases {
 		menu := managerRootMenu(tc.state)
@@ -202,7 +202,7 @@ func TestCompleteRemovalExitsManagerAfterDeletingItsCache(t *testing.T) {
 	var got []string
 	overviews := 0
 	m := manager{
-		ui: terminal.New(strings.NewReader("5\n3\ny\n"), io.Discard, terminal.Options{Locale: i18n.En}),
+		ui: terminal.New(strings.NewReader("6\n3\ny\n"), io.Discard, terminal.Options{Locale: i18n.En}),
 		overview: func() error {
 			overviews++
 			return nil
@@ -363,11 +363,11 @@ func TestManagerActionCommandsAndSecretTransport(t *testing.T) {
 	}{
 		{"4\n1\n0\n0\n", []string{"status"}, ""},
 		{"4\n2\n0\n0\n", []string{"doctor"}, ""},
-		{"4\n6\n0\n0\n", []string{"logs"}, ""},
+		{"4\n6\n1\n1\n0\n0\n0\n", []string{"logs", "--source", "service", "--tail", "200", "--since", "7d"}, ""},
 		{"1\n1\n0\n0\n", []string{"update"}, ""},
 		{"1\n4\nyes\n0\n0\n", []string{"restart", "--yes"}, ""},
 		{"1\n2\nyes\n0\n0\n", []string{"update", "--rollback"}, ""},
-		{"5\n1\ny\n0\n", []string{"uninstall", "--yes"}, ""},
+		{"6\n1\ny\n0\n", []string{"uninstall", "--yes"}, ""},
 		{"3\n1\nyes\n0\n0\n", []string{"backup", "create"}, ""},
 		{"3\n3\n/private/archive.wgg.age\nyes\nsynthetic-archive-password\n0\n0\n", []string{"restore", "/private/archive.wgg.age", "--password"}, "synthetic-archive-password\n"},
 		{"3\n4\n2\ndaily\n1\n۰۳:۳۰\n0\nyes\nyes\n0\n0\n", []string{"backup", "schedule-add", "--name", "daily", "--kind", "daily", "--time", "03:30", "--retention", "0"}, ""},

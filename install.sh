@@ -194,16 +194,54 @@ SHA=re.compile(r'[0-9a-f]{40}\Z')
 TAG=re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z')
 HEX=re.compile(r'[0-9a-f]{64}\Z')
 HEARTBEAT=15.0
-
 heartbeat_stop=threading.Event()
 heartbeat_thread=None
+progress_lock=threading.Lock()
+progress_label=None
+progress_started=0.0
+progress_reported=0
+progress_tty=sys.stderr.isatty() and os.environ.get('TERM','dumb')!='dumb'
+progress_color=progress_tty and os.environ.get('NO_COLOR','')==''
+
+def progress_line(state,label,elapsed,final):
+    duration=f'{int(elapsed//60)}m{int(elapsed%60):02d}s' if elapsed>=60 else f'{int(elapsed)}s'
+    line=f'[{state}] {label} · {duration}'
+    if progress_tty:
+        width=max(20,min(72,shutil.get_terminal_size((72,24)).columns))
+        if len(line)>width:line=line[:width-1]+'…'
+        tone={'RUN':'\x1b[36m','OK':'\x1b[32m','FAIL':'\x1b[31m'}[state] if progress_color else ''
+        reset='\x1b[0m' if progress_color else ''
+        print('\r\x1b[2K'+tone+line+reset,end='\n' if final else '',file=sys.stderr,flush=True)
+    else:
+        print(line,file=sys.stderr,flush=True)
+
+def phase(label):
+    global progress_label,progress_started,progress_reported
+    with progress_lock:
+        if progress_label is not None:
+            progress_line('OK',progress_label,time.monotonic()-progress_started,True)
+        progress_label=label
+        progress_started=time.monotonic()
+        progress_reported=0
+        progress_line('RUN',label,0,False)
+
+def finish(success):
+    global progress_label
+    with progress_lock:
+        if progress_label is not None:
+            progress_line('OK' if success else 'FAIL',progress_label,time.monotonic()-progress_started,True)
+            progress_label=None
+
 def heartbeat():
-    started=time.monotonic()
-    color=sys.stderr.isatty() and os.environ.get('NO_COLOR','')=='' and os.environ.get('TERM','dumb')!='dumb'
-    prefix='\x1b[36;1mINFO\x1b[0m' if color else 'INFO'
+    global progress_reported
     while not heartbeat_stop.wait(HEARTBEAT):
-        elapsed=int(time.monotonic()-started)
-        print(f'{prefix}  Still working · {elapsed}s elapsed',file=sys.stderr,flush=True)
+        with progress_lock:
+            if progress_label is None:continue
+            elapsed=time.monotonic()-progress_started
+            # Redirected output is append-only; one line per minute is enough.
+            if progress_tty or int(elapsed//60)>progress_reported:
+                progress_line('RUN',progress_label,elapsed,False)
+                progress_reported=int(elapsed//60)
 
 if list_only!='1':
     heartbeat_thread=threading.Thread(target=heartbeat,daemon=True)
@@ -295,8 +333,10 @@ def compiler(minimum,env):
         require(len(files)==1,'Ambiguous Go toolchain')
         f=files[0];name=version+'.linux-'+arch+'.tar.gz'
         require(f.get('filename')==name and HEX.fullmatch(f.get('sha256','')) and 0<f.get('size',0)<=256<<20,'Invalid Go toolchain metadata')
+        phase('Downloading official Go toolchain')
         archive=stage/'go.tar.gz'
         require(download('https://go.dev/dl/'+name,archive,256<<20,f['size'])==f['sha256'],'Go toolchain checksum mismatch')
+        phase('Verifying Go toolchain')
         extract(archive,stage/'toolchain','go',1<<30)
         return str(stage/'toolchain'/'bin'/'go')
     raise ValueError('No compatible official Go compiler')
@@ -305,6 +345,7 @@ try:
     if list_only=='1':
         for r in releases():print(r['tag_name'])
         sys.exit(0)
+    phase('Resolving selected build')
     release=None
     if channel=='release':
         if ref=='latest':
@@ -321,9 +362,11 @@ try:
         selected_ref=sha
 
     if refresh!='1' and cache_trusted=='1' and cache_channel==channel and cache_ref==selected_ref and cache_commit==sha and cache_version==version:
+        phase('Using verified local manager')
         (stage/'build.json').write_text(json.dumps(dict(Channel=cache_channel,Ref=cache_ref,Commit=cache_commit,Version=cache_version,SHA256=cache_digest,BinaryPath=cache_bin)))
         (stage/'build.json').chmod(0o600)
         (stage/'cache-hit').touch(mode=0o600)
+        finish(True)
         sys.exit(0)
 
     candidate=stage/'candidate.part'
@@ -336,6 +379,7 @@ try:
             require(a.get('browser_download_url')==REPO+'/releases/download/'+ref+'/'+name and 0<a.get('size',0)<=limit,'Unsafe release asset')
             return a
         checks=asset('checksums.txt',64<<10);binary=asset(name,256<<20)
+        phase('Downloading release checksums')
         sums=stage/'checksums.txt';download(checks['browser_download_url'],sums,64<<10,checks['size'])
         seen={}
         for line in sums.read_text().splitlines():
@@ -344,10 +388,14 @@ try:
             filename=fields[1].removeprefix('*');require(TAG.fullmatch(filename) and filename not in seen,'Ambiguous checksum manifest')
             seen[filename]=fields[0]
         require(name in seen,'Missing binary checksum')
+        phase('Downloading release binary')
         digest=download(binary['browser_download_url'],candidate,256<<20,binary['size'])
+        phase('Verifying release checksum')
         require(digest==seen[name],'Binary SHA-256 mismatch')
     else:
+        phase('Downloading pinned source')
         archive=stage/'source.tar.gz';download('https://codeload.github.com/Sir-Adnan/wg-guard/tar.gz/'+sha,archive,128<<20)
+        phase('Inspecting source and toolchain')
         source=stage/'source';extract(archive,source,'wg-guard-'+sha,512<<20)
         mod=(source/'go.mod').read_text();match=re.search(r'^go (1\.[0-9]+(?:\.[0-9]+)?)\s*$',mod,re.M)
         require(match,'Source has no valid Go requirement')
@@ -355,6 +403,7 @@ try:
         env={k:os.environ[k] for k in allowed if k in os.environ}
         env.update(HOME=str(stage),TMPDIR=str(stage),GOCACHE=str(stage/'cache'),GOMODCACHE=str(stage/'modules'),GOPATH=str(stage/'gopath'),GOENV='off',GOWORK='off',GOTOOLCHAIN='local',CGO_ENABLED='0',GOOS='linux',GOARCH=arch,GOPROXY='https://proxy.golang.org,direct',GOSUMDB='sum.golang.org')
         go=compiler(go_version('go'+match[1]),env)
+        phase('Compiling WG-Guard manager')
         flags='-s -w -X github.com/Sir-Adnan/wg-guard/internal/version.Version='+version+' -X github.com/Sir-Adnan/wg-guard/internal/version.Commit='+sha
         with (stage/'build.log').open('ab') as build_log:
             subprocess.run([go,'build','-trimpath','-buildvcs=false','-mod=readonly','-modcacherw','-ldflags',flags,'-o',str(candidate),'./cmd/wg-guard'],cwd=source,env=env,stdout=build_log,stderr=build_log,check=True,timeout=900)
@@ -363,6 +412,7 @@ try:
         with candidate.open('rb') as f:
             for block in iter(lambda:f.read(65536),b''):h.update(block)
         digest=h.hexdigest()
+    phase('Checking installer compatibility')
     candidate.chmod(0o700);candidate.rename(stage/'wg-guard')
     # Probe without privilege or node-data access; cap output on disk and time.
     import resource
@@ -374,12 +424,15 @@ try:
     require(contract.get('revision')==2 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and contract.get('persistent_manager') is True and contract.get('secure_exposure') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.2 persistent-manager/secure-exposure installer contract; choose a compatible build')
     (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=selected_ref,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
     (stage/'build.json').chmod(0o600)
+    finish(True)
 except subprocess.SubprocessError:
     # CalledProcessError includes argv; redirect URLs may contain temporary tokens.
     (stage/'fallback-ok').touch(mode=0o600)
+    finish(False)
     print('WG-Guard acquisition failed: download or compiler command failed/timed out',file=sys.stderr)
     sys.exit(1)
 except (ValueError,KeyError,TypeError,OSError,tarfile.TarError) as error:
+    finish(False)
     print('WG-Guard acquisition failed: '+str(error),file=sys.stderr)
     sys.exit(1)
 finally:

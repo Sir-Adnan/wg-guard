@@ -48,6 +48,53 @@ func installedLogState(mode Mode) *State {
 	return state
 }
 
+func TestInstallerLogsReadRotatedAndCurrentPrivateFiles(t *testing.T) {
+	h := &logStreamHost{memHost: newMemHost()}
+	h.files[InstallerLogPath+".1"] = memFile{data: []byte("old-1\nold-2\n"), perm: 0o600}
+	h.files[InstallerLogPath] = memFile{data: []byte("new-1\nnew-2\n"), perm: 0o600}
+	var out bytes.Buffer
+	if err := StreamLogs(context.Background(), h, nil, LogOptions{Source: LogSourceInstaller, Tail: 3}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := out.String(), "old-2\nnew-1\nnew-2\n"; got != want {
+		t.Fatalf("installer log tail = %q, want %q", got, want)
+	}
+	if len(h.commands) != 0 {
+		t.Fatal("recent installer logs unexpectedly ran a command")
+	}
+}
+
+func TestInstallerLogFollowUsesFixedNameFollowingArgv(t *testing.T) {
+	h := &logStreamHost{memHost: newMemHost(), chunks: [][]byte{[]byte("live\n")}}
+	h.files[InstallerLogPath] = memFile{data: []byte("recent\n"), perm: 0o600}
+	var out bytes.Buffer
+	if err := StreamLogs(context.Background(), h, nil, LogOptions{Source: LogSourceInstaller, Tail: 200, Follow: true}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"tail", "--lines", "200", "--follow=name", "--retry", "--", InstallerLogPath}
+	if len(h.commands) != 1 || !slices.Equal(h.commands[0].argv, want) || out.String() != "live\n" {
+		t.Fatalf("follow command/output = %v / %q", h.ranCommands(), out.String())
+	}
+}
+
+func TestInstallerLogFollowRequiresExistingSafeFile(t *testing.T) {
+	h := &logStreamHost{memHost: newMemHost()}
+	for _, follow := range []bool{false, true} {
+		err := StreamLogs(context.Background(), h, nil, LogOptions{Source: LogSourceInstaller, Tail: 200, Follow: follow}, io.Discard, io.Discard)
+		if err == nil || !strings.Contains(err.Error(), "not present yet") || len(h.commands) != 0 {
+			t.Fatalf("missing installer log (follow=%v) = %v, commands=%v", follow, err, h.ranCommands())
+		}
+	}
+	for _, options := range []LogOptions{
+		{Source: LogSourceInstaller, Tail: 200, Since: time.Now().UTC()},
+		{Source: LogSourceInstaller, Tail: 200, Component: "http"},
+	} {
+		if err := StreamLogs(context.Background(), h, nil, options, io.Discard, io.Discard); err == nil {
+			t.Fatalf("unsafe installer log filters accepted: %+v", options)
+		}
+	}
+}
+
 func TestStreamLogsUsesExactModeNativeArgv(t *testing.T) {
 	since := time.Date(2026, 9, 9, 8, 30, 45, 0, time.UTC)
 	for _, tc := range []struct {
@@ -176,6 +223,7 @@ func TestStreamLogsRejectsInvalidStateAndOptionsBeforeExecution(t *testing.T) {
 		{"tail too large", installedLogState(ModeDocker), LogOptions{Tail: MaxLogTail + 1, Since: time.Now().UTC()}},
 		{"missing since", installedLogState(ModeDocker), LogOptions{Tail: 200}},
 		{"unknown component", installedLogState(ModeDocker), LogOptions{Tail: 200, Since: time.Now().UTC(), Component: "http --follow"}},
+		{"operations component", nil, LogOptions{Source: LogSourceOperations, Tail: 200, Since: time.Now().UTC(), Component: "http"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := &logStreamHost{memHost: newMemHost()}

@@ -411,7 +411,9 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 
 	fmt.Fprintln(out)
 	step(out, "Health check")
-	if err := waitHealthy(ctx, h, p, installHealthWindow); err != nil {
+	if err := trackedTask(out, "Waiting for panel health", func() error {
+		return waitHealthy(ctx, h, p, installHealthWindow)
+	}); err != nil {
 		return st, fmt.Errorf("install: %w", err)
 	}
 	progress(out, "healthy", p.HealthProbeLabel())

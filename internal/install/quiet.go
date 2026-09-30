@@ -102,12 +102,97 @@ func (realHost) RunQuiet(ctx context.Context, argv []string, timeout time.Durati
 	done := make(chan error, 1)
 	go func() { done <- cmd.Run() }()
 	u := terminal.New(nil, os.Stderr, terminal.Detect(nil, os.Stderr, i18n.En))
-	if err := waitQuietCommand(done, quietHeartbeatInterval, func(elapsed time.Duration) {
-		u.Info(i18n.T(i18n.En, "progress.still_working", int(elapsed.Seconds())))
-	}); err != nil {
+	task := u.BeginTask(quietCommandLabel(argv))
+	err = waitQuietCommand(done, quietHeartbeatInterval, task.Tick)
+	task.Done(err)
+	if err != nil {
 		return fmt.Errorf("%s failed; details: %s: %w", name, InstallerLogPath, err)
 	}
 	return nil
+}
+
+// Only fixed, non-secret command categories are shown. Raw argv can include
+// paths and configuration values and must never become terminal progress copy.
+func quietCommandLabel(argv []string) string {
+	if len(argv) == 0 {
+		return "Running installation task"
+	}
+	arg := func(n int) string {
+		if len(argv) > n {
+			return argv[n]
+		}
+		return ""
+	}
+	switch filepath.Base(argv[0]) {
+	case "apt-get":
+		for _, argument := range argv[1:] {
+			if argument == "update" {
+				return "Refreshing Ubuntu package index"
+			}
+		}
+		return "Installing required Ubuntu packages"
+	case "docker":
+		switch arg(1) {
+		case "build":
+			return "Building verified Docker runtime"
+		case "pull":
+			return "Downloading Docker runtime"
+		case "compose":
+			for _, action := range argv[2:] {
+				switch action {
+				case "version":
+					return "Checking Docker Compose"
+				case "up":
+					return "Starting Docker service"
+				case "down":
+					return "Stopping Docker service"
+				}
+			}
+			return "Preparing Docker service"
+		case "info":
+			return "Checking Docker daemon"
+		}
+	case "git":
+		return "Fetching reviewed AmneziaWG source"
+	case "make":
+		if argv[len(argv)-1] == "clean" {
+			return "Cleaning reviewed AmneziaWG build"
+		}
+		return "Building reviewed AmneziaWG tools"
+	case "dkms":
+		switch arg(1) {
+		case "install":
+			return "Building AmneziaWG kernel module"
+		case "remove":
+			return "Removing incomplete kernel module"
+		default:
+			return "Registering AmneziaWG kernel module"
+		}
+	case "depmod":
+		return "Refreshing kernel module index"
+	case "nginx":
+		return "Checking Nginx configuration"
+	case "systemd-tmpfiles":
+		return "Applying log retention policy"
+	case "systemctl":
+		switch arg(1) {
+		case "restart", "try-restart":
+			return "Restarting systemd service"
+		case "enable", "start":
+			return "Starting systemd service"
+		case "stop":
+			return "Stopping systemd service"
+		default:
+			return "Applying systemd service change"
+		}
+	case "certbot", "snap":
+		return "Preparing HTTPS certificate tools"
+	case "add-apt-repository":
+		return "Adding reviewed package source"
+	case "wg-guard":
+		return "Applying initial panel settings"
+	}
+	return "Running installation task"
 }
 
 func waitQuietCommand(done <-chan error, interval time.Duration, heartbeat func(time.Duration)) error {

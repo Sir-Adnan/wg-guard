@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -14,14 +13,22 @@ import (
 
 var updateHeartbeatInterval = 15 * time.Second
 
-// startUpdateHeartbeat provides bounded progress around distribution source
-// acquisition, whose compiler output is intentionally private and quiet.
-func startUpdateHeartbeat(ctx context.Context, out io.Writer, label string) func() {
+// startUpdateHeartbeat keeps the current acquisition stage visible while
+// verbose compiler output remains private and quiet.
+func startUpdateHeartbeat(ctx context.Context, out io.Writer, label string) (func(string), func(error)) {
 	u := terminal.New(os.Stdin, out, terminal.Detect(os.Stdin, out, i18n.En))
-	u.Info(label)
+	task := u.BeginTask(label)
+	stageStarted := time.Now()
+	var taskMu sync.Mutex
+	stage := func(label string) {
+		taskMu.Lock()
+		defer taskMu.Unlock()
+		task.Done(nil)
+		task = u.BeginTask(label)
+		stageStarted = time.Now()
+	}
 	stop := make(chan struct{})
 	done := make(chan struct{})
-	started := time.Now()
 	go func() {
 		defer close(done)
 		ticker := time.NewTicker(updateHeartbeatInterval)
@@ -33,15 +40,20 @@ func startUpdateHeartbeat(ctx context.Context, out io.Writer, label string) func
 			case <-stop:
 				return
 			case <-ticker.C:
-				u.Info(fmt.Sprintf("Still working · %s elapsed", time.Since(started).Round(time.Second)))
+				taskMu.Lock()
+				task.Tick(time.Since(stageStarted))
+				taskMu.Unlock()
 			}
 		}
 	}()
 	var once sync.Once
-	return func() {
+	return stage, func(err error) {
 		once.Do(func() {
 			close(stop)
 			<-done
+			taskMu.Lock()
+			task.Done(err)
+			taskMu.Unlock()
 		})
 	}
 }

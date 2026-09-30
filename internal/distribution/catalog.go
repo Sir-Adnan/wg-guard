@@ -35,10 +35,17 @@ type BuildRunner interface {
 type Options struct {
 	APIBase, DownloadBase, SourceBase, GoBase, Arch string
 	Runner                                          BuildRunner
+	Progress                                        func(string) // fixed stage names only; no URLs, refs or command argv
 }
 type Client struct {
 	http    *http.Client
 	options Options
+}
+
+func (c *Client) progress(stage string) {
+	if c.options.Progress != nil {
+		c.options.Progress(stage)
+	}
 }
 
 var safeRef = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)

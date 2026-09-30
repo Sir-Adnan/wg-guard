@@ -24,7 +24,8 @@ promotes its matching recovery action; a healthy installed node shows these grou
 | Install & updates | Update center, build selection, install, rollback and interrupted-operation recovery |
 | Panel access & HTTPS | Access overview, reversible configuration, certificate renewal check and private fallback |
 | Backups & recovery | Create/list/send archives, coordinated restore, schedules and Telegram settings/tests |
-| System & diagnostics | Status, recent operational logs, read-only doctor, TLS verification, compatible core review/switch and service restart |
+| System & diagnostics | Status, read-only doctor, TLS verification, compatible core review/switch and service restart |
+| Logs | Service/component, installer and lifecycle records, with recent/live views where supported |
 | Uninstall | Data-preserving removal, quick-reinstall reset, or separately confirmed complete removal |
 
 Enter the displayed number and use `0` to go back or exit. Press `Ctrl+C` to cancel safely. Invalid input is retried. Menus
@@ -41,24 +42,37 @@ EOF, partial input and interruption never grant consent.
 
 ## Operational logs
 
-**System & diagnostics → Operational logs** shows the latest service records from the previous
-24 hours. The equivalent host command automatically chooses the installed deployment mode:
+**Logs** on the main menu (also under **System & diagnostics**) first selects the source. Service logs can show every component
+or one of `serve`, `http`, `scheduler`, `accounting`, `webhook`, `backup`, `awg`, and `network`.
+Choose **Last 200 lines** or **Last 200 lines + live follow**. Installer/update command output has
+the same two views. Lifecycle outcomes show the latest 200 fixed-metadata records. The log menu
+is also available before installation and during recovery, so a failed first setup can be
+diagnosed without a running service. Live follow stops with `Ctrl+C`; reopen `sudo wg-guard` to
+return to the manager. Service and lifecycle menu views search the available seven-day window;
+the command-line default remains 24 hours.
+
+The equivalent host commands are:
 
 ```bash
 sudo wg-guard logs
 sudo wg-guard logs --tail 500 --since 6h
 sudo wg-guard logs --follow --component http
 sudo wg-guard logs --source operations
+sudo wg-guard logs --source installer --tail 200
+sudo wg-guard logs --source installer --tail 200 --follow
 ```
 
-`--tail` accepts 1–10,000 (default 200). `--since` accepts a positive duration or RFC3339 instant
-within the previous seven days (default 24h). `--component` accepts only `serve`, `http`,
-`scheduler`, `accounting`, `webhook`, `backup`, `awg`, or `network`; filtering is local and never
-adds free-form input to Docker/journal argv. Follow exits cleanly with `Ctrl+C` and applies only to
-the service source. Docker container stdout/stderr are normalized into the command's one
-redirectable stdout stream. `--source operations` reads canonical fixed-metadata lifecycle
-outcomes; it works without install state and skips corrupt/partial records. Logs stay host-local
-and are not exposed through the panel or REST API.
+`--tail` accepts 1–10,000 (default 200). For service and lifecycle records, `--since` accepts a
+positive duration or RFC3339 instant within the previous seven days (default 24h).
+`--component` accepts only `serve`, `http`, `scheduler`, `accounting`, `webhook`, `backup`, `awg`,
+or `network`; filtering is local and never adds free-form input to Docker/journal argv. Follow
+applies to service and installer sources; `--since` and `--component` do not apply to raw installer
+output. Docker container stdout/stderr are normalized into the command's one redirectable stdout
+stream. `--source operations` reads canonical fixed-metadata lifecycle
+outcomes; it works without install state and skips corrupt/partial records. `--source installer`
+reads the private current and rotated build/command logs for recent output, or follows the
+current file by name across rotation. It works without install state and refuses unsafe or
+non-private files. Logs stay host-local and are not exposed through the panel or REST API.
 
 Docker service storage uses its compressed local driver with eight 16 MiB files (a hard size cap;
 Docker has no age option). Native service storage uses a dedicated journal namespace capped at
@@ -222,9 +236,12 @@ failures are red. Color is automatically disabled for redirected output, `TERM=d
 `NO_COLOR`; dynamic values are stripped of terminal control and bidi characters. Hidden input uses
 the real terminal descriptor and restores terminal state after Ctrl-C/Ctrl-D.
 
-Lengthy quiet operations print a short elapsed-time heartbeat while detailed command output is
-written to root-only `/var/log/wg-guard/installer.log`. This keeps ordinary and narrow SSH sessions
-responsive without flooding the screen.
+Lengthy quiet operations identify the actual stage (for example package index, reviewed AWG
+module, Docker image, or service start). A capable TTY updates one progress line with elapsed
+time, then marks it complete or failed. Redirected output stays plain and emits at most one
+contextual heartbeat per minute. Detailed command output is written to root-only
+`/var/log/wg-guard/installer.log`; command arguments are omitted. The display does not invent
+a percentage or ETA for work whose duration cannot be known.
 
 The running service picks up backup schedules/settings on its next scheduler pass. Coordinated
 restore stays on the host so it can safely stop and restart either deployment mode. See

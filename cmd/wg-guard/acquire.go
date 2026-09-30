@@ -28,7 +28,7 @@ func sourceSelection(release, commit string) (distribution.Selection, error) {
 	return distribution.Selection{}, nil
 }
 
-func prepareBuild(ctx context.Context, s distribution.Selection, metadata string) (distribution.Build, string, func(), error) {
+func prepareBuild(ctx context.Context, s distribution.Selection, metadata string, onStage ...func(string)) (distribution.Build, string, func(), error) {
 	parent, err := os.MkdirTemp("", "wg-guard-lifecycle-")
 	if err != nil {
 		return distribution.Build{}, "", func() {}, err
@@ -42,7 +42,11 @@ func prepareBuild(ctx context.Context, s distribution.Selection, metadata string
 	}
 	var b distribution.Build
 	if s.Channel != "" {
-		b, err = distribution.NewClient(nil, distribution.Options{}).Acquire(ctx, s, parent)
+		options := distribution.Options{}
+		if len(onStage) > 0 {
+			options.Progress = onStage[0]
+		}
+		b, err = distribution.NewClient(nil, options).Acquire(ctx, s, parent)
 		if err == nil {
 			child = filepath.Dir(b.BinaryPath)
 		}

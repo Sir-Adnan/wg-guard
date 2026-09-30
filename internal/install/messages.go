@@ -1,9 +1,11 @@
 package install
 
 import (
+	"io"
+	"time"
+
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
-	"io"
 )
 
 type progressOutput struct {
@@ -28,6 +30,33 @@ func progress(out io.Writer, key string, args ...any) {
 	default:
 		u.Info(message)
 	}
+}
+
+// trackedTask covers host work that does not stream its own command progress,
+// such as a pre-update backup or a bounded health wait.
+func trackedTask(out io.Writer, label string, run func() error) error {
+	task := progressUI(out).BeginTask(label)
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	started := time.Now()
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(quietHeartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				task.Tick(time.Since(started))
+			}
+		}
+	}()
+	err := run()
+	close(stop)
+	<-done
+	task.Done(err)
+	return err
 }
 
 // TerminalError keeps a catalog key and cause for the terminal UI.

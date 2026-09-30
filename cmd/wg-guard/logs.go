@@ -49,7 +49,7 @@ func parseLogsOptions(args []string, now time.Time) (install.LogOptions, error) 
 	since := fs.String("since", "24h", "bounded duration or RFC3339 instant")
 	follow := fs.Bool("follow", false, "follow new service records")
 	component := fs.String("component", "", "structured component filter")
-	source := fs.String("source", install.LogSourceService, "service or operations")
+	source := fs.String("source", install.LogSourceService, "service, operations, or installer")
 	if err := fs.Parse(args); err != nil {
 		return install.LogOptions{}, fmt.Errorf("logs: %w", err)
 	}
@@ -59,7 +59,17 @@ func parseLogsOptions(args []string, now time.Time) (install.LogOptions, error) 
 	if *tail < 1 || *tail > install.MaxLogTail {
 		return install.LogOptions{}, fmt.Errorf("logs: --tail must be between 1 and %d", install.MaxLogTail)
 	}
-	instant, err := parseLogSince(*since, now)
+	var instant time.Time
+	var err error
+	if *source == install.LogSourceInstaller {
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "since" {
+				err = fmt.Errorf("logs: --since is unavailable for the installer source")
+			}
+		})
+	} else {
+		instant, err = parseLogSince(*since, now)
+	}
 	if err != nil {
 		return install.LogOptions{}, err
 	}
@@ -68,13 +78,13 @@ func parseLogsOptions(args []string, now time.Time) (install.LogOptions, error) 
 			return install.LogOptions{}, fmt.Errorf("logs: unknown --component %q", *component)
 		}
 	}
-	if *source != install.LogSourceService && *source != install.LogSourceOperations {
+	if *source != install.LogSourceService && *source != install.LogSourceOperations && *source != install.LogSourceInstaller {
 		return install.LogOptions{}, fmt.Errorf("logs: unknown --source %q", *source)
 	}
 	if *source == install.LogSourceOperations && *follow {
-		return install.LogOptions{}, fmt.Errorf("logs: --follow is available only for the service source")
+		return install.LogOptions{}, fmt.Errorf("logs: --follow is available only for service and installer sources")
 	}
-	if *source == install.LogSourceOperations && *component != "" {
+	if *source != install.LogSourceService && *component != "" {
 		return install.LogOptions{}, fmt.Errorf("logs: --component is available only for the service source")
 	}
 	return install.LogOptions{

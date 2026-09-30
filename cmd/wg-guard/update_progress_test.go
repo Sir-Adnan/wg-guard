@@ -13,10 +13,11 @@ func TestUpdateAcquisitionHeartbeatKeepsQuietSSHSessionAlive(t *testing.T) {
 	updateHeartbeatInterval = time.Millisecond
 	t.Cleanup(func() { updateHeartbeatInterval = previous })
 	var out bytes.Buffer
-	stop := startUpdateHeartbeat(context.Background(), &out, "Acquiring verified build")
+	stage, stop := startUpdateHeartbeat(context.Background(), &out, "Acquiring verified build")
+	stage("Downloading release binary")
 	time.Sleep(4 * time.Millisecond)
-	stop()
-	if text := out.String(); !strings.Contains(text, "Acquiring verified build") || !strings.Contains(text, "Still working") || !strings.Contains(text, "elapsed") {
+	stop(nil)
+	if text := out.String(); !strings.Contains(text, "[RUN] Acquiring verified build") || !strings.Contains(text, "[OK] Acquiring verified build") || !strings.Contains(text, "[RUN] Downloading release binary") || strings.Contains(text, "Still working") {
 		t.Fatalf("bounded acquisition progress missing: %q", text)
 	}
 }

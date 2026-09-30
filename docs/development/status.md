@@ -16,6 +16,12 @@ latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
+**Post-v0.1.4 source work (not yet released):** The host manager now separates service/component,
+lifecycle and private installer logs, with a 200-line recent view and service/installer live
+follow. Bootstrap and Go install/update paths show named stages and bounded elapsed-time progress;
+pre-update backup and health waits are included. Local Go tests/vet and the offline bootstrap
+fixture cover the change. No new Ubuntu VPS installation or live log-follow drill is claimed.
+
 **v0.1.4 template and automation follow-up:** Selecting a technical template on the panel,
 REST user creation or bulk creation now copies its saved entitlement terms; edits change the
 reference without resetting an existing subscription. The pre-installation catalog contract is

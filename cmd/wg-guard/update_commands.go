@@ -168,9 +168,9 @@ func updateManagerSelection(ctx context.Context, h install.Host, o managerUpdate
 		}
 	}
 	selection := distribution.Selection{Channel: resolved.Channel, Ref: resolved.Ref}
-	stopHeartbeat := startUpdateHeartbeat(ctx, out, "Acquiring verified manager build…")
-	build, _, cleanup, err := prepareBuild(ctx, selection, "")
-	stopHeartbeat()
+	stage, stopHeartbeat := startUpdateHeartbeat(ctx, out, "Preparing verified manager build")
+	build, _, cleanup, err := prepareBuild(ctx, selection, "", stage)
+	stopHeartbeat(err)
 	if err != nil {
 		return err
 	}
@@ -226,9 +226,9 @@ func runAllUpdate(args []string) error {
 	if err := install.CheckLifecycleReady(h); err != nil {
 		return err
 	}
-	stopHeartbeat := startUpdateHeartbeat(ctx, os.Stdout, "Acquiring verified update build…")
-	build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "")
-	stopHeartbeat()
+	stage, stopHeartbeat := startUpdateHeartbeat(ctx, os.Stdout, "Preparing verified update build")
+	build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "", stage)
+	stopHeartbeat(err)
 	if err != nil {
 		return err
 	}

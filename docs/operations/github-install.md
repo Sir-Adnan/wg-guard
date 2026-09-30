@@ -143,10 +143,18 @@ runtime dependency. Installed missing packages are retained; downloaded sources,
 temporary compiler are removed on exit.
 
 Ubuntu package commands wait up to five minutes for the standard dpkg lock, allowing
-`unattended-upgrades` to finish without creating a false recovery case. Source acquisition and
-other quiet build steps emit a concise heartbeat every 15 seconds. Detailed package/compiler/
-Docker output is bounded in root-only `/var/log/wg-guard/installer.log` (mode 0600, one rotated
-generation); command arguments are not logged.
+`unattended-upgrades` to finish without creating a false recovery case. Acquisition shows real
+stages: resolving the build, downloading/checking assets or pinned source, preparing a verified
+toolchain when needed, compiling, and checking installer compatibility. Host installation and
+updates show the active package, AWG, Docker or systemd task. Capable terminals redraw a single
+elapsed-time status line; redirected runs emit a contextual line at most once a minute instead of
+repeating a generic heartbeat. No estimated percentage or completion time is claimed. Detailed
+host package/build/Docker command output is bounded in root-only
+`/var/log/wg-guard/installer.log` (mode 0600, one rotated generation); command arguments are not
+logged. Open **Logs** in the local manager or run `sudo wg-guard logs --source installer --tail 200
+--follow` to see recent output and follow a running host operation. The bootstrap's temporary
+download/compiler staging is removed on exit and is represented by its terminal stage results,
+not retained in that host command log.
 
 An existing Go compiler is accepted only when its version meets the selected source's `go`
 directive. Otherwise the bootstrap/package select a compatible stable Linux compiler from

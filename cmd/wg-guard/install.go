@@ -78,7 +78,15 @@ func runInstall(args []string) error {
 			return err
 		}
 	}
-	build, parent, cleanup, err := prepareBuild(ctx, o.Selection, o.BuildMetadata)
+	var stage func(string)
+	var stopHeartbeat func(error)
+	if o.Selection.Channel != "" {
+		stage, stopHeartbeat = startUpdateHeartbeat(ctx, os.Stdout, "Preparing selected WG-Guard build")
+	}
+	build, parent, cleanup, err := prepareBuild(ctx, o.Selection, o.BuildMetadata, stage)
+	if stopHeartbeat != nil {
+		stopHeartbeat(err)
+	}
 	if err != nil {
 		return err
 	}
@@ -274,9 +282,9 @@ func runPanelUpdate(args []string) error {
 		}
 	}
 	if o.Selection.Channel != "" {
-		stopHeartbeat := startUpdateHeartbeat(ctx, os.Stdout, "Acquiring and verifying the selected WG-Guard build…")
-		build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "")
-		stopHeartbeat()
+		stage, stopHeartbeat := startUpdateHeartbeat(ctx, os.Stdout, "Preparing selected WG-Guard build")
+		build, parent, cleanup, err := prepareBuild(ctx, o.Selection, "", stage)
+		stopHeartbeat(err)
 		if err != nil {
 			return err
 		}

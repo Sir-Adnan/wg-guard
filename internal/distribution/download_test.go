@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -35,6 +36,7 @@ func TestAcquireReleaseIntegrity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var c *Client
+			var stages []string
 			c = fixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
 				switch {
 				case strings.Contains(r.URL.Path, "/commits/"):
@@ -48,6 +50,7 @@ func TestAcquireReleaseIntegrity(t *testing.T) {
 					fmt.Fprint(w, tc.body)
 				}
 			})
+			c.options.Progress = func(stage string) { stages = append(stages, stage) }
 			dir := t.TempDir()
 			b, err := c.Acquire(context.Background(), Selection{Channel: "release", Ref: "v1"}, dir)
 			if (err != nil) != tc.fail {
@@ -69,6 +72,10 @@ func TestAcquireReleaseIntegrity(t *testing.T) {
 			}
 			if filepath.Dir(b.BinaryPath) == dir {
 				t.Fatal("candidate not privately staged")
+			}
+			wantStages := []string{"Resolving published release", "Downloading release checksums", "Downloading release binary", "Verifying release checksum"}
+			if !slices.Equal(stages, wantStages) {
+				t.Fatalf("acquisition stages = %v, want %v", stages, wantStages)
 			}
 		})
 	}

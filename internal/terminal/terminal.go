@@ -27,13 +27,14 @@ type Options struct {
 	TTY, Color bool
 }
 type UI struct {
-	Context  context.Context
-	In       io.Reader
-	Out      io.Writer
-	Locale   i18n.Locale
-	width    int
-	color    bool
-	inputTTY bool
+	Context   context.Context
+	In        io.Reader
+	Out       io.Writer
+	Locale    i18n.Locale
+	width     int
+	color     bool
+	inputTTY  bool
+	outputTTY bool
 }
 
 const (
@@ -98,7 +99,7 @@ func New(in io.Reader, out io.Writer, o Options) *UI {
 	if o.Context == nil {
 		o.Context = context.Background()
 	}
-	return &UI{Context: o.Context, In: in, Out: out, Locale: o.Locale, width: o.Width, color: o.Color && o.TTY && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb", inputTTY: IsTerminal(in)}
+	return &UI{Context: o.Context, In: in, Out: out, Locale: o.Locale, width: o.Width, color: o.Color && o.TTY && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb", inputTTY: IsTerminal(in), outputTTY: o.TTY && os.Getenv("TERM") != "dumb"}
 }
 func (u *UI) T(key string, args ...any) string { return i18n.T(u.Locale, key, args...) }
 

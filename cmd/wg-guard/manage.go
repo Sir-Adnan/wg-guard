@@ -57,15 +57,15 @@ type managerMenu struct {
 func managerRootMenu(view managerView) managerMenu {
 	switch view {
 	case managerInstalled:
-		return managerMenu{key: "menu", items: []string{"lifecycle", "access", "backups", "operations", "uninstall"}, defaultItem: 1}
+		return managerMenu{key: "menu", items: []string{"lifecycle", "access", "backups", "operations", "logs", "uninstall"}, defaultItem: 1}
 	case managerInstallRecovery:
-		return managerMenu{key: "setup_recovery_menu", items: []string{"cleanup_install", "readiness"}, defaultItem: 1}
+		return managerMenu{key: "setup_recovery_menu", items: []string{"cleanup_install", "readiness", "logs"}, defaultItem: 1}
 	case managerUninstallRecovery:
-		return managerMenu{key: "uninstall_recovery_menu", items: []string{"uninstall_resume"}, defaultItem: 1}
+		return managerMenu{key: "uninstall_recovery_menu", items: []string{"uninstall_resume", "logs"}, defaultItem: 1}
 	case managerRecovery:
-		return managerMenu{key: "recovery_menu", items: []string{"recover_now", "lifecycle", "access", "backups", "operations"}, defaultItem: 1}
+		return managerMenu{key: "recovery_menu", items: []string{"recover_now", "lifecycle", "access", "backups", "operations", "logs"}, defaultItem: 1}
 	default:
-		return managerMenu{key: "fresh_menu", items: []string{"install_cached", "install_choose", "readiness", "help_short"}, defaultItem: 1}
+		return managerMenu{key: "fresh_menu", items: []string{"install_cached", "install_choose", "readiness", "help_short", "logs"}, defaultItem: 1}
 	}
 }
 
@@ -126,7 +126,7 @@ func runManage(args []string) error {
 		if args[0] == "backup" || args[0] == "restore" {
 			args = append(append([]string{}, args...), "--lang", string(u.Locale))
 		}
-		if args[0] != "update" || len(args) != 1 {
+		if args[0] != "logs" && (args[0] != "update" || len(args) != 1) {
 			u.Text(u.T("manage.working"))
 		}
 		// Lifecycle commands stay in-process so SIGINT reaches the engine and its
@@ -153,6 +153,8 @@ func runManage(args []string) error {
 				in = os.Stdin
 			}
 			return runRestoreWith(ctx, args[1:], in, os.Stdout, h)
+		case "logs":
+			return runLogsWith(ctx, args[1:], h, os.Stdout, os.Stderr, time.Now())
 		}
 		argv := append([]string{exe}, args...)
 		if in != nil {
@@ -208,7 +210,11 @@ func runManage(args []string) error {
 		}
 		return nil
 	}
-	return m.loop(ctx)
+	err = m.loop(ctx)
+	if errors.Is(err, terminal.ErrCanceled) && ctx.Err() != nil {
+		return nil
+	}
+	return err
 }
 
 // prepareOverview renders lifecycle states that do not need a boot config or
@@ -351,6 +357,9 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 	case managerFresh:
 		return m.freshAction(ctx, n)
 	case managerInstallRecovery:
+		if n == 3 {
+			return m.logsMenu(ctx)
+		}
 		switch n {
 		case 1:
 			if m.installCleanupSafe {
@@ -366,6 +375,9 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 	case managerUninstallRecovery:
 		if n == 1 {
 			return m.uninstallAction(ctx)
+		}
+		if n == 2 {
+			return m.logsMenu(ctx)
 		}
 	case managerRecovery:
 		switch n {
@@ -388,6 +400,8 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 			return m.group(ctx, 3)
 		case 5:
 			return m.group(ctx, 2)
+		case 6:
+			return m.logsMenu(ctx)
 		}
 	case managerInstalled:
 		switch n {
@@ -400,6 +414,8 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 		case 4:
 			return m.group(ctx, 2)
 		case 5:
+			return m.logsMenu(ctx)
+		case 6:
 			return m.uninstallAction(ctx)
 		}
 	}
@@ -456,6 +472,8 @@ func (m *manager) freshAction(ctx context.Context, n int) error {
 	case 4:
 		m.ui.Section(m.ui.T("manage.help_short"))
 		m.ui.Text(m.ui.T("manage.help_body"))
+	case 5:
+		return m.logsMenu(ctx)
 	}
 	return nil
 }
@@ -541,7 +559,10 @@ func (m *manager) group(ctx context.Context, group int) error {
 				args = []string{"core", "switch", "recommended", "--confirm-impact"}
 				review = "core_review"
 			case 6:
-				args = []string{"logs"}
+				if err := m.logsMenu(ctx); err != nil {
+					return err
+				}
+				continue
 			}
 		case 3:
 			err = m.backupAction(ctx, n)

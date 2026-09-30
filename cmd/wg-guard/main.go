@@ -42,8 +42,8 @@ Commands:
   uninstall   Remove WG-Guard (data kept unless --purge-data)
               uninstall [--dry-run] [--purge-data] [--purge-packages] [--purge-all] [--yes]
   status      Install state, service state and health
-  logs        View bounded Docker/native service logs
-              logs [--source service|operations] [--tail N] [--since 24h|RFC3339] [--follow]
+  logs        View service, lifecycle or private installer logs
+              logs [--source service|operations|installer] [--tail N] [--since 24h|RFC3339] [--follow]
                    [--component serve|http|scheduler|accounting|webhook|backup|awg|network]
   exposure    Show or change panel access and HTTPS after installation
               exposure status|configure|renew|private|recover
