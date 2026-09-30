@@ -69,7 +69,7 @@ func TestDockerBackupCompatibleHelperRecovery(t *testing.T) {
 					t.Fatalf("compatible backup retry: %+v %v runs=%d", b, err, h.helperRuns)
 				}
 				args := h.commands[len(h.commands)-1].argv
-				for _, pin := range []string{"WGG_DATA_DIR=" + DataDir, "WGG_DATABASE_PATH=" + DataDir + "/wg-guard.db", "WGG_MASTER_KEY_FILE=" + DataDir + "/master.key", candidate.Binary, st.ConfigPath} {
+				for _, pin := range []string{"WGG_IN_CONTAINER=1", "WGG_DATA_DIR=" + DataDir, "WGG_DATABASE_PATH=" + DataDir + "/wg-guard.db", "WGG_MASTER_KEY_FILE=" + DataDir + "/master.key", candidate.Binary, st.ConfigPath} {
 					if !strings.Contains(strings.Join(args, " "), pin) {
 						t.Fatalf("helper path not pinned: %s", pin)
 					}

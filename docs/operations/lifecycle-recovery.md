@@ -80,7 +80,9 @@ key-check failure only, it can retry using the staged verified Linux helper agai
 canonical host DB/key volume. Both artifacts must declare the same data contract and the data
 lease protocol; the helper checksum is rechecked immediately before use. Boot data/DB/key paths
 must match the managed layout, and inherited host path overrides are replaced with those pinned
-paths. The helper still validates secrets, takes shared data ownership and creates a local
+paths. The invocation sets the internal direct-execution marker so the host shim cannot forward
+the helper's backup command back into the affected old container. The helper still validates
+secrets, takes shared data ownership and creates a local
 archive whose bytes are hashed and recorded before deployment changes. A real wrong key, helper
 tampering, incompatible contract, custom layout or failed archive creation stops the upgrade.
 There is no key replacement or backup bypass.

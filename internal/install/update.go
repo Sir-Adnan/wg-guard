@@ -773,8 +773,9 @@ func createUpdateBackup(ctx context.Context, h Host, st *State, id string, previ
 		fmt.Fprintln(out, "Retrying backup with the verified compatible helper")
 	}
 	dir := DataDir + "/backups/lifecycle-" + id
-	// Pin data paths rather than inheriting unrelated host WGG_* path overrides.
-	args := []string{"env", "WGG_DATA_DIR=" + DataDir, "WGG_DATABASE_PATH=" + path.Join(DataDir, "wg-guard.db"),
+	// Run this one verified helper directly, rather than forwarding its backup
+	// command back into the affected old container. Pin the shared data paths.
+	args := []string{"env", "WGG_IN_CONTAINER=1", "WGG_DATA_DIR=" + DataDir, "WGG_DATABASE_PATH=" + path.Join(DataDir, "wg-guard.db"),
 		"WGG_MASTER_KEY_FILE=" + path.Join(DataDir, "master.key"), candidate.Binary,
 		"backup", "create", "--config", st.ConfigPath, "--reason", "pre-upgrade", "--output", dir}
 	raw, err := h.Output(ctx, args, 5*time.Minute)
