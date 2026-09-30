@@ -5,7 +5,7 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Release v0.1.5" src="https://img.shields.io/badge/release-v0.1.5-2563eb">
+    <img alt="Release v0.1.6" src="https://img.shields.io/badge/release-v0.1.6-2563eb">
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">

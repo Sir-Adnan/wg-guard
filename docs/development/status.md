@@ -6,17 +6,17 @@ the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
 **Current gate (2026-10-01):** Phases 0–14 are complete within their documented scopes.
-[v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) is the latest stable
-release. Its exact `05869315e840f8d2beb4225bf49ffacd31ee9943` source passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36781442855) and the
-[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36782237324),
+[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) is the latest stable
+release. Its exact `ca0003ec458bb17e38515ec670e23c3720c91c56` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786013028) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786717685),
 including both Go race jobs, checksummed amd64 assets, image/binary identity, attestations and
 downloaded draft-asset verification. The v0.1.0 release had a successful
 latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
-**Post-v0.1.5 corrective source work (not yet released):** An owner Docker upgrade report exposed
+**v0.1.6 backup/startup correction:** An owner Docker upgrade report exposed
 a valid-webhook text envelope being misread as binary by startup/offline key validation. This
 could falsely reject the master key, block pre-update backups and prevent service startup after
 a webhook was added. The stored-webhook regression reproduces the old failure and passes with
@@ -103,7 +103,7 @@ and no safe reversal contract has been approved.
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, templates, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt and multi-device purchase tests | Exact v0.1.5 source passed main and release gates; earlier panel/API workflows served published OpenAPI | Direct purchase, quota top-up and multi-device provisioning have no new real-host claim |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt and multi-device purchase tests | Exact v0.1.6 source passed main and release gates; earlier panel/API workflows served published OpenAPI | Direct purchase, quota top-up and multi-device provisioning have no new real-host claim |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |

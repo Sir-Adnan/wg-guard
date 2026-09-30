@@ -9,14 +9,14 @@ documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 through v0.1.5 releases passed their respective gates and are public.
-The v0.1.5 `05869315e840f8d2beb4225bf49ffacd31ee9943` source passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36781442855) and the
-[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36782237324); its
-[public release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) includes the checked
+The owner-approved v0.1.0 through v0.1.6 releases passed their respective gates and are public.
+The v0.1.6 `ca0003ec458bb17e38515ec670e23c3720c91c56` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786013028) and the
+[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786717685); its
+[public release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) includes the checked
 amd64 bundle. Downloaded public metadata identifies that exact SHA and its checksum matches the
-published checksum file. Installer progress/logging and multi-device API provisioning are
-source/artifact-gate verified; no new real-host or physical-device certification is claimed.
+published checksum file. Installer progress/logging, multi-device API provisioning and the webhook key-check/guarded
+backup-helper correction are source/artifact-gate verified; no new real-host or physical-device certification is claimed.
 Later versions and official registry images require separate approval.
 
 ## Program status
@@ -214,7 +214,8 @@ The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v
 [v0.1.2 security update](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) and
 [v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) and
 [v0.1.4](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4) and
-[v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5)
+[v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) and
+[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6)
 were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).

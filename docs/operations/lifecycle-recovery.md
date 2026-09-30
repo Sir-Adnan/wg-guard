@@ -87,8 +87,9 @@ archive whose bytes are hashed and recorded before deployment changes. A real wr
 tampering, incompatible contract, custom layout or failed archive creation stops the upgrade.
 There is no key replacement or backup bypass.
 
-This correction is source work after v0.1.5 until a separately authorized fixed release is
-published. Updating only the old manager/binary to v0.1.5 does not repair it. Automated tests
+This correction shipped in
+[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) after its exact-source gate.
+Updating only the old manager/binary to v0.1.5 does not repair it. Automated tests
 cover the stored-webhook failure/reload and CLI backup, plus guarded helper retry/refusal;
 new real-host execution is not claimed. The terminal recovery URL points to this repository
 document; it is not an installed `/docs/...` path. Log source **Installer and update commands**
