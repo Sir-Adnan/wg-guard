@@ -20,7 +20,7 @@
 // Quota enforcement is deliberately edge-triggered (active → traffic_exceeded
 // and never back): the cycle must never override an explicit admin decision
 // (a manually re-enabled account, a grace grant). Recovery is an admin
-// action: reset/add/remove traffic, or a status change.
+// action: reset/remove charged traffic, increase the quota, or change status.
 package accounting
 
 import (
@@ -668,7 +668,105 @@ func (s *Service) ResetTraffic(ctx context.Context, userID string, actor Actor) 
 	return nil
 }
 
-// AddTraffic adds bytes to the charged counter (top-up style corrections);
+// QuotaSnapshot records the relevant entitlement and meter state at one
+// transactional boundary. It contains no subscription or device credentials.
+type QuotaSnapshot struct {
+	TrafficLimitBytes int64             `json:"traffic_limit_bytes"`
+	TrafficUsedRX     int64             `json:"traffic_used_rx"`
+	TrafficUsedTX     int64             `json:"traffic_used_tx"`
+	Status            domain.UserStatus `json:"status"`
+}
+
+type QuotaChange struct {
+	Username string
+	Before   QuotaSnapshot
+	After    QuotaSnapshot
+}
+
+// AddQuotaTx increases a finite allowance without changing charged usage.
+// Callers that also journal an automation result use the same transaction so
+// a committed increase can always be recovered after a lost HTTP response.
+func (s *Service) AddQuotaTx(ctx context.Context, tx *sql.Tx, userID string, bytes int64) (QuotaChange, error) {
+	if bytes <= 0 {
+		return QuotaChange{}, domain.E(domain.CodeInvalidRequest, "quota addition must be positive")
+	}
+	var (
+		change         QuotaChange
+		limit          sql.NullInt64
+		status, policy string
+		usedRX, usedTX int64
+		activated      sql.NullString
+	)
+	if err := tx.QueryRowContext(ctx, `SELECT username, traffic_limit_bytes, status,
+			traffic_used_rx, traffic_used_tx, start_policy, activated_at
+			FROM users WHERE id = ? AND deleted_at IS NULL`, userID).
+		Scan(&change.Username, &limit, &status, &usedRX, &usedTX, &policy, &activated); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return QuotaChange{}, domain.E(domain.CodeUserNotFound, "user %s not found", userID)
+		}
+		return QuotaChange{}, fmt.Errorf("accounting: quota lookup: %w", err)
+	}
+	if !limit.Valid {
+		return QuotaChange{}, domain.E(domain.CodeInvalidRequest, "unlimited account has no finite quota to increase")
+	}
+	if limit.Int64 > math.MaxInt64-bytes {
+		return QuotaChange{}, domain.E(domain.CodeInvalidRequest, "quota addition exceeds supported range")
+	}
+	change.Before = QuotaSnapshot{TrafficLimitBytes: limit.Int64, TrafficUsedRX: usedRX,
+		TrafficUsedTX: usedTX, Status: domain.UserStatus(status)}
+	change.After = change.Before
+	change.After.TrafficLimitBytes += bytes
+	revive := false
+	if change.Before.Status == domain.UserTrafficExceeded && usedRX <= math.MaxInt64-usedTX &&
+		usedRX+usedTX < change.After.TrafficLimitBytes {
+		revive = true
+		if !activated.Valid && domain.StartPolicy(policy) == domain.StartFirstConnection {
+			change.After.Status = domain.UserWaitingFirstConnection
+		} else {
+			change.After.Status = domain.UserActive
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET traffic_limit_bytes = ?, status = ?,
+			disable_reason = CASE WHEN ? THEN NULL ELSE disable_reason END, updated_at = ? WHERE id = ?`,
+		change.After.TrafficLimitBytes, string(change.After.Status), revive,
+		s.now().UTC().Format(time.RFC3339Nano), userID); err != nil {
+		return QuotaChange{}, fmt.Errorf("accounting: quota update: %w", err)
+	}
+	if s.Recorder != nil {
+		data := map[string]any{"user_id": userID, "username": change.Username}
+		if revive {
+			if err := s.Recorder.RecordTx(tx, "user.enabled", data); err != nil {
+				return QuotaChange{}, err
+			}
+		}
+		if err := s.Recorder.RecordTx(tx, "user.updated", data); err != nil {
+			return QuotaChange{}, err
+		}
+	}
+	return change, nil
+}
+
+// AddQuota is the panel operation. The quota update and its webhook outbox
+// rows commit together; the human-facing audit entry follows commit.
+func (s *Service) AddQuota(ctx context.Context, userID string, bytes int64, actor Actor) (int64, error) {
+	var change QuotaChange
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		change, err = s.AddQuotaTx(ctx, tx, userID, bytes)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	s.record(ctx, []audit.Entry{{
+		ActorType: actor.typ(), ActorID: actor.ID, Action: "user.quota_increased", Target: userID,
+		Metadata: map[string]any{"username": change.Username, "before_bytes": change.Before.TrafficLimitBytes,
+			"added_bytes": bytes, "after_bytes": change.After.TrafficLimitBytes},
+	}})
+	return change.After.TrafficLimitBytes, nil
+}
+
+// AddTraffic adds bytes to the charged counter (meter corrections);
 // a push over the limit trips the account immediately (same edge as the
 // cycle). rx and tx are charged to their respective counters with saturating
 // adds (never wrap).

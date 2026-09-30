@@ -174,28 +174,28 @@ func TestUserOptionReadFailureRetainsAssociation(t *testing.T) {
 	id, _, csrf, cookie := e.seedUserWithDevice()
 	cookie = e.loginEN("owner")
 	csrf = deriveCSRF(cookie.Value)
-	rec := e.post("/plans", url.Values{"name": {"Preserved plan"}}, cookie, csrf)
+	rec := e.post("/templates", url.Values{"name": {"Preserved plan"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatal("seed plan", rec.Code)
 	}
 	var pid, iid string
-	if err := e.db.QueryRow(`SELECT id FROM plans LIMIT 1`).Scan(&pid); err != nil {
+	if err := e.db.QueryRow(`SELECT id FROM templates LIMIT 1`).Scan(&pid); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.db.QueryRow(`SELECT id FROM tunnel_interfaces LIMIT 1`).Scan(&iid); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.db.Exec(`UPDATE users SET plan_id=?, interface_id=? WHERE id=?`, pid, iid, id); err != nil {
+	if _, err := e.db.Exec(`UPDATE users SET template_id=?, interface_id=? WHERE id=?`, pid, iid, id); err != nil {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{`ALTER TABLE plans RENAME TO unavailable_plans`, `ALTER TABLE tunnel_interfaces RENAME TO unavailable_interfaces`} {
+	for _, statement := range []string{`ALTER TABLE templates RENAME TO unavailable_templates`, `ALTER TABLE tunnel_interfaces RENAME TO unavailable_interfaces`} {
 		if _, err := e.db.Exec(statement); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, rec := range []*httptest.ResponseRecorder{
 		e.get("/users/"+id+"/edit", cookie),
-		e.post("/users/"+id+"/edit", url.Values{"plan": {pid}, "interface": {iid}, "device_limit": {"bad"}}, cookie, csrf),
+		e.post("/users/"+id+"/edit", url.Values{"template_id": {pid}, "interface": {iid}, "device_limit": {"bad"}}, cookie, csrf),
 	} {
 		for _, value := range []string{pid, iid} {
 			if !strings.Contains(rec.Body.String(), `value="`+value+`" selected`) {
@@ -206,12 +206,12 @@ func TestUserOptionReadFailureRetainsAssociation(t *testing.T) {
 			t.Error("option read failure must be disclosed")
 		}
 	}
-	rec = e.post("/users/"+id+"/edit", url.Values{"plan": {""}, "interface": {""}}, cookie, csrf)
+	rec = e.post("/users/"+id+"/edit", url.Values{"template_id": {""}, "interface": {""}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatal("explicit clear", rec.Code)
 	}
 	var planNull, ifaceNull bool
-	if err := e.db.QueryRow(`SELECT plan_id IS NULL, interface_id IS NULL FROM users WHERE id=?`, id).Scan(&planNull, &ifaceNull); err != nil || !planNull || !ifaceNull {
+	if err := e.db.QueryRow(`SELECT template_id IS NULL, interface_id IS NULL FROM users WHERE id=?`, id).Scan(&planNull, &ifaceNull); err != nil || !planNull || !ifaceNull {
 		t.Fatal("explicit empty selection must still clear references")
 	}
 }

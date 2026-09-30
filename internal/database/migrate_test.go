@@ -174,7 +174,7 @@ func TestMigration0007AWGRanges(t *testing.T) {
 				t.Fatalf("seed interface: %v", err)
 			}
 		}
-		if _, err := db.Exec(`INSERT INTO plans
+		if _, err := db.Exec(`INSERT INTO templates
 			(id, name, interface_id, created_at, updated_at)
 			VALUES ('plan-1', 'kept-plan', 'scalar', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`); err != nil {
 			t.Fatalf("seed foreign key: %v", err)
@@ -214,7 +214,7 @@ func TestMigration0007AWGRanges(t *testing.T) {
 			t.Fatalf("unrelated/legacy data changed: h1=%v endpoint=%v updated=%q", legacyH1, endpoint, updated)
 		}
 		var planInterface string
-		if err := db.QueryRow(`SELECT interface_id FROM plans WHERE id='plan-1'`).Scan(&planInterface); err != nil || planInterface != "scalar" {
+		if err := db.QueryRow(`SELECT interface_id FROM templates WHERE id='plan-1'`).Scan(&planInterface); err != nil || planInterface != "scalar" {
 			t.Fatalf("foreign key relationship changed: %q, %v", planInterface, err)
 		}
 		var keepalive, oldKeepalive, keepaliveUpdated string
@@ -285,7 +285,7 @@ func TestMigration0002SpeedLimits(t *testing.T) {
 	}
 
 	// Legacy rows: one limited user/plan, one unlimited.
-	_, err = db.Exec(`INSERT INTO plans (id, name, speed_limit_kbps, created_at, updated_at)
+	_, err = db.Exec(`INSERT INTO templates (id, name, speed_limit_kbps, created_at, updated_at)
 		VALUES ('p1', 'legacy', 20480, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`)
 	if err != nil {
 		t.Fatal(err)
@@ -305,7 +305,7 @@ func TestMigration0002SpeedLimits(t *testing.T) {
 	if _, err := db.Prepare(`SELECT speed_limit_kbps FROM users`); err == nil {
 		t.Fatal("legacy users.speed_limit_kbps still exists")
 	}
-	if _, err := db.Prepare(`SELECT speed_limit_kbps FROM plans`); err == nil {
+	if _, err := db.Prepare(`SELECT speed_limit_kbps FROM templates`); err == nil {
 		t.Fatal("legacy plans.speed_limit_kbps still exists")
 	}
 
@@ -323,7 +323,7 @@ func TestMigration0002SpeedLimits(t *testing.T) {
 	if down != nil || up != nil {
 		t.Fatalf("unlimited user must stay NULL: %v %v", down, up)
 	}
-	if err := db.QueryRow(`SELECT speed_limit_down_kbps, speed_limit_up_kbps FROM plans WHERE id='p1'`).Scan(&down, &up); err != nil {
+	if err := db.QueryRow(`SELECT speed_limit_down_kbps, speed_limit_up_kbps FROM templates WHERE id='p1'`).Scan(&down, &up); err != nil {
 		t.Fatal(err)
 	}
 	if down == nil || *down != 20480 || up == nil || *up != 20480 {

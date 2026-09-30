@@ -40,8 +40,10 @@ current product contract.
 - **Device** — one VPN peer per device, never a shared key. Fields: id, user, name, interface,
   VPN IP (unique per interface), public key, encrypted private/preshared keys, status, last
   handshake, last endpoint, rx/tx (accumulated), counters for delta accounting.
-- **Plan** — reusable preset (quota, duration, start policy, device limit, speed limit,
-  profile). Users do not need a plan; API clients may pass limits directly.
+- **Technical template** — reusable preset (quota, duration, start policy, device limit, speed limit,
+  profile). It is not a sales product or price list. Users can be created without a template;
+  owner-scoped integrations may provision an initial user and device atomically with explicit
+  finite terms, while reseller purchases require an assigned template.
 - **Tunnel interface / profile** — `awg0…awg7` (8 by default; the cap is administrator-
   configurable, not an upstream limit); each = one obfuscation profile with its own listen port,
   IPv4 subnet pool (recommended default `10.8.N.0/24` for `awgN`), MTU (recommended default
@@ -84,7 +86,7 @@ Statuses: `active`, `disabled`, `suspended`, `expired`, `traffic_exceeded`,
   charged usage while retaining raw peer baselines. Optional unused traffic carries only on time
   expiry; unused time does not carry. Manual disable/suspension blocks activation. Only one
   successor may be queued; it can be replaced or canceled before activation. A change to the
-  current plan or incompatible devices requires re-approval rather than silent activation.
+  current template or incompatible devices requires re-approval rather than silent activation.
   Incomplete traffic observations defer activation so carried volume is never computed from stale
   metering.
 - Operations: create/edit/enable/disable/suspend/delete (soft delete + restore)/renew/clone,

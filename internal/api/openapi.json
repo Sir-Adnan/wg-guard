@@ -2,14 +2,14 @@
   "openapi": "3.2.1",
   "info": {
     "title": "WG-Guard API",
-    "description": "REST management surface of the WG-Guard AmneziaWG node panel. This document is a V1 compatibility contract: additive changes only — no field renames, no meaning changes, no removed enum values. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use explicit ownership-checked routes; legacy mutations and node-wide aggregates remain unavailable except owned usage reset. All errors use one envelope (`error.code` is a stable machine code). Legacy mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. New purchases commit the user, initial device, customer link and non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. Technical templates are available at /api/v1/templates and referenced by template_id; they are not external sales products. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use ownership-checked routes and owner-assigned templates; direct purchase terms require an owner-scoped token. All errors use one envelope (`error.code` is a stable machine code). Ordinary mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. Purchases and quota top-ups commit their mutation and a non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/" }],
   "security": [{ "BearerAuth": [] }],
   "tags": [
     { "name": "node" }, { "name": "users" }, { "name": "bulk" }, { "name": "devices" },
-    { "name": "config" }, { "name": "stats" }, { "name": "plans" }, { "name": "interfaces" },
+    { "name": "config" }, { "name": "stats" }, { "name": "templates" }, { "name": "interfaces" },
     { "name": "settings" }, { "name": "webhooks" }, { "name": "integration" }, { "name": "ops" }
   ],
   "paths": {
@@ -68,11 +68,11 @@
     "/api/v1/purchases": {
       "post": {
         "tags": ["integration"], "summary": "Provision a customer, first device and subscription link atomically", "operationId": "createPurchase",
-        "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. A reseller may use only an enabled plan assigned by the owner. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions.",
+        "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. Send exactly one of template_id (technical template) or entitlement (direct finite terms). Direct terms are allowed only for owner-scoped tokens; reseller tokens must use an enabled owner-assigned template. Sales SKUs and prices live in the caller, not this catalog. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions.",
         "security": [{ "BearerAuth": ["purchases.create"] }],
         "parameters": [{ "$ref": "#/components/parameters/IntegrationKey" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseRequest" }, "example": { "plan_id": "plan-uuid", "username": "alice", "device_name": "phone" } } } },
-        "responses": { "201": { "description": "Committed purchase; same body on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "409": { "$ref": "#/components/responses/Conflict" } }
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseRequest" }, "example": { "template_id": "template-uuid", "username": "alice", "device_name": "phone" } } } },
+        "responses": { "201": { "description": "Committed purchase; same body on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseOperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "409": { "$ref": "#/components/responses/Conflict" } }
       }
     },
     "/api/v1/operations/result": {
@@ -87,7 +87,7 @@
     "/api/v1/users": {
       "post": {
         "tags": ["users"], "summary": "Create a user", "operationId": "createUser",
-        "description": "Idempotent with `Idempotency-Key`. Limit fields are tri-state: absent = unlimited (create), `null` = clear to unlimited (update), value = set. Speed limits are independent per direction (kbps).",
+        "description": "Idempotent with `Idempotency-Key`. When template_id names an enabled template, its technical terms override submitted limit, duration, start-policy and interface fields. Without a template, absent limits mean unlimited. This route creates no device; use /purchases for atomic customer-plus-first-device provisioning. Speed limits are independent per direction (kbps).",
         "security": [{ "BearerAuth": ["users.create"] }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserCreate" }, "example": { "username": "alice", "duration_seconds": 2592000, "traffic_limit_bytes": 107374182400, "speed_limit_down_kbps": 10240, "speed_limit_up_kbps": null, "device_limit": 3 } } } },
         "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "409": { "$ref": "#/components/responses/Conflict" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
@@ -107,7 +107,7 @@
           { "name": "expires_after", "in": "query", "schema": { "type": "string", "format": "date-time" } },
           { "name": "created_before", "in": "query", "schema": { "type": "string", "format": "date-time" } },
           { "name": "created_after", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "plan_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "template_id", "in": "query", "schema": { "type": "string" } },
           { "name": "interface_id", "in": "query", "schema": { "type": "string" } }
         ],
         "responses": { "200": { "description": "Page of users", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPage" } } } } }
@@ -116,8 +116,8 @@
     "/api/v1/users/bulk": {
       "post": {
         "tags": ["bulk"], "summary": "Bulk-create users (prefix + zero-padded index)", "security": [{ "BearerAuth": ["users.bulk"] }],
-        "description": "Idempotent with `Idempotency-Key`. One transaction: either all created users exist or none. Taken usernames are skipped (usernames stay reserved after soft delete).",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["count"], "properties": { "count": { "type": "integer", "minimum": 1, "maximum": 500 }, "prefix": { "type": "string", "example": "gs" }, "start_index": { "type": "integer", "default": 1 }, "width": { "type": "integer", "default": 3 }, "duration_seconds": { "type": "integer" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "plan_id": { "type": ["string", "null"] }, "interface_id": { "type": ["string", "null"] }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" } } } } } },
+        "description": "Idempotent with `Idempotency-Key`. One transaction: either all created users exist or none. An enabled template_id supplies technical terms to every created user and overrides conflicting manual fields. Taken usernames are skipped (usernames stay reserved after soft delete). This route creates no devices.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["count"], "properties": { "count": { "type": "integer", "minimum": 1, "maximum": 500 }, "prefix": { "type": "string", "example": "gs" }, "start_index": { "type": "integer", "default": 1 }, "width": { "type": "integer", "default": 3 }, "duration_seconds": { "type": "integer" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "template_id": { "type": ["string", "null"] }, "interface_id": { "type": ["string", "null"] }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" } } } } } },
         "responses": { "201": { "description": "Created users + skipped count", "content": { "application/json": { "schema": { "type": "object", "properties": { "created": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }, "skipped": { "type": "integer" } } } } } } }
       }
     },
@@ -135,7 +135,7 @@
         "responses": { "200": { "description": "User", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
       },
       "patch": {
-        "tags": ["users"], "summary": "Partially update a user (username immutable; `null` clears a limit)", "security": [{ "BearerAuth": ["users.update"] }],
+        "tags": ["users"], "summary": "Partially update a user (username immutable; `null` clears a limit)", "description": "Changing template_id on an existing user changes its reference only; it does not reset the existing entitlement. Update quota/duration fields explicitly or queue a successor.", "security": [{ "BearerAuth": ["users.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPatch" } } } },
         "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
@@ -158,7 +158,7 @@
     "/api/v1/users/{id}/subscription/rotate": {
       "post": {
         "tags": ["integration"], "summary": "Revoke the old link and every old device configuration", "operationId": "rotateCustomerAccess",
-        "description": "Atomically replaces the customer link and every device key, preserving device IDs, addresses and quotas. Old links, configs and QR values stop working after successful runtime reconciliation. If reconciliation fails, the new database state is retained and the response is 503; read the current link before retrying. This operation intentionally does not use the legacy response-replay middleware.",
+        "description": "Atomically replaces the customer link and every device key, preserving device IDs, addresses and quotas. Old links, configs and QR values stop working after successful runtime reconciliation. If reconciliation fails, the new database state is retained and the response is 503; read the current link before retrying. This operation intentionally does not use response-replay middleware.",
         "security": [{ "BearerAuth": ["subscriptions.rotate"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "responses": { "200": { "description": "New private link and count of rotated devices", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerLinkRotation" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "503": { "description": "Database rotation committed; runtime reconciliation pending" } }
@@ -174,10 +174,10 @@
       },
       "put": {
         "tags": ["integration"], "summary": "Queue or replace one authorized successor", "operationId": "putNextPlan",
-        "description": "No payment is taken. The caller must have already authorized this entitlement. Plan terms are snapshotted when queued, so later catalog edits or reseller-plan revocation do not rewrite it. At the first time or quota boundary the new plan starts once, with fresh usage counters. A manual suspension/disable blocks automatic activation. A changed current plan or incompatible device set moves the queue to needs_review. Optional carry_unused_traffic adds only unused prior traffic when time ends first, never time. Reseller tokens require an owner-assigned enabled plan. Optional Idempotency-Key provides token-scoped 24-hour replay.",
+        "description": "No payment is taken. The caller must have already authorized this entitlement. Template terms are snapshotted when queued, so later catalog edits or reseller-template revocation do not rewrite it. At the first time or quota boundary the successor subscription starts once, with fresh usage counters. A manual suspension/disable blocks automatic activation. A changed current template or incompatible device set moves the queue to needs_review. Optional carry_unused_traffic adds only unused prior traffic when time ends first, never time. Reseller tokens require an owner-assigned enabled template. Optional Idempotency-Key provides token-scoped 24-hour replay.",
         "security": [{ "BearerAuth": ["next_plans.write"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlanRequest" }, "example": { "plan_id": "plan-uuid", "carry_unused_traffic": false } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlanRequest" }, "example": { "template_id": "template-uuid", "carry_unused_traffic": false } } } },
         "responses": { "200": { "description": "Queued successor", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NextPlan" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
       },
       "delete": {
@@ -218,6 +218,16 @@
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["from_expiration", "from_now", "exact"] }, "duration_seconds": { "type": "integer" }, "exact": { "type": "string", "format": "date-time" } } } } } },
         "responses": { "200": { "description": "Renewed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/api/v1/users/{id}/quota/add": {
+      "post": {
+        "tags": ["integration", "users"], "summary": "Add paid data allowance without resetting usage", "operationId": "topUpQuota",
+        "description": "Requires an Idempotency-Key (1–128 printable ASCII characters without spaces). Atomically increases an existing finite quota and stores a before/after result for 90 days in the owner or reseller namespace; an identical retry returns the same operation with Idempotency-Replayed: true, while a different request with the key returns 409. Reseller tokens may top up only owned customers. Charged RX/TX usage stays unchanged, and manual disable/suspension is not lifted. A quota-only traffic_exceeded block is lifted when the new limit exceeds charged usage. A 503 after commit means runtime reconciliation is pending; recover the committed result through GET /api/v1/operations/result and retry with the same key. Unlimited accounts require an explicit finite limit via PATCH /users/{id}; /traffic/add is a charged-counter correction, not a top-up.",
+        "security": [{ "BearerAuth": ["users.update"] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }, { "$ref": "#/components/parameters/IntegrationKey" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuotaTopUpRequest" }, "example": { "bytes": 1073741824 } } } },
+        "responses": { "200": { "description": "Committed top-up and before/after snapshot; same result on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuotaTopUpResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "$ref": "#/components/responses/Conflict" }, "503": { "$ref": "#/components/responses/Unavailable" } }
       }
     },
     "/api/v1/users/{id}/traffic/add": {
@@ -333,32 +343,32 @@
         "responses": { "200": { "description": "Device statistics" } }
       }
     },
-    "/api/v1/plans": {
+    "/api/v1/templates": {
       "get": {
-        "tags": ["plans"], "summary": "List plans", "security": [{ "BearerAuth": ["plans.read"] }],
-        "responses": { "200": { "description": "Plans", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Plan" } } } } } } } }
+        "tags": ["templates"], "summary": "List technical templates", "security": [{ "BearerAuth": ["templates.read"] }],
+        "responses": { "200": { "description": "Templates", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Template" } } } } } } } }
       },
       "post": {
-        "tags": ["plans"], "summary": "Create a plan", "security": [{ "BearerAuth": ["plans.write"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanPatch" } } } },
-        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } } } }
+        "tags": ["templates"], "summary": "Create a technical template", "security": [{ "BearerAuth": ["templates.write"] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplateCreate" } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } } }
       }
     },
-    "/api/v1/plans/{id}": {
+    "/api/v1/templates/{id}": {
       "get": {
-        "tags": ["plans"], "summary": "Get a plan", "security": [{ "BearerAuth": ["plans.read"] }],
-        "parameters": [{ "$ref": "#/components/parameters/PlanID" }],
-        "responses": { "200": { "description": "Plan", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
+        "tags": ["templates"], "summary": "Get a technical template", "security": [{ "BearerAuth": ["templates.read"] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateID" }],
+        "responses": { "200": { "description": "Template", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
       },
       "patch": {
-        "tags": ["plans"], "summary": "Update a plan", "security": [{ "BearerAuth": ["plans.write"] }],
-        "parameters": [{ "$ref": "#/components/parameters/PlanID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanPatch" } } } },
-        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Plan" } } } } }
+        "tags": ["templates"], "summary": "Update a technical template", "security": [{ "BearerAuth": ["templates.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateID" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplatePatch" } } } },
+        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } } }
       },
       "delete": {
-        "tags": ["plans"], "summary": "Delete a plan (refused while assigned to users)", "security": [{ "BearerAuth": ["plans.write"] }],
-        "parameters": [{ "$ref": "#/components/parameters/PlanID" }],
+        "tags": ["templates"], "summary": "Delete a template (refused while assigned to users)", "security": [{ "BearerAuth": ["templates.write"] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateID" }],
         "responses": { "200": { "description": "Deleted" }, "409": { "$ref": "#/components/responses/Conflict" } }
       }
     },
@@ -468,7 +478,7 @@
       "IntegrationKey": { "name": "Idempotency-Key", "in": "header", "required": true, "description": "1–128 printable ASCII characters, without spaces. Do not put a secret here. Stable across token rotation within the same owner or reseller namespace.", "schema": { "type": "string", "minLength": 1, "maxLength": 128 } },
       "UserID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "DeviceID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
-      "PlanID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "TemplateID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "InterfaceID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
       "WebhookID": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
     },
@@ -477,18 +487,24 @@
       "Forbidden": { "description": "Token lacks the required scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
       "NotFound": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
       "Conflict": { "description": "Conflict (exists, limit reached, pool exhausted, in use)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-      "Invalid": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+      "Invalid": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Unavailable": { "description": "Operation committed but runtime reconciliation is pending; recover the journaled result and retry", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
     },
     "schemas": {
-      "PurchaseRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "username": { "type": "string", "description": "Optional global username; omitted uses a stable generated identifier." }, "device_name": { "type": "string", "default": "device-1" } } },
-      "OperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "plan_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "plan_id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "PurchaseRequest": { "type": "object", "additionalProperties": false, "oneOf": [{ "required": ["template_id"] }, { "required": ["entitlement"] }], "properties": { "template_id": { "type": "string", "description": "Existing technical template ID; required for reseller-bound tokens." }, "entitlement": { "$ref": "#/components/schemas/DirectEntitlement" }, "username": { "type": "string", "description": "Optional global username; omitted uses a stable generated identifier." }, "device_name": { "type": "string", "default": "device-1" } } },
+      "DirectEntitlement": { "type": "object", "description": "Owner-scoped technical terms, independent of external price/SKU. All three finite limits are mandatory to prevent accidental unlimited subscriptions.", "required": ["traffic_limit_bytes", "duration_seconds", "device_limit"], "additionalProperties": false, "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64", "minimum": 1 }, "duration_seconds": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 315360000 }, "device_limit": { "type": "integer", "minimum": 1, "maximum": 100 }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" }, "speed_limit_down_kbps": { "type": "integer", "minimum": 1 }, "speed_limit_up_kbps": { "type": "integer", "minimum": 1 }, "interface_id": { "type": "string", "description": "Optional connection profile; omitted uses the current system default." } } },
+      "QuotaTopUpRequest": { "type": "object", "required": ["bytes"], "additionalProperties": false, "properties": { "bytes": { "type": "integer", "format": "int64", "minimum": 1, "description": "Positive byte increment to a finite allowance, not charged usage." } } },
+      "QuotaSnapshot": { "type": "object", "required": ["traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64" }, "traffic_used_rx": { "type": "integer", "format": "int64" }, "traffic_used_tx": { "type": "integer", "format": "int64" }, "status": { "type": "string" } } },
+      "OperationResult": { "description": "Principal-scoped, non-secret result retained for 90 days; no private configuration or customer-link capability is stored here.", "oneOf": [{ "$ref": "#/components/schemas/PurchaseOperationResult" }, { "$ref": "#/components/schemas/QuotaTopUpResult" }], "discriminator": { "propertyName": "kind", "mapping": { "purchase": "#/components/schemas/PurchaseOperationResult", "quota_top_up": "#/components/schemas/QuotaTopUpResult" } } },
+      "PurchaseOperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "template_id": { "type": "string", "description": "Present when provisioned from a technical template; absent for direct owner terms." }, "created_at": { "type": "string", "format": "date-time" } } },
+      "QuotaTopUpResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "before", "after", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["quota_top_up"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "before": { "$ref": "#/components/schemas/QuotaSnapshot" }, "after": { "$ref": "#/components/schemas/QuotaSnapshot" }, "created_at": { "type": "string", "format": "date-time" } } },
       "CustomerLink": { "type": "object", "required": ["path"], "properties": { "path": { "type": "string", "description": "Secret relative subscription path /sub/{token}; do not log or expose publicly." } } },
       "CustomerLinkRotation": { "type": "object", "required": ["path", "devices_rotated"], "properties": { "path": { "type": "string" }, "devices_rotated": { "type": "integer", "minimum": 0 } } },
-      "NextPlanRequest": { "type": "object", "required": ["plan_id"], "additionalProperties": false, "properties": { "plan_id": { "type": "string" }, "carry_unused_traffic": { "type": "boolean", "default": false } } },
+      "NextPlanRequest": { "type": "object", "required": ["template_id"], "additionalProperties": false, "properties": { "template_id": { "type": "string" }, "carry_unused_traffic": { "type": "boolean", "default": false } } },
       "NextPlanTerms": { "type": "object", "required": ["name", "traffic_limit_bytes", "duration_seconds", "device_limit", "speed_limit_down_kbps", "speed_limit_up_kbps", "interface_id"], "properties": { "name": { "type": "string" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "duration_seconds": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "interface_id": { "type": ["string", "null"] } } },
-      "NextPlan": { "type": "object", "required": ["user_id", "plan_id", "terms", "carry_unused_traffic", "state", "created_at"], "properties": { "user_id": { "type": "string" }, "plan_id": { "type": "string" }, "terms": { "$ref": "#/components/schemas/NextPlanTerms" }, "carry_unused_traffic": { "type": "boolean" }, "state": { "type": "string", "enum": ["queued", "needs_review"] }, "review_reason": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
-      "NextPlanEntitlementState": { "type": "object", "required": ["plan_id", "expires_at", "traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "plan_id": { "type": ["string", "null"] }, "expires_at": { "type": ["string", "null"], "format": "date-time" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "traffic_used_rx": { "type": "integer" }, "traffic_used_tx": { "type": "integer" }, "status": { "type": "string" } } },
-      "NextPlanActivation": { "type": "object", "required": ["activation_id", "user_id", "plan_id", "trigger", "before", "after", "activated_at"], "properties": { "activation_id": { "type": "string" }, "user_id": { "type": "string" }, "plan_id": { "type": "string" }, "trigger": { "type": "string", "enum": ["time", "quota"] }, "before": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "after": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "activated_at": { "type": "string", "format": "date-time" } } },
+      "NextPlan": { "type": "object", "required": ["user_id", "template_id", "terms", "carry_unused_traffic", "state", "created_at"], "properties": { "user_id": { "type": "string" }, "template_id": { "type": "string" }, "terms": { "$ref": "#/components/schemas/NextPlanTerms" }, "carry_unused_traffic": { "type": "boolean" }, "state": { "type": "string", "enum": ["queued", "needs_review"] }, "review_reason": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "NextPlanEntitlementState": { "type": "object", "required": ["template_id", "expires_at", "traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "template_id": { "type": ["string", "null"] }, "expires_at": { "type": ["string", "null"], "format": "date-time" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "traffic_used_rx": { "type": "integer" }, "traffic_used_tx": { "type": "integer" }, "status": { "type": "string" } } },
+      "NextPlanActivation": { "type": "object", "required": ["activation_id", "user_id", "template_id", "trigger", "before", "after", "activated_at"], "properties": { "activation_id": { "type": "string" }, "user_id": { "type": "string" }, "template_id": { "type": "string" }, "trigger": { "type": "string", "enum": ["time", "quota"] }, "before": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "after": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "activated_at": { "type": "string", "format": "date-time" } } },
       "Error": {
         "type": "object",
         "properties": {
@@ -581,7 +597,7 @@
           "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server→client) limit; null = unlimited" },
           "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client→server) limit; null = unlimited" },
           "device_limit": { "type": ["integer", "null"] },
-          "plan_id": { "type": ["string", "null"] },
+          "template_id": { "type": ["string", "null"] },
           "interface_id": { "type": ["string", "null"] },
           "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
           "duration_seconds": { "type": ["integer", "null"] },
@@ -607,7 +623,7 @@
           "speed_limit_down_kbps": { "type": ["integer", "null"] },
           "speed_limit_up_kbps": { "type": ["integer", "null"] },
           "device_limit": { "type": ["integer", "null"] },
-          "plan_id": { "type": ["string", "null"] },
+          "template_id": { "type": ["string", "null"] },
           "interface_id": { "type": ["string", "null"] },
           "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
           "duration_seconds": { "type": ["integer", "null"] },
@@ -625,7 +641,7 @@
           "speed_limit_down_kbps": { "type": ["integer", "null"] },
           "speed_limit_up_kbps": { "type": ["integer", "null"] },
           "device_limit": { "type": ["integer", "null"] },
-          "plan_id": { "type": ["string", "null"] },
+          "template_id": { "type": ["string", "null"] },
           "interface_id": { "type": ["string", "null"] },
           "duration_seconds": { "type": "integer" },
           "enabled": { "type": "boolean" },
@@ -657,7 +673,7 @@
           "updated_at": { "type": "string", "format": "date-time" }
         }
       },
-      "Plan": {
+      "Template": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
@@ -674,9 +690,10 @@
           "updated_at": { "type": "string", "format": "date-time" }
         }
       },
-      "PlanPatch": {
+      "TemplateCreate": { "allOf": [{ "$ref": "#/components/schemas/TemplatePatch" }, { "type": "object", "required": ["name"] }] },
+      "TemplatePatch": {
         "type": "object",
-        "required": ["name"],
+        "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
           "traffic_limit_bytes": { "type": ["integer", "null"] },
@@ -769,7 +786,7 @@
       } },
       "WebhookUserUpdatedData": { "type": "object", "required": ["user_id"], "properties": {
         "user_id": { "type": "string" }, "username": { "type": "string" }, "deleted": { "type": "boolean" },
-        "plan_id": { "type": "string" }, "next_plan_trigger": { "type": "string", "enum": ["time", "quota"] }
+        "template_id": { "type": "string" }, "next_plan_trigger": { "type": "string", "enum": ["time", "quota"] }
       } },
       "WebhookUserStateData": { "type": "object", "required": ["user_id", "username"], "properties": {
         "user_id": { "type": "string" }, "username": { "type": "string" }, "reason": { "type": "string" }
@@ -846,7 +863,7 @@
           "schema": { "$ref": "#/components/schemas/WebhookEnvelope" },
           "examples": {
             "userCreated": { "summary": "Provisioned customer", "value": { "id": "event-uuid", "type": "user.created", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "status": "active" } } },
-            "successorActivated": { "summary": "Queued successor activated", "value": { "id": "event-uuid", "type": "user.updated", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "plan_id": "plan-uuid", "next_plan_trigger": "quota" } } },
+            "successorActivated": { "summary": "Queued successor activated", "value": { "id": "event-uuid", "type": "user.updated", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "template_id": "template-uuid", "next_plan_trigger": "quota" } } },
             "quotaReached": { "summary": "Quota boundary reached", "value": { "id": "event-uuid", "type": "user.traffic_exceeded", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "used_bytes": 1073741824, "limit_bytes": 1073741824 } } }
           }
         } } },

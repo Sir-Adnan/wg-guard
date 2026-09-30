@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
@@ -339,7 +338,7 @@ func TestIdempotencyReplayRequiresAuthorization(t *testing.T) {
 	}
 }
 
-func TestIdempotencyKeysArePerTokenAndLegacyKeysFailClosed(t *testing.T) {
+func TestIdempotencyKeysArePerToken(t *testing.T) {
 	e := newEnv(t)
 	_, second, err := e.tokens.Create(context.Background(), "second-creator", []string{"users.create"}, nil, "")
 	if err != nil {
@@ -358,23 +357,6 @@ func TestIdempotencyKeysArePerTokenAndLegacyKeysFailClosed(t *testing.T) {
 	}
 	if rec := send(second, "shared-key", `{"username":"second-client"}`); rec.Code != http.StatusCreated {
 		t.Fatalf("second token must own its key namespace: %d %s", rec.Code, rec.Body.String())
-	}
-	const legacyKey = "pre-upgrade-key"
-	legacySnapshot, err := json.Marshal(idemResponse{Status: http.StatusCreated, Body: []byte(`{"id":"old-result"}`)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = e.db.Exec(`INSERT INTO idempotency_keys (key, request_hash, response_snapshot, expires_at)
-		VALUES (?, ?, ?, ?)`, legacyKey, requestHash(http.MethodPost, "/api/v1/users", []byte(`{"username":"legacy-client"}`)), string(legacySnapshot),
-		time.Now().UTC().Add(time.Hour).Format(time.RFC3339Nano))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rec := send(e.plainTok, legacyKey, `{"username":"legacy-client"}`); rec.Code != http.StatusConflict || rec.Header().Get("Idempotency-Replayed") != "" {
-		t.Fatalf("legacy key must neither replay nor repeat an effect: %d %s", rec.Code, rec.Body.String())
-	}
-	if _, err := e.users.GetByUsername(context.Background(), "legacy-client"); err == nil {
-		t.Fatal("legacy-key retry created a duplicate user")
 	}
 }
 
@@ -404,7 +386,7 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	otherUser, otherDevice := create("owner-customer")
 	for _, statement := range []string{
 		`INSERT INTO resellers (id, slug, permissions, created_at, updated_at) VALUES
-			('reseller-1', 'north', '["users.read","users.create","devices.read","configs.read","stats.read","traffic.read","plans.read","interfaces.read","webhooks.read"]', 'test', 'test')`,
+			('reseller-1', 'north', '["users.read","users.create","devices.read","configs.read","stats.read","traffic.read","templates.read","interfaces.read","webhooks.read"]', 'test', 'test')`,
 		`INSERT INTO admins (id, username, password_hash, role, created_at, updated_at)
 			VALUES ('owner-1', 'owner', 'hash', 'owner', 'test', 'test')`,
 	} {
@@ -417,7 +399,7 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 	}
 	resellerID := "reseller-1"
 	_, plain, err := e.tokens.CreateForAdmin(ctx, "owner-1", &resellerID, "north bot",
-		[]string{"users.read", "users.create", "devices.read", "configs.read", "stats.read", "traffic.read", "plans.read", "interfaces.read", "webhooks.read"}, nil, "")
+		[]string{"users.read", "users.create", "devices.read", "configs.read", "stats.read", "traffic.read", "templates.read", "interfaces.read", "webhooks.read"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +448,7 @@ func TestResellerReadRoutesStayWithinOwnedUsers(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/api/v1/stats", "/api/v1/node/telemetry",
-		"/api/v1/plans", "/api/v1/interfaces"} {
+		"/api/v1/templates", "/api/v1/interfaces"} {
 		if rec := send(http.MethodGet, path, ""); rec.Code != http.StatusForbidden {
 			t.Fatalf("global aggregate %s = %d", path, rec.Code)
 		}
@@ -645,7 +627,7 @@ func TestDeviceLifecycleAndConfig(t *testing.T) {
 
 func TestPlansAndInterfacesViaAPI(t *testing.T) {
 	e := newEnv(t)
-	rec := e.do("POST", "/api/v1/plans", `{"name": "monthly", "duration_seconds": 2592000, "speed_limit_down_kbps": 5120, "speed_limit_up_kbps": null}`)
+	rec := e.do("POST", "/api/v1/templates", `{"name": "monthly", "duration_seconds": 2592000, "speed_limit_down_kbps": 5120, "speed_limit_up_kbps": null}`)
 	if rec.Code != 201 {
 		t.Fatalf("plan create: %d %s", rec.Code, rec.Body.String())
 	}
@@ -654,14 +636,14 @@ func TestPlansAndInterfacesViaAPI(t *testing.T) {
 	if p["speed_limit_down_kbps"].(float64) != 5120 || p["speed_limit_up_kbps"] != nil {
 		t.Fatalf("plan shape: %v", p)
 	}
-	if rec = e.do("GET", "/api/v1/plans/"+pid, ""); rec.Code != 200 {
+	if rec = e.do("GET", "/api/v1/templates/"+pid, ""); rec.Code != 200 {
 		t.Fatalf("plan get: %d", rec.Code)
 	}
-	rec = e.do("PATCH", "/api/v1/plans/"+pid, `{"name": "monthly-v2", "traffic_limit_bytes": null}`)
+	rec = e.do("PATCH", "/api/v1/templates/"+pid, `{"name": "monthly-v2", "traffic_limit_bytes": null}`)
 	if p = decodeBody(t, rec); p["name"] != "monthly-v2" {
 		t.Fatalf("plan patch: %v", p)
 	}
-	if rec = e.do("DELETE", "/api/v1/plans/"+pid, ""); rec.Code != 200 {
+	if rec = e.do("DELETE", "/api/v1/templates/"+pid, ""); rec.Code != 200 {
 		t.Fatalf("plan delete: %d", rec.Code)
 	}
 

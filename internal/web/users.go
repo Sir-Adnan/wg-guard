@@ -14,12 +14,14 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
+	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 // usersData feeds the users list page.
 type usersData struct {
 	Form        operationalForm
+	ActionForm  operationalForm // shared quick renew/traffic fields use the same defaults as detail
 	PlansKnown  bool
 	IfacesKnown bool
 	Items       []userRow
@@ -56,8 +58,23 @@ type userRow struct {
 }
 
 type planRef struct {
-	ID   string
-	Name string
+	ID                 string
+	Name               string
+	Enabled            bool
+	TrafficLimitBytes  *int64
+	DurationSeconds    *int64
+	DeviceLimit        *int
+	SpeedLimitDownKbps *int
+	SpeedLimitUpKbps   *int
+	StartPolicy        domain.StartPolicy
+	InterfaceName      string
+}
+
+func userPlanRef(p *plan.Plan) *planRef {
+	return &planRef{ID: p.ID, Name: p.Name, Enabled: p.Enabled,
+		TrafficLimitBytes: p.TrafficLimitBytes, DurationSeconds: p.DurationSeconds,
+		DeviceLimit: p.DeviceLimit, SpeedLimitDownKbps: p.SpeedLimitDownKbps,
+		SpeedLimitUpKbps: p.SpeedLimitUpKbps, StartPolicy: p.StartPolicy}
 }
 
 // handleUserList renders the (filterable, cursor-paginated) user list.
@@ -114,7 +131,7 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 		Search:          search,
 		Status:          status,
 		Sort:            sort,
-		HasFilters:      search != "" || (status != "" && status != "all"),
+		HasFilters:      search != "" || (status != "" && status != "all") || (sort != "" && sort != "created_new"),
 		Plans:           plans,
 		Ifaces:          s.ifacesForForm(r),
 		QuotaPresets:    s.settingList(r, "users.quota_presets_gb"),
@@ -122,6 +139,7 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 	}
 	data.DefaultQuotaGB, data.DefaultDurMonths, data.DefaultDeviceLim, data.DefaultIfaceID = s.createDefaults(r)
 	data.Form = s.newUserFormData(r).Form
+	data.ActionForm = userActionForm()
 	data.PlansKnown, data.IfacesKnown = data.Plans != nil, data.Ifaces != nil
 	_ = s.render(w, r, "users", "app", data)
 }
@@ -188,7 +206,7 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 		plans = make([]*planRef, 0, len(plist))
 		for _, p := range plist {
 			planNames[p.ID] = p.Name
-			plans = append(plans, &planRef{ID: p.ID, Name: p.Name})
+			plans = append(plans, userPlanRef(p))
 		}
 	}
 	subURLs := map[string]string{}
@@ -211,7 +229,7 @@ func (s *Server) decorateUsers(r *http.Request, items []*user.User) ([]userRow, 
 	for i, u := range items {
 		rows[i] = userRow{U: u, Used: u.TrafficUsedRX + u.TrafficUsedTX,
 			DeviceCount: counts[u.ID], DevicesKnown: countsKnown, PlanKnown: plansKnown, Devices: safeDeviceViews(deviceLists[u.ID]),
-			PlanName: planNames[deref(u.PlanID)], SubURL: subURLs[u.ID]}
+			PlanName: planNames[deref(u.TemplateID)], SubURL: subURLs[u.ID]}
 	}
 	return rows, plans
 }
@@ -324,14 +342,14 @@ func (s *Server) newUserFormData(r *http.Request) userFormData {
 }
 
 func userOperationalForm(u *user.User) operationalForm {
-	values := map[string]string{"username": "", "display_name": "", "note": "", "tags": "", "traffic_limit_value": "", "traffic_limit_unit": "gb", "duration_value": "", "duration_unit": "days", "expires_on": "", "device_limit": "", "speed_down": "", "speed_up": "", "interface": "", "plan": "", "start_policy": "immediate", "auto_devices": "1", "prefix": "", "count": "10", "start_index": "1"}
+	values := map[string]string{"username": "", "display_name": "", "note": "", "tags": "", "traffic_limit_value": "", "traffic_limit_unit": "gb", "duration_value": "", "duration_unit": "days", "expires_on": "", "device_limit": "", "speed_down": "", "speed_up": "", "interface": "", "template_id": "", "start_policy": "immediate", "auto_devices": "1", "prefix": "", "count": "10", "start_index": "1"}
 	if u != nil {
 		v := View{}
 		values["username"], values["display_name"], values["note"], values["tags"] = u.Username, u.DisplayName, u.Note, strings.Join(u.Tags, ", ")
 		values["traffic_limit_value"], values["traffic_limit_unit"] = v.QuotaVal(u.TrafficLimitBytes), v.QuotaUnit(u.TrafficLimitBytes)
 		values["duration_value"], values["duration_unit"] = v.DurVal(u.DurationSeconds), v.DurUnit(u.DurationSeconds)
 		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(u.DeviceLimit), speedMBpsValue(u.SpeedLimitDownKbps), speedMBpsValue(u.SpeedLimitUpKbps)
-		values["interface"], values["plan"], values["start_policy"] = deref(u.InterfaceID), deref(u.PlanID), string(u.StartPolicy)
+		values["interface"], values["template_id"], values["start_policy"] = deref(u.InterfaceID), deref(u.TemplateID), string(u.StartPolicy)
 	}
 	return operationalForm{Values: values, Fields: map[string]string{}}
 }
@@ -354,22 +372,27 @@ func (s *Server) userFormError(w http.ResponseWriter, r *http.Request, u *user.U
 	if d.Form.V("duration_value") == "" && r.PostFormValue("duration_days") != "" {
 		d.Form.Values["duration_value"], d.Form.Values["duration_unit"] = r.PostFormValue("duration_days"), "days"
 	}
-	if _, e := quotaFromForm(r); e != nil {
-		d.Form.Fields["traffic_limit_value"] = "forms.error.quota"
-	}
-	if _, e := durationFromForm(r); e != nil {
-		d.Form.Fields["duration_value"] = "forms.error.duration"
-	}
-	if _, e := parseInt(r.PostFormValue("device_limit")); e != nil {
-		d.Form.Fields["device_limit"] = "forms.error.number"
-	}
-	for _, key := range []string{"speed_down", "speed_up"} {
-		if _, e := parseSpeedMBps(r.PostFormValue(key)); e != nil {
-			d.Form.Fields[key] = "forms.error.number"
+	if u != nil || r.PostFormValue("template_id") == "" {
+		if _, e := quotaFromForm(r); e != nil {
+			d.Form.Fields["traffic_limit_value"] = "forms.error.quota"
+		}
+		if _, e := durationFromForm(r); e != nil {
+			d.Form.Fields["duration_value"] = "forms.error.duration"
+		}
+		if _, e := parseInt(r.PostFormValue("device_limit")); e != nil {
+			d.Form.Fields["device_limit"] = "forms.error.number"
+		}
+		for _, key := range []string{"speed_down", "speed_up"} {
+			if _, e := parseSpeedMBps(r.PostFormValue(key)); e != nil {
+				d.Form.Fields[key] = "forms.error.number"
+			}
+		}
+		if exp, e := parseDateOnly(r.PostFormValue("expires_on")); e != nil || (exp != nil && exp.Before(time.Now())) {
+			d.Form.Fields["expires_on"] = "common.error_validation"
 		}
 	}
-	if exp, e := parseDateOnly(r.PostFormValue("expires_on")); e != nil || (exp != nil && exp.Before(time.Now())) {
-		d.Form.Fields["expires_on"] = "common.error_validation"
+	if domain.CodeOf(err) == domain.CodePlanNotFound {
+		d.Form.Fields["template_id"] = "users.form.selection_unavailable"
 	}
 	if domain.CodeOf(err) == domain.CodeUsernameExists {
 		d.Form.Fields["username"] = "users.error.username_taken"
@@ -416,9 +439,20 @@ func (s *Server) settingList(r *http.Request, key string) []string {
 
 func (s *Server) plansForForm(r *http.Request) []*planRef {
 	if list, err := s.Plans.List(r.Context()); err == nil {
+		ifaceNames := make(map[string]string)
+		for _, f := range s.ifacesForForm(r) {
+			ifaceNames[f.ID] = f.Name
+		}
 		out := make([]*planRef, 0, len(list))
 		for _, p := range list {
-			out = append(out, &planRef{ID: p.ID, Name: p.Name})
+			ref := userPlanRef(p)
+			if p.InterfaceID != nil {
+				ref.InterfaceName = ifaceNames[*p.InterfaceID]
+				if ref.InterfaceName == "" {
+					ref.InterfaceName = *p.InterfaceID
+				}
+			}
+			out = append(out, ref)
 		}
 		return out
 	}
@@ -528,6 +562,16 @@ func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, er
 	}
 	in.Note = strPtr(r.PostFormValue("note"))
 	in.Tags = parseTags(r.PostFormValue("tags"))
+	// A selected template owns every entitlement field. Resolve it on the
+	// server before parsing manual defaults: hidden or forged form values must
+	// not override the product the operator selected.
+	if !isEdit && r.PostFormValue("template_id") != "" {
+		p, err := s.Plans.Get(r.Context(), r.PostFormValue("template_id"))
+		if err != nil || !p.Enabled {
+			return in, domain.E(domain.CodePlanNotFound, "selected template is unavailable")
+		}
+		return plan.ApplyToUser(p, in), nil
+	}
 
 	quota, err := quotaFromForm(r)
 	if err != nil {
@@ -550,10 +594,10 @@ func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, er
 	}
 	in.DeviceLimit = limitOptI(dl, isEdit)
 
-	if v := r.PostFormValue("plan"); v == "" {
-		in.PlanID = clearOpt(isEdit)
+	if v := r.PostFormValue("template_id"); v == "" {
+		in.TemplateID = clearOpt(isEdit)
 	} else {
-		in.PlanID = domain.OptString{Set: true, Value: v}
+		in.TemplateID = domain.OptString{Set: true, Value: v}
 	}
 	if v := r.PostFormValue("interface"); v == "" {
 		in.InterfaceID = clearOpt(isEdit)
@@ -714,9 +758,8 @@ func (s *Server) handleUserRenew(w http.ResponseWriter, r *http.Request) {
 	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.renewed", u.Username)
 }
 
-// handleUserTrafficAdd adds quota bytes (charged-counter correction).
-// Value+unit parsing keeps small corrections (0.2 GB) exact.
-func (s *Server) handleUserTrafficAdd(w http.ResponseWriter, r *http.Request) {
+// handleUserQuotaAdd tops up the finite allowance without charging usage.
+func (s *Server) handleUserQuotaAdd(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.loadUser(w, r)
 	if !ok {
 		return
@@ -729,16 +772,42 @@ func (s *Server) handleUserTrafficAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	quota, err := parseQuotaBytes(value, unit)
 	if err != nil || quota == nil {
+		s.userActionError(w, r, u.ID, "quota", "traffic_value", errInvalid)
+		return
+	}
+	if _, err := s.Accounting.AddQuota(r.Context(), u.ID, *quota, s.actorFrom(r)); err != nil {
+		s.userActionError(w, r, u.ID, "quota", "", err)
+		return
+	}
+	s.runReconcile(r)
+	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.traffic_added", u.Username)
+}
+
+// handleUserTrafficAdd preserves the legacy panel charged-counter correction.
+// The visible Add data action uses /quota/add instead; the REST traffic/add
+// endpoint retains this same meter-adjustment meaning.
+func (s *Server) handleUserTrafficAdd(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.loadUser(w, r)
+	if !ok {
+		return
+	}
+	value := r.PostFormValue("traffic_value")
+	unit := r.PostFormValue("traffic_unit")
+	if value == "" {
+		value = r.PostFormValue("gb")
+		unit = "gb"
+	}
+	amount, err := parseQuotaBytes(value, unit)
+	if err != nil || amount == nil {
 		s.userActionError(w, r, u.ID, "traffic", "traffic_value", errInvalid)
 		return
 	}
-	a := s.actorFrom(r)
-	if err := s.Accounting.AddTraffic(r.Context(), u.ID, *quota, 0, a); err != nil {
+	if err := s.Accounting.AddTraffic(r.Context(), u.ID, *amount, 0, s.actorFrom(r)); err != nil {
 		s.userActionError(w, r, u.ID, "traffic", "", err)
 		return
 	}
-	s.audit(r, "user.traffic_added", u.ID, map[string]any{"bytes": *quota})
-	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.traffic_added", u.Username)
+	s.audit(r, "user.traffic_added", u.ID, map[string]any{"bytes": *amount})
+	s.redirectToast(w, r, "/users/"+u.ID, "users.toast.updated", u.Username)
 }
 
 // handleUserTrafficReset zeroes counters and unblocks traffic_exceeded.
@@ -766,14 +835,14 @@ func (s *Server) handleUserNextPlanQueue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	queued, err := s.Integration.QueueNextPlan(r.Context(), integration.QueueNextPlanInput{
-		UserID: u.ID, PlanID: r.PostFormValue("plan_id"),
+		UserID: u.ID, TemplateID: r.PostFormValue("template_id"),
 		CarryUnusedTraffic: r.PostFormValue("carry_unused_traffic") == "on",
 	})
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.audit(r, "user.next_plan_queued", u.ID, map[string]any{"plan_id": queued.PlanID})
+	s.audit(r, "user.next_plan_queued", u.ID, map[string]any{"template_id": queued.TemplateID})
 	s.redirectToast(w, r, "/users/"+u.ID, "users.next_plan.queued")
 }
 

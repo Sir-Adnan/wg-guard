@@ -195,7 +195,7 @@ func TestAuthEnforced(t *testing.T) {
 	}
 	// Insufficient scope.
 	limited, plaintext, err := e.tokens.Create(context.Background(), "limited",
-		[]string{"plans.read"}, nil, "")
+		[]string{"templates.read"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,6 +279,31 @@ func TestRouteCoverageAndMuxSync(t *testing.T) {
 		if !registered[path] {
 			t.Errorf("openapi.json documents a nonexistent route: %s", path)
 		}
+	}
+}
+
+func TestTechnicalTemplateContractHasNoPlanAlias(t *testing.T) {
+	e := newEnv(t)
+	var doc struct {
+		Paths      map[string]json.RawMessage `json:"paths"`
+		Components struct {
+			Schemas map[string]json.RawMessage `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(openapiJSON, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Paths["/api/v1/templates"]) == 0 || len(doc.Paths["/api/v1/templates/{id}"]) == 0 ||
+		len(doc.Components.Schemas["Template"]) == 0 || len(doc.Components.Schemas["TemplateCreate"]) == 0 ||
+		len(doc.Components.Schemas["TemplatePatch"]) == 0 {
+		t.Fatal("canonical technical template routes or schemas are missing")
+	}
+	if len(doc.Paths["/api/v1/plans"]) != 0 || strings.Contains(string(openapiJSON), `"plan_id"`) ||
+		strings.Contains(string(openapiJSON), `"plans.read"`) || strings.Contains(string(openapiJSON), `"plans.write"`) {
+		t.Fatal("plan-named compatibility API remains in the contract")
+	}
+	if rec := e.doAnonymous(http.MethodGet, "/api/v1/plans"); rec.Code != http.StatusNotFound {
+		t.Fatalf("removed plan route answered: %d", rec.Code)
 	}
 }
 

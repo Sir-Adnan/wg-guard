@@ -610,6 +610,64 @@ func TestResetTrafficReturnsWaitingForUnactivated(t *testing.T) {
 	}
 }
 
+func TestAddQuotaPreservesUsageAndRecoversOnlyQuotaBlock(t *testing.T) {
+	e := newEnv(t)
+	limit := int64(1000)
+	uid := e.seedUser(t, "topup", "active", &limit, "immediate")
+	if err := e.svc.AddTraffic(context.Background(), uid, 1200, 0, Actor{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, status, _ := e.userRow(t, uid); status != "traffic_exceeded" {
+		t.Fatalf("setup status = %s", status)
+	}
+	newLimit, err := e.svc.AddQuota(context.Background(), uid, 500, Actor{Type: "admin", ID: "owner"})
+	if err != nil || newLimit != 1500 {
+		t.Fatalf("top-up = %d, %v", newLimit, err)
+	}
+	var storedLimit int64
+	if err := e.db.QueryRow(`SELECT traffic_limit_bytes FROM users WHERE id = ?`, uid).Scan(&storedLimit); err != nil {
+		t.Fatal(err)
+	}
+	usedRX, usedTX, status, reason := e.userRow(t, uid)
+	if storedLimit != 1500 || usedRX != 1200 || usedTX != 0 || status != "active" || reason != "" {
+		t.Fatalf("top-up changed accounting incorrectly: limit=%d usage=%d/%d status=%s reason=%s",
+			storedLimit, usedRX, usedTX, status, reason)
+	}
+	if n := e.auditCount(t, "user.quota_increased"); n != 1 {
+		t.Fatalf("top-up audit = %d", n)
+	}
+	if _, err := e.svc.AddQuota(context.Background(), uid, 0, Actor{}); err == nil {
+		t.Fatal("zero top-up accepted")
+	}
+	unlimited := e.seedUser(t, "unlimited-topup", "active", nil, "immediate")
+	if _, err := e.svc.AddQuota(context.Background(), unlimited, 100, Actor{}); err == nil {
+		t.Fatal("adding quota to unlimited account must require an explicit edit")
+	}
+	blocked := e.seedUser(t, "manual-topup", "disabled", &limit, "immediate")
+	if _, err := e.svc.AddQuota(context.Background(), blocked, 500, Actor{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, status, _ := e.userRow(t, blocked); status != "disabled" {
+		t.Fatalf("manual block was cleared by top-up: %s", status)
+	}
+	waiting := e.seedUser(t, "waiting-topup", "waiting_first_connection", &limit, "first_connection")
+	if _, err := e.db.Exec(`UPDATE users SET status = 'traffic_exceeded', disable_reason = 'traffic_limit',
+		traffic_used_rx = 1200 WHERE id = ?`, waiting); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.AddQuota(context.Background(), waiting, 500, Actor{}); err != nil {
+		t.Fatal(err)
+	}
+	if rx, _, status, reason := e.userRow(t, waiting); rx != 1200 || status != "waiting_first_connection" || reason != "" {
+		t.Fatalf("unactivated account top-up = %d %s/%s", rx, status, reason)
+	}
+	nearLimit := int64(9223372036854775800)
+	overflow := e.seedUser(t, "overflow-topup", "active", &nearLimit, "immediate")
+	if _, err := e.svc.AddQuota(context.Background(), overflow, 20, Actor{}); err == nil {
+		t.Fatal("overflowing quota top-up accepted")
+	}
+}
+
 func TestAddRemoveTraffic(t *testing.T) {
 	e := newEnv(t)
 	limit := int64(1000)

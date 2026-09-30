@@ -9,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/plan"
 )
 
 // create a user through the real form flow, return its id.
@@ -115,6 +119,132 @@ func TestUserCreateListDetail(t *testing.T) {
 	}
 	if rec := e.get("/devices/"+devID+"/qr", nil); rec.Code != http.StatusSeeOther {
 		t.Fatalf("anonymous QR fetch: %d", rec.Code)
+	}
+}
+
+func TestSelectedTemplateControlsCreatedUserAndBulkTerms(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	owner := e.loginEN("owner")
+	ctx := context.Background()
+	profile, err := e.ifaces.Create(ctx, iface.CreateInput{Name: "awg0", ListenPort: 39001, Subnet: "10.77.0.0/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration, devices, down, up := int64(7*86400), 2, 1024, 512
+	p, err := e.srv.Plans.Create(ctx, plan.Input{Name: "7 days / 5 GB", DurationSeconds: &duration,
+		StartPolicy:        domain.StartFirstConnection,
+		TrafficLimitBytes:  domain.OptInt64{Set: true, Value: 5_000_000_000},
+		DeviceLimit:        domain.OptInt{Set: true, Value: devices},
+		SpeedLimitDownKbps: domain.OptInt{Set: true, Value: down},
+		SpeedLimitUpKbps:   domain.OptInt{Set: true, Value: up},
+		InterfaceID:        domain.OptString{Set: true, Value: profile.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := e.get("/users/new", owner).Body.String()
+	if strings.Index(page, `id="user-template-choice"`) < 0 ||
+		strings.Index(page, `id="user-template-choice"`) > strings.Index(page, `id="user-limits"`) {
+		t.Fatal("template selection must precede manual limits")
+	}
+	form := url.Values{
+		"username": {"template-user"}, "template_id": {p.ID}, "auto_devices": {"1"},
+		"traffic_limit_value": {"broken"}, "duration_value": {"broken"},
+		"device_limit": {"broken"}, "expires_on": {"yesterday"},
+		"speed_down": {"broken"}, "start_policy": {"immediate"},
+		"interface": {"forged-interface"}, "note": {"created from template"},
+	}
+	rec := e.postForm("/users", form, owner)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create with template: %d %s", rec.Code, rec.Body.String())
+	}
+	var id string
+	if err := e.db.QueryRowContext(ctx, `SELECT id FROM users WHERE username = ?`, "template-user").Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	u, err := e.srv.Users.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.TemplateID == nil || *u.TemplateID != p.ID || u.TrafficLimitBytes == nil || *u.TrafficLimitBytes != 5_000_000_000 ||
+		u.DurationSeconds == nil || *u.DurationSeconds != duration || u.DeviceLimit == nil || *u.DeviceLimit != devices ||
+		u.SpeedLimitDownKbps == nil || *u.SpeedLimitDownKbps != down ||
+		u.SpeedLimitUpKbps == nil || *u.SpeedLimitUpKbps != up ||
+		u.InterfaceID == nil || *u.InterfaceID != profile.ID ||
+		u.StartPolicy != domain.StartFirstConnection || u.Status != domain.UserWaitingFirstConnection || u.Note != "created from template" {
+		t.Fatalf("template terms were not applied: %+v", u)
+	}
+	var deviceCount int
+	if err := e.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM devices WHERE user_id = ?`, id).Scan(&deviceCount); err != nil || deviceCount != 2 {
+		t.Fatalf("automatic devices ignored template limit: %d %v", deviceCount, err)
+	}
+	bulk := url.Values{"prefix": {"tpl-"}, "count": {"2"}, "start_index": {"1"}, "template_id": {p.ID},
+		"traffic_limit_value": {"broken"}}
+	if rec := e.postForm("/users/bulk", bulk, owner); rec.Code != http.StatusSeeOther {
+		t.Fatalf("bulk with template: %d %s", rec.Code, rec.Body.String())
+	}
+	var bulkLimit int64
+	if err := e.db.QueryRowContext(ctx, `SELECT traffic_limit_bytes FROM users WHERE username = ?`, "tpl-001").Scan(&bulkLimit); err != nil || bulkLimit != 5_000_000_000 {
+		t.Fatalf("bulk template terms missing: %d %v", bulkLimit, err)
+	}
+	falseValue := false
+	inactive, err := e.srv.Plans.Create(ctx, plan.Input{Name: "Inactive template", Enabled: &falseValue})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec := e.postForm("/users", url.Values{"username": {"inactive-template"}, "template_id": {inactive.ID}}, owner); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `id="u-template"`) {
+		t.Fatalf("disabled template was accepted or error hidden: %d", rec.Code)
+	}
+}
+
+func TestPanelAddVolumeRaisesLimitNotUsedTraffic(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	owner := e.loginEN("owner")
+	id := createUserViaForm(t, e, owner, "quota-topup")
+	var beforeLimit, beforeRX, beforeTX int64
+	if err := e.db.QueryRow(`SELECT traffic_limit_bytes, traffic_used_rx, traffic_used_tx FROM users WHERE id = ?`, id).
+		Scan(&beforeLimit, &beforeRX, &beforeTX); err != nil {
+		t.Fatal(err)
+	}
+	rec := e.postForm("/users/"+id+"/quota/add", url.Values{
+		"traffic_value": {"2"}, "traffic_unit": {"gb"},
+	}, owner)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("quota top-up: %d %s", rec.Code, rec.Body.String())
+	}
+	var afterLimit, afterRX, afterTX int64
+	if err := e.db.QueryRow(`SELECT traffic_limit_bytes, traffic_used_rx, traffic_used_tx FROM users WHERE id = ?`, id).
+		Scan(&afterLimit, &afterRX, &afterTX); err != nil {
+		t.Fatal(err)
+	}
+	if afterLimit != beforeLimit+2_000_000_000 || afterRX != beforeRX || afterTX != beforeTX {
+		t.Fatalf("panel added used traffic instead of quota: before=%d/%d/%d after=%d/%d/%d",
+			beforeLimit, beforeRX, beforeTX, afterLimit, afterRX, afterTX)
+	}
+	trafficOnly := e.limitedLogin(t, []string{"users.read", "traffic.update"})
+	if rec := e.postForm("/users/"+id+"/quota/add", url.Values{"traffic_value": {"1"}, "traffic_unit": {"gb"}}, trafficOnly); rec.Code != http.StatusSeeOther {
+		t.Fatalf("permission denial did not redirect safely: %d", rec.Code)
+	}
+	var deniedLimit int64
+	if err := e.db.QueryRow(`SELECT traffic_limit_bytes FROM users WHERE id = ?`, id).Scan(&deniedLimit); err != nil {
+		t.Fatal(err)
+	}
+	if deniedLimit != afterLimit {
+		t.Fatal("traffic-counter permission changed the user's quota")
+	}
+	if rec := e.postForm("/users/"+id+"/traffic/add", url.Values{
+		"traffic_value": {"1"}, "traffic_unit": {"gb"},
+	}, trafficOnly); rec.Code != http.StatusSeeOther {
+		t.Fatalf("legacy meter correction: %d", rec.Code)
+	}
+	var correctedLimit, correctedRX int64
+	if err := e.db.QueryRow(`SELECT traffic_limit_bytes, traffic_used_rx FROM users WHERE id = ?`, id).
+		Scan(&correctedLimit, &correctedRX); err != nil {
+		t.Fatal(err)
+	}
+	if correctedLimit != afterLimit || correctedRX != afterRX+1_000_000_000 {
+		t.Fatal("legacy traffic/add must retain its charged-counter meaning")
 	}
 }
 

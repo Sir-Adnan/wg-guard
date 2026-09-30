@@ -12,8 +12,6 @@
       {{if or (.Can "users.update") (.Can "users.delete") (.Can "traffic.update")}}<div class="menu-anchor">
         <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{.T "common.actions"}}">{{.IconS "more-vertical"}}</button>
         <div class="menu" role="menu">
-          {{if .Can "users.update"}}<button type="button" role="menuitem" data-open-modal="renew-modal">{{.IconS "calendar"}}<span>{{.T "users.action.renew"}}</span></button>{{end}}
-          {{if .Can "traffic.update"}}<button type="button" role="menuitem" data-open-modal="traffic-modal">{{.IconS "plus"}}<span>{{.T "users.action.add_traffic"}}</span></button><form role="none" method="post" action="/users/{{.Data.U.ID}}/traffic/reset" data-confirm data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" .Data.U.Username)}}" data-confirm-message="{{.T "users.traffic_reset.confirm"}}" data-confirm-label="{{.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.reset_traffic"}}</span></button></form>{{end}}
           {{if .Can "users.update"}}<hr>{{if .Data.U.DeletedAt}}<form role="none" method="post" action="/users/{{.Data.U.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "refresh-cw"}}<span>{{.T "users.action.restore"}}</span></button></form>{{else if eq (printf "%v" .Data.U.Status) "active"}}<form role="none" method="post" action="/users/{{.Data.U.ID}}/disable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.disable"}}</span></button></form>{{else}}<form role="none" method="post" action="/users/{{.Data.U.ID}}/enable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem">{{.IconS "power"}}<span>{{.T "users.action.enable"}}</span></button></form>{{end}}{{end}}
           {{if and (not .Data.U.DeletedAt) (.Can "users.delete")}}<hr><form role="none" method="post" action="/users/{{.Data.U.ID}}/delete" data-confirm data-confirm-title="{{.T "common.confirm_delete"}}" data-confirm-message="{{.T "users.confirm_delete" (printf "%v" .Data.U.Username)}}" data-confirm-label="{{.T "users.action.delete"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem" class="is-danger">{{.IconS "trash-2"}}<span>{{.T "users.action.delete"}}</span></button></form>{{end}}
         </div>
@@ -27,6 +25,16 @@
     <article class="user-kpi user-kpi--expiry"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "clock"}}</span><div><span>{{.T "users.expires"}}</span><strong class="ltr-data {{.ExpiryClass .Data.U.ExpiresAt}}">{{.D .Data.U.ExpiresAt}}</strong><small>{{.RelIn .Data.U.ExpiresAt}}</small></div></article>
     <article class="user-kpi user-kpi--activity"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "wifi"}}</span><div><span>{{.T "users.last_activity"}}</span><strong>{{.Rel .Data.U.LastActivityAt}}</strong><small>{{.T "users.start_policy"}} · {{if eq (printf "%v" .Data.U.StartPolicy) "first_connection"}}{{.T "users.start_policy.first_connection"}}{{else}}{{.T "users.start_policy.immediate"}}{{end}}</small></div></article>
   </div>
+
+  {{if or (.Can "users.update") (.Can "traffic.update")}}
+  <section class="user-action-bar" aria-labelledby="user-action-title">
+    <div><span class="eyebrow">{{.T "common.actions"}}</span><h2 id="user-action-title">{{.T "users.quick.title"}}</h2></div>
+    <div class="user-action-buttons">
+      {{if .Can "users.update"}}<button type="button" class="btn btn--soft" data-open-modal="renew-modal">{{.IconS "calendar"}}<span>{{.T "users.quick.renew"}}</span></button>{{end}}
+      {{if and (.Can "users.update") .Data.U.HasLimit}}<button type="button" class="btn btn--soft" data-open-modal="traffic-modal">{{.IconS "plus"}}<span>{{.T "users.action.add_traffic"}}</span></button>{{end}}
+      {{if and (.Can "traffic.update") (not .Data.U.DeletedAt)}}<form method="post" action="/users/{{.Data.U.ID}}/traffic/reset" data-confirm data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" .Data.U.Username)}}" data-confirm-message="{{.T "users.traffic_reset.confirm"}}" data-confirm-label="{{.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--ghost">{{.IconS "refresh-cw"}}<span>{{.T "users.action.reset_traffic"}}</span></button></form>{{end}}
+    </div>
+  </section>{{end}}
 
   <div class="user-detail-layout">
     <section class="card card--pad user-account-card">
@@ -49,29 +57,32 @@
       </details>
     </section>
 
-    {{if or (.Can "next_plans.read") (.Can "next_plans.write")}}<section class="card card--pad user-next-plan-card">
-      <div class="section-head"><div><span class="eyebrow">{{.T "users.plan"}}</span><h2>{{.T "users.next_plan.title"}}</h2><p>{{.T "users.next_plan.hint"}}</p></div><span class="section-icon" aria-hidden="true">{{.IconS "calendar"}}</span></div>
+    {{if or (.Can "next_plans.read") (.Can "next_plans.write")}}<details class="card card--pad user-next-plan-card" {{if .Data.NextPlan}}open{{end}}>
+      <summary class="user-next-plan-summary"><span class="section-icon" aria-hidden="true">{{.IconS "calendar"}}</span><span><small>{{.T "users.plan"}}</small><strong>{{.T "users.next_plan.title"}}</strong><small>{{if .Data.NextPlan}}{{.Data.NextPlan.Terms.Name}}{{else}}{{.T "users.next_plan.none"}}{{end}}</small></span><span class="user-next-plan-chevron" aria-hidden="true">{{.IconS "chevron-down"}}</span></summary>
+      <div class="user-next-plan-body"><p class="hint">{{.T "users.next_plan.hint"}}</p>
       {{if .Data.NextPlan}}<div class="callout"><strong>{{.Data.NextPlan.Terms.Name}}</strong>{{if eq .Data.NextPlan.State "needs_review"}}<p>{{.T "users.next_plan.review"}}</p>{{end}}</div>
       {{else}}<p class="text-muted">{{.T "users.next_plan.none"}}</p>{{end}}
       {{if and (.Can "next_plans.write") .Data.NextPlans}}
       <form id="next-plan-form" class="form-stack" method="post" action="/users/{{.Data.U.ID}}/next-plan">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <label for="next-plan-id">{{.T "users.next_plan.select"}}</label>
-        <select id="next-plan-id" class="input" name="plan_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+        <select id="next-plan-id" class="input" name="template_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
         <label class="check-row"><input class="checkbox" type="checkbox" name="carry_unused_traffic"><span>{{.T "users.next_plan.carry"}}</span></label>
       </form>
       <div class="next-plan-actions"><button form="next-plan-form" type="submit" class="btn btn--primary">{{.IconS "plus"}}<span>{{.T "users.next_plan.queue"}}</span></button>
       {{if .Data.NextPlan}}<form method="post" action="/users/{{.Data.U.ID}}/next-plan/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--ghost">{{.IconS "x"}}<span>{{.T "users.next_plan.cancel"}}</span></button></form>{{end}}</div>
-      {{end}}
-    </section>{{end}}
+      {{end}}</div>
+    </details>{{end}}
 
     {{if or (.Can "configs.read") (.Can "users.update")}}<section class="card card--pad subscription-access-card">
-      <div class="subscription-access-head"><span class="subscription-access-icon" aria-hidden="true">{{.IconS "link"}}</span><div><span class="eyebrow">{{.T "sub.card.title"}}</span><h2>{{.T "sub.card.title"}}</h2></div></div>
-      <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p>
+      <div class="subscription-access-intro"><div class="subscription-access-head"><span class="subscription-access-icon" aria-hidden="true">{{.IconS "link"}}</span><div><span class="eyebrow">{{.T "sub.card.title"}}</span><h2>{{.T "sub.card.title"}}</h2></div></div>
+      <p class="text-muted text-sm sub-card-desc">{{.T "sub.card.desc"}}</p></div>
+      <div class="subscription-access-main">
       {{if not .Data.SubKnown}}<div class="callout"><p>{{.T "users.sub_unavailable"}}</p><a class="btn btn--sm" href="/users/{{.Data.U.ID}}">{{.T "common.retry"}}</a></div>
       {{else if not .Data.SubExists}}{{if .Can "users.update"}}<form method="post" action="/users/{{.Data.U.ID}}/sub/create"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--primary btn--block">{{.IconS "link"}}<span>{{.T "sub.card.create"}}</span></button></form>{{else}}<p class="hint">{{.T "users.sub_absent"}}</p>{{end}}
       {{else if .Data.SubRevoked}}<p><span class="badge badge--danger"><span class="dot"></span>{{.T "sub.card.revoked"}}</span></p>{{if and (.Can "users.update") (.Can "devices.write")}}<form method="post" action="/users/{{.Data.U.ID}}/sub/revoke" data-confirm data-confirm-title="{{.T "sub.card.revoke"}}" data-confirm-message="{{.T "sub.card.revoke_confirm"}}" data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.revoke"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--primary btn--block">{{.IconS "shield-check"}}<span>{{.T "sub.card.revoke"}}</span></button></form>{{end}}
       {{else}}{{if .Can "configs.read"}}<div class="subscription-url"><label for="sub-url">{{.T "sub.card.title"}}</label><div class="input-adj"><input class="input ltr-data" id="sub-url" readonly value="{{.Data.SubURL}}"><button type="button" class="icon-btn" data-copy="#sub-url" data-copied-msg="{{.T "common.copied"}}" aria-label="{{.T "common.copy"}}">{{.IconS "copy"}}</button></div></div>{{end}}<div class="subscription-access-actions">{{if and (.Can "configs.read") .Data.SubURL}}<a class="btn btn--sm btn--soft" href="{{.Data.SubURL}}" target="_blank" rel="noopener" data-sub-preview>{{.IconS "external-link"}}<span>{{.T "sub.card.open"}}</span></a>{{end}}{{if and (.Can "users.update") (.Can "devices.write")}}<form method="post" action="/users/{{.Data.U.ID}}/sub/revoke" data-confirm data-confirm-title="{{.T "sub.card.revoke"}}" data-confirm-message="{{.T "sub.card.revoke_confirm"}}" data-confirm-kind="danger" data-confirm-label="{{.T "sub.card.revoke"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--sm btn--danger-soft">{{.IconS "unlink"}}<span>{{.T "sub.card.revoke"}}</span></button></form>{{end}}</div>{{end}}
+      </div>
     </section>{{end}}
   </div>
   {{if .Can "devices.read"}}<div class="user-devices" data-qr-group>
@@ -86,7 +97,7 @@
       {{if not .Data.DevicesKnown}}<div class="empty"><p>{{.T "users.devices_unavailable"}}</p><a class="btn" href="/users/{{.Data.U.ID}}">{{.T "common.retry"}}</a></div>
       {{else if .Data.Devices}}
       <div class="table-wrap table-wrap--flush collection">
-        <table class="table table--cards entity-table">
+        <table class="table table--cards entity-table user-device-table">
           <thead>
             <tr>
               <th>{{.T "devices.name"}}</th>
@@ -100,18 +111,18 @@
           <tbody>
             {{range .Data.Devices}}
             <tr>
-              <td class="card-title" data-label="{{$.T "devices.name"}}"><span class="cell-main">{{.D.Name}}</span></td>
-              <td data-label="{{$.T "devices.ip"}}" class="ltr-data">{{.D.IPv4}}</td>
-              <td data-label="{{$.T "common.status"}}">
+              <td class="card-title device-col--name" data-label="{{$.T "devices.name"}}"><span class="cell-main">{{.D.Name}}</span></td>
+              <td data-label="{{$.T "devices.ip"}}" class="ltr-data device-col--ip">{{.D.IPv4}}</td>
+              <td class="device-col--status" data-label="{{$.T "common.status"}}">
                 {{if .D.Enabled}}
                 <span class="badge {{if .Online}}badge--ok{{end}}"><span class="dot"></span>{{if .Online}}{{$ot := $.T "status.online"}}{{$ot}}{{else}}{{$of := $.T "status.offline"}}{{$of}}{{end}}</span>
                 {{else}}
                 <span class="badge">{{$.T "status.disabled"}}</span>
                 {{end}}
               </td>
-              <td data-label="{{$.T "devices.last_handshake"}}" class="text-subtle">{{$v := $}}{{$v.Rel .LastHS}}</td>
-              {{if $.Can "traffic.read"}}<td data-label="{{$.T "devices.transfer"}}" class="ltr-data">↓ {{$.B (i64u .D.TXBytes)}} · ↑ {{$.B (i64u .D.RXBytes)}}</td>{{end}}
-              <td class="text-end card-actions" data-label="{{$.T "common.actions"}}">
+              <td class="text-subtle device-col--handshake" data-label="{{$.T "devices.last_handshake"}}">{{$v := $}}{{$v.Rel .LastHS}}</td>
+              {{if $.Can "traffic.read"}}<td class="ltr-data device-col--transfer" data-label="{{$.T "devices.transfer"}}">↓ {{$.B (i64u .D.TXBytes)}} · ↑ {{$.B (i64u .D.RXBytes)}}</td>{{end}}
+              <td class="text-end card-actions device-col--actions" data-label="{{$.T "common.actions"}}">
                 <div class="inline-actions">
                   {{if $.Can "configs.read"}}<a class="icon-btn" href="/devices/{{.D.ID}}/config" download data-tip="{{$.T "devices.download_config"}}" aria-label="{{$.T "devices.download_config"}}">{{$v.IconS "download"}}</a>
                   <a class="icon-btn" href="/devices/{{.D.ID}}/qr" data-qr="/devices/{{.D.ID}}/qr" data-qr-name="{{.D.Name}}" data-tip="{{$.T "devices.qr"}}" aria-label="{{$.T "devices.qr"}}">{{$v.IconS "qr-code"}}</a>
@@ -167,8 +178,8 @@
 
 <noscript><div class="form-stack">
 {{if .Can "devices.write"}}<details class="collapse form-panel"><summary>{{.T "devices.add"}}</summary>{{template "user_device_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
-{{if .Can "users.update"}}<details class="collapse form-panel"><summary>{{.T "users.action.renew"}}</summary>{{template "user_renew_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
-{{if .Can "traffic.update"}}<details class="collapse form-panel"><summary>{{.T "users.action.add_traffic"}}</summary>{{template "user_traffic_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
+{{if .Can "users.update"}}<details class="collapse form-panel" id="renew-action"><summary>{{.T "users.action.renew"}}</summary>{{template "user_renew_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
+{{if and (.Can "users.update") .Data.U.HasLimit}}<details class="collapse form-panel" id="traffic-action"><summary>{{.T "users.action.add_traffic"}}</summary>{{template "user_traffic_form" (dict "v" . "suffix" "-native")}}</details>{{end}}
 </div></noscript>
 {{template "user_detail_modals" .}}
 {{end}}
@@ -192,7 +203,7 @@
 </dialog>
 
 {{end}}
-{{if .Can "traffic.update"}}<dialog id="traffic-modal" class="modal" aria-labelledby="traffic-title">
+{{if and (.Can "users.update") .Data.U.HasLimit}}<dialog id="traffic-modal" class="modal" aria-labelledby="traffic-title">
   <div class="modal-head">
     <h2 id="traffic-title">{{.T "users.traffic_add.title" (printf "%v" .Data.U.Username)}}</h2>
     <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>

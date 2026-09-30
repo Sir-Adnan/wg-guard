@@ -10,7 +10,7 @@
     <form id="reseller-next-plan-form" class="form-stack" method="post" action="/reseller/users/{{.Data.User.ID}}/next-plan">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <label for="reseller-next-plan-id">{{.T "users.next_plan.select"}}</label>
-      <select class="input" id="reseller-next-plan-id" name="plan_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+      <select class="input" id="reseller-next-plan-id" name="template_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
       <label class="check-row"><input class="checkbox" type="checkbox" name="carry_unused_traffic"><span>{{.T "users.next_plan.carry"}}</span></label>
     </form>
     <div class="next-plan-actions"><button form="reseller-next-plan-form" class="btn btn--primary" type="submit">{{.IconS "plus"}}<span>{{.T "users.next_plan.queue"}}</span></button>

@@ -112,7 +112,7 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	data := subPageData{Lang: "fa", OnlineWindow: 180, PlanKnown: u.PlanID == nil}
+	data := subPageData{Lang: "fa", OnlineWindow: 180, PlanKnown: u.TemplateID == nil}
 	if lang := r.URL.Query().Get("lang"); lang == "en" {
 		data.Lang = "en"
 	}
@@ -128,7 +128,7 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 			data.Devices = append(data.Devices, row)
 		}
 	}
-	if p, err := s.Plans.Get(ctx, deref(u.PlanID)); err == nil && u.PlanID != nil {
+	if p, err := s.Plans.Get(ctx, deref(u.TemplateID)); err == nil && u.TemplateID != nil {
 		data.PlanName = p.Name
 		data.PlanKnown = true
 	}

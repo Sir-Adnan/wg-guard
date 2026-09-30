@@ -133,55 +133,55 @@ func (s *Service) SetEnabled(ctx context.Context, id string, enabled bool) error
 	return requireUpdated(res)
 }
 
-// SetPlans replaces the owner's product assignment atomically. An empty
+// SetTemplates replaces the owner's technical-template assignment atomically. An empty
 // selection closes provisioning without altering existing subscriptions.
-func (s *Service) SetPlans(ctx context.Context, id string, planIDs []string) error {
-	if len(planIDs) > 128 {
-		return domain.E(domain.CodeInvalidRequest, "too many reseller plans")
+func (s *Service) SetTemplates(ctx context.Context, id string, templateIDs []string) error {
+	if len(templateIDs) > 128 {
+		return domain.E(domain.CodeInvalidRequest, "too many reseller templates")
 	}
-	seen := make(map[string]bool, len(planIDs))
+	seen := make(map[string]bool, len(templateIDs))
 	return s.db.WithTx(ctx, func(tx *sql.Tx) error {
 		var found int
 		if err := tx.QueryRowContext(ctx, `SELECT 1 FROM resellers WHERE id = ?`, id).Scan(&found); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return domain.E(domain.CodeNotFound, "reseller not found")
 			}
-			return fmt.Errorf("reseller: plan owner: %w", err)
+			return fmt.Errorf("reseller: template owner: %w", err)
 		}
-		for _, planID := range planIDs {
-			if planID == "" || seen[planID] {
-				return domain.E(domain.CodeInvalidRequest, "invalid or duplicate plan assignment")
+		for _, templateID := range templateIDs {
+			if templateID == "" || seen[templateID] {
+				return domain.E(domain.CodeInvalidRequest, "invalid or duplicate template assignment")
 			}
-			seen[planID] = true
+			seen[templateID] = true
 			var enabled int
-			err := tx.QueryRowContext(ctx, `SELECT enabled FROM plans WHERE id = ?`, planID).Scan(&enabled)
+			err := tx.QueryRowContext(ctx, `SELECT enabled FROM templates WHERE id = ?`, templateID).Scan(&enabled)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
-					return domain.E(domain.CodeInvalidRequest, "plan is unavailable")
+					return domain.E(domain.CodeInvalidRequest, "template is unavailable")
 				}
-				return fmt.Errorf("reseller: plan lookup: %w", err)
+				return fmt.Errorf("reseller: template lookup: %w", err)
 			}
 			if enabled != 1 {
-				return domain.E(domain.CodeInvalidRequest, "plan is unavailable")
+				return domain.E(domain.CodeInvalidRequest, "template is unavailable")
 			}
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM reseller_plan_access WHERE reseller_id = ?`, id); err != nil {
-			return fmt.Errorf("reseller: clear plans: %w", err)
+		if _, err := tx.ExecContext(ctx, `DELETE FROM reseller_template_access WHERE reseller_id = ?`, id); err != nil {
+			return fmt.Errorf("reseller: clear templates: %w", err)
 		}
-		for _, planID := range planIDs {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO reseller_plan_access (reseller_id, plan_id) VALUES (?, ?)`, id, planID); err != nil {
-				return fmt.Errorf("reseller: assign plan: %w", err)
+		for _, templateID := range templateIDs {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO reseller_template_access (reseller_id, template_id) VALUES (?, ?)`, id, templateID); err != nil {
+				return fmt.Errorf("reseller: assign template: %w", err)
 			}
 		}
 		return nil
 	})
 }
 
-func (s *Service) Plans(ctx context.Context, id string) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT plan_id FROM reseller_plan_access
-		WHERE reseller_id = ? ORDER BY plan_id`, id)
+func (s *Service) Templates(ctx context.Context, id string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT template_id FROM reseller_template_access
+		WHERE reseller_id = ? ORDER BY template_id`, id)
 	if err != nil {
-		return nil, fmt.Errorf("reseller: plans: %w", err)
+		return nil, fmt.Errorf("reseller: templates: %w", err)
 	}
 	defer rows.Close()
 	var ids []string

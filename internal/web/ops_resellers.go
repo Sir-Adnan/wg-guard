@@ -11,9 +11,9 @@ import (
 )
 
 type resellerCard struct {
-	Account reseller.Account
-	Admins  []admin.Admin
-	PlanIDs []string
+	Account     reseller.Account
+	Admins      []admin.Admin
+	TemplateIDs []string
 }
 
 type resellerPlanOption struct{ ID, Name string }
@@ -55,7 +55,7 @@ func (s *Server) resellerPageData(r *http.Request) resellersData {
 	}
 	for _, account := range accounts {
 		card := resellerCard{Account: account}
-		card.PlanIDs, err = s.Resellers.Plans(r.Context(), account.ID)
+		card.TemplateIDs, err = s.Resellers.Templates(r.Context(), account.ID)
 		if err != nil {
 			d.Known = false
 			s.logError(r, "reseller plan assignments unavailable", nil)
@@ -107,17 +107,17 @@ func (s *Server) handleResellerPermissions(w http.ResponseWriter, r *http.Reques
 	s.redirectToast(w, r, "/resellers", "resellers.saved")
 }
 
-func (s *Server) handleResellerPlans(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleResellerTemplates(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
 		return
 	}
 	id := r.PathValue("id")
-	if err := s.Resellers.SetPlans(r.Context(), id, r.Form["plans"]); err != nil {
+	if err := s.Resellers.SetTemplates(r.Context(), id, r.Form["templates"]); err != nil {
 		s.opsError(w, r, "/resellers", err)
 		return
 	}
-	s.audit(r, "resellers.plans_updated", id, map[string]any{"count": len(r.Form["plans"])})
+	s.audit(r, "resellers.templates_updated", id, map[string]any{"count": len(r.Form["templates"])})
 	s.redirectToast(w, r, "/resellers", "resellers.saved")
 }
 

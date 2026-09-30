@@ -6,6 +6,7 @@
     <a class="btn btn--primary" href="#token-create" data-open-disclosure="token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a>
   </div>
   {{template "form_feedback" .}}
+  <p class="callout">{{.IconS "info"}}<span>{{.T "tokens.bot_setup_hint"}}</span></p>
 
   {{if .Data.Created.Secret}}
   <section class="card card--pad ops-secret credential-reveal" aria-labelledby="token-result">

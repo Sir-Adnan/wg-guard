@@ -196,6 +196,14 @@ Suite `10.5` invokes the shared-fixture auth/public driver, including a separate
 node; generated login credentials travel only over stdin. No configs or QR pixels enter diagnostics.
 `WG_TEST_AXE` optionally locates a development-only `@axe-core/playwright` installation. The driver
 checks WCAG-tagged rules and measures request/loading/layout behavior before instrumentation.
+`WG_TEST_UI_GROUP=user-workspace` is a focused Chromium/WebKit check for `/users` and user detail
+at 320/390/1440px in fa/en and Light/Dark. It checks compact row and detail geometry, quick-action
+dialogs, and current token/reseller permission shortcuts without running the full milestone matrix.
+`WG_TEST_UI_GROUP=calendar` exercises month navigation, day selection and clearing on the create-user
+page and modal drawer in fa/en at 320/390/1440px; it also checks that the popover stays in bounds.
+`WG_TEST_UI_GROUP=user-template` checks the same create-user page/drawer widths and languages:
+selecting a technical template reveals its terms and disables hidden manual fields, while Custom
+restores editable fields without overflowing a narrow viewport.
 The final driver adds real-route state cases from temporary databases, interactive states, touch,
 system-theme and equivalent-zoom checks. Synthetic healthy telemetry stays fresh; stale data has
 its own case. Virtual subscriber identities prevent matrix traffic from consuming one rate bucket;

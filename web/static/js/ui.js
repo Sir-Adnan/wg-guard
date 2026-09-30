@@ -121,6 +121,17 @@ function closeMenu(returnFocus = false) {
   activeMenu = menuTrigger = null;
   if (returnFocus) restoreFocus(trigger);
 }
+function positionMenu() {
+  if (!activeMenu || !menuTrigger) return;
+  const r = menuTrigger.getBoundingClientRect();
+  activeMenu.style.position = 'fixed'; activeMenu.style.insetInlineEnd = 'auto';
+  activeMenu.style.maxHeight = Math.max(120, innerHeight - 16) + 'px';
+  activeMenu.style.overflowY = 'auto';
+  const menuRect = activeMenu.getBoundingClientRect();
+  const w = menuRect.width, h = menuRect.height;
+  activeMenu.style.left = Math.max(8, Math.min(document.documentElement.dir === 'rtl' ? r.left : r.right - w, innerWidth - w - 8)) + 'px';
+  activeMenu.style.top = Math.max(8, r.bottom + h + 6 > innerHeight ? r.top - h - 6 : r.bottom + 6) + 'px';
+}
 function openMenu(trigger, last = false) {
   hideTip();
   closeMenu();
@@ -128,16 +139,9 @@ function openMenu(trigger, last = false) {
   if (!menu) return;
   activeMenu = menu; menuTrigger = trigger;
   menu.classList.add('is-open'); trigger.setAttribute('aria-expanded', 'true');
-  const r = trigger.getBoundingClientRect();
-  menu.style.position = 'fixed'; menu.style.insetInlineEnd = 'auto';
-  menu.style.maxHeight = Math.max(120, innerHeight - 16) + 'px';
-  menu.style.overflowY = 'auto';
-  const menuRect = menu.getBoundingClientRect();
-  const w = menuRect.width, h = menuRect.height;
-  menu.style.left = Math.max(8, Math.min(document.documentElement.dir === 'rtl' ? r.left : r.right - w, innerWidth - w - 8)) + 'px';
-  menu.style.top = Math.max(8, r.bottom + h + 6 > innerHeight ? r.top - h - 6 : r.bottom + 6) + 'px';
+  positionMenu();
   const items = focusable(menu);
-  items[last ? items.length - 1 : 0]?.focus();
+  items[last ? items.length - 1 : 0]?.focus({ preventScroll: true });
 }
 
 const invokers = new WeakMap();
@@ -274,7 +278,12 @@ document.addEventListener('keydown', event => {
 });
 document.addEventListener('scroll', event => {
   hideTip();
-  if (activeMenu && !activeMenu.contains(event.target)) closeMenu();
+  if (activeMenu && !activeMenu.contains(event.target)) {
+    // Responsive tables may scroll a trigger into view as it is clicked.
+    // Keep its menu anchored instead of dismissing it before the first action.
+    if (event.target instanceof Element && event.target.contains(menuTrigger)) positionMenu();
+    else closeMenu();
+  }
 }, true);
 window.addEventListener('resize', () => { hideTip(); closeMenu(); });
 

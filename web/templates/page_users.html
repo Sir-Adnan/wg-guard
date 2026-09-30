@@ -24,6 +24,7 @@
   </div>
   <span id="users-search-progress" class="search-progress htmx-indicator" role="status"><span class="spinner" aria-hidden="true"></span><span class="sr-only">{{.T "common.loading"}}</span></span>
   </div>
+  <details class="user-filter-more" data-user-filter-more open><summary>{{.IconS "filter"}}<span>{{.T "common.filter"}}</span><span class="user-filter-chevron" aria-hidden="true">{{.IconS "chevron-down"}}</span></summary><div class="user-filter-grid">
   <div class="field"><label for="users-status">{{.T "common.status"}}</label>
   <select class="select" id="users-status" name="status" aria-label="{{.T "common.status"}}">
     <option value="all">{{.T "common.all"}}</option>
@@ -45,6 +46,7 @@
   </div>
   <noscript><button type="submit" class="btn">{{.T "common.filter"}}</button></noscript>
   {{if .Data.HasFilters}}<a class="btn btn--ghost" href="/users">{{.T "common.clear_filters"}}</a>{{end}}
+  </div></details>
 </form>
 
 <div id="users-results" class="users-selection-scope" aria-live="polite" aria-atomic="false">
@@ -101,6 +103,21 @@
 </div>
 
 {{if .Can "configs.read"}}{{template "device_qr_dialog" .}}{{end}}
+
+{{if .Can "users.update"}}<dialog class="modal user-quick-modal" id="users-quick-renew" aria-labelledby="users-quick-renew-title">
+  <div class="modal-head"><div><h2 id="users-quick-renew-title">{{.T "users.action.renew"}}</h2><bdi class="text-muted ltr-data" data-quick-user></bdi></div><button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button></div>
+  <form method="post" data-user-quick-form="renew" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body form-stack">{{template "user_renew_fields" (dict "v" . "f" .Data.ActionForm "suffix" "-quick")}}</div>
+    <div class="modal-foot"><button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button><button type="submit" class="btn btn--primary">{{.T "users.action.renew"}}</button></div>
+  </form>
+</dialog>{{end}}
+{{if .Can "users.update"}}<dialog class="modal user-quick-modal" id="users-quick-traffic" aria-labelledby="users-quick-traffic-title">
+  <div class="modal-head"><div><h2 id="users-quick-traffic-title">{{.T "users.action.add_traffic"}}</h2><bdi class="text-muted ltr-data" data-quick-user></bdi></div><button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button></div>
+  <form method="post" data-user-quick-form="traffic" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="modal-body form-stack">{{template "user_traffic_fields" (dict "v" . "f" .Data.ActionForm "suffix" "-quick")}}</div>
+    <div class="modal-foot"><button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button><button type="submit" class="btn btn--primary">{{.T "users.action.add_traffic"}}</button></div>
+  </form>
+</dialog>{{end}}
 
 {{if .Can "users.create"}}
 <dialog id="create-drawer" class="drawer drawer--form" aria-labelledby="create-drawer-title">
@@ -162,12 +179,12 @@
   </td>
   {{end}}
   <td class="users-col--expiry" data-label="{{$v.T "users.expires"}}">
-    <span class="id-text">
+    <span class="users-mobile-meta-label">{{$v.T "users.expires"}}</span><span class="id-text">
       <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
       {{if $u.ExpiresAt}}<span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{end}}
     </span>
   </td>
-  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}" class="ltr-data users-col--devices">{{if $row.DevicesKnown}}{{$v.N (i64u $row.DeviceCount)}}{{else}}{{$v.T "forms.unavailable"}}{{end}}</td>{{end}}
+  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}" class="users-col--devices"><span class="users-mobile-meta-label">{{$v.T "users.devices"}}</span><span class="ltr-data">{{if $row.DevicesKnown}}{{$v.N (i64u $row.DeviceCount)}}{{else}}{{$v.T "forms.unavailable"}}{{end}}</span></td>{{end}}
   <td data-label="{{$v.T "users.last_activity"}}" class="card-hide text-subtle users-col--activity">{{$v.Rel $u.LastActivityAt}}</td>
   <td class="text-end card-actions users-col--actions" data-label="{{$v.T "common.actions"}}">
     <div class="inline-actions">
@@ -200,6 +217,9 @@
         <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
         <div class="menu" role="menu">
           <a role="menuitem" href="/users/{{$u.ID}}">{{$v.IconS "eye"}}<span>{{$v.T "common.details"}}</span></a>
+          {{if $v.Can "users.update"}}<a role="menuitem" href="/users/{{$u.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a><a role="menuitem" href="/users/{{$u.ID}}#renew-action" data-user-quick-action="renew" data-user-id="{{$u.ID}}" data-user-name="{{$u.Username}}">{{$v.IconS "calendar"}}<span>{{$v.T "users.quick.renew"}}</span></a>{{end}}
+          {{if and ($v.Can "users.update") $u.TrafficLimitBytes}}<a role="menuitem" href="/users/{{$u.ID}}#traffic-action" data-user-quick-action="traffic" data-user-id="{{$u.ID}}" data-user-name="{{$u.Username}}">{{$v.IconS "plus"}}<span>{{$v.T "users.action.add_traffic"}}</span></a>{{end}}
+          {{if $v.Can "traffic.update"}}<form role="none" method="post" action="/users/{{$u.ID}}/traffic/reset" data-confirm data-confirm-title="{{$v.T "users.traffic_reset.title" $u.Username}}" data-confirm-message="{{$v.T "users.traffic_reset.confirm"}}" data-confirm-label="{{$v.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{$v.CSRF}}"><button type="submit" role="menuitem">{{$v.IconS "refresh-cw"}}<span>{{$v.T "users.action.reset_traffic"}}</span></button></form>{{end}}
           {{if $v.Can "users.update"}}
           {{if eq (printf "%v" $u.Status) "active"}}
           <form role="none" method="post" action="/users/{{$u.ID}}/disable">

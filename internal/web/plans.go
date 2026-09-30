@@ -171,7 +171,7 @@ func (s *Server) handlePlanCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "plan.created", p.ID, map[string]any{"name": p.Name})
-	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.created")
+	s.redirectToast(w, r, operationalReturnPath(r, "/templates", "templates.read"), "plans.toast.created")
 }
 
 func (s *Server) handlePlanUpdate(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +186,7 @@ func (s *Server) handlePlanUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "plan.updated", p.ID, map[string]any{"name": p.Name})
-	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.updated")
+	s.redirectToast(w, r, operationalReturnPath(r, "/templates", "templates.read"), "plans.toast.updated")
 }
 
 func (s *Server) handlePlanEnable(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +204,7 @@ func (s *Server) planToggle(w http.ResponseWriter, r *http.Request, enable bool)
 		return
 	}
 	s.audit(r, "plan.updated", id, nil)
-	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.toggled")
+	s.redirectToast(w, r, operationalReturnPath(r, "/templates", "templates.read"), "plans.toast.toggled")
 }
 
 func (s *Server) handlePlanDelete(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +214,7 @@ func (s *Server) handlePlanDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "plan.deleted", id, nil)
-	s.redirectToast(w, r, operationalReturnPath(r, "/plans", "plans.read"), "plans.toast.deleted")
+	s.redirectToast(w, r, operationalReturnPath(r, "/templates", "templates.read"), "plans.toast.deleted")
 }
 
 func newPlanFormData(p *plan.Plan, refs []ifaceRef) planFormData {

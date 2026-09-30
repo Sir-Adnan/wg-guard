@@ -9,9 +9,9 @@
     <p>{{.T "plans.subtitle"}}</p>
     </div>
   </div>
-  {{if .Can "plans.write"}}
+  {{if .Can "templates.write"}}
   <div class="actions">
-    <a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.new"}}</span></a>
+    <a class="btn btn--primary" href="/templates/new">{{.IconS "plus"}}<span>{{.T "plans.new"}}</span></a>
   </div>
   {{end}}
 </div>
@@ -28,7 +28,7 @@
         <th>{{.T "plans.device_limit"}}</th>
         <th>{{.T "plans.speed"}}</th>
         <th>{{.T "plans.users_count"}}</th>
-        {{if .Can "plans.write"}}<th class="text-end">{{.T "common.actions"}}</th>{{end}}
+        {{if .Can "templates.write"}}<th class="text-end">{{.T "common.actions"}}</th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -42,7 +42,7 @@
     <span class="empty-visual" aria-hidden="true">{{.Icon "layers"}}</span>
     <h3>{{.T "plans.empty.title"}}</h3>
     <p>{{.T "plans.empty.desc"}}</p>
-    {{if .Can "plans.write"}}<a class="btn btn--primary" href="/plans/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>{{end}}
+    {{if .Can "templates.write"}}<a class="btn btn--primary" href="/templates/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>{{end}}
   </div>
 </div>
 {{end}}
@@ -52,7 +52,7 @@
 {{$row := .row}}{{$p := $row.P}}{{$v := .v}}
 <tr>
   <td class="card-title" data-label="{{$v.T "plans.name"}}">
-    {{if $v.Can "plans.write"}}<a class="entity-link" href="/plans/{{$p.ID}}/edit">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></a>{{else}}<span class="entity-link">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></span>{{end}}
+    {{if $v.Can "templates.write"}}<a class="entity-link" href="/templates/{{$p.ID}}/edit">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></a>{{else}}<span class="entity-link">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></span>{{end}}
     {{if $p.Enabled}}<span class="badge badge--ok">{{$v.T "plans.enabled"}}</span>{{else}}<span class="badge">{{$v.T "plans.disabled"}}</span>{{end}}
     {{if $row.IfaceUnavailable}}<span class="cell-sub">{{$v.T "users.interface"}}: {{$v.T "forms.unavailable"}}</span>{{end}}
     {{if $row.IfaceName}}<span class="cell-sub ltr-data">{{$row.IfaceName}}</span>{{end}}
@@ -65,25 +65,25 @@
     <span><span class="text-subtle">{{$v.T "plans.upload"}}</span><bdi class="ltr-data">{{$v.U $p.SpeedLimitUpKbps}}</bdi></span>
   </td>
   <td data-label="{{$v.T "plans.users_count"}}" >{{if $row.CountKnown}}<bdi class="ltr-data">{{$v.N (i64u $row.Users)}}</bdi>{{else}}<span class="text-subtle">{{$v.T "forms.unavailable"}}</span>{{end}}</td>
-  {{if $v.Can "plans.write"}}
+  {{if $v.Can "templates.write"}}
   <td class="text-end card-actions" data-label="{{$v.T "common.actions"}}">
-    <div class="entity-actions"><a class="btn btn--sm btn--ghost" href="/plans/{{$p.ID}}/edit">{{$v.T "common.edit"}}</a><div class="menu-anchor">
+    <div class="entity-actions"><a class="btn btn--sm btn--ghost" href="/templates/{{$p.ID}}/edit">{{$v.T "common.edit"}}</a><div class="menu-anchor">
       <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$p.Name}}">{{$v.IconS "more-vertical"}}</button>
       <div class="menu" role="menu">
-        <a role="menuitem" href="/plans/{{$p.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
+        <a role="menuitem" href="/templates/{{$p.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
         {{if $p.Enabled}}
-        <form role="none" method="post" action="/plans/{{$p.ID}}/disable">
+        <form role="none" method="post" action="/templates/{{$p.ID}}/disable">
           <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
           <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.disable"}}</span></button>
         </form>
         {{else}}
-        <form role="none" method="post" action="/plans/{{$p.ID}}/enable">
+        <form role="none" method="post" action="/templates/{{$p.ID}}/enable">
           <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
           <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.enable"}}</span></button>
         </form>
         {{end}}
         <hr>
-        <form role="none" method="post" action="/plans/{{$p.ID}}/delete" data-confirm
+        <form role="none" method="post" action="/templates/{{$p.ID}}/delete" data-confirm
               data-confirm-title="{{$v.T "common.confirm_delete"}}"
               data-confirm-message="{{$v.T "plans.delete_confirm" $p.Name}}"
               data-confirm-label="{{$v.T "common.delete"}}">

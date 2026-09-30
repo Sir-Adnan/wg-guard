@@ -42,6 +42,10 @@ func TestBrowserPhase10(t *testing.T) {
 	}
 	wireUpdateQueue(t, e)
 	uid, did, csrf, cookie := e.seedUserWithDevice()
+	// The browser fixture has a finite allowance so Add data is a valid action.
+	if _, err := e.db.Exec(`UPDATE users SET traffic_limit_bytes = 10000000000 WHERE id = ?`, uid); err != nil {
+		t.Fatal(err)
+	}
 	if suite := os.Getenv("WG_TEST_UI_SUITE"); suite == "appearance" || suite == "10.5" || suite == "10.6" {
 		// Mixed MB/GB values expose bidi and line-wrapping mistakes on the
 		// customer-facing summary without relying on any real subscriber.
@@ -50,13 +54,13 @@ func TestBrowserPhase10(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	reader := e.limitedLogin(t, []string{auth.ScopePlansRead, auth.ScopeIfaceRead})
-	rec := e.post("/plans", url.Values{"name": {"Monthly / ماهانه"}, "duration_days": {"30"}, "traffic_limit_gb": {"50"}, "device_limit": {"3"}}, cookie, csrf)
+	reader := e.limitedLogin(t, []string{auth.ScopeTemplatesRead, auth.ScopeIfaceRead})
+	rec := e.post("/templates", url.Values{"name": {"Monthly / ماهانه"}, "duration_days": {"30"}, "traffic_limit_gb": {"50"}, "device_limit": {"3"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("seed plan: status %d", rec.Code)
 	}
 	var pid, iid string
-	if err := e.db.QueryRow(`SELECT id FROM plans LIMIT 1`).Scan(&pid); err != nil {
+	if err := e.db.QueryRow(`SELECT id FROM templates LIMIT 1`).Scan(&pid); err != nil {
 		t.Fatal(err)
 	}
 	if os.Getenv("WG_TEST_UI_SUITE") == "next-plan" {
@@ -187,7 +191,7 @@ func finalBrowserStates(t *testing.T) []browserState {
 	if _, err := empty.db.Exec(`DELETE FROM audit_log`); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/users", "/plans", "/interfaces", "/tokens", "/webhooks", "/audit", "/backups", "/dashboard", "/updates"} {
+	for _, path := range []string{"/users", "/templates", "/interfaces", "/tokens", "/webhooks", "/audit", "/backups", "/dashboard", "/updates"} {
 		add(empty, base, cookie.Value, "empty-"+strings.TrimPrefix(path, "/"), path, 200, false)
 	}
 	add(empty, base, cookie.Value, "missing-user", "/users/not-present", 404, false)
@@ -202,6 +206,9 @@ func finalBrowserStates(t *testing.T) []browserState {
 
 	states := newEnv(t)
 	uid, did, _, owner := states.seedUserWithDevice()
+	if _, err := states.db.Exec(`UPDATE users SET traffic_limit_bytes = 10000000000 WHERE id = ?`, uid); err != nil {
+		t.Fatal(err)
+	}
 	stateBase := serve(states, false)
 	if _, err := states.db.Exec(`UPDATE devices SET enabled=0 WHERE id=?`, did); err != nil {
 		t.Fatal(err)
@@ -220,7 +227,7 @@ func finalBrowserStates(t *testing.T) []browserState {
 	}
 	for _, entry := range [][3]string{
 		{"interface-advanced", "/interfaces/new", "advanced"}, {"interface-validation", "/interfaces/new", "invalid-interface"},
-		{"plan-validation", "/plans/new", "invalid-plan"}, {"user-validation", "/users/new", "invalid-user"},
+		{"plan-validation", "/templates/new", "invalid-plan"}, {"user-validation", "/users/new", "invalid-user"},
 		{"settings-validation", "/settings", "invalid-settings"}, {"user-create-sheet", "/users", "user-create"},
 		{"calendar", "/users/new", "calendar"}, {"device-dialog", "/users/" + uid, "device-dialog"},
 		{"renew-dialog", "/users/" + uid, "renew-dialog"}, {"traffic-dialog", "/users/" + uid, "traffic-dialog"},
@@ -282,13 +289,13 @@ func finalBrowserStates(t *testing.T) []browserState {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, table := range []string{"devices", "plans", "tunnel_interfaces", "traffic_rollups"} {
+	for _, table := range []string{"devices", "templates", "tunnel_interfaces", "traffic_rollups"} {
 		if _, err := failed.db.Exec(`ALTER TABLE ` + table + ` RENAME TO unavailable_` + table); err != nil {
 			t.Fatal(err)
 		}
 	}
 	failed.srv.Backup = nil
-	for _, entry := range [][2]string{{"user-partial", "/users/" + failedID}, {"form-references-unavailable", "/users/" + failedID + "/edit"}, {"dashboard-unavailable", "/dashboard"}, {"backup-unavailable", "/backups"}, {"settings-references-unavailable", "/settings"}, {"plans-unavailable", "/plans"}, {"interfaces-unavailable", "/interfaces"}} {
+	for _, entry := range [][2]string{{"user-partial", "/users/" + failedID}, {"form-references-unavailable", "/users/" + failedID + "/edit"}, {"dashboard-unavailable", "/dashboard"}, {"backup-unavailable", "/backups"}, {"settings-references-unavailable", "/settings"}, {"plans-unavailable", "/templates"}, {"interfaces-unavailable", "/interfaces"}} {
 		add(failed, failedBase, failedOwner.Value, entry[0], entry[1], 200, false)
 	}
 	add(failed, failedBase, "", "public-devices-unavailable", "/sub/"+failedLink.Token, 200, true)

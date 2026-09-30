@@ -5,7 +5,7 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Release v0.1.3" src="https://img.shields.io/badge/release-v0.1.3-2563eb">
+    <img alt="Release v0.1.4" src="https://img.shields.io/badge/release-v0.1.4-2563eb">
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
@@ -20,7 +20,7 @@ recovery without turning the server into a large application stack.
 | | Built for operators |
 |---|---|
 | 🛡️ | **AmneziaWG control** — interfaces, generated anti-DPI profiles, peers, and guarded host reconciliation |
-| 👥 | **Subscriber lifecycle** — optional plans, quota, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
+| 👥 | **Subscriber lifecycle** — optional technical templates, quota top-ups, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
 | 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a simple public subscription page |
 | 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
 | 🔐 | **Safe operations** — owner/reseller permissions, scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
@@ -74,7 +74,7 @@ prerequisites and integrity details.
 
 1. Check the dashboard and `sudo wg-guard doctor` for a healthy node.
 2. Create an interface and choose a plain or compatible AmneziaWG profile.
-3. Add a user; use a plan only when you want shared defaults.
+3. Add a user; use a template only when you want shared technical defaults. A connected owner bot can supply direct entitlement terms and keep its products and prices outside WG-Guard.
 4. Create or review the device, then share its QR code, config, or subscription link.
 
 Replacing a subscription link also replaces its device credentials so previously issued
@@ -103,8 +103,9 @@ and limits are in [project status](docs/development/status.md).
 ### API and design
 
 The same node exposes a documented `/api/v1` for external systems. An atomic purchase creates
-a user, device and customer link with a recoverable result; reseller tokens remain in their own
-customer namespace. Cursor pagination, scoped delivery receipts and signed webhooks support
+a user, device and customer link; quota top-ups also return a recoverable before/after result.
+Reseller tokens remain in their own customer namespace. Cursor pagination, scoped delivery
+receipts and signed webhooks support
 integration without screen-scraping. The web panel remains server-rendered, and the host owns
 tunnel interfaces, firewall rules, and shaping. Start with the [API contract](docs/architecture/api.md) or
 [architecture overview](docs/architecture/overview.md).

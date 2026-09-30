@@ -25,7 +25,8 @@
   </div>
   {{end}}
 </section>
-<section class="form-section card card--pad premium-form-section" id="user-limits" data-section-tone="violet" aria-labelledby="user-limits-title">
+{{if not .edit}}{{template "user_plan_choice" dict "v" $v "d" $d "bulk" .bulk}}{{end}}
+<section class="form-section card card--pad premium-form-section" id="user-limits" data-section-tone="violet" aria-labelledby="user-limits-title" {{if not .edit}}data-user-manual {{if $f.V "template_id"}}hidden{{end}}{{end}}>
   <div class="form-section-head"><span class="section-icon" aria-hidden="true">{{$v.IconS "gauge"}}</span><h2 id="user-limits-title">{{$v.T "users.form.section_limits"}}</h2></div>
   <p class="section-description">{{$v.T "users.form.allowance_hint"}}</p>
   <div class="field-row">
@@ -44,11 +45,8 @@
     </div>
     {{template "user_field" dict "v" $v "f" $f "key" "device_limit" "label" "users.form.device_limit" "hint" "plans.form.devices_hint" "numeric" true}}
   </div>
-  {{if and (not .edit) (not .bulk) ($v.Can "devices.write")}}
-  <label class="feature-toggle"><input class="checkbox" type="checkbox" name="auto_devices" value="1" {{if eq ($f.V "auto_devices") "1"}}checked{{end}}><span class="feature-toggle-icon" aria-hidden="true">{{$v.IconS "qr-code"}}</span><span><strong>{{$v.T "users.form.auto_devices"}}</strong><small>{{$v.T "users.form.configs_hint"}}</small></span></label>
-  {{end}}
 </section>
-<section class="form-section card card--pad premium-form-section" id="user-timing" data-section-tone="amber" aria-labelledby="user-timing-title">
+<section class="form-section card card--pad premium-form-section" id="user-timing" data-section-tone="amber" aria-labelledby="user-timing-title" {{if not .edit}}data-user-manual {{if $f.V "template_id"}}hidden{{end}}{{end}}>
   <div class="form-section-head"><span class="section-icon" aria-hidden="true">{{$v.IconS "clock"}}</span><h2 id="user-timing-title">{{$v.T "users.form.section_timing"}}</h2></div>
   <p class="section-description">{{if .edit}}{{$v.T "users.form.edit_timing_hint"}}{{else}}{{$v.T "users.form.timing_hint"}}{{end}}</p>
   <div class="field-row">
@@ -94,16 +92,16 @@
       <textarea class="textarea" id="u-note" name="note" rows="5" dir="auto" maxlength="2000" {{if $f.Invalid "note"}}aria-invalid="true"{{end}} aria-describedby="u-note-hint">{{$f.V "note"}}</textarea>
       <span class="hint" id="u-note-hint">{{$v.T "users.form.note_hint"}}{{if $f.Invalid "note"}} <span class="field-error">{{$v.T (index $f.Fields "note")}}</span>{{end}}</span>
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="u-plan">{{$v.T "users.plan"}}</label>
-        <select class="select" id="u-plan" name="plan" aria-describedby="u-plan-help">
-          <option value="">{{$v.T "users.no_plan"}}</option>
-          {{$planFound := false}}{{range $d.Plans}}<option value="{{.ID}}" {{if eq ($f.V "plan") .ID}}{{$planFound = true}}selected{{end}}>{{.Name}}</option>{{end}}
-          {{if and ($f.V "plan") (not $planFound)}}<option value="{{$f.V "plan"}}" selected>{{$v.T "users.form.selection_unavailable"}}</option>{{end}}
-        </select>
-        <span class="hint" id="u-plan-help">{{if not $d.PlansKnown}}{{$v.T "users.form.options_unavailable"}}{{else if and ($f.V "plan") (not $planFound)}}{{$v.T "users.form.selection_unavailable"}}{{end}}</span>
-      </div>
+    {{if .edit}}<div class="field">
+      <label for="u-template">{{$v.T "users.plan"}}</label>
+      <select class="select" id="u-template" name="template_id" aria-describedby="u-template-help">
+        <option value="">{{$v.T "users.no_plan"}}</option>
+        {{$planFound := false}}{{range $d.Plans}}<option value="{{.ID}}" {{if eq ($f.V "template_id") .ID}}{{$planFound = true}}selected{{end}}>{{.Name}}</option>{{end}}
+        {{if and ($f.V "template_id") (not $planFound)}}<option value="{{$f.V "template_id"}}" selected>{{$v.T "users.form.selection_unavailable"}}</option>{{end}}
+      </select>
+      <span class="hint" id="u-template-help">{{$v.T "users.form.plan_edit_hint"}}</span>
+    </div>{{end}}
+    <div class="field-row" {{if not .edit}}data-template-owned {{if $f.V "template_id"}}hidden{{end}}{{end}}>
       <div class="field">
         <label for="u-iface">{{$v.T "users.interface"}}</label>
         <select class="select" id="u-iface" name="interface" aria-describedby="u-iface-help">
@@ -114,13 +112,51 @@
         <span class="hint" id="u-iface-help">{{if not $d.IfacesKnown}}{{$v.T "users.form.options_unavailable"}}{{else if and ($f.V "interface") (not $ifaceFound)}}{{$v.T "users.form.selection_unavailable"}}{{else}}{{$v.T "users.form.interface_hint"}}{{end}}</span>
       </div>
     </div>
-    <div class="field-row">
+    <div class="field-row" {{if not .edit}}data-template-owned {{if $f.V "template_id"}}hidden{{end}}{{end}}>
       {{template "user_field" dict "v" $v "f" $f "key" "speed_down" "label" "users.form.speed_down" "hint" "users.form.speed_hint" "decimal" true}}
       {{template "user_field" dict "v" $v "f" $f "key" "speed_up" "label" "users.form.speed_up" "hint" "users.form.speed_hint" "decimal" true}}
     </div>
     {{template "user_field" dict "v" $v "f" $f "key" "tags" "label" "users.form.tags" "hint" "users.tags_hint" "numeric" false}}
   </div>
 </details>
+{{end}}
+
+{{define "user_plan_choice"}}
+{{$v := .v}}{{$d := .d}}{{$f := $d.Form}}
+<section class="form-section card card--pad premium-form-section user-template-section" id="user-template-choice" data-section-tone="cyan" aria-labelledby="user-template-title" data-user-template-shell>
+  <div class="form-section-head"><span class="section-icon" aria-hidden="true">{{$v.IconS "layers"}}</span><h2 id="user-template-title">{{$v.T "users.form.template_choice"}}</h2></div>
+  <p class="section-description">{{$v.T "users.form.template_hint"}}</p>
+  <div class="field">
+    <label for="u-template">{{$v.T "users.plan"}}</label>
+    <select class="select" id="u-template" name="template_id" data-user-template aria-describedby="u-template-help" {{if $f.Invalid "template_id"}}aria-invalid="true"{{end}}>
+      <option value="">{{$v.T "users.form.custom"}}</option>
+      {{$planFound := false}}{{range $d.Plans}}{{if .Enabled}}<option value="{{.ID}}" {{if eq ($f.V "template_id") .ID}}{{$planFound = true}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+      {{if and ($f.V "template_id") (not $planFound)}}<option value="{{$f.V "template_id"}}" selected>{{$v.T "users.form.selection_unavailable"}}</option>{{end}}
+    </select>
+    <span class="hint" id="u-template-help">{{if not $d.PlansKnown}}{{$v.T "users.form.options_unavailable"}}{{else}}{{$v.T "users.form.template_help"}}{{end}}{{if $f.Invalid "template_id"}} <span class="field-error">{{$v.T "users.form.selection_unavailable"}}</span>{{end}}</span>
+  </div>
+  <div class="user-template-preview" data-user-template-preview {{if not $planFound}}hidden{{end}}>
+    {{range $d.Plans}}{{if .Enabled}}
+    <article class="user-template-card" data-user-template-card="{{.ID}}" {{if ne ($f.V "template_id") .ID}}hidden{{end}}>
+      <div class="user-template-card-head"><span class="section-icon" aria-hidden="true">{{$v.IconS "layers"}}</span><div><small>{{$v.T "users.form.template_selected"}}</small><strong>{{.Name}}</strong></div></div>
+      <dl class="user-template-metrics">
+        <div><dt>{{$v.T "plans.quota"}}</dt><dd>{{$v.BLim .TrafficLimitBytes}}</dd></div>
+        <div><dt>{{$v.T "plans.duration"}}</dt><dd>{{$v.DurLim .DurationSeconds}}</dd></div>
+        <div><dt>{{$v.T "plans.device_limit"}}</dt><dd>{{if .DeviceLimit}}{{$v.KD .DeviceLimit}}{{else}}{{$v.T "common.unlimited"}}{{end}}</dd></div>
+      </dl>
+      <details class="user-template-extra"><summary>{{$v.T "users.form.template_more"}}</summary><dl class="user-template-metrics">
+        <div><dt>{{$v.T "users.start_policy"}}</dt><dd>{{$v.T (printf "users.start_policy.%s" .StartPolicy)}}</dd></div>
+        <div><dt>{{$v.T "plans.speed_down"}}</dt><dd>{{$v.U .SpeedLimitDownKbps}}</dd></div>
+        <div><dt>{{$v.T "plans.speed_up"}}</dt><dd>{{$v.U .SpeedLimitUpKbps}}</dd></div>
+        <div><dt>{{$v.T "users.interface"}}</dt><dd>{{if .InterfaceName}}{{.InterfaceName}}{{else}}{{$v.T "users.form.system_profile"}}{{end}}</dd></div>
+      </dl></details>
+    </article>
+    {{end}}{{end}}
+  </div>
+  {{if and (not .bulk) ($v.Can "devices.write")}}
+  <label class="feature-toggle"><input class="checkbox" type="checkbox" name="auto_devices" value="1" {{if eq ($f.V "auto_devices") "1"}}checked{{end}}><span class="feature-toggle-icon" aria-hidden="true">{{$v.IconS "qr-code"}}</span><span><strong>{{$v.T "users.form.auto_devices"}}</strong><small>{{$v.T "users.form.configs_hint"}}</small></span></label>
+  {{end}}
+</section>
 {{end}}
 
 {{define "user_field"}}

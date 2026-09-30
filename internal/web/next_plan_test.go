@@ -32,7 +32,7 @@ func TestNextPlanOwnerPanelFlow(t *testing.T) {
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `id="next-plan-id"`) {
 		t.Fatalf("next-plan form unavailable: %d", page.Code)
 	}
-	queued := e.post("/users/"+uid+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf)
+	queued := e.post("/users/"+uid+"/next-plan", url.Values{"template_id": {p.ID}}, cookie, csrf)
 	if queued.Code != http.StatusSeeOther {
 		t.Fatalf("queue action: %d %s", queued.Code, queued.Body.String())
 	}

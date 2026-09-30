@@ -96,7 +96,7 @@ func (s *Service) Create(ctx context.Context, in Input) (*Plan, error) {
 }
 
 func (s *Service) insert(ctx context.Context, p *Plan) error {
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO plans
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO templates
 		(id, name, traffic_limit_bytes, duration_seconds, start_policy, device_limit,
 		 speed_limit_down_kbps, speed_limit_up_kbps, interface_id, enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -148,7 +148,7 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Plan, error
 		return nil, err
 	}
 	p.UpdatedAt = s.now().UTC()
-	if _, err := s.db.ExecContext(ctx, `UPDATE plans SET name = ?, traffic_limit_bytes = ?,
+	if _, err := s.db.ExecContext(ctx, `UPDATE templates SET name = ?, traffic_limit_bytes = ?,
 		duration_seconds = ?, start_policy = ?, device_limit = ?, speed_limit_down_kbps = ?,
 		speed_limit_up_kbps = ?, interface_id = ?, enabled = ?, updated_at = ? WHERE id = ?`,
 		p.Name, nullI64(p.TrafficLimitBytes), nullI64(p.DurationSeconds), string(p.StartPolicy),
@@ -165,7 +165,7 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Plan, error
 
 // Get loads by ID.
 func (s *Service) Get(ctx context.Context, id string) (*Plan, error) {
-	return loadPlan(s.db.QueryRowContext(ctx, planColumns+` FROM plans WHERE id = ?`, id), id)
+	return loadPlan(s.db.QueryRowContext(ctx, planColumns+` FROM templates WHERE id = ?`, id), id)
 }
 
 // GetTx reads the catalogued product from the same write snapshot as an
@@ -174,7 +174,7 @@ func (s *Service) GetTx(ctx context.Context, tx *sql.Tx, id string) (*Plan, erro
 	if tx == nil {
 		return nil, domain.E(domain.CodeInvalidRequest, "plan transaction is required")
 	}
-	return loadPlan(tx.QueryRowContext(ctx, planColumns+` FROM plans WHERE id = ?`, id), id)
+	return loadPlan(tx.QueryRowContext(ctx, planColumns+` FROM templates WHERE id = ?`, id), id)
 }
 
 func loadPlan(row rowScanner, id string) (*Plan, error) {
@@ -190,7 +190,7 @@ func loadPlan(row rowScanner, id string) (*Plan, error) {
 
 // List returns all plans ordered by name.
 func (s *Service) List(ctx context.Context) ([]*Plan, error) {
-	rows, err := s.db.QueryContext(ctx, planColumns+` FROM plans ORDER BY name`)
+	rows, err := s.db.QueryContext(ctx, planColumns+` FROM templates ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("plan: list: %w", err)
 	}
@@ -209,19 +209,19 @@ func (s *Service) List(ctx context.Context) ([]*Plan, error) {
 // Delete removes a plan; refused while users still reference it.
 func (s *Service) Delete(ctx context.Context, id string) error {
 	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE plan_id = ? AND deleted_at IS NULL`, id).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE template_id = ? AND deleted_at IS NULL`, id).Scan(&count); err != nil {
 		return fmt.Errorf("plan: user count: %w", err)
 	}
 	if count > 0 {
 		return domain.E(domain.CodePlanInUse, "plan is assigned to %d users", count)
 	}
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM next_plan_queue WHERE plan_id = ?`, id).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM next_plan_queue WHERE template_id = ?`, id).Scan(&count); err != nil {
 		return fmt.Errorf("plan: queued successors: %w", err)
 	}
 	if count > 0 {
 		return domain.E(domain.CodePlanInUse, "plan is queued for %d users", count)
 	}
-	res, err := s.db.ExecContext(ctx, `DELETE FROM plans WHERE id = ?`, id)
+	res, err := s.db.ExecContext(ctx, `DELETE FROM templates WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("plan: delete: %w", err)
 	}

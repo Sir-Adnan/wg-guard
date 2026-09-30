@@ -348,6 +348,14 @@ func (v *View) RelIn(t *time.Time) string {
 // Dur renders a duration in seconds.
 func (v *View) Dur(sec int64) string { return i18n.FormatDuration(v.Locale, sec) }
 
+// DurLim renders a stored optional duration for template previews.
+func (v *View) DurLim(sec *int64) string {
+	if sec == nil {
+		return v.T("common.never")
+	}
+	return v.Dur(*sec)
+}
+
 // St renders a localized lifecycle status label.
 func (v *View) St(status string) string { return v.T("status." + status) }
 

@@ -32,7 +32,7 @@ func nextPlanFixture(t *testing.T) (*Service, *reseller.Service, *secrets.KeyRin
 func buyNextPlanUser(t *testing.T, svc *Service, ring *secrets.KeyRing, planID, key string, resellerID *string) string {
 	t.Helper()
 	result, replay, err := svc.Purchase(context.Background(), PurchaseInput{
-		Key: key, PlanID: planID, ResellerID: resellerID, Keys: purchaseKeys(t, ring),
+		Key: key, TemplateID: planID, ResellerID: resellerID, Keys: purchaseKeys(t, ring),
 	})
 	if err != nil || replay {
 		t.Fatalf("purchase: %+v %v %v", result, replay, err)
@@ -44,7 +44,7 @@ func TestNextPlanQuotaActivationIsAtomicAndOneShot(t *testing.T) {
 	svc, _, ring, currentID, nextID := nextPlanFixture(t)
 	ctx := context.Background()
 	uid := buyNextPlanUser(t, svc, ring, currentID, "next-plan-quota", nil)
-	queued, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID})
+	queued, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID})
 	if err != nil || queued.State != "queued" || queued.Terms.TrafficLimitBytes == nil {
 		t.Fatalf("queue: %+v %v", queued, err)
 	}
@@ -64,7 +64,7 @@ func TestNextPlanQuotaActivationIsAtomicAndOneShot(t *testing.T) {
 		t.Fatalf("activate: %d %v", activated, err)
 	}
 	u, err := svc.Users.Get(ctx, uid)
-	if err != nil || u.PlanID == nil || *u.PlanID != nextID || u.TrafficLimitBytes == nil ||
+	if err != nil || u.TemplateID == nil || *u.TemplateID != nextID || u.TrafficLimitBytes == nil ||
 		*u.TrafficLimitBytes != 2_000_000 || u.TrafficUsedRX != 0 || u.TrafficUsedTX != 0 ||
 		u.Status != domain.UserActive || u.ExpiresAt == nil || !u.ExpiresAt.After(time.Now()) {
 		t.Fatalf("activated entitlement: %+v %v", u, err)
@@ -108,7 +108,7 @@ func TestNextPlanTimeCarryAndManualBlock(t *testing.T) {
 	svc, _, ring, currentID, nextID := nextPlanFixture(t)
 	ctx := context.Background()
 	uid := buyNextPlanUser(t, svc, ring, currentID, "next-plan-time", nil)
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID, CarryUnusedTraffic: true}); err != nil {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID, CarryUnusedTraffic: true}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.DB.ExecContext(ctx, `UPDATE users SET traffic_used_rx = 200000,
@@ -146,11 +146,11 @@ func TestNextPlanRequiresOwnedCustomerAndAssignedPlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := resellers.SetPlans(ctx, north.ID, []string{currentID}); err != nil {
+	if err := resellers.SetTemplates(ctx, north.ID, []string{currentID}); err != nil {
 		t.Fatal(err)
 	}
 	uid := buyNextPlanUser(t, svc, ring, currentID, "north-next", &north.ID)
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID, ResellerID: &south.ID}); domain.CodeOf(err) != domain.CodeUserNotFound {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID, ResellerID: &south.ID}); domain.CodeOf(err) != domain.CodeUserNotFound {
 		t.Fatalf("foreign queue: %v", err)
 	}
 	if _, err := svc.NextPlanForUser(ctx, uid, &south.ID); domain.CodeOf(err) != domain.CodeUserNotFound {
@@ -159,16 +159,16 @@ func TestNextPlanRequiresOwnedCustomerAndAssignedPlan(t *testing.T) {
 	if err := svc.CancelNextPlan(ctx, uid, &south.ID); domain.CodeOf(err) != domain.CodeUserNotFound {
 		t.Fatalf("foreign cancel: %v", err)
 	}
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID, ResellerID: &north.ID}); domain.CodeOf(err) != domain.CodeForbidden {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID, ResellerID: &north.ID}); domain.CodeOf(err) != domain.CodeForbidden {
 		t.Fatalf("unassigned successor: %v", err)
 	}
-	if err := resellers.SetPlans(ctx, north.ID, []string{currentID, nextID}); err != nil {
+	if err := resellers.SetTemplates(ctx, north.ID, []string{currentID, nextID}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID, ResellerID: &north.ID}); err != nil {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID, ResellerID: &north.ID}); err != nil {
 		t.Fatalf("assigned successor: %v", err)
 	}
-	if err := resellers.SetPlans(ctx, north.ID, []string{currentID}); err != nil {
+	if err := resellers.SetTemplates(ctx, north.ID, []string{currentID}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.DB.ExecContext(ctx, `UPDATE users SET traffic_used_rx = 1000000 WHERE id = ?`, uid); err != nil {
@@ -183,10 +183,10 @@ func TestNextPlanChangedCurrentPlanNeedsReview(t *testing.T) {
 	svc, _, ring, currentID, nextID := nextPlanFixture(t)
 	ctx := context.Background()
 	uid := buyNextPlanUser(t, svc, ring, currentID, "changed-current", nil)
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID}); err != nil {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.DB.ExecContext(ctx, `UPDATE users SET plan_id = ?, traffic_used_rx = 1000000 WHERE id = ?`, nextID, uid); err != nil {
+	if _, err := svc.DB.ExecContext(ctx, `UPDATE users SET template_id = ?, traffic_used_rx = 1000000 WHERE id = ?`, nextID, uid); err != nil {
 		t.Fatal(err)
 	}
 	if n, err := svc.ActivateDueNextPlans(ctx); err != nil || n != 0 {
@@ -202,10 +202,10 @@ func TestNextPlanUnavailableInterfaceNeedsReview(t *testing.T) {
 	svc, _, ring, currentID, nextID := nextPlanFixture(t)
 	ctx := context.Background()
 	uid := buyNextPlanUser(t, svc, ring, currentID, "interface-review", nil)
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID}); err != nil {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.DB.ExecContext(ctx, `UPDATE tunnel_interfaces SET enabled = 0 WHERE id = (SELECT interface_id FROM plans WHERE id = ?)`, nextID); err != nil {
+	if _, err := svc.DB.ExecContext(ctx, `UPDATE tunnel_interfaces SET enabled = 0 WHERE id = (SELECT interface_id FROM templates WHERE id = ?)`, nextID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.DB.ExecContext(ctx, `UPDATE users SET traffic_used_rx = 1000000 WHERE id = ?`, uid); err != nil {
@@ -224,7 +224,7 @@ func TestNextPlanExactSecondExpiryIsNotSkipped(t *testing.T) {
 	svc, _, ring, currentID, nextID := nextPlanFixture(t)
 	ctx := context.Background()
 	uid := buyNextPlanUser(t, svc, ring, currentID, "exact-second-expiry", nil)
-	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, PlanID: nextID}); err != nil {
+	if _, err := svc.QueueNextPlan(ctx, QueueNextPlanInput{UserID: uid, TemplateID: nextID}); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Add(time.Hour).Truncate(time.Second).Add(700 * time.Millisecond)

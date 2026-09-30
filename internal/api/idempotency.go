@@ -28,8 +28,6 @@ import (
 //   - same token + key, different request → 409 IDEMPOTENCY_KEY_REUSED;
 //   - same key while the first request is still in flight → 409 (rare: the
 //     window is the handler duration);
-//   - an unexpired key from a pre-scoping build → 409, never an unsafe replay
-//     or a second mutation during the upgrade window;
 //   - no key header → the handler runs normally.
 type idempotencyStore struct {
 	db *database.DB
@@ -70,17 +68,6 @@ func (st *idempotencyStore) wrap(next http.Handler) http.Handler {
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		hash := requestHash(r.Method, r.URL.Path, body)
-		legacy, err := st.legacyKeyActive(r.Context(), key)
-		if err != nil {
-			writeServiceErr(w, r, err)
-			return
-		}
-		if legacy {
-			writeErr(w, r, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED",
-				"Idempotency-Key predates token-scoped replay; reconcile the prior result before using a new key")
-			return
-		}
-
 		// Claim the key. The PRIMARY KEY is the arbiter: a concurrent claim
 		// fails the insert and resolves below.
 		claimed, err := st.claim(r.Context(), storedKey, hash)
@@ -142,17 +129,6 @@ func (st *idempotencyStore) claim(ctx context.Context, key, hash string) (bool, 
 		return false, nil
 	}
 	return false, err
-}
-
-func (st *idempotencyStore) legacyKeyActive(ctx context.Context, key string) (bool, error) {
-	var found int
-	err := st.db.QueryRowContext(ctx,
-		`SELECT 1 FROM idempotency_keys WHERE key = ? AND expires_at > ?`,
-		key, time.Now().UTC().Format(time.RFC3339Nano)).Scan(&found)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	return err == nil, err
 }
 
 func (st *idempotencyStore) lookup(ctx context.Context, key, hash string) (*idemResponse, bool, error) {

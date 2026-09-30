@@ -359,6 +359,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.accounting.Reconciler = rec
 	n.accounting.Recorder = recorder
 	n.accounting.AfterMetering = integrations.ActivateDueNextPlans
+	integrations.Accounting = n.accounting
 
 	n.webhookWorker = webhook.NewWorker(db, n.ring, n.reg, logs.webhook)
 	n.sessions = auth.NewSessionStore(db, n.sessionIdleTTL(ctx), n.sessionAbsoluteTTL(ctx))

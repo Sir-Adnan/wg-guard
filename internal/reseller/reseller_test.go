@@ -50,24 +50,24 @@ func TestResellerAccountPersistenceAndDisable(t *testing.T) {
 	if err != nil || len(list) != 1 || list[0].ID != a.ID {
 		t.Fatalf("list = %+v, %v", list, err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO plans (id, name, enabled, created_at, updated_at) VALUES
+	if _, err := db.ExecContext(ctx, `INSERT INTO templates (id, name, enabled, created_at, updated_at) VALUES
 		('p1', 'Basic', 1, 'test', 'test'), ('p2', 'Retired', 0, 'test', 'test')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.SetPlans(ctx, a.ID, []string{"p1"}); err != nil {
+	if err := svc.SetTemplates(ctx, a.ID, []string{"p1"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.SetPlans(ctx, a.ID, []string{"p2"}); domain.CodeOf(err) != domain.CodeInvalidRequest {
+	if err := svc.SetTemplates(ctx, a.ID, []string{"p2"}); domain.CodeOf(err) != domain.CodeInvalidRequest {
 		t.Fatalf("disabled plan assigned: %v", err)
 	}
-	plans, err := svc.Plans(ctx, a.ID)
+	plans, err := svc.Templates(ctx, a.ID)
 	if err != nil || len(plans) != 1 || plans[0] != "p1" {
 		t.Fatalf("failed assignment changed plans: %v, %v", plans, err)
 	}
-	if err := svc.SetPlans(ctx, a.ID, nil); err != nil {
+	if err := svc.SetTemplates(ctx, a.ID, nil); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = svc.Plans(ctx, a.ID)
+	plans, err = svc.Templates(ctx, a.ID)
 	if err != nil || len(plans) != 0 {
 		t.Fatalf("clear assignments: %v, %v", plans, err)
 	}

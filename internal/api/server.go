@@ -98,7 +98,7 @@ func New(d Deps) *Server {
 	}
 	if d.Integration == nil && d.Links != nil {
 		d.Integration = &integration.Service{DB: d.DB, Users: d.Users, Devices: d.Devices,
-			Plans: d.Plans, Links: d.Links}
+			Plans: d.Plans, Links: d.Links, Accounting: d.Accounting}
 	}
 	if d.ClientConf == nil {
 		d.ClientConf = &clientconf.Renderer{
@@ -197,6 +197,7 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/enable", Scope: "users.update", Handler: s.handleUserEnable})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/disable", Scope: "users.update", Handler: s.handleUserDisable})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/renew", Scope: "users.update", Handler: s.handleUserRenew, Idempotent: true})
+	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/quota/add", Scope: "users.update", Handler: s.handleQuotaTopUp, TenantPolicy: tenantUserID})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/traffic/add", Scope: "traffic.update", Handler: s.handleTrafficAdd, Idempotent: true})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/traffic/set", Scope: "traffic.update", Handler: s.handleTrafficSet, Idempotent: true})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/users/{id}/traffic/reset", Scope: "traffic.update", Handler: s.handleTrafficReset, Idempotent: true, TenantPolicy: tenantUserID})
@@ -222,11 +223,11 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/devices/{id}/stats", Scope: "stats.read", Handler: s.handleDeviceStats, TenantPolicy: tenantDeviceID})
 
 	// --- Plans ---
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/plans", Scope: "plans.read", Handler: s.handlePlanList})
-	add(routeDef{Method: http.MethodPost, Path: "/api/v1/plans", Scope: "plans.write", Handler: s.handlePlanCreate})
-	add(routeDef{Method: http.MethodGet, Path: "/api/v1/plans/{id}", Scope: "plans.read", Handler: s.handlePlanGet})
-	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/plans/{id}", Scope: "plans.write", Handler: s.handlePlanUpdate})
-	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/plans/{id}", Scope: "plans.write", Handler: s.handlePlanDelete})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/templates", Scope: "templates.read", Handler: s.handlePlanList})
+	add(routeDef{Method: http.MethodPost, Path: "/api/v1/templates", Scope: "templates.write", Handler: s.handlePlanCreate})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/templates/{id}", Scope: "templates.read", Handler: s.handlePlanGet})
+	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/templates/{id}", Scope: "templates.write", Handler: s.handlePlanUpdate})
+	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/templates/{id}", Scope: "templates.write", Handler: s.handlePlanDelete})
 
 	// --- Interfaces ---
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/interfaces", Scope: "interfaces.read", Handler: s.handleIfaceList})

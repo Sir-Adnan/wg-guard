@@ -127,7 +127,7 @@ async function prepare(page, state, label) {
         await page.locator('#p-name').fill('QA plan');
         await page.locator('#p-device-limit').fill('invalid-limit');
         stage = 'plan validation submit';
-        await submit(page, page.locator('form[action="/plans"]'), 422);
+        await submit(page, page.locator('form[action="/templates"]'), 422);
         await page.locator('#p-device-limit[aria-invalid="true"]').waitFor();
         break;
 

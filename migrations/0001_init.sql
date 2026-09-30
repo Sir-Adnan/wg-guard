@@ -33,7 +33,7 @@ CREATE TABLE tunnel_interfaces (
     CHECK (backend_mode IN ('kernel', 'userspace'))
 );
 
-CREATE TABLE plans (
+CREATE TABLE templates (
     id                  TEXT PRIMARY KEY,
     name                TEXT NOT NULL UNIQUE,
     traffic_limit_bytes INTEGER,
@@ -61,7 +61,7 @@ CREATE TABLE users (
     traffic_used_tx     INTEGER NOT NULL DEFAULT 0,
     speed_limit_kbps    INTEGER,
     device_limit        INTEGER,
-    plan_id             TEXT REFERENCES plans(id) ON DELETE SET NULL,
+    template_id             TEXT REFERENCES templates(id) ON DELETE SET NULL,
     interface_id        TEXT REFERENCES tunnel_interfaces(id) ON DELETE SET NULL,
     start_policy        TEXT NOT NULL DEFAULT 'immediate',
     duration_seconds    INTEGER,
@@ -77,7 +77,7 @@ CREATE TABLE users (
 );
 
 CREATE INDEX idx_users_status ON users(status);
-CREATE INDEX idx_users_plan ON users(plan_id);
+CREATE INDEX idx_users_plan ON users(template_id);
 
 CREATE TABLE devices (
     id                     TEXT PRIMARY KEY,

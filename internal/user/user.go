@@ -42,7 +42,7 @@ type User struct {
 	SpeedLimitDownKbps *int // nil = unlimited (server→client)
 	SpeedLimitUpKbps   *int // nil = unlimited (client→server)
 	DeviceLimit        *int
-	PlanID             *string
+	TemplateID         *string
 	InterfaceID        *string // chosen profile; nil = system default profile
 	StartPolicy        domain.StartPolicy
 	DurationSeconds    *int64
@@ -76,7 +76,7 @@ type Input struct {
 	SpeedLimitDownKbps domain.OptInt
 	SpeedLimitUpKbps   domain.OptInt
 	DeviceLimit        domain.OptInt
-	PlanID             domain.OptString
+	TemplateID         domain.OptString
 	InterfaceID        domain.OptString
 	StartPolicy        domain.StartPolicy
 	DurationSeconds    *int64
@@ -153,7 +153,7 @@ func (s *Service) buildCreate(in Input) *User {
 		ResellerID:      in.ResellerID,
 		Username:        in.Username,
 		DeviceLimit:     in.DeviceLimit.Resolve(nil),
-		PlanID:          resolveString(in.PlanID, nil),
+		TemplateID:      resolveString(in.TemplateID, nil),
 		InterfaceID:     resolveString(in.InterfaceID, nil),
 		StartPolicy:     in.StartPolicy,
 		DurationSeconds: in.DurationSeconds,
@@ -218,13 +218,13 @@ func (s *Service) insert(ctx context.Context, tx *sql.Tx, u *User) error {
 	}
 	_, err := tx.ExecContext(ctx, `INSERT INTO users
 		(id, reseller_id, username, display_name, note, tags, status, disable_reason, traffic_limit_bytes,
-		 speed_limit_down_kbps, speed_limit_up_kbps, device_limit, plan_id, interface_id, start_policy,
+		 speed_limit_down_kbps, speed_limit_up_kbps, device_limit, template_id, interface_id, start_policy,
 		 duration_seconds, activated_at, expires_at, enabled, metadata, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		u.ID, nullText(u.ResellerID), u.Username, u.DisplayName, u.Note, tagsJSON, string(u.Status), disableReason,
 		nullI64(u.TrafficLimitBytes), nullInt(u.SpeedLimitDownKbps), nullInt(u.SpeedLimitUpKbps),
 		nullInt(u.DeviceLimit),
-		nullText(u.PlanID), nullText(u.InterfaceID), string(u.StartPolicy), nullI64(u.DurationSeconds),
+		nullText(u.TemplateID), nullText(u.InterfaceID), string(u.StartPolicy), nullI64(u.DurationSeconds),
 		nullTime(u.ActivatedAt), nullTime(u.ExpiresAt), boolInt(u.Enabled), metaJSON,
 		u.CreatedAt.Format(time.RFC3339Nano), u.CreatedAt.Format(time.RFC3339Nano))
 	if err != nil {
@@ -352,7 +352,7 @@ type ListFilter struct {
 	ExpiresAfter    *time.Time
 	CreatedBefore   *time.Time
 	CreatedAfter    *time.Time
-	PlanID          *string
+	TemplateID      *string
 	InterfaceID     *string
 }
 
@@ -476,9 +476,9 @@ func (s *Service) ListPage(ctx context.Context, q ListQuery) (*Page, error) {
 		where.WriteString(" AND julianday(created_at) > ?")
 		args = append(args, julianday(*f.CreatedAfter))
 	}
-	if f.PlanID != nil && *f.PlanID != "" {
-		where.WriteString(" AND plan_id = ?")
-		args = append(args, *f.PlanID)
+	if f.TemplateID != nil && *f.TemplateID != "" {
+		where.WriteString(" AND template_id = ?")
+		args = append(args, *f.TemplateID)
 	}
 	if f.InterfaceID != nil && *f.InterfaceID != "" {
 		where.WriteString(" AND interface_id = ?")
@@ -607,7 +607,7 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*User, error
 	u.SpeedLimitDownKbps = in.SpeedLimitDownKbps.Resolve(u.SpeedLimitDownKbps)
 	u.SpeedLimitUpKbps = in.SpeedLimitUpKbps.Resolve(u.SpeedLimitUpKbps)
 	u.DeviceLimit = in.DeviceLimit.Resolve(u.DeviceLimit)
-	u.PlanID = resolveString(in.PlanID, u.PlanID)
+	u.TemplateID = resolveString(in.TemplateID, u.TemplateID)
 	u.InterfaceID = resolveString(in.InterfaceID, u.InterfaceID)
 	if in.DurationSeconds != nil {
 		u.DurationSeconds = in.DurationSeconds
@@ -847,13 +847,13 @@ func (s *Service) save(ctx context.Context, tx *sql.Tx, u *User) error {
 	_, err := tx.ExecContext(ctx, `UPDATE users SET
 		display_name = ?, note = ?, tags = ?, status = ?, disable_reason = ?,
 		traffic_limit_bytes = ?, speed_limit_down_kbps = ?, speed_limit_up_kbps = ?,
-		device_limit = ?, plan_id = ?, interface_id = ?, start_policy = ?, duration_seconds = ?,
+		device_limit = ?, template_id = ?, interface_id = ?, start_policy = ?, duration_seconds = ?,
 		activated_at = ?, expires_at = ?, enabled = ?, metadata = ?, deleted_at = ?, updated_at = ?
 		WHERE id = ?`,
 		u.DisplayName, u.Note, encodeTags(u.Tags), string(u.Status), disableReason,
 		nullI64(u.TrafficLimitBytes), nullInt(u.SpeedLimitDownKbps), nullInt(u.SpeedLimitUpKbps),
 		nullInt(u.DeviceLimit),
-		nullText(u.PlanID), nullText(u.InterfaceID), string(u.StartPolicy), nullI64(u.DurationSeconds),
+		nullText(u.TemplateID), nullText(u.InterfaceID), string(u.StartPolicy), nullI64(u.DurationSeconds),
 		nullTime(u.ActivatedAt), nullTime(u.ExpiresAt), boolInt(u.Enabled),
 		encodeMeta(u.Metadata), nullTime(u.DeletedAt), u.UpdatedAt.Format(time.RFC3339Nano), u.ID)
 	if err != nil {
@@ -864,7 +864,7 @@ func (s *Service) save(ctx context.Context, tx *sql.Tx, u *User) error {
 
 const userColumns = `SELECT id, username, display_name, note, tags, status, disable_reason,
 	traffic_limit_bytes, traffic_used_rx, traffic_used_tx, speed_limit_down_kbps,
-	speed_limit_up_kbps, device_limit, plan_id, interface_id, start_policy, duration_seconds,
+	speed_limit_up_kbps, device_limit, template_id, interface_id, start_policy, duration_seconds,
 	activated_at, expires_at, last_activity_at, enabled, metadata, deleted_at, created_at, updated_at,
 	reseller_id`
 
@@ -929,7 +929,7 @@ func scanUser(row rowScanner) (*User, error) {
 	}
 	if planID.Valid {
 		v := planID.String
-		u.PlanID = &v
+		u.TemplateID = &v
 	}
 	if ifaceID.Valid {
 		v := ifaceID.String
@@ -980,8 +980,8 @@ func (s *Service) CountForPlans(ctx context.Context, planIDs []string) (map[stri
 		args[i] = id
 	}
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT plan_id, COUNT(*) FROM users
-		WHERE deleted_at IS NULL AND plan_id IN (`+placeholders+`) GROUP BY plan_id`,
+		`SELECT template_id, COUNT(*) FROM users
+		WHERE deleted_at IS NULL AND template_id IN (`+placeholders+`) GROUP BY template_id`,
 		args...)
 	if err != nil {
 		return nil, fmt.Errorf("user: count by plan: %w", err)

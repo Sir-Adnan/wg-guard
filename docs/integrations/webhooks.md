@@ -5,6 +5,16 @@ the REST API, not as ordered commands or a billing ledger. The event catalog and
 JSON schemas are published in [`openapi.json`](../../internal/api/openapi.json) under `webhooks`
 and `components.schemas.WebhookEnvelope`.
 
+A sales bot does not need a webhook to make API calls or query customer state. Configure a
+destination only when it needs prompt server-initiated notifications. One destination can
+subscribe to several event types; use separate destinations when receivers need independent
+secrets, event selections or reseller ownership. The destination URL is hosted by the receiving
+integration, while API calls go to WG-Guard. A bot should still reconcile with API reads because
+delivery is at least once and can be delayed or missed after retention.
+Quota top-ups emit `user.updated` and, when a traffic-only block is lifted, `user.enabled` in
+the same database transaction as the entitlement. These are change signals, not payment
+receipts; use the principal-scoped operation result to recover a lost top-up response.
+
 ## Ownership and setup
 
 - A node-wide endpoint receives `node.started` and events for users without a reseller. Only the
@@ -31,7 +41,7 @@ The subscriber selects events from this V1 catalog: `user.created`, `user.update
 `user.enabled`, `user.disabled`, `user.expired`, `user.traffic_exceeded`,
 `user.first_connected`, `device.created`, `device.deleted`, `node.started`.
 `user.updated` may indicate a regular edit, deletion/restoration, or a queued successor plan
-activation (`plan_id` and `next_plan_trigger`). Read the current resource to distinguish state.
+activation (`template_id` and `next_plan_trigger`). Read the current resource to distinguish state.
 Private keys, configs and customer-link capabilities are never event payload fields.
 
 ## Delivery and verification

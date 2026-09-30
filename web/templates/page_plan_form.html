@@ -9,9 +9,9 @@
       <h1>{{if .Data.P}}{{.T "plans.edit"}}{{else}}{{.T "plans.new"}}{{end}}</h1><p>{{.T "plans.form.intro"}}</p>
       </div>
     </div>
-    <a class="btn btn--ghost" href="{{if .Can "plans.read"}}/plans{{else}}/{{end}}">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
+    <a class="btn btn--ghost" href="{{if .Can "templates.read"}}/templates{{else}}/{{end}}">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
   </div>
-  <form method="post" action="{{if .Data.P}}/plans/{{.Data.P.ID}}/edit{{else}}/plans{{end}}" class="form-stack plan-form" novalidate>
+  <form method="post" action="{{if .Data.P}}/templates/{{.Data.P.ID}}/edit{{else}}/templates{{end}}" class="form-stack plan-form" novalidate>
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     {{template "form_feedback" .}}
     <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
@@ -102,7 +102,7 @@
       </div>
     </details>
     <div class="form-actions">
-      <a class="btn btn--ghost" href="{{if .Can "plans.read"}}/plans{{else}}/{{end}}">{{.T "common.cancel"}}</a>
+      <a class="btn btn--ghost" href="{{if .Can "templates.read"}}/templates{{else}}/{{end}}">{{.T "common.cancel"}}</a>
       <button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "common.save"}}</button>
     </div>
   </form>

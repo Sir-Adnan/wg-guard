@@ -114,7 +114,7 @@ func TestResellerNextPlanAndUsageActionsStayOwned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := e.srv.Resellers.SetPlans(ctx, north.ID, []string{p.ID}); err != nil {
+	if err := e.srv.Resellers.SetTemplates(ctx, north.ID, []string{p.ID}); err != nil {
 		t.Fatal(err)
 	}
 	owned, err := e.srv.Users.Create(ctx, user.Input{Username: "north-next-user", ResellerID: &north.ID,
@@ -132,13 +132,13 @@ func TestResellerNextPlanAndUsageActionsStayOwned(t *testing.T) {
 	if rec := e.get("/reseller/users/"+owned.ID, cookie); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Reseller successor") {
 		t.Fatalf("assigned plan form: %d", rec.Code)
 	}
-	if rec := e.post("/reseller/users/"+owned.ID+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+	if rec := e.post("/reseller/users/"+owned.ID+"/next-plan", url.Values{"template_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
 		t.Fatalf("owned queue: %d %s", rec.Code, rec.Body.String())
 	}
-	if rec := e.post("/reseller/users/"+foreign.ID+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusNotFound {
+	if rec := e.post("/reseller/users/"+foreign.ID+"/next-plan", url.Values{"template_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusNotFound {
 		t.Fatalf("foreign queue: %d", rec.Code)
 	}
-	if rec := e.post("/users/"+owned.ID+"/next-plan", url.Values{"plan_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusForbidden {
+	if rec := e.post("/users/"+owned.ID+"/next-plan", url.Values{"template_id": {p.ID}}, cookie, csrf); rec.Code != http.StatusForbidden {
 		t.Fatalf("operator route used from reseller session: %d", rec.Code)
 	}
 	if rec := e.post("/reseller/users/"+owned.ID+"/traffic/reset", url.Values{}, cookie, csrf); rec.Code != http.StatusSeeOther {

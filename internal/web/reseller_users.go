@@ -89,7 +89,7 @@ func (s *Server) handleResellerUser(w http.ResponseWriter, r *http.Request) {
 		d.NextPlan = queued
 	}
 	if auth.Allows(adminFrom(r).Permissions, auth.ScopeNextPlansWrite) {
-		ids, err := s.Resellers.Plans(r.Context(), *adminFrom(r).ResellerID)
+		ids, err := s.Resellers.Templates(r.Context(), *adminFrom(r).ResellerID)
 		if err != nil {
 			s.logError(r, "reseller plans unavailable", err)
 			s.surfaceError(w, r, http.StatusServiceUnavailable, "common.error_generic", "")
@@ -124,14 +124,14 @@ func (s *Server) handleResellerNextPlanQueue(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	queued, err := s.Integration.QueueNextPlan(r.Context(), integration.QueueNextPlanInput{
-		UserID: u.ID, PlanID: r.PostFormValue("plan_id"), ResellerID: adminFrom(r).ResellerID,
+		UserID: u.ID, TemplateID: r.PostFormValue("template_id"), ResellerID: adminFrom(r).ResellerID,
 		CarryUnusedTraffic: r.PostFormValue("carry_unused_traffic") == "on",
 	})
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.audit(r, "user.next_plan_queued", u.ID, map[string]any{"plan_id": queued.PlanID})
+	s.audit(r, "user.next_plan_queued", u.ID, map[string]any{"template_id": queued.TemplateID})
 	s.redirectToast(w, r, "/reseller/users/"+u.ID, "users.next_plan.queued")
 }
 

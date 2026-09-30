@@ -30,21 +30,29 @@ type scopeGroup struct {
 // scopeGroups clusters the registry scopes into labeled families for the
 // permission matrix (stable order for rendering and tests).
 func scopeGroups() []scopeGroup {
+	return scopeGroupsFor(auth.AllScopes(), true)
+}
+
+func scopeGroupsFor(available []string, includeWildcards bool) []scopeGroup {
 	families := map[string][]string{}
-	for _, sc := range auth.AllScopes() {
+	for _, sc := range available {
 		fam := sc
 		if i := strings.Index(sc, "."); i > 0 {
 			fam = sc[:i]
 		}
 		families[fam] = append(families[fam], sc)
 	}
-	order := []string{"users", "devices", "configs", "traffic", "plans", "interfaces",
-		"stats", "node", "webhooks", "audit", "api_tokens", "admins", "server", "backup", "update"}
+	order := []string{"users", "devices", "configs", "traffic", "templates", "purchases",
+		"operations", "subscriptions", "next_plans", "interfaces", "stats", "node",
+		"webhooks", "audit", "api_tokens", "admins", "server", "backup", "update"}
 	out := make([]scopeGroup, 0, len(families))
 	seen := map[string]bool{}
 	for _, fam := range order {
 		if scopes, ok := families[fam]; ok {
-			out = append(out, scopeGroup{Family: fam, Scopes: append([]string{fam + ".*"}, scopes...)})
+			if includeWildcards {
+				scopes = append([]string{fam + ".*"}, scopes...)
+			}
+			out = append(out, scopeGroup{Family: fam, Scopes: scopes})
 			seen[fam] = true
 		}
 	}

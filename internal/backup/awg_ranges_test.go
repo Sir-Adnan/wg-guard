@@ -44,7 +44,7 @@ func TestPre0007AWGRangeBackupRestore(t *testing.T) {
 		        0, 0, '10-100')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.DB.ExecContext(ctx, `INSERT INTO plans
+	if _, err := svc.DB.ExecContext(ctx, `INSERT INTO templates
 		(id, name, interface_id, created_at, updated_at)
 		VALUES ('legacy-plan', 'kept-plan', 'legacy-iface', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ func TestPre0007AWGRangeBackupRestore(t *testing.T) {
 	}
 	defer restored.Close()
 	var planInterface string
-	if err := restored.QueryRowContext(ctx, `SELECT interface_id FROM plans WHERE id='legacy-plan'`).Scan(&planInterface); err != nil || planInterface != "legacy-iface" {
+	if err := restored.QueryRowContext(ctx, `SELECT interface_id FROM templates WHERE id='legacy-plan'`).Scan(&planInterface); err != nil || planInterface != "legacy-iface" {
 		t.Fatalf("unrelated plan relationship = %q, %v", planInterface, err)
 	}
 }

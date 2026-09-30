@@ -10,6 +10,45 @@
 
   const { openModal, toast } = await import(document.querySelector('meta[name="ui-module"]').content);
 
+  const userFilterMore = $('[data-user-filter-more]');
+  if (userFilterMore) {
+    const compactFilters = matchMedia('(max-width: 800px)');
+    const hasActiveFilter = () => {
+      const form = userFilterMore.closest('form');
+      return Boolean(form?.elements.q?.value.trim()) ||
+        !['', 'all'].includes(form?.elements.status?.value) ||
+        !['', 'created_new'].includes(form?.elements.sort?.value);
+    };
+    const syncFilterDisclosure = () => {
+      if (!compactFilters.matches) userFilterMore.open = true;
+      else if (!hasActiveFilter()) userFilterMore.open = false;
+    };
+    syncFilterDisclosure();
+    compactFilters.addEventListener('change', syncFilterDisclosure);
+  }
+
+  /* ---------- user template or manual subscription terms ---------- */
+  $$('[data-user-template]').forEach(select => {
+    const form = select.closest('form');
+    const preview = $('[data-user-template-preview]', form);
+    const cards = $$('[data-user-template-card]', form);
+    const manual = $$('[data-user-manual], [data-template-owned]', form);
+    const nav = $$('[data-user-manual-nav]', form);
+    const sync = () => {
+      const active = cards.find(card => card.dataset.userTemplateCard === select.value);
+      const fromTemplate = Boolean(active);
+      manual.forEach(section => {
+        section.hidden = fromTemplate;
+        $$('input, select, textarea', section).forEach(control => { control.disabled = fromTemplate; });
+      });
+      nav.forEach(link => { link.hidden = fromTemplate; });
+      cards.forEach(card => { card.hidden = card !== active; });
+      if (preview) preview.hidden = !fromTemplate;
+    };
+    select.addEventListener('change', sync);
+    sync();
+  });
+
   /* ---------- show-once secrets: select on focus ---------- */
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("[data-token-once]")) e.target.select();
@@ -111,6 +150,20 @@
   /* ---------- permission and webhook selection presets ---------- */
 
   document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('[data-user-quick-action]');
+    if (!trigger) return;
+    const kind = trigger.dataset.userQuickAction;
+    const modal = document.getElementById(kind === 'renew' ? 'users-quick-renew' : 'users-quick-traffic');
+    const form = modal?.querySelector('[data-user-quick-form]');
+    if (!form || !trigger.dataset.userId) return; // native detail-page link remains usable
+    event.preventDefault();
+    form.action = '/users/' + encodeURIComponent(trigger.dataset.userId) +
+      (kind === 'renew' ? '/renew' : '/quota/add');
+    modal.querySelector('[data-quick-user]').textContent = trigger.dataset.userName || '';
+    openModal(modal.id, trigger);
+  });
+
+  document.addEventListener('click', (event) => {
     const scopePreset = event.target.closest('[data-scope-preset]');
     const eventPreset = event.target.closest('[data-event-preset]');
     const button = scopePreset || eventPreset;
@@ -123,14 +176,15 @@
       boxes.forEach(box => { box.checked = eventPreset.dataset.eventPreset === 'all'; });
     } else {
       const preset = scopePreset.dataset.scopePreset;
-      const operational = new Set(['users', 'devices', 'configs', 'traffic', 'plans', 'interfaces', 'stats', 'webhooks']);
       boxes.forEach(box => {
-        const value = box.value;
-        const family = value.split('.')[0];
-        const exact = !value.endsWith('.*');
-        box.checked = preset === 'all' ? !exact :
-          preset === 'observer' ? exact && (value.endsWith('.read') || value === 'stats.read' || value === 'audit.view') :
-          preset === 'operator' ? exact && operational.has(family) : false;
+        const tier = box.dataset.scopeTier;
+        box.checked = preset === 'all' ? Boolean(tier) :
+          preset === 'observer' ? tier === 'observer' :
+          preset === 'operator' ? tier === 'observer' || tier === 'operator' : false;
+      });
+      $$('details.ops-scope-group', fieldset).forEach(group => {
+        if ($$('input:checked', group).length) group.open = true;
+        else if (preset === 'none') group.open = false;
       });
     }
     boxes[0]?.dispatchEvent(new Event('change', { bubbles: true }));
@@ -434,6 +488,8 @@
 
   let calEl = null;
   let cal = null; // {input, labels, jy, jm, view: "j"|"g", selected: Date|null, today}
+  let calUpdating = false;
+  let calPointerInside = false;
 
   function calFromISO(iso) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return null;
@@ -461,7 +517,13 @@
       // paints BELOW it. Mount the popover inside the dialog when the
       // trigger lives in one (create-user drawer), otherwise on <body>.
       (trigger.closest("dialog") || document.body).appendChild(calEl);
+      // WebKit may focus the containing dialog between pointerdown and click
+      // on an absolutely positioned child. That is not an outside focus move.
+      calEl.addEventListener("pointerdown", () => { calPointerInside = true; }, true);
       calEl.addEventListener("click", (e) => {
+        // Month navigation replaces the clicked button before this event reaches
+        // document; keep that same click from being mistaken for an outside click.
+        e.stopPropagation();
         const day = e.target.closest("[data-cal-day]");
         if (day && !day.disabled) { calPick(Number(day.dataset.calDay)); return; }
         if (e.target.closest("[data-cal-prev]")) { calMove(-1); return; }
@@ -499,6 +561,7 @@
   function calClose(returnFocus = true) {
     if (!calEl?.classList.contains("is-open")) return;
     calEl.classList.remove("is-open");
+    calPointerInside = false;
     cal.trigger.setAttribute("aria-expanded", "false");
     if (returnFocus) cal.trigger.focus({ preventScroll: true });
   }
@@ -512,8 +575,15 @@
     const today = new Date(cal.today.getFullYear(), cal.today.getMonth(), cal.today.getDate());
     cal.focusDate = date < today ? today : date;
     calSetView(cal.focusDate);
-    calRender();
-    $("[data-cal-day][tabindex='0']", calEl)?.focus({ preventScroll: true });
+    // Replacing a focused navigation button may briefly focus its parent
+    // dialog in WebKit. Restore day focus before treating focus as external.
+    calUpdating = true;
+    try {
+      calRender();
+      $("[data-cal-day][tabindex='0']", calEl)?.focus({ preventScroll: true });
+    } finally {
+      calUpdating = false;
+    }
   }
 
   function calMove(dir) {
@@ -570,6 +640,8 @@
       first = (firstG.getDay() + 6) % 7;
     }
     const todayISO = isoOf(cal.today);
+    const todayMonth = calFromISO(todayISO);
+    const previousAvailable = cal.jy > todayMonth.jy || (cal.jy === todayMonth.jy && cal.jm > todayMonth.jm);
     let cells = "";
     for (let i = 0; i < first; i++) cells += "<span></span>";
     for (let d = 1; d <= len; d++) {
@@ -592,7 +664,8 @@
     }
     calEl.innerHTML =
       '<div class="cal-head">' +
-      '<button type="button" class="icon-btn" data-cal-prev aria-label="' + (cal.labels.calPrev || "") + '">‹</button>' +
+      '<button type="button" class="icon-btn" data-cal-prev aria-label="' + (cal.labels.calPrev || "") + '"' +
+      (previousAvailable ? '' : ' disabled') + '>‹</button>' +
       '<span id="calendar-title" class="cal-title" aria-live="polite">' + title + "</span>" +
       '<button type="button" class="icon-btn" data-cal-next aria-label="' + (cal.labels.calNext || "") + '">›</button>' +
       "</div>" +
@@ -603,21 +676,26 @@
 
   function calPosition() {
     const r = cal.trigger.getBoundingClientRect();
+    // A modal dialog's top layer only accepts pointer events inside its own
+    // bounds (notably in WebKit), even when a child popover paints outside.
+    const host = cal.trigger.closest("dialog")?.getBoundingClientRect();
     const touch = matchMedia("(pointer: coarse)").matches || window.innerWidth <= 800;
-    // Seven 44px day targets need 338px with regular padding/gaps. At 320px,
-    // CSS removes grid gaps and uses 5px padding; no outer gutter is possible.
     const gutter = touch && window.innerWidth < 354 ? 0 : 8;
-    const w = Math.min(touch ? 338 : 296, window.innerWidth - gutter * 2);
+    const leftBound = Math.max(gutter, host ? host.left : gutter);
+    const rightBound = Math.min(window.innerWidth - gutter, host ? host.right : window.innerWidth - gutter);
+    const w = Math.min(touch ? 338 : 296, rightBound - leftBound);
     calEl.style.width = w + "px";
     let x = r.left + r.width / 2 - w / 2;
-    x = Math.max(gutter, Math.min(x, window.innerWidth - w - gutter));
+    x = Math.max(leftBound, Math.min(x, rightBound - w));
     let y = r.bottom + 6;
     calEl.style.insetInlineStart = "";
     calEl.style.left = x + "px";
     calEl.style.top = y + "px";
     // flip above if clipped at the bottom
     const h = calEl.offsetHeight;
-    if (y + h > window.innerHeight - 8) calEl.style.top = Math.max(8, r.top - h - 6) + "px";
+    const topBound = Math.max(8, host ? host.top + 1 : 8);
+    const bottomBound = Math.min(window.innerHeight - 8, host ? host.bottom - 1 : window.innerHeight - 8);
+    if (y + h > bottomBound) calEl.style.top = Math.max(topBound, r.top - h - 6) + "px";
   }
 
   document.addEventListener("click", (e) => {
@@ -645,8 +723,10 @@
     calFocus(date);
   }, true);
   document.addEventListener("focusin", e => {
-    if (calEl?.classList.contains("is-open") && !calEl.contains(e.target) && e.target !== cal.trigger) calClose(false);
+    if (!calUpdating && !calPointerInside && calEl?.classList.contains("is-open") && !calEl.contains(e.target) && e.target !== cal.trigger) calClose(false);
   });
+  document.addEventListener("pointerup", () => { calPointerInside = false; }, true);
+  document.addEventListener("pointercancel", () => { calPointerInside = false; }, true);
   document.addEventListener("close", e => { if (e.target.contains?.(calEl)) calClose(false); }, true);
   window.addEventListener("resize", () => { if (calEl?.classList.contains("is-open")) calPosition(); });
 

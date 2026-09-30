@@ -23,6 +23,19 @@ func testDB(t *testing.T) *database.DB {
 	return db
 }
 
+func TestTokenScopeSurfaceClassifiesRegistry(t *testing.T) {
+	for _, scope := range AllScopes() {
+		if apiScopes[scope] == panelOnlyScopes[scope] {
+			t.Errorf("scope %s must belong to exactly one token/panel surface", scope)
+		}
+	}
+	for _, scope := range APIScopes() {
+		if !apiScopes[scope] || panelOnlyScopes[scope] {
+			t.Errorf("REST token editor included panel-only %s", scope)
+		}
+	}
+}
+
 // TestAuthzMatrix is the acceptance-critical authorization matrix: every
 // (granted, required) combination that matters must resolve exactly as the
 // contract says (docs/architecture/api.md scopes).

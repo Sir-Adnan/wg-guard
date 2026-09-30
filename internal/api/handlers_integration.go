@@ -24,9 +24,10 @@ func (s *Server) handlePurchase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Username   string `json:"username"`
-		PlanID     string `json:"plan_id"`
-		DeviceName string `json:"device_name"`
+		Username    string                         `json:"username"`
+		TemplateID  string                         `json:"template_id"`
+		Entitlement *integration.DirectEntitlement `json:"entitlement"`
+		DeviceName  string                         `json:"device_name"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -39,7 +40,7 @@ func (s *Server) handlePurchase(w http.ResponseWriter, r *http.Request) {
 	verified := TokenFrom(r.Context())
 	result, replayed, err := s.Integration.Purchase(r.Context(), integration.PurchaseInput{
 		Key: key, ResellerID: verified.Token.ResellerID, Username: req.Username,
-		PlanID: req.PlanID, DeviceName: req.DeviceName, Keys: *keys,
+		TemplateID: req.TemplateID, Entitlement: req.Entitlement, DeviceName: req.DeviceName, Keys: *keys,
 	})
 	if err != nil {
 		writeServiceErr(w, r, err)
@@ -65,6 +66,43 @@ func (s *Server) handleOperationResult(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleQuotaTopUp(w http.ResponseWriter, r *http.Request) {
+	key, ok := integrationKey(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Bytes int64 `json:"bytes"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	verified := TokenFrom(r.Context())
+	result, replayed, err := s.Integration.TopUpQuota(r.Context(), integration.QuotaTopUpInput{
+		Key: key, ResellerID: verified.Token.ResellerID, UserID: r.PathValue("id"), Bytes: req.Bytes,
+	})
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	if replayed {
+		w.Header().Set("Idempotency-Replayed", "true")
+	} else {
+		s.audit(r, "integration.quota_top_up", result.UserID, map[string]any{
+			"operation_id": result.ID, "before_bytes": result.Before.TrafficLimitBytes,
+			"after_bytes": result.After.TrafficLimitBytes,
+		})
+	}
+	if result.Before.Status != result.After.Status {
+		if err := s.reconcile(r); err != nil {
+			writeErr(w, r, http.StatusServiceUnavailable, domain.CodeNodeUnavailable,
+				"quota committed; runtime reconciliation is pending; inspect the operation result")
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, result)
 }

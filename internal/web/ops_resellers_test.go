@@ -44,10 +44,10 @@ func TestOwnerManagesResellerBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rec := e.postForm("/resellers/"+id+"/plans", url.Values{"plans": {product.ID}}, owner); rec.Code != http.StatusSeeOther {
+	if rec := e.postForm("/resellers/"+id+"/templates", url.Values{"templates": {product.ID}}, owner); rec.Code != http.StatusSeeOther {
 		t.Fatalf("assign reseller plan: %d", rec.Code)
 	}
-	assigned, err := e.srv.Resellers.Plans(context.Background(), id)
+	assigned, err := e.srv.Resellers.Templates(context.Background(), id)
 	if err != nil || len(assigned) != 1 || assigned[0] != product.ID {
 		t.Fatalf("reseller plan access: %v, %v", assigned, err)
 	}
@@ -84,7 +84,7 @@ func TestOwnerManagesResellerBoundary(t *testing.T) {
 		t.Fatal("panel account was not bound to reseller")
 	}
 	staffCookie := e.loginEN("staff")
-	if rec := e.postForm("/resellers/"+id+"/plans", url.Values{}, staffCookie); rec.Code != http.StatusForbidden {
+	if rec := e.postForm("/resellers/"+id+"/templates", url.Values{}, staffCookie); rec.Code != http.StatusForbidden {
 		t.Fatalf("node operator changed reseller products: %d", rec.Code)
 	}
 	if body := e.get("/admins", staffCookie).Body.String(); strings.Contains(body, "northadmin") {

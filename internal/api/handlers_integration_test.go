@@ -51,7 +51,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 		return rec
 	}
 	path := "/api/v1/purchases"
-	body := `{"plan_id":"` + p.ID + `","username":"owner-customer"}`
+	body := `{"template_id":"` + p.ID + `","username":"owner-customer"}`
 	if rec := send(e.plainTok, http.MethodPost, path, "", body); rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing operation key: %d", rec.Code)
 	}
@@ -112,7 +112,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if rec := send(e.plainTok, http.MethodGet, "/api/v1/operations/result", "order-1", ""); rec.Code != http.StatusOK || decodeBody(t, rec)["user_id"] != firstBody["user_id"] {
 		t.Fatalf("lookup result: %d", rec.Code)
 	}
-	if rec := send(e.plainTok, http.MethodPost, path, "order-1", `{"plan_id":"`+p.ID+`","username":"other"}`); rec.Code != http.StatusConflict || errCode(t, rec) != domain.CodeIdempotencyKeyReused {
+	if rec := send(e.plainTok, http.MethodPost, path, "order-1", `{"template_id":"`+p.ID+`","username":"other"}`); rec.Code != http.StatusConflict || errCode(t, rec) != domain.CodeIdempotencyKeyReused {
 		t.Fatalf("key payload conflict: %d", rec.Code)
 	}
 	r, err := reseller.NewService(e.db).Create(ctx, "north", "North", []string{"purchases.create", "operations.read", "users.read", "subscriptions.read", "subscriptions.rotate", "traffic.update"})
@@ -132,7 +132,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resellerBody := `{"plan_id":"` + p.ID + `"}`
+	resellerBody := `{"template_id":"` + p.ID + `"}`
 	if rec := send(resellerToken, http.MethodGet, "/api/v1/operations/result", "order-1", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("owner result exposed to reseller: %d", rec.Code)
 	}
@@ -148,7 +148,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if rec := send(resellerToken, http.MethodPost, path, "order-1", resellerBody); rec.Code != http.StatusForbidden {
 		t.Fatalf("unassigned plan: %d", rec.Code)
 	}
-	if err := reseller.NewService(e.db).SetPlans(ctx, r.ID, []string{p.ID}); err != nil {
+	if err := reseller.NewService(e.db).SetTemplates(ctx, r.ID, []string{p.ID}); err != nil {
 		t.Fatal(err)
 	}
 	owned := send(resellerToken, http.MethodPost, path, "order-1", resellerBody)
@@ -205,7 +205,7 @@ func TestNextPlanRoutesAreScopedAndRecoverable(t *testing.T) {
 		e.handler.ServeHTTP(w, req)
 		return w
 	}
-	created := send(e.plainTok, http.MethodPost, "/api/v1/purchases", "next-order", `{"plan_id":"`+current.ID+`"}`)
+	created := send(e.plainTok, http.MethodPost, "/api/v1/purchases", "next-order", `{"template_id":"`+current.ID+`"}`)
 	if created.Code != http.StatusCreated {
 		t.Fatalf("purchase: %d %s", created.Code, created.Body.String())
 	}
@@ -217,7 +217,7 @@ func TestNextPlanRoutesAreScopedAndRecoverable(t *testing.T) {
 	if rec := send(e.plainTok, http.MethodGet, path+"/activations", "", ""); rec.Code != http.StatusOK {
 		t.Fatalf("empty activation history: %d", rec.Code)
 	}
-	queuedBody := `{"plan_id":"` + next.ID + `"}`
+	queuedBody := `{"template_id":"` + next.ID + `"}`
 	if rec := send(e.plainTok, http.MethodPut, path, "queue-1", queuedBody); rec.Code != http.StatusOK || decodeBody(t, rec)["state"] != "queued" {
 		t.Fatalf("queue: %d %s", rec.Code, rec.Body.String())
 	}

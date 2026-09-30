@@ -2,6 +2,8 @@ package web
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,14 +18,16 @@ import (
 // logs in with the English locale persisted.
 func (e *env) limitedLogin(t *testing.T, scopes []string) *http.Cookie {
 	t.Helper()
-	if _, err := e.admins.Create(context.Background(), "helper-"+strings.NewReplacer(".", "").Replace(strings.Join(scopes, "")), testPassword,
+	digest := sha256.Sum256([]byte(strings.Join(scopes, "\x00")))
+	username := fmt.Sprintf("helper-%x", digest[:8])
+	if _, err := e.admins.Create(context.Background(), username, testPassword,
 		auth.RoleAdmin, scopes); err != nil {
 		// A duplicate name means this helper already exists — log in instead.
 		if domain.CodeOf(err) != domain.CodeAdminExists {
 			t.Fatal(err)
 		}
 	}
-	return e.loginEN("helper-" + strings.NewReplacer(".", "").Replace(strings.Join(scopes, "")))
+	return e.loginEN(username)
 }
 
 func TestAdminsScreenLifecycle(t *testing.T) {

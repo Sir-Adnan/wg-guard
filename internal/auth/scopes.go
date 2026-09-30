@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// Scope constants — the canonical permission strings. These are a V1 API
-// contract (docs/architecture/api.md): additive only, never renamed.
+// Scope constants are the canonical permission strings for this release's
+// REST and panel authorization contract (docs/architecture/api.md).
 const (
 	ScopeUsersRead           = "users.read"
 	ScopeUsersCreate         = "users.create"
@@ -23,8 +23,8 @@ const (
 	ScopeConfigsRead         = "configs.read"
 	ScopeTrafficRead         = "traffic.read"
 	ScopeTrafficUpdate       = "traffic.update"
-	ScopePlansRead           = "plans.read"
-	ScopePlansWrite          = "plans.write"
+	ScopeTemplatesRead       = "templates.read"
+	ScopeTemplatesWrite      = "templates.write"
 	ScopeStatsRead           = "stats.read"
 	ScopeNodeRead            = "node.read"
 	ScopeNodeSettings        = "node.settings"
@@ -57,7 +57,7 @@ var scopes = map[string]bool{
 	ScopeDevicesRead: true, ScopeDevicesWrite: true,
 	ScopeConfigsRead: true,
 	ScopeTrafficRead: true, ScopeTrafficUpdate: true,
-	ScopePlansRead: true, ScopePlansWrite: true,
+	ScopeTemplatesRead: true, ScopeTemplatesWrite: true,
 	ScopeStatsRead: true,
 	ScopeNodeRead:  true, ScopeNodeSettings: true,
 	ScopeWebhooksRead: true, ScopeWebhooksWrite: true,
@@ -65,6 +65,29 @@ var scopes = map[string]bool{
 	ScopePurchasesCreate: true, ScopeOperationsRead: true,
 	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
 	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
+	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
+	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
+	ScopeUpdateManage: true,
+}
+
+// New permissions must be classified before they appear in the REST token
+// editor. Keeping this allowlist separate from panel grants prevents an
+// unrelated panel permission from being offered as a bot credential.
+var apiScopes = map[string]bool{
+	ScopeUsersRead: true, ScopeUsersCreate: true, ScopeUsersUpdate: true,
+	ScopeUsersDelete: true, ScopeUsersBulk: true,
+	ScopeDevicesRead: true, ScopeDevicesWrite: true, ScopeConfigsRead: true,
+	ScopeTrafficRead: true, ScopeTrafficUpdate: true,
+	ScopeTemplatesRead: true, ScopeTemplatesWrite: true, ScopeStatsRead: true,
+	ScopeNodeRead: true, ScopeNodeSettings: true,
+	ScopeWebhooksRead: true, ScopeWebhooksWrite: true,
+	ScopeIfaceRead: true, ScopeIfaceWrite: true,
+	ScopePurchasesCreate: true, ScopeOperationsRead: true,
+	ScopeSubscriptionsRead: true, ScopeSubscriptionsRotate: true,
+	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
+}
+
+var panelOnlyScopes = map[string]bool{
 	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
 	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
 	ScopeUpdateManage: true,
@@ -78,7 +101,7 @@ var resellerGrantable = map[string]bool{
 	ScopeUsersBulk: true, ScopeDevicesRead: true,
 	ScopeDevicesWrite: true, ScopeConfigsRead: true,
 	ScopeTrafficRead: true, ScopeTrafficUpdate: true,
-	ScopePlansRead: true, ScopeIfaceRead: true,
+	ScopeTemplatesRead: true, ScopeIfaceRead: true,
 	ScopeStatsRead: true, ScopeWebhooksRead: true,
 	ScopeWebhooksWrite: true, ScopeAPITokensManage: true,
 	ScopePurchasesCreate: true, ScopeOperationsRead: true,
@@ -113,6 +136,19 @@ func AllScopes() []string {
 		out = append(out, s)
 	}
 	sort.Strings(out)
+	return out
+}
+
+// APIScopes is the REST-token permission surface. Panel-only grants have no
+// effect on API requests and are deliberately absent from the token editor.
+func APIScopes() []string {
+	all := AllScopes()
+	out := make([]string, 0, len(all))
+	for _, scope := range all {
+		if apiScopes[scope] {
+			out = append(out, scope)
+		}
+	}
 	return out
 }
 

@@ -31,8 +31,8 @@
       {{if or (.Can "users.read") (.Can "users.create") (.Can "users.bulk")}}
       <a href="{{if .Can "users.read"}}/users{{else if .Can "users.create"}}/users/new{{else}}/users/bulk{{end}}" aria-label="{{.T "nav.users"}}" data-tip="{{.T "nav.users"}}" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
       {{end}}
-      {{if or (.Can "plans.read") (.Can "plans.write")}}
-      <a href="{{if .Can "plans.read"}}/plans{{else}}/plans/new{{end}}" aria-label="{{.T "nav.plans"}}" data-tip="{{.T "nav.plans"}}" {{if .IsActive "/plans"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
+      {{if or (.Can "templates.read") (.Can "templates.write")}}
+      <a href="{{if .Can "templates.read"}}/templates{{else}}/templates/new{{end}}" aria-label="{{.T "nav.plans"}}" data-tip="{{.T "nav.plans"}}" {{if .IsActive "/templates"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
       {{end}}
       {{if or (.Can "interfaces.read") (.Can "interfaces.write")}}
       <a href="{{if .Can "interfaces.read"}}/interfaces{{else}}/interfaces/new{{end}}" aria-label="{{.T "nav.interfaces"}}" data-tip="{{.T "nav.interfaces"}}" {{if .IsActive "/interfaces"}}aria-current="page"{{end}}>{{.Icon "network"}}<span>{{.T "nav.interfaces"}}</span></a>

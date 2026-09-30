@@ -28,7 +28,7 @@ type NextPlanTerms struct {
 
 type NextPlan struct {
 	UserID             string        `json:"user_id"`
-	PlanID             string        `json:"plan_id"`
+	TemplateID         string        `json:"template_id"`
 	Terms              NextPlanTerms `json:"terms"`
 	CarryUnusedTraffic bool          `json:"carry_unused_traffic"`
 	State              string        `json:"state"`
@@ -39,7 +39,7 @@ type NextPlan struct {
 type NextPlanActivation struct {
 	ID          string          `json:"activation_id"`
 	UserID      string          `json:"user_id"`
-	PlanID      string          `json:"plan_id"`
+	TemplateID  string          `json:"template_id"`
 	Trigger     string          `json:"trigger"`
 	Before      json.RawMessage `json:"before"`
 	After       json.RawMessage `json:"after"`
@@ -48,7 +48,7 @@ type NextPlanActivation struct {
 
 type QueueNextPlanInput struct {
 	UserID             string
-	PlanID             string
+	TemplateID         string
 	ResellerID         *string // nil = node owner; non-nil must own customer and plan assignment
 	CarryUnusedTraffic bool
 }
@@ -63,7 +63,7 @@ func termsOf(p *plan.Plan) NextPlanTerms {
 func ownerOfNextPlan(ctx context.Context, tx *sql.Tx, userID string, resellerID *string) (sql.NullString, sql.NullString, sql.NullInt64, sql.NullString, error) {
 	var owner, currentPlan, expiry sql.NullString
 	var limit sql.NullInt64
-	err := tx.QueryRowContext(ctx, `SELECT reseller_id, plan_id, traffic_limit_bytes, expires_at
+	err := tx.QueryRowContext(ctx, `SELECT reseller_id, template_id, traffic_limit_bytes, expires_at
 		FROM users WHERE id = ? AND deleted_at IS NULL`, userID).Scan(&owner, &currentPlan, &limit, &expiry)
 	if errors.Is(err, sql.ErrNoRows) || err == nil && resellerID != nil && (!owner.Valid || owner.String != *resellerID) {
 		return owner, currentPlan, limit, expiry, domain.E(domain.CodeUserNotFound, "user not found")
@@ -77,7 +77,7 @@ func ownerOfNextPlan(ctx context.Context, tx *sql.Tx, userID string, resellerID 
 // QueueNextPlan reserves exactly one successor. It does not take payment:
 // callers must authorize the entitlement before invoking this operation.
 func (s *Service) QueueNextPlan(ctx context.Context, in QueueNextPlanInput) (*NextPlan, error) {
-	if in.UserID == "" || in.PlanID == "" {
+	if in.UserID == "" || in.TemplateID == "" {
 		return nil, domain.E(domain.CodeInvalidRequest, "user and plan are required")
 	}
 	var out *NextPlan
@@ -91,8 +91,8 @@ func (s *Service) QueueNextPlan(ctx context.Context, in QueueNextPlanInput) (*Ne
 		}
 		if in.ResellerID != nil {
 			var ok int
-			err := tx.QueryRowContext(ctx, `SELECT 1 FROM resellers r JOIN reseller_plan_access a ON a.reseller_id = r.id
-				WHERE r.id = ? AND r.enabled = 1 AND a.plan_id = ?`, *in.ResellerID, in.PlanID).Scan(&ok)
+			err := tx.QueryRowContext(ctx, `SELECT 1 FROM resellers r JOIN reseller_template_access a ON a.reseller_id = r.id
+				WHERE r.id = ? AND r.enabled = 1 AND a.template_id = ?`, *in.ResellerID, in.TemplateID).Scan(&ok)
 			if errors.Is(err, sql.ErrNoRows) {
 				return domain.E(domain.CodeForbidden, "plan is unavailable to this reseller")
 			}
@@ -100,7 +100,7 @@ func (s *Service) QueueNextPlan(ctx context.Context, in QueueNextPlanInput) (*Ne
 				return fmt.Errorf("integration: next-plan access: %w", err)
 			}
 		}
-		p, err := s.Plans.GetTx(ctx, tx, in.PlanID)
+		p, err := s.Plans.GetTx(ctx, tx, in.TemplateID)
 		if err != nil {
 			return err
 		}
@@ -127,17 +127,17 @@ func (s *Service) QueueNextPlan(ctx context.Context, in QueueNextPlanInput) (*Ne
 		}
 		now := s.now()
 		if _, err := tx.ExecContext(ctx, `INSERT INTO next_plan_queue
-			(user_id, plan_id, source_plan_id, terms_json, carry_unused_traffic, state, review_reason, principal_scope, created_at, updated_at)
+			(user_id, template_id, source_template_id, terms_json, carry_unused_traffic, state, review_reason, principal_scope, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, 'queued', '', ?, ?, ?)
-			ON CONFLICT(user_id) DO UPDATE SET plan_id = excluded.plan_id, source_plan_id = excluded.source_plan_id,
+			ON CONFLICT(user_id) DO UPDATE SET template_id = excluded.template_id, source_template_id = excluded.source_template_id,
 			terms_json = excluded.terms_json, carry_unused_traffic = excluded.carry_unused_traffic,
 			state = 'queued', review_reason = '', principal_scope = excluded.principal_scope,
 			created_at = excluded.created_at, updated_at = excluded.updated_at`,
-			in.UserID, in.PlanID, currentPlan, string(raw), boolToInt(in.CarryUnusedTraffic),
+			in.UserID, in.TemplateID, currentPlan, string(raw), boolToInt(in.CarryUnusedTraffic),
 			scopeKey(in.ResellerID), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)); err != nil {
 			return fmt.Errorf("integration: queue next plan: %w", err)
 		}
-		out = &NextPlan{UserID: in.UserID, PlanID: in.PlanID, Terms: terms,
+		out = &NextPlan{UserID: in.UserID, TemplateID: in.TemplateID, Terms: terms,
 			CarryUnusedTraffic: in.CarryUnusedTraffic, State: "queued", CreatedAt: now}
 		return nil
 	})
@@ -179,9 +179,9 @@ func (s *Service) NextPlanForUser(ctx context.Context, userID string, resellerID
 		var raw, created string
 		var carry int
 		var p NextPlan
-		err := tx.QueryRowContext(ctx, `SELECT plan_id, terms_json, carry_unused_traffic, state, review_reason, created_at
+		err := tx.QueryRowContext(ctx, `SELECT template_id, terms_json, carry_unused_traffic, state, review_reason, created_at
 			FROM next_plan_queue WHERE user_id = ?`, userID).
-			Scan(&p.PlanID, &raw, &carry, &p.State, &p.ReviewReason, &created)
+			Scan(&p.TemplateID, &raw, &carry, &p.State, &p.ReviewReason, &created)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
@@ -226,7 +226,7 @@ func (s *Service) NextPlanActivations(ctx context.Context, userID string, resell
 		if _, _, _, _, err := ownerOfNextPlan(ctx, tx, userID, resellerID); err != nil {
 			return err
 		}
-		rows, err := tx.QueryContext(ctx, `SELECT id, plan_id, trigger_kind, previous_json, applied_json, activated_at
+		rows, err := tx.QueryContext(ctx, `SELECT id, template_id, trigger_kind, previous_json, applied_json, activated_at
 			FROM next_plan_activations WHERE user_id = ? ORDER BY activated_at DESC, id DESC LIMIT ?`, userID, limit)
 		if err != nil {
 			return fmt.Errorf("integration: next-plan activation list: %w", err)
@@ -235,7 +235,7 @@ func (s *Service) NextPlanActivations(ctx context.Context, userID string, resell
 		for rows.Next() {
 			var a NextPlanActivation
 			var before, after, when string
-			if err := rows.Scan(&a.ID, &a.PlanID, &a.Trigger, &before, &after, &when); err != nil {
+			if err := rows.Scan(&a.ID, &a.TemplateID, &a.Trigger, &before, &after, &when); err != nil {
 				return fmt.Errorf("integration: next-plan activation scan: %w", err)
 			}
 			a.UserID, a.Before, a.After = userID, json.RawMessage(before), json.RawMessage(after)
@@ -304,8 +304,8 @@ func (s *Service) activateNextPlanTx(ctx context.Context, tx *sql.Tx, userID str
 	var status string
 	var oldLimit sql.NullInt64
 	var usedRX, usedTX int64
-	err := tx.QueryRowContext(ctx, `SELECT q.plan_id, q.source_plan_id, q.terms_json, q.carry_unused_traffic, q.state,
-		u.plan_id, u.expires_at, u.interface_id, u.status, u.enabled, u.traffic_limit_bytes,
+	err := tx.QueryRowContext(ctx, `SELECT q.template_id, q.source_template_id, q.terms_json, q.carry_unused_traffic, q.state,
+		u.template_id, u.expires_at, u.interface_id, u.status, u.enabled, u.traffic_limit_bytes,
 		u.traffic_used_rx, u.traffic_used_tx
 		FROM next_plan_queue q JOIN users u ON u.id = q.user_id
 		WHERE q.user_id = ? AND u.deleted_at IS NULL`, userID).
@@ -375,10 +375,10 @@ func (s *Service) activateNextPlanTx(ctx context.Context, tx *sql.Tx, userID str
 	if terms.InterfaceID != nil {
 		nextIface = *terms.InterfaceID
 	}
-	previous, _ := json.Marshal(map[string]any{"plan_id": nullStringValue(currentPlan), "expires_at": nullStringValue(expiry),
+	previous, _ := json.Marshal(map[string]any{"template_id": nullStringValue(currentPlan), "expires_at": nullStringValue(expiry),
 		"traffic_limit_bytes": nullInt64Value(oldLimit), "traffic_used_rx": usedRX, "traffic_used_tx": usedTX,
 		"status": status})
-	if _, err := tx.ExecContext(ctx, `UPDATE users SET plan_id = ?, traffic_limit_bytes = ?,
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET template_id = ?, traffic_limit_bytes = ?,
 		traffic_used_rx = 0, traffic_used_tx = 0, duration_seconds = ?, start_policy = 'immediate',
 		activated_at = ?, expires_at = ?, device_limit = ?, speed_limit_down_kbps = ?,
 		speed_limit_up_kbps = ?, interface_id = ?, status = 'active', disable_reason = NULL,
@@ -394,22 +394,22 @@ func (s *Service) activateNextPlanTx(ctx context.Context, tx *sql.Tx, userID str
 	if _, err := tx.ExecContext(ctx, `DELETE FROM next_plan_queue WHERE user_id = ?`, userID); err != nil {
 		return false, fmt.Errorf("integration: clear next plan: %w", err)
 	}
-	applied, _ := json.Marshal(map[string]any{"plan_id": planID, "expires_at": nextExpiry,
+	applied, _ := json.Marshal(map[string]any{"template_id": planID, "expires_at": nextExpiry,
 		"traffic_limit_bytes": nextLimit, "traffic_used_rx": 0, "traffic_used_tx": 0,
 		"status": "active"})
 	if _, err := tx.ExecContext(ctx, `INSERT INTO next_plan_activations
-		(id, user_id, plan_id, trigger_kind, previous_json, applied_json, activated_at)
+		(id, user_id, template_id, trigger_kind, previous_json, applied_json, activated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`, domain.NewID(), userID, planID, trigger,
 		string(previous), string(applied), now.Format(time.RFC3339Nano)); err != nil {
 		return false, fmt.Errorf("integration: next-plan history: %w", err)
 	}
 	if err := nextPlanAuditTx(ctx, tx, "user.next_plan_activated", userID,
-		map[string]any{"plan_id": planID, "trigger": trigger}); err != nil {
+		map[string]any{"template_id": planID, "trigger": trigger}); err != nil {
 		return false, err
 	}
 	if s.Users != nil && s.Users.Recorder != nil {
 		if err := s.Users.Recorder.RecordTx(tx, "user.updated", map[string]any{
-			"user_id": userID, "plan_id": planID, "next_plan_trigger": trigger,
+			"user_id": userID, "template_id": planID, "next_plan_trigger": trigger,
 		}); err != nil {
 			return false, err
 		}

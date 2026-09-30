@@ -42,7 +42,7 @@ func (s *Server) tokensData(r *http.Request) tokensData {
 	if err != nil {
 		s.logError(r, "tokens list", err)
 	}
-	return tokensData{Known: err == nil, Tokens: list, ScopeSet: scopeGroups(), Form: operationalForm{Values: map[string]string{"name": "", "expires_days": "0", "cidr": ""}, Fields: map[string]string{}}}
+	return tokensData{Known: err == nil, Tokens: list, ScopeSet: scopeGroupsFor(auth.APIScopes(), true), Form: operationalForm{Values: map[string]string{"name": "", "expires_days": "0", "cidr": ""}, Fields: map[string]string{}}}
 }
 
 func (s *Server) tokenFormFailure(w http.ResponseWriter, r *http.Request, field string, err error) {

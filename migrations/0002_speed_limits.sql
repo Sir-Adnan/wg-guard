@@ -16,9 +16,9 @@ UPDATE users SET speed_limit_down_kbps = speed_limit_kbps,
 WHERE speed_limit_kbps IS NOT NULL;
 ALTER TABLE users DROP COLUMN speed_limit_kbps;
 
-ALTER TABLE plans ADD COLUMN speed_limit_down_kbps INTEGER;
-ALTER TABLE plans ADD COLUMN speed_limit_up_kbps INTEGER;
-UPDATE plans SET speed_limit_down_kbps = speed_limit_kbps,
+ALTER TABLE templates ADD COLUMN speed_limit_down_kbps INTEGER;
+ALTER TABLE templates ADD COLUMN speed_limit_up_kbps INTEGER;
+UPDATE templates SET speed_limit_down_kbps = speed_limit_kbps,
                  speed_limit_up_kbps = speed_limit_kbps
 WHERE speed_limit_kbps IS NOT NULL;
-ALTER TABLE plans DROP COLUMN speed_limit_kbps;
+ALTER TABLE templates DROP COLUMN speed_limit_kbps;

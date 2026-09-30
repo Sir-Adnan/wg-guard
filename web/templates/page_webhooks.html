@@ -6,6 +6,7 @@
     <div class="actions">{{if and .Data.Show (.Can "webhooks.read")}}<a class="btn btn--ghost" href="{{.Data.BasePath}}">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>{{else if .Can "webhooks.write"}}<a class="btn btn--primary" href="#webhook-create" data-open-disclosure="webhook-create">{{.IconS "plus"}}{{.T "hooks.add"}}</a>{{end}}</div>
   </div>
   {{template "form_feedback" .}}
+  {{if not .Data.Show}}<p class="callout">{{.IconS "info"}}<span>{{.T "hooks.optional_hint"}}</span></p>{{end}}
 
   {{if .Data.Created.Secret}}
   <section class="card card--pad ops-secret credential-reveal">

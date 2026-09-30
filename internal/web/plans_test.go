@@ -24,13 +24,13 @@ func TestPlanCrudFlow(t *testing.T) {
 		"speed_down": {"1.28"}, "speed_up": {"0.64"},
 		"start_policy": {"immediate"}, "enabled": {"1"},
 	}
-	rec := e.post("/plans", form, cookie, csrf)
-	if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/plans") {
+	rec := e.post("/templates", form, cookie, csrf)
+	if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/templates") {
 		t.Fatalf("plan create: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 
 	// List shows the plan with its limits and user count.
-	rec = e.get("/plans", cookie)
+	rec = e.get("/templates", cookie)
 	body := rec.Body.String()
 	for _, want := range []string{"basic", "50"} {
 		if !strings.Contains(body, want) {
@@ -39,7 +39,7 @@ func TestPlanCrudFlow(t *testing.T) {
 	}
 
 	id := ""
-	if err := e.db.QueryRow(`SELECT id FROM plans WHERE name = 'basic'`).Scan(&id); err != nil {
+	if err := e.db.QueryRow(`SELECT id FROM templates WHERE name = 'basic'`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,7 +50,7 @@ func TestPlanCrudFlow(t *testing.T) {
 		"speed_down": {"1.28"}, "speed_up": {"0.64"},
 		"start_policy": {"immediate"}, "enabled": {"1"},
 	}
-	rec = e.post("/plans/"+id+"/edit", edit, cookie, csrf)
+	rec = e.post("/templates/"+id+"/edit", edit, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("plan edit: %d", rec.Code)
 	}
@@ -66,19 +66,19 @@ func TestPlanCrudFlow(t *testing.T) {
 	}
 
 	// Disable → inactive badge; delete → gone.
-	rec = e.post("/plans/"+id+"/disable", url.Values{}, cookie, csrf)
+	rec = e.post("/templates/"+id+"/disable", url.Values{}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("plan disable: %d", rec.Code)
 	}
-	rec = e.get("/plans", cookie)
+	rec = e.get("/templates", cookie)
 	if !strings.Contains(rec.Body.String(), "غیرفعال") {
 		t.Fatal("disabled badge missing")
 	}
-	rec = e.post("/plans/"+id+"/delete", url.Values{}, cookie, csrf)
+	rec = e.post("/templates/"+id+"/delete", url.Values{}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("plan delete: %d", rec.Code)
 	}
-	rec = e.get("/plans", cookie)
+	rec = e.get("/templates", cookie)
 	if strings.Contains(rec.Body.String(), "basic-plus") {
 		t.Fatal("deleted plan still listed")
 	}
@@ -92,7 +92,7 @@ func TestIfaceCrudFlow(t *testing.T) {
 
 	// Regression: the create pages must render with no interface/plan data
 	// (nil-pointer template guard).
-	for _, path := range []string{"/interfaces/new", "/plans/new", "/users/new"} {
+	for _, path := range []string{"/interfaces/new", "/templates/new", "/users/new"} {
 		if rec := e.get(path, cookie); rec.Code != http.StatusOK {
 			t.Fatalf("GET %s: %d", path, rec.Code)
 		}
@@ -254,7 +254,7 @@ func TestOperationalFormsPreserveInvalidInput(t *testing.T) {
 		form  url.Values
 		wants []string
 	}{
-		{"/plans", url.Values{"name": {"Retry plan"}, "traffic_limit_value": {"not-a-quota"}, "traffic_limit_unit": {"mb"}, "duration_value": {"3.5"}, "duration_unit": {"hours"}, "speed_down": {"oops"}, "enabled": {"0"}}, []string{`value="Retry plan"`, `value="not-a-quota"`, `value="3.5"`, `value="oops"`, `id="form-errors"`, `aria-invalid="true"`, `value="mb" selected`, `value="hours" selected`}},
+		{"/templates", url.Values{"name": {"Retry plan"}, "traffic_limit_value": {"not-a-quota"}, "traffic_limit_unit": {"mb"}, "duration_value": {"3.5"}, "duration_unit": {"hours"}, "speed_down": {"oops"}, "enabled": {"0"}}, []string{`value="Retry plan"`, `value="not-a-quota"`, `value="3.5"`, `value="oops"`, `id="form-errors"`, `aria-invalid="true"`, `value="mb" selected`, `value="hours" selected`}},
 		{"/interfaces", url.Values{"name": {"awg9"}, "listen_port": {"bad-port"}, "mtu": {"bad-mtu"}, "obf_enabled": {"1"}, "obf_h1": {"100-110"}, "obf_hpk": {"secret-do-not-redisplay"}, "obf_padding": {"not-a-range"}}, []string{`value="awg9"`, `value="bad-port"`, `value="bad-mtu"`, `value="100-110"`, `value="not-a-range"`, `id="form-errors"`, `aria-invalid="true"`, `id="awg-advanced" open`}},
 	} {
 		rec := e.post(tc.path, tc.form, cookie, csrf)
@@ -272,7 +272,7 @@ func TestOperationalFormsPreserveInvalidInput(t *testing.T) {
 		}
 	}
 	var plans, ifaces int
-	_ = e.db.QueryRow(`SELECT count(*) FROM plans`).Scan(&plans)
+	_ = e.db.QueryRow(`SELECT count(*) FROM templates`).Scan(&plans)
 	_ = e.db.QueryRow(`SELECT count(*) FROM tunnel_interfaces`).Scan(&ifaces)
 	if plans != 0 || ifaces != 0 {
 		t.Fatal("failed forms changed storage")
@@ -284,15 +284,15 @@ func TestOperationalEnabledFormCanDisable(t *testing.T) {
 	e.seedOwner()
 	cookie := e.login("owner")
 	csrf := deriveCSRF(cookie.Value)
-	rec := e.post("/plans", url.Values{"name": {"Disabled plan"}, "enabled": {"0"}}, cookie, csrf)
+	rec := e.post("/templates", url.Values{"name": {"Disabled plan"}, "enabled": {"0"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatal(rec.Code)
 	}
 	var id string
-	if err := e.db.QueryRow(`SELECT id FROM plans WHERE name = 'Disabled plan'`).Scan(&id); err != nil {
+	if err := e.db.QueryRow(`SELECT id FROM templates WHERE name = 'Disabled plan'`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
-	body := e.get("/plans/"+id+"/edit", cookie).Body.String()
+	body := e.get("/templates/"+id+"/edit", cookie).Body.String()
 	if !strings.Contains(body, `name="enabled"`) || !strings.Contains(body, `value="0" selected`) {
 		t.Fatal("disabled plan form must submit an explicit zero")
 	}
@@ -303,10 +303,10 @@ func TestOperationalFormPersistenceFailureAndPreviewRetry(t *testing.T) {
 	e.seedOwner()
 	cookie := e.login("owner")
 	csrf := deriveCSRF(cookie.Value)
-	if _, err := e.db.Exec(`CREATE TRIGGER fail_plan_save BEFORE INSERT ON plans BEGIN SELECT RAISE(ABORT, 'simulated storage failure'); END`); err != nil {
+	if _, err := e.db.Exec(`CREATE TRIGGER fail_plan_save BEFORE INSERT ON templates BEGIN SELECT RAISE(ABORT, 'simulated storage failure'); END`); err != nil {
 		t.Fatal(err)
 	}
-	rec := e.post("/plans", url.Values{"name": {"Keep my work"}, "device_limit": {"3"}}, cookie, csrf)
+	rec := e.post("/templates", url.Values{"name": {"Keep my work"}, "device_limit": {"3"}}, cookie, csrf)
 	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), `value="Keep my work"`) || strings.Contains(rec.Body.String(), "simulated storage") {
 		t.Fatal("storage failure must preserve safe input and hide driver details")
 	}
@@ -349,13 +349,13 @@ func TestOperationalListSecondaryDataUnavailable(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if rec := e.post("/plans", url.Values{"name": {"Referenced plan"}, "interface": {i.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+			if rec := e.post("/templates", url.Values{"name": {"Referenced plan"}, "interface": {i.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
 				t.Fatal(rec.Code)
 			}
 			if _, err := e.db.Exec(`ALTER TABLE ` + table + ` RENAME TO unavailable_data`); err != nil {
 				t.Fatal(err)
 			}
-			path := "/plans"
+			path := "/templates"
 			if table == "devices" {
 				path = "/interfaces"
 			}
@@ -372,28 +372,28 @@ func TestPlanFormTechnicalValuesAreLossless(t *testing.T) {
 	e.seedOwner()
 	cookie := e.login("owner")
 	csrf := deriveCSRF(cookie.Value)
-	rec := e.post("/plans", url.Values{"name": {"Exact rates"}, "device_limit": {"3"}, "speed_down": {"1.28"}, "speed_up": {"0.64"}}, cookie, csrf)
+	rec := e.post("/templates", url.Values{"name": {"Exact rates"}, "device_limit": {"3"}, "speed_down": {"1.28"}, "speed_up": {"0.64"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatal(rec.Code)
 	}
 	var id string
-	if err := e.db.QueryRow(`SELECT id FROM plans WHERE name='Exact rates'`).Scan(&id); err != nil {
+	if err := e.db.QueryRow(`SELECT id FROM templates WHERE name='Exact rates'`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
-	body := e.get("/plans/"+id+"/edit", cookie).Body.String()
+	body := e.get("/templates/"+id+"/edit", cookie).Body.String()
 	for _, value := range []string{`value="1.28"`, `value="0.64"`} {
 		if !strings.Contains(body, value) {
 			t.Errorf("missing raw numeric form %s", value)
 		}
 	}
-	body = e.get("/plans", cookie).Body.String()
+	body = e.get("/templates", cookie).Body.String()
 	if strings.Contains(body, "3 کیلوبیت") || strings.Contains(body, "kbit/s") {
 		t.Fatal("device counts or rates have misleading units")
 	}
 }
 
 func TestOperationalPermissions(t *testing.T) {
-	for _, scopes := range [][]string{{"users.read"}, {"plans.read", "interfaces.read"}, {"plans.write", "interfaces.write"}} {
+	for _, scopes := range [][]string{{"users.read"}, {"templates.read", "interfaces.read"}, {"templates.write", "interfaces.write"}} {
 		t.Run(strings.Join(scopes, "+"), func(t *testing.T) {
 			e := newEnv(t)
 			e.seedOwner()
@@ -403,22 +403,22 @@ func TestOperationalPermissions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			e.post("/plans", url.Values{"name": {"Permission plan"}}, owner, ownerCSRF)
+			e.post("/templates", url.Values{"name": {"Permission plan"}}, owner, ownerCSRF)
 			var pid string
-			if err := e.db.QueryRow(`SELECT id FROM plans WHERE name='Permission plan'`).Scan(&pid); err != nil {
+			if err := e.db.QueryRow(`SELECT id FROM templates WHERE name='Permission plan'`).Scan(&pid); err != nil {
 				t.Fatal(err)
 			}
 			cookie := e.limitedLogin(t, scopes)
 			csrf := deriveCSRF(cookie.Value)
-			read := scopes[0] == "plans.read"
-			write := scopes[0] == "plans.write"
+			read := scopes[0] == "templates.read"
+			write := scopes[0] == "templates.write"
 			denied := func(rec *httptest.ResponseRecorder, path string) {
 				t.Helper()
 				if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "toast=common.denied") {
 					t.Errorf("%s not denied: %d %s", path, rec.Code, rec.Header().Get("Location"))
 				}
 			}
-			for _, base := range []string{"/plans", "/interfaces"} {
+			for _, base := range []string{"/templates", "/interfaces"} {
 				rec := e.get(base, cookie)
 				if read {
 					if rec.Code != http.StatusOK {
@@ -449,7 +449,7 @@ func TestOperationalPermissions(t *testing.T) {
 				}
 			}
 			if !write {
-				for _, path := range []string{"/plans", "/plans/" + pid + "/edit", "/plans/" + pid + "/enable", "/plans/" + pid + "/disable", "/plans/" + pid + "/delete", "/interfaces", "/interfaces/" + i.ID + "/edit", "/interfaces/" + i.ID + "/enable", "/interfaces/" + i.ID + "/disable", "/interfaces/" + i.ID + "/delete", "/interfaces/profile-preview"} {
+				for _, path := range []string{"/templates", "/templates/" + pid + "/edit", "/templates/" + pid + "/enable", "/templates/" + pid + "/disable", "/templates/" + pid + "/delete", "/interfaces", "/interfaces/" + i.ID + "/edit", "/interfaces/" + i.ID + "/enable", "/interfaces/" + i.ID + "/disable", "/interfaces/" + i.ID + "/delete", "/interfaces/profile-preview"} {
 					denied(e.post(path, url.Values{"name": {"awg1"}, "policy": {"recommended"}, "enabled": {"0"}}, cookie, csrf), path)
 				}
 				plan, _ := e.srv.Plans.Get(t.Context(), pid)
@@ -458,7 +458,7 @@ func TestOperationalPermissions(t *testing.T) {
 					t.Fatal("denied mutation changed stored entities")
 				}
 				var count int
-				_ = e.db.QueryRow(`SELECT count(*) FROM plans`).Scan(&count)
+				_ = e.db.QueryRow(`SELECT count(*) FROM templates`).Scan(&count)
 				if count != 1 {
 					t.Fatal("denied create persisted plan")
 				}
@@ -468,14 +468,14 @@ func TestOperationalPermissions(t *testing.T) {
 				}
 			}
 			body := e.get("/", cookie).Body.String()
-			if !read && !write && (strings.Contains(body, `href="/plans"`) || strings.Contains(body, `href="/interfaces"`)) {
+			if !read && !write && (strings.Contains(body, `href="/templates"`) || strings.Contains(body, `href="/interfaces"`)) {
 				t.Fatal("unrelated viewer sees denied navigation")
 			}
 			if write {
-				if !strings.Contains(body, `href="/plans/new"`) || !strings.Contains(body, `href="/interfaces/new"`) {
+				if !strings.Contains(body, `href="/templates/new"`) || !strings.Contains(body, `href="/interfaces/new"`) {
 					t.Fatal("write-only navigation must lead to authorized create page")
 				}
-				rec := e.post("/plans", url.Values{"name": {"Writer created"}}, cookie, csrf)
+				rec := e.post("/templates", url.Values{"name": {"Writer created"}}, cookie, csrf)
 				if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/?") {
 					t.Fatal("writer save must return to an authorized destination")
 				}
@@ -491,8 +491,8 @@ func TestOperationalPermissions(t *testing.T) {
 func TestOperationalReadOnlyEmptyStateHasNoWriteCTA(t *testing.T) {
 	e := newEnv(t)
 	e.seedOwner()
-	cookie := e.limitedLogin(t, []string{"plans.read", "interfaces.read"})
-	for _, path := range []string{"/plans", "/interfaces"} {
+	cookie := e.limitedLogin(t, []string{"templates.read", "interfaces.read"})
+	for _, path := range []string{"/templates", "/interfaces"} {
 		rec := e.get(path, cookie)
 		if rec.Code != http.StatusOK {
 			t.Fatal(path, rec.Code)

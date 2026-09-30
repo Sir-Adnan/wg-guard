@@ -106,11 +106,11 @@ func TestAdministrationWildcardAndWebhookReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := e.get("/admins?edit="+a.ID, owner).Body.String()
-	if !strings.Contains(body, `value="users.*" checked`) {
+	if !strings.Contains(body, `value="users.*" data-scope-tier="" checked`) {
 		t.Fatal("stored family wildcard missing from editor")
 	}
 	passwordFailure := e.postForm("/admins/"+a.ID+"/password", url.Values{"password": {"short"}}, owner)
-	if !strings.Contains(passwordFailure.Body.String(), `value="users.*" checked`) {
+	if !strings.Contains(passwordFailure.Body.String(), `value="users.*" data-scope-tier="" checked`) {
 		t.Fatal("failed password reset must not clear the separate permission editor")
 	}
 	ep, _, err := e.srv.Webhooks.Create(context.Background(), "https://example.com/hook", []string{"user.created"}, "")

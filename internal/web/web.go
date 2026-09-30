@@ -208,7 +208,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /users/{id}/delete", s.requirePermission(auth.ScopeUsersDelete, s.handleUserDelete))
 	mux.HandleFunc("POST /users/{id}/restore", s.requirePermission(auth.ScopeUsersUpdate, s.handleUserRestore))
 	mux.HandleFunc("POST /users/{id}/renew", s.requirePermission(auth.ScopeUsersUpdate, s.handleUserRenew))
-	mux.HandleFunc("POST /users/{id}/traffic/add", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficAdd))
+	mux.HandleFunc("POST /users/{id}/quota/add", s.requirePermission(auth.ScopeUsersUpdate, s.handleUserQuotaAdd))
+	mux.HandleFunc("POST /users/{id}/traffic/add", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficAdd)) // legacy meter correction
 	mux.HandleFunc("POST /users/{id}/traffic/reset", s.requirePermission(auth.ScopeTrafficUpdate, s.handleUserTrafficReset))
 	mux.HandleFunc("POST /users/{id}/next-plan", s.requirePermission(auth.ScopeNextPlansWrite, s.handleUserNextPlanQueue))
 	mux.HandleFunc("POST /users/{id}/next-plan/cancel", s.requirePermission(auth.ScopeNextPlansWrite, s.handleUserNextPlanCancel))
@@ -228,14 +229,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /devices/{id}/qr", s.requirePermission(auth.ScopeConfigsRead, s.handleDeviceQR))
 
 	// --- plans ---
-	mux.HandleFunc("GET /plans", s.requirePermission(auth.ScopePlansRead, s.handlePlanList))
-	mux.HandleFunc("GET /plans/new", s.requirePermission(auth.ScopePlansWrite, s.handlePlanNew))
-	mux.HandleFunc("POST /plans", s.requirePermission(auth.ScopePlansWrite, s.handlePlanCreate))
-	mux.HandleFunc("GET /plans/{id}/edit", s.requirePermission(auth.ScopePlansWrite, s.handlePlanEditPage))
-	mux.HandleFunc("POST /plans/{id}/edit", s.requirePermission(auth.ScopePlansWrite, s.handlePlanUpdate))
-	mux.HandleFunc("POST /plans/{id}/enable", s.requirePermission(auth.ScopePlansWrite, s.handlePlanEnable))
-	mux.HandleFunc("POST /plans/{id}/disable", s.requirePermission(auth.ScopePlansWrite, s.handlePlanDisable))
-	mux.HandleFunc("POST /plans/{id}/delete", s.requirePermission(auth.ScopePlansWrite, s.handlePlanDelete))
+	mux.HandleFunc("GET /templates", s.requirePermission(auth.ScopeTemplatesRead, s.handlePlanList))
+	mux.HandleFunc("GET /templates/new", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanNew))
+	mux.HandleFunc("POST /templates", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanCreate))
+	mux.HandleFunc("GET /templates/{id}/edit", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanEditPage))
+	mux.HandleFunc("POST /templates/{id}/edit", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanUpdate))
+	mux.HandleFunc("POST /templates/{id}/enable", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanEnable))
+	mux.HandleFunc("POST /templates/{id}/disable", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanDisable))
+	mux.HandleFunc("POST /templates/{id}/delete", s.requirePermission(auth.ScopeTemplatesWrite, s.handlePlanDelete))
 
 	// --- interfaces ---
 	mux.HandleFunc("GET /interfaces", s.requirePermission(auth.ScopeIfaceRead, s.handleIfaceList))
@@ -271,7 +272,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /resellers", s.requireOwner(s.handleResellersPage))
 	mux.HandleFunc("POST /resellers", s.requireOwner(s.handleResellerCreate))
 	mux.HandleFunc("POST /resellers/{id}/permissions", s.requireOwner(s.handleResellerPermissions))
-	mux.HandleFunc("POST /resellers/{id}/plans", s.requireOwner(s.handleResellerPlans))
+	mux.HandleFunc("POST /resellers/{id}/templates", s.requireOwner(s.handleResellerTemplates))
 	mux.HandleFunc("POST /resellers/{id}/enable", s.requireOwner(s.handleResellerEnable))
 	mux.HandleFunc("POST /resellers/{id}/admins", s.requireOwner(s.handleResellerAdminCreate))
 	mux.HandleFunc("GET /resellers/{id}/tokens", s.requireOwner(s.handleResellerTokensPage))

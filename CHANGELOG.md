@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [v0.1.4] — 2026-09-30
+
+- Correct create-user and bulk-create forms so selecting a technical template applies its saved
+  quota, duration, activation policy, device/speed limits and connection profile. Show the
+  template choice before manual terms, with a responsive preview and concise form states.
+- Name the pre-installation technical catalog `templates`: the panel/REST route is `/templates`,
+  the wire key is `template_id`, the scopes are `templates.read/write`, and the fresh SQLite
+  schema uses `templates` and `reseller_template_access`. No plan-named compatibility API remains.
+- Let an owner-scoped integration atomically purchase with explicit finite entitlement terms
+  instead of creating one template per external SKU. Reseller-bound tokens still require an
+  owner-assigned template; pricing and product catalogs stay in the bot/storefront.
+- Add a recoverable, owner/reseller-scoped quota top-up API. The allowance, webhook event and
+  non-secret before/after operation result commit together; retries cannot charge the same
+  entitlement twice. Charged usage and the existing `traffic/add` contract remain unchanged.
+- Make the panel's Add data action increase finite allowance, expose Reset Usage and renewal
+  from the user list/detail, and compact the bilingual mobile user workspace.
+- Refresh API-token and reseller permission shortcuts for current integration scopes and add
+  concise bot/webhook setup guidance in the panel and documentation.
+- Keep the Jalali/Gregorian date picker open while changing months, including inside the
+  mobile create-user drawer in WebKit, and disable navigation to unavailable past months.
+
+Automated service/API/web tests and focused Chromium/WebKit browser checks cover these changes.
+Physical-device and new real-host verification are not claimed for this release.
+
 ## [v0.1.3] — 2026-09-29
 
 - Add owner-managed reseller accounts with live grant ceilings, isolated customer views, scoped

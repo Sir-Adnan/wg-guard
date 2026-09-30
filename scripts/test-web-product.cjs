@@ -43,6 +43,193 @@ let stage = 'launch';
       await require('./test-web-interactions.cjs')({browser,seed,engine});
       await context.close();return;
     }
+    if (group === 'calendar') {
+      for (const lang of ['fa', 'en']) {
+        await locale(lang);
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: width === 1440 ? 900 : 780 });
+          for (const surface of ['page', 'drawer']) {
+            stage = 'calendar ' + lang + ' ' + width + ' ' + surface;
+            await goto(surface === 'page' ? '/users/new' : '/users');
+            if (surface === 'drawer') await page.locator('[data-open-modal="create-drawer"]').first().click();
+            const trigger = page.locator('[data-calendar]').first();
+            const input = page.locator('#u-expires');
+            await trigger.click();
+            const calendar = page.locator('.calendar.is-open');
+            assert(await calendar.count() === 1, 'calendar opens');
+            const initialTitle = await calendar.locator('.cal-title').textContent();
+            assert(await calendar.evaluate(el => {
+              const box = el.getBoundingClientRect(), host = el.closest('dialog')?.getBoundingClientRect();
+              return box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 &&
+                (!host || (box.left >= host.left - 1 && box.right <= host.right + 1));
+            }), 'calendar stays within the viewport and modal drawer');
+            if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && width === 320) {
+              const fs = require('node:fs'), path = require('node:path');
+              fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+              await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR,
+                'calendar-fa-320-' + surface + '.png') });
+            }
+            assert(await calendar.locator('[data-cal-prev]').isDisabled(), 'past month is unavailable');
+            await calendar.locator('[data-cal-next]').click();
+            assert(await calendar.count() === 1, 'next month keeps calendar open');
+            assert(await calendar.locator('.cal-title').textContent() !== initialTitle, 'next month changes title');
+            await calendar.locator('[data-cal-prev]').click();
+            assert(await calendar.count() === 1, 'previous month keeps calendar open');
+            assert(await calendar.locator('.cal-title').textContent() === initialTitle, 'previous month restores title');
+            await calendar.locator('[data-cal-next]').click();
+            await calendar.locator('[data-cal-day]:not([disabled])').last().click();
+            assert(/^\d{4}-\d{2}-\d{2}$/.test(await input.inputValue()), 'day writes an ISO date');
+            assert(await calendar.count() === 0, 'picking a day closes calendar');
+            await trigger.click();
+            await page.locator('.calendar.is-open [data-cal-clear]').click();
+            assert(await input.inputValue() === '', 'clear removes the selected date');
+            await trigger.click();
+            await input.click();
+            assert(await page.locator('.calendar.is-open').count() === 0, 'outside focus dismisses calendar');
+          }
+        }
+      }
+      assert(runtimeErrors === 0, 'calendar has no JavaScript runtime errors');
+      console.log('PASS ' + engine + ' calendar page/drawer fa/en phone/desktop');
+      await context.close(); return;
+    }
+    if (group === 'user-template') {
+      let cells = 0;
+      for (const lang of ['fa', 'en']) {
+        await locale(lang);
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: width === 1440 ? 900 : 780 });
+          for (const surface of ['page', 'drawer']) {
+            stage = 'template selection ' + lang + ' ' + width + ' ' + surface;
+            await goto(surface === 'page' ? '/users/new' : '/users');
+            if (surface === 'drawer') await page.locator('[data-open-modal="create-drawer"]').first().click();
+            const select = page.locator('[data-user-template]').first();
+            assert(await select.count() === 1, 'template choice is visible in creation flow');
+            await select.selectOption(seed.plan);
+            const preview = page.locator('[data-user-template-card="' + seed.plan + '"]').first();
+            assert(await preview.isVisible(), 'selected template preview is visible');
+            assert(!await page.locator('#user-limits').first().isVisible() &&
+              !await page.locator('#user-timing').first().isVisible(), 'manual terms are hidden');
+            assert(await page.locator('[name="traffic_limit_value"]').first().isDisabled(),
+              'manual quota cannot override the selected template');
+            assert(await preview.evaluate(el => { const b = el.getBoundingClientRect(); return b.left >= -1 && b.right <= innerWidth + 1; }),
+              'template preview fits the viewport');
+            await preview.locator('summary').click();
+            assert(await preview.locator('details').getAttribute('open') !== null, 'connection details expand');
+            if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && width === 320) {
+              const fs = require('node:fs'), path = require('node:path');
+              fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+              await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR,
+                'user-template-fa-320-' + surface + '.png') });
+            }
+            await select.selectOption('');
+            assert(await page.locator('#user-limits').first().isVisible() &&
+              await page.locator('#user-timing').first().isVisible(), 'custom terms return');
+            assert(!await page.locator('[name="traffic_limit_value"]').first().isDisabled(),
+              'manual quota is editable again');
+            cells++;
+          }
+        }
+      }
+      assert(runtimeErrors === 0, 'template choice has no JavaScript runtime errors');
+      console.log('PASS ' + engine + ' user-template ' + cells + ' fa/en page/drawer phone/desktop cells');
+      await context.close(); return;
+    }
+    if (group === 'user-workspace') {
+      stage = 'user workspace actions and responsive layout';
+      let cells = 0;
+      for (const lang of ['fa', 'en']) {
+        await locale(lang);
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: width === 1440 ? 900 : 780 });
+          for (const mode of ['light', 'dark']) {
+            for (const route of ['/users', '/users/' + seed.user]) {
+              stage = 'user workspace ' + lang + ' ' + width + ' ' + mode +
+                (route === '/users' ? ' list' : ' detail');
+              await goto(route);
+              await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
+              const layout = await page.evaluate(() => ({
+                fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+                rowHeight: document.querySelector('.users-table tbody tr')?.getBoundingClientRect().height || 0,
+                kpiColumns: document.querySelector('.user-kpi-grid') &&
+                  getComputedStyle(document.querySelector('.user-kpi-grid')).gridTemplateColumns.split(' ').length,
+              }));
+              assert(layout.fits, 'user workspace must fit ' + route + ' ' + lang + ' ' + width + ' ' + mode);
+              if (route === '/users' && width < 800) {
+                assert(layout.rowHeight > 0 && layout.rowHeight < 260,
+                  'mobile user row should remain compact: ' + layout.rowHeight);
+                assert(!await page.locator('[data-user-filter-more]').evaluate(el => el.open),
+                  'unused mobile filters start collapsed');
+              }
+              if (route !== '/users' && width < 600) {
+                assert(layout.kpiColumns === 2, 'phone user summary uses two columns');
+                assert(await page.locator('.user-action-bar form[action$="/traffic/reset"]').count() === 1,
+                  'Reset Usage is visible in the action bar');
+              }
+              if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && mode === 'light' &&
+                  (width === 390 || width === 1440)) {
+                const fs = require('node:fs'), path = require('node:path');
+                fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
+                await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR,
+                  (route === '/users' ? 'users' : 'user-detail') + '-' + width + '.png'),
+                  fullPage: true, mask: [page.locator('#sub-url')] });
+              }
+              cells++;
+            }
+          }
+        }
+      }
+      await goto('/users');
+      stage = 'user workspace quick actions';
+      const row = page.locator('.users-table tbody tr').first();
+      for (const action of ['renew', 'traffic']) {
+        stage = 'user workspace quick ' + action + ' open menu';
+        await row.locator('.users-col--actions .menu-anchor').last().locator(':scope > button').click();
+        stage = 'user workspace quick ' + action + ' select';
+        const menuState = await row.locator('.users-col--actions .menu-anchor').last().evaluate(el => ({
+          open: el.querySelector('.menu')?.classList.contains('is-open'),
+          expanded: el.querySelector(':scope > button')?.getAttribute('aria-expanded'),
+          shown: getComputedStyle(el.querySelector('.menu')).display,
+        }));
+        assert(menuState.open, 'user action menu opens ' + JSON.stringify(menuState));
+        await row.locator('[data-user-quick-action="' + action + '"]').click();
+        stage = 'user workspace quick ' + action + ' dialog';
+        const modal = page.locator('#users-quick-' + action);
+        assert(await modal.evaluate(el => el.open), 'quick ' + action + ' dialog opens');
+        assert((await modal.locator('form').getAttribute('action')).endsWith(
+          action === 'renew' ? '/renew' : '/quota/add'), 'quick action targets selected user');
+        if (action === 'traffic') {
+          await modal.locator('input[name="traffic_value"]').fill('1');
+          await Promise.all([page.waitForNavigation(), modal.locator('button[type="submit"]').click()]);
+          assert(new URL(page.url()).pathname === '/users/' + seed.user,
+            'quick Add data submits to the selected customer');
+        } else {
+          await modal.locator('[data-close-modal]').first().click();
+        }
+      }
+      await goto('/tokens');
+      stage = 'user workspace token shortcuts';
+      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('#token-create [data-scope-preset="operator"]').click();
+      assert(await page.locator('#token-create input[value="purchases.create"]').isChecked() &&
+        await page.locator('#token-create input[value="next_plans.write"]').isChecked() &&
+        !await page.locator('#token-create input[value="subscriptions.rotate"]').isChecked(),
+        'token Operations includes current routine integration scopes only');
+      await page.locator('#token-create [data-scope-preset="all"]').click();
+      assert(await page.locator('#token-create input[value="subscriptions.rotate"]').isChecked() &&
+        !await page.locator('#token-create input[value="users.*"]').isChecked(),
+        'Full access selects exact scopes without future-widening wildcards');
+      await goto('/resellers');
+      stage = 'user workspace reseller shortcuts';
+      await page.locator('.ops-hero a[href="#reseller-create"]').click();
+      await page.locator('#reseller-create [data-scope-preset="operator"]').click();
+      assert(await page.locator('#reseller-create input[value="purchases.create"]').isChecked() &&
+        !await page.locator('#reseller-create input[value="webhooks.write"]').isChecked(),
+        'reseller Operations shortcut uses the same safe classification');
+      assert(runtimeErrors === 0, 'user workspace JavaScript has no runtime errors');
+      console.log('PASS ' + engine + ' user workspace: ' + cells + ' responsive cells and interactive shortcuts');
+      await context.close(); return;
+    }
     if (group === 'reseller-webhooks') {
       stage = 'reseller webhook panel';
       await context.addCookies([{ name: 'wg_session', value: seed.resellerSession, url: seed.url }]);
@@ -87,7 +274,7 @@ let stage = 'launch';
       stage = 'queued successor panel';
       const formPath = '/users/' + seed.user + '/next-plan';
       const response = await page.request.post(seed.url + formPath, { maxRedirects: 0, form: {
-        plan_id: seed.plan, _csrf: seed.csrf,
+        template_id: seed.plan, _csrf: seed.csrf,
       } });
       assert(response.status() === 303, 'owner can queue successor through the panel');
       for (const lang of ['fa', 'en']) {
@@ -307,15 +494,15 @@ let stage = 'launch';
       const readerContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
       await readerContext.addCookies([{ name: 'wg_session', value: seed.reader, url: seed.url }]);
       const readerPage = await readerContext.newPage();
-      for (const path of ['/plans', '/interfaces']) {
+      for (const path of ['/templates', '/interfaces']) {
         const response = await readerPage.goto(seed.url + path);
         assert(response.status() === 200, 'read-only list is available');
         assert(await readerPage.locator('main a[href$="/new"], main a[href$="/edit"], main form[method="post"]').count() === 0, 'read-only list has no write controls');
       }
       await readerContext.close();
       stage = 'plan failed submission retains input';
-      await goto('/plans/new');
-      const form = page.locator('form[action="/plans"]');
+      await goto('/templates/new');
+      const form = page.locator('form[action="/templates"]');
       await form.locator('[name="name"]').fill('Retained / حفظ');
       await form.locator('[name="device_limit"]').evaluate(el => { el.type = 'text'; el.value = 'invalid'; });
       await submit(form);
@@ -383,10 +570,10 @@ let stage = 'launch';
       await Promise.all([page.waitForNavigation(), page.locator('[data-confirm-ok]').click()]);
       assert(await page.locator('tr').filter({ hasText: 'awg7' }).count() === 0, 'deleted interface leaves the list');
       stage = 'plan create edit and status action';
-      await goto('/plans/new');
+      await goto('/templates/new');
       await page.locator('[name="name"]').fill('Browser plan');
       await page.locator('[name="traffic_limit_value"]').fill('12.5');
-      await submit(page.locator('form[action="/plans"]'));
+      await submit(page.locator('form[action="/templates"]'));
       const row = page.locator('tr').filter({ hasText: 'Browser plan' });
       assert(await row.count() === 1, 'created plan appears once');
       await row.locator('[aria-haspopup="menu"]').click();
@@ -857,7 +1044,7 @@ let stage = 'launch';
       }
       console.log('Observed fragment sizes (bytes): ' + JSON.stringify(fragments));
     }
-    const operationalRoutes = ['/interfaces', '/interfaces/new', '/interfaces/' + seed.iface + '/edit', '/plans', '/plans/new', '/plans/' + seed.plan + '/edit'];
+    const operationalRoutes = ['/interfaces', '/interfaces/new', '/interfaces/' + seed.iface + '/edit', '/templates', '/templates/new', '/templates/' + seed.plan + '/edit'];
     const userRoutes = ['/users', '/users/new', '/users/' + seed.user, '/users/' + seed.user + '/edit', '/users/bulk'];
     const dashboardRoutes = ['/dashboard', '/dashboard?range=7d', '/dashboard?range=30d'];
     const backupRoutes = ['/backups', '/backups?create=1', '/backups?schedule=new'];
@@ -910,7 +1097,7 @@ let stage = 'launch';
               qa.merge(performanceSummary, await qa.measure(page, stage));
               await qa.scan(page, stage, width === 390 || width === 1440);
             }
-            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/plans', '/plans/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks', '/updates'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark') || (suite === 'final' && width === 320 && lang === 'en' && theme === 'light' && routes[index] === '/dashboard'))) {
+            if (process.env.WG_UI_SCREENSHOT_DIR && ['/users', '/users/new', '/dashboard', '/interfaces', '/interfaces/new', '/templates', '/templates/new', '/backups', '/backups?schedule=new', '/settings', '/admins', '/audit', '/tokens', '/webhooks', '/updates'].includes(routes[index]) && ((width === 1440 && lang === 'en' && theme === 'light') || (width === 390 && lang === 'fa' && theme === 'dark') || (suite === 'final' && width === 320 && lang === 'en' && theme === 'light' && routes[index] === '/dashboard'))) {
               const fs = require('node:fs'), path = require('node:path');
               fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
               await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, suite + '-' + index + '-' + width + '.png'), fullPage: true });

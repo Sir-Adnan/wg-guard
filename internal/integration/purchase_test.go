@@ -78,7 +78,7 @@ func TestPurchaseCommitsAndRecoversWithoutSecretsInJournal(t *testing.T) {
 	if err != nil || len(products) != 1 {
 		t.Fatalf("plan fixture: %v %v", products, err)
 	}
-	in := PurchaseInput{Key: "order-1", PlanID: products[0].ID, Username: "alice", Keys: purchaseKeys(t, ring)}
+	in := PurchaseInput{Key: "order-1", TemplateID: products[0].ID, Username: "alice", Keys: purchaseKeys(t, ring)}
 	first, replay, err := svc.Purchase(ctx, in)
 	if err != nil || replay || first.UserID == "" || first.DeviceID == "" {
 		t.Fatalf("purchase: %+v replay=%v err=%v", first, replay, err)
@@ -123,6 +123,83 @@ func TestPurchaseCommitsAndRecoversWithoutSecretsInJournal(t *testing.T) {
 	}
 }
 
+func TestOwnerDirectEntitlementPurchaseWithoutCatalogEntry(t *testing.T) {
+	svc, resellers, ring := purchaseEnv(t)
+	ctx := context.Background()
+	var beforePlans int
+	if err := svc.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM templates`).Scan(&beforePlans); err != nil {
+		t.Fatal(err)
+	}
+	terms := &DirectEntitlement{TrafficLimitBytes: 7_000_000_000, DurationSeconds: 30 * 86400,
+		DeviceLimit: 2, StartPolicy: domain.StartFirstConnection}
+	in := PurchaseInput{Key: "external-order-1", Username: "from-bot", Entitlement: terms, Keys: purchaseKeys(t, ring)}
+	first, replayed, err := svc.Purchase(ctx, in)
+	if err != nil || replayed || first.TemplateID != "" || first.UserID == "" || first.DeviceID == "" {
+		t.Fatalf("direct purchase: %+v replay=%v err=%v", first, replayed, err)
+	}
+	u, err := svc.Users.Get(ctx, first.UserID)
+	if err != nil || u.TemplateID != nil || u.TrafficLimitBytes == nil || *u.TrafficLimitBytes != terms.TrafficLimitBytes ||
+		u.DurationSeconds == nil || *u.DurationSeconds != terms.DurationSeconds || u.DeviceLimit == nil || *u.DeviceLimit != 2 ||
+		u.Status != domain.UserWaitingFirstConnection {
+		t.Fatalf("direct terms not applied: %+v, %v", u, err)
+	}
+	if link, err := svc.Links.ForUser(ctx, u.ID); err != nil || link == nil {
+		t.Fatalf("customer link missing: %v", err)
+	}
+	var afterPlans int
+	if err := svc.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM templates`).Scan(&afterPlans); err != nil || afterPlans != beforePlans {
+		t.Fatalf("direct sale altered template catalog: %d -> %d, %v", beforePlans, afterPlans, err)
+	}
+	in.Keys = purchaseKeys(t, ring)
+	second, replayed, err := svc.Purchase(ctx, in)
+	if err != nil || !replayed || second.ID != first.ID {
+		t.Fatalf("direct retry: %+v replay=%v err=%v", second, replayed, err)
+	}
+	if got, err := svc.Lookup(ctx, nil, in.Key); err != nil || got.ID != first.ID {
+		t.Fatalf("direct result recovery: %+v %v", got, err)
+	}
+	in.Entitlement = &DirectEntitlement{TrafficLimitBytes: 8_000_000_000, DurationSeconds: 30 * 86400, DeviceLimit: 2,
+		StartPolicy: domain.StartFirstConnection}
+	if _, _, err := svc.Purchase(ctx, in); domain.CodeOf(err) != domain.CodeIdempotencyKeyReused {
+		t.Fatalf("changed direct terms reused key: %v", err)
+	}
+	r, err := resellers.Create(ctx, "north-direct", "North", []string{"purchases.create"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.Key, in.ResellerID = "reseller-direct", &r.ID
+	if _, _, err := svc.Purchase(ctx, in); domain.CodeOf(err) != domain.CodeForbidden {
+		t.Fatalf("reseller bypassed template policy: %v", err)
+	}
+}
+
+func TestDirectEntitlementRequiresExplicitFiniteTerms(t *testing.T) {
+	svc, _, ring := purchaseEnv(t)
+	base := DirectEntitlement{TrafficLimitBytes: 1_000_000, DurationSeconds: 86400, DeviceLimit: 1}
+	for _, tc := range []struct {
+		name  string
+		terms DirectEntitlement
+	}{
+		{"missing quota", DirectEntitlement{DurationSeconds: 86400, DeviceLimit: 1}},
+		{"missing duration", DirectEntitlement{TrafficLimitBytes: 1_000_000, DeviceLimit: 1}},
+		{"missing device count", DirectEntitlement{TrafficLimitBytes: 1_000_000, DurationSeconds: 86400}},
+		{"overflow duration", DirectEntitlement{TrafficLimitBytes: 1_000_000, DurationSeconds: 315360001, DeviceLimit: 1}},
+		{"bad start policy", DirectEntitlement{TrafficLimitBytes: 1_000_000, DurationSeconds: 86400, DeviceLimit: 1, StartPolicy: "unknown"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := svc.Purchase(context.Background(), PurchaseInput{Key: "bad-" + tc.name,
+				Entitlement: &tc.terms, Keys: purchaseKeys(t, ring)})
+			if domain.CodeOf(err) != domain.CodeInvalidRequest {
+				t.Fatalf("invalid direct terms accepted: %v", err)
+			}
+		})
+	}
+	if _, _, err := svc.Purchase(context.Background(), PurchaseInput{Key: "both", TemplateID: "any", Entitlement: &base,
+		Keys: purchaseKeys(t, ring)}); domain.CodeOf(err) != domain.CodeInvalidRequest {
+		t.Fatalf("plan and terms accepted together: %v", err)
+	}
+}
+
 func TestResellerPurchaseRequiresAssignedPlan(t *testing.T) {
 	svc, resellers, ring := purchaseEnv(t)
 	ctx := context.Background()
@@ -131,11 +208,11 @@ func TestResellerPurchaseRequiresAssignedPlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := PurchaseInput{Key: "north-order", ResellerID: &r.ID, PlanID: products[0].ID, Keys: purchaseKeys(t, ring)}
+	in := PurchaseInput{Key: "north-order", ResellerID: &r.ID, TemplateID: products[0].ID, Keys: purchaseKeys(t, ring)}
 	if _, _, err := svc.Purchase(ctx, in); domain.CodeOf(err) != domain.CodeForbidden {
 		t.Fatalf("unassigned plan accepted: %v", err)
 	}
-	if err := resellers.SetPlans(ctx, r.ID, []string{products[0].ID}); err != nil {
+	if err := resellers.SetTemplates(ctx, r.ID, []string{products[0].ID}); err != nil {
 		t.Fatal(err)
 	}
 	result, replay, err := svc.Purchase(ctx, in)
@@ -152,7 +229,7 @@ func TestFailedInitialDeviceRollsBackPurchaseAndKey(t *testing.T) {
 	svc, _, ring := purchaseEnv(t)
 	ctx := context.Background()
 	products, _ := svc.Plans.List(ctx)
-	in := PurchaseInput{Key: "retry-after-failure", PlanID: products[0].ID,
+	in := PurchaseInput{Key: "retry-after-failure", TemplateID: products[0].ID,
 		Username: "rollback-customer", DeviceName: strings.Repeat("x", 65), Keys: purchaseKeys(t, ring)}
 	if _, _, err := svc.Purchase(ctx, in); domain.CodeOf(err) != domain.CodeInvalidRequest {
 		t.Fatalf("invalid device name: %v", err)
@@ -173,7 +250,7 @@ func TestConcurrentPurchaseWithOneKeyCommitsOnce(t *testing.T) {
 	svc, _, ring := purchaseEnv(t)
 	ctx := context.Background()
 	products, _ := svc.Plans.List(ctx)
-	in := PurchaseInput{Key: "concurrent-order", PlanID: products[0].ID, Keys: purchaseKeys(t, ring)}
+	in := PurchaseInput{Key: "concurrent-order", TemplateID: products[0].ID, Keys: purchaseKeys(t, ring)}
 	const callers = 8
 	type outcome struct {
 		id  string
@@ -216,7 +293,7 @@ func TestExpiredResultCannotBeReadAndIsPruned(t *testing.T) {
 	svc, _, ring := purchaseEnv(t)
 	ctx := context.Background()
 	products, _ := svc.Plans.List(ctx)
-	in := PurchaseInput{Key: "expired-order", PlanID: products[0].ID, Keys: purchaseKeys(t, ring)}
+	in := PurchaseInput{Key: "expired-order", TemplateID: products[0].ID, Keys: purchaseKeys(t, ring)}
 	result, _, err := svc.Purchase(ctx, in)
 	if err != nil {
 		t.Fatal(err)

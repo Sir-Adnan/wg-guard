@@ -74,7 +74,7 @@ and explicit apply/reset actions; the standard Settings page links to it.
 
 ## Layout and navigation
 
-Desktop uses a compact permission-aware sidebar: Manage (Dashboard, Users, Plans, Interfaces),
+Desktop uses a compact permission-aware sidebar: Manage (Dashboard, Users, Templates, Interfaces),
 System (Backups, Update Center, Administrators, API Tokens, Webhooks, Audit, Settings). Server authorization stays
 authoritative; unauthorized destinations are absent. The topbar supplies page context, including
 root/dashboard equivalence, and reachable language/theme controls. Collapsed navigation still
@@ -133,6 +133,8 @@ Dialogs/sheets contain focus and restore it to the invoker, including after succ
 There is one active modal interaction; nested controls remain operable. Tooltips never contain
 essential instructions or require hover. Calendar keyboard/date-entry behavior belongs to its
 form migration; it must support Jalali/Gregorian labels without changing stored date semantics.
+Its month controls keep the picker open, the previous control is disabled when all earlier days
+are unavailable, and the picker remains clickable within the create-user drawer on narrow screens.
 
 Forms have visible labels, associated hints and field errors, with a focusable error summary.
 A failed submission preserves nonsensitive input, reveals invalid Advanced fields, and explains
@@ -186,6 +188,25 @@ never redisplay userinfo. Audit summaries compact UUIDs while details retain exa
 Administrator and token editors provide observer, operator, full-access and clear presets without
 removing granular scope choices. Webhook editors provide select-all and clear actions over the
 complete event catalog.
+The permission shortcuts classify each current scope explicitly. Read only excludes private
+configurations and customer-link capabilities; Operations includes routine purchase, customer,
+usage and successor-plan actions but excludes bulk deletion and administrative settings. Full
+access selects every currently offered exact scope, never a family wildcard that would extend to
+future permissions. The owner token form offers REST scopes only; reseller creation/edit and
+reseller token forms use the same shortcut classification within their allowable ceilings.
+The user detail exposes Reset Usage as a confirmed visible action when `traffic.update` is
+granted, alongside renewal/add-time and Add data allowance. The user list offers those actions from each
+row; one pair of shared quick-action dialogs serves the paginated list, while native detail-page
+forms remain the no-JavaScript path. On narrow screens, user rows retain the key identity,
+status, usage and expiry in a compact card; search stays visible and additional filters collapse.
+The successor-plan editor collapses when no plan is queued, and the detail summary uses a two-column
+phone layout. API-token and webhook screens explain that bots authenticate with scoped Bearer
+tokens and that webhooks are optional notifications.
+The panel's Add data allowance raises the finite quota and leaves recorded consumption intact;
+its corresponding REST operation is `quota/add`, distinct from the REST `traffic/add` meter
+correction. Only `users.update` may top up a
+quota, while `traffic.update` controls Reset Usage. Unlimited accounts use Edit to establish a
+finite limit first. If the quota increase lifts a traffic-only block, the panel reconciles peers.
 
 Build the strongest premium UX within the lightweight architecture, then optimize unnecessary
 cost without degrading it. There are no numerical asset-size targets, review thresholds or
@@ -223,7 +244,7 @@ Usage and transfer metrics keep Latin numbers separate from localized units, so 
 their meaning. The all-device QR view contains exactly one image per actual device; hidden
 single-device controls must stay hidden even when component layout styles change.
 
-Interfaces and Plans use shared `form-page`/`form-stack` section cards and `form-panel` disclosures,
+Interfaces and Templates use shared `form-page`/`form-stack` section cards and `form-panel` disclosures,
 with one primary save action. Technical numeric/range fields use text controls with appropriate
 input modes so server validation can redisplay exact invalid input. Field errors and a focusable
 summary accompany a failed save; fresh secrets are cleared with explicit retry guidance. Profile
@@ -272,5 +293,5 @@ version input are absent from the web workflow.
 `collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
 cards on phones. Name/edit links, availability, exact technical units and action menus have stable
 positions. Missing secondary counts/references display unavailable, never an invented zero.
-Plans and Interfaces enforce their existing read/write permissions at the server boundary as
+Templates and Interfaces enforce their existing read/write permissions at the server boundary as
 well as in navigation and controls; a read-only account can inspect lists without mutation affordances.

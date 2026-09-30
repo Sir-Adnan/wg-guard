@@ -20,31 +20,7 @@
 {{$v := .v}}
   <form method="post" action="/users/{{$v.Data.U.ID}}/renew" novalidate>
     <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-    <div class="modal-body">
-      <div class="field">
-        <label for="r-mode{{.suffix}}">{{$v.T "users.action.renew"}}</label>
-        <select class="select" id="r-mode{{.suffix}}" name="mode" {{if $v.Data.Form.Invalid "mode"}}aria-invalid="true"{{end}}>
-          <option value="from_expiration" {{if eq ($v.Data.Form.V "mode") "from_expiration"}}selected{{end}}>{{$v.T "users.renew.extend_from_expiry"}}</option>
-          <option value="from_now" {{if eq ($v.Data.Form.V "mode") "from_now"}}selected{{end}}>{{$v.T "users.renew.extend_from_now"}}</option>
-          <option value="exact" {{if eq ($v.Data.Form.V "mode") "exact"}}selected{{end}}>{{$v.T "users.renew.exact"}}</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="r-duration{{.suffix}}">{{$v.T "users.renew.days"}}</label>
-        <div class="unit-group">
-          <input class="input ltr-data" id="r-duration{{.suffix}}" name="duration_value" inputmode="decimal" value="{{$v.Data.Form.V "duration_value"}}" aria-describedby="r-duration-help{{.suffix}}" {{if $v.Data.Form.Invalid "duration_value"}}aria-invalid="true"{{end}}>
-          <select class="select" name="duration_unit" aria-label="{{$v.T "users.renew.days"}}">
-            {{range $unit := list "months" "days" "hours"}}<option value="{{$unit}}" {{if eq ($v.Data.Form.V "duration_unit") $unit}}selected{{end}}>{{$v.T (printf "duration.%s" $unit)}}</option>{{end}}
-          </select>
-        </div>
-        <span class="hint" id="r-duration-help{{.suffix}}">{{$v.T "users.renew.duration_hint"}}{{if $v.Data.Form.Invalid "duration_value"}} <span class="field-error">{{$v.T "common.error_validation"}}</span>{{end}}</span>
-      </div>
-      <div class="field">
-        <label for="r-date{{.suffix}}">{{$v.T "users.renew.date"}}</label>
-        <input class="input ltr-data" id="r-date{{.suffix}}" name="date" value="{{$v.Data.Form.V "date"}}" placeholder="YYYY-MM-DD" aria-describedby="r-date-help{{.suffix}}" {{if $v.Data.Form.Invalid "date"}}aria-invalid="true"{{end}}>
-        <span class="hint" id="r-date-help{{.suffix}}">{{$v.T "users.renew.date_hint"}}{{if $v.Data.Form.Invalid "date"}} <span class="field-error">{{$v.T "common.error_validation"}}</span>{{end}}</span>
-      </div>
-    </div>
+    <div class="modal-body form-stack">{{template "user_renew_fields" (dict "v" $v "f" $v.Data.Form "suffix" .suffix)}}</div>
     <div class="modal-foot">
       {{template "user_action_cancel" .}}
       <button type="submit" class="btn btn--primary">{{$v.T "users.action.renew"}}</button>
@@ -52,28 +28,58 @@
   </form>
 {{end}}
 
-{{define "user_traffic_form"}}
-{{$v := .v}}
-  <form method="post" action="/users/{{$v.Data.U.ID}}/traffic/add" novalidate>
-    <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-    <div class="modal-body">
+{{define "user_renew_fields"}}
+{{$v := .v}}{{$f := .f}}
       <div class="field">
-        <label for="t-traffic{{.suffix}}">{{$v.T "users.traffic_add.amount"}}</label>
+        <label for="r-mode{{.suffix}}">{{$v.T "users.action.renew"}}</label>
+        <select class="select" id="r-mode{{.suffix}}" name="mode" {{if $f.Invalid "mode"}}aria-invalid="true"{{end}}>
+          <option value="from_expiration" {{if eq ($f.V "mode") "from_expiration"}}selected{{end}}>{{$v.T "users.renew.extend_from_expiry"}}</option>
+          <option value="from_now" {{if eq ($f.V "mode") "from_now"}}selected{{end}}>{{$v.T "users.renew.extend_from_now"}}</option>
+          <option value="exact" {{if eq ($f.V "mode") "exact"}}selected{{end}}>{{$v.T "users.renew.exact"}}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="r-duration{{.suffix}}">{{$v.T "users.renew.days"}}</label>
         <div class="unit-group">
-          <input class="input ltr-data" id="t-traffic{{.suffix}}" name="traffic_value" inputmode="decimal" value="{{$v.Data.Form.V "traffic_value"}}" required aria-describedby="t-traffic-help{{.suffix}}" {{if $v.Data.Form.Invalid "traffic_value"}}aria-invalid="true"{{end}}>
-          <select class="select" name="traffic_unit" aria-label="{{$v.T "users.action.add_traffic"}}">
-            <option value="gb" {{if eq ($v.Data.Form.V "traffic_unit") "gb"}}selected{{end}}>GB</option>
-            <option value="mb" {{if eq ($v.Data.Form.V "traffic_unit") "mb"}}selected{{end}}>MB</option>
+          <input class="input ltr-data" id="r-duration{{.suffix}}" name="duration_value" inputmode="decimal" value="{{$f.V "duration_value"}}" aria-describedby="r-duration-help{{.suffix}}" {{if $f.Invalid "duration_value"}}aria-invalid="true"{{end}}>
+          <select class="select" name="duration_unit" aria-label="{{$v.T "users.renew.days"}}">
+            {{range $unit := list "months" "days" "hours"}}<option value="{{$unit}}" {{if eq ($f.V "duration_unit") $unit}}selected{{end}}>{{$v.T (printf "duration.%s" $unit)}}</option>{{end}}
           </select>
         </div>
-        <span class="hint" id="t-traffic-help{{.suffix}}">{{$v.T "users.traffic_add.hint"}}{{if $v.Data.Form.Invalid "traffic_value"}} <span class="field-error">{{$v.T "common.error_validation"}}</span>{{end}}</span>
+        <span class="hint" id="r-duration-help{{.suffix}}">{{$v.T "users.renew.duration_hint"}}{{if $f.Invalid "duration_value"}} <span class="field-error">{{$v.T "common.error_validation"}}</span>{{end}}</span>
       </div>
-    </div>
+      <div class="field">
+        <label for="r-date{{.suffix}}">{{$v.T "users.renew.date"}}</label>
+        <input class="input ltr-data" id="r-date{{.suffix}}" name="date" value="{{$f.V "date"}}" placeholder="YYYY-MM-DD" aria-describedby="r-date-help{{.suffix}}" {{if $f.Invalid "date"}}aria-invalid="true"{{end}}>
+        <span class="hint" id="r-date-help{{.suffix}}">{{$v.T "users.renew.date_hint"}}{{if $f.Invalid "date"}} <span class="field-error">{{$v.T "common.error_validation"}}</span>{{end}}</span>
+      </div>
+{{end}}
+
+{{define "user_traffic_form"}}
+{{$v := .v}}
+  <form method="post" action="/users/{{$v.Data.U.ID}}/quota/add" novalidate>
+    <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+    <div class="modal-body form-stack">{{template "user_traffic_fields" (dict "v" $v "f" $v.Data.Form "suffix" .suffix)}}</div>
     <div class="modal-foot">
       {{template "user_action_cancel" .}}
       <button type="submit" class="btn btn--primary">{{$v.T "users.action.add_traffic"}}</button>
     </div>
   </form>
+{{end}}
+
+{{define "user_traffic_fields"}}
+{{$v := .v}}{{$f := .f}}
+      <div class="field">
+        <label for="t-traffic{{.suffix}}">{{$v.T "users.traffic_add.amount"}}</label>
+        <div class="unit-group">
+          <input class="input ltr-data" id="t-traffic{{.suffix}}" name="traffic_value" inputmode="decimal" value="{{$f.V "traffic_value"}}" required aria-describedby="t-traffic-help{{.suffix}}" {{if $f.Invalid "traffic_value"}}aria-invalid="true"{{end}}>
+          <select class="select" name="traffic_unit" aria-label="{{$v.T "users.action.add_traffic"}}">
+            <option value="gb" {{if eq ($f.V "traffic_unit") "gb"}}selected{{end}}>GB</option>
+            <option value="mb" {{if eq ($f.V "traffic_unit") "mb"}}selected{{end}}>MB</option>
+          </select>
+        </div>
+        <span class="hint" id="t-traffic-help{{.suffix}}">{{$v.T "users.traffic_add.hint"}}{{if $f.Invalid "traffic_value"}} <span class="field-error">{{$v.T "common.error_validation"}}</span>{{end}}</span>
+      </div>
 {{end}}
 
 {{define "user_action_cancel"}}

@@ -74,13 +74,13 @@ func (s *Server) handleUserDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	data := userDetailData{Form: userActionForm(), OnlineWindow: 180, PlanKnown: u.PlanID == nil, IfaceKnown: u.InterfaceID == nil}
+	data := userDetailData{Form: userActionForm(), OnlineWindow: 180, PlanKnown: u.TemplateID == nil, IfaceKnown: u.InterfaceID == nil}
 	if v, err := s.Settings.GetInt(ctx, "accounting.online_window_seconds"); err == nil && v > 0 {
 		data.OnlineWindow = int64(v)
 	}
 	cutoff := time.Now().UTC().Add(-time.Duration(data.OnlineWindow) * time.Second)
 
-	if p, err := s.Plans.Get(ctx, deref(u.PlanID)); err == nil && u.PlanID != nil {
+	if p, err := s.Plans.Get(ctx, deref(u.TemplateID)); err == nil && u.TemplateID != nil {
 		data.PlanName = p.Name
 		data.PlanKnown = true
 	}

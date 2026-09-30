@@ -42,7 +42,7 @@ func (s *Server) handleNextPlanActivations(w http.ResponseWriter, r *http.Reques
 
 func (s *Server) handleNextPlanPut(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PlanID             string `json:"plan_id"`
+		TemplateID         string `json:"template_id"`
 		CarryUnusedTraffic bool   `json:"carry_unused_traffic"`
 	}
 	if !decodeJSON(w, r, &req) {
@@ -50,14 +50,14 @@ func (s *Server) handleNextPlanPut(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := TokenFrom(r.Context()).Token.ResellerID
 	queued, err := s.Integration.QueueNextPlan(r.Context(), integration.QueueNextPlanInput{
-		UserID: r.PathValue("id"), PlanID: req.PlanID, ResellerID: owner,
+		UserID: r.PathValue("id"), TemplateID: req.TemplateID, ResellerID: owner,
 		CarryUnusedTraffic: req.CarryUnusedTraffic,
 	})
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
-	s.audit(r, "user.next_plan_queued", queued.UserID, map[string]any{"plan_id": queued.PlanID})
+	s.audit(r, "user.next_plan_queued", queued.UserID, map[string]any{"template_id": queued.TemplateID})
 	writeJSON(w, http.StatusOK, queued)
 }
 

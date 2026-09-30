@@ -92,7 +92,7 @@ func TestNameUniquenessAndDelete(t *testing.T) {
 
 	// Deletion blocked while referenced by a user.
 	p, _ := svc.List(ctx)
-	_, _ = svc.db.Exec(`INSERT INTO users (id, username, status, plan_id, created_at, updated_at)
+	_, _ = svc.db.Exec(`INSERT INTO users (id, username, status, template_id, created_at, updated_at)
 		VALUES ('u1', 'alice', 'active', ?, 'now', 'now')`, p[0].ID)
 	if err := svc.Delete(ctx, p[0].ID); domain.CodeOf(err) != domain.CodePlanInUse {
 		t.Fatalf("want PLAN_IN_USE, got %v", err)

@@ -2,20 +2,25 @@
 {{$v := .v}}{{$selected := .selected}}{{$name := .name}}
 <fieldset class="ops-permissions" {{if .invalid}}aria-invalid="true" aria-describedby="scope-error"{{end}}>
   <legend>{{$v.T "tokens.col_scopes"}}</legend><p class="hint">{{$v.T "ops.scope_hint"}}</p>
-  <div class="choice-presets" role="group" aria-label="{{$v.T "ops.presets"}}">
-    <button class="btn btn--sm btn--soft" type="button" data-scope-preset="observer">{{$v.T "ops.preset.observer"}}</button>
-    <button class="btn btn--sm" type="button" data-scope-preset="operator">{{$v.T "ops.preset.operator"}}</button>
-    <button class="btn btn--sm" type="button" data-scope-preset="all">{{$v.T "ops.preset.all"}}</button>
-    <button class="btn btn--sm btn--ghost" type="button" data-scope-preset="none">{{$v.T "ops.preset.none"}}</button>
-  </div>
+  {{template "ops_scope_preset_buttons" (dict "v" $v)}}
   {{if .invalid}}<p class="field-error" id="scope-error">{{$v.T "ops.scope_error"}}</p>{{end}}
   {{range $v.UnknownChoices $selected}}<label class="check-label"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" checked><span class="ltr-data">{{.}}</span><span class="field-error">{{$v.T "ops.scope_error"}}</span></label>{{end}}
   <div class="ops-scope-grid">{{range .groups}}
     <details class="ops-scope-group" {{range .Scopes}}{{if $v.HasChoice $selected .}}open{{break}}{{end}}{{end}}><summary>{{$v.OpsLabel "family" .Family}}</summary>
-      {{range .Scopes}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" {{if $v.HasChoice $selected .}}checked{{end}}><span><strong>{{$v.ScopeLabel .}}</strong><small>{{$v.ScopeDescription .}}</small></span></label>{{end}}
+      {{range .Scopes}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" data-scope-tier="{{$v.ScopePresetTier .}}" {{if $v.HasChoice $selected .}}checked{{end}}><span><strong>{{$v.ScopeLabel .}}</strong><small>{{$v.ScopeDescription .}}</small></span></label>{{end}}
     </details>{{end}}
   </div>
 </fieldset>
+{{end}}
+{{define "ops_scope_preset_buttons"}}
+{{$v := .v}}
+<div class="choice-presets" role="group" aria-label="{{$v.T "ops.presets"}}">
+  <button class="btn btn--sm btn--soft" type="button" data-scope-preset="observer">{{$v.T "ops.preset.observer"}}</button>
+  <button class="btn btn--sm" type="button" data-scope-preset="operator">{{$v.T "ops.preset.operator"}}</button>
+  <button class="btn btn--sm" type="button" data-scope-preset="all">{{$v.T "ops.preset.all"}}</button>
+  <button class="btn btn--sm btn--ghost" type="button" data-scope-preset="none">{{$v.T "ops.preset.none"}}</button>
+</div>
+<p class="hint">{{$v.T "ops.preset_hint"}}</p>
 {{end}}
 {{define "ops_field"}}
 {{$v := .v}}{{$f := .f}}{{$name := .name}}

@@ -15,8 +15,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
-// DTOs are the wire shapes of the API (a V1 compatibility contract —
-// additive only). They deliberately mirror service types field by field:
+// DTOs are the wire shapes of the API. They deliberately mirror service types field by field:
 // service structs never reach the wire directly, so encrypted key envelopes
 // and internal fields cannot leak by accident.
 
@@ -79,7 +78,7 @@ type userDTO struct {
 	SpeedLimitDownKbps *int           `json:"speed_limit_down_kbps"`
 	SpeedLimitUpKbps   *int           `json:"speed_limit_up_kbps"`
 	DeviceLimit        *int           `json:"device_limit"`
-	PlanID             *string        `json:"plan_id"`
+	TemplateID         *string        `json:"template_id"`
 	InterfaceID        *string        `json:"interface_id"`
 	StartPolicy        string         `json:"start_policy"`
 	DurationSeconds    *int64         `json:"duration_seconds"`
@@ -112,7 +111,7 @@ func toUserDTO(u *user.User) userDTO {
 		TrafficUsedRX:     u.TrafficUsedRX, TrafficUsedTX: u.TrafficUsedTX,
 		TrafficUsedTotal:   u.TrafficUsedRX + u.TrafficUsedTX,
 		SpeedLimitDownKbps: u.SpeedLimitDownKbps, SpeedLimitUpKbps: u.SpeedLimitUpKbps,
-		DeviceLimit: u.DeviceLimit, PlanID: u.PlanID, InterfaceID: u.InterfaceID,
+		DeviceLimit: u.DeviceLimit, TemplateID: u.TemplateID, InterfaceID: u.InterfaceID,
 		StartPolicy: string(u.StartPolicy), DurationSeconds: u.DurationSeconds,
 		ActivatedAt: jsonTime(u.ActivatedAt), ExpiresAt: jsonTime(u.ExpiresAt),
 		LastActivityAt: jsonTime(u.LastActivityAt),
@@ -133,7 +132,7 @@ type userCreateReq struct {
 	SpeedLimitDownKbps domain.OptInt    `json:"speed_limit_down_kbps"`
 	SpeedLimitUpKbps   domain.OptInt    `json:"speed_limit_up_kbps"`
 	DeviceLimit        domain.OptInt    `json:"device_limit"`
-	PlanID             domain.OptString `json:"plan_id"`
+	TemplateID         domain.OptString `json:"template_id"`
 	InterfaceID        domain.OptString `json:"interface_id"`
 	StartPolicy        string           `json:"start_policy"`
 	DurationSeconds    *int64           `json:"duration_seconds"`
@@ -150,7 +149,7 @@ type userPatchReq struct {
 	SpeedLimitDownKbps domain.OptInt    `json:"speed_limit_down_kbps"`
 	SpeedLimitUpKbps   domain.OptInt    `json:"speed_limit_up_kbps"`
 	DeviceLimit        domain.OptInt    `json:"device_limit"`
-	PlanID             domain.OptString `json:"plan_id"`
+	TemplateID         domain.OptString `json:"template_id"`
 	InterfaceID        domain.OptString `json:"interface_id"`
 	DurationSeconds    *int64           `json:"duration_seconds"`
 	Enabled            *bool            `json:"enabled"`

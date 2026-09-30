@@ -8,12 +8,12 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | Table | Purpose / key columns |
 |---|---|
 | `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1–S4, canonical H1–H4 scalar/range text, optional I1–I5/HPK/timer/flag fields, preset name), enabled, backend mode, endpoint override |
-| `users` | id (UUIDv7), username UNIQUE, nullable reseller_id owner, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, plan_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
+| `users` | id (UUIDv7), username UNIQUE, nullable reseller_id owner, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, template_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
-| `plans` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled |
+| `templates` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled; reusable technical defaults, not sale SKUs |
 | `resellers` | id, unique slug, display name, permission ceiling, enabled; Phase 14 tenant identity |
-| `reseller_plan_access` | reseller_id + plan_id; owner-assigned products permitted for tenant purchases, without changing existing subscriptions |
+| `reseller_template_access` | reseller_id + template_id; owner-assigned technical templates permitted for tenant purchases, without changing existing subscriptions |
 | `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional reseller_id and `appearance_preset` personal override |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
 | `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
@@ -22,9 +22,9 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `webhook_deliveries` | id, endpoint FK, event type, payload, status (`pending\|delivered\|dead`), attempts, next_attempt_at (indexed), last error |
 | `webhook_events` | durable event rows inserted in the same transaction as the state change; reseller_id classified from the persisted user for tenant-scoped fanout |
 | `audit_log` | ts, actor type/id, action, target, source IP, request id, safe metadata |
-| `idempotency_keys` | hashed token-scoped key, request hash, response snapshot, expires_at; active legacy raw keys fail closed during the upgrade window |
+| `idempotency_keys` | hashed token-scoped key, request hash, response snapshot, expires_at; ordinary REST mutations use this bounded response replay |
 | `integration_operations` | hashed owner/reseller-scoped key, request hash, non-secret committed result, expiry; purchase result is inserted with user/device/link in one transaction |
-| `next_plan_queue` | one queued successor per user; fixed non-secret plan terms, source plan, carry flag, review state and principal namespace |
+| `next_plan_queue` | one queued successor per user; fixed non-secret template terms, source template, carry flag, review state and principal namespace |
 | `next_plan_activations` | durable before/after entitlement snapshot and time/quota trigger, inserted with the user/counter transition |
 | `settings` | key, value (JSON), updated_at |
 | `backup_schedules` | id, mode (daily@time / every-N-hours / weekly), time UTC, retention, enabled |
@@ -71,13 +71,13 @@ Migration `0010_reseller_ownership.sql` adds the reseller identity and nullable 
 references without reassigning existing users, accounts, tokens or webhook rows. NULL remains the
 existing node-wide operator namespace. The foreign keys prevent orphan assignments; reseller
 access uses explicit route gates while other routes remain closed. Migration tests verify
-legacy-row preservation and ownership references. Migration `0011_reseller_plan_access.sql`
-adds the owner-controlled plan allowlist used by reseller purchase operations.
+legacy-row preservation and ownership references. Migration `0011_reseller_template_access.sql`
+adds the owner-controlled template allowlist used by reseller purchase operations.
 Migration `0012_integration_operations.sql` adds the 90-day result journal. The scheduler prunes
 expired rows in bounded batches; plaintext caller keys, link capabilities and private configs
 never enter this table.
 Migration `0013_next_plan_queue.sql` adds one successor queue row per user and a transactional
-activation history (one-year retention with bounded pruning). The fixed terms survive catalog edits; a queued plan cannot be deleted until
+activation history (one-year retention with bounded pruning). The fixed terms survive catalog edits; a queued template cannot be deleted until
 the queue is canceled or consumed. Activation resets charged user/device counters but keeps raw
 peer baselines, so the next accounting cycle charges only new traffic.
 

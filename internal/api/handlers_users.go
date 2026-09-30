@@ -1,14 +1,36 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
+
+// Resolve a creation template once before the user service writes. PATCH
+// deliberately does not reapply terms: changing a reference on an existing
+// account must not silently reset its allowance or expiry.
+func (s *Server) applyCreateTemplate(ctx context.Context, in user.Input) (user.Input, error) {
+	if !in.TemplateID.Set || in.TemplateID.Null {
+		return in, nil
+	}
+	if in.TemplateID.Value == "" {
+		return in, domain.E(domain.CodeInvalidRequest, "template_id must not be empty")
+	}
+	p, err := s.Plans.Get(ctx, in.TemplateID.Value)
+	if err != nil {
+		return in, err
+	}
+	if !p.Enabled {
+		return in, domain.E(domain.CodeForbidden, "template is unavailable")
+	}
+	return plan.ApplyToUser(p, in), nil
+}
 
 func pathID(r *http.Request, name string) string {
 	return r.PathValue(name)
@@ -23,7 +45,7 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	if verified := TokenFrom(r.Context()); verified != nil {
 		resellerID = verified.Token.ResellerID
 	}
-	u, err := s.Users.Create(r.Context(), user.Input{
+	in := user.Input{
 		Username:           req.Username,
 		ResellerID:         resellerID,
 		DisplayName:        req.DisplayName,
@@ -33,13 +55,19 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 		SpeedLimitDownKbps: req.SpeedLimitDownKbps,
 		SpeedLimitUpKbps:   req.SpeedLimitUpKbps,
 		DeviceLimit:        req.DeviceLimit,
-		PlanID:             req.PlanID,
+		TemplateID:         req.TemplateID,
 		InterfaceID:        req.InterfaceID,
 		StartPolicy:        domain.StartPolicy(req.StartPolicy),
 		DurationSeconds:    req.DurationSeconds,
 		Enabled:            req.Enabled,
 		Metadata:           req.Metadata,
-	})
+	}
+	in, err := s.applyCreateTemplate(r.Context(), in)
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	u, err := s.Users.Create(r.Context(), in)
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
@@ -106,8 +134,8 @@ func (s *Server) handleUserList(w http.ResponseWriter, r *http.Request) {
 			*dst = &t
 		}
 	}
-	if v := q.Get("plan_id"); v != "" {
-		f.PlanID = &v
+	if v := q.Get("template_id"); v != "" {
+		f.TemplateID = &v
 	}
 	if v := q.Get("interface_id"); v != "" {
 		f.InterfaceID = &v
@@ -155,7 +183,7 @@ func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 		SpeedLimitDownKbps: req.SpeedLimitDownKbps,
 		SpeedLimitUpKbps:   req.SpeedLimitUpKbps,
 		DeviceLimit:        req.DeviceLimit,
-		PlanID:             req.PlanID,
+		TemplateID:         req.TemplateID,
 		InterfaceID:        req.InterfaceID,
 		DurationSeconds:    req.DurationSeconds,
 		Enabled:            req.Enabled,
@@ -317,7 +345,7 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 		SpeedLimitDownKbps domain.OptInt    `json:"speed_limit_down_kbps"`
 		SpeedLimitUpKbps   domain.OptInt    `json:"speed_limit_up_kbps"`
 		DeviceLimit        domain.OptInt    `json:"device_limit"`
-		PlanID             domain.OptString `json:"plan_id"`
+		TemplateID         domain.OptString `json:"template_id"`
 		InterfaceID        domain.OptString `json:"interface_id"`
 		StartPolicy        string           `json:"start_policy"`
 		DurationSeconds    *int64           `json:"duration_seconds"`
@@ -329,7 +357,7 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 	if verified := TokenFrom(r.Context()); verified != nil {
 		resellerID = verified.Token.ResellerID
 	}
-	res, err := s.Users.CreateBulk(r.Context(), req.Prefix, req.Count, req.StartIndex, req.Width, user.Input{
+	in := user.Input{
 		ResellerID:         resellerID,
 		DisplayName:        req.DisplayName,
 		Note:               req.Note,
@@ -338,11 +366,17 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 		SpeedLimitDownKbps: req.SpeedLimitDownKbps,
 		SpeedLimitUpKbps:   req.SpeedLimitUpKbps,
 		DeviceLimit:        req.DeviceLimit,
-		PlanID:             req.PlanID,
+		TemplateID:         req.TemplateID,
 		InterfaceID:        req.InterfaceID,
 		StartPolicy:        domain.StartPolicy(req.StartPolicy),
 		DurationSeconds:    req.DurationSeconds,
-	})
+	}
+	in, err := s.applyCreateTemplate(r.Context(), in)
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
+	res, err := s.Users.CreateBulk(r.Context(), req.Prefix, req.Count, req.StartIndex, req.Width, in)
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return
