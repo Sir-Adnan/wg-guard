@@ -4,15 +4,17 @@ Living tracker for the approved release program through Phase 14. `ROADMAP.md` o
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-09-29. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-09-30. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0, v0.1.1, v0.1.2 and v0.1.3 releases passed their respective gates and
-are public. The v0.1.3 `4177b282` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
-and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000);
-later versions and official registry images require separate approval.
+The owner-approved v0.1.0 through v0.1.4 releases passed their respective gates and are public.
+The v0.1.4 `314c94b2482338fd3cc3e9776df14f920002f9ec` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36703931653) and the
+[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36704785746); its
+[public release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4) includes the checked
+amd64 bundle. Later versions and official registry images require separate approval.
 
 ## Program status
 
@@ -27,7 +29,7 @@ later versions and official registry images require separate approval.
 | 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
-| 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, PR/main CI and exact-source v0.1.3 release gate; no new real-host claim |
+| 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.
@@ -207,7 +209,8 @@ or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are 
 The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0),
 [v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1),
 [v0.1.2 security update](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) and
-[v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3)
+[v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) and
+[v0.1.4](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4)
 were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).

@@ -5,15 +5,28 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-09-29):** Phases 0–14 are complete within their documented scopes.
-[v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) is the latest stable
-release. Its exact `4177b282` source passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
-and the [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000),
+**Current gate (2026-09-30):** Phases 0–14 are complete within their documented scopes.
+[v0.1.4](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4) is the latest stable
+release. Its exact `314c94b2482338fd3cc3e9776df14f920002f9ec` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36703931653) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36704785746),
 including both Go race jobs, checksummed amd64 assets, image/binary identity, attestations and
 downloaded draft-asset verification. The v0.1.0 release had a successful
 latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
+
+**v0.1.4 template and automation follow-up:** Selecting a technical template on the panel,
+REST user creation or bulk creation now copies its saved entitlement terms; edits change the
+reference without resetting an existing subscription. The pre-installation catalog contract is
+`/templates`, `template_id` and `templates.read/write`, with a matching fresh SQLite schema;
+plan-named aliases were not shipped. Owner-scoped integrations can create an account, first
+device and customer link atomically with explicit finite terms without cataloging each external
+SKU. Reseller-bound purchases still require owner-assigned enabled templates. Quota top-up has a
+90-day recoverable, non-secret before/after result; panel Add data raises allowance, and Reset
+Usage remains independent. Local full Go/vet, contract/migration checks and focused Chromium and
+WebKit template-form checks passed at 320/390/1440px in fa/en; main and release CI ran Linux race
+tests. New real-host, physical-device and Firefox follow-up checks were not claimed.
 
 **v0.1.1 follow-up (Phase 13):** The public subscription QR visibility and
 mixed-direction usage defects are corrected; its desktop/phone composition and the ten-source
@@ -67,8 +80,8 @@ and no safe reversal contract has been approved.
 |---|---|---|---|
 | Go/SQLite foundation, auth, encrypted secrets, reconciliation | Unit, integration and race coverage | Exercised in Docker/native recovery on Ubuntu 24.04 | Only documented deployment modes certified |
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
-| Users, devices, plans, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
-| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt tests | Exact v0.1.3 source passed PR/main and release gates; earlier panel/API workflows served published OpenAPI | Phase 14 purchase, successor and scoped webhook additions have no new real-host claim |
+| Users, devices, templates, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
+| REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt tests | Exact v0.1.4 source passed main and release gates; earlier panel/API workflows served published OpenAPI | The new direct purchase and quota top-up have no new real-host claim |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |

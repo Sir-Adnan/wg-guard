@@ -25,7 +25,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
-| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; 14.0 in v0.1.2, 14.1–14.4 in v0.1.3 after PR/main CI and exact-source release gate |
+| **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; security in v0.1.2, integration in v0.1.3, template/direct-entitlement follow-up in v0.1.4 after exact-source CI and release gates |
 
 ## Phase gates
 
@@ -215,12 +215,17 @@ replacement or reversal after activation remains a separate product decision; ca
 activation and current-state reconciliation are implemented, and no financial rollback guarantee
 is implied.
 
-Keep additions compatible with `/api/v1`, use separate scopes for sensitive operations, and
-retain old endpoint behavior. Opaque IDs are not usernames; private configs and capability links
-must not enter logs, audit metadata or operation journals. [v0.1.3 main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36557949421)
-and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36558677000)
-certify the listed source/artifact checks; no new physical-device or VPS cell is inferred from
-them. Future public releases still require owner approval.
+The v0.1.4 pre-installation cleanup makes technical templates canonical: `/templates`,
+`template_id` and `templates.read/write` replace plan-named catalog identifiers without aliases.
+The owner can provision direct finite terms atomically while external products/prices stay in
+the bot; reseller-bound purchases still use owner-assigned templates. Panel, REST single-create
+and bulk-create paths share one template-to-user entitlement mapping. Ordinary quota top-up and
+Reset Usage remain independent, optional lifecycle actions. Opaque IDs are not usernames;
+private configs and capability links must not enter logs, audit metadata or operation journals.
+[v0.1.4 main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36703931653) and the
+[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36704785746) certify the
+listed source/artifact checks; no new physical-device or VPS cell is inferred from them.
+Future public releases still require owner approval.
 
 ## Verification policy
 
