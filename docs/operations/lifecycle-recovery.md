@@ -66,6 +66,32 @@ images and pre-update archives are retained. A process killed during staging can
 unreferenced private directory. Inspect journal/state references before removing such a
 directory during maintenance; do not delete the whole lifecycle directory.
 
+### Webhook key-check failure during Docker upgrades
+
+Published binaries through v0.1.5 can reject a valid stored webhook secret during startup or
+offline key validation. The webhook writer stores `enc:`-prefixed base64 text, but that check
+incorrectly treated it as a binary envelope. The message can therefore say the master key does
+not decrypt existing data even when the key is correct. This is not evidence that the key was
+lost. Do not rotate/replace the key, delete webhooks, restart a working affected service or skip
+the backup merely to get past this error.
+
+The corrected updater first uses the installed Docker backup CLI normally. For that exact
+key-check failure only, it can retry using the staged verified Linux helper against the
+canonical host DB/key volume. Both artifacts must declare the same data contract and the data
+lease protocol; the helper checksum is rechecked immediately before use. Boot data/DB/key paths
+must match the managed layout, and inherited host path overrides are replaced with those pinned
+paths. The helper still validates secrets, takes shared data ownership and creates a local
+archive whose bytes are hashed and recorded before deployment changes. A real wrong key, helper
+tampering, incompatible contract, custom layout or failed archive creation stops the upgrade.
+There is no key replacement or backup bypass.
+
+This correction is source work after v0.1.5 until a separately authorized fixed release is
+published. Updating only the old manager/binary to v0.1.5 does not repair it. Automated tests
+cover the stored-webhook failure/reload and CLI backup, plus guarded helper retry/refusal;
+new real-host execution is not claimed. The terminal recovery URL points to this repository
+document; it is not an installed `/docs/...` path. Log source **Installer and update commands**
+contains command errors; **Lifecycle outcomes** intentionally contains only safe action/results.
+
 Pre-update archives use the existing backup service in the owning environment (Docker exec
 or native command) with a dedicated local output directory:
 `/var/lib/wg-guard/backups/lifecycle-<operation-id>/`. The journal records the actual returned

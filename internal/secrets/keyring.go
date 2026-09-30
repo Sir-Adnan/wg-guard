@@ -91,7 +91,10 @@ func LoadNodeKeyRing(ctx context.Context, db *sql.DB, keyFile string) (*KeyRing,
 		{"SELECT private_key_encrypted FROM tunnel_interfaces LIMIT 1", false},
 		{"SELECT private_key_encrypted FROM devices LIMIT 1", false},
 		{"SELECT token_encrypted FROM sub_links LIMIT 1", false},
-		{"SELECT secret_encrypted FROM webhook_endpoints LIMIT 1", false},
+		// Webhook writers use EncryptString (enc: + base64), even though
+		// SQLite's original column declaration is BLOB. Decode the envelope
+		// just as the webhook delivery reader does before checking the key.
+		{"SELECT secret_encrypted FROM webhook_endpoints LIMIT 1", true},
 		// Keep in step with the secret definitions in internal/settings.
 		{"SELECT value FROM settings WHERE key IN ('backup.password', 'backup.telegram_token') LIMIT 1", true},
 	}
@@ -119,11 +122,11 @@ func LoadNodeKeyRing(ctx context.Context, db *sql.DB, keyFile string) (*KeyRing,
 		ciphertext := item.value
 		if item.text {
 			if !bytes.HasPrefix(ciphertext, []byte("enc:")) {
-				return nil, fmt.Errorf("secrets: encrypted backup password or Telegram credential is invalid")
+				return nil, fmt.Errorf("secrets: stored encrypted text secret is invalid")
 			}
 			ciphertext, err = base64.StdEncoding.DecodeString(string(ciphertext[4:]))
 			if err != nil {
-				return nil, fmt.Errorf("secrets: encrypted backup password or Telegram credential is invalid")
+				return nil, fmt.Errorf("secrets: stored encrypted text secret is invalid")
 			}
 		}
 		plaintext, err := ring.Decrypt(ciphertext)

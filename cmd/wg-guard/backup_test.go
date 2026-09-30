@@ -5,6 +5,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
+	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 	"io"
 	"os"
 	"strings"
@@ -62,9 +63,33 @@ func TestBackupPasswordFailureIsSubstantivelyEnglish(t *testing.T) {
 		if err == nil {
 			t.Fatal("corrupt password accepted")
 		}
-		if !strings.Contains(err.Error(), "password") || containsRTLScript(err.Error()) {
+		if !strings.Contains(err.Error(), "encrypted") || !strings.Contains(err.Error(), "invalid") || containsRTLScript(err.Error()) {
 			t.Fatalf("English safety error missing: %v", err)
 		}
+	}
+}
+
+func TestBackupCLIWithExistingWebhookSecret(t *testing.T) {
+	cfg := testTokenConfig(t)
+	env, err := loadCLIEnv(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := webhook.NewService(env.DB, env.Ring).Create(context.Background(),
+		"https://hooks.example/wg", []string{webhook.EventUserCreated}, "synthetic-webhook-secret"); err != nil {
+		env.Close()
+		t.Fatal(err)
+	}
+	env.Close()
+	output := t.TempDir()
+	captureStdout(t, func() {
+		if err := runBackup([]string{"create", "--config", cfg, "--output", output, "--reason", "pre-upgrade"}); err != nil {
+			t.Fatalf("webhook prevents CLI backup: %v", err)
+		}
+	})
+	files, err := os.ReadDir(output)
+	if err != nil || len(files) != 1 || !strings.HasSuffix(files[0].Name(), ".wgg") {
+		t.Fatal("backup archive not completed")
 	}
 }
 

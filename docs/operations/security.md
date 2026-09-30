@@ -46,6 +46,12 @@ is documented honestly as data loss. If encrypted node data exists, service star
 data commands refuse a missing or wrong master key before creating replacement key material.
 Restore the matching key or a coordinated archive.
 
+Carrier validation follows each writer's envelope format: interface/device/subscription values
+are binary envelopes; webhook secrets and encrypted settings are `enc:`-prefixed base64 text.
+The startup/offline check must decode webhook text before authenticating it. A valid webhook
+must not be mistaken for a wrong master key. Missing keys, malformed text and failed
+authentication still fail closed without regenerating key material or exposing stored values.
+
 No `math/rand` for secrets; `crypto/rand` everywhere. Secrets are passed to subprocesses via
 stdin or 0600 temp files, never argv, never shell interpolation. All exec traffic goes through
 `internal/subprocess` — the single audited choke point (explicit argv, per-command timeout,

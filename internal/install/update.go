@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -111,7 +112,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if !o.SkipBackup && !o.Rollback {
 		err = trackedTask(out, "Creating pre-update backup", func() error {
 			var backupErr error
-			previous.Backup, backupErr = createBackup(ctx, h, st, j.ID)
+			previous.Backup, backupErr = createUpdateBackup(ctx, h, st, j.ID, previous, j.Candidate, out)
 			return backupErr
 		})
 		if err != nil {
@@ -745,6 +746,44 @@ func fileDigest(ctx context.Context, h Host, p string, limit int64) (string, boo
 	}
 	return hex.EncodeToString(hash.Sum(nil)), encrypted, nil
 }
+
+// Old Docker binaries reject correctly encoded webhook secrets at key load.
+// A verified helper with the same declared data contract may retry that exact
+// failure on the canonical shared volume. It still validates keys, takes the
+// data lease and creates/hashes the archive before any deployment swap.
+func createUpdateBackup(ctx context.Context, h Host, st *State, id string, previous, candidate *Artifact, out io.Writer) (*BackupIdentity, error) {
+	b, originalErr := createBackup(ctx, h, st, id)
+	if originalErr == nil || st.Mode != ModeDocker || !dataCompatible(previous, candidate) ||
+		!previous.Contract.DataLease || !candidate.Contract.DataLease ||
+		!strings.Contains(originalErr.Error(), "master key does not decrypt existing node data") || ctx.Err() != nil {
+		return b, originalErr
+	}
+	if validateArtifact(candidate) != nil {
+		return nil, originalErr
+	}
+	cfg, err := ReadBootConfig(h, st.ConfigPath)
+	if err != nil || cfg.DataDir != DataDir || cfg.DatabasePath != filepath.Join(DataDir, "wg-guard.db") || cfg.MasterKeyFile != filepath.Join(DataDir, "master.key") {
+		return nil, originalErr
+	}
+	digest, _, err := fileDigest(ctx, h, candidate.Binary, 256<<20)
+	if err != nil || digest != candidate.BinarySHA256 {
+		return nil, errors.Join(originalErr, terminalError("install.error.shim"))
+	}
+	if out != nil {
+		fmt.Fprintln(out, "Retrying backup with the verified compatible helper")
+	}
+	dir := DataDir + "/backups/lifecycle-" + id
+	// Pin data paths rather than inheriting unrelated host WGG_* path overrides.
+	args := []string{"env", "WGG_DATA_DIR=" + DataDir, "WGG_DATABASE_PATH=" + path.Join(DataDir, "wg-guard.db"),
+		"WGG_MASTER_KEY_FILE=" + path.Join(DataDir, "master.key"), candidate.Binary,
+		"backup", "create", "--config", st.ConfigPath, "--reason", "pre-upgrade", "--output", dir}
+	raw, err := h.Output(ctx, args, 5*time.Minute)
+	if err != nil {
+		return nil, errors.Join(originalErr, err)
+	}
+	return backupIdentity(ctx, h, dir, raw)
+}
+
 func createBackup(ctx context.Context, h Host, st *State, id string) (*BackupIdentity, error) {
 	dir := DataDir + "/backups/lifecycle-" + id
 	if err := h.MkdirAll(dir, 0700); err != nil {
@@ -759,6 +798,10 @@ func createBackup(ctx context.Context, h Host, st *State, id string) (*BackupIde
 	if err != nil {
 		return nil, err
 	}
+	return backupIdentity(ctx, h, dir, raw)
+}
+
+func backupIdentity(ctx context.Context, h Host, dir, raw string) (*BackupIdentity, error) {
 	// Never log complete delivery output: it can contain remote warnings.
 	name := ""
 	for _, line := range strings.Split(raw, "\n") {
@@ -774,7 +817,8 @@ func createBackup(ctx context.Context, h Host, st *State, id string) (*BackupIde
 		return nil, terminalError("install.error.archive")
 	}
 	b := &BackupIdentity{Path: dir + "/" + name}
-	b.SHA256, b.Encrypted, err = fileDigest(ctx, h, b.Path, 8<<30)
+	digest, encrypted, err := fileDigest(ctx, h, b.Path, 8<<30)
+	b.SHA256, b.Encrypted = digest, encrypted
 	return b, err
 }
 func waitHealthyRecorded(ctx context.Context, h Host, st *State, within time.Duration, out io.Writer) error {

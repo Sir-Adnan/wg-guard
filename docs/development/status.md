@@ -16,6 +16,14 @@ latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
+**Post-v0.1.5 corrective source work (not yet released):** An owner Docker upgrade report exposed
+a valid-webhook text envelope being misread as binary by startup/offline key validation. This
+could falsely reject the master key, block pre-update backups and prevent service startup after
+a webhook was added. The stored-webhook regression reproduces the old failure and passes with
+the corrected text decoder; missing/wrong keys and malformed text remain denied. CLI backup and
+guarded compatible-helper retry tests cover the upgrade path from an affected old Docker binary.
+The owner's failed upgrade is incident evidence, not a successful real-host test of the fix.
+
 **v0.1.5 installer update:** The host manager now separates service/component,
 lifecycle and private installer logs, with a 200-line recent view and service/installer live
 follow. Bootstrap and Go install/update paths show named stages and bounded elapsed-time progress;
