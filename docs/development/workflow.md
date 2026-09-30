@@ -90,6 +90,8 @@ is in [phase12.md](phase12.md); v0.1.1 through v0.1.5 were separately authorized
 The owner explicitly authorized v0.1.5 on 2026-10-01; its
 [exact-source release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36782237324) passed.
 Later versions and official registry images are not authorized.
+The owner separately authorized the v0.1.6 backup/startup correction on 2026-10-01, subject
+to its exact-source release gate; this does not authorize a later version or registry image.
 For local immutable candidate
 artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
 

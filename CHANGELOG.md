@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.1.6] — 2026-10-01
+
 - Correct startup/offline key validation of stored webhook text envelopes, which could falsely
   report a master-key mismatch and block backup or restart on an otherwise working node.
 - Allow a Docker upgrade blocked by that exact old-binary validation error to retry backup with
@@ -9,6 +11,11 @@
   match. The archive remains mandatory; wrong keys and other failures still stop the upgrade.
 - Link terminal recovery guidance to the repository document instead of an uninstalled relative
   filesystem path.
+
+The reported Docker upgrade failure was reproduced with a secret created by the webhook service.
+Regression tests cover correct-key reload, missing/wrong-key refusal, malformed text, CLI backup
+and compatible-helper recovery/refusal. Full local Go tests and relevant vet checks passed.
+No new real-host or physical-device verification of this correction is claimed.
 
 ## [v0.1.5] — 2026-10-01
 
