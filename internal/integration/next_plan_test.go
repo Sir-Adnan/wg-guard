@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reseller"
@@ -32,7 +33,7 @@ func nextPlanFixture(t *testing.T) (*Service, *reseller.Service, *secrets.KeyRin
 func buyNextPlanUser(t *testing.T, svc *Service, ring *secrets.KeyRing, planID, key string, resellerID *string) string {
 	t.Helper()
 	result, replay, err := svc.Purchase(context.Background(), PurchaseInput{
-		Key: key, TemplateID: planID, ResellerID: resellerID, Keys: purchaseKeys(t, ring),
+		Key: key, TemplateID: planID, ResellerID: resellerID, DeviceKeys: []device.KeyMaterial{purchaseKeys(t, ring)},
 	})
 	if err != nil || replay {
 		t.Fatalf("purchase: %+v %v %v", result, replay, err)

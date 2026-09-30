@@ -132,7 +132,7 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resellerBody := `{"template_id":"` + p.ID + `"}`
+	resellerBody := `{"template_id":"` + p.ID + `","device_count":3}`
 	if rec := send(resellerToken, http.MethodGet, "/api/v1/operations/result", "order-1", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("owner result exposed to reseller: %d", rec.Code)
 	}
@@ -159,6 +159,9 @@ func TestPurchaseResultAndResellerIsolation(t *testing.T) {
 		t.Fatalf("owned customer link: %d", rec.Code)
 	}
 	ownedID := decodeBody(t, owned)["user_id"].(string)
+	if ids, ok := decodeBody(t, owned)["device_ids"].([]any); !ok || len(ids) != 3 {
+		t.Fatalf("reseller requested devices missing: %s", owned.Body.String())
+	}
 	if rec := send(resellerToken, http.MethodPost, "/api/v1/users/"+ownedID+"/traffic/reset", "reset-owned", ""); rec.Code != http.StatusOK {
 		t.Fatalf("owned usage reset: %d %s", rec.Code, rec.Body.String())
 	}

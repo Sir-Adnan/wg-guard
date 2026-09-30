@@ -22,6 +22,14 @@ follow. Bootstrap and Go install/update paths show named stages and bounded elap
 pre-update backup and health waits are included. Local Go tests/vet and the offline bootstrap
 fixture cover the change. No new Ubuntu VPS installation or live log-follow drill is claimed.
 
+**Post-v0.1.4 API provisioning follow-up:** Purchase requests now accept `device_count` (1–100,
+default one), within the account/template cap. Account, independently keyed devices, customer
+link and a result listing every device ID commit in one transaction. The count is part of the
+idempotency fingerprint; service/API tests cover rollback, concurrent replay, result recovery,
+owner/reseller policy and per-device config delivery. OpenAPI and `/docs` also clarify the user
+form mapping, panel-only actions and field-specific PATCH semantics, with missing bulk fields
+and stats response schemas added. New real-host or physical-device verification is not claimed.
+
 **v0.1.4 template and automation follow-up:** Selecting a technical template on the panel,
 REST user creation or bulk creation now copies its saved entitlement terms; edits change the
 reference without resetting an existing subscription. The pre-installation catalog contract is

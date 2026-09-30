@@ -34,10 +34,14 @@ node capability through `GET /api/v1/node/health`.
   by the chosen sort; stable ordering even for rows written in the same microsecond (id
   tiebreak). Filters per the archived spec §22 (status, expires_before/after, traffic_exceeded,
   enabled, created range, search with literal `%`/`_` semantics).
-- **Tri-state PATCH semantics** (users, templates, interfaces, webhooks): a field **absent** from the
+- **Tri-state PATCH semantics** for nullable option fields (such as user/template quota, speed,
+  device cap and profile/template references): a field **absent** from the
   body means "no change"; an explicit JSON **null** means "clear to unlimited/none" (e.g.
   `{"speed_limit_up_kbps": null}` removes only the upload cap); a value sets it. This is how
   independent up/down speed limits change one at a time without re-sending the other.
+  This is not a blanket rule for all fields: user/template PATCH `duration_seconds: null`
+  leaves the stored duration unchanged; `note: ""` clears a note and `tags: []` clears tags.
+  See [the user-form mapping](#user-form-to-api-mapping) for field-specific behavior.
 - **Idempotency**: `Idempotency-Key` header (1–128 printable chars) is persisted for create-user,
   bulk create/action, renew, traffic mutations and successor-plan queue/cancel. Authentication, scope checks and rate limits
   precede every replay. Keys are isolated per verified API token: the same token and request
@@ -172,11 +176,94 @@ GB, speed Kbps or calendar dates.
 | Templates | `GET/POST /templates`, `GET/PATCH/DELETE /templates/{id}` |
 | Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation) |
 | Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope) |
-| Webhooks | `GET/POST /webhooks`, `PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
+| Webhooks | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
 | Ops | `GET /healthz` (public liveness), `GET /readyz`, `GET /openapi.json`, `GET /docs`; `GET /metrics` (config-gated, served outside `/api/v1`) |
 
 **Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
 [ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)).
+
+## User form to API mapping
+
+Panel labels are presentation, not JSON property names. All paths below are relative to
+`/api/v1`. Manual creation is `POST /users` (`users.create`); edits are
+`PATCH /users/{id}` (`users.update`). These mutations are owner/node integration operations;
+reseller tokens use the authorized template-gated purchase workflow instead.
+
+| Panel field or action | REST equivalent | Exact behavior |
+|---|---|---|
+| Username / account | `username` on create | Required ASCII letters, digits, `_` or `-`, 3–32 characters; globally unique and immutable. Soft deletion keeps the name reserved. Resource paths use the returned opaque `id`, never the username. |
+| Display name | `display_name` | Optional presentation label, separate from immutable identity; an empty string clears it on PATCH. |
+| Subscription template / Custom | `template_id` | Omit or use `null` for manual terms. An enabled template copies quota, duration, start policy, device cap, up/down speed caps and interface on creation, overriding conflicting manual terms. PATCH changes only the reference; it does not reapply terms. Prices and external product IDs belong in the caller's catalog. |
+| Traffic volume and GB/MB selector | `traffic_limit_bytes` | Exact integer bytes; decimal GB × 1,000,000,000 or MB × 1,000,000. Absent/null on manual create means unlimited; explicit null on PATCH removes the cap. Zero is a finite zero-byte allowance. Quota presets are form shortcuts, not API enums. |
+| Device limit / Maximum devices | `device_limit` | Positive integer cap on registered device/peer configurations; absent/null on manual create means unlimited. It neither creates devices nor counts simultaneous connections or physical hardware IDs. See the device rules below. |
+| Create ready subscription devices with this account | Purchase `device_count`; no `auto_devices` JSON property | The panel shortcut creates one device when the cap is unlimited, otherwise up to the cap, with a maximum of 10 per panel auto-create. `POST /users` and `/users/bulk` create no devices or customer link. `POST /purchases` accepts `device_count` for 1–100 ready configurations; omitted/null means one. The requested count must fit the account cap. |
+| Duration and days/hours/months selector | `duration_seconds` | Positive integer seconds; month shortcut = 30 days. Manual create absent/null means no configured duration. `first_connection` also permits an unlimited duration. PATCH changes a stored duration only; absent/null does not clear it or recalculate expiry. |
+| Exact date | No `expires_on`/`expires_at` create or PATCH input | The panel has a create-only calendar convenience. REST sets an existing account's expiry through `POST /users/{id}/renew` with `{"mode":"exact","exact":"2026-10-30T12:00:00Z"}`. This is a separate operation, not atomic exact-date creation; a reseller token cannot invoke this owner/node renewal route. `expires_at` is a response field. |
+| Start policy | `start_policy` on create | `immediate` (default) or `first_connection`; not a user PATCH property. `activated_at`, `expires_at` and `status` in the response describe the resulting state. |
+| Note | `note` | Internal text; JSON `\n` preserves line breaks. Empty string clears it; absent/null on PATCH leaves it unchanged. Do not put passwords, tokens or private configuration in notes. |
+| Interface / connection profile | `interface_id` | Opaque profile ID, not a name such as `awg0`. Absent/null manual terms use automatic profile selection when a device is created. Changing the user reference does not move already-created devices. |
+| Download/upload limit (MB/s) | `speed_limit_down_kbps` / `speed_limit_up_kbps` | Panel MB/s × 8,000 = REST decimal Kbps. Positive integers or null, independent in each direction. Caps aggregate across the user's devices on an interface; they are not a per-device guaranteed rate. |
+| Comma-separated tags | `tags` | Send a JSON string array, e.g. `["vip","telegram"]`, not a comma-separated string. PATCH `[]` clears tags; absent/null keeps existing tags. |
+| Enabled state | `enabled`, or `/enable` and `/disable` actions | Boolean, default true on create. `status` is the derived lifecycle state, not a writable create/PATCH field. |
+| Integration annotations | `metadata` | Optional JSON object accepted on single-user creation and PATCH. The current PATCH handler does not persist metadata updates, so do not use it as an editable order journal. It is not a `/purchases` or bulk-create input. Keep the billing journal in the caller. |
+
+### Device cap and provisioning rules
+
+`device_limit: 3` permits at most three registered configurations in total. Disabled devices
+still occupy slots. Deleting a device releases its slot; disabling it does not. Lowering the
+cap on an existing account does not remove existing devices. New device creation fails with
+409 `DEVICE_LIMIT_REACHED` when the current count reaches/exceeds the cap; the check and insert
+share a database transaction. Ordinary user/template terms accept positive counts without the
+direct-purchase maximum of 100; the panel auto-create maximum of 10 is not the API device cap.
+Neither a physical device limit nor simultaneous-use detection is provided by this field.
+
+Owner/node integrations can add one device with `POST /users/{id}/devices` (`devices.write`):
+`{"name":"phone","preshared_key":false}`. The trimmed name must occupy 1–64 UTF-8 bytes.
+Keys and addresses are generated on the server. Profile selection is explicit device
+`interface_id`, then the user's profile, then the first enabled interface in name order.
+The account must be enabled and peer-eligible and the selected interface must be enabled.
+Read the device's private config/QR with `configs.read` or its customer link with
+`subscriptions.read`. These are separate permissions. Device creation is not covered by the
+ordinary idempotency replay middleware: after a lost response, inspect the owned device list
+before retrying. Names are labels, not uniqueness/idempotency keys.
+
+The panel's auto-create runs after account creation and creates devices in separate transactions;
+it may stop partway through. It is not the purchase transaction. For a sale requiring an atomic
+account + requested devices + customer link, use `/purchases`, and persist its operation key.
+Additional-device writes are not available to reseller-bound REST tokens in the current contract.
+Owner and assigned-template reseller purchases both support `device_count`. A larger
+`device_limit` is capacity, not an instruction to allocate every slot. Send an explicit positive
+`device_count` (at most 100 and not greater than the cap) to request all desired configurations.
+A count of zero is invalid; use `/users` for an owner/node account without devices. Device labels
+are `device-1`, `device-2`, etc., or `<device_name>-1`, `<device_name>-2`, etc. when a prefix is
+supplied for multiple devices; single-device custom names remain unchanged. The final trimmed
+label must occupy 1–64 UTF-8 bytes. The result contains `device_ids` in creation order and
+`device_id` for the first item. Use each ID to retrieve its own config or QR. Old saved
+single-device results may omit `device_ids`; their `device_id` remains available.
+An identical count/order replay returns the same IDs, including after token rotation; changing
+the count with the same key conflicts. Address-pool exhaustion, invalid generated names or any
+device failure roll back all requested devices, the user, link, events and result journal.
+Database commit means credentials exist, not that live reconciliation or a handshake succeeded.
+
+### Other management surfaces and documentation coverage
+
+The endpoint table and OpenAPI cover registered REST routes, including bulk creation/actions,
+templates, profiles, settings, telemetry/statistics, usage corrections/reset, quota top-up,
+renewal, successor queue/activation history, customer access rotation and webhook receipts.
+Bulk creation accepts shared display name, note, tags and entitlement terms, not `metadata`,
+`enabled`, `auto_devices` or exact expiry. Bulk actions return per-user success/errors and
+are not an all-or-nothing financial transaction; `add_traffic` increases charged usage,
+not quota. Their `update` parameters are a restricted subset of single-user PATCH.
+
+Panel-only operations must not be guessed as REST paths: administrator/reseller creation and
+permission assignment, API-token issuance/revocation, account restore, customer-link
+create/revoke/restore, downloading all configs as a ZIP, backup/restore, installer/update control
+and browser appearance preferences have no corresponding management REST operation here.
+Server defaults and public appearance settings exposed by `/settings` remain distinct from
+per-browser/account preferences. `GET /users/{id}/subscription` reads an existing active link;
+`/subscription/rotate` replaces access; neither is a dedicated link revoke/restore endpoint.
+The owner assigns reseller grants/templates in the panel. Having a token scope does not bypass
+the route's owner/reseller boundary. Consult OpenAPI security and the automation boundaries below.
 
 ## Connecting a sales bot
 
@@ -192,7 +279,7 @@ Read only omits private configurations and customer-link capabilities. Operation
 purchase, usage reset and successor-plan actions; Full access includes sensitive management.
 The owner token editor shows REST scopes only. Review the resulting grants before issuance.
 
-A bot can create a customer and first device atomically through `POST /purchases`, recover an
+A bot can create a customer and requested devices atomically through `POST /purchases`, recover an
 uncertain result through `GET /operations/result`, read current state with scoped GET endpoints,
 and use `POST /users/{id}/quota/add`, `POST /users/{id}/traffic/reset` or the queued Next Plan
 endpoints as needed. A quota top-up needs `users.update`; result recovery needs `operations.read`.
@@ -207,7 +294,7 @@ HTTPS endpoint run by the bot/integration, not the WG-Guard panel address. See
 [webhook delivery](../integrations/webhooks.md).
 
 For an owner-operated sale, the bot keeps its own product/price ID and provisions only technical
-terms. This single request creates the customer, first device and customer link in one database
+terms. This single request creates the customer, requested devices and customer link in one database
 transaction:
 
 ```http
@@ -221,6 +308,18 @@ Content-Type: application/json
 
 This grants 100 GB for 30 days, with download capped at 100 Mbps (12.5 MB/s) and upload at
 20 Mbps (2.5 MB/s). These are caps, not a guaranteed measured throughput.
+
+To create **three ready configurations** within a three-device allowance, send:
+
+```json
+{"username":"customer123","device_count":3,"entitlement":{"traffic_limit_bytes":100000000000,"duration_seconds":2592000,"device_limit":3}}
+```
+
+Use the same required `Idempotency-Key` as above. A reseller sends
+`{"template_id":"<owner-assigned-template-id>","device_count":3}`; the assigned template must
+allow at least three devices. The response lists all three `device_ids`; the customer link
+shows each device's separate config/QR. Setting only `device_limit: 3` still provisions one
+initial device by default.
 
 For a reseller integration, use `{"template_id":"<owner-assigned-template-id>"}` instead of
 `entitlement`. A direct volume add-on uses the separate optional top-up command below; a simple
@@ -250,7 +349,7 @@ conflicting manual entitlement fields; `POST /users/bulk` applies the same rule 
 `PATCH /users/{id}` changes a template reference without retroactively resetting existing
 allowances or expiry.
 `POST /purchases` accepts exactly one of `template_id` or `entitlement`; it commits the user,
-initial device, customer link and non-secret result together. Direct `entitlement` is available
+requested devices (one by default), customer link and non-secret result together. Direct `entitlement` is available
 only to owner-scoped integrations and requires finite positive quota, duration (at most ten years)
 and device count (at most 100). Reseller purchases require an owner-assigned enabled template.
 Omitted usernames are generated deterministically from
@@ -395,7 +494,9 @@ reconciliation guidance:
 `/openapi.json` (+ lightweight `/docs` reference) is hand-authored. A route-coverage test checks
 that every registered route appears with the correct scope and that the document has no stale
 paths; focused contract tests cover selected schemas, the full typed webhook catalog and behavior.
+User/device/template DTO and bulk-action parameter field coverage is checked against the
+description so accepted or returned fields cannot silently disappear from generated references.
 The description uses OpenAPI 3.2.1 and JSON Schema null unions. Its `info.version` remains
-`1.0.0` for the unchanged V1 API contract; the `openapi` field versions the description format,
+`1.0.0` for the V1 API contract; the `openapi` field versions the description format,
 not a WG-Guard release or a new endpoint set. Consumers parsing the description need tooling
 that understands OpenAPI 3.2; existing HTTP clients do not change.

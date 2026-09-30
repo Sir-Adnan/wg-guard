@@ -27,14 +27,60 @@
   <tr><td>Ops</td><td><code>GET /healthz</code>, <code>GET /readyz</code> (public)</td></tr>
   <tr><td>Node</td><td><code>GET /api/v1/node</code>, <code>GET /api/v1/node/health</code> (public), <code>GET /api/v1/node/stats</code></td></tr>
   <tr><td>Users</td><td><code>POST/GET /users</code>, <code>GET/PATCH/DELETE /users/{id}</code>, <code>POST /users/{id}/enable|disable|renew</code>, <code>POST /users/{id}/traffic/add|set|reset</code>, <code>GET /users/{id}/traffic</code></td></tr>
+  <tr><td>Integration</td><td><code>POST /purchases</code>, <code>GET /operations/result</code>, <code>POST /users/{id}/quota/add</code>, <code>GET /users/{id}/subscription</code>, <code>POST /users/{id}/subscription/rotate</code>, <code>GET/PUT/DELETE /users/{id}/next-plan</code>, <code>GET /users/{id}/next-plan/activations</code></td></tr>
   <tr><td>Bulk</td><td><code>POST /users/bulk</code>, <code>POST /users/bulk-action</code></td></tr>
   <tr><td>Devices</td><td><code>GET/POST /users/{id}/devices</code>, <code>GET/PATCH/DELETE /devices/{id}</code>, <code>POST /devices/{id}/enable|disable|regenerate</code>, <code>GET /devices/{id}/config|qr</code></td></tr>
   <tr><td>Stats</td><td><code>GET /stats</code>, <code>GET /node/telemetry</code>, <code>GET /users/{id}/stats</code>, <code>GET /devices/{id}/stats</code></td></tr>
   <tr><td>Templates</td><td><code>GET/POST /templates</code>, <code>GET/PATCH/DELETE /templates/{id}</code></td></tr>
   <tr><td>Interfaces</td><td><code>GET/POST /interfaces</code>, <code>GET/PATCH/DELETE /interfaces/{id}</code></td></tr>
   <tr><td>Settings</td><td><code>GET /settings</code>, <code>PATCH /settings</code></td></tr>
-  <tr><td>Webhooks</td><td><code>GET/POST /webhooks</code>, <code>GET/PATCH/DELETE /webhooks/{id}</code>, <code>POST /webhooks/{id}/redeliver</code></td></tr>
+  <tr><td>Webhooks</td><td><code>GET/POST /webhooks</code>, <code>GET/PATCH/DELETE /webhooks/{id}</code>, <code>POST /webhooks/{id}/redeliver</code>, <code>GET /webhooks/{id}/deliveries</code>, <code>GET /webhooks/{id}/deliveries/{deliveryID}</code></td></tr>
 </table>
+
+<h2>User form and ready configurations</h2>
+<p>Panel labels are not JSON field names. Resource paths use the returned opaque user <code>id</code>,
+not the username. Owner/node tokens can create manual accounts with <code>POST /users</code>;
+reseller-bound tokens provision through assigned templates on <code>POST /purchases</code>.</p>
+<table>
+  <tr><th>Form control</th><th>REST input and behavior</th></tr>
+  <tr><td>Username / account</td><td><code>username</code>: immutable, globally unique ASCII letters, digits, underscore or hyphen, 3–32 characters. Soft deletion keeps it reserved.</td></tr>
+  <tr><td>Template / Custom</td><td><code>template_id</code>: enabled technical template ID, or absent/null for manual terms. On create, saved terms override manual limits, duration, start policy and profile. PATCH changes only the reference.</td></tr>
+  <tr><td>Traffic volume</td><td><code>traffic_limit_bytes</code>: exact bytes. Preset buttons and the GB/MB selector are panel shortcuts.</td></tr>
+  <tr><td>Device limit / Maximum devices</td><td><code>device_limit</code>: positive registered-config cap or null for unlimited; includes disabled devices. It does not allocate configs or measure simultaneous connections/hardware IDs. Lowering it does not delete devices.</td></tr>
+  <tr><td>Create ready devices with account</td><td><code>POST /purchases</code> with <code>device_count</code>: 1–100, default one for absent/null, within the account cap. Independent keys and addresses; all requested devices, account, link and recoverable result commit together. <code>POST /users</code> and bulk creation create no devices or link. There is no <code>auto_devices</code> JSON input.</td></tr>
+  <tr><td>Duration / Start policy</td><td><code>duration_seconds</code> and create-only <code>start_policy</code> (<code>immediate</code> default, or <code>first_connection</code>). User/template PATCH absent/null duration leaves it unchanged; a value does not recompute user expiry.</td></tr>
+  <tr><td>Exact date</td><td>No create/PATCH <code>expires_on</code> or <code>expires_at</code> input. Owner/node integrations use <code>POST /users/{id}/renew</code> with <code>{&quot;mode&quot;:&quot;exact&quot;,&quot;exact&quot;:&quot;2026-10-30T12:00:00Z&quot;}</code>; this is a separate operation, not atomic exact-date creation.</td></tr>
+  <tr><td>Note</td><td><code>note</code>: internal text with JSON <code>\n</code> line breaks. PATCH empty string clears it; absent/null keeps it.</td></tr>
+  <tr><td>Interface</td><td><code>interface_id</code>: ID, not name. Device selection uses explicit profile, user profile, then first enabled interface in name order. User edits do not move existing devices.</td></tr>
+  <tr><td>Download / Upload speed</td><td><code>speed_limit_down_kbps</code> / <code>speed_limit_up_kbps</code>: panel MB/s × 8,000. Independent caps aggregate across devices on an interface.</td></tr>
+  <tr><td>Tags</td><td><code>tags</code>: JSON array such as <code>[&quot;vip&quot;,&quot;telegram&quot;]</code>, not comma-separated text. PATCH <code>[]</code> clears; absent/null keeps existing tags.</td></tr>
+  <tr><td>Display name / Enabled / Annotations</td><td><code>display_name</code> is separate from identity; <code>enabled</code> is boolean (default true); <code>status</code> is derived. <code>metadata</code> is stored at creation; the current PATCH handler does not persist metadata updates.</td></tr>
+</table>
+<p>For three ready configs, send this JSON to <code>POST /api/v1/purchases</code> with a scoped
+Bearer token and required <code>Idempotency-Key</code>:</p>
+<pre><code>{"username":"customer123","device_count":3,"entitlement":{
+  "traffic_limit_bytes":100000000000,"duration_seconds":2592000,"device_limit":3
+}}</code></pre>
+<p>A reseller sends <code>{&quot;template_id&quot;:&quot;assigned-template-id&quot;,&quot;device_count&quot;:3}</code>.
+The assigned enabled template must permit that count. Results return <code>device_ids</code> in creation
+order and <code>device_id</code> for the first item. Read each private config/QR with <code>configs.read</code>,
+or the customer link with <code>subscriptions.read</code>. Multiple labels default to <code>device-1</code>,
+<code>device-2</code>, etc.; a custom <code>device_name</code> becomes the prefix. Final names must be 1–64 UTF-8 bytes.
+Replay returns the same IDs; a changed count under the same key returns 409. Old saved single-device
+results can omit the array. Any provisioning failure rolls back the complete purchase;
+commit does not certify runtime reconciliation or a live handshake.</p>
+<p>The panel's auto-create shortcut remains separate: at most 10 devices after user creation,
+with per-device transactions and possible partial completion. Ordinary <code>POST /users/{id}/devices</code>
+creates one device and has no idempotency replay middleware. Disabled devices occupy slots; deleting
+a device frees its slot. Creation at/above the cap returns <code>DEVICE_LIMIT_REACHED</code>.</p>
+<p>Bulk requests have their own documented field sets: shared note/display-name/tags and terms for
+creation; restricted update fields and per-user outcomes for actions. <code>add_traffic</code> increases
+charged usage; <code>quota/add</code> increases allowance. <code>traffic/reset</code> resets charged usage.</p>
+<p>Panel-only management includes administrator/reseller and token creation, permission assignment,
+account restore, dedicated link revoke/restore, all-config ZIP download, backup/restore, host update
+control and browser appearance preferences. Do not infer REST paths for these actions. Settings exposed
+by <code>/settings</code> are separate from per-browser preferences. Webhooks are optional: polling works
+without them. Scopes do not override reseller ownership/route restrictions.</p>
 
 <h2>Units</h2>
 <table>
@@ -83,6 +129,8 @@ change an existing expiry.</p>
 <p class="sub scope">Limits are tri-state: a speed-limit field left absent defaults to unlimited on create;
 <code>null</code> on update clears it to unlimited — download (server→client) and upload
 (client→server) are independent. Mutating endpoints accept <code>Idempotency-Key</code>.
+Replay applies only to the operations documented as idempotent; ordinary device creation and
+access rotation do not gain replay behavior by receiving that header.
 Errors: one envelope with a stable <code>error.code</code>.</p>
 </body>
 </html>

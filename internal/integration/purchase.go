@@ -25,6 +25,9 @@ import (
 
 const ResultRetention = 90 * 24 * time.Hour
 
+// MaxPurchaseDevices bounds key generation and a single provisioning transaction.
+const MaxPurchaseDevices = 100
+
 type Service struct {
 	DB         *database.DB
 	Users      *user.Service
@@ -42,7 +45,7 @@ type PurchaseInput struct {
 	TemplateID  string
 	Entitlement *DirectEntitlement
 	DeviceName  string
-	Keys        device.KeyMaterial
+	DeviceKeys  []device.KeyMaterial // one independent keypair per requested device
 }
 
 // DirectEntitlement is a complete technical subscription supplied by an
@@ -92,6 +95,7 @@ type Result struct {
 	State      string                    `json:"state"`
 	UserID     string                    `json:"user_id"`
 	DeviceID   string                    `json:"device_id,omitempty"`
+	DeviceIDs  []string                  `json:"device_ids,omitempty"`
 	TemplateID string                    `json:"template_id,omitempty"`
 	Before     *accounting.QuotaSnapshot `json:"before,omitempty"`
 	After      *accounting.QuotaSnapshot `json:"after,omitempty"`
@@ -176,10 +180,14 @@ func (s *Service) recordResultTx(ctx context.Context, tx *sql.Tx, scope, keyHash
 	return nil
 }
 
-// Purchase inserts the user, initial device, customer link and durable
+// Purchase inserts the user, requested devices, customer link and durable
 // result in one SQLite write transaction. A retry after lost HTTP response
 // returns the prior result without minting another customer or credential.
 func (s *Service) Purchase(ctx context.Context, in PurchaseInput) (*Result, bool, error) {
+	count := len(in.DeviceKeys)
+	if count < 1 || count > MaxPurchaseDevices {
+		return nil, false, domain.E(domain.CodeInvalidRequest, "device_count must be 1-100")
+	}
 	in.TemplateID = strings.TrimSpace(in.TemplateID)
 	if !validKey(in.Key) || (in.TemplateID == "") == (in.Entitlement == nil) || in.ResellerID != nil && *in.ResellerID == "" {
 		return nil, false, domain.E(domain.CodeInvalidRequest, "idempotency key and exactly one of template_id or entitlement are required")
@@ -207,7 +215,16 @@ func (s *Service) Purchase(ctx context.Context, in PurchaseInput) (*Result, bool
 		in.Username = "u" + hashedKey(scope, in.Key)[:16]
 	}
 	if in.DeviceName == "" {
-		in.DeviceName = "device-1"
+		in.DeviceName = "device"
+		if count == 1 {
+			in.DeviceName = "device-1"
+		}
+	}
+	// Keep the existing one-device fingerprint. Explicit count=1 and omitted
+	// count replay the same order; additional devices are part of the fingerprint.
+	extraCount := 0
+	if count > 1 {
+		extraCount = count
 	}
 	var canonical []byte
 	if in.Entitlement == nil {
@@ -215,12 +232,14 @@ func (s *Service) Purchase(ctx context.Context, in PurchaseInput) (*Result, bool
 		// entitlement is part of its request fingerprint.
 		canonical, _ = json.Marshal(struct {
 			Username, TemplateID, DeviceName string
-		}{in.Username, in.TemplateID, in.DeviceName})
+			DeviceCount                      int `json:"DeviceCount,omitempty"`
+		}{in.Username, in.TemplateID, in.DeviceName, extraCount})
 	} else {
 		canonical, _ = json.Marshal(struct {
 			Username, DeviceName string
 			Entitlement          *DirectEntitlement
-		}{in.Username, in.DeviceName, in.Entitlement})
+			DeviceCount          int `json:"DeviceCount,omitempty"`
+		}{in.Username, in.DeviceName, in.Entitlement, extraCount})
 	}
 	hashBytes := sha256.Sum256(canonical)
 	requestHash := hex.EncodeToString(hashBytes[:])
@@ -249,20 +268,31 @@ func (s *Service) Purchase(ctx context.Context, in PurchaseInput) (*Result, bool
 		if err != nil {
 			return err
 		}
+		if input.DeviceLimit.Set && !input.DeviceLimit.Null && count > input.DeviceLimit.Value {
+			return domain.E(domain.CodeDeviceLimitReached, "requested devices exceed the account device limit")
+		}
 		u, err := s.Users.CreateTx(ctx, tx, input)
 		if err != nil {
 			return err
 		}
-		d, err := s.Devices.CreateTx(ctx, tx, u.ID, in.DeviceName, in.Keys, interfaceID)
-		if err != nil {
-			return err
+		deviceIDs := make([]string, 0, count)
+		for i, keys := range in.DeviceKeys {
+			name := in.DeviceName
+			if count > 1 {
+				name = fmt.Sprintf("%s-%d", name, i+1)
+			}
+			d, err := s.Devices.CreateTx(ctx, tx, u.ID, name, keys, interfaceID)
+			if err != nil {
+				return err
+			}
+			deviceIDs = append(deviceIDs, d.ID)
 		}
 		if _, err := s.Links.CreateTx(ctx, tx, u.ID); err != nil {
 			return err
 		}
 		now := s.now()
 		result := &Result{ID: domain.NewID(), Kind: "purchase", State: "committed",
-			UserID: u.ID, DeviceID: d.ID, TemplateID: resultTemplateID, CreatedAt: now}
+			UserID: u.ID, DeviceID: deviceIDs[0], DeviceIDs: deviceIDs, TemplateID: resultTemplateID, CreatedAt: now}
 		if err := s.recordResultTx(ctx, tx, scope, keyHash, requestHash, result); err != nil {
 			return err
 		}

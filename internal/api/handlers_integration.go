@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 )
@@ -28,19 +29,32 @@ func (s *Server) handlePurchase(w http.ResponseWriter, r *http.Request) {
 		TemplateID  string                         `json:"template_id"`
 		Entitlement *integration.DirectEntitlement `json:"entitlement"`
 		DeviceName  string                         `json:"device_name"`
+		DeviceCount *int                           `json:"device_count"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	keys, err := s.generateKeys(r, false)
-	if err != nil {
-		writeServiceErr(w, r, err)
+	count := 1
+	if req.DeviceCount != nil {
+		count = *req.DeviceCount
+	}
+	if count < 1 || count > integration.MaxPurchaseDevices {
+		writeErr(w, r, http.StatusBadRequest, domain.CodeInvalidRequest, "device_count must be 1-100")
 		return
+	}
+	deviceKeys := make([]device.KeyMaterial, 0, count)
+	for i := 0; i < count; i++ {
+		keys, err := s.generateKeys(r, false)
+		if err != nil {
+			writeServiceErr(w, r, err)
+			return
+		}
+		deviceKeys = append(deviceKeys, *keys)
 	}
 	verified := TokenFrom(r.Context())
 	result, replayed, err := s.Integration.Purchase(r.Context(), integration.PurchaseInput{
 		Key: key, ResellerID: verified.Token.ResellerID, Username: req.Username,
-		TemplateID: req.TemplateID, Entitlement: req.Entitlement, DeviceName: req.DeviceName, Keys: *keys,
+		TemplateID: req.TemplateID, Entitlement: req.Entitlement, DeviceName: req.DeviceName, DeviceKeys: deviceKeys,
 	})
 	if err != nil {
 		writeServiceErr(w, r, err)
@@ -50,7 +64,7 @@ func (s *Server) handlePurchase(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Idempotency-Replayed", "true")
 	} else {
 		s.audit(r, "integration.purchase_committed", result.ID,
-			map[string]any{"user_id": result.UserID, "device_id": result.DeviceID})
+			map[string]any{"user_id": result.UserID, "device_count": len(result.DeviceIDs)})
 		s.reconcile(r)
 	}
 	writeJSON(w, http.StatusCreated, result)

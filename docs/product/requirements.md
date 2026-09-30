@@ -42,8 +42,11 @@ current product contract.
   handshake, last endpoint, rx/tx (accumulated), counters for delta accounting.
 - **Technical template** — reusable preset (quota, duration, start policy, device limit, speed limit,
   profile). It is not a sales product or price list. Users can be created without a template;
-  owner-scoped integrations may provision an initial user and device atomically with explicit
+  owner-scoped integrations may provision a user and requested devices atomically with explicit
   finite terms, while reseller purchases require an assigned template.
+  Purchase `device_count` requests 1–100 ready configurations (default one), within the account's
+  `device_limit`. Each device has independent keys/address; account, devices, customer link and
+  recoverable result commit together. Device cap and provisioning count are separate concepts.
 - **Tunnel interface / profile** — `awg0…awg7` (8 by default; the cap is administrator-
   configurable, not an upstream limit); each = one obfuscation profile with its own listen port,
   IPv4 subnet pool (recommended default `10.8.N.0/24` for `awgN`), MTU (recommended default
