@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [v0.1.5] — 2026-10-01
+
+- Show named installation/update stages and bounded elapsed-time progress in the bootstrap
+  and host manager, including pre-update backup and health waits.
+- Add separate service/component, lifecycle and private installer logs, with recent 200-line
+  views and live service/installer follow modes in the English terminal manager.
+- Allow `POST /api/v1/purchases` to provision 1–100 independent ready configurations using
+  `device_count`, within the account/template cap. The user, devices, customer link and
+  recoverable result commit together; failed provisioning rolls back every resource and
+  retries return the original `device_ids` without allocating duplicate credentials.
+- Clarify decimal GB/MB, exact byte quotas, Kbps versus MB/s, duration/start/expiry behavior,
+  server RX/TX direction and aggregation, timestamps, telemetry and settings units.
+- Complete the panel-user-form/API mapping and OpenAPI bulk fields/statistics responses;
+  document device-cap versus provisioning-count behavior, field-specific PATCH semantics
+  and operations available only in the administrative panel.
+
+Service/API tests cover owner/reseller policy, device-count bounds, rollback, concurrent replay,
+private config delivery and stored single-device result recovery. Installer tests cover the
+progress/log workflow. No new real-host or physical-device verification is claimed.
+
 ## [v0.1.4] — 2026-09-30
 
 - Correct create-user and bulk-create forms so selecting a technical template applies its saved
