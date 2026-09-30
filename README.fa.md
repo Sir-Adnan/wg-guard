@@ -5,7 +5,7 @@
   <p>یک فایل اجرایی Go · پایگاه SQLite · رابط رندرشده روی سرور · استقرار Docker یا بومی · رابط REST</p>
   <p><strong>فارسی</strong> · <a href="README.md">English</a></p>
   <p>
-    <img alt="انتشار نسخهٔ ۰٫۱٫۴" src="https://img.shields.io/badge/release-v0.1.4-2563eb">
+    <img alt="انتشار نسخهٔ ۰٫۱٫۵" src="https://img.shields.io/badge/release-v0.1.5-2563eb">
     <img alt="اوبونتو ۲۴٫۰۴" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="معماری تأییدشده" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="مجوز آزاد" src="https://img.shields.io/badge/license-MIT-16a34a">
