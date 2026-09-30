@@ -259,8 +259,11 @@ eight-character word-plus-digits username, keeps quota/duration shortcuts in com
 rows, and treats a blank device limit as unlimited while creating one ready configuration by
 default. A configured default device limit is shown and governs provisioning. User filtering is
 live with a native submit fallback, and bulk controls do not appear until at least one visible user
-is selected. Panel speed controls use MB/s and convert exactly at the view boundary while the
-domain and public REST contract remain Kbps. User-row subscription copy has a non-Clipboard-API
+is selected. Panel quotas and traffic displays use decimal SI MB/GB (1 MB = 1,000,000 B;
+1 GB = 1,000,000,000 B), while the public API transports exact integer bytes. Panel speed
+controls use decimal MB/s and convert exactly at the view boundary (1 MB/s = 8,000 Kbps),
+while the domain and public REST contract remain Kbps (1 Kbps = 1,000 bits/s).
+User-row subscription copy has a non-Clipboard-API
 fallback; QR and configuration downloads are separate actions. The create drawer owns its header,
 scrolling body and footer as one viewport-bounded grid, while the full-page form remains the native
 fallback. The user-detail subscription card stays in document flow. The public subscription is a

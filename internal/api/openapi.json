@@ -2,7 +2,7 @@
   "openapi": "3.2.1",
   "info": {
     "title": "WG-Guard API",
-    "description": "REST management surface of the WG-Guard AmneziaWG node panel. Technical templates are available at /api/v1/templates and referenced by template_id; they are not external sales products. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use ownership-checked routes and owner-assigned templates; direct purchase terms require an owner-scoped token. All errors use one envelope (`error.code` is a stable machine code). Ordinary mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. Purchases and quota top-ups commit their mutation and a non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).",
+    "description": "REST management surface of the WG-Guard AmneziaWG node panel. Technical templates are available at /api/v1/templates and referenced by template_id; they are not external sales products. Authenticate with `Authorization: Bearer wg_…` API tokens (scopes below). Reseller-bound tokens use ownership-checked routes and owner-assigned templates; direct purchase terms require an owner-scoped token. All errors use one envelope (`error.code` is a stable machine code). Ordinary mutating endpoints with `Idempotency-Key` use token-scoped 24-hour response replay; they do not gain atomic multi-request semantics or result lookup. Purchases and quota top-ups commit their mutation and a non-secret result together; `Idempotency-Key` identifies that result for 90 days within the owner or reseller namespace. Lists are cursor-paginated (`limit` ≤ 500 + opaque `cursor`).\n\nUnits: quotas, charged usage and resource sizes are exact bytes (B); panel MB/GB are decimal (1 GB = 1000000000 B). Send 100000000000 for 100 GB; 107374182400 is 100 GiB and displays as 107.4 GB. Speed limits use decimal Kbps (1000 bits/s): Mbps × 1000, panel MB/s × 8000. Download is server to client; upload is client to server. RX is server received (client upload); TX is server sent (client download); both directions consume quota. Telemetry *_bytes_per_second is B/s, not Kbps. Durations/cadence/uptime are seconds; 30 days = 2592000 s and panel month shortcuts mean 30 days. Date-time fields are RFC3339 instants; responses use UTC (Z). Webhook signature t uses Unix seconds, not milliseconds. Utilization is percent on a 0-100 scale; load_1 is a dimensionless one-minute load average. Limits/counts/attempts are integer counts, MTU is bytes and listen_port is a UDP port number. JSON numbers use their field's unit; conversion and display rounding never change stored quantities. See /docs for examples and settings-unit guidance.",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/" }],
@@ -71,7 +71,10 @@
         "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. Send exactly one of template_id (technical template) or entitlement (direct finite terms). Direct terms are allowed only for owner-scoped tokens; reseller tokens must use an enabled owner-assigned template. Sales SKUs and prices live in the caller, not this catalog. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions.",
         "security": [{ "BearerAuth": ["purchases.create"] }],
         "parameters": [{ "$ref": "#/components/parameters/IntegrationKey" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseRequest" }, "example": { "template_id": "template-uuid", "username": "alice", "device_name": "phone" } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseRequest" }, "examples": {
+          "templatePurchase": { "summary": "Owner-assigned technical template (owner or reseller)", "value": { "template_id": "template-uuid", "username": "alice", "device_name": "phone" } },
+          "directPurchase": { "summary": "Owner only: 100 GB, 30 days, download 100 Mbps, upload 20 Mbps", "value": { "username": "alice", "device_name": "phone", "entitlement": { "traffic_limit_bytes": 100000000000, "duration_seconds": 2592000, "device_limit": 1, "start_policy": "immediate", "speed_limit_down_kbps": 100000, "speed_limit_up_kbps": 20000 } } }
+        } } } },
         "responses": { "201": { "description": "Committed purchase; same body on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseOperationResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "409": { "$ref": "#/components/responses/Conflict" } }
       }
     },
@@ -89,7 +92,7 @@
         "tags": ["users"], "summary": "Create a user", "operationId": "createUser",
         "description": "Idempotent with `Idempotency-Key`. When template_id names an enabled template, its technical terms override submitted limit, duration, start-policy and interface fields. Without a template, absent limits mean unlimited. This route creates no device; use /purchases for atomic customer-plus-first-device provisioning. Speed limits are independent per direction (kbps).",
         "security": [{ "BearerAuth": ["users.create"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserCreate" }, "example": { "username": "alice", "duration_seconds": 2592000, "traffic_limit_bytes": 107374182400, "speed_limit_down_kbps": 10240, "speed_limit_up_kbps": null, "device_limit": 3 } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserCreate" }, "example": { "username": "alice", "duration_seconds": 2592000, "traffic_limit_bytes": 100000000000, "speed_limit_down_kbps": 100000, "speed_limit_up_kbps": null, "device_limit": 3 } } } },
         "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "409": { "$ref": "#/components/responses/Conflict" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
       },
       "get": {
@@ -103,10 +106,10 @@
           { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/UserStatus" } },
           { "name": "traffic_exceeded", "in": "query", "schema": { "type": "boolean" } },
           { "name": "enabled", "in": "query", "schema": { "type": "boolean" } },
-          { "name": "expires_before", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "expires_after", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "created_before", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "created_after", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "expires_before", "in": "query", "schema": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } },
+          { "name": "expires_after", "in": "query", "schema": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } },
+          { "name": "created_before", "in": "query", "schema": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } },
+          { "name": "created_after", "in": "query", "schema": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } },
           { "name": "template_id", "in": "query", "schema": { "type": "string" } },
           { "name": "interface_id", "in": "query", "schema": { "type": "string" } }
         ],
@@ -117,14 +120,14 @@
       "post": {
         "tags": ["bulk"], "summary": "Bulk-create users (prefix + zero-padded index)", "security": [{ "BearerAuth": ["users.bulk"] }],
         "description": "Idempotent with `Idempotency-Key`. One transaction: either all created users exist or none. An enabled template_id supplies technical terms to every created user and overrides conflicting manual fields. Taken usernames are skipped (usernames stay reserved after soft delete). This route creates no devices.",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["count"], "properties": { "count": { "type": "integer", "minimum": 1, "maximum": 500 }, "prefix": { "type": "string", "example": "gs" }, "start_index": { "type": "integer", "default": 1 }, "width": { "type": "integer", "default": 3 }, "duration_seconds": { "type": "integer" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "template_id": { "type": ["string", "null"] }, "interface_id": { "type": ["string", "null"] }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["count"], "properties": { "count": { "type": "integer", "minimum": 1, "maximum": 500 }, "prefix": { "type": "string", "example": "gs" }, "start_index": { "type": "integer", "default": 1 }, "width": { "type": "integer", "default": 3 }, "duration_seconds": { "type": "integer", "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month." }, "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." }, "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." }, "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." }, "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." }, "template_id": { "type": ["string", "null"] }, "interface_id": { "type": ["string", "null"] }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" } } } } } },
         "responses": { "201": { "description": "Created users + skipped count", "content": { "application/json": { "schema": { "type": "object", "properties": { "created": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }, "skipped": { "type": "integer" } } } } } } }
       }
     },
     "/api/v1/users/bulk-action": {
       "post": {
         "tags": ["bulk"], "summary": "Apply one action to many users (per-item results)", "security": [{ "BearerAuth": ["users.bulk"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action", "user_ids"], "properties": { "action": { "type": "string", "enum": ["enable", "disable", "delete", "renew", "reset_traffic", "add_traffic", "update"] }, "user_ids": { "type": "array", "maxItems": 500, "items": { "type": "string" } }, "params": { "type": "object", "properties": { "reason": { "type": "string" }, "mode": { "type": "string" }, "duration_seconds": { "type": "integer" }, "rx_bytes": { "type": "integer" }, "tx_bytes": { "type": "integer" } } } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action", "user_ids"], "properties": { "action": { "type": "string", "enum": ["enable", "disable", "delete", "renew", "reset_traffic", "add_traffic", "update"] }, "user_ids": { "type": "array", "maxItems": 500, "items": { "type": "string" } }, "params": { "type": "object", "properties": { "reason": { "type": "string" }, "mode": { "type": "string" }, "duration_seconds": { "type": "integer", "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month." }, "rx_bytes": { "type": "integer", "description": "Traffic received by the node from a client, in bytes (B); client upload. This is an amount, not a per-second rate." }, "tx_bytes": { "type": "integer", "description": "Traffic sent by the node to a client, in bytes (B); client download. This is an amount, not a per-second rate." } } } } } } } },
         "responses": { "200": { "description": "Per-item results", "content": { "application/json": { "schema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "ok": { "type": "boolean" }, "error": { "type": "string" } } } }, "ok": { "type": "integer" } } } } } } }
       }
     },
@@ -216,7 +219,7 @@
       "post": {
         "tags": ["users"], "summary": "Renew a subscription", "description": "Idempotent with `Idempotency-Key`. Reactivates expired accounts; traffic_exceeded accounts are NOT reactivated here (quota recovery is an explicit admin action).", "security": [{ "BearerAuth": ["users.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["from_expiration", "from_now", "exact"] }, "duration_seconds": { "type": "integer" }, "exact": { "type": "string", "format": "date-time" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["from_expiration", "from_now", "exact"] }, "duration_seconds": { "type": "integer", "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month." }, "exact": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } } } } } },
         "responses": { "200": { "description": "Renewed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
       }
     },
@@ -226,7 +229,7 @@
         "description": "Requires an Idempotency-Key (1–128 printable ASCII characters without spaces). Atomically increases an existing finite quota and stores a before/after result for 90 days in the owner or reseller namespace; an identical retry returns the same operation with Idempotency-Replayed: true, while a different request with the key returns 409. Reseller tokens may top up only owned customers. Charged RX/TX usage stays unchanged, and manual disable/suspension is not lifted. A quota-only traffic_exceeded block is lifted when the new limit exceeds charged usage. A 503 after commit means runtime reconciliation is pending; recover the committed result through GET /api/v1/operations/result and retry with the same key. Unlimited accounts require an explicit finite limit via PATCH /users/{id}; /traffic/add is a charged-counter correction, not a top-up.",
         "security": [{ "BearerAuth": ["users.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }, { "$ref": "#/components/parameters/IntegrationKey" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuotaTopUpRequest" }, "example": { "bytes": 1073741824 } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuotaTopUpRequest" }, "example": { "bytes": 1000000000 } } } },
         "responses": { "200": { "description": "Committed top-up and before/after snapshot; same result on replay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuotaTopUpResult" } } } }, "400": { "$ref": "#/components/responses/Invalid" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "$ref": "#/components/responses/Conflict" }, "503": { "$ref": "#/components/responses/Unavailable" } }
       }
     },
@@ -234,7 +237,7 @@
       "post": {
         "tags": ["users"], "summary": "Add traffic to the charged counters", "description": "Idempotent with `Idempotency-Key`. Pushing the total to/over the limit trips the account immediately.", "security": [{ "BearerAuth": ["traffic.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "rx_bytes": { "type": "integer", "minimum": 0 }, "tx_bytes": { "type": "integer", "minimum": 0 } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "rx_bytes": { "type": "integer", "minimum": 0, "description": "Traffic received by the node from a client, in bytes (B); client upload. This is an amount, not a per-second rate." }, "tx_bytes": { "type": "integer", "minimum": 0, "description": "Traffic sent by the node to a client, in bytes (B); client download. This is an amount, not a per-second rate." } } } } } },
         "responses": { "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
     },
@@ -242,7 +245,7 @@
       "post": {
         "tags": ["users"], "summary": "Set the charged counters to absolute values", "description": "Idempotent with `Idempotency-Key`. `null` leaves a counter untouched; landing below the limit reactivates a traffic_exceeded account.", "security": [{ "BearerAuth": ["traffic.update"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "rx_bytes": { "type": ["integer", "null"], "minimum": 0 }, "tx_bytes": { "type": ["integer", "null"], "minimum": 0 } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "rx_bytes": { "type": ["integer", "null"], "minimum": 0, "description": "Traffic received by the node from a client, in bytes (B); client upload. This is an amount, not a per-second rate. null leaves this counter unchanged on /traffic/set." }, "tx_bytes": { "type": ["integer", "null"], "minimum": 0, "description": "Traffic sent by the node to a client, in bytes (B); client download. This is an amount, not a per-second rate. null leaves this counter unchanged on /traffic/set." } } } } } },
         "responses": { "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
       }
     },
@@ -259,9 +262,9 @@
         "parameters": [
           { "$ref": "#/components/parameters/UserID" },
           { "name": "granularity", "in": "query", "schema": { "type": "string", "enum": ["samples", "hourly", "daily"], "default": "samples" } },
-          { "name": "hours", "in": "query", "schema": { "type": "integer", "default": 48 }, "description": "Window; capped by retention (samples 48, hourly 720, daily 8760)" }
+          { "name": "hours", "in": "query", "schema": { "type": "integer", "default": 48 }, "description": "Lookback window in hours, not seconds: 24 means the preceding 24 hours. Capped by retention (samples 48, hourly 720, daily 8760)." }
         ],
-        "responses": { "200": { "description": "Series", "content": { "application/json": { "schema": { "type": "object", "properties": { "granularity": { "type": "string" }, "series": { "type": "array", "items": { "type": "object", "properties": { "ts": { "type": "string" }, "rx": { "type": "integer" }, "tx": { "type": "integer" } } } } } } } } } }
+        "responses": { "200": { "description": "Traffic amounts per sample/hour/day bucket, not per-second rates or cumulative charged quota", "content": { "application/json": { "schema": { "type": "object", "properties": { "granularity": { "type": "string" }, "series": { "type": "array", "items": { "type": "object", "properties": { "ts": { "type": "string", "description": "UTC RFC3339 sample or bucket-start timestamp." }, "rx": { "type": "integer", "description": "Received bytes (B) within this bucket at the server: client upload." }, "tx": { "type": "integer", "description": "Sent bytes (B) within this bucket at the server: client download." } } } } } } } } } }
       }
     },
     "/api/v1/users/{id}/devices": {
@@ -379,7 +382,7 @@
       },
       "post": {
         "tags": ["interfaces"], "summary": "Create a profile (server keypair generated)", "security": [{ "BearerAuth": ["interfaces.write"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer" }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24" }, "mtu": { "type": "integer" }, "preset": { "type": "string", "enum": ["plain", "recommended", "performance", "balanced", "resilient", "suggested", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected.", "example": "vpn.example.com:51820" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24", "description": "IPv4 network in CIDR notation; the prefix after / is a bit count (for example 10.8.0.0/24)." }, "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." }, "preset": { "type": "string", "enum": ["plain", "recommended", "performance", "balanced", "resilient", "suggested", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected.", "example": "vpn.example.com:51820" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "409": { "$ref": "#/components/responses/Conflict" } }
       }
     },
@@ -392,7 +395,7 @@
       "patch": {
         "tags": ["interfaces"], "summary": "Update MTU/endpoint/obfuscation/enabled", "description": "Name, port, and pool are immutable here. Obfuscation-mode transitions recreate the link (reconcile).", "security": [{ "BearerAuth": ["interfaces.write"] }],
         "parameters": [{ "$ref": "#/components/parameters/InterfaceID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "mtu": { "type": "integer" }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": ["string", "null"], "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected." }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": ["string", "null"], "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected." }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } } }
       },
       "delete": {
@@ -403,11 +406,11 @@
     },
     "/api/v1/settings": {
       "get": {
-        "tags": ["settings"], "summary": "List settings (secrets redacted — only `secret_set`)", "security": [{ "BearerAuth": ["node.read"] }],
+        "tags": ["settings"], "summary": "List settings (secrets redacted — only `secret_set`)", "description": "The key determines units: *_gb is decimal GB; *_months is fixed 30-day periods; *_seconds, *_hours and *_days are time units; *_count and max_attempts are counts. network.client_persistent_keepalive is seconds in pinned 0/N/N-M string form. api.rate_limit_per_minute is requests per fixed 60-second window. Preset lists contain numeric strings. Values and zero semantics are validated per definition; see /docs.", "security": [{ "BearerAuth": ["node.read"] }],
         "responses": { "200": { "description": "Settings catalog" } }
       },
       "patch": {
-        "tags": ["settings"], "summary": "Update settings (typed registry; validated)", "security": [{ "BearerAuth": ["node.settings"] }],
+        "tags": ["settings"], "summary": "Update settings (typed registry; validated)", "description": "Send each setting in the unit of its key, not in the raw-byte unit of user quota fields. For example users.default_quota_gb: 100 prefills 100 GB, while a user's traffic_limit_bytes for that amount is 100000000000. A default-quota setting of 0 removes the prefill; user quota 0 is a finite zero-byte allowance. See /docs for time, count and rate-limit units.", "security": [{ "BearerAuth": ["node.settings"] }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true, "example": { "node.endpoint": "vpn.example.com", "api.rate_limit_per_minute": 600 } } } } },
         "responses": { "200": { "description": "Updated keys" }, "400": { "$ref": "#/components/responses/Invalid" } }
       }
@@ -492,19 +495,19 @@
     },
     "schemas": {
       "PurchaseRequest": { "type": "object", "additionalProperties": false, "oneOf": [{ "required": ["template_id"] }, { "required": ["entitlement"] }], "properties": { "template_id": { "type": "string", "description": "Existing technical template ID; required for reseller-bound tokens." }, "entitlement": { "$ref": "#/components/schemas/DirectEntitlement" }, "username": { "type": "string", "description": "Optional global username; omitted uses a stable generated identifier." }, "device_name": { "type": "string", "default": "device-1" } } },
-      "DirectEntitlement": { "type": "object", "description": "Owner-scoped technical terms, independent of external price/SKU. All three finite limits are mandatory to prevent accidental unlimited subscriptions.", "required": ["traffic_limit_bytes", "duration_seconds", "device_limit"], "additionalProperties": false, "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64", "minimum": 1 }, "duration_seconds": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 315360000 }, "device_limit": { "type": "integer", "minimum": 1, "maximum": 100 }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" }, "speed_limit_down_kbps": { "type": "integer", "minimum": 1 }, "speed_limit_up_kbps": { "type": "integer", "minimum": 1 }, "interface_id": { "type": "string", "description": "Optional connection profile; omitted uses the current system default." } } },
-      "QuotaTopUpRequest": { "type": "object", "required": ["bytes"], "additionalProperties": false, "properties": { "bytes": { "type": "integer", "format": "int64", "minimum": 1, "description": "Positive byte increment to a finite allowance, not charged usage." } } },
-      "QuotaSnapshot": { "type": "object", "required": ["traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64" }, "traffic_used_rx": { "type": "integer", "format": "int64" }, "traffic_used_tx": { "type": "integer", "format": "int64" }, "status": { "type": "string" } } },
+      "DirectEntitlement": { "type": "object", "description": "Owner-scoped technical terms, independent of external price/SKU. All three finite limits are mandatory to prevent accidental unlimited subscriptions.", "required": ["traffic_limit_bytes", "duration_seconds", "device_limit"], "additionalProperties": false, "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64", "minimum": 1, "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB." }, "duration_seconds": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 315360000, "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month." }, "device_limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement." }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" }, "speed_limit_down_kbps": { "type": "integer", "minimum": 1, "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form." }, "speed_limit_up_kbps": { "type": "integer", "minimum": 1, "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form." }, "interface_id": { "type": "string", "description": "Optional connection profile; omitted uses the current system default." } } },
+      "QuotaTopUpRequest": { "type": "object", "required": ["bytes"], "additionalProperties": false, "properties": { "bytes": { "type": "integer", "format": "int64", "minimum": 1, "description": "Positive increment in exact bytes (B) to a finite allowance, not charged usage. 1000000000 adds 1 GB; 1073741824 adds 1 GiB (about 1.1 GB in the panel)." } } },
+      "QuotaSnapshot": { "type": "object", "required": ["traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64", "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB." }, "traffic_used_rx": { "type": "integer", "format": "int64", "description": "Charged received traffic in bytes (B), from client to server (upload)." }, "traffic_used_tx": { "type": "integer", "format": "int64", "description": "Charged sent traffic in bytes (B), from server to client (download)." }, "status": { "type": "string" } } },
       "OperationResult": { "description": "Principal-scoped, non-secret result retained for 90 days; no private configuration or customer-link capability is stored here.", "oneOf": [{ "$ref": "#/components/schemas/PurchaseOperationResult" }, { "$ref": "#/components/schemas/QuotaTopUpResult" }], "discriminator": { "propertyName": "kind", "mapping": { "purchase": "#/components/schemas/PurchaseOperationResult", "quota_top_up": "#/components/schemas/QuotaTopUpResult" } } },
-      "PurchaseOperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "template_id": { "type": "string", "description": "Present when provisioned from a technical template; absent for direct owner terms." }, "created_at": { "type": "string", "format": "date-time" } } },
-      "QuotaTopUpResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "before", "after", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["quota_top_up"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "before": { "$ref": "#/components/schemas/QuotaSnapshot" }, "after": { "$ref": "#/components/schemas/QuotaSnapshot" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "PurchaseOperationResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "device_id", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["purchase"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "device_id": { "type": "string" }, "template_id": { "type": "string", "description": "Present when provisioned from a technical template; absent for direct owner terms." }, "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } } },
+      "QuotaTopUpResult": { "type": "object", "required": ["operation_id", "kind", "state", "user_id", "before", "after", "created_at"], "properties": { "operation_id": { "type": "string" }, "kind": { "type": "string", "enum": ["quota_top_up"] }, "state": { "type": "string", "enum": ["committed"] }, "user_id": { "type": "string" }, "before": { "$ref": "#/components/schemas/QuotaSnapshot" }, "after": { "$ref": "#/components/schemas/QuotaSnapshot" }, "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } } },
       "CustomerLink": { "type": "object", "required": ["path"], "properties": { "path": { "type": "string", "description": "Secret relative subscription path /sub/{token}; do not log or expose publicly." } } },
-      "CustomerLinkRotation": { "type": "object", "required": ["path", "devices_rotated"], "properties": { "path": { "type": "string" }, "devices_rotated": { "type": "integer", "minimum": 0 } } },
+      "CustomerLinkRotation": { "type": "object", "required": ["path", "devices_rotated"], "properties": { "path": { "type": "string" }, "devices_rotated": { "type": "integer", "minimum": 0, "description": "Number of device key pairs replaced by this operation." } } },
       "NextPlanRequest": { "type": "object", "required": ["template_id"], "additionalProperties": false, "properties": { "template_id": { "type": "string" }, "carry_unused_traffic": { "type": "boolean", "default": false } } },
-      "NextPlanTerms": { "type": "object", "required": ["name", "traffic_limit_bytes", "duration_seconds", "device_limit", "speed_limit_down_kbps", "speed_limit_up_kbps", "interface_id"], "properties": { "name": { "type": "string" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "duration_seconds": { "type": ["integer", "null"] }, "device_limit": { "type": ["integer", "null"] }, "speed_limit_down_kbps": { "type": ["integer", "null"] }, "speed_limit_up_kbps": { "type": ["integer", "null"] }, "interface_id": { "type": ["string", "null"] } } },
-      "NextPlan": { "type": "object", "required": ["user_id", "template_id", "terms", "carry_unused_traffic", "state", "created_at"], "properties": { "user_id": { "type": "string" }, "template_id": { "type": "string" }, "terms": { "$ref": "#/components/schemas/NextPlanTerms" }, "carry_unused_traffic": { "type": "boolean" }, "state": { "type": "string", "enum": ["queued", "needs_review"] }, "review_reason": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } } },
-      "NextPlanEntitlementState": { "type": "object", "required": ["template_id", "expires_at", "traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "template_id": { "type": ["string", "null"] }, "expires_at": { "type": ["string", "null"], "format": "date-time" }, "traffic_limit_bytes": { "type": ["integer", "null"] }, "traffic_used_rx": { "type": "integer" }, "traffic_used_tx": { "type": "integer" }, "status": { "type": "string" } } },
-      "NextPlanActivation": { "type": "object", "required": ["activation_id", "user_id", "template_id", "trigger", "before", "after", "activated_at"], "properties": { "activation_id": { "type": "string" }, "user_id": { "type": "string" }, "template_id": { "type": "string" }, "trigger": { "type": "string", "enum": ["time", "quota"] }, "before": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "after": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "activated_at": { "type": "string", "format": "date-time" } } },
+      "NextPlanTerms": { "type": "object", "required": ["name", "traffic_limit_bytes", "duration_seconds", "device_limit", "speed_limit_down_kbps", "speed_limit_up_kbps", "interface_id"], "properties": { "name": { "type": "string" }, "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." }, "duration_seconds": { "type": ["integer", "null"], "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month. null = no configured duration." }, "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." }, "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." }, "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." }, "interface_id": { "type": ["string", "null"] } } },
+      "NextPlan": { "type": "object", "required": ["user_id", "template_id", "terms", "carry_unused_traffic", "state", "created_at"], "properties": { "user_id": { "type": "string" }, "template_id": { "type": "string" }, "terms": { "$ref": "#/components/schemas/NextPlanTerms" }, "carry_unused_traffic": { "type": "boolean" }, "state": { "type": "string", "enum": ["queued", "needs_review"] }, "review_reason": { "type": "string" }, "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } } },
+      "NextPlanEntitlementState": { "type": "object", "required": ["template_id", "expires_at", "traffic_limit_bytes", "traffic_used_rx", "traffic_used_tx", "status"], "properties": { "template_id": { "type": ["string", "null"] }, "expires_at": { "type": ["string", "null"], "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." }, "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." }, "traffic_used_rx": { "type": "integer", "description": "Charged received traffic in bytes (B), from client to server (upload)." }, "traffic_used_tx": { "type": "integer", "description": "Charged sent traffic in bytes (B), from server to client (download)." }, "status": { "type": "string" } } },
+      "NextPlanActivation": { "type": "object", "required": ["activation_id", "user_id", "template_id", "trigger", "before", "after", "activated_at"], "properties": { "activation_id": { "type": "string" }, "user_id": { "type": "string" }, "template_id": { "type": "string" }, "trigger": { "type": "string", "enum": ["time", "quota"] }, "before": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "after": { "$ref": "#/components/schemas/NextPlanEntitlementState" }, "activated_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." } } },
       "Error": {
         "type": "object",
         "properties": {
@@ -529,10 +532,10 @@
           "version": { "type": "string" },
           "node_id": { "type": "string" },
           "tools_version": { "type": "string" },
-          "uptime_seconds": { "type": "integer" },
+          "uptime_seconds": { "type": "integer", "description": "Elapsed uptime in seconds. Node endpoints report WG-Guard process uptime; TelemetryPoint reports host uptime." },
           "interfaces": { "type": "array", "items": { "type": "object", "properties": {
-            "id": { "type": "string" }, "name": { "type": "string" }, "listen_port": { "type": "integer" },
-            "ipv4_subnet": { "type": "string" }, "enabled": { "type": "boolean" },
+            "id": { "type": "string" }, "name": { "type": "string" }, "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." },
+            "ipv4_subnet": { "type": "string", "description": "IPv4 network in CIDR notation; the prefix after / is a bit count (for example 10.8.0.0/24)." }, "enabled": { "type": "boolean" },
             "backend_mode": { "type": "string" }, "devices": { "type": "integer" } } } }
         }
       },
@@ -549,37 +552,37 @@
         "type": "object",
         "required": ["timestamp", "health", "issues", "cpu_percent", "memory_used_bytes", "memory_total_bytes", "memory_percent", "disk_used_bytes", "disk_total_bytes", "disk_percent", "load_1", "uptime_seconds", "process_rss_bytes", "process_heap_bytes", "goroutines", "host_rx_bytes", "host_tx_bytes", "vpn_rx_bytes", "vpn_tx_bytes", "host_rx_bytes_per_second", "host_tx_bytes_per_second", "vpn_rx_bytes_per_second", "vpn_tx_bytes_per_second", "online_users", "active_peers", "enabled_interfaces", "observed_interfaces"],
         "properties": {
-          "timestamp": { "type": "string", "format": "date-time" },
+          "timestamp": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
           "health": { "type": "string", "enum": ["healthy", "degraded", "unavailable"] },
           "issues": { "type": "array", "items": { "type": "string", "enum": ["source_unavailable", "host_metrics_unavailable", "host_network_unavailable", "vpn_metrics_unavailable", "awg_interface_missing", "readiness_failed", "accounting_recent_error", "sample_stale"] } },
-          "cpu_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100 },
-          "memory_used_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "memory_total_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "memory_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100 },
-          "disk_used_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "disk_total_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "disk_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100 },
-          "load_1": { "type": ["number", "null"], "format": "double", "minimum": 0 },
-          "uptime_seconds": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "process_rss_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "process_heap_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "goroutines": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "host_rx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "host_tx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "vpn_rx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "vpn_tx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "host_rx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0 },
-          "host_tx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0 },
-          "vpn_rx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0 },
-          "vpn_tx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0 },
-          "online_users": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "active_peers": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "enabled_interfaces": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "observed_interfaces": { "type": ["integer", "null"], "format": "int64", "minimum": 0 }
+          "cpu_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100, "description": "CPU utilization as a percentage on a 0-100 scale; 25 means 25%, not 0.25. null = measurement unavailable." },
+          "memory_used_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Used host memory in bytes (B). null = measurement unavailable." },
+          "memory_total_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Total host memory in bytes (B). null = measurement unavailable." },
+          "memory_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100, "description": "Host memory utilization as a percentage on a 0-100 scale; 25 means 25%. null = measurement unavailable." },
+          "disk_used_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Used filesystem bytes (B). null = measurement unavailable." },
+          "disk_total_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Total filesystem capacity in bytes (B). null = measurement unavailable." },
+          "disk_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100, "description": "Filesystem utilization as a percentage on a 0-100 scale; 25 means 25%. null = measurement unavailable." },
+          "load_1": { "type": ["number", "null"], "format": "double", "minimum": 0, "description": "Host one-minute load average; dimensionless runnable/uninterruptible task load, not a percentage or byte rate. null = measurement unavailable." },
+          "uptime_seconds": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Elapsed uptime in seconds. Node endpoints report WG-Guard process uptime; TelemetryPoint reports host uptime. null = measurement unavailable." },
+          "process_rss_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "WG-Guard resident memory in bytes (B). null = measurement unavailable." },
+          "process_heap_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "WG-Guard allocated Go heap memory in bytes (B). null = measurement unavailable." },
+          "goroutines": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "WG-Guard goroutine count. null = measurement unavailable." },
+          "host_rx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Cumulative host-network received bytes (B); not a rate or charged customer quota. null = measurement unavailable." },
+          "host_tx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Cumulative host-network sent bytes (B); not a rate or charged customer quota. null = measurement unavailable." },
+          "vpn_rx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Accumulated VPN traffic received by the node, in bytes (B); client upload. null = measurement unavailable." },
+          "vpn_tx_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Accumulated VPN traffic sent by the node, in bytes (B); client download. null = measurement unavailable." },
+          "host_rx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0, "description": "Host-network receive rate in bytes/s (B/s). Divide by 1000000 for MB/s; multiply by 8 then divide by 1000000 for Mbps. null = measurement unavailable." },
+          "host_tx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0, "description": "Host-network send rate in bytes/s (B/s). Divide by 1000000 for MB/s; multiply by 8 then divide by 1000000 for Mbps. null = measurement unavailable." },
+          "vpn_rx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0, "description": "VPN client-upload rate observed by the node, in bytes/s (B/s); not Kbps. 12500000 B/s = 12.5 MB/s = 100 Mbps. null = measurement unavailable." },
+          "vpn_tx_bytes_per_second": { "type": ["number", "null"], "format": "double", "minimum": 0, "description": "VPN client-download rate observed by the node, in bytes/s (B/s); not Kbps. 12500000 B/s = 12.5 MB/s = 100 Mbps. null = measurement unavailable." },
+          "online_users": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Distinct online-user count under the handshake-recency policy. null = measurement unavailable." },
+          "active_peers": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Online VPN peer count under the handshake-recency policy. null = measurement unavailable." },
+          "enabled_interfaces": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Enabled tunnel-interface count. null = measurement unavailable." },
+          "observed_interfaces": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Observed tunnel-interface count. null = measurement unavailable." }
         }
       },
       "UserStatus": { "type": "string", "enum": ["active", "disabled", "suspended", "expired", "traffic_exceeded", "waiting_first_connection"] },
-      "StartPolicy": { "type": "string", "enum": ["immediate", "first_connection"] },
+      "StartPolicy": { "type": "string", "enum": ["immediate", "first_connection"], "description": "When the configured duration_seconds starts for a created subscription: immediate at creation, first_connection at the first observed connection. A queued Next Plan starts its duration at successor activation." },
       "User": {
         "type": "object",
         "properties": {
@@ -590,25 +593,25 @@
           "tags": { "type": "array", "items": { "type": "string" } },
           "status": { "$ref": "#/components/schemas/UserStatus" },
           "disable_reason": { "type": ["string", "null"], "enum": ["manual", "expired", "traffic_limit", "admin_action", null] },
-          "traffic_limit_bytes": { "type": ["integer", "null"], "description": "null = unlimited" },
-          "traffic_used_rx": { "type": "integer" },
-          "traffic_used_tx": { "type": "integer" },
-          "traffic_used_total": { "type": "integer" },
-          "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server→client) limit; null = unlimited" },
-          "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client→server) limit; null = unlimited" },
-          "device_limit": { "type": ["integer", "null"] },
+          "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." },
+          "traffic_used_rx": { "type": "integer", "description": "Charged received traffic in bytes (B), from client to server (upload)." },
+          "traffic_used_tx": { "type": "integer", "description": "Charged sent traffic in bytes (B), from server to client (download)." },
+          "traffic_used_total": { "type": "integer", "description": "Total charged traffic in bytes (B): traffic_used_rx + traffic_used_tx; both directions count toward quota." },
+          "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." },
+          "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." },
+          "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." },
           "template_id": { "type": ["string", "null"] },
           "interface_id": { "type": ["string", "null"] },
           "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
-          "duration_seconds": { "type": ["integer", "null"] },
-          "activated_at": { "type": ["string", "null"], "format": "date-time" },
-          "expires_at": { "type": ["string", "null"], "format": "date-time" },
-          "last_activity_at": { "type": ["string", "null"], "format": "date-time" },
+          "duration_seconds": { "type": ["integer", "null"], "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month. null = no configured duration." },
+          "activated_at": { "type": ["string", "null"], "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "expires_at": { "type": ["string", "null"], "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "last_activity_at": { "type": ["string", "null"], "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
           "enabled": { "type": "boolean" },
           "metadata": { "type": "object", "additionalProperties": true },
           "deleted": { "type": "boolean" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "updated_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." }
         }
       },
       "UserCreate": {
@@ -619,14 +622,14 @@
           "display_name": { "type": "string" },
           "note": { "type": "string" },
           "tags": { "type": "array", "items": { "type": "string" } },
-          "traffic_limit_bytes": { "type": ["integer", "null"] },
-          "speed_limit_down_kbps": { "type": ["integer", "null"] },
-          "speed_limit_up_kbps": { "type": ["integer", "null"] },
-          "device_limit": { "type": ["integer", "null"] },
+          "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." },
+          "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." },
+          "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." },
+          "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." },
           "template_id": { "type": ["string", "null"] },
           "interface_id": { "type": ["string", "null"] },
           "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
-          "duration_seconds": { "type": ["integer", "null"] },
+          "duration_seconds": { "type": ["integer", "null"], "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month. null = no configured duration." },
           "enabled": { "type": "boolean", "default": true },
           "metadata": { "type": "object", "additionalProperties": true }
         }
@@ -637,13 +640,13 @@
           "display_name": { "type": "string" },
           "note": { "type": "string" },
           "tags": { "type": "array", "items": { "type": "string" } },
-          "traffic_limit_bytes": { "type": ["integer", "null"] },
-          "speed_limit_down_kbps": { "type": ["integer", "null"] },
-          "speed_limit_up_kbps": { "type": ["integer", "null"] },
-          "device_limit": { "type": ["integer", "null"] },
+          "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." },
+          "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." },
+          "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." },
+          "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." },
           "template_id": { "type": ["string", "null"] },
           "interface_id": { "type": ["string", "null"] },
-          "duration_seconds": { "type": "integer" },
+          "duration_seconds": { "type": "integer", "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month." },
           "enabled": { "type": "boolean" },
           "metadata": { "type": "object", "additionalProperties": true }
         }
@@ -665,12 +668,12 @@
           "ipv4_address": { "type": "string" },
           "public_key": { "type": "string" },
           "enabled": { "type": "boolean" },
-          "last_handshake_at": { "type": ["string", "null"], "format": "date-time" },
+          "last_handshake_at": { "type": ["string", "null"], "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
           "last_endpoint": { "type": "string" },
-          "rx_bytes": { "type": "integer" },
-          "tx_bytes": { "type": "integer" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "rx_bytes": { "type": "integer", "description": "Traffic received by the node from a client, in bytes (B); client upload. This is an amount, not a per-second rate." },
+          "tx_bytes": { "type": "integer", "description": "Traffic sent by the node to a client, in bytes (B); client download. This is an amount, not a per-second rate." },
+          "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "updated_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." }
         }
       },
       "Template": {
@@ -678,16 +681,16 @@
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
-          "traffic_limit_bytes": { "type": ["integer", "null"] },
-          "duration_seconds": { "type": ["integer", "null"] },
+          "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." },
+          "duration_seconds": { "type": ["integer", "null"], "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month. null = no configured duration." },
           "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
-          "device_limit": { "type": ["integer", "null"] },
-          "speed_limit_down_kbps": { "type": ["integer", "null"] },
-          "speed_limit_up_kbps": { "type": ["integer", "null"] },
+          "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." },
+          "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." },
+          "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." },
           "interface_id": { "type": ["string", "null"] },
           "enabled": { "type": "boolean" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "updated_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." }
         }
       },
       "TemplateCreate": { "allOf": [{ "$ref": "#/components/schemas/TemplatePatch" }, { "type": "object", "required": ["name"] }] },
@@ -696,12 +699,12 @@
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
-          "traffic_limit_bytes": { "type": ["integer", "null"] },
-          "duration_seconds": { "type": ["integer", "null"] },
+          "traffic_limit_bytes": { "type": ["integer", "null"], "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB. null = unlimited; 0 is a finite zero-byte allowance." },
+          "duration_seconds": { "type": ["integer", "null"], "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month. null = no configured duration." },
           "start_policy": { "$ref": "#/components/schemas/StartPolicy" },
-          "device_limit": { "type": ["integer", "null"] },
-          "speed_limit_down_kbps": { "type": ["integer", "null"] },
-          "speed_limit_up_kbps": { "type": ["integer", "null"] },
+          "device_limit": { "type": ["integer", "null"], "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement. null = unlimited." },
+          "speed_limit_down_kbps": { "type": ["integer", "null"], "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form. null = unlimited." },
+          "speed_limit_up_kbps": { "type": ["integer", "null"], "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form. null = unlimited." },
           "interface_id": { "type": ["string", "null"] },
           "enabled": { "type": "boolean" }
         }
@@ -745,17 +748,17 @@
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
-          "listen_port": { "type": "integer" },
-          "ipv4_subnet": { "type": "string" },
-          "mtu": { "type": "integer" },
+          "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." },
+          "ipv4_subnet": { "type": "string", "description": "IPv4 network in CIDR notation; the prefix after / is a bit count (for example 10.8.0.0/24)." },
+          "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." },
           "public_key": { "type": "string" },
           "obfuscation": { "$ref": "#/components/schemas/Obfuscation" },
           "preset": { "type": "string", "enum": ["plain", "recommended", "performance", "balanced", "resilient", "suggested", "randomized", "custom"], "description": "Persisted profile classification; custom is inferred when explicit parameters are supplied." },
           "enabled": { "type": "boolean" },
           "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] },
           "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port." },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "updated_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." }
         }
       },
       "WebhookEvent": { "type": "string", "enum": ["user.created", "user.updated", "user.enabled", "user.disabled", "user.expired", "user.traffic_exceeded", "user.first_connected", "device.created", "device.deleted", "node.started"] },
@@ -765,10 +768,10 @@
           "id": { "type": "string" }, "event_id": { "type": "string" },
           "event_type": { "$ref": "#/components/schemas/WebhookEvent" },
           "status": { "type": "string", "enum": ["pending", "delivered", "dead"] },
-          "attempts": { "type": "integer", "minimum": 0 },
-          "next_attempt_at": { "type": ["string", "null"], "format": "date-time", "description": "Next scheduled retry while pending; null once delivered or dead." },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "attempts": { "type": "integer", "minimum": 0, "description": "Number of webhook delivery attempts; not elapsed seconds." },
+          "next_attempt_at": { "type": ["string", "null"], "format": "date-time", "description": "Next scheduled retry while pending; null once delivered or dead. RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
+          "updated_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." }
         }
       },
       "WebhookEnvelopeBase": {
@@ -776,7 +779,7 @@
         "properties": {
           "id": { "type": "string", "description": "Stable event ID; deduplicate redeliveries and crash retries by this value." },
           "type": { "$ref": "#/components/schemas/WebhookEvent" },
-          "timestamp": { "type": "string", "format": "date-time" },
+          "timestamp": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
           "node_id": { "type": "string" },
           "data": { "type": "object" }
         }
@@ -793,7 +796,7 @@
       } },
       "WebhookUserTrafficExceededData": { "type": "object", "required": ["user_id", "username", "used_bytes", "limit_bytes"], "properties": {
         "user_id": { "type": "string" }, "username": { "type": "string" },
-        "used_bytes": { "type": "integer", "format": "int64" }, "limit_bytes": { "type": "integer", "format": "int64" }
+        "used_bytes": { "type": "integer", "format": "int64", "description": "Total charged traffic in bytes (B), including both upload and download." }, "limit_bytes": { "type": "integer", "format": "int64", "description": "Quota in exact bytes (B); 1 GB = 1000000000 B." }
       } },
       "WebhookDeviceData": { "type": "object", "required": ["device_id", "user_id", "name", "ipv4"], "properties": {
         "device_id": { "type": "string" }, "user_id": { "type": "string" },
@@ -835,7 +838,7 @@
           "url": { "type": "string" },
           "enabled": { "type": "boolean" },
           "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } },
-          "created_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
           "stats": {
             "type": "object",
             "properties": {
@@ -864,7 +867,7 @@
           "examples": {
             "userCreated": { "summary": "Provisioned customer", "value": { "id": "event-uuid", "type": "user.created", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "status": "active" } } },
             "successorActivated": { "summary": "Queued successor activated", "value": { "id": "event-uuid", "type": "user.updated", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "template_id": "template-uuid", "next_plan_trigger": "quota" } } },
-            "quotaReached": { "summary": "Quota boundary reached", "value": { "id": "event-uuid", "type": "user.traffic_exceeded", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "used_bytes": 1073741824, "limit_bytes": 1073741824 } } }
+            "quotaReached": { "summary": "Quota boundary reached", "value": { "id": "event-uuid", "type": "user.traffic_exceeded", "timestamp": "2026-09-29T12:00:00Z", "node_id": "node-1", "data": { "user_id": "user-uuid", "username": "alice", "used_bytes": 1000000000, "limit_bytes": 1000000000 } } }
           }
         } } },
         "responses": { "200": { "description": "Any 2xx acknowledges delivery." } }

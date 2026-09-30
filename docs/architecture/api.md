@@ -59,6 +59,106 @@ node capability through `GET /api/v1/node/health`.
 - **Config generation is on demand**: client configs are a pure function of current settings, so
   endpoint/DNS/MTU changes propagate to every new download immediately.
 
+## Units and conversions
+
+The API accepts and returns exact numeric values in the units below. It does not infer GB, GiB
+or Mbps from a number. Convert an external product's units once, at the integration boundary.
+
+| Quantity | API unit | Panel / integration conversion |
+|---|---|---|
+| Traffic quota and counters (`traffic_limit_bytes`, `traffic_used_rx/tx/total`, `rx_bytes`, `tx_bytes`, top-up `bytes`, traffic-series `rx`/`tx`) | Integer bytes (B) | Decimal SI: 1 MB = 1,000,000 B; 1 GB = 1,000,000,000 B. Panel forms and traffic displays use these units. |
+| Speed limits (`speed_limit_down_kbps`, `speed_limit_up_kbps`) | Kilobits per second; 1 Kbps = 1,000 bits/s | Mbps × 1,000, or panel MB/s × 8,000. Download is server→client; upload is client→server. |
+| Telemetry transfer rates (`*_bytes_per_second`) | Bytes per second (B/s) | Divide by 1,000,000 for MB/s; multiply by 8 and divide by 1,000,000 for Mbps. |
+| Durations (`duration_seconds`) | Integer seconds | 1 day = 86,400 s; 30 days = 2,592,000 s. The panel's duration-month shortcut means 30 days, not a calendar month. |
+| Timestamps (`expires_at`, `activated_at`, etc.) | RFC3339 instants | Responses use UTC (`Z`); localized panel calendars do not change the API instant. |
+| Memory, disk and process-size metrics (`*_bytes`) | Integer bytes (B) | The same decimal MB/GB conversions apply; these measure resources, not customer allowance. |
+| Utilization (`cpu_percent`, `memory_percent`, `disk_percent`) | Percent on a 0–100 scale | `25` means 25%, not a fraction of 0.25. |
+| One-minute load (`load_1`) | Dimensionless host load average | This is task load, not CPU percent; values can exceed 1. |
+| Device/peer limits, user/interface/goroutine counts, pagination `limit`/`points`, delivery `attempts` | Integer counts | These count entities, samples or attempts, not bytes or time. `device_limit` caps device configurations, not a bandwidth rate. |
+| Uptime / sample cadence / handshake-recency window (`uptime_seconds`, `cadence_seconds`, `online_window_seconds`) | Seconds | Node endpoints expose WG-Guard process uptime; telemetry uptime is host uptime. |
+| Interface `mtu` / `listen_port` / subnet | Bytes / UDP port number / CIDR string | `mtu: 1280` means a 1,280-byte tunnel IP-packet MTU; `/24` in an IPv4 subnet is a prefix bit count. |
+
+All numeric request values use JSON numbers in their named unit, without localized digits or
+suffixes such as `"100 GB"`. Display rounding does not change the stored quota. An unavailable
+telemetry value is `null`, while an observed zero remains `0`. Quota, speed and device limits
+use `null` for unlimited where allowed; zero is not an unlimited limit. Direct purchases require
+positive finite quota/duration/device limits, and optional speed fields must be positive if sent.
+
+**100 GB** must be sent as `"traffic_limit_bytes": 100000000000`. In contrast, **100 GiB** is
+`100 × 1024³ = 107374182400` bytes, which the panel correctly displays as **107.4 GB** (rounded
+for display only). Sending the latter while calling the product "100 GB" grants about 7.37%
+more bytes. If a create request includes `template_id`, the selected template's saved terms
+override manually submitted limits; inspect the response's `traffic_limit_bytes` to confirm
+the applied quota.
+
+The lowercase **b** in Mbps means bits; uppercase **B** in MB/s means bytes. For example,
+`"speed_limit_down_kbps": 100000` sets **100 Mbps**, equivalent to **12.5 MB/s** in the panel
+speed form. `null` means unlimited where the field allows it; direct purchase entitlements
+require finite positive limits.
+
+### Traffic direction and aggregation
+
+RX/TX are measured from the **node/server** side: RX is client→server (the customer's upload),
+and TX is server→client (the customer's download). The charged user total is
+`traffic_used_rx + traffic_used_tx` across that user's devices; **both directions consume quota**.
+Device counters and traffic-history buckets are byte amounts, not bytes/s or Mbps. A history
+bucket's `rx`/`tx` is the amount for that sample/hour/day, not a cumulative user quota or a speed
+limit. Explicit usage resets/corrections affect charged counters; a quota top-up raises allowance.
+
+### Duration and dates
+
+| Intended duration | `duration_seconds` |
+|---|---|
+| 1 hour | `3600` |
+| 1 day | `86400` |
+| 7 days | `604800` |
+| 30 days (panel's 1-month shortcut) | `2592000` |
+| 90 days (panel's 3-month shortcut) | `7776000` |
+
+`start_policy: "immediate"` starts a created subscription immediately; `"first_connection"`
+starts its configured duration on the first observed connection. A queued Next Plan's duration
+starts when that successor activates, not when it is queued. An API duration has no inferred
+calendar-month meaning: a bot selling a calendar month must calculate its intended dates itself.
+
+Expiry-only renewal uses `POST /users/{id}/renew`: `from_now` calculates now + duration;
+`from_expiration` calculates max(now, current expiry) + duration; `exact` sets the supplied
+RFC3339 `exact` instant. The duration modes use the saved duration if the request omits
+`duration_seconds`. This does not add quota or reset usage.
+
+PATCHing a user's `duration_seconds` changes the stored duration term; it does not recompute
+that user's existing `expires_at`. Use the renewal endpoint to change the expiry instant.
+
+Send dates with an explicit timezone, for example `"exact": "2026-10-30T12:00:00Z"`.
+An offset such as `+03:30` denotes the same absolute instant after conversion; responses use UTC.
+Date filters such as `expires_before` and `expires_after` also accept RFC3339 instants. Persian
+calendar labels belong to the panel display; do not send a Jalali date or Unix milliseconds
+in a `date-time` field. The webhook signature header's `t` is the distinct exception: Unix
+**seconds** since 1970-01-01 UTC, while the event body's `timestamp` remains RFC3339.
+
+### Settings and protocol-specific quantities
+
+Settings retain the unit indicated by the key; they do not inherit user-field units:
+
+| Setting / header | Unit |
+|---|---|
+| `users.default_quota_gb`, `users.quota_presets_gb` | Decimal GB; preset entries are numeric strings, e.g. `"100"`. |
+| `users.default_duration_months`, `users.duration_presets_months` | Fixed 30-day periods; preset entries are numeric strings. |
+| `accounting.*_seconds`, `network.client_persistent_keepalive` | Seconds. Persistent keepalive accepts the pinned `0`, `N` or `N-M` string format; `0` disables it. |
+| `security.session_*_hours`, `accounting.sample_retention_hours` | Hours (3,600 seconds each). |
+| `accounting.rollup_hourly_days`, `accounting.rollup_daily_days` | Days (86,400 seconds each). |
+| `backup.retention_count`, `webhooks.max_attempts`, `interfaces.max_count` | Archive / delivery-attempt / interface counts. |
+| `api.rate_limit_per_minute`, `X-RateLimit-Limit` / `X-RateLimit-Remaining` | Request counts in a fixed 60-second window; a setting of 0 disables rate limiting. |
+| API `Retry-After` on 429 | Seconds to wait before retrying. |
+
+Defaults and permitted ranges come from the typed settings registry. Zero/null semantics are
+field-specific: a default-quota setting of 0 means no prefilled quota, while REST user/template
+`traffic_limit_bytes: 0` is a finite zero-byte allowance, not unlimited. The panel's quota form
+requires a positive amount or an empty field, and direct purchases require a positive quota.
+AWG packet sizes, count/header fields and timer scalar/range formats use
+their own pinned definitions; see [the interface profile contract](#amneziawg-interface-profile-contract)
+and [the upstream contract](../integrations/amneziawg.md). They must not be treated as subscription
+GB, speed Kbps or calendar dates.
+
 ## Endpoint surface
 
 | Group | Endpoints |
@@ -116,15 +216,18 @@ Authorization: Bearer <owner-scoped API token>
 Idempotency-Key: order-123-provision
 Content-Type: application/json
 
-{"username":"customer123","entitlement":{"traffic_limit_bytes":100000000000,"duration_seconds":2592000,"device_limit":1}}
+{"username":"customer123","entitlement":{"traffic_limit_bytes":100000000000,"duration_seconds":2592000,"device_limit":1,"speed_limit_down_kbps":100000,"speed_limit_up_kbps":20000}}
 ```
+
+This grants 100 GB for 30 days, with download capped at 100 Mbps (12.5 MB/s) and upload at
+20 Mbps (2.5 MB/s). These are caps, not a guaranteed measured throughput.
 
 For a reseller integration, use `{"template_id":"<owner-assigned-template-id>"}` instead of
 `entitlement`. A direct volume add-on uses the separate optional top-up command below; a simple
 sale or replacement does not need it. There is no standalone "add time" purchase command:
 expiry-only renewal remains an administrative operation, not a payment workflow.
 
-A paid volume add-on is one request with a fresh order-specific key (bytes are exact, not GB):
+A paid **1 GB** volume add-on is one request with a fresh order-specific key (exact bytes):
 
 ```http
 POST /api/v1/users/{id}/quota/add
@@ -132,7 +235,7 @@ Authorization: Bearer <scoped API token>
 Idempotency-Key: order-123-volume-1
 Content-Type: application/json
 
-{"bytes":1073741824}
+{"bytes":1000000000}
 ```
 
 Store the key with the order. If the response is lost, retry that request or read

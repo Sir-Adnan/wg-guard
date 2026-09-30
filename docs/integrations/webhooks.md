@@ -51,6 +51,12 @@ enabled endpoint gets one pending delivery at event creation. `node.started` is 
 serve starts. The single central scheduler checks deliveries every five seconds, selects at most
 64 per pass and sends at most four concurrent POSTs with a ten-second request timeout.
 
+Payload traffic values (`used_bytes`, `limit_bytes`) are exact integer bytes, with the same
+decimal conversions as the [REST API units](../architecture/api.md#units-and-conversions):
+100 GB = 100,000,000,000 B. Both upload and download count toward charged quota.
+Delivery `attempts` is a count, and receipt/event dates are RFC3339 instants. The signature
+header uses Unix **seconds**, not milliseconds; it is distinct from the JSON timestamp format.
+
 Each POST carries a JSON body with `id` (stable event ID), `type`, `timestamp` (UTC RFC3339),
 `node_id` and typed `data`. Headers include `X-WG-Event`, `X-WG-Delivery` (stable for that
 endpoint/event), and:
