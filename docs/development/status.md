@@ -26,7 +26,10 @@ space maintenance. Existing pool addresses and soft-deleted records survive migr
 Full local Go tests, vet/build and focused deletion/allocation/migration/API checks passed.
 Chromium and WebKit each checked 16 fa/en Light/Dark/320–1440px cleanup/interface cells with
 accessibility and historical calendar interactions. The existing Chromium foundation regression
-passed after the calendar extension. Exact source CI remains a separate gate. No new
+passed after the calendar extension. The final buffered-retired-device correction passed
+focused accounting tests, and exact `b2ac3a1f56b4edc7632fe8913e5139deb34b90e5` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37145012644), including both
+Linux race jobs, build and vulnerability checks. No new
 real-host multi-pool forwarding, production compaction or physical-device claim is made, and
 these changes are not part of the published v0.1.7 asset.
 
