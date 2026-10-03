@@ -9,7 +9,7 @@ documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 through v0.1.7 releases passed their respective gates and are public.
+The owner-approved v0.1.0 through v0.1.8 releases passed their respective gates and are public.
 The v0.1.7 `f166360a799268a18a0449e485fbb619b9c37d27` source passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132093645) and the
 [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132766994); its
@@ -27,13 +27,17 @@ in [status](status.md). Release-preparation main CI and the public v0.1.7 releas
 SHA-256 matched the published manifest; new real-host certification remains unclaimed.
 
 The owner authorized public v0.1.8 on 2026-10-04. It includes the account/address maintenance,
-combined cleanup and presentation follow-ups described in [status](status.md). Exact final
-implementation `1e60dc41eefdd12cf03551c210d30189165b86e3` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37156961921); fresh final interface
-checks passed the Chromium/WebKit bilingual responsive matrix and no-JavaScript fallback.
-The release-preparation source still needs its own CI and the manual publication workflow.
-This authorization covers v0.1.8 only, not later versions or an official registry publication.
-New real-host multi-pool forwarding and production database compaction remain unclaimed.
+combined cleanup and presentation follow-ups described in [status](status.md). Exact released
+source `cf718a926f81202b7ed8060cac27bb5322dbba82` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
+[publication gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37158268158).
+All five public assets were independently downloaded and their four manifest entries checked;
+metadata, binary, SBOM and annotated tag matched the exact source. The public metadata SHA-256
+is `6713500f4eb5f6422e53616323104a5a3c8057e1cdc1c92b3a68d6d97fc71d41`.
+The browser matrix/fallback evidence from unchanged implementation `1e60dc4` remains applicable.
+[v0.1.8 is public](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8), and the approval
+covers this version only, not later versions or an official registry publication. New real-host
+multi-pool forwarding and production database compaction remain unclaimed.
 
 ## Program status
 
@@ -233,7 +237,7 @@ The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v
 [v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) and
 [v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) and
 [v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7)
-were published after their exact-source gates. v0.1.8 is separately authorized and pending its
-preparation/publication gates. Further tags, releases and official registry
+and [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8)
+were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).

@@ -5,26 +5,27 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-10-03):** Phases 0–14 are complete within their documented scopes.
-[v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) is the latest stable
-release. Its exact `f166360a799268a18a0449e485fbb619b9c37d27` source passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132093645) and the
-[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132766994),
+**Current gate (2026-10-04):** Phases 0–14 are complete within their documented scopes.
+[v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) is the latest stable
+release. Its exact `cf718a926f81202b7ed8060cac27bb5322dbba82` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37158268158),
 including both Go race jobs, checksummed amd64 assets, image/binary identity, attestations and
 downloaded draft-asset verification. The v0.1.0 release had a successful
 latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
-**v0.1.8 preparation (2026-10-04; owner-authorized):** The owner requested public v0.1.8,
-covering the account/address maintenance and presentation changes below. Exact final
-implementation `1e60dc41eefdd12cf03551c210d30189165b86e3` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37156961921), including both Linux
-race jobs, build and vulnerability checks. Release notes and living evidence are being frozen;
-the release-preparation revision must pass its own CI and the manual artifact/publication gate.
-Public v0.1.7 remains latest until those gates finish. No new real-host acceptance is inferred.
+**v0.1.8 publication (2026-10-04; owner-authorized):** The account/address maintenance and
+presentation changes below are public. All five anonymous public assets were independently
+downloaded; the four manifest checksums, binary/metadata/SBOM identities and annotated tag
+matched the exact released SHA above. The public metadata SHA-256 is
+`6713500f4eb5f6422e53616323104a5a3c8057e1cdc1c92b3a68d6d97fc71d41`.
+Browser evidence is reused from the applicable cleanup/presentation implementation at
+`99c7140` and final interface correction at `1e60dc4`; publication adds fresh exact-source
+and artifact gates, not new real-host or physical-device acceptance.
 
-**Unreleased account/address maintenance (2026-10-03):** Ordinary user deletion now cascades
+**v0.1.8 account/address maintenance (2026-10-04):** Ordinary user deletion now cascades
 permanently to devices/customer access/successors and frees IPs, retaining durable public-peer
 removal intent. Profiles accept ordered overflow IPv4 pools, available defaults and observed-host
 overlap checks; the API includes an advisory capacity snapshot. The panel cleanup workspace has
@@ -39,9 +40,9 @@ focused accounting tests, and exact `b2ac3a1f56b4edc7632fe8913e5139deb34b90e5` s
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37145012644), including both
 Linux race jobs, build and vulnerability checks. No new
 real-host multi-pool forwarding, production compaction or physical-device claim is made, and
-these changes are not part of the published v0.1.7 asset.
+these changes ship in the published v0.1.8 asset.
 
-**Unreleased presentation follow-up (2026-10-04):** Cleanup now combines eligible data kinds,
+**v0.1.8 presentation follow-up (2026-10-04):** Cleanup now combines eligible data kinds,
 statuses and owners in searchable multi-selection menus with Select all and one sealed,
 state-checked transaction. Account cascades are excluded from duplicate history counts.
 The shared presentation layer adds question-mark guidance, top-layer help/selection popovers,
@@ -57,8 +58,11 @@ and date menus. The shared Chromium foundation regression passed. Exact presenta
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37155855102), including both
 Linux race jobs. The interface tab/card spacing correction then passed fresh web tests/build
 and both 16-cell browser matrices, including card geometry, expanded packet parameters and
-two no-JavaScript fallback cells per engine. CI for that correction remains a separate gate.
-No new public release, physical-device or real-host acceptance is claimed.
+two no-JavaScript fallback cells per engine. Exact correction source
+`1e60dc41eefdd12cf03551c210d30189165b86e3` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37156961921); the frozen publication
+source passed the separate gates linked above. No new physical-device or real-host acceptance
+is claimed for these follow-ups.
 
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe

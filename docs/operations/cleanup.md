@@ -129,5 +129,7 @@ Migration `0015_interface_ipv4_pools.sql` preserves primary pools, device addres
 accounts, adding ordered extras and cleanup/allocation indexes. The installer now advertises
 `schema15-ipv4-pools-v1`: pool-unaware `schema7-h-ranges-v1` binaries cannot be selected over
 this data via update or rollback. A downgrade needs the coordinated pre-upgrade archive;
-otherwise old code could silently ignore overflow routes. This change has no new public
-release or real-host certification until separately gated.
+otherwise old code could silently ignore overflow routes. This data contract ships in
+[v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) after its exact-source and
+artifact gates. Those gates do not establish new real-host multi-pool forwarding or production
+database-compaction certification; see [the verification scope](../development/status.md).

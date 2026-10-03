@@ -5,7 +5,7 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Release v0.1.7" src="https://img.shields.io/badge/release-v0.1.7-2563eb">
+    <img alt="Release v0.1.8" src="https://img.shields.io/badge/release-v0.1.8-2563eb">
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
@@ -19,12 +19,13 @@ recovery without turning the server into a large application stack.
 
 | | Built for operators |
 |---|---|
-| 🛡️ | **AmneziaWG control** — interfaces, generated anti-DPI profiles, peers, and guarded host reconciliation |
+| 🛡️ | **AmneziaWG control** — interfaces with ordered IPv4 pools and capacity snapshots, generated anti-DPI profiles, peers, and guarded host reconciliation |
 | 👥 | **Subscriber lifecycle** — optional technical templates, quota top-ups, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
 | 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a simple public subscription page |
 | 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
 | 🔐 | **Safe operations** — owner/reseller permissions, scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
-| 🌐 | **A polished panel** — English/Persian, RTL/LTR, light/dark/system modes, ten optional visual presets, desktop and mobile |
+| 🧹 | **Reviewed maintenance** — combined account/history cleanup with status, owner and date filters, impact previews, and database space maintenance |
+| 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, ten optional visual presets, desktop and mobile |
 
 ### Install
 
@@ -115,6 +116,7 @@ tunnel interfaces, firewall rules, and shaping. Start with the [API contract](do
 [Installation](docs/operations/github-install.md) ·
 [Deployment and HTTPS](docs/operations/deployment.md) ·
 [Client compatibility](docs/integrations/amneziawg.md) ·
+[Account cleanup and address pools](docs/operations/cleanup.md) ·
 [REST API](docs/architecture/api.md) ·
 [Documentation map](docs/README.md)
 
