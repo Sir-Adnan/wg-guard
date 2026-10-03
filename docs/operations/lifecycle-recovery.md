@@ -1,5 +1,12 @@
 # Lifecycle recovery
 
+The unreleased [Update Center](update-center.md) adds safe host inventory, operation-stage
+feedback and bounded reservations around this engine. Installer `maintenance_protocol: 2`
+capability controls the detailed broker/timer independently of data compatibility. Registration
+follows the actually deployed artifact during update/rollback/recovery; a legacy artifact never
+retains a timer that sends unsupported commands. Elapsed time never permits a web request to
+erase a running claim. The fixed runner must obtain its separate kernel ownership first.
+
 Phase 8.1 M3 uses one host lifecycle lock, `/run/lock/wg-guard-lifecycle.lock`.
 The Linux kernel releases it when the process exits or dies; do not delete the lock file
 to bypass another operator. Install/update/uninstall/restart/core selection, panel-exposure

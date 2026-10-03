@@ -143,32 +143,27 @@ func TestQueueClaimRejectsForgedRequestIdentity(t *testing.T) {
 	}
 }
 
-func TestQueueReclaimsOnlyExpiredGeneratedWork(t *testing.T) {
+func TestQueueNeverStealsExpiredWork(t *testing.T) {
 	q := readyQueue(t)
 	first, err := q.Enqueue(context.Background(), Input{Operation: OperationCore, Core: "awg-2026-09"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q.Now = func() time.Time { return first.CreatedAt.Add(activeLease + time.Minute) }
-	status, err := q.Status()
-	if err != nil || status.State != StateFailed || status.Failure != FailureInterrupted {
-		t.Fatalf("expired public status = %#v, %v", status, err)
-	}
-	second, err := q.Enqueue(context.Background(), Input{Operation: OperationPanel, Channel: "release", Ref: "v1.2.3"})
-	if err != nil || second.ID == first.ID || second.State != StateQueued {
-		t.Fatalf("replacement request = %#v, %v", second, err)
-	}
-
-	q.Now = func() time.Time { return second.CreatedAt.Add(time.Minute) }
 	if _, err := q.Enqueue(context.Background(), Input{Operation: OperationCore, Core: "awg-2026-09"}); !errors.Is(err, ErrBusy) {
-		t.Fatalf("live request was replaced: %v", err)
+		t.Fatal("expired queued operation was stolen")
 	}
 	if _, err := q.Claim(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	q.Now = func() time.Time { return second.CreatedAt.Add(activeLease + 2*time.Minute) }
-	third, err := q.Enqueue(context.Background(), Input{Operation: OperationCore, Core: "awg-2026-09"})
-	if err != nil || third.State != StateQueued {
-		t.Fatalf("expired running request was not recovered: %#v, %v", third, err)
+	q.Now = func() time.Time { return first.CreatedAt.Add(3 * activeLease) }
+	if _, err := q.Enqueue(context.Background(), Input{Operation: OperationCore, Core: "awg-2026-09"}); !errors.Is(err, ErrBusy) {
+		t.Fatal("expired running operation was stolen")
+	}
+	if err := q.ReconcileInterrupted(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.Enqueue(context.Background(), Input{Operation: OperationCore, Core: "awg-2026-09"}); err != nil {
+		t.Fatal(err)
 	}
 }

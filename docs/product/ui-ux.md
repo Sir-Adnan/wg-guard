@@ -293,6 +293,15 @@ the lifecycle operation finishes. Catalog failure, unavailable host bridge, queu
 completed and failed states never imply an update was applied. Development commits and free-form
 version input are absent from the web workflow.
 
+The unreleased [maintenance workspace](../operations/update-center.md) extends this boundary with
+Overview/Versions/Operations/Recovery navigation, separate panel/manager/tools/bundle identity,
+real release-page navigation and escaped release details. Mobile uses a native collapsible release
+browser; desktop keeps the selection alongside the list. Shared workspace/action tokens remain
+preset-aware; primary buttons use semantic solid fills unless a registered preset supplies its
+own treatment. `update.read` grants observation without execution. Readiness, reserved UTC windows,
+stage revisions, safe history/reports and referenced lifecycle archives preserve the existing
+host broker and lifecycle engine; no arbitrary command or automatic reboot UI is introduced.
+
 `collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
 cards on phones. Name/edit links, availability, exact technical units and action menus have stable
 positions. Missing secondary counts/references display unavailable, never an invented zero.

@@ -198,6 +198,7 @@ type View struct {
 	Admin        *auth.Admin
 	CSRF         string
 	Version      string
+	UpdateNotice bool
 	LoginContext url.Values
 
 	// iconBase is the cache-busted sprite URL, resolved per server.
@@ -348,6 +349,16 @@ func (v *View) RelIn(t *time.Time) string {
 // Dur renders a duration in seconds.
 func (v *View) Dur(sec int64) string { return i18n.FormatDuration(v.Locale, sec) }
 
+func (v *View) Elapsed(start, end time.Time) string {
+	if start.IsZero() {
+		return "—"
+	}
+	if end.IsZero() {
+		end = time.Now()
+	}
+	return v.Dur(max(0, int64(end.Sub(start)/time.Second)))
+}
+
 // DurLim renders a stored optional duration for template previews.
 func (v *View) DurLim(sec *int64) string {
 	if sec == nil {
@@ -492,6 +503,14 @@ func (s *Server) newView(r *http.Request) *View {
 	if a := adminFrom(r); a != nil {
 		v.Admin = a
 		v.CSRF, _ = r.Context().Value(ctxCSRF).(string)
+	}
+	if maintenanceCan(r, auth.ScopeUpdateRead) || maintenanceCan(r, auth.ScopeUpdateManage) {
+		latest := s.updateCache.latestTag()
+		comparison, known := compareRelease(latest, s.Version)
+		v.UpdateNotice = known && comparison > 0
+		if cookie, err := r.Cookie("wg_update_snooze"); err == nil && cookie.Value == latest {
+			v.UpdateNotice = false
+		}
 	}
 	appearance := s.appearanceFor(r)
 	v.Theme, v.Preset = appearance.Mode, appearance.Preset

@@ -123,6 +123,7 @@
   document.addEventListener("submit", (e) => {
     const form = e.target;
     if (!form.matches("[data-confirm]") || form.dataset.confirmed === "1") return;
+	if (form.dataset.confirmSubmitters && !form.dataset.confirmSubmitters.split(' ').includes(e.submitter?.value)) return;
     e.preventDefault();
     pendingConfirm = { form, submitter: e.submitter };
     const dlg = openModal("confirm-dialog", e.submitter || document.activeElement);

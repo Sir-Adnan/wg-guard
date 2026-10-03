@@ -8,6 +8,7 @@ import (
 )
 
 func (realHost) LockLifecycle() (func(), error) { return lockFile("/run/lock/wg-guard-lifecycle.lock") }
+func LockMaintenanceRunner() (func(), error)    { return lockFile("/run/lock/wg-guard-maintenance.lock") }
 func lockFile(p string) (func(), error) {
 	fd, err := unix.Open(p, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0600)
 	if err != nil {

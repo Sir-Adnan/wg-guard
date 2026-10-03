@@ -264,7 +264,7 @@ func (h *nativeCleanupHost) Run(ctx context.Context, args []string, d time.Durat
 			return h.memHost.Run(ctx, args, d)
 		}
 		h.commands = append(h.commands, memCmd{argv: args})
-		if _, ok := h.files[UnitPath]; !ok {
+		if _, ok := h.files[UnitPath]; !ok && (args[len(args)-1] == "wg-guard" || args[len(args)-1] == "wg-guard.service") {
 			return errors.New("unit not loaded")
 		}
 		if args[1] == "stop" && h.stopErr != nil {

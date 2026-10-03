@@ -18,6 +18,8 @@ func updateRequestArgs(input updatequeue.Input) (string, []string, error) {
 		return "", nil, err
 	}
 	switch input.Operation {
+	case updatequeue.OperationInspect, updatequeue.OperationPreflight, updatequeue.OperationDownload, updatequeue.OperationRollback, updatequeue.OperationRecover:
+		return string(input.Operation), nil, nil
 	case updatequeue.OperationPanel:
 		return "panel", []string{"--release", input.Ref}, nil
 	case updatequeue.OperationCore:
@@ -39,18 +41,9 @@ func runUpdateRequest(args []string) error {
 	if len(args) != 0 {
 		return lifecycleArgsError()
 	}
-	return runUpdateRequestWith(context.Background(), updatequeue.New(install.DataDir), updateResponseGrace, func(kind string, args []string) error {
-		switch kind {
-		case "panel":
-			return runPanelUpdate(args)
-		case "core":
-			return runCoreUpdate(args)
-		case "all":
-			return runAllUpdate(args)
-		default:
-			return updatequeue.ErrInvalid
-		}
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), 44*time.Minute)
+	defer cancel()
+	return runMaintenanceBroker(ctx, install.NewRealHost(), updatequeue.New(install.DataDir))
 }
 
 func runUpdateRequestWith(ctx context.Context, queue *updatequeue.Queue, grace time.Duration, execute func(string, []string) error) error {
@@ -106,7 +99,11 @@ func runUpdateBrokerInstall(args []string) error {
 	if state == nil {
 		return fmt.Errorf("update broker: WG-Guard is not installed")
 	}
-	if err := install.EnsureUpdateBroker(context.Background(), host); err != nil {
+	contract := install.CurrentContract()
+	if state.Current != nil {
+		contract = state.Current.Contract
+	}
+	if err := install.EnsureUpdateBrokerForContract(context.Background(), host, contract); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintln(os.Stdout, "WG-Guard host update bridge is ready.")

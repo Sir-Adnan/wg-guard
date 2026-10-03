@@ -103,6 +103,7 @@ type Server struct {
 	visualPresetCSS []byte
 	loginRL         *ipLimiter
 	subRL           *ipLimiter // public /sub/ surface: request-rate window per IP
+	updateCache     releaseCache
 }
 
 // New builds the panel: parse templates once, hash assets once.
@@ -189,9 +190,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /dashboard", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /dashboard/live", s.requireAuth(s.handleDashboardLive))
 	mux.HandleFunc("GET /dashboard/chart", s.requireAuth(s.handleDashboardChart))
-	mux.HandleFunc("GET /updates", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdatesPage))
-	mux.HandleFunc("GET /updates/status", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdateStatus))
+	mux.HandleFunc("GET /updates", s.requireMaintenanceRead(s.handleUpdatesPage))
+	mux.HandleFunc("GET /updates/status", s.requireMaintenanceRead(s.handleUpdateStatus))
 	mux.HandleFunc("POST /updates/request", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdateRequest))
+	mux.HandleFunc("POST /updates/cancel", s.requirePermission(auth.ScopeUpdateManage, s.handleUpdateCancel))
+	mux.HandleFunc("POST /updates/snooze", s.requireMaintenanceRead(s.handleUpdateSnooze))
+	mux.HandleFunc("GET /updates/report/{id}", s.requireMaintenanceRead(s.handleUpdateReport))
+	mux.HandleFunc("GET /updates/backup", s.requirePermission(auth.ScopeBackupManage, s.handleUpdateBackup))
 
 	// --- users ---
 	mux.HandleFunc("GET /users/bulk", s.requirePermission(auth.ScopeUsersBulk, s.handleUserBulkPage))

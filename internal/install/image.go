@@ -59,7 +59,7 @@ func BuildRuntimeImage(ctx context.Context, h Host, build distribution.Build, b 
 		return "", err
 	}
 	iid := filepath.Join(dir, "image-id")
-	args := []string{"docker", "build", "--iidfile", iid, "--label", "org.opencontainers.image.revision=" + build.Commit, "--label", "io.wg-guard.binary.sha256=" + build.SHA256, "--label", "io.wg-guard.core.bundle=" + b.ID, "--label", "io.wg-guard.awg-tools.commit=" + b.ToolsCommit, dir}
+	args := []string{"docker", "build", "--iidfile", iid, "--label", "org.opencontainers.image.revision=" + build.Commit, "--label", "io.wg-guard.binary.sha256=" + build.SHA256, "--label", "io.wg-guard.core.bundle=" + b.ID, "--label", "io.wg-guard.awg-tools.commit=" + b.ToolsCommit, "--label", "io.wg-guard.awg-userspace.commit=" + b.UserspaceCommit, dir}
 	if err := runQuiet(ctx, h, args, longTimeout); err != nil {
 		return "", terminalError("install.error.image.6", err)
 	}
@@ -98,12 +98,22 @@ RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch ` + b.Tool
  && git -C /src/amneziawg-tools diff --quiet ` + b.ToolsCommit + ` -- \
  && make -C /src/amneziawg-tools/src
 
+FROM golang:1.27.1-alpine AS awg-userspace-build
+RUN apk add --no-cache git
+RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch ` + b.UserspaceVersion + ` --single-branch https://github.com/amnezia-vpn/amneziawg-go.git /src/amneziawg-go \
+ && test "$(git -C /src/amneziawg-go rev-parse HEAD)" = "` + b.UserspaceCommit + `" \
+ && git -C /src/amneziawg-go diff --quiet ` + b.UserspaceCommit + ` --
+RUN cd /src/amneziawg-go && CGO_ENABLED=0 go build -trimpath -o /out/amneziawg-go . \
+ && go version -m /out/amneziawg-go | grep -F 'vcs.revision=` + b.UserspaceCommit + `' \
+ && go version -m /out/amneziawg-go | grep -F 'vcs.modified=false'
+
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates nftables iptables iproute2 procps curl \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
+COPY --from=awg-userspace-build /out/amneziawg-go /usr/local/bin/amneziawg-go
 COPY wg-guard /usr/local/bin/wg-guard
 ENV WGG_IN_CONTAINER=1
 ENTRYPOINT ["/usr/local/bin/wg-guard"]

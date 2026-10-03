@@ -12,6 +12,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 )
 
 const maxStreamingCSRFBytes = 128
@@ -38,8 +39,9 @@ type backupsData struct {
 
 	// Review carries the environment report of a freshly staged restore —
 	// rendered once between Stage and Confirm/Cancel.
-	Review   *backup.RestoreReport
-	Warnings []string
+	Review          *backup.RestoreReport
+	Warnings        []string
+	LifecycleBackup *updatequeue.RecoveryBackup
 
 	// Submitted schedule form values redisplayed after a validation error.
 	SchedForm scheduleForm
@@ -59,6 +61,11 @@ type scheduleForm struct {
 func (s *Server) backupsData(r *http.Request) backupsData {
 	ctx := r.Context()
 	d := backupsData{Available: s.Backup != nil, SettingsKnown: true, RestoreName: r.URL.Query().Get("restore"), Form: scheduleOperationalForm(nil)}
+	if s.UpdateQueue != nil && (maintenanceCan(r, "update.read") || maintenanceCan(r, "update.manage")) {
+		if inventory, err := s.UpdateQueue.Inventory(); err == nil {
+			d.LifecycleBackup = inventory.Backup
+		}
+	}
 	if r.URL.Path == "/backups/restore" {
 		d.RestoreName = r.PostFormValue("name")
 	}

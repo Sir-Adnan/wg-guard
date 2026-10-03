@@ -110,7 +110,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 		return terminalError("install.error.backup_required")
 	}
 	if !o.SkipBackup && !o.Rollback {
-		err = trackedTask(out, "Creating pre-update backup", func() error {
+		err = maintenanceTask(out, "panel", "backup", "Creating pre-update backup", func() error {
 			var backupErr error
 			previous.Backup, backupErr = createUpdateBackup(ctx, h, st, j.ID, previous, j.Candidate, out)
 			return backupErr
@@ -172,12 +172,15 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if err = startService(ctx, h, st); err != nil {
 		return fail(err)
 	}
-	if err = trackedTask(out, "Waiting for updated panel health", func() error {
+	if err = maintenanceTask(out, "panel", "health", "Waiting for updated panel health", func() error {
 		return waitHealthyRecorded(ctx, h, st, updateHealthWindow, o.Stdout)
 	}); err != nil {
 		return fail(err)
 	}
 	if err = saveState(h, &next); err != nil {
+		return fail(err)
+	}
+	if err = EnsureUpdateBrokerForContract(ctx, h, j.Candidate.Contract); err != nil {
 		return fail(err)
 	}
 	if err = j.save(h, "complete"); err != nil {
@@ -701,6 +704,9 @@ func recoverTransaction(h Host, j *Journal, out io.Writer) error {
 		return fail(err)
 	}
 	if err := saveState(h, j.Before); err != nil {
+		return fail(err)
+	}
+	if err := EnsureUpdateBrokerForContract(ctx, h, j.Previous.Contract); err != nil {
 		return fail(err)
 	}
 	return j.save(h, "rolled-back")

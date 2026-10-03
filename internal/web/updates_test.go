@@ -46,14 +46,18 @@ func TestUpdateCenterShowsVersionsAndQueuesCataloguedRelease(t *testing.T) {
 			t.Errorf("dashboard software summary missing %q", want)
 		}
 	}
-	page := e.get("/updates", cookie)
+	page := e.get("/updates?tab=versions", cookie)
 	if page.Code != http.StatusOK {
 		t.Fatalf("updates page = %d", page.Code)
 	}
-	for _, want := range []string{"v1.2.3", "awg-2026-09", "awg-2026-08"} {
+	for _, want := range []string{"v1.2.3", "awg-2026-09"} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("updates page missing %q", want)
 		}
+	}
+	corePage := e.get("/updates?tab=versions&component=core", cookie)
+	if !strings.Contains(corePage.Body.String(), "awg-2026-08") {
+		t.Fatal("core catalogue missing older reviewed bundle")
 	}
 	rec := e.post("/updates/request", url.Values{
 		"operation": {"panel"}, "channel": {"release"}, "ref": {"v1.2.3"},
@@ -123,7 +127,7 @@ func TestUpdateCenterUnavailableAndCatalogFailureRemainUseful(t *testing.T) {
 	e.srv.UpdateQueue = updatequeue.New(t.TempDir())
 	e.srv.UpdateCatalog = fixedReleaseCatalog{err: errors.New("offline")}
 	cookie := e.loginEN("owner")
-	page := e.get("/updates", cookie)
+	page := e.get("/updates?tab=versions", cookie)
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "host update bridge is unavailable") || !strings.Contains(page.Body.String(), "Version catalog unavailable") {
 		t.Fatalf("unavailable page = %d %s", page.Code, page.Body.String())
 	}

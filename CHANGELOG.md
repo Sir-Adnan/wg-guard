@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Redesign Update Center with separate component identity, release selection, real archive
+  pagination, readiness checks, prepared artifacts, maintenance windows and safe operation history.
+- Separate maintenance observation from execution permission; reauthorize queued accounts and
+  preserve host/data ownership, fixed command admission and lifecycle recovery boundaries.
+- Align installed broker capabilities with artifact rollback and include the reviewed Go engine
+  in installer-generated Docker runtimes. Kernel remains the default; no automatic reboot/fallback.
+- Share restrained action/workspace primitives across the panel and connect lifecycle backups
+  to the backup screen. New host paths remain pending real-host acceptance.
+
 ## [v0.1.6] — 2026-10-01
 
 - Correct startup/offline key validation of stored webhook text envelopes, which could falsely

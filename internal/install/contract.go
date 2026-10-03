@@ -9,15 +9,16 @@ import (
 // DataContract changes whenever old code would interpret current data differently,
 // even if SQLite accepts its queries (for example pre-0007 H-range truncation).
 type Contract struct {
-	Revision           int    `json:"revision"`
-	DataContract       string `json:"data_contract"`
-	Prerequisites      bool   `json:"prerequisites"`
-	Recovery           bool   `json:"recovery"`
-	LocalOwner         bool   `json:"local_owner"`
-	CoordinatedRestore bool   `json:"coordinated_restore"`
-	DataLease          bool   `json:"data_lease"`
-	PersistentManager  bool   `json:"persistent_manager"`
-	SecureExposure     bool   `json:"secure_exposure"`
+	Revision            int    `json:"revision"`
+	DataContract        string `json:"data_contract"`
+	Prerequisites       bool   `json:"prerequisites"`
+	Recovery            bool   `json:"recovery"`
+	LocalOwner          bool   `json:"local_owner"`
+	CoordinatedRestore  bool   `json:"coordinated_restore"`
+	DataLease           bool   `json:"data_lease"`
+	PersistentManager   bool   `json:"persistent_manager"`
+	SecureExposure      bool   `json:"secure_exposure"`
+	MaintenanceProtocol int    `json:"maintenance_protocol,omitempty"`
 }
 
 func CurrentContract() Contract {
@@ -25,9 +26,13 @@ func CurrentContract() Contract {
 		Revision: 2, DataContract: "schema7-h-ranges-v1", Prerequisites: true,
 		Recovery: true, LocalOwner: true, CoordinatedRestore: true, DataLease: true,
 		PersistentManager: true, SecureExposure: true,
+		MaintenanceProtocol: 2,
 	}
 }
 func CheckContract(c Contract) error {
+	if c.MaintenanceProtocol != 0 && c.MaintenanceProtocol != 2 {
+		return terminalError("install.error.contract")
+	}
 	if c.Revision != 2 || !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore || !c.DataLease || !c.PersistentManager || !c.SecureExposure {
 		return terminalError("install.error.contract")
 	}

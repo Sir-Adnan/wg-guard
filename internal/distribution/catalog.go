@@ -11,7 +11,9 @@ import (
 	"net/url"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,6 +25,8 @@ type Release struct {
 	Draft       bool    `json:"draft"`
 	Prerelease  bool    `json:"prerelease"`
 	Assets      []Asset `json:"assets"`
+	Name        string  `json:"name"`
+	Body        string  `json:"body"`
 }
 type Asset struct {
 	Name string `json:"name"`
@@ -38,8 +42,10 @@ type Options struct {
 	Progress                                        func(string) // fixed stage names only; no URLs, refs or command argv
 }
 type Client struct {
-	http    *http.Client
-	options Options
+	http      *http.Client
+	options   Options
+	pageMu    sync.Mutex
+	pageCache map[string]conditionalPage
 }
 
 func (c *Client) progress(stage string) {
@@ -91,6 +97,18 @@ func NewClient(h *http.Client, o Options) *Client {
 }
 
 func (c *Client) get(ctx context.Context, raw string) (*http.Response, error) {
+	return c.getConditional(ctx, raw, "", false)
+}
+
+type HTTPStatusError struct {
+	Code        int
+	RetryAfter  time.Duration
+	RateLimited bool
+}
+
+func (e *HTTPStatusError) Error() string { return fmt.Sprintf("distribution: HTTP status %d", e.Code) }
+
+func (c *Client) getConditional(ctx context.Context, raw, etag string, allowUnchanged bool) (*http.Response, error) {
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "https" || u.User != nil || u.Fragment != "" {
 		return nil, fmt.Errorf("distribution: HTTPS URL required")
@@ -101,6 +119,9 @@ func (c *Client) get(ctx context.Context, raw string) (*http.Response, error) {
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "wg-guard-distribution")
+	if len(etag) <= 256 && !strings.ContainsAny(etag, "\r\n") && etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -109,9 +130,22 @@ func (c *Client) get(ctx context.Context, raw string) (*http.Response, error) {
 		// Redirect targets can carry temporary GitHub download credentials.
 		return nil, fmt.Errorf("distribution: HTTPS request failed")
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && !(allowUnchanged && resp.StatusCode == http.StatusNotModified) {
 		resp.Body.Close()
-		return nil, fmt.Errorf("distribution: HTTP status %d", resp.StatusCode)
+		retry := time.Minute
+		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds > 0 {
+			retry = time.Duration(min(seconds, 86400)) * time.Second
+		}
+		limited := resp.StatusCode == 429 || (resp.StatusCode == 403 && (resp.Header.Get("Retry-After") != "" || resp.Header.Get("X-RateLimit-Remaining") == "0"))
+		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			if reset, e := strconv.ParseInt(resp.Header.Get("X-RateLimit-Reset"), 10, 64); e == nil {
+				delay := time.Until(time.Unix(reset, 0))
+				if delay > retry {
+					retry = min(delay, 24*time.Hour)
+				}
+			}
+		}
+		return nil, &HTTPStatusError{Code: resp.StatusCode, RetryAfter: retry, RateLimited: limited}
 	}
 	return resp, nil
 }

@@ -405,7 +405,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 			return nil, err
 		}
 	}
-	if err := EnsureUpdateBroker(ctx, h); err != nil {
+	installedContract, err := inspectContract(ctx, h, []string{BinPath})
+	if err != nil {
+		return st, err
+	}
+	if err := EnsureUpdateBrokerForContract(ctx, h, installedContract); err != nil {
 		return st, err
 	}
 

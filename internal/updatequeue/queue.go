@@ -4,17 +4,20 @@
 package updatequeue
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,14 +32,21 @@ type State string
 type Failure string
 
 const (
-	OperationPanel Operation = "panel"
-	OperationCore  Operation = "core"
-	OperationAll   Operation = "all"
+	OperationPanel     Operation = "panel"
+	OperationCore      Operation = "core"
+	OperationAll       Operation = "all"
+	OperationInspect   Operation = "inspect"
+	OperationPreflight Operation = "preflight"
+	OperationDownload  Operation = "download"
+	OperationRollback  Operation = "rollback"
+	OperationRecover   Operation = "recover"
 
 	StateQueued    State = "queued"
 	StateRunning   State = "running"
 	StateSucceeded State = "succeeded"
 	StateFailed    State = "failed"
+	StateScheduled State = "scheduled"
+	StateCanceled  State = "canceled"
 
 	FailureOperation   Failure = "operation_failed"
 	FailureInterrupted Failure = "broker_interrupted"
@@ -52,16 +62,22 @@ var (
 )
 
 type Input struct {
-	Operation Operation `json:"operation"`
-	Channel   string    `json:"channel,omitempty"`
-	Ref       string    `json:"ref,omitempty"`
-	Core      string    `json:"core,omitempty"`
+	ExpectedSHA256 string    `json:"expected_sha256,omitempty"`
+	Operation      Operation `json:"operation"`
+	Channel        string    `json:"channel,omitempty"`
+	Ref            string    `json:"ref,omitempty"`
+	Core           string    `json:"core,omitempty"`
+	Target         Operation `json:"target,omitempty"`
+	ExpectedCommit string    `json:"expected_commit,omitempty"`
 }
 
 type Request struct {
 	Schema    int       `json:"schema"`
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	Actor     string    `json:"actor,omitempty"`
+	ActorID   string    `json:"actor_id,omitempty"`
+	ExecuteAt time.Time `json:"execute_at,omitzero"`
 	Input
 }
 
@@ -73,6 +89,12 @@ type Status struct {
 	StartedAt  time.Time `json:"started_at,omitzero"`
 	FinishedAt time.Time `json:"finished_at,omitzero"`
 	Failure    Failure   `json:"failure,omitempty"`
+	Revision   uint64    `json:"revision,omitempty"`
+	Actor      string    `json:"actor,omitempty"`
+	ActorID    string    `json:"actor_id,omitempty"`
+	ExecuteAt  time.Time `json:"execute_at,omitzero"`
+	Steps      []Step    `json:"steps,omitempty"`
+	Outcome    *Outcome  `json:"outcome,omitempty"`
 	Input
 }
 
@@ -97,7 +119,25 @@ func (q *Queue) Paths() Paths {
 	}
 }
 
-func ReadyMarker() []byte { return []byte("{\"schema\":1}\n") }
+func ReadyMarker() []byte { return []byte("{\"schema\":1,\"experience\":2}\n") }
+
+func ValidReadyMarker(raw []byte) bool {
+	var marker struct{ Schema, Experience int }
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if len(raw) > 128 || decoder.Decode(&marker) != nil || marker.Schema != Schema || (marker.Experience != 0 && marker.Experience != 2) {
+		return false
+	}
+	return decoder.Decode(new(any)) == io.EOF
+}
+
+// Enhanced reports whether the installed host runner understands maintenance
+// previews, scheduling and inventory. Old runners must never receive new verbs.
+func (q *Queue) Enhanced() bool {
+	raw, err := readBoundedRegular(q.Paths().Marker, 128)
+	var marker struct{ Schema, Experience int }
+	return err == nil && ValidReadyMarker(raw) && json.Unmarshal(raw, &marker) == nil && marker.Experience == 2
+}
 
 func (q *Queue) Available() bool {
 	raw, err := readBoundedRegular(q.Paths().Marker, 128)
@@ -111,6 +151,14 @@ func (q *Queue) Available() bool {
 }
 
 func (q *Queue) Enqueue(ctx context.Context, input Input) (Status, error) {
+	return q.EnqueueAs(ctx, input, "")
+}
+
+func (q *Queue) EnqueueAs(ctx context.Context, input Input, actor string) (Status, error) {
+	return q.EnqueueFor(ctx, input, actor, "")
+}
+
+func (q *Queue) EnqueueFor(ctx context.Context, input Input, actor, actorID string) (Status, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -119,7 +167,7 @@ func (q *Queue) Enqueue(ctx context.Context, input Input) (Status, error) {
 	if !q.Available() {
 		return Status{}, ErrUnavailable
 	}
-	if !validInput(input) {
+	if !validInput(input) || !validActor(actor) || !validActor(actorID) || !q.Enhanced() && !legacyOperation(input.Operation) {
 		return Status{}, ErrInvalid
 	}
 	paths := q.Paths()
@@ -127,7 +175,7 @@ func (q *Queue) Enqueue(ctx context.Context, input Input) (Status, error) {
 		return Status{}, err
 	}
 	now := q.now()
-	req := Request{Schema: Schema, ID: nonce(), CreatedAt: now, Input: input}
+	req := Request{Schema: Schema, ID: nonce(), CreatedAt: now, Actor: actor, ActorID: actorID, Input: input}
 	status := statusFrom(req, StateQueued)
 	if err := writeJSONAtomic(paths.Status, status, true); err != nil {
 		return Status{}, err
@@ -167,6 +215,9 @@ func (q *Queue) Claim(ctx context.Context) (Request, error) {
 		return Request{}, ErrInvalid
 	}
 	status := statusFrom(req, StateRunning)
+	if prior, e := q.Status(); e == nil && prior.ID == req.ID {
+		status.Revision = prior.Revision + 1
+	}
 	status.StartedAt = q.now()
 	if err := writeJSONAtomic(paths.Status, status, true); err != nil {
 		_ = os.Rename(paths.Running, paths.Request)
@@ -194,13 +245,20 @@ func (q *Queue) Finish(ctx context.Context, req Request, operationErr error) err
 	failure := Failure("")
 	if operationErr != nil {
 		state = StateFailed
-		failure = FailureOperation
+		failure = failureCode(operationErr)
 	}
-	status := statusFrom(active, state)
-	status.StartedAt = q.statusStartedAt(active.ID)
+	status, readErr := q.Status()
+	if readErr != nil || status.ID != active.ID {
+		return ErrInvalid
+	}
+	status.State = state
+	status.Revision++
 	status.FinishedAt = q.now()
 	status.Failure = failure
 	if err := writeJSONAtomic(paths.Status, status, true); err != nil {
+		return err
+	}
+	if err := q.archive(status); err != nil {
 		return err
 	}
 	if err := os.Remove(paths.Running); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -218,11 +276,17 @@ func (q *Queue) Status() (Status, error) {
 		return Status{}, err
 	}
 	var status Status
-	if json.Unmarshal(raw, &status) != nil || status.Schema != Schema || status.ID == "" || !validInput(status.Input) ||
-		(status.State != StateQueued && status.State != StateRunning && status.State != StateSucceeded && status.State != StateFailed) {
+	if json.Unmarshal(raw, &status) != nil || !validStatus(status) {
 		return Status{}, ErrInvalid
 	}
-	if (status.State == StateQueued || status.State == StateRunning) && q.now().Sub(status.CreatedAt) > activeLease {
+	anchor := status.CreatedAt
+	if !status.ExecuteAt.IsZero() {
+		anchor = status.ExecuteAt
+	}
+	if !status.StartedAt.IsZero() {
+		anchor = status.StartedAt
+	}
+	if (status.State == StateQueued || status.State == StateRunning) && q.now().Sub(anchor) > activeLease {
 		status.State = StateFailed
 		status.FinishedAt = q.now()
 		status.Failure = FailureInterrupted
@@ -231,32 +295,18 @@ func (q *Queue) Status() (Status, error) {
 }
 
 func (q *Queue) clearExpiredActive(paths Paths) error {
-	removed := false
-	for _, path := range []string{paths.Request, paths.Running} {
-		raw, err := readBoundedRegular(path, 16<<10)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
+	// Elapsed time never proves that a host operation stopped. Only the fixed
+	// host runner may reconcile an interrupted claim; web requests cannot steal it.
+	for _, path := range []string{paths.Request, paths.Running, q.schedulePath(), q.schedulePath() + ".claimed"} {
+		if pathOccupied(path) {
 			return ErrBusy
 		}
-		var request Request
-		if json.Unmarshal(raw, &request) != nil || !validRequest(request) || q.now().Sub(request.CreatedAt) <= activeLease {
-			return ErrBusy
-		}
-		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
-		removed = true
-	}
-	if removed {
-		return syncDirectory(q.Dir)
 	}
 	return nil
 }
 
 func statusFrom(req Request, state State) Status {
-	return Status{Schema: Schema, ID: req.ID, State: state, CreatedAt: req.CreatedAt, Input: req.Input}
+	return Status{Schema: Schema, ID: req.ID, State: state, CreatedAt: req.CreatedAt, Actor: req.Actor, ActorID: req.ActorID, ExecuteAt: req.ExecuteAt, Revision: 1, Input: req.Input}
 }
 
 func (q *Queue) statusStartedAt(id string) time.Time {
@@ -268,10 +318,24 @@ func (q *Queue) statusStartedAt(id string) time.Time {
 }
 
 func validRequest(req Request) bool {
-	return req.Schema == Schema && safeRequestID.MatchString(req.ID) && !req.CreatedAt.IsZero() && validInput(req.Input)
+	return req.Schema == Schema && safeRequestID.MatchString(req.ID) && !req.CreatedAt.IsZero() && validActor(req.Actor) && validActor(req.ActorID) && validInput(req.Input)
 }
 
 func validInput(input Input) bool {
+	if input.ExpectedSHA256 != "" && (len(input.ExpectedSHA256) != 64 || strings.Trim(input.ExpectedSHA256, "0123456789abcdef") != "") {
+		return false
+	}
+	if input.ExpectedCommit != "" && (len(input.ExpectedCommit) != 40 || strings.Trim(input.ExpectedCommit, "0123456789abcdef") != "") {
+		return false
+	}
+	if input.Operation == OperationPreflight || input.Operation == OperationDownload {
+		if !legacyOperation(input.Target) {
+			return false
+		}
+		input.Operation, input.Target = input.Target, ""
+	} else if input.Target != "" {
+		return false
+	}
 	panel := input.Channel == "release" && safeCatalogID.MatchString(input.Ref)
 	core := safeCatalogID.MatchString(input.Core)
 	switch input.Operation {
@@ -281,9 +345,15 @@ func validInput(input Input) bool {
 		return core && input.Channel == "" && input.Ref == ""
 	case OperationAll:
 		return panel && core
+	case OperationInspect, OperationRollback, OperationRecover:
+		return input.Channel == "" && input.Ref == "" && input.Core == "" && input.ExpectedCommit == "" && input.ExpectedSHA256 == ""
 	default:
 		return false
 	}
+}
+
+func legacyOperation(op Operation) bool {
+	return op == OperationPanel || op == OperationCore || op == OperationAll
 }
 
 func ValidateInput(input Input) error {

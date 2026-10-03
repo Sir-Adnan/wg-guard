@@ -135,3 +135,13 @@ field partial. These presentation helpers add no REST dependency or persistence 
 Auth loads only shared UI behavior; `qr.js` is included with the QR viewer and `subscription.js`
 only on public pages with devices. `surface_errors.go` preserves page/fragment and public/admin
 boundaries without changing REST responses or successful configuration bytes.
+
+## Maintenance presentation and host boundary
+
+Maintenance separates HTTP dispatch (`updates.go`), typed presentation (`update_view.go`),
+bounded catalog caching (`update_catalog.go`) and scoped report/archive actions
+(`update_actions.go`). Shared workspace primitives and route-local maintenance partials/CSS/JS
+reuse semantic preset tokens. Host observation/preflight, authorization and prepared-candidate
+storage live in focused `internal/install/maintenance*.go` files; the lifecycle engine remains
+the single deployment/recovery implementation. `updatequeue` retains bounded safe inventory,
+stage/history DTOs and one reserved UTC window. See [Update Center](../operations/update-center.md).

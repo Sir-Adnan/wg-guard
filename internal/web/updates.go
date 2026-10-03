@@ -5,9 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
@@ -17,56 +19,16 @@ type ReleaseCatalog interface {
 	Releases(context.Context) ([]distribution.Release, error)
 }
 
-type updatesData struct {
-	Available     bool
-	ReleasesKnown bool
-	Active        bool
-	Error         string
-	Releases      []distribution.Release
-	Cores         []install.CoreBundle
-	Status        updatequeue.Status
-	PanelVersion  string
-	ToolsVersion  string
-}
-
-func (s *Server) updatesData(r *http.Request) updatesData {
-	d := s.updateRuntimeData()
-	s.loadUpdateCatalog(r, &d)
-	return d
-}
-
-func (s *Server) updateRuntimeData() updatesData {
-	d := updatesData{PanelVersion: s.Version, ToolsVersion: s.ToolsVersion}
-	if s.UpdateQueue != nil {
-		d.Available = s.UpdateQueue.Available()
-		if status, err := s.UpdateQueue.Status(); err == nil {
-			d.Status = status
-			d.Active = status.State == updatequeue.StateQueued || status.State == updatequeue.StateRunning
-		}
-	}
-	d.Cores = install.ReviewedCoreBundles()
-	return d
-}
-
-func (s *Server) loadUpdateCatalog(r *http.Request, d *updatesData) {
-	if s.UpdateCatalog != nil {
-		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-		defer cancel()
-		if releases, err := s.UpdateCatalog.Releases(ctx); err == nil {
-			d.Releases = releases
-			d.ReleasesKnown = true
-		}
-	}
-}
-
 func (s *Server) handleUpdatesPage(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "updates", "app", s.updatesData(r))
 }
 
 func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	d := s.updateRuntimeData()
+	d.CanManage = maintenanceCan(r, auth.ScopeUpdateManage)
 	priorID, priorState := r.URL.Query().Get("id"), r.URL.Query().Get("state")
-	if priorID != "" && priorID == d.Status.ID && priorState == string(d.Status.State) {
+	priorRevision := r.URL.Query().Get("revision")
+	if priorID != "" && priorID == d.Status.ID && priorState == string(d.Status.State) && (priorRevision == "" && len(d.Status.Steps) == 0 || priorRevision == strconv.FormatUint(d.Status.Revision, 10)) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -97,22 +59,62 @@ func (s *Server) handleUpdateRequest(w http.ResponseWriter, r *http.Request) {
 		Channel:   strings.TrimSpace(r.PostFormValue("channel")),
 		Ref:       strings.TrimSpace(r.PostFormValue("ref")),
 		Core:      strings.TrimSpace(r.PostFormValue("core")),
+		Target:    updatequeue.Operation(strings.TrimSpace(r.PostFormValue("target"))),
 	}
-	if input.Operation == updatequeue.OperationPanel || input.Operation == updatequeue.OperationAll {
+	selection := input
+	if input.Operation == "execute" {
+		input.Operation, input.Target = input.Target, ""
+		input.ExpectedCommit = strings.TrimSpace(r.PostFormValue("expected_commit"))
+		input.ExpectedSHA256 = strings.TrimSpace(r.PostFormValue("expected_sha256"))
+		selection = input
+	}
+	if input.Operation == updatequeue.OperationPreflight || input.Operation == updatequeue.OperationDownload {
+		selection.Operation, selection.Target = input.Target, ""
+	}
+	if selection.Operation == updatequeue.OperationPanel {
+		selection.Core = ""
+		input.Core = ""
+	}
+	if selection.Operation == updatequeue.OperationPanel || selection.Operation == updatequeue.OperationAll {
 		s.loadUpdateCatalog(r, &d)
 	}
-	if (input.Operation == updatequeue.OperationPanel || input.Operation == updatequeue.OperationAll) &&
-		(input.Channel != "release" || !releaseListed(d.Releases, input.Ref)) {
+	listed := releaseListed(d.Releases, selection.Ref)
+	if !listed && selection.Channel == "release" && selection.Ref != "latest" && len(selection.Ref) <= 128 {
+		if source, ok := s.UpdateCatalog.(exactReleaseCatalog); ok {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			release, err := source.ReleaseByTag(ctx, selection.Ref)
+			cancel()
+			listed = err == nil && release.Tag == selection.Ref
+		}
+	}
+	if (selection.Operation == updatequeue.OperationPanel || selection.Operation == updatequeue.OperationAll) &&
+		(selection.Channel != "release" || !listed) {
 		s.renderUpdateError(w, r, d, "updates.error.selection")
 		return
 	}
-	if input.Operation == updatequeue.OperationCore || input.Operation == updatequeue.OperationAll {
+	if selection.Operation == updatequeue.OperationCore || selection.Operation == updatequeue.OperationAll {
 		if _, err := install.SelectCore(input.Core); err != nil {
 			s.renderUpdateError(w, r, d, "updates.error.selection")
 			return
 		}
 	}
-	status, err := s.UpdateQueue.Enqueue(r.Context(), input)
+	actor, actorID := "", ""
+	if admin := adminFrom(r); admin != nil {
+		actor = admin.Username
+		actorID = admin.ID
+	}
+	var status updatequeue.Status
+	var err error
+	if raw := strings.TrimSpace(r.PostFormValue("execute_at")); raw != "" && (input.Operation == updatequeue.OperationPanel || input.Operation == updatequeue.OperationCore || input.Operation == updatequeue.OperationAll) {
+		at, parseErr := time.Parse("2006-01-02T15:04", raw)
+		if parseErr != nil {
+			s.renderUpdateError(w, r, d, "updates.error.schedule")
+			return
+		}
+		status, err = s.UpdateQueue.ScheduleFor(r.Context(), input, actor, actorID, at)
+	} else {
+		status, err = s.UpdateQueue.EnqueueFor(r.Context(), input, actor, actorID)
+	}
 	if err != nil {
 		if errors.Is(err, updatequeue.ErrBusy) {
 			s.renderUpdateError(w, r, d, "updates.error.busy")
@@ -129,7 +131,17 @@ func (s *Server) handleUpdateRequest(w http.ResponseWriter, r *http.Request) {
 	s.audit(r, "update.requested", status.ID, map[string]any{
 		"operation": input.Operation, "channel": input.Channel, "ref": input.Ref, "core": input.Core,
 	})
-	q := url.Values{"toast": {"updates.toast.queued"}}
+	q := url.Values{"toast": {"updates.toast.queued"}, "tab": {"operations"}}
+	if input.Ref != "" {
+		q.Set("version", input.Ref)
+	}
+	if input.Core != "" {
+		q.Set("core", input.Core)
+	}
+	if selection.Operation == updatequeue.OperationCore {
+		q.Set("component", "core")
+	}
+	q.Set("scope", string(selection.Operation))
 	http.Redirect(w, r, "/updates?"+q.Encode(), http.StatusSeeOther)
 }
 

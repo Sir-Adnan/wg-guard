@@ -16,6 +16,8 @@
 {{if eq (printf "%v" .Locale) "fa"}}<link rel="preload" href="/assets/fonts/Vazirmatn-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/Vazirmatn-SemiBold.woff2" as="font" type="font/woff2" crossorigin>{{end}}
 <link rel="stylesheet" href="{{.A "/css/app.css"}}">
+<link rel="stylesheet" href="{{.A "/css/workspace.css"}}">
+{{if eq .Path "/updates"}}<link rel="stylesheet" href="{{.A "/css/maintenance.css"}}">{{end}}
 {{if or (ne .Preset "wg-guard-neutral") (eq .Path "/appearance")}}<link rel="stylesheet" href="{{.A "/css/visual-presets.css"}}">{{end}}
 <script type="module" src="{{.A "/js/ui.js"}}"></script>
 {{end}}

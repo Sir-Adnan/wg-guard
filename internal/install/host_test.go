@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -157,7 +158,8 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 		return value, nil
 	}
 	if len(argv) > 0 && argv[len(argv)-1] == "installer-contract" {
-		return `{"revision":2,"data_contract":"schema7-h-ranges-v1","prerequisites":true,"recovery":true,"local_owner":true,"coordinated_restore":true,"data_lease":true,"persistent_manager":true,"secure_exposure":true}`, nil
+		raw, _ := json.Marshal(CurrentContract())
+		return string(raw), nil
 	}
 	if len(argv) > 1 && argv[1] == "owner-bootstrap" {
 		return "present\n", nil

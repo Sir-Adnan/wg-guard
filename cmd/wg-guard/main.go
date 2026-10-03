@@ -118,6 +118,10 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "userspace-check":
+		if err := runUserspaceCheck(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 	case "tls-check":
 		if err := runTLSCheck(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)

@@ -259,6 +259,9 @@ Panel-only operations must not be guessed as REST paths: administrator/reseller 
 permission assignment, API-token issuance/revocation, account restore, customer-link
 create/revoke/restore, downloading all configs as a ZIP, backup/restore, installer/update control
 and browser appearance preferences have no corresponding management REST operation here.
+`update.read` and `update.manage` are panel-only grants, excluded from REST token scope presets.
+The [maintenance bridge](../operations/update-center.md) is a private host protocol, not a new
+public update/command API. Existing API/OpenAPI paths and payloads are unchanged by that workspace.
 Server defaults and public appearance settings exposed by `/settings` remain distinct from
 per-browser/account preferences. `GET /users/{id}/subscription` reads an existing active link;
 `/subscription/rotate` replaces access; neither is a dedicated link revoke/restore endpoint.

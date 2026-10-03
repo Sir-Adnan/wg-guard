@@ -1,7 +1,9 @@
 {{define "title"}}{{.T "backups.title"}}{{end}}
 {{define "content"}}
 <div class="backup-workspace">
+
 <div class="page-head page-head--hero ops-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "database"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "backups.title"}}</h1><p>{{.T "backups.subtitle"}}</p></div></div>{{if .Data.Available}}<div class="actions"><a class="btn btn--primary" href="#new-backup">{{.IconS "plus"}}{{.T "backups.create_now"}}</a><a class="btn" href="#restore-workbench">{{.IconS "upload"}}{{.T "backups.restore"}}</a></div>{{end}}</div>
+{{if .Data.LifecycleBackup}}<section class="card card--pad"><div class="section-head"><div><span class="eyebrow">{{.T "nav.updates"}}</span><h2>{{.T "updates.recovery_backup"}}</h2><p>{{.T "updates.backup_recorded_hint"}}</p></div><a class="btn btn--outline" href="/updates/backup">{{.IconS "download"}}{{.T "updates.download_backup"}}</a></div><p class="ltr-data">{{.Data.LifecycleBackup.Name}}</p></section>{{end}}
 {{if .Data.Error}}<div class="alert alert--error" role="alert" tabindex="-1">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
 {{if not .Data.Review}}{{range .Data.Warnings}}<p class="callout callout--warn">{{.}}</p>{{end}}{{end}}
 {{if not .Data.Available}}<div class="empty card"><span class="empty-icon">{{.Icon "database"}}</span><h2>{{.T "backups.unavailable"}}</h2><p>{{.T "backups.retry_hint"}}</p></div>{{else}}
