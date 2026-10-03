@@ -16,6 +16,14 @@ latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
+**v0.1.8 preparation (2026-10-04; owner-authorized):** The owner requested public v0.1.8,
+covering the account/address maintenance and presentation changes below. Exact final
+implementation `1e60dc41eefdd12cf03551c210d30189165b86e3` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37156961921), including both Linux
+race jobs, build and vulnerability checks. Release notes and living evidence are being frozen;
+the release-preparation revision must pass its own CI and the manual artifact/publication gate.
+Public v0.1.7 remains latest until those gates finish. No new real-host acceptance is inferred.
+
 **Unreleased account/address maintenance (2026-10-03):** Ordinary user deletion now cascades
 permanently to devices/customer access/successors and frees IPs, retaining durable public-peer
 removal intent. Profiles accept ordered overflow IPv4 pools, available defaults and observed-host

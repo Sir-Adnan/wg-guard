@@ -4,7 +4,7 @@ Living tracker for the approved release program through Phase 14. `ROADMAP.md` o
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-10-03. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-10-04. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
@@ -25,6 +25,15 @@ race jobs. Chromium/WebKit checks and the stated real-host/Firefox limitations r
 in [status](status.md). Release-preparation main CI and the public v0.1.7 release gate passed at
 `f166360a799268a18a0449e485fbb619b9c37d27`. Public metadata was independently downloaded and its
 SHA-256 matched the published manifest; new real-host certification remains unclaimed.
+
+The owner authorized public v0.1.8 on 2026-10-04. It includes the account/address maintenance,
+combined cleanup and presentation follow-ups described in [status](status.md). Exact final
+implementation `1e60dc41eefdd12cf03551c210d30189165b86e3` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37156961921); fresh final interface
+checks passed the Chromium/WebKit bilingual responsive matrix and no-JavaScript fallback.
+The release-preparation source still needs its own CI and the manual publication workflow.
+This authorization covers v0.1.8 only, not later versions or an official registry publication.
+New real-host multi-pool forwarding and production database compaction remain unclaimed.
 
 ## Program status
 
@@ -222,7 +231,9 @@ The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v
 [v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) and
 [v0.1.4](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4) and
 [v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) and
-[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6)
-were published after their exact-source gates. Further tags, releases and official registry
+[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) and
+[v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7)
+were published after their exact-source gates. v0.1.8 is separately authorized and pending its
+preparation/publication gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).

@@ -2,10 +2,14 @@
 
 ## [Unreleased]
 
+## [v0.1.8] — 2026-10-04
+
 - Add independent Latin/Persian number presentation, Latin by default, with owner defaults,
   per-account inheritance and canonical technical/input/copy values.
 - Share question-mark guidance, keyboard/touch popovers, form tabs and restrained surfaces;
   redesign the interface editor with available prepared CIDRs, manual input and capacity states.
+- Preserve card padding, heading alignment and spacing inside interface tabs on mobile and
+  desktop, including expanded packet parameters and the no-JavaScript fallback.
 - Allow combined cleanup data types, inactive statuses and owners with Select all, per-kind
   impact previews, bounded history budgets and one validated deletion transaction.
 
@@ -21,6 +25,19 @@
   the shared Jalali/Gregorian picker for historical dates without changing expiry-picker defaults.
 - Introduce the schema15 pool data contract; refuse pool-unaware release selection/rollback
   without coordinated archive recovery. API/OpenAPI and living maintenance docs match these changes.
+
+Local full Go tests, focused follow-up checks, vet and build passed. The final implementation
+passed main CI, including both Linux race jobs. Chromium and WebKit each passed 16 bilingual,
+light/dark and viewport presentation cells plus 16 cleanup-menu cells; interface card geometry,
+expanded parameters and no-JavaScript fallback checks passed after the spacing correction.
+The publication workflow separately gates immutable amd64 assets, checksums, runtime-image
+identity, attestations and downloaded release files. New real-host multi-pool forwarding,
+production compaction, Firefox follow-up and physical-device acceptance are not claimed.
+
+Upgrade note: migrations 0015 and 0016 preserve existing device addresses and credentials.
+Ordinary Delete now permanently removes the user and all devices; recovery requires a backup.
+After the data-contract upgrade, pool-unaware v0.1.7 and earlier binaries cannot be selected for
+rollback over the upgraded data. Downgrading requires coordinated pre-upgrade archive recovery.
 
 ## [v0.1.7] — 2026-10-03
 

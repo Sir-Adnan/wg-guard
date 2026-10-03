@@ -98,6 +98,11 @@ refinement passed exact main CI; the release-preparation revision must pass its 
 and the manual release workflow before publication. Both gates passed at
 `f166360a799268a18a0449e485fbb619b9c37d27` and v0.1.7 is public. This approval covers v0.1.7 only;
 later versions and official registry images still need separate owner authorization.
+The owner explicitly requested v0.1.8 on 2026-10-04. Its final implementation source
+`1e60dc41eefdd12cf03551c210d30189165b86e3` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37156961921). The release-preparation
+commit must pass exact main CI and the manual release workflow before publication. This
+authorization covers v0.1.8 only; it does not authorize a later version or registry publication.
 For local immutable candidate
 artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
 
