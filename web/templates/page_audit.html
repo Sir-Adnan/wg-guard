@@ -18,7 +18,7 @@
   {{else if not .Data.Records}}<div class="card empty empty-stage"><span class="empty-visual">{{.Icon "inbox"}}</span><h2>{{.T "audit.empty_title"}}</h2><p>{{if or .Data.Action .Data.ActorID}}{{.T "ops.audit_filtered_empty"}}{{else}}{{.T "audit.empty_body"}}{{end}}</p></div>
   {{else}}
   <section class="audit-results" aria-labelledby="audit-results-title">
-    <div class="audit-results-head"><div><span class="eyebrow">{{.T "audit.timeline"}}</span><h2 id="audit-results-title">{{.T "audit.events"}}</h2><p>{{.T "audit.events_hint"}}</p></div><span class="audit-page-count"><strong class="ltr-data">{{len .Data.Records}}</strong>{{.T "forms.total"}}</span></div>
+    <div class="audit-results-head"><div><span class="eyebrow">{{.T "audit.timeline"}}</span><h2 id="audit-results-title">{{.T "audit.events"}}</h2><p>{{.T "audit.events_hint"}}</p></div><span class="audit-page-count"><strong class="ltr-data">{{$.N (i64u (len .Data.Records))}}</strong>{{.T "forms.total"}}</span></div>
     <ol class="audit-event-list">
       {{range .Data.Records}}
       <li class="card audit-event-card">

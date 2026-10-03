@@ -34,7 +34,7 @@
   </section>
 
   <section class="publicsub-device-section" aria-labelledby="public-devices-title" data-qr-group>
-    <div class="publicsub-section-head"><div><p class="eyebrow">{{.T "publicsub.your_connection"}}</p><h2 id="public-devices-title">{{.T "sub.devices"}}</h2><p>{{.T "publicsub.device_intro"}}</p></div>{{if .Data.DevicesKnown}}<div class="actions">{{if .Data.Devices}}<button type="button" class="btn btn--soft" data-qr-all data-qr-all-title="{{.T "devices.qr_all"}}">{{.IconS "qr-code"}}{{.T "devices.qr_all"}}</button>{{end}}<span class="device-count"><strong>{{len .Data.Devices}}</strong>{{.IconS "monitor"}}</span></div>{{end}}</div>
+    <div class="publicsub-section-head"><div><p class="eyebrow">{{.T "publicsub.your_connection"}}</p><h2 id="public-devices-title">{{.T "sub.devices"}}</h2><p>{{.T "publicsub.device_intro"}}</p></div>{{if .Data.DevicesKnown}}<div class="actions">{{if .Data.Devices}}<button type="button" class="btn btn--soft" data-qr-all data-qr-all-title="{{.T "devices.qr_all"}}">{{.IconS "qr-code"}}{{.T "devices.qr_all"}}</button>{{end}}<span class="device-count"><strong>{{$.N (i64u (len .Data.Devices))}}</strong>{{.IconS "monitor"}}</span></div>{{end}}</div>
     {{if not .Data.DevicesKnown}}
     <div class="card empty empty-stage"><span class="empty-visual">{{.Icon "alert-circle"}}</span><h3>{{.T "publicsub.devices_unavailable"}}</h3><p>{{.T "publicsub.retry_hint"}}</p><a class="btn" href="{{.Data.Base}}?lang={{.Data.Lang}}">{{.T "common.retry"}}</a></div>
     {{else if not .Data.Devices}}

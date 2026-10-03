@@ -15,19 +15,29 @@ import (
 )
 
 type cleanupData struct {
-	Form         operationalForm
-	Owners       []reseller.Account
-	Preview      *cleanup.Preview
-	Storage      cleanup.Storage
-	StorageKnown bool
-	Error        string
+	Form          operationalForm
+	Owners        []reseller.Account
+	Preview       *cleanup.Preview
+	Storage       cleanup.Storage
+	StorageKnown  bool
+	Error         string
+	Selected      cleanup.Filter
+	KindChoices   []string
+	StatusChoices []string
+	AllKinds      bool
+	AllStatuses   bool
+	AllOwners     bool
 }
 
 func (s *Server) cleanupPageData(r *http.Request) cleanupData {
-	d := cleanupData{Form: operationalForm{Values: map[string]string{"kind": "users", "status": "expired", "date_field": "expires_at", "after": "", "before": "", "owner": "", "include_queued": ""}}}
+	d := cleanupData{Form: operationalForm{Values: map[string]string{"date_field": "expires_at", "after": "", "before": "", "include_queued": ""}}, KindChoices: cleanup.KindChoices(), StatusChoices: cleanup.StatusChoices(), Selected: cleanup.Filter{Kinds: []string{"users"}, Statuses: []string{"expired"}, Owners: []string{"node"}}}
 	if r.Method == http.MethodPost {
 		d.Form = submittedOperationalForm(r, d.Form.Values)
+		d.Selected = cleanupChoicesFromPost(r)
 	}
+	d.AllKinds = len(d.Selected.Kinds) == len(d.KindChoices)
+	d.AllStatuses = len(d.Selected.Statuses) == len(d.StatusChoices)
+	d.AllOwners = len(d.Selected.Owners) == 1 && d.Selected.Owners[0] == "*"
 	if s.Resellers != nil {
 		d.Owners, _ = s.Resellers.List(r.Context())
 	}
@@ -38,12 +48,28 @@ func (s *Server) cleanupPageData(r *http.Request) cleanupData {
 	return d
 }
 
+func cleanupChoicesFromPost(r *http.Request) cleanup.Filter {
+	_ = r.ParseForm()
+	f := cleanup.Filter{Kinds: append([]string(nil), r.PostForm["kinds"]...), Statuses: append([]string(nil), r.PostForm["statuses"]...), Owners: append([]string(nil), r.PostForm["owners"]...)}
+	if r.PostFormValue("kinds_all") == "1" {
+		f.Kinds = cleanup.KindChoices()
+	}
+	if r.PostFormValue("statuses_all") == "1" {
+		f.Statuses = cleanup.StatusChoices()
+	}
+	if r.PostFormValue("owners_all") == "1" {
+		f.Owners = []string{"*"}
+	}
+	return f
+}
+
 func (s *Server) handleCleanupPage(w http.ResponseWriter, r *http.Request) {
 	_ = s.render(w, r, "cleanup", "app", s.cleanupPageData(r))
 }
 
 func cleanupFilter(r *http.Request) (cleanup.Filter, error) {
-	f := cleanup.Filter{Kind: r.PostFormValue("kind"), Status: r.PostFormValue("status"), DateField: r.PostFormValue("date_field"), Owner: r.PostFormValue("owner")}
+	f := cleanupChoicesFromPost(r)
+	f.DateField = r.PostFormValue("date_field")
 	f.IncludeQueued = r.PostFormValue("include_queued") == "1"
 	for _, entry := range []struct {
 		name  string
@@ -104,8 +130,8 @@ func (s *Server) handleCleanupExecute(w http.ResponseWriter, r *http.Request) {
 		s.cleanupError(w, r, s.cleanupPageData(r), err)
 		return
 	}
-	s.audit(r, "cleanup.executed", "", map[string]any{"kind": result.Filter.Kind, "rows": len(result.Rows), "devices": result.Devices, "owner": result.Filter.Owner})
-	if result.Filter.Kind == "users" {
+	s.audit(r, "cleanup.executed", "", map[string]any{"kinds": result.Filter.Kinds, "statuses": result.Filter.Statuses, "owners": result.Filter.Owners, "rows": len(result.Rows), "devices": result.Devices})
+	if result.Users > 0 {
 		s.runReconcile(r)
 	}
 	s.redirectToast(w, r, "/cleanup", "cleanup.done", strconv.Itoa(len(result.Rows)))

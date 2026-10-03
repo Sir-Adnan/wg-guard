@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Add independent Latin/Persian number presentation, Latin by default, with owner defaults,
+  per-account inheritance and canonical technical/input/copy values.
+- Share question-mark guidance, keyboard/touch popovers, form tabs and restrained surfaces;
+  redesign the interface editor with available prepared CIDRs, manual input and capacity states.
+- Allow combined cleanup data types, inactive statuses and owners with Select all, per-kind
+  impact previews, bounded history budgets and one validated deletion transaction.
+
 - Permanently delete an account and all devices in one transaction; release IPs and username,
   remove customer access and successors, and retain durable public-peer removal intent.
 - Ignore buffered chart samples belonging to retired devices without losing the remaining

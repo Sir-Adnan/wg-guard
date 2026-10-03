@@ -2,13 +2,17 @@ package i18n
 
 func init() {
 	rows := [][3]string{
+		{"cleanup.choose_options", "Choose options", "انتخاب گزینه‌ها"},
+		{"cleanup.kinds", "Data types", "انواع داده"}, {"cleanup.statuses", "Account statuses", "وضعیت‌های حساب"}, {"cleanup.owners", "Account owners", "مالکان حساب"},
+		{"cleanup.select_all", "Select all", "انتخاب همه"}, {"cleanup.selected_count", "%d selected", "%d انتخاب‌شده"},
+		{"cleanup.statuses_hint", "Matches any selected inactive status. Active and waiting accounts are outside cleanup.", "حساب با هر یک از وضعیت‌های غیرفعال انتخاب‌شده تطبیق پیدا می‌کند. حساب‌های فعال و منتظر اولین اتصال در پاکسازی قرار نمی‌گیرند."},
 		{"ifaces.pools.error", "Check canonical private CIDRs, overlaps with other profiles/host routes, and whether a removed pool still contains devices.", "CIDR خصوصی صحیح، هم‌پوشانی با پروفایل‌های دیگر یا مسیر میزبان و وجود دستگاه در بازهٔ حذف‌شده را بررسی کنید."},
 		{"ops.family.cleanup", "Cleanup", "پاکسازی"},
 		{"cleanup.include_queued", "Also delete accounts with a queued next plan (excluded by default)", "حساب‌های دارای پلن بعدی را هم حذف کن (پیش‌فرض از حذف مستثنا هستند)"},
 		{"cleanup.title", "Cleanup", "پاکسازی"}, {"cleanup.workspace", "Data maintenance", "نگهداری داده‌ها"},
 		{"cleanup.intro", "Review inactive accounts and history, then remove only the selected batch.", "حساب‌های غیرفعال و تاریخچه را بررسی کنید و فقط دستهٔ انتخاب‌شده را پاک کنید."},
 		{"cleanup.backups", "Backups", "پشتیبان‌گیری"}, {"cleanup.selection", "Choose what to clean", "انتخاب داده برای پاکسازی"},
-		{"cleanup.selection_hint", "Preview is required. Each batch contains up to 200 accounts or 2000 history rows.", "پیش‌نمایش الزامی است. هر دسته حداکثر ۲۰۰ حساب یا ۲۰۰۰ رکورد تاریخچه دارد."},
+		{"cleanup.selection_hint", "Select several types, statuses and owners together. Preview is required; up to 200 accounts and 2000 history rows in total, shared across the selected history types.", "چند نوع داده، وضعیت و مالک را همزمان انتخاب کنید. پیش‌نمایش الزامی است؛ حداکثر ۲۰۰ حساب و مجموعاً ۲۰۰۰ رکورد تاریخچه، با سهمی برای هر نوع تاریخچهٔ انتخاب‌شده."},
 		{"cleanup.target", "Target and ownership", "نوع داده و مالکیت"}, {"cleanup.kind", "Data type", "نوع داده"},
 		{"cleanup.kind.users", "Inactive accounts and their devices", "حساب‌های غیرفعال و دستگاه‌هایشان"},
 		{"cleanup.kind.samples", "Detailed traffic chart samples", "نمونه‌های نمودار ترافیک"}, {"cleanup.kind.hourly", "Hourly traffic history", "تاریخچهٔ ساعتی ترافیک"}, {"cleanup.kind.daily", "Daily traffic history", "تاریخچهٔ روزانهٔ ترافیک"},

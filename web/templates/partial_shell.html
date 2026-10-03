@@ -5,6 +5,8 @@
 <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"historyCacheSize":0}'>
 {{if .CSRF}}<meta name="csrf-token" content="{{.CSRF}}">{{end}}
 <meta name="ui-module" content="{{.A "/js/ui.js"}}">
+<meta name="ui-presentation-module" content="{{.A "/js/presentation.js"}}">
+<meta name="ui-field-help" content="{{.T "common.field_help"}}">
 <meta name="ui-close" content="{{.T "common.close"}}">
 <meta name="ui-confirm" content="{{.T "common.confirm"}}">
 <meta name="ui-error" content="{{.T "common.error_generic"}}">
@@ -17,6 +19,7 @@
 <link rel="preload" href="/assets/fonts/Vazirmatn-SemiBold.woff2" as="font" type="font/woff2" crossorigin>{{end}}
 <link rel="stylesheet" href="{{.A "/css/app.css"}}">
 <link rel="stylesheet" href="{{.A "/css/workspace.css"}}">
+<link rel="stylesheet" href="{{.A "/css/presentation.css"}}">
 {{if eq .Path "/updates"}}<link rel="stylesheet" href="{{.A "/css/maintenance.css"}}">{{end}}
 {{if .IsActive "/cleanup"}}<link rel="stylesheet" href="{{.A "/css/cleanup.css"}}">{{end}}
 {{if or (ne .Preset "wg-guard-neutral") (eq .Path "/appearance")}}<link rel="stylesheet" href="{{.A "/css/visual-presets.css"}}">{{end}}

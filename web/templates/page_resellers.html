@@ -10,7 +10,7 @@
 
   {{if .Data.Known}}
   <section class="collection ops-roster" aria-labelledby="reseller-list-title">
-    <div class="section-head"><div><span class="eyebrow">{{.T "resellers.title"}}</span><h2 id="reseller-list-title">{{len .Data.Cards}} {{.T "forms.total"}}</h2></div></div>
+    <div class="section-head"><div><span class="eyebrow">{{.T "resellers.title"}}</span><h2 id="reseller-list-title">{{$.N (i64u (len .Data.Cards))}} {{.T "forms.total"}}</h2></div></div>
     {{if .Data.Cards}}<div class="webhook-grid">{{range .Data.Cards}}
       {{$card := .}}
       <article class="card card--pad reseller-card">

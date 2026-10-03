@@ -107,12 +107,15 @@ and human terminology review are also required. Resolve language on the server a
 theme defaults to Light. Explicit Light, Dark or System preferences override that default across
 app, auth and subscription, including a dark OS with no saved preference.
 
-Technical values (IP/CIDR/ports/keys/counters) use LTR isolation, Latin digits and tabular numerals;
+Technical values (IP/CIDR/ports/keys/identifiers) use LTR isolation, Latin digits and tabular numerals;
 copy returns the original value, never formatted/truncated text. Mixed-language names use bidi
 isolation. Isolation preserves the characters' reading order; metric cards, table cells and
 summaries still align their values to the locale's visual start edge (right in fa). Numeric and
 date form controls keep LTR editing order but align at that same RTL edge in Persian. Dates remain
 Jalali in fa and Gregorian in en; show the time basis where relevant.
+Human counts, amounts, dates and durations use the independent appearance number preference:
+Latin by default, optional Persian, with owner defaults and per-account inheritance. Input,
+copy and REST values remain canonical. See [presentation primitives](presentation-system.md).
 Directional navigation icons mirror appropriately; data plots/time axes do not reverse merely
 because surrounding copy is RTL. Scope/permission/event machine identifiers stay stable in forms
 and API; localized human labels/descriptions are primary UI text.

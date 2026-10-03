@@ -53,7 +53,7 @@
 {{if and .Data.Items (.Can "users.bulk")}}{{template "users_bulkbar" .}}{{end}}
 
 {{if .Data.Items}}
-<div class="collection-head"><h2>{{len .Data.Items}} <span>{{.T "users.page_scope"}}</span></h2></div>
+<div class="collection-head"><h2>{{$.N (i64u (len .Data.Items))}} <span>{{.T "users.page_scope"}}</span></h2></div>
 <div class="table-wrap collection users-collection">
   <table class="table table--cards entity-table users-table">
     <thead>

@@ -21,6 +21,9 @@
     <input type="hidden" name="profile_policy" value="{{.Data.Form.V "profile_policy"}}" data-profile-policy>
     <input type="hidden" name="profile_token" value="{{.Data.Form.V "profile_token"}}" data-profile-token>
 
+    <div data-section-tabs>
+    <div class="section-tab-list" data-tab-list aria-label="{{.T "ifaces.editor.sections"}}"><button type="button" id="iface-tab-general" data-tab-target="iface-panel-general">{{.IconS "settings-2"}}<span>{{.T "ifaces.editor.general"}}</span></button><button type="button" id="iface-tab-pools" data-tab-target="iface-panel-pools">{{.IconS "network"}}<span>{{.T "ifaces.editor.addresses"}}</span></button><button type="button" id="iface-tab-profile" data-tab-target="iface-panel-profile">{{.IconS "shield"}}<span>{{.T "ifaces.obfuscation"}}</span></button></div>
+    <div id="iface-panel-general">
     <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
       <legend><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><span>{{.T "ifaces.form.section_profile"}}</span></legend>
       <div class="field-row">
@@ -41,20 +44,13 @@
         </div>
       </div>
       <div class="field-row">
-        <div class="field">
-          <label for="i-subnet">{{.T "ifaces.subnet"}}</label>
-          <input class="input" id="i-subnet" name="subnet" dir="ltr" spellcheck="false" placeholder="10.8.0.0/24"
-          value="{{.Data.Form.V "subnet"}}" {{if .Data.I}}readonly{{end}} {{if .Data.Form.Invalid "subnet"}}aria-invalid="true" aria-describedby="error-subnet"{{end}}>{{if .Data.Form.Invalid "subnet"}}<span class="field-error" id="error-subnet">{{.T (index .Data.Form.Fields "subnet")}}</span>{{end}}
-          <span class="hint">{{.T "ifaces.pools.primary_hint"}}</span>
-        </div>
+
         <div class="field">
           <label for="i-mtu">{{.T "ifaces.mtu"}}</label>
           <input class="input" id="i-mtu" name="mtu" type="text" inputmode="numeric" dir="ltr"
           value="{{.Data.Form.V "mtu"}}" {{if .Data.Form.Invalid "mtu"}}aria-invalid="true" aria-describedby="error-mtu"{{end}}>{{if .Data.Form.Invalid "mtu"}}<span class="field-error" id="error-mtu">{{.T (index .Data.Form.Fields "mtu")}}</span>{{end}}
         </div>
       </div>
-      <div class="field"><label for="i-extra-pools">{{.T "ifaces.pools.extra"}}</label><textarea class="input" id="i-extra-pools" name="extra_pools" dir="ltr" rows="3" spellcheck="false" placeholder="10.8.1.0/24&#10;10.8.3.0/24" {{if .Data.Form.Invalid "extra_pools"}}aria-invalid="true"{{end}} aria-describedby="extra-pools-hint{{if .Data.Form.Invalid "extra_pools"}} error-extra-pools{{end}}">{{.Data.Form.V "extra_pools"}}</textarea>{{if .Data.Form.Invalid "extra_pools"}}<span class="field-error" id="error-extra-pools">{{.T "ifaces.pools.error"}}</span>{{end}}<span class="hint" id="extra-pools-hint">{{.T "ifaces.pools.extra_hint"}}</span></div>
-      {{if .Data.Pools}}<div class="pool-capacity-list">{{range .Data.Pools}}<div class="pool-capacity-row"><bdi class="ltr-data">{{.CIDR}}</bdi><span>{{$.T "ifaces.pools.capacity" .Free .Capacity}}</span></div>{{end}}</div>{{end}}
       {{if .Data.I}}
       <div class="field">
         <label for="i-enabled">{{.T "forms.availability"}}</label>
@@ -66,9 +62,12 @@
       {{end}}
     </fieldset>
 
+    </div>
+    <div id="iface-panel-pools">{{template "pool-editor" .}}</div>
+    <div id="iface-panel-profile">
     <section class="profile-studio card card--pad" data-obf-box {{if and (not .Data.I) (not .Data.Form.Error)}}data-autoload-profile="suggested"{{end}} aria-labelledby="profile-studio-title">
       <div class="profile-studio-head">
-        <div><span class="section-icon" aria-hidden="true">{{.IconS "shield"}}</span><div><h2 id="profile-studio-title">{{.T "ifaces.obfuscation"}}</h2><p>{{.T "ifaces.obf.hint"}}</p></div></div>
+        <div><span class="section-icon" aria-hidden="true">{{.IconS "shield"}}</span><div><h2 id="profile-studio-title">{{.T "ifaces.obfuscation"}}</h2><p data-guidance>{{.T "ifaces.obf.hint"}}</p></div></div>
         <div class="field">
           <label class="switch-card" for="i-obf-enabled">
           <input class="checkbox" id="i-obf-enabled" type="checkbox" name="obf_enabled" value="1"
@@ -95,7 +94,7 @@
         </div>
         {{if .Data.Form.SecretReset}}<div class="callout callout--warn">{{.IconS "shield"}}<span>{{.T "ifaces.form.secret_retry"}}</span>
         </div>{{end}}
-        <div id="obf-fields" class="profile-fields">
+        <details id="obf-fields" class="profile-fields form-advanced" {{if .Data.Form.Error}}open{{end}}><summary>{{.IconS "settings-2"}}<span>{{.T "ifaces.editor.parameters"}}</span></summary><div class="collapse-body">
           <p class="section-description">{{.T "ifaces.form.packet_shape"}}</p>
           <div class="field-row">
             <div class="field">
@@ -278,7 +277,7 @@
               </div>
             </div>
           </details>
-        </div><!-- /#obf-fields -->
+        </div></details><!-- /#obf-fields -->
 
         {{if .Data.I}}
         <div class="callout callout--warn">
@@ -297,6 +296,8 @@
       </div>
     </fieldset>
 
+    </div>
+    </div>
     <div class="form-actions">
       <a class="btn btn--ghost" href="{{if .Can "interfaces.read"}}/interfaces{{else}}/{{end}}">{{.T "common.cancel"}}</a>
       <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>

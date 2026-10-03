@@ -46,7 +46,7 @@
   {{else}}
     {{if .Data.Admins}}
       <section class="collection ops-roster" aria-labelledby="admin-roster-title">
-        <div class="section-head"><div><span class="eyebrow">{{.T "admins.title"}}</span><h2 id="admin-roster-title">{{len .Data.Admins}} {{.T "forms.total"}}</h2></div></div>
+        <div class="section-head"><div><span class="eyebrow">{{.T "admins.title"}}</span><h2 id="admin-roster-title">{{$.N (i64u (len .Data.Admins))}} {{.T "forms.total"}}</h2></div></div>
         <div class="table-wrap">
           <table class="table table--cards entity-table admin-table">
             <thead><tr><th>{{.T "admins.col_admin"}}</th><th>{{.T "admins.col_role"}}</th><th>{{.T "admins.col_permissions"}}</th><th>{{.T "admins.col_created"}}</th><th class="text-end">{{.T "common.actions"}}</th></tr></thead>

@@ -44,15 +44,138 @@ func account(t *testing.T, s *Service, name string) string {
 
 func withDevice(t *testing.T, s *Service, id string) {
 	t.Helper()
+	var count int
+	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM devices`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
 	_, err := s.DB.Exec(`INSERT OR IGNORE INTO tunnel_interfaces(id,name,listen_port,ipv4_subnet,mtu,public_key,private_key_encrypted,created_at,updated_at)
 	VALUES('ifc','awg0',39001,'10.8.0.0/24',1420,'fixture',X'01','test','test')`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = s.DB.Exec(`INSERT INTO devices(id,user_id,interface_id,name,ipv4_address,public_key,private_key_encrypted,last_rx,last_tx,rx_bytes,tx_bytes,created_at,updated_at)
-	VALUES(?,?,'ifc','phone','10.8.0.2/32',?,X'01',10,20,100,200,'test','test')`, "dev-"+id, id, "public-"+id)
+	VALUES(?,?,'ifc','phone',?, ?,X'01',10,20,100,200,'test','test')`, "dev-"+id, id, fmt.Sprintf("10.8.0.%d/32", count+2), "public-"+id)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func history(t *testing.T, s *Service, userID, kind string) {
+	t.Helper()
+	statement := `INSERT INTO traffic_samples(device_id,ts,rx_delta,tx_delta) VALUES(?,'2026-01-01T00:00:00Z',1,2)`
+	args := []any{"dev-" + userID}
+	if kind != "samples" {
+		statement = `INSERT INTO traffic_rollups(device_id,bucket_start,granularity,rx,tx) VALUES(?,'2026-01-01T00:00:00Z',?,1,2)`
+		args = append(args, kind)
+	}
+	if _, err := s.DB.Exec(statement, args...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMultiKindStatusAndOwnerUnionExcludesCascadeDuplicates(t *testing.T) {
+	s := fixture(t)
+	ctx := context.Background()
+	expired := account(t, s, "expired-combined")
+	disabled := account(t, s, "disabled-combined")
+	active := account(t, s, "kept-combined")
+	_, err := s.DB.Exec(`INSERT INTO resellers(id,slug,display_name,created_at,updated_at) VALUES('r','reseller','Reseller','test','test')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = s.DB.Exec(`UPDATE users SET status='disabled',reseller_id='r' WHERE id=?`, disabled)
+	_, _ = s.DB.Exec(`UPDATE users SET status='active',traffic_used_rx=100,traffic_used_tx=200 WHERE id=?`, active)
+	withDevice(t, s, expired)
+	withDevice(t, s, active)
+	for _, kind := range []string{"samples", "hourly", "daily"} {
+		history(t, s, expired, kind)
+		history(t, s, active, kind)
+	}
+	f := Filter{Kinds: []string{"daily", "users", "samples", "hourly"}, Statuses: []string{"disabled", "expired"}, Owners: []string{"r", "node"}, DateField: "expires_at"}
+	p, err := s.Preview(ctx, f, "actor")
+	if err != nil || p.Users != 2 || p.Devices != 1 || p.History != 3 || len(p.Groups) != 4 {
+		t.Fatalf("combined preview: users/history/devices mismatch: %v", err)
+	}
+	if _, err := s.Execute(ctx, p.Token, "actor"); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{expired, disabled} {
+		if _, err := s.Users.Get(ctx, id); err == nil {
+			t.Fatal("selected status/owner union was not deleted")
+		}
+	}
+	u, err := s.Users.Get(ctx, active)
+	if err != nil || u.TrafficUsedRX != 100 || u.TrafficUsedTX != 200 {
+		t.Fatal("active account or charged usage changed")
+	}
+	for _, table := range []string{"traffic_samples", "traffic_rollups"} {
+		var n int
+		_ = s.DB.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n)
+		if n != 0 {
+			t.Fatal("selected history kind not cleaned")
+		}
+	}
+}
+
+func TestCombinedPreviewRefusesChangedHistoryAndRollsBackMidwayFailure(t *testing.T) {
+	for _, failure := range []string{"changed", "delete_error"} {
+		t.Run(failure, func(t *testing.T) {
+			s := fixture(t)
+			ctx := context.Background()
+			removed := account(t, s, "removed-combined")
+			kept := account(t, s, "kept-combined")
+			_, _ = s.DB.Exec(`UPDATE users SET status='active' WHERE id=?`, kept)
+			withDevice(t, s, removed)
+			withDevice(t, s, kept)
+			history(t, s, kept, "daily")
+			p, err := s.Preview(ctx, Filter{Kinds: []string{"users", "daily"}, Statuses: []string{"expired"}, Owners: []string{"node"}, DateField: "expires_at"}, "actor")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if failure == "changed" {
+				_, _ = s.DB.Exec(`UPDATE traffic_rollups SET rx=99`)
+			} else {
+				_, err = s.DB.Exec(`CREATE TRIGGER fail_cleanup BEFORE DELETE ON traffic_rollups BEGIN SELECT RAISE(ABORT,'synthetic cleanup failure'); END`)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := s.Execute(ctx, p.Token, "actor"); err == nil {
+				t.Fatal("invalid combined cleanup succeeded")
+			}
+			for table, want := range map[string]int{"users": 2, "devices": 2, "retired_peer_keys": 0, "traffic_rollups": 1} {
+				var n int
+				_ = s.DB.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n)
+				if n != want {
+					t.Fatalf("partial combined batch retained %s", table)
+				}
+			}
+		})
+	}
+}
+
+func TestEmptyGroupAndDuplicateChoicesCannotExpandReviewedSelection(t *testing.T) {
+	s := fixture(t)
+	ctx := context.Background()
+	id := account(t, s, "live-history")
+	_, _ = s.DB.Exec(`UPDATE users SET status='active' WHERE id=?`, id)
+	withDevice(t, s, id)
+	history(t, s, id, "samples")
+	p, err := s.Preview(ctx, Filter{Kinds: []string{"samples", "users", "samples"}, Statuses: []string{"expired"}, Owners: []string{"node"}, DateField: "expires_at"}, "actor")
+	if err != nil || p.Users != 0 || p.History != 1 || len(p.Groups) != 2 {
+		t.Fatal("duplicate kind or empty-group handling failed")
+	}
+	newID := account(t, s, "new-expired")
+	if _, err := s.Execute(ctx, p.Token, "actor"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Users.Get(ctx, newID); err != nil {
+		t.Fatal("new match was added to an empty reviewed group")
+	}
+	for _, f := range []Filter{{}, {Kinds: []string{"users"}, Statuses: []string{"active"}, Owners: []string{"node"}, DateField: "created_at"}, {Kinds: []string{"samples"}, Owners: []string{}}, {Kinds: []string{"sqlite_master"}, Owners: []string{"*"}}} {
+		if _, err := s.Preview(ctx, f, "actor"); err == nil {
+			t.Fatal("empty/unsafe selections accepted")
+		}
 	}
 }
 
@@ -69,7 +192,7 @@ func TestReviewedDeletionCascadesAndRetainsRemovalIntent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := s.Preview(ctx, Filter{Kind: "users", Status: "expired", DateField: "expires_at", Before: "2026-02-01T00:00:00Z"}, "actor")
+	p, err := s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"expired"}, DateField: "expires_at", Before: "2026-02-01T00:00:00Z"}, "actor")
 	if err != nil || len(p.Rows) != 1 || p.Devices != 1 {
 		t.Fatalf("preview: %+v %v", p, err)
 	}
@@ -100,7 +223,7 @@ func TestPreviewRejectsChangedStateAndOtherActor(t *testing.T) {
 	s := fixture(t)
 	ctx := context.Background()
 	id := account(t, s, "before-renewal")
-	p, err := s.Preview(ctx, Filter{Kind: "users", Status: "expired", DateField: "expires_at"}, "first")
+	p, err := s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"expired"}, DateField: "expires_at"}, "first")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +255,7 @@ func TestHistoryCleanupPreservesUsageAndDeviceBaselines(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, err := s.Preview(ctx, Filter{Kind: kind, Before: "2026-01-02T00:00:00Z"}, "actor")
+			p, err := s.Preview(ctx, Filter{Kinds: []string{kind}, Owners: []string{"node"}, Before: "2026-01-02T00:00:00Z"}, "actor")
 			if err != nil || len(p.Rows) != 1 {
 				t.Fatalf("history preview: %v", err)
 			}
@@ -159,18 +282,18 @@ func TestCleanupOwnerScopeAndDateBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _ = s.DB.Exec(`UPDATE users SET reseller_id='r' WHERE id=?`, id)
-	p, err := s.Preview(ctx, Filter{Kind: "users", Status: "expired", DateField: "expires_at", After: "2026-01-02T00:00:00Z", Before: "2026-01-03T00:00:00Z"}, "actor")
+	p, err := s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"expired"}, DateField: "expires_at", After: "2026-01-02T00:00:00Z", Before: "2026-01-03T00:00:00Z"}, "actor")
 	if err != nil || len(p.Rows) != 1 || p.Rows[0].ID != other {
 		t.Fatal("owner or inclusive start boundary failed")
 	}
-	p, err = s.Preview(ctx, Filter{Kind: "users", Status: "expired", DateField: "expires_at", Owner: "r", Before: "2026-01-02T00:00:00Z"}, "actor")
+	p, err = s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"r"}, Statuses: []string{"expired"}, DateField: "expires_at", Before: "2026-01-02T00:00:00Z"}, "actor")
 	if err != nil || len(p.Rows) != 0 {
 		t.Fatal("exclusive end boundary failed")
 	}
-	if _, err := s.Preview(ctx, Filter{Kind: "users", Status: "active", DateField: "created_at"}, "actor"); domain.CodeOf(err) != domain.CodeInvalidRequest {
+	if _, err := s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"active"}, DateField: "created_at"}, "actor"); domain.CodeOf(err) != domain.CodeInvalidRequest {
 		t.Fatal("active account cleanup allowed")
 	}
-	if _, err := s.Preview(ctx, Filter{Kind: "sqlite_master"}, "actor"); err == nil {
+	if _, err := s.Preview(ctx, Filter{Kinds: []string{"sqlite_master"}, Owners: []string{"node"}}, "actor"); err == nil {
 		t.Fatal("arbitrary table accepted")
 	}
 }
@@ -203,7 +326,7 @@ func TestQueuedSuccessorsAreProtectedUnlessExplicitlyIncluded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := Filter{Kind: "users", Status: "expired", DateField: "expires_at"}
+	f := Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"expired"}, DateField: "expires_at"}
 	p, err := s.Preview(ctx, f, "actor")
 	if err != nil || len(p.Rows) != 0 {
 		t.Fatal("queued successor selected by default")
@@ -239,7 +362,7 @@ func TestCleanupRollsBackTheWholeBatchOnMidwayFailure(t *testing.T) {
 	first := account(t, s, "rollback-first")
 	_ = account(t, s, "rollback-second")
 	withDevice(t, s, first)
-	p, err := s.Preview(ctx, Filter{Kind: "users", Status: "expired", DateField: "expires_at"}, "actor")
+	p, err := s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"expired"}, DateField: "expires_at"}, "actor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +386,7 @@ func TestBoundedPreviewNeverIncludesNewMatchingAccounts(t *testing.T) {
 	for n := 0; n < MaxBatch+1; n++ {
 		account(t, s, fmt.Sprintf("batch-%03d", n))
 	}
-	p, err := s.Preview(ctx, Filter{Kind: "users", Status: "expired", DateField: "expires_at"}, "actor")
+	p, err := s.Preview(ctx, Filter{Kinds: []string{"users"}, Owners: []string{"node"}, Statuses: []string{"expired"}, DateField: "expires_at"}, "actor")
 	if err != nil || len(p.Rows) != MaxBatch || !p.More {
 		t.Fatal("preview bound missing")
 	}

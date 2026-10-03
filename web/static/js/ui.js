@@ -5,6 +5,11 @@ const text = key => $('meta[name="ui-' + key + '"]')?.content || '';
 const focusable = root => $$('a[href],button,input,select,textarea,[tabindex]', root)
   .filter(el => !el.disabled && el.tabIndex >= 0 && !el.closest('[inert]') && el.getClientRects().length);
 const restoreFocus = el => { if (el?.isConnected && !el.closest('[inert]')) el.focus({ preventScroll: true }); };
+const presentation = await import(document.querySelector('meta[name="ui-presentation-module"]').content);
+export const displayDigits = presentation.displayDigits;
+const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); };
+enhancePresentation(document);
+document.body.addEventListener('htmx:afterSwap', event => enhancePresentation(event.detail?.target || document));
 document.documentElement.dataset.ui = 'ready';
 document.documentElement.dataset.inputModality = 'pointer';
 document.addEventListener('pointerdown', () => { document.documentElement.dataset.inputModality = 'pointer'; }, true);

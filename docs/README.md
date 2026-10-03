@@ -18,7 +18,7 @@ Implementation and test evidence must support any claimed behavior.
 ## Reference index
 
 **Product and design:** [requirements](product/requirements.md) ·
-[UI/UX](product/ui-ux.md).
+[UI/UX](product/ui-ux.md) · [presentation primitives](product/presentation-system.md).
 
 **Architecture and integrations:** [overview](architecture/overview.md) ·
 [project structure](architecture/project-structure.md) · [database](architecture/database.md) ·

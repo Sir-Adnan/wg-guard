@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 )
 
 // Appearance is a web-only preference, deliberately outside the public REST
@@ -14,6 +15,7 @@ import (
 type appearanceSelection struct {
 	Preset string
 	Mode   string
+	Digits i18n.DigitStyle
 }
 
 type appearanceChoice struct {
@@ -28,6 +30,7 @@ type appearancePageData struct {
 	Personal       string
 	IsOwner        bool
 	ModeIsPersonal bool
+	PersonalDigits string
 }
 
 func validAppearanceMode(mode string) bool {
@@ -35,17 +38,20 @@ func validAppearanceMode(mode string) bool {
 }
 
 func (s *Server) panelAppearance(ctx context.Context) appearanceSelection {
-	fallback := appearanceSelection{Preset: s.visualPresets.BuiltIn.ID, Mode: "light"}
+	fallback := appearanceSelection{Preset: s.visualPresets.BuiltIn.ID, Mode: "light", Digits: i18n.LatinDigits}
 	if s.DB == nil {
 		return fallback
 	}
 	var saved appearanceSelection
-	if err := s.DB.QueryRowContext(ctx, `SELECT preset_id, mode FROM appearance_defaults WHERE id = 1`).Scan(&saved.Preset, &saved.Mode); err != nil {
+	if err := s.DB.QueryRowContext(ctx, `SELECT preset_id, mode,digits FROM appearance_defaults WHERE id = 1`).Scan(&saved.Preset, &saved.Mode, &saved.Digits); err != nil {
 		return fallback
 	}
 	saved.Preset = s.visualPresets.resolve(saved.Preset)
 	if !validAppearanceMode(saved.Mode) {
 		saved.Mode = fallback.Mode
+	}
+	if !saved.Digits.Valid() {
+		saved.Digits = fallback.Digits
 	}
 	return saved
 }
@@ -65,6 +71,9 @@ func (s *Server) appearanceFor(r *http.Request) appearanceSelection {
 	if personalMode := themeCookieChoice(r); personalMode != "" {
 		selection.Mode = personalMode
 	}
+	if a := adminFrom(r); !strings.HasPrefix(r.URL.Path, "/sub/") && a != nil && i18n.DigitStyle(a.AppearanceDigits).Valid() {
+		selection.Digits = i18n.DigitStyle(a.AppearanceDigits)
+	}
 	return selection
 }
 
@@ -82,8 +91,36 @@ func (s *Server) appearancePageData(r *http.Request) appearancePageData {
 	if a != nil && s.visualPresets.known(a.AppearancePreset) {
 		data.Personal = a.AppearancePreset
 	}
+	if a != nil {
+		data.PersonalDigits = a.AppearanceDigits
+	}
 	data.EffectiveName = s.visualPresets.name(data.Effective.Preset)
 	return data
+}
+
+func (s *Server) handleAppearanceDigits(w http.ResponseWriter, r *http.Request) {
+	if err := s.Admins.SetAppearanceDigits(r.Context(), adminFrom(r).ID, r.PostFormValue("digits")); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.redirectToast(w, r, "/appearance", "appearance.saved")
+}
+
+func (s *Server) handleAppearanceDefaultDigits(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAppearanceOwner(w, r) {
+		return
+	}
+	digits := i18n.DigitStyle(r.PostFormValue("digits"))
+	if !digits.Valid() {
+		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
+		return
+	}
+	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET digits=? WHERE id=1`, digits); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "appearance.digits_changed", "panel", map[string]any{"digits": digits})
+	s.redirectToast(w, r, "/appearance", "appearance.default_saved")
 }
 
 func (s *Server) handleAppearancePage(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +141,7 @@ func (s *Server) handleAppearanceMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAppearanceMeReset(w http.ResponseWriter, r *http.Request) {
-	if err := s.Admins.SetAppearancePreset(r.Context(), adminFrom(r).ID, ""); err != nil {
+	if err := s.Admins.ResetAppearance(r.Context(), adminFrom(r).ID); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
@@ -139,7 +176,7 @@ func (s *Server) handleAppearanceDefaultReset(w http.ResponseWriter, r *http.Req
 		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
 		return
 	}
-	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET preset_id = ?, mode = 'light' WHERE id = 1`, s.visualPresets.BuiltIn.ID); err != nil {
+	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET preset_id = ?, mode = 'light',digits='latin' WHERE id = 1`, s.visualPresets.BuiltIn.ID); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}

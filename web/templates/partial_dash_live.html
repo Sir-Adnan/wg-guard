@@ -28,10 +28,10 @@
     <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{if eq .TitleKey "dash.cpu"}}{{$.IconS "cpu"}}{{else if eq .TitleKey "dash.memory"}}{{$.IconS "memory-stick"}}{{else if eq .TitleKey "dash.activity"}}{{$.IconS "users"}}{{else}}{{$.IconS "activity"}}{{end}}</span><h3>{{$.T .TitleKey}}</h3></div>
         {{if or (eq .TitleKey "dash.host_network") (eq .TitleKey "dash.vpn_live") (eq .TitleKey "dash.activity")}}
         <div class="resource-pair">
-          <div><span class="legend-item"><span class="swatch"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.users_online"}}{{else}}{{$.T "dash.rx"}}{{end}}</span><strong class="ltr-data">{{if .Value}}{{.Value}}{{else}}—{{end}}</strong></div>
+          <div><span class="legend-item"><span class="swatch"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.users_online"}}{{else}}{{$.T "dash.rx"}}{{end}}</span><strong class="ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong></div>
           <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.active_peers"}}{{else}}{{$.T "dash.tx"}}{{end}}</span><strong class="ltr-data">{{if .Second}}{{.Second}}{{else}}—{{end}}</strong></div>
         </div>
-        {{else}}<strong class="resource-value ltr-data">{{if .Value}}{{.Value}}{{else}}—{{end}}</strong>{{end}}
+        {{else}}<strong class="resource-value ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong>{{end}}
         <p class="resource-meta">{{if .Meta}}<bdi>{{.Meta}}</bdi>{{else if .Percent}}{{$.T "dash.percent_scale"}}{{else}}{{$.T "dash.live_window"}}{{end}}</p>
     {{if .SVG}}<div class="spark-wrap interactive-chart">{{.SVG}}</div>{{else}}<div class="spark-empty">{{$.T "dash.metric_unavailable"}}</div>{{end}}
         <p class="chart-period ltr-data">{{$t.Window}}</p>

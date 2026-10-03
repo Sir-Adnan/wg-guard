@@ -8,7 +8,7 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-  const { openModal, toast } = await import(document.querySelector('meta[name="ui-module"]').content);
+  const { openModal, toast, displayDigits } = await import(document.querySelector('meta[name="ui-module"]').content);
 
   const userFilterMore = $('[data-user-filter-more]');
   if (userFilterMore) {
@@ -624,8 +624,8 @@
   function calRender() {
     const fa = cal.view === "j";
     const title = fa
-      ? FA_MONTHS[cal.jm - 1] + " " + cal.jy
-      : EN_MONTHS[cal.jm - 1] + " " + cal.jy;
+      ? FA_MONTHS[cal.jm - 1] + " " + displayDigits(cal.jy)
+      : EN_MONTHS[cal.jm - 1] + " " + displayDigits(cal.jy);
     const week = fa ? FA_WEEK : EN_WEEK;
     // first weekday index (0 = week start) and month length
     let first, len, firstG;
@@ -657,12 +657,12 @@
       const iso = gy + "-" + pad(gm) + "-" + pad(gd);
       const past = new Date(gy, gm - 1, gd) < new Date(cal.today.getFullYear(), cal.today.getMonth(), cal.today.getDate());
       const cls = (iso === todayISO ? " is-today" : "") + (cal.selected && iso === isoOf(cal.selected) ? " is-selected" : "");
-      const label = new Intl.DateTimeFormat(fa ? "fa-IR" : "en", { dateStyle: "full" }).format(new Date(gy, gm - 1, gd));
+      const label = new Intl.DateTimeFormat(fa ? "fa-IR" : "en", { dateStyle: "full", numberingSystem:document.documentElement.dataset.digits==='persian'?'arabext':'latn' }).format(new Date(gy, gm - 1, gd));
       cells += '<button type="button" class="cal-day' + cls + '" data-cal-day="' + d + '"' +
         ' tabindex="' + (iso === isoOf(cal.focusDate) ? '0' : '-1') + '" aria-label="' + label + '"' +
         (iso === todayISO ? ' aria-current="date"' : '') +
         ' aria-pressed="' + Boolean(cal.selected && iso === isoOf(cal.selected)) + '"' +
-        (past && !cal.allowPast ? " disabled" : "") + ">" + d + "</button>";
+        (past && !cal.allowPast ? " disabled" : "") + ">" + displayDigits(d) + "</button>";
     }
     calEl.innerHTML =
       '<div class="cal-head">' +

@@ -192,6 +192,7 @@ type View struct {
 	Dir          string
 	Theme        string // "light" | "dark" | "system"
 	Preset       string // allowlisted visual preset ID; empty/unknown resolves to built-in
+	Digits       i18n.DigitStyle
 	Path         string // request path, for nav highlighting
 	PageClass    string // content width tier (" content--narrow" on form/settings routes)
 	SubLayout    string // public subscription composition, absent on error surfaces
@@ -239,7 +240,7 @@ func (v *View) Can(scope string) bool {
 
 // T translates key with the request's locale.
 func (v *View) T(key string, args ...any) string {
-	return i18n.T(v.Locale, key, args...)
+	return i18n.TDigits(v.Locale, v.Digits, key, args...)
 }
 
 // Icon renders a sprite reference. Icons are recognition aids, never
@@ -264,7 +265,7 @@ func directionalIconClass(name string) string {
 }
 
 // B formats a byte count with locale units.
-func (v *View) B(n int64) string { return i18n.FormatBytes(v.Locale, n) }
+func (v *View) B(n int64) string { return v.Digits.Apply(i18n.FormatBytes(v.Locale, n)) }
 
 // BParts keeps a Latin numeral and its localized unit as separate visual
 // atoms. This lets an RTL flex row preserve natural number → unit order.
@@ -286,7 +287,11 @@ func (v *View) BLimParts(limit *int64) byteParts {
 type byteParts struct{ Number, Unit string }
 
 // N formats an integer with grouping.
-func (v *View) N(n int64) string { return i18n.FormatInt(n) }
+func (v *View) N(n int64) string { return v.Digits.Apply(i18n.FormatInt(n)) }
+
+// Human formats a previously humanized metric or date string. Machine values
+// and input values use their original typed fields, never this display helper.
+func (v *View) Human(text string) string { return v.Digits.Apply(text) }
 
 // Initial keeps a multibyte account name intact in the shared avatar.
 func (v *View) Initial(name string) string {
@@ -301,11 +306,13 @@ func (v *View) D(t *time.Time) string {
 	if t == nil {
 		return v.T("common.never")
 	}
-	return i18n.FormatDate(v.Locale, *t, nil)
+	return v.Digits.Apply(i18n.FormatDate(v.Locale, *t, nil))
 }
 
 // DT renders a date with time.
-func (v *View) DateTime(t time.Time) string { return i18n.FormatDateTime(v.Locale, t, nil) }
+func (v *View) DateTime(t time.Time) string {
+	return v.Digits.Apply(i18n.FormatDateTime(v.Locale, t, nil))
+}
 
 func (v *View) LocaleLink() string {
 	q := url.Values{}
@@ -326,7 +333,7 @@ func (v *View) DT(t *time.Time) string {
 	if t == nil {
 		return v.T("common.never")
 	}
-	return i18n.FormatDateTime(v.Locale, *t, nil)
+	return v.Digits.Apply(i18n.FormatDateTime(v.Locale, *t, nil))
 }
 
 // Rel renders relative time ("never" when nil).
@@ -334,7 +341,7 @@ func (v *View) Rel(t *time.Time) string {
 	if t == nil {
 		return v.T("common.never")
 	}
-	return i18n.FormatRelative(v.Locale, time.Now(), *t)
+	return v.Digits.Apply(i18n.FormatRelative(v.Locale, time.Now(), *t))
 }
 
 // RelIn renders a future-relative hint ("in 3 days") for expiry columns;
@@ -343,11 +350,11 @@ func (v *View) RelIn(t *time.Time) string {
 	if t == nil {
 		return v.T("common.never")
 	}
-	return i18n.FormatRelativeUntil(v.Locale, time.Now(), *t)
+	return v.Digits.Apply(i18n.FormatRelativeUntil(v.Locale, time.Now(), *t))
 }
 
 // Dur renders a duration in seconds.
-func (v *View) Dur(sec int64) string { return i18n.FormatDuration(v.Locale, sec) }
+func (v *View) Dur(sec int64) string { return v.Digits.Apply(i18n.FormatDuration(v.Locale, sec)) }
 
 func (v *View) Elapsed(start, end time.Time) string {
 	if start.IsZero() {
@@ -401,7 +408,7 @@ func (v *View) U(n *int) string {
 	if n == nil {
 		return v.T("common.unlimited")
 	}
-	return speedMBpsValue(n) + " MB/s"
+	return v.Digits.Apply(speedMBpsValue(n)) + " MB/s"
 }
 
 // BLim renders a byte limit ("unlimited" when nil).
@@ -469,9 +476,9 @@ func (s *Server) applyFlash(r *http.Request, v *View) {
 		return
 	}
 	if targ := r.URL.Query().Get("targ"); targ != "" {
-		v.ToastMsg = s.t(r, key, targ)
+		v.ToastMsg = v.T(key, targ)
 	} else {
-		v.ToastMsg = s.t(r, key)
+		v.ToastMsg = v.T(key)
 	}
 }
 
@@ -513,7 +520,7 @@ func (s *Server) newView(r *http.Request) *View {
 		}
 	}
 	appearance := s.appearanceFor(r)
-	v.Theme, v.Preset = appearance.Mode, appearance.Preset
+	v.Theme, v.Preset, v.Digits = appearance.Mode, appearance.Preset, appearance.Digits
 	v.Locale = s.localeFor(r)
 	if r.URL.Path == "/login" {
 		v.LoginContext = loginContext(r)

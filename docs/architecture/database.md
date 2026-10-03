@@ -35,6 +35,10 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 Allocation: per-interface IPv4 pool with `UNIQUE(interface_id, ipv4_address)`; allocation in a
 transaction with conflict retry; IPs released on permanent device or account delete. Ordered pools share the network/gateway/broadcast reservation convention. Migration 0015 adds overflow pools while preserving existing addresses.
 
+Migration 0016 adds independent owner-default and per-admin number presentation preferences.
+Latin remains the default and existing locale/preset/mode values are untouched. This changes
+no traffic data, API numeric unit or client configuration.
+
 ## Invariants
 
 - Accounting: accumulated totals live in SQLite, never in AWG counters. `new < last ⇒ reset ⇒

@@ -10,6 +10,11 @@
     <span class="badge badge--info">{{.T (printf "theme.%s" .Data.Effective.Mode)}}</span>
   </section>
 
+  <section class="card card--pad appearance-number-settings" aria-labelledby="appearance-digits-title"><div class="section-head"><div><h2 id="appearance-digits-title">{{.T "appearance.digits.title"}}</h2><p class="section-description">{{.T "appearance.digits.hint"}}</p></div></div><div class="field-row">
+    <form method="post" action="/appearance/digits/me" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="personal-digits">{{.T "appearance.digits.personal"}}</label><select id="personal-digits" name="digits" class="select"><option value="" {{if not .Data.PersonalDigits}}selected{{end}}>{{.T "appearance.digits.inherit"}}</option>{{range $style:=list "latin" "persian"}}<option value="{{$style}}" {{if eq $.Data.PersonalDigits $style}}selected{{end}}>{{$.T (printf "appearance.digits.%s" $style)}}</option>{{end}}</select></div><button type="submit" class="btn btn--secondary">{{.IconS "check"}}<span>{{.T "appearance.apply_me"}}</span></button></form>
+    {{if .Data.IsOwner}}<form method="post" action="/appearance/digits/default" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="default-digits">{{.T "appearance.digits.default"}}</label><select id="default-digits" name="digits" class="select">{{range $style:=list "latin" "persian"}}<option value="{{$style}}" {{if eq (printf "%v" $.Data.PanelDefault.Digits) $style}}selected{{end}}>{{$.T (printf "appearance.digits.%s" $style)}}</option>{{end}}</select></div><button type="submit" class="btn btn--secondary">{{.IconS "users"}}<span>{{.T "appearance.set_panel_default"}}</span></button></form>{{end}}
+  </div></section>
+
   <form method="post" action="/appearance/me" class="card card--pad appearance-form" data-appearance-form>
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div class="section-head"><div><span class="eyebrow">{{.T "appearance.visual_presets"}}</span><h2>{{.T "appearance.choose"}}</h2><p class="section-description">{{.T "appearance.preview_hint"}}</p></div></div>

@@ -33,6 +33,20 @@ Linux race jobs, build and vulnerability checks. No new
 real-host multi-pool forwarding, production compaction or physical-device claim is made, and
 these changes are not part of the published v0.1.7 asset.
 
+**Unreleased presentation follow-up (2026-10-04):** Cleanup now combines eligible data kinds,
+statuses and owners in searchable multi-selection menus with Select all and one sealed,
+state-checked transaction. Account cascades are excluded from duplicate history counts.
+The shared presentation layer adds question-mark guidance, top-layer help/selection popovers,
+keyboard form tabs, restrained surfaces and an interface pool editor with read-only prepared
+CIDR/capacity/conflict suggestions. Appearance offers Latin-default or Persian number display,
+independent of language/preset, with owner defaults and personal overrides (migration 0016).
+Technical/input/copy/API values remain canonical. The full local Go suite passed, with focused
+follow-up checks and vet/build on the resulting source. Chromium and WebKit each passed 16
+fa/en, light/dark, 320/390/768/1440px presentation cells and 16 cleanup-menu cells, including
+accessibility, prepared CIDRs, help/tab interactions, number preference, search, Select all
+and date menus. The shared Chromium foundation regression passed. Final source CI is separate.
+No new public release, physical-device or real-host acceptance is claimed.
+
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe
 stage/history reports and recovery. `update.read` is distinct from execution; queued new-format

@@ -15,6 +15,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 )
 
@@ -69,6 +70,25 @@ func (s *Service) SetAppearancePreset(ctx context.Context, id, preset string) er
 		return domain.E(domain.CodeAdminNotFound, "admin %s not found", id)
 	}
 	return nil
+}
+
+func (s *Service) SetAppearanceDigits(ctx context.Context, id, digits string) error {
+	if digits != "" && !i18n.DigitStyle(digits).Valid() {
+		return domain.E(domain.CodeInvalidRequest, "unsupported digit style")
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE admins SET appearance_digits=?,updated_at=? WHERE id=?`, digits, s.now().UTC().Format(time.RFC3339Nano), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.E(domain.CodeAdminNotFound, "admin not found")
+	}
+	return nil
+}
+
+func (s *Service) ResetAppearance(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE admins SET appearance_preset='',appearance_digits='',updated_at=? WHERE id=?`, s.now().UTC().Format(time.RFC3339Nano), id)
+	return err
 }
 
 // HasOwner reports whether an owner account exists — the onboarding gate

@@ -169,6 +169,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /prefs/locale", s.requireSignedIn(s.handleLocaleSet))
 	mux.HandleFunc("GET /appearance", s.requireSignedIn(s.handleAppearancePage))
 	mux.HandleFunc("POST /appearance/me", s.requireSignedIn(s.handleAppearanceMe))
+	mux.HandleFunc("POST /appearance/digits/me", s.requireSignedIn(s.handleAppearanceDigits))
+	mux.HandleFunc("POST /appearance/digits/default", s.requireSignedIn(s.handleAppearanceDefaultDigits))
 	mux.HandleFunc("POST /appearance/me/reset", s.requireSignedIn(s.handleAppearanceMeReset))
 	mux.HandleFunc("POST /appearance/default", s.requireSignedIn(s.handleAppearanceDefault))
 	mux.HandleFunc("POST /appearance/default/reset", s.requireSignedIn(s.handleAppearanceDefaultReset))
@@ -257,6 +259,7 @@ func (s *Server) Handler() http.Handler {
 	// --- interfaces ---
 	mux.HandleFunc("GET /interfaces", s.requirePermission(auth.ScopeIfaceRead, s.handleIfaceList))
 	mux.HandleFunc("GET /interfaces/new", s.requirePermission(auth.ScopeIfaceWrite, s.handleIfaceNew))
+	mux.HandleFunc("GET /interfaces/pools/suggestions", s.requirePermission(auth.ScopeIfaceWrite, s.handlePoolSuggestions))
 	mux.HandleFunc("POST /interfaces", s.requirePermission(auth.ScopeIfaceWrite, s.handleIfaceCreate))
 	mux.HandleFunc("POST /interfaces/profile-preview", s.requirePermission(auth.ScopeIfaceWrite, s.handleProfilePreview))
 	mux.HandleFunc("GET /interfaces/{id}/edit", s.requirePermission(auth.ScopeIfaceWrite, s.handleIfaceEditPage))

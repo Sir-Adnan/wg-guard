@@ -6,8 +6,10 @@
   <nav class="settings-nav" aria-label="{{.T "settings.sections"}}">
     <p class="eyebrow">{{.T "settings.sections"}}</p>
     {{range .Data.Sections}}<a href="#settings-{{.ID}}">{{$.T .Title}}</a>{{end}}
+    <a href="/appearance">{{.T "appearance.title"}}</a>
   </nav>
   <div class="settings-main form-stack">
+    <section class="card card--pad" aria-labelledby="settings-appearance-title"><div class="section-head"><div><h2 id="settings-appearance-title">{{.T "appearance.title"}}</h2><p class="section-description" data-guidance>{{.T "appearance.digits.hint"}}</p></div><a class="btn btn--secondary" href="/appearance">{{.IconS "sparkles"}}<span>{{.T "appearance.digits.title"}}</span></a></div></section>
     <p class="callout settings-guidance">{{.IconS "info"}}<span>{{.T "settings.blank_text"}}</span></p>
     {{if .Data.Error}}<div class="form-feedback callout callout--error" id="form-errors" role="alert" tabindex="-1">{{.IconS "alert-triangle"}}<div><strong>{{.Data.Error}}</strong><p>{{.T "settings.save.retry"}}</p>{{if .Data.Field}}<a href="#s-{{.Data.Field}}">{{.T .Data.ErrorLabel}}</a>{{end}}</div></div>{{end}}
     {{if .Data.LoadFailed}}<div class="callout callout--warn" role="status">{{.IconS "alert-triangle"}}<div><strong>{{.T "settings.load.title"}}</strong><p>{{.T "settings.load.hint"}}</p><a href="/settings">{{.T "settings.reload"}}</a></div></div>{{end}}
@@ -20,7 +22,7 @@
       <div class="settings-fields">
         {{range .Fields}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}
       </div>
-      {{if .Advanced}}<details class="collapse settings-advanced" id="settings-{{.ID}}-advanced"{{if .AdvancedOpen}} open{{end}}><summary>{{$.T "settings.advanced"}}<span class="badge">{{len .Advanced}}</span></summary><div class="settings-fields">{{range .Advanced}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}</div></details>{{end}}
+      {{if .Advanced}}<details class="collapse settings-advanced" id="settings-{{.ID}}-advanced"{{if .AdvancedOpen}} open{{end}}><summary>{{$.T "settings.advanced"}}<span class="badge">{{$.N (i64u (len .Advanced))}}</span></summary><div class="settings-fields">{{range .Advanced}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}</div></details>{{end}}
       {{if and (eq .ID "backup") ($.Can "backup.manage")}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/backups">{{$.IconS "database"}}{{$.T "settings.open_backups"}}</a><p class="hint">{{$.T "settings.backup_destination"}}</p></footer>{{end}}
     </section>
     {{end}}

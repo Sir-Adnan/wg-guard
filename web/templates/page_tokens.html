@@ -33,7 +33,7 @@
   {{else if not .Data.Tokens}}<div class="card empty empty-stage"><span class="empty-visual" aria-hidden="true">{{.Icon "key"}}</span><h2>{{.T "tokens.empty_title"}}</h2><p>{{.T "tokens.empty_body"}}</p><a class="btn btn--primary" href="#token-create" data-open-disclosure="token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div>
   {{else}}
   <section class="collection ops-roster" aria-labelledby="token-roster-title">
-    <div class="section-head"><div><span class="eyebrow">{{.T "nav.tokens"}}</span><h2 id="token-roster-title">{{len .Data.Tokens}} {{.T "forms.total"}}</h2></div></div>
+    <div class="section-head"><div><span class="eyebrow">{{.T "nav.tokens"}}</span><h2 id="token-roster-title">{{$.N (i64u (len .Data.Tokens))}} {{.T "forms.total"}}</h2></div></div>
     <div class="table-wrap"><table class="table table--cards entity-table token-table">
       <thead><tr><th>{{.T "tokens.col_name"}}</th><th>{{.T "tokens.col_scopes"}}</th><th>{{.T "tokens.col_expiry"}}</th><th>{{.T "tokens.col_last_used"}}</th><th class="text-end">{{.T "common.actions"}}</th></tr></thead>
       <tbody>{{range .Data.Tokens}}<tr>

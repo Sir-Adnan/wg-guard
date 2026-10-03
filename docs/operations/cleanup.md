@@ -76,24 +76,35 @@ the entire account/device/link/result transaction if any requested device cannot
 
 `/cleanup` needs panel-only `cleanup.manage`. It is excluded from REST token scopes and
 reseller grants, and classified as Full access in administrator shortcuts. Node operators
-with this permission can choose node-owned accounts, one reseller or all owners explicitly;
+with this permission can choose node-owned accounts, several resellers or all owners explicitly;
 the default targets node-owned accounts only.
 
 Account cleanup supports `expired`, `traffic_exceeded`, `disabled`, `suspended` and older
 soft-deleted rows. Active and waiting-first-connection accounts are not cleanup targets.
+Data types, eligible statuses and owners use searchable multi-selection menus with Select all,
+partial selection states and selected summaries. The date basis uses a single-selection menu.
+Menus support keyboard arrows, touch, outside dismissal and Escape. Statuses and owners use union matching; the date predicate still uses one
+explicit basis. Empty selections are rejected, never interpreted as all records.
 Accounts with a queued Next Plan are excluded unless explicitly included. Choose creation,
 expiry, last update, last activity or soft-delete date. Last update is a record timestamp,
 **not** the date when a status first changed. Unknown dates do not match a date filter.
 The shared picker displays Jalali in Persian and Gregorian in English, including historical dates. It writes Gregorian `YYYY-MM-DD`; boundaries are UTC midnight, start inclusive and end
 exclusive. Empty boundaries include all matching dates.
 
-Each preview selects up to 200 accounts or 2000 history rows and shows the first 20, plus the device/IP allocations
+Each preview can select up to 200 accounts and 2000 history rows together. The history budget
+is shared across selected kinds so one category cannot consume every selected kind's allowance.
+Per-kind counts/limits are shown; the first 20 combined records and device/IP allocations
 to remove. If more match, finish that batch and preview the next. The encrypted preview binds
 exact IDs, filter, relevant account/device state and operator for ten minutes. Execute rechecks
 them inside the deletion transaction. Renewed, edited, consumed, missing or transferred accounts
 invalidate the whole batch; new matching accounts are never added. Tampered, expired and
 different-operator previews are denied. CSRF/permissions are checked again at execution.
 Batches are atomic and audited; there is no new background deletion loop or scheduler.
+The full combined review is validated before any mutation and commits in one transaction.
+History belonging to selected accounts is excluded from separate history counts because the
+account cascade already removes it. A changed record in any group invalidates the complete
+review. Groups empty at preview never admit new matches during execution. Version-1 reviews
+from the single-selection screen require a fresh preview after this presentation update.
 
 History cleanup separately targets detailed traffic samples or hourly/daily rollups using
 sample/bucket timestamps. It never resets charged usage or device raw-counter baselines.

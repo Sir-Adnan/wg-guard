@@ -27,6 +27,7 @@ type Admin struct {
 	Locale string
 	// AppearancePreset is empty when this account inherits the panel default.
 	AppearancePreset string
+	AppearanceDigits string
 }
 
 // SessionStore manages admin_sessions: hashed tokens, absolute + idle
@@ -81,12 +82,12 @@ func (s *SessionStore) Validate(ctx context.Context, token string) (Admin, error
 	var resellerID, resellerPermissions sql.NullString
 	var resellerEnabled sql.NullInt64
 	err := s.db.QueryRowContext(ctx, `SELECT s.last_seen_at, s.expires_at,
-		a.role, a.permissions, a.enabled, a.username, a.id, a.locale, a.appearance_preset,
+		a.role, a.permissions, a.enabled, a.username, a.id, a.locale, a.appearance_preset, a.appearance_digits,
 		a.reseller_id, r.enabled, r.permissions
 		FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
 		LEFT JOIN resellers r ON r.id = a.reseller_id
 		WHERE s.token_hash = ?`, hashToken(token)).
-		Scan(&lastSeenStr, &expiresStr, &role, &permissions, &enabled, &a.Username, &a.ID, &a.Locale, &a.AppearancePreset,
+		Scan(&lastSeenStr, &expiresStr, &role, &permissions, &enabled, &a.Username, &a.ID, &a.Locale, &a.AppearancePreset, &a.AppearanceDigits,
 			&resellerID, &resellerEnabled, &resellerPermissions)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Admin{}, domain.E(domain.CodeSessionExpired, "session not found")

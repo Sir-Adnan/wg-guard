@@ -26,7 +26,7 @@ func TestCleanupPanelReviewAndPermissionBoundaries(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Database health") {
 		t.Fatal("cleanup screen missing")
 	}
-	rec = e.post("/cleanup/preview", url.Values{"kind": {"users"}, "status": {"expired"}, "date_field": {"expires_at"}}, cookie, csrf)
+	rec = e.post("/cleanup/preview", url.Values{"kinds": {"users"}, "statuses": {"expired"}, "owners": {"node"}, "date_field": {"expires_at"}}, cookie, csrf)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "expired-review") {
 		t.Fatal("review missing")
 	}

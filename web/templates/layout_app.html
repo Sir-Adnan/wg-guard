@@ -1,5 +1,5 @@
 {{define "app"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
+<html lang="{{.Locale}}" dir="{{.Dir}}" data-digits="{{.Digits}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
 <head>
 {{template "document-head" .}}
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
@@ -83,6 +83,8 @@
 {{template "feedback-host" .}}
 {{if eq .Path "/settings"}}<script type="module" src="{{.A "/js/settings.js"}}"></script>{{end}}
 {{if eq .Path "/updates"}}<script type="module" src="{{.A "/js/maintenance.js"}}"></script>{{end}}
+{{if .IsActive "/cleanup"}}<script type="module" src="{{.A "/js/cleanup.js"}}"></script>{{end}}
+{{if or (eq .Path "/interfaces/new") (and (.IsActive "/interfaces") (ne .Path "/interfaces"))}}<script type="module" src="{{.A "/js/pool-editor.js"}}"></script>{{end}}
 {{template "confirm-dialog" .}}
 </body>
 </html>{{end}}
