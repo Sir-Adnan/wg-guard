@@ -16,7 +16,7 @@ latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
-**Unreleased maintenance workspace (2026-10-03):** Update Center now separates installed
+**v0.1.7 maintenance release candidate (2026-10-03; owner-authorized):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe
 stage/history reports and recovery. `update.read` is distinct from execution; queued new-format
 accounts are reauthorized under shared data ownership. The generated Docker runtime includes
@@ -29,6 +29,9 @@ The existing browser foundation regression passed. Local Firefox launch was bloc
 `spawn UNKNOWN`; local race was unrun because CGO is disabled. Exact-revision CI and any
 new public release remain separate. New timer/queue/generated-runtime paths have no new
 real-host claim; the published release remains v0.1.6.
+The implementation and final UI source at `0197f2d9c2e81594b5209e835e2284aabe8857e2` passed
+[exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37127008947), including both
+Linux race jobs. The v0.1.7 preparation/publication gates remain pending until separately verified.
 
 **v0.1.6 backup/startup correction:** An owner Docker upgrade report exposed
 a valid-webhook text envelope being misread as binary by startup/offline key validation. This

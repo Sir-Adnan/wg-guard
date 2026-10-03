@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.1.7] — 2026-10-03
+
 - Redesign Update Center with separate component identity, release selection, real archive
   pagination, readiness checks, prepared artifacts, maintenance windows and safe operation history.
 - Separate maintenance observation from execution permission; reauthorize queued accounts and
@@ -10,6 +12,16 @@
   in installer-generated Docker runtimes. Kernel remains the default; no automatic reboot/fallback.
 - Share restrained action/workspace primitives across the panel and connect lifecycle backups
   to the backup screen. New host paths remain pending real-host acceptance.
+
+Full local Go tests, vet and build passed; the implementation and final UI refinement passed
+their exact main CI, including both Linux race jobs. Chromium and WebKit each passed 16
+fa/en, light/dark and viewport cells with accessibility/workflow checks; the shared browser
+foundation regression passed. Local Firefox launch was unavailable. No new physical-device
+or real-host acceptance is claimed for the maintenance timer/generated-runtime paths.
+
+Upgrade note: after an upgrade driven by an older host manager, if Update Center reports an
+older bridge, run `sudo wg-guard update-broker-install` using the newly installed command.
+This release does not change REST/OpenAPI paths or request payloads.
 
 ## [v0.1.6] — 2026-10-01
 

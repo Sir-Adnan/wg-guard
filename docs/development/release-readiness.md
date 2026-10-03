@@ -18,6 +18,11 @@ amd64 bundle. Downloaded public metadata identifies that exact SHA and its check
 published checksum file. Installer progress/logging, multi-device API provisioning and the webhook key-check/guarded
 backup-helper correction are source/artifact-gate verified; no new real-host or physical-device certification is claimed.
 Later versions and official registry images require separate approval.
+The owner authorized v0.1.7 on 2026-10-03. The maintenance workspace source at
+`0197f2d9c2e81594b5209e835e2284aabe8857e2` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37127008947), including both Linux
+race jobs. Chromium/WebKit checks and the stated real-host/Firefox limitations remain as recorded
+in [status](status.md). Release-preparation CI and public artifact verification are still pending.
 
 ## Program status
 
