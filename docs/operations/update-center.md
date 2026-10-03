@@ -1,7 +1,7 @@
 # Update Center
 
-This is the current implementation contract for the unreleased maintenance experience.
-The published v0.1.6 release remains separate; see [status](../development/status.md).
+This is the implementation contract for the maintenance experience shipped in v0.1.7.
+Source/artifact verification and real-host limitations remain distinct; see [status](../development/status.md).
 
 ## Presentation and permissions
 

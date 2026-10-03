@@ -4,16 +4,16 @@ Living tracker for the approved release program through Phase 14. `ROADMAP.md` o
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-10-01. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-10-03. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
 Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 through v0.1.6 releases passed their respective gates and are public.
-The v0.1.6 `ca0003ec458bb17e38515ec670e23c3720c91c56` source passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786013028) and the
-[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786717685); its
-[public release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) includes the checked
+The owner-approved v0.1.0 through v0.1.7 releases passed their respective gates and are public.
+The v0.1.7 `f166360a799268a18a0449e485fbb619b9c37d27` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132093645) and the
+[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132766994); its
+[public release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) includes the checked
 amd64 bundle. Downloaded public metadata identifies that exact SHA and its checksum matches the
 published checksum file. Installer progress/logging, multi-device API provisioning and the webhook key-check/guarded
 backup-helper correction are source/artifact-gate verified; no new real-host or physical-device certification is claimed.
@@ -22,7 +22,9 @@ The owner authorized v0.1.7 on 2026-10-03. The maintenance workspace source at
 `0197f2d9c2e81594b5209e835e2284aabe8857e2` passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37127008947), including both Linux
 race jobs. Chromium/WebKit checks and the stated real-host/Firefox limitations remain as recorded
-in [status](status.md). Release-preparation CI and public artifact verification are still pending.
+in [status](status.md). Release-preparation main CI and the public v0.1.7 release gate passed at
+`f166360a799268a18a0449e485fbb619b9c37d27`. Public metadata was independently downloaded and its
+SHA-256 matched the published manifest; new real-host certification remains unclaimed.
 
 ## Program status
 

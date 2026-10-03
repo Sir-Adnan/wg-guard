@@ -5,18 +5,18 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-10-01):** Phases 0–14 are complete within their documented scopes.
-[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) is the latest stable
-release. Its exact `ca0003ec458bb17e38515ec670e23c3720c91c56` source passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786013028) and the
-[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786717685),
+**Current gate (2026-10-03):** Phases 0–14 are complete within their documented scopes.
+[v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) is the latest stable
+release. Its exact `f166360a799268a18a0449e485fbb619b9c37d27` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132093645) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132766994),
 including both Go race jobs, checksummed amd64 assets, image/binary identity, attestations and
 downloaded draft-asset verification. The v0.1.0 release had a successful
 latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
-**v0.1.7 maintenance release candidate (2026-10-03; owner-authorized):** Update Center now separates installed
+**v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe
 stage/history reports and recovery. `update.read` is distinct from execution; queued new-format
 accounts are reauthorized under shared data ownership. The generated Docker runtime includes
@@ -28,10 +28,11 @@ light/dark, 320/390/768/1440px cells with accessibility scanning and workflow in
 The existing browser foundation regression passed. Local Firefox launch was blocked by
 `spawn UNKNOWN`; local race was unrun because CGO is disabled. Exact-revision CI and any
 new public release remain separate. New timer/queue/generated-runtime paths have no new
-real-host claim; the published release remains v0.1.6.
+real-host claim. Public metadata/checksums independently identify the released source above;
+the metadata SHA-256 is `246d0e70b56558460256134c7462961c31aca25727a656a9278e6e9343d9410f`.
 The implementation and final UI source at `0197f2d9c2e81594b5209e835e2284aabe8857e2` passed
 [exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37127008947), including both
-Linux race jobs. The v0.1.7 preparation/publication gates remain pending until separately verified.
+Linux race jobs. The preparation and v0.1.7 publication gates also passed at the exact released SHA.
 
 **v0.1.6 backup/startup correction:** An owner Docker upgrade report exposed
 a valid-webhook text envelope being misread as binary by startup/offline key validation. This

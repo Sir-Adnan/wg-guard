@@ -293,7 +293,7 @@ the lifecycle operation finishes. Catalog failure, unavailable host bridge, queu
 completed and failed states never imply an update was applied. Development commits and free-form
 version input are absent from the web workflow.
 
-The unreleased [maintenance workspace](../operations/update-center.md) extends this boundary with
+The v0.1.7 [maintenance workspace](../operations/update-center.md) extends this boundary with
 Overview/Versions/Operations/Recovery navigation, separate panel/manager/tools/bundle identity,
 real release-page navigation and escaped release details. Mobile uses a native collapsible release
 browser; desktop keeps the selection alongside the list. Shared workspace/action tokens remain

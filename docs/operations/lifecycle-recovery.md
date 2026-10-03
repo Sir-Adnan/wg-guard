@@ -1,6 +1,6 @@
 # Lifecycle recovery
 
-The unreleased [Update Center](update-center.md) adds safe host inventory, operation-stage
+The v0.1.7 [Update Center](update-center.md) adds safe host inventory, operation-stage
 feedback and bounded reservations around this engine. Installer `maintenance_protocol: 2`
 capability controls the detailed broker/timer independently of data compatibility. Registration
 follows the actually deployed artifact during update/rollback/recovery; a legacy artifact never

@@ -41,7 +41,7 @@ tunnels. Matching loaded/disk identity does not independently attest the upstrea
 Phase 11 adds explicit service-owned userspace lifecycle for profiles configured with
 `backend_mode=userspace`: source-revision check, foreground daemon per interface, UAPI readiness, canonical
 apply/dump and peer reconciliation, failure detection/restart, and owned teardown. It refuses an
-active unowned userspace socket. The repository Docker image and unreleased installer-generated
+active unowned userspace socket. The repository Docker image and v0.1.7 installer-generated
 runtime include the exact reviewed source build and
 maps `/dev/net/tun`; native operators must provision the same pin separately. No automatic
 kernel-to-userspace selection on module failure is implied. Managed Docker and native userspace

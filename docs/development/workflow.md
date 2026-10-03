@@ -89,13 +89,15 @@ public version or official registry image needs its own owner approval. Existing
 is in [phase12.md](phase12.md); v0.1.1 through v0.1.5 were separately authorized and published.
 The owner explicitly authorized v0.1.5 on 2026-10-01; its
 [exact-source release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36782237324) passed.
-Later versions and official registry images are not authorized.
+That approval covered v0.1.5 only.
 The owner separately authorized the v0.1.6 backup/startup correction on 2026-10-01; its
 [exact-source release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786717685) passed
 and the release is public. This does not authorize a later version or registry image.
 The owner explicitly authorized v0.1.7 on 2026-10-03. Its maintenance implementation and UI
 refinement passed exact main CI; the release-preparation revision must pass its own main CI
-and the manual release workflow before publication. This approval covers v0.1.7 only.
+and the manual release workflow before publication. Both gates passed at
+`f166360a799268a18a0449e485fbb619b9c37d27` and v0.1.7 is public. This approval covers v0.1.7 only;
+later versions and official registry images still need separate owner authorization.
 For local immutable candidate
 artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
 
