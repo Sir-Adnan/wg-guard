@@ -43,8 +43,11 @@ The tab primitive registers existing panels, supports directional arrows and Hom
 with roving focus, and opens the panel containing a server validation error. Without
 JavaScript all sections remain accessible. Hidden panels retain submitted input values.
 Interface forms group General, Address pools and Profile; packet parameters and overflow
-pool editing are collapsible. Shared CSS uses existing semantic tokens for restrained
-headers, type, borders, controls and focus states across presets.
+pool editing are collapsible. Tab groups and panels compose the shared `form-stack`
+layout so nested fieldsets retain card padding, heading alignment and spacing at every
+viewport, including the all-sections fallback without JavaScript. Shared CSS uses
+existing semantic tokens for restrained headers, type, borders, controls and focus
+states across presets.
 
 ## Pool editor
 

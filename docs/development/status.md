@@ -44,7 +44,12 @@ Technical/input/copy/API values remain canonical. The full local Go suite passed
 follow-up checks and vet/build on the resulting source. Chromium and WebKit each passed 16
 fa/en, light/dark, 320/390/768/1440px presentation cells and 16 cleanup-menu cells, including
 accessibility, prepared CIDRs, help/tab interactions, number preference, search, Select all
-and date menus. The shared Chromium foundation regression passed. Final source CI is separate.
+and date menus. The shared Chromium foundation regression passed. Exact presentation source
+`99c71403ee4fd186f105f4339af6c004b326aa12` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37155855102), including both
+Linux race jobs. The interface tab/card spacing correction then passed fresh web tests/build
+and both 16-cell browser matrices, including card geometry, expanded packet parameters and
+two no-JavaScript fallback cells per engine. CI for that correction remains a separate gate.
 No new public release, physical-device or real-host acceptance is claimed.
 
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed

@@ -21,9 +21,9 @@
     <input type="hidden" name="profile_policy" value="{{.Data.Form.V "profile_policy"}}" data-profile-policy>
     <input type="hidden" name="profile_token" value="{{.Data.Form.V "profile_token"}}" data-profile-token>
 
-    <div data-section-tabs>
+    <div class="form-stack" data-section-tabs>
     <div class="section-tab-list" data-tab-list aria-label="{{.T "ifaces.editor.sections"}}"><button type="button" id="iface-tab-general" data-tab-target="iface-panel-general">{{.IconS "settings-2"}}<span>{{.T "ifaces.editor.general"}}</span></button><button type="button" id="iface-tab-pools" data-tab-target="iface-panel-pools">{{.IconS "network"}}<span>{{.T "ifaces.editor.addresses"}}</span></button><button type="button" id="iface-tab-profile" data-tab-target="iface-panel-profile">{{.IconS "shield"}}<span>{{.T "ifaces.obfuscation"}}</span></button></div>
-    <div id="iface-panel-general">
+    <div class="form-stack" id="iface-panel-general">
     <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
       <legend><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><span>{{.T "ifaces.form.section_profile"}}</span></legend>
       <div class="field-row">
@@ -63,8 +63,8 @@
     </fieldset>
 
     </div>
-    <div id="iface-panel-pools">{{template "pool-editor" .}}</div>
-    <div id="iface-panel-profile">
+    <div class="form-stack" id="iface-panel-pools">{{template "pool-editor" .}}</div>
+    <div class="form-stack" id="iface-panel-profile">
     <section class="profile-studio card card--pad" data-obf-box {{if and (not .Data.I) (not .Data.Form.Error)}}data-autoload-profile="suggested"{{end}} aria-labelledby="profile-studio-title">
       <div class="profile-studio-head">
         <div><span class="section-icon" aria-hidden="true">{{.IconS "shield"}}</span><div><h2 id="profile-studio-title">{{.T "ifaces.obfuscation"}}</h2><p data-guidance>{{.T "ifaces.obf.hint"}}</p></div></div>
