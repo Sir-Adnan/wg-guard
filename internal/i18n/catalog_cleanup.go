@@ -1,0 +1,54 @@
+package i18n
+
+func init() {
+	rows := [][3]string{
+		{"ifaces.pools.error", "Check canonical private CIDRs, overlaps with other profiles/host routes, and whether a removed pool still contains devices.", "CIDR خصوصی صحیح، هم‌پوشانی با پروفایل‌های دیگر یا مسیر میزبان و وجود دستگاه در بازهٔ حذف‌شده را بررسی کنید."},
+		{"ops.family.cleanup", "Cleanup", "پاکسازی"},
+		{"cleanup.include_queued", "Also delete accounts with a queued next plan (excluded by default)", "حساب‌های دارای پلن بعدی را هم حذف کن (پیش‌فرض از حذف مستثنا هستند)"},
+		{"cleanup.title", "Cleanup", "پاکسازی"}, {"cleanup.workspace", "Data maintenance", "نگهداری داده‌ها"},
+		{"cleanup.intro", "Review inactive accounts and history, then remove only the selected batch.", "حساب‌های غیرفعال و تاریخچه را بررسی کنید و فقط دستهٔ انتخاب‌شده را پاک کنید."},
+		{"cleanup.backups", "Backups", "پشتیبان‌گیری"}, {"cleanup.selection", "Choose what to clean", "انتخاب داده برای پاکسازی"},
+		{"cleanup.selection_hint", "Preview is required. Each batch contains up to 200 accounts or 2000 history rows.", "پیش‌نمایش الزامی است. هر دسته حداکثر ۲۰۰ حساب یا ۲۰۰۰ رکورد تاریخچه دارد."},
+		{"cleanup.target", "Target and ownership", "نوع داده و مالکیت"}, {"cleanup.kind", "Data type", "نوع داده"},
+		{"cleanup.kind.users", "Inactive accounts and their devices", "حساب‌های غیرفعال و دستگاه‌هایشان"},
+		{"cleanup.kind.samples", "Detailed traffic chart samples", "نمونه‌های نمودار ترافیک"}, {"cleanup.kind.hourly", "Hourly traffic history", "تاریخچهٔ ساعتی ترافیک"}, {"cleanup.kind.daily", "Daily traffic history", "تاریخچهٔ روزانهٔ ترافیک"},
+		{"cleanup.owner", "Account owner", "مالک حساب"}, {"cleanup.owner_node", "Node owner accounts", "حساب‌های مالک نود"}, {"cleanup.owner_all", "All owners and resellers", "همهٔ مالکان و رسیلرها"},
+		{"cleanup.status", "Account status", "وضعیت حساب"}, {"cleanup.status.expired", "Time expired", "زمان تمام‌شده"}, {"cleanup.status.traffic_exceeded", "Data exhausted", "حجم تمام‌شده"}, {"cleanup.status.disabled", "Disabled", "غیرفعال"}, {"cleanup.status.suspended", "Suspended", "تعلیق‌شده"}, {"cleanup.status.deleted", "Previously soft-deleted", "قبلاً حذف نرم‌شده"},
+		{"cleanup.date_basis", "Date basis", "مبنای تاریخ"}, {"cleanup.date.expires_at", "Expiry date", "تاریخ انقضا"}, {"cleanup.date.created_at", "Creation date", "تاریخ ساخت"}, {"cleanup.date.updated_at", "Last record update", "آخرین تغییر رکورد"}, {"cleanup.date.last_activity_at", "Last activity", "آخرین فعالیت"}, {"cleanup.date.deleted_at", "Soft-delete date", "تاریخ حذف نرم"},
+		{"cleanup.history_basis", "Status and date basis apply to accounts. History uses its own sample/bucket date and the chosen owner.", "وضعیت و مبنای تاریخ برای حساب‌هاست. تاریخچه با تاریخ نمونه یا بازهٔ نمودار و مالک انتخاب‌شده فیلتر می‌شود."},
+		{"cleanup.date_range", "Date range", "بازهٔ تاریخ"}, {"cleanup.after", "On or after", "از این تاریخ به بعد"}, {"cleanup.before", "Before", "قبل از این تاریخ"},
+		{"cleanup.dates_hint", "Boundaries are midnight UTC, using Gregorian YYYY-MM-DD. Empty dates include every matching date; unknown dates do not match a date filter.", "مرز تاریخ نیمه‌شب UTC و ورودی میلادی YYYY-MM-DD است. تاریخ خالی همهٔ تاریخ‌های مطابق را شامل می‌شود؛ تاریخ نامشخص با فیلتر تاریخ تطبیق ندارد."},
+		{"cleanup.preview", "Preview selection", "پیش‌نمایش انتخاب"}, {"cleanup.storage", "Database health", "وضعیت دیتابیس"},
+		{"cleanup.storage_hint", "Deleted pages are reused automatically. Compact only when you need to return free space to disk.", "صفحه‌های حذف‌شده خودکار دوباره استفاده می‌شوند. فشرده‌سازی برای بازگرداندن فضای آزاد به دیسک است."},
+		{"cleanup.db_size", "Database size", "اندازهٔ دیتابیس"}, {"cleanup.reusable", "Reusable space", "فضای قابل استفادهٔ مجدد"},
+		{"cleanup.optimize", "Optimize and checkpoint", "بهینه‌سازی و checkpoint"}, {"cleanup.compact", "Compact database", "فشرده‌سازی دیتابیس"},
+		{"cleanup.compact_hint", "Owner only. VACUUM can pause writes and needs temporary disk space up to roughly twice the database size. Run during low traffic; the request is limited to 30 seconds.", "فقط مالک. VACUUM ممکن است نوشتن را متوقف کند و تا حدود دو برابر اندازهٔ دیتابیس فضای موقت بخواهد. در زمان کم‌ترافیک اجرا کنید؛ درخواست به ۳۰ ثانیه محدود است."},
+		{"cleanup.guidance", "Usage and history are separate", "مصرف و تاریخچه مستقل‌اند"},
+		{"cleanup.guidance_text", "Deleting chart history leaves charged usage and peer counter baselines intact. Reset Usage is an explicit user operation. Keep a backup before permanent account deletion.", "حذف تاریخچهٔ نمودار مصرف حساب و مبنای شمارندهٔ دستگاه را تغییر نمی‌دهد. Reset Usage عملیات مستقل کاربر است. پیش از حذف دائمی حساب، بکاپ نگه دارید."},
+		{"cleanup.reset_link", "Manage users and Reset Usage", "مدیریت کاربران و Reset Usage"},
+		{"cleanup.review", "Review before deletion", "بازبینی پیش از حذف"}, {"cleanup.preview_title", "Selected batch", "دستهٔ انتخاب‌شده"}, {"cleanup.rows", "records", "رکورد"},
+		{"cleanup.preview_hint", "This preview expires in 10 minutes. Changed accounts invalidate the batch; new matches are never added to it.", "این پیش‌نمایش ۱۰ دقیقه اعتبار دارد. تغییر حساب‌ها دسته را نامعتبر می‌کند؛ موارد جدید به آن اضافه نمی‌شوند."},
+		{"cleanup.impact", "%d accounts and %d devices/IP allocations will be removed permanently.", "%d حساب و %d دستگاه و تخصیص IP به‌صورت دائمی حذف می‌شوند."},
+		{"cleanup.history_impact", "%d chart-history rows will be removed. Charged usage will remain unchanged.", "%d رکورد تاریخچهٔ نمودار حذف می‌شود. مصرف حساب تغییر نمی‌کند."},
+		{"cleanup.more", "More matches exist. This operation handles only the first %d; preview the next batch after completion.", "موارد بیشتری وجود دارد. این عملیات فقط %d مورد نخست را پردازش می‌کند؛ پس از اتمام دستهٔ بعدی را پیش‌نمایش کنید."},
+		{"cleanup.sample_hint", "The table shows the first 20 records of this exact batch.", "جدول ۲۰ رکورد نخست همین دسته را نشان می‌دهد."},
+		{"cleanup.execute", "Delete reviewed batch", "حذف دستهٔ بازبینی‌شده"}, {"cleanup.confirm", "This permanently removes the reviewed records. Account deletion also removes devices, customer links and queued next plans, releases their IPs and requests peer removal. Recovery requires a backup.", "رکوردهای بازبینی‌شده دائماً حذف می‌شوند. حذف حساب، دستگاه‌ها، لینک مشتری و پلن بعدی را نیز حذف می‌کند، IPها آزاد می‌شوند و حذف peer درخواست می‌شود. بازیابی به بکاپ نیاز دارد."},
+		{"cleanup.empty", "No matching records", "رکوردی مطابق نیست"}, {"cleanup.empty_hint", "Adjust the owner, status or date boundaries.", "مالک، وضعیت یا مرز تاریخ را تغییر دهید."},
+		{"cleanup.failed", "Cleanup could not complete. No partial batch was committed.", "پاکسازی کامل نشد. هیچ بخش ناقصی از دسته ثبت نشد."},
+		{"cleanup.invalid", "Review the target, inactive status and date range.", "نوع داده، وضعیت غیرفعال و بازهٔ تاریخ را بررسی کنید."},
+		{"cleanup.stale", "The reviewed records changed. Preview again before deletion.", "رکوردهای بازبینی‌شده تغییر کرده‌اند. پیش از حذف دوباره پیش‌نمایش کنید."},
+		{"cleanup.preview_invalid", "The preview is invalid, expired or belongs to another operator. Preview again.", "پیش‌نمایش نامعتبر، منقضی یا متعلق به مدیر دیگری است. دوباره پیش‌نمایش کنید."},
+		{"cleanup.busy", "Another cleanup operation is running.", "عملیات پاکسازی دیگری در حال اجراست."}, {"cleanup.done", "Removed %s reviewed records.", "%s رکورد بازبینی‌شده حذف شد."}, {"cleanup.optimized", "Database maintenance completed.", "نگهداری دیتابیس انجام شد."},
+		{"ops.scope.cleanup.manage", "Manage cleanup", "مدیریت پاکسازی"}, {"ops.scope_help.cleanup.manage", "Preview and permanently remove inactive accounts and chart history across node owners; database compaction remains owner-only.", "پیش‌نمایش و حذف دائمی حساب‌های غیرفعال و تاریخچهٔ نمودار در سطح نود؛ فشرده‌سازی دیتابیس فقط برای مالک است."},
+		{"ifaces.pools.extra", "Overflow IPv4 pools", "بازه‌های IPv4 تکمیلی"},
+		{"ifaces.pools.extra_hint", "Optional: one CIDR per line, up to 15 extra RFC1918 pools. Allocation continues in this order. Pools cannot overlap; an occupied pool cannot be removed or resized. Enter the primary pool when adding extras on creation.", "اختیاری: هر CIDR در یک خط، حداکثر ۱۵ بازهٔ خصوصی تکمیلی. تخصیص به همین ترتیب ادامه می‌یابد. بازه‌ها نباید هم‌پوشانی داشته باشند؛ بازهٔ دارای دستگاه حذف یا تغییر اندازه نمی‌شود. هنگام ساخت با بازهٔ تکمیلی، بازهٔ اصلی را هم وارد کنید."},
+		{"ifaces.pools.primary_hint", "/24: 253 configs · /23: 509 · /22: 1021 · /21: 2045 · /20: 4093. Blank creation selects an available default /24; the primary pool stays fixed after creation.", "/24: ۲۵۳ کانفیگ · /23: ۵۰۹ · /22: ۱۰۲۱ · /21: ۲۰۴۵ · /20: ۴۰۹۳. ورودی خالی هنگام ساخت، بازهٔ پیش‌فرض آزاد را انتخاب می‌کند؛ بازهٔ اصلی پس از ساخت ثابت می‌ماند."},
+		{"ifaces.pools.capacity", "%d free / %d total", "%d آزاد / %d کل"}, {"ifaces.pools.full", "Address pools full", "بازه‌های IP پر هستند"},
+		{"users.confirm_delete", "Permanently delete %s and every device? IPs are released, customer access and queued next plans are removed. Recovery requires a backup.", "حذف دائمی %s و همهٔ دستگاه‌ها؟ IPها آزاد و دسترسی مشتری و پلن بعدی حذف می‌شوند. بازیابی به بکاپ نیاز دارد."},
+		{"users.bulk.confirm_delete", "Permanently delete %d users and every device? IPs are released. Recovery requires a backup.", "حذف دائمی %d کاربر و همهٔ دستگاه‌ها؟ IPها آزاد می‌شوند. بازیابی به بکاپ نیاز دارد."},
+	}
+	for _, row := range rows {
+		catalogEN[row[0]] = row[1]
+		catalogFA[row[0]] = row[2]
+	}
+}

@@ -233,6 +233,7 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/interfaces", Scope: "interfaces.read", Handler: s.handleIfaceList})
 	add(routeDef{Method: http.MethodPost, Path: "/api/v1/interfaces", Scope: "interfaces.write", Handler: s.handleIfaceCreate})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/interfaces/{id}", Scope: "interfaces.read", Handler: s.handleIfaceGet})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/interfaces/{id}/capacity", Scope: "interfaces.read", Handler: s.handleIfaceCapacity})
 	add(routeDef{Method: http.MethodPatch, Path: "/api/v1/interfaces/{id}", Scope: "interfaces.write", Handler: s.handleIfaceUpdate})
 	add(routeDef{Method: http.MethodDelete, Path: "/api/v1/interfaces/{id}", Scope: "interfaces.write", Handler: s.handleIfaceDelete})
 

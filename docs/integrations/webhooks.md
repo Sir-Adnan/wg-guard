@@ -1,5 +1,12 @@
 # Webhooks
 
+Current permanent account deletion emits `user.updated` with `deleted: true` and
+`permanent: true` in the same transaction, classified from the persisted account's reseller
+before the cascade. The event means account/device deletion and address release committed;
+public-peer removal intent remains durable until runtime reconciliation succeeds. Audit and
+webhook history retain their normal policies. It does not emit an unbounded per-device event
+fanout for a cascading account deletion. See [account cleanup](../operations/cleanup.md).
+
 Webhooks notify an integration that a resource changed. Treat them as signals to reconcile with
 the REST API, not as ordered commands or a billing ledger. The event catalog and exact per-event
 JSON schemas are published in [`openapi.json`](../../internal/api/openapi.json) under `webhooks`

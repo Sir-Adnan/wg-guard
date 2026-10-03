@@ -21,6 +21,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
+	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
@@ -170,6 +171,9 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 		Obfuscation: toTunnelObfuscation(ifc.Obf),
 		PrivateKey:  ifc.PrivateKey, // CreateInterface renders the initial setconf from the spec — an empty key is rejected by the pinned tooling (VPS kernel, 2026-08-31)
 	}
+	for _, pool := range ifc.Pools {
+		spec.Addresses = append(spec.Addresses, ipam.Gateway(pool))
+	}
 	wantCfg := tunnel.InterfaceConfig{
 		PrivateKey:  ifc.PrivateKey,
 		ListenPort:  ifc.ListenPort,
@@ -238,6 +242,15 @@ func (e *Engine) reconcileInterface(ctx context.Context, ifc *dbInterface, desir
 		}
 	}
 
+	if !created {
+		if addresses, ok := e.Backend.(interface {
+			EnsureAddresses(context.Context, string, []string) error
+		}); ok {
+			if err := addresses.EnsureAddresses(ctx, ifc.Name, spec.Addresses); err != nil {
+				return fmt.Errorf("addresses: %w", err)
+			}
+		}
+	}
 	// Peer diff: desired (enabled devices) vs observed. After a create or
 	// recreate the observed state is empty/wiped: desired peers are synced
 	// wholesale, and stale/unknown peers are simply gone (the
@@ -379,6 +392,7 @@ type dbInterface struct {
 	BackendMode string
 	ListenPort  int
 	Subnet      string // device pool CIDR, e.g. "10.8.0.0/24"
+	Pools       []string
 	MTU         int
 	Obf         iface.Obfuscation
 	Enabled     bool
@@ -430,7 +444,7 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 		h1_range, h2_range, h3_range, h4_range, i1, i2, i3, i4, i5, enabled,
 		s3, s4, header_protection_key, content_padding_addition, rekey_after_time,
 		rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
-		random_trailers, disable_cookies, backend_mode
+		random_trailers, disable_cookies, backend_mode, ipv4_extra_pools
 		FROM tunnel_interfaces ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("reconcile: load interfaces: %w", err)
@@ -455,14 +469,19 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 			maxHandshake         awgparam.U16Range
 			randomTrailers       sql.NullInt64
 			disableCookies       sql.NullInt64
+			extraPools           string
 		)
 		if err := rows.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.Subnet, &ifc.MTU, &pubkey, &privEnc,
 			&jc, &jmin, &jm, &s1, &s2, &h1, &h2, &h3, &h4, &i1, &i2, &i3, &i4, &i5, &ifc.Enabled,
 			&s3, &s4, &hpk, &padding, &rekeyAfter, &rekeyTimeout, &rejectAfter,
-			&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies, &ifc.BackendMode); err != nil {
+			&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies, &ifc.BackendMode, &extraPools); err != nil {
 			return nil, fmt.Errorf("reconcile: scan interface: %w", err)
 		}
 		_ = pubkey // drift on the server key is covered by private-key apply
+		ifc.Pools, err = ipam.Decode(ifc.Subnet, extraPools)
+		if err != nil {
+			return nil, err
+		}
 		if ifc.BackendMode != "kernel" && ifc.BackendMode != "userspace" {
 			return nil, fmt.Errorf("reconcile: invalid stored backend mode for %s", ifc.Name)
 		}

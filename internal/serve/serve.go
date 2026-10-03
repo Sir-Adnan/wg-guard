@@ -43,6 +43,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
+	"github.com/Sir-Adnan/wg-guard/internal/network"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/scheduler"
@@ -338,6 +339,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	devices.Recorder = recorder
 	plans := plan.NewService(db)
 	ifaceOptions := []iface.ServiceOption{}
+	if o.Backend == nil {
+		ifaceOptions = append(ifaceOptions, iface.WithHostRoutes((&network.Links{Run: runner}).PoolConflicts))
+	}
 	if n.userspace != nil {
 		ifaceOptions = append(ifaceOptions, iface.WithUserspaceReadiness(func(ctx context.Context) error {
 			path, err := exec.LookPath("amneziawg-go")

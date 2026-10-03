@@ -31,7 +31,7 @@ func TestCandidateOwnerGatePreservesPriorDataContract(t *testing.T) {
 	b, _ := json.Marshal(old)
 	h.output[BinPath+" installer-contract"] = string(b)
 	prior, err := retainCurrent(context.Background(), h, mustState(t, h))
-	if err != nil || prior.Contract.DataContract != "schema7-h-ranges-v1" {
+	if err != nil || prior.Contract.DataContract != old.DataContract {
 		t.Fatalf("retained contract lost: %v %+v", err, prior)
 	}
 }

@@ -7,8 +7,8 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 
 | Table | Purpose / key columns |
 |---|---|
-| `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet, mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1–S4, canonical H1–H4 scalar/range text, optional I1–I5/HPK/timer/flag fields, preset name), enabled, backend mode, endpoint override |
-| `users` | id (UUIDv7), username UNIQUE, nullable reseller_id owner, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, template_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (soft delete; username stays reserved), metadata JSON |
+| `tunnel_interfaces` | name (`awgN`, unique), listen_port, ipv4_subnet (stable primary), ipv4_extra_pools (ordered JSON), mtu, public_key + private_key_encrypted (AES-GCM under the master key), obfuscation params (Jc, Jmin, Jmax, S1–S4, canonical H1–H4 scalar/range text, optional I1–I5/HPK/timer/flag fields, preset name), enabled, backend mode, endpoint override |
+| `users` | id (UUIDv7), username UNIQUE, nullable reseller_id owner, display_name, note, tags, status (`active\|disabled\|suspended\|expired\|traffic_exceeded\|waiting_first_connection`), disable_reason (`manual\|expired\|traffic_limit\|admin_action`), traffic_limit_bytes (NULL=unlimited), traffic_used_rx/tx, speed_limit_down_kbps, speed_limit_up_kbps (NULL=unlimited, independent per direction; migration 0002 converted the single speed_limit_kbps), device_limit, template_id FK NULL, interface_id FK, start_policy (`immediate\|first_connection`), duration_seconds, activated_at, expires_at, last_activity_at, enabled, deleted_at (older soft-deleted records; current Delete permanently cascades), metadata JSON |
 | `devices` | id, user_id FK, interface_id FK, name, ipv4_address, public_key UNIQUE, private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint, rx_bytes/tx_bytes (accumulated), last_rx/last_tx (raw counter snapshot for delta logic) |
 | `retired_peer_keys` | interface_id FK + former public_key; durable removal intent until successful runtime reconciliation |
 | `templates` | id, name, quota, duration, start_policy, device_limit, speed_limit_down/up, interface/profile selector, enabled; reusable technical defaults, not sale SKUs |
@@ -33,7 +33,7 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `migrations` | version, applied_at |
 
 Allocation: per-interface IPv4 pool with `UNIQUE(interface_id, ipv4_address)`; allocation in a
-transaction with conflict retry; IPs released on permanent device delete.
+transaction with conflict retry; IPs released on permanent device or account delete. Ordered pools share the network/gateway/broadcast reservation convention. Migration 0015 adds overflow pools while preserving existing addresses.
 
 ## Invariants
 

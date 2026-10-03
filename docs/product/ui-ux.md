@@ -307,3 +307,10 @@ cards on phones. Name/edit links, availability, exact technical units and action
 positions. Missing secondary counts/references display unavailable, never an invented zero.
 Templates and Interfaces enforce their existing read/write permissions at the server boundary as
 well as in navigation and controls; a read-only account can inspect lists without mutation affordances.
+
+The cleanup workspace reuses the same semantic cards, fields, table, confirmation dialog and
+shared calendar; historical dates are enabled only on cleanup triggers. It separates account
+deletion, chart history and database-space maintenance. Account previews show exact impact,
+expire after ten minutes and refuse changed selections. `cleanup.manage` is an explicit panel
+permission; compaction remains owner-only. Interface forms show primary/overflow pools and
+registered free/total counts without inferring simultaneous connection capacity.

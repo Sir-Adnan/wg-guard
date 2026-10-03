@@ -220,7 +220,7 @@ the documented Ubuntu 24.04 paths, not a universal performance optimum.
 | HTTP-01 validation | TCP 80 | yes; external CA validation still reaches public port 80 |
 | AWG listen ports | allocated randomly from `network.port_min`–`port_max` (30000–50000); the range is promptable at install | yes (Settings, hot-applied) |
 | MTU | 1420 (promptable at install) | yes (global default + per interface) |
-| VPN pool | first interface honors `network.default_pool` (promptable at install; empty = `10.8.0.0/24`), later interfaces continue the `10.8.N.0/24` ladder | yes (Settings + per interface, validated) |
+| VPN pools | first profile prefers `network.default_pool` (empty = `10.8.0.0/24`); blank creation searches the available `10.8.N.0/24` ladder when a default conflicts. Up to 15 overflow pools expand a profile without moving existing devices. | yes (Settings + per interface, validated; see [address planning](cleanup.md)) |
 | Client DNS (generated configs) | `1.1.1.1, 1.0.0.1` (promptable at install) | yes (Settings) |
 | Max tunnel interfaces | 8 (`awg0…awg7`) | yes (Settings) |
 

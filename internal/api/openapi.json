@@ -72,7 +72,7 @@
         "tags": ["integration"],
         "summary": "Provision a customer, requested devices and subscription link atomically",
         "operationId": "createPurchase",
-        "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. Send exactly one of template_id (technical template) or entitlement (direct finite terms). Direct terms are allowed only for owner-scoped tokens; reseller tokens must use an enabled owner-assigned template. Sales SKUs and prices live in the caller, not this catalog. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions. device_count defaults to 1, accepts 1-100 and must fit the account device limit; it does not default to the device cap. Each device has independent keys and an allocated address. Any device failure rolls back the entire transaction, including the account, link and operation result. A successful result includes device_ids; configs/QRs remain separate no-store reads.",
+        "description": "Requires an Idempotency-Key unique within the owner or reseller namespace. Send exactly one of template_id (technical template) or entitlement (direct finite terms). Direct terms are allowed only for owner-scoped tokens; reseller tokens must use an enabled owner-assigned template. Sales SKUs and prices live in the caller, not this catalog. An identical retry returns the same 201 result with Idempotency-Replayed: true; a different request with that key returns 409. An omitted username is derived stably from the principal and key. Database commit does not assert a successful live VPN handshake. The result contains no capability link or private configuration; retrieve those separately with appropriate permissions. device_count defaults to 1, accepts 1-100 and must fit the account device limit; it does not default to the device cap. Each device has independent keys and an allocated address. Each requested config consumes one IP from its selected interface pools. All pools full returns 409 DEVICE_POOL_EXHAUSTED. Any device failure rolls back the entire transaction, including the account, link and operation result. A successful result includes device_ids; configs/QRs remain separate no-store reads.",
         "security": [{"BearerAuth": ["purchases.create"]}],
         "parameters": [{"$ref": "#/components/parameters/IntegrationKey"}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PurchaseRequest"}, "examples": {"templatePurchase": {"summary": "Owner-assigned technical template (owner or reseller)", "value": {"template_id": "template-uuid", "username": "alice", "device_name": "phone"}}, "directPurchase": {"summary": "Owner only: 100 GB, 30 days, download 100 Mbps, upload 20 Mbps", "value": {"username": "alice", "device_name": "phone", "entitlement": {"traffic_limit_bytes": 100000000000, "duration_seconds": 2592000, "device_limit": 1, "start_policy": "immediate", "speed_limit_down_kbps": 100000, "speed_limit_up_kbps": 20000}}}, "multiDevicePurchase": {"summary": "Owner: three ready configs within a three-device cap", "value": {"username": "alice", "device_count": 3, "entitlement": {"traffic_limit_bytes": 100000000000, "duration_seconds": 2592000, "device_limit": 3}}}}}}},
@@ -150,7 +150,7 @@
         "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
       },
       "delete": {
-        "tags": ["users"], "summary": "Soft-delete a user (username stays reserved; peers removed)", "security": [{ "BearerAuth": ["users.delete"] }],
+        "tags": ["users"], "summary": "Permanently delete an account and every device", "description": "One transaction removes the account, devices, customer link, chart history and queued next plan, releasing all its IP allocations. Username becomes available again. Former public peer keys remain as durable runtime removal intent until reconciliation succeeds. Audit and non-secret integration results retain their existing retention. Recovery requires a coordinated backup. Reseller tokens can delete only their own customers.", "security": [{ "BearerAuth": ["users.delete"] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "responses": { "200": { "description": "Deleted" }, "404": { "$ref": "#/components/responses/NotFound" } }
       }
@@ -286,7 +286,7 @@
         "parameters": [{"$ref": "#/components/parameters/UserID"}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string", "description": "Trimmed non-blank device label, at most 64 UTF-8 bytes. Not an idempotency/uniqueness key."}, "interface_id": {"type": "string", "description": "Optional enabled connection-profile ID, not its display name."}, "preshared_key": {"type": "boolean", "default": false, "description": "Generate an additional preshared key server-side when true; not a caller-supplied secret."}}, "additionalProperties": false}}}},
         "responses": {"201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Device"}}}}, "409": {"$ref": "#/components/responses/Conflict"}},
-        "description": "Creates one independent device/peer. Disabled devices also consume device_limit slots; creation at/over the cap returns 409 DEVICE_LIMIT_REACHED. Profile selection is explicit interface_id, user profile, then the first enabled interface in name order. The account must be enabled and peer-eligible. This route has no idempotency replay middleware: inspect the device list after a lost response before retrying. Reseller-bound tokens cannot use this write route; provision ready devices during /purchases instead."
+        "description": "Creates one independent device/peer. Disabled devices also consume device_limit slots; creation at/over the cap returns 409 DEVICE_LIMIT_REACHED. Profile selection is explicit interface_id, user profile, then the first enabled interface in name order. If all pools of the selected profile are full, returns 409 DEVICE_POOL_EXHAUSTED; no fallback to another interface. The account must be enabled and peer-eligible. This route has no idempotency replay middleware: inspect the device list after a lost response before retrying. Reseller-bound tokens cannot use this write route; provision ready devices during /purchases instead."
       }
     },
     "/api/v1/devices/{id}": {
@@ -397,8 +397,16 @@
       },
       "post": {
         "tags": ["interfaces"], "summary": "Create a profile (server keypair generated)", "security": [{ "BearerAuth": ["interfaces.write"] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24", "description": "IPv4 network in CIDR notation; the prefix after / is a bit count (for example 10.8.0.0/24)." }, "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." }, "preset": { "type": "string", "enum": ["plain", "recommended", "performance", "balanced", "resilient", "suggested", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected.", "example": "vpn.example.com:51820" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^awg[0-9]+$", "example": "awg0" }, "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." }, "ipv4_subnet": { "type": "string", "example": "10.8.0.0/24", "description": "Primary canonical RFC1918 IPv4 CIDR (/29 or larger). /23, /22, /21 and /20 are supported. Mutually exclusive with ipv4_pools. Omit both for an available default pool." }, "ipv4_pools": { "$ref": "#/components/schemas/IPv4Pools" }, "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." }, "preset": { "type": "string", "enum": ["plain", "recommended", "performance", "balanced", "resilient", "suggested", "randomized"], "description": "Server-owned profile policy. Omit this field when sending explicit obfuscation; preset and obfuscation are mutually exclusive." }, "backend_mode": { "type": "string", "enum": ["kernel", "userspace"] }, "endpoint_override": { "type": "string", "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected.", "example": "vpn.example.com:51820" }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/api/v1/interfaces/{id}/capacity": {
+      "get": {
+        "tags": ["interfaces"], "summary": "Read registered address capacity", "operationId": "getInterfaceCapacity",
+        "description": "Owner/node tokens with interfaces.read only. Counts registered configs, including disabled devices and retained devices of previously soft-deleted users. capacity sums 2^(32-prefix)-3 for each pool (network, gateway and broadcast reserved). free is a snapshot, not a reservation or simultaneous-connection guarantee. Allocation remains transactional and may return 409 DEVICE_POOL_EXHAUSTED after a capacity read.",
+        "security": [{"BearerAuth": ["interfaces.read"]}], "parameters": [{"$ref": "#/components/parameters/InterfaceID"}],
+        "responses": {"200": {"description": "Capacity snapshot", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InterfaceCapacity"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
       }
     },
     "/api/v1/interfaces/{id}": {
@@ -408,9 +416,9 @@
         "responses": { "200": { "description": "Interface", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } }, "404": { "$ref": "#/components/responses/NotFound" } }
       },
       "patch": {
-        "tags": ["interfaces"], "summary": "Update MTU/endpoint/obfuscation/enabled", "description": "Name, port, and pool are immutable here. Obfuscation-mode transitions recreate the link (reconcile).", "security": [{ "BearerAuth": ["interfaces.write"] }],
+        "tags": ["interfaces"], "summary": "Update a profile and its ordered overflow pools", "description": "Name, port and primary ipv4_subnet stay immutable. ipv4_pools replaces the full ordered list: the first CIDR must remain the primary; an occupied pool cannot be removed or resized. Validation and writes are transactional with allocation. Profile changes use reconciliation; adding a pool preserves existing device addresses and keys.", "security": [{ "BearerAuth": ["interfaces.write"] }],
         "parameters": [{ "$ref": "#/components/parameters/InterfaceID" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": ["string", "null"], "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected." }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "ipv4_pools": { "$ref": "#/components/schemas/IPv4Pools" }, "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." }, "enabled": { "type": "boolean" }, "endpoint_override": { "type": ["string", "null"], "description": "Canonical hostname or IP address, optionally with port; URLs, paths, whitespace, and control characters are rejected." }, "obfuscation": { "$ref": "#/components/schemas/Obfuscation" } } } } } },
         "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Interface" } } } } }
       },
       "delete": {
@@ -550,7 +558,8 @@
           "uptime_seconds": { "type": "integer", "description": "Elapsed uptime in seconds. Node endpoints report WG-Guard process uptime; TelemetryPoint reports host uptime." },
           "interfaces": { "type": "array", "items": { "type": "object", "properties": {
             "id": { "type": "string" }, "name": { "type": "string" }, "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." },
-            "ipv4_subnet": { "type": "string", "description": "IPv4 network in CIDR notation; the prefix after / is a bit count (for example 10.8.0.0/24)." }, "enabled": { "type": "boolean" },
+            "ipv4_subnet": { "type": "string", "description": "Immutable primary IPv4 CIDR; also the first item in ipv4_pools." },
+          "ipv4_pools": { "$ref": "#/components/schemas/IPv4Pools" }, "enabled": { "type": "boolean" },
             "backend_mode": { "type": "string" }, "devices": { "type": "integer" } } } }
         }
       },
@@ -633,7 +642,7 @@
         "type": "object",
         "required": ["username"],
         "properties": {
-          "username": {"type": "string", "pattern": "^[a-zA-Z0-9_-]{3,32}$", "description": "Globally unique immutable ASCII username, 3-32 letters/digits/underscore/hyphen. Resource paths require the returned opaque id, not this name. Soft deletion keeps the name reserved."},
+          "username": {"type": "string", "pattern": "^[a-zA-Z0-9_-]{3,32}$", "description": "Globally unique immutable ASCII username, 3-32 letters/digits/underscore/hyphen. Resource paths require the returned opaque id, not this name. Permanent account deletion releases the name; a recreated account has a new opaque ID."},
           "display_name": {"type": "string", "description": "Optional presentation label distinct from the username. PATCH empty string clears it; absent/null leaves it unchanged."},
           "note": {"type": "string", "description": "Internal text; JSON \\n preserves line breaks. PATCH empty string clears it; absent/null leaves it unchanged. Never store credentials here."},
           "tags": {"type": "array", "items": {"type": "string"}, "description": "JSON string array, not comma-separated text. PATCH [] clears tags; absent/null leaves them unchanged."},
@@ -760,13 +769,16 @@
           "disable_cookies": { "type": "boolean", "description": "Unsafe opt-in that weakens DoS protection; generated profiles leave this false." }
         }
       },
+      "IPv4Pools": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string"}, "description": "Ordered canonical RFC1918 IPv4 CIDRs, /29 or larger. Each reserves network, first host (gateway) and broadcast. Allocation uses the first available pool; it never falls through to another interface. Overlap within this list, with any other interface (also disabled) or observed host routes is rejected. On create send either this field or ipv4_subnet; omit both for automatic selection. On PATCH the first pool must remain the primary and occupied pools cannot be removed/resized. Existing device addresses and keys remain stable.", "example": ["10.8.0.0/24", "10.8.1.0/24", "10.8.3.0/24"]},
+      "InterfaceCapacity": {"type": "object", "required": ["interface_id", "capacity", "used", "free", "pools"], "properties": {"interface_id": {"type": "string"}, "capacity": {"type": "integer", "minimum": 0}, "used": {"type": "integer", "minimum": 0}, "free": {"type": "integer", "minimum": 0}, "pools": {"type": "array", "maxItems": 16, "items": {"type": "object", "required": ["cidr", "capacity", "used", "free"], "properties": {"cidr": {"type": "string"}, "capacity": {"type": "integer", "minimum": 0}, "used": {"type": "integer", "minimum": 0}, "free": {"type": "integer", "minimum": 0}}}}}},
       "Interface": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
           "listen_port": { "type": "integer", "description": "UDP port number, not a byte or time quantity." },
-          "ipv4_subnet": { "type": "string", "description": "IPv4 network in CIDR notation; the prefix after / is a bit count (for example 10.8.0.0/24)." },
+          "ipv4_subnet": { "type": "string", "description": "Immutable primary IPv4 CIDR; also the first item in ipv4_pools." },
+          "ipv4_pools": { "$ref": "#/components/schemas/IPv4Pools" },
           "mtu": { "type": "integer", "description": "Tunnel IP-packet MTU in bytes (B); not a traffic allowance." },
           "public_key": { "type": "string" },
           "obfuscation": { "$ref": "#/components/schemas/Obfuscation" },
@@ -805,7 +817,7 @@
         "user_id": { "type": "string" }, "username": { "type": "string" }, "status": { "type": "string" }
       } },
       "WebhookUserUpdatedData": { "type": "object", "required": ["user_id"], "properties": {
-        "user_id": { "type": "string" }, "username": { "type": "string" }, "deleted": { "type": "boolean" },
+        "user_id": { "type": "string" }, "username": { "type": "string" }, "deleted": { "type": "boolean" }, "permanent": { "type": "boolean", "description": "true with deleted=true means the account/device cascade committed and addresses were released; runtime peer removal may still be pending reconciliation." },
         "template_id": { "type": "string" }, "next_plan_trigger": { "type": "string", "enum": ["time", "quota"] }
       } },
       "WebhookUserStateData": { "type": "object", "required": ["user_id", "username"], "properties": {

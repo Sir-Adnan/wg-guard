@@ -204,7 +204,7 @@ func (s *Server) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 		writeServiceErr(w, r, err)
 		return
 	}
-	if err := s.Users.SoftDelete(r.Context(), id); err != nil {
+	if err := s.Users.Delete(r.Context(), id); err != nil {
 		writeServiceErr(w, r, err)
 		return
 	}
@@ -462,7 +462,7 @@ func (s *Server) applyBulkAction(r *http.Request, action, id string, p bulkActio
 		_, err := s.Users.SetEnabledStatus(ctx, id, false, domain.DisableReason(p.Reason))
 		return err
 	case "delete":
-		return s.Users.SoftDelete(ctx, id)
+		return s.Users.Delete(ctx, id)
 	case "renew":
 		mode := p.Mode
 		if mode == "" {

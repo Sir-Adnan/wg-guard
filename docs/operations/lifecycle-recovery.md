@@ -171,7 +171,7 @@ copies, and failure rolls both files and the service back together.
 ## Database compatibility and legacy migration
 
 The machine-readable `wg-guard installer-contract` command does not open node data. Revision 2
-currently reports `data_contract: schema7-h-ranges-v1`, prerequisites, recoverable lifecycle,
+currently reports `data_contract: schema15-ipv4-pools-v1`, prerequisites, recoverable lifecycle,
 persistent-manager and secure-exposure support. `local_owner` is true and required for new candidates: installer-managed setup
 prepares the local owner before listener startup. M5 implements bounded coordinated
 database/master-key restoration, including original-schema recovery; `coordinated_restore` is

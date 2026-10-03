@@ -172,7 +172,11 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	res.ManagedIfaces = len(ifaces)
+	managedNames := map[string]bool{}
+	for _, footprint := range ifaces {
+		managedNames[footprint.Name] = true
+	}
+	res.ManagedIfaces = len(managedNames)
 	fw := &firewall.Manager{Run: d.Run}
 	if err := fw.Apply(ctx, ifaces); err != nil {
 		return nil, fmt.Errorf("boot: firewall: %w", err)
@@ -237,7 +241,7 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 				"peers_updated":      rep.PeersUpdated,
 				"drift_items":        len(rep.Drift),
 				"forwarding_changed": changed,
-				"fw_ifaces":          len(ifaces),
+				"fw_ifaces":          res.ManagedIfaces,
 				"shaped_groups":      res.ShapedGroups,
 			},
 		})
@@ -275,7 +279,8 @@ func toolsVersion(ctx context.Context, b tunnel.Backend) (string, error) {
 // enabled interface's name and device pool.
 func enabledInterfaces(ctx context.Context, db *database.DB) ([]firewall.Interface, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT name, ipv4_subnet FROM tunnel_interfaces WHERE enabled = 1 ORDER BY name`)
+		`SELECT name, ipv4_subnet FROM tunnel_interfaces WHERE enabled = 1
+		 UNION ALL SELECT i.name, p.value FROM tunnel_interfaces i, json_each(i.ipv4_extra_pools) p WHERE i.enabled = 1 ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("boot: load enabled interfaces: %w", err)
 	}

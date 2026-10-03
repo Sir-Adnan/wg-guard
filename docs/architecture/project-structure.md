@@ -1,5 +1,11 @@
 # Project structure
 
+Address and data maintenance use `internal/ipam` for shared ordered-CIDR validation/reserved
+addresses, `internal/iface/pools.go` for interface ownership/capacity and transaction rules,
+and `internal/cleanup` for sealed previews, bounded deletion/history batches and SQLite space
+maintenance. Web and REST adapters call these services; templates contain no deletion or
+allocation policy. There is no new runtime dependency or background worker.
+
 Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 
 ## Layout

@@ -30,7 +30,7 @@ Implementation and test evidence must support any claimed behavior.
 [GitHub installation and acquisition](operations/github-install.md) ·
 [English terminal management](operations/terminal-management.md) ·
 [lifecycle recovery](operations/lifecycle-recovery.md) ·
-[Update Center](operations/update-center.md) ·
+[Update Center](operations/update-center.md) · [account/address cleanup](operations/cleanup.md) ·
 [backup and restore](operations/backup-restore.md) · [runbook](operations/runbook.md) ·
 [security](operations/security.md).
 

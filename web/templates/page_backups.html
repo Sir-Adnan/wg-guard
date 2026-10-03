@@ -18,7 +18,7 @@
 <dt>{{.T "backups.review_node"}}</dt><dd><bdi>{{if .Data.Review.NodeID}}{{.Data.Review.NodeID}}{{else}}—{{end}}</bdi></dd>
 <dt>{{.T "backups.review_endpoint"}}</dt><dd><bdi>{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</bdi></dd>
 {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd><bdi>{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</bdi></dd>{{end}}
-{{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd><bdi>{{.Name}} :{{.Port}} {{.Subnet}}</bdi></dd>{{end}}
+{{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd><bdi>{{.Name}} :{{.Port}} {{.Subnet}}{{if .ExtraPools}}, {{.ExtraPools}}{{end}}</bdi></dd>{{end}}
 </dl>
 {{range .Data.Warnings}}<p class="callout callout--warn">{{.}}</p>{{end}}
 <div class="inline-actions">

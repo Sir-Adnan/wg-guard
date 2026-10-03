@@ -106,6 +106,9 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if o.Rollback && !dataCompatible(previous, j.Candidate) {
 		return terminalError("install.error.rollback_restore")
 	}
+	if incompatiblePoolDowngrade(previous, j.Candidate) {
+		return terminalError("install.error.rollback_restore")
+	}
 	if o.SkipBackup && !dataCompatible(previous, j.Candidate) {
 		return terminalError("install.error.backup_required")
 	}
@@ -267,6 +270,12 @@ func removeArtifact(h Host, a *Artifact) {
 }
 func dataCompatible(a, b *Artifact) bool {
 	return a != nil && b != nil && knownDataContract(a.Contract) && knownDataContract(b.Contract) && a.Contract.DataContract == b.Contract.DataContract
+}
+
+// Older binaries ignore overflow pools even though their SQL still opens the
+// database. Selecting an old tag must not bypass the rollback data boundary.
+func incompatiblePoolDowngrade(a, b *Artifact) bool {
+	return a != nil && b != nil && a.Contract.DataContract == "schema15-ipv4-pools-v1" && b.Contract.DataContract == "schema7-h-ranges-v1"
 }
 
 func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, resultErr error) {

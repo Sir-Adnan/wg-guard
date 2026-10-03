@@ -17,6 +17,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
@@ -155,9 +156,9 @@ func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, userID string, name 
 				return fmt.Errorf("device: interface lookup: %w", err)
 			}
 		}
-		var subnet string
-		err = tx.QueryRowContext(ctx, `SELECT ipv4_subnet FROM tunnel_interfaces WHERE id = ? AND enabled = 1`, ifcID).
-			Scan(&subnet)
+		var subnet, extras string
+		err = tx.QueryRowContext(ctx, `SELECT ipv4_subnet, ipv4_extra_pools FROM tunnel_interfaces WHERE id = ? AND enabled = 1`, ifcID).
+			Scan(&subnet, &extras)
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.E(domain.CodeInterfaceNotFound, "interface %s not found or disabled", ifcID)
 		}
@@ -196,7 +197,11 @@ func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, userID string, name 
 		// IPv4 allocation: first free address in the pool (network+1 …
 		// broadcast-1). The UNIQUE(interface_id, ipv4) constraint is the
 		// backstop; serialization makes the scan trustworthy.
-		ip, err := allocateIP(ctx, tx, ifcID, subnet)
+		pools, err := ipam.Decode(subnet, extras)
+		if err != nil {
+			return err
+		}
+		ip, err := allocateIP(ctx, tx, ifcID, pools)
 		if err != nil {
 			return err
 		}
@@ -226,11 +231,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *sql.Tx, userID string, name 
 	return d, nil
 }
 
-func allocateIP(ctx context.Context, tx *sql.Tx, interfaceID, subnet string) (string, error) {
-	prefix, err := netip.ParsePrefix(subnet)
-	if err != nil {
-		return "", domain.E(domain.CodeSubnetInvalid, "interface pool %q is invalid", subnet)
-	}
+func allocateIP(ctx context.Context, tx *sql.Tx, interfaceID string, pools []string) (string, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT ipv4_address FROM devices WHERE interface_id = ?`, interfaceID)
 	if err != nil {
 		return "", fmt.Errorf("device: ip scan: %w", err)
@@ -255,18 +256,21 @@ func allocateIP(ctx context.Context, tx *sql.Tx, interfaceID, subnet string) (st
 	// for the interface itself (gateway convention, .1 of the pool); device
 	// addresses start at .2. Pools are ≥ /29 by validation and typically
 	// /24 → at most a few hundred probes; fine for SQLite.
-	masked := prefix.Masked()
-	gateway := masked.Addr().Next()
-	bcast := broadcastOf(prefix)
-	for a := gateway; prefix.Contains(a); a = a.Next() {
-		if a == gateway || a == bcast {
-			continue
-		}
-		if !used[a.String()] {
-			return a.String() + "/32", nil
+	for _, subnet := range pools {
+		prefix := netip.MustParsePrefix(subnet)
+		masked := prefix.Masked()
+		gateway := masked.Addr().Next()
+		bcast := broadcastOf(prefix)
+		for a := gateway; prefix.Contains(a); a = a.Next() {
+			if a == gateway || a == bcast {
+				continue
+			}
+			if !used[a.String()] {
+				return a.String() + "/32", nil
+			}
 		}
 	}
-	return "", domain.E(domain.CodeDevicePoolExhausted, "interface pool %s has no free addresses", subnet)
+	return "", domain.E(domain.CodeDevicePoolExhausted, "interface %s has no free addresses in its configured pools", interfaceID)
 }
 
 func broadcastOf(p netip.Prefix) netip.Addr {

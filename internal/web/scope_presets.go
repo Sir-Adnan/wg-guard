@@ -24,7 +24,8 @@ var scopePresetTiers = map[string]string{
 	auth.ScopeAPITokensManage: "full", auth.ScopeAdminsManage: "full",
 	auth.ScopeServerView: "full", auth.ScopeServerManage: "full",
 	auth.ScopeBackupManage: "full", auth.ScopeUpdateManage: "full",
-	auth.ScopeUpdateRead: "observer",
+	auth.ScopeUpdateRead:    "observer",
+	auth.ScopeCleanupManage: "full",
 }
 
 func (v *View) ScopePresetTier(scope string) string { return scopePresetTiers[scope] }

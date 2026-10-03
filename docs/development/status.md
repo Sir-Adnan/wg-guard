@@ -16,6 +16,20 @@ latest-release install on the dedicated Ubuntu 24.04 VPS.
 The owner's panel spot-check complements the Phase 10 browser matrix and Phase 11 certification;
 no untested host/browser cell is inferred from it.
 
+**Unreleased account/address maintenance (2026-10-03):** Ordinary user deletion now cascades
+permanently to devices/customer access/successors and frees IPs, retaining durable public-peer
+removal intent. Profiles accept ordered overflow IPv4 pools, available defaults and observed-host
+overlap checks; the API includes an advisory capacity snapshot. The panel cleanup workspace has
+sealed state-checked account/history previews, explicit owner/date selection and manual SQLite
+space maintenance. Existing pool addresses and soft-deleted records survive migration 0015.
+`schema15-ipv4-pools-v1` blocks pool-unaware release selection/rollback over the upgraded data.
+Full local Go tests, vet/build and focused deletion/allocation/migration/API checks passed.
+Chromium and WebKit each checked 16 fa/en Light/Dark/320–1440px cleanup/interface cells with
+accessibility and historical calendar interactions. The existing Chromium foundation regression
+passed after the calendar extension. Exact source CI remains a separate gate. No new
+real-host multi-pool forwarding, production compaction or physical-device claim is made, and
+these changes are not part of the published v0.1.7 asset.
+
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe
 stage/history reports and recovery. `update.read` is distinct from execution; queued new-format

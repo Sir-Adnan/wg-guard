@@ -56,7 +56,7 @@
     <span class="cell-sub ltr-data">MTU {{$i.MTU}}</span>
   </td>
   <td data-label="{{$v.T "ifaces.port"}}" ><bdi class="ltr-data">{{$i.ListenPort}} <span class="text-subtle">UDP</span></bdi></td>
-  <td data-label="{{$v.T "ifaces.subnet"}}" ><bdi class="ltr-data">{{$i.Subnet}}</bdi></td>
+  <td data-label="{{$v.T "ifaces.subnet"}}" >{{range $i.Pools}}<span class="cell-sub"><bdi class="ltr-data">{{.}}</bdi></span>{{end}}{{if $row.Pools}}<span class="cell-sub">{{$v.T "ifaces.pools.capacity" $row.Free $row.Capacity}}</span>{{if not $row.Free}}<span class="badge badge--danger">{{$v.T "ifaces.pools.full"}}</span>{{end}}{{end}}</td>
   <td data-label="{{$v.T "ifaces.obfuscation"}}">
     {{if $i.Obfuscation.Enabled}}
     <span class="badge badge--info">{{$v.IconS "shield"}}{{if $i.Preset}}{{$v.T (printf "ifaces.profile.%s" $i.Preset)}}{{else}}{{$v.T "ifaces.obfuscation_on"}}{{end}}</span>

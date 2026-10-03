@@ -349,6 +349,7 @@ type ifaceDTO struct {
 	Name             string         `json:"name"`
 	ListenPort       int            `json:"listen_port"`
 	Subnet           string         `json:"ipv4_subnet"`
+	Pools            []string       `json:"ipv4_pools"`
 	MTU              int            `json:"mtu"`
 	PublicKey        string         `json:"public_key"`
 	Obfuscation      obfuscationDTO `json:"obfuscation"`
@@ -363,6 +364,7 @@ type ifaceDTO struct {
 func toIfaceDTO(i *iface.Interface) ifaceDTO {
 	return ifaceDTO{
 		ID: i.ID, Name: i.Name, ListenPort: i.ListenPort, Subnet: i.Subnet, MTU: i.MTU,
+		Pools:     i.Pools,
 		PublicKey: i.PublicKey, Obfuscation: toObfuscationDTO(i.Obfuscation), Preset: i.Preset,
 		Enabled: i.Enabled, BackendMode: string(i.BackendMode),
 		EndpointOverride: i.EndpointOverride,

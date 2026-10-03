@@ -162,7 +162,9 @@ func MaintenancePreflight(ctx context.Context, h Host, input updatequeue.Input, 
 			} else {
 				add("candidate", "pass")
 				p.DataCompatible = dataCompatible(st.Current, &Artifact{Contract: contract})
-				if p.DataCompatible {
+				if incompatiblePoolDowngrade(st.Current, &Artifact{Contract: contract}) {
+					add("data", "fail")
+				} else if p.DataCompatible {
 					add("data", "pass")
 				} else {
 					add("data", "warn")

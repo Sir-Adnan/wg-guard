@@ -60,7 +60,8 @@ type InterfaceSpec struct {
 	ListenPort  int
 	Fwmark      string // "" = off
 	MTU         int
-	Address     string // interface gateway CIDR, e.g. "10.8.0.1/24"
+	Address     string   // interface gateway CIDR, e.g. "10.8.0.1/24"
+	Addresses   []string // all managed gateway CIDRs; Address is the primary
 	Obfuscation Obfuscation
 }
 

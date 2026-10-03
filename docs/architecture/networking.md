@@ -21,6 +21,14 @@ self-inflicted outage).
   single-peer ops use `awg set`. One `awg show awgN dump` per interface per accounting cycle
   feeds stats, handshakes, and drift detection.
 
+## Address pools
+
+Profiles have a stable primary pool and up to 15 ordered overflow pools. Allocation continues
+within the selected profile; additional gateways, NAT and Docker forwarding cover every pool.
+Existing peers keep their addresses and keys. Occupied pools cannot be removed/resized; blank
+creation skips occupied/host-conflicting defaults. See
+[address planning and cleanup](../operations/cleanup.md) for capacity and upgrade boundaries.
+
 ## Firewall ownership (nftables)
 
 - NAT and the deployment-independent forwarding rules live in one namespaced table:

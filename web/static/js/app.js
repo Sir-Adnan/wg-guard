@@ -544,13 +544,14 @@
     const t = new Date();
     cal = {
       input, trigger,
+      allowPast: trigger.dataset.calendarPast === "true",
       labels: trigger.dataset,
       today: t,
       view: existing ? existing.view : (isFa() ? "j" : "g"),
       jy: existing ? existing.jy : (isFa() ? calD2J(calG2D(t.getFullYear(), t.getMonth() + 1, t.getDate())).jy : t.getFullYear()),
       jm: existing ? existing.jm : (isFa() ? calD2J(calG2D(t.getFullYear(), t.getMonth() + 1, t.getDate())).jm : t.getMonth() + 1),
       selected: existing ? existing.g : null,
-      focusDate: existing && existing.g >= new Date(t.getFullYear(), t.getMonth(), t.getDate()) ? existing.g : new Date(t.getFullYear(), t.getMonth(), t.getDate()),
+      focusDate: existing && (trigger.dataset.calendarPast === "true" || existing.g >= new Date(t.getFullYear(), t.getMonth(), t.getDate())) ? existing.g : new Date(t.getFullYear(), t.getMonth(), t.getDate()),
     };
     calSetView(cal.focusDate);
     calRender();
@@ -574,7 +575,7 @@
 
   function calFocus(date) {
     const today = new Date(cal.today.getFullYear(), cal.today.getMonth(), cal.today.getDate());
-    cal.focusDate = date < today ? today : date;
+    cal.focusDate = !cal.allowPast && date < today ? today : date;
     calSetView(cal.focusDate);
     // Replacing a focused navigation button may briefly focus its parent
     // dialog in WebKit. Restore day focus before treating focus as external.
@@ -642,7 +643,7 @@
     }
     const todayISO = isoOf(cal.today);
     const todayMonth = calFromISO(todayISO);
-    const previousAvailable = cal.jy > todayMonth.jy || (cal.jy === todayMonth.jy && cal.jm > todayMonth.jm);
+    const previousAvailable = cal.allowPast || cal.jy > todayMonth.jy || (cal.jy === todayMonth.jy && cal.jm > todayMonth.jm);
     let cells = "";
     for (let i = 0; i < first; i++) cells += "<span></span>";
     for (let d = 1; d <= len; d++) {
@@ -661,7 +662,7 @@
         ' tabindex="' + (iso === isoOf(cal.focusDate) ? '0' : '-1') + '" aria-label="' + label + '"' +
         (iso === todayISO ? ' aria-current="date"' : '') +
         ' aria-pressed="' + Boolean(cal.selected && iso === isoOf(cal.selected)) + '"' +
-        (past ? " disabled" : "") + ">" + d + "</button>";
+        (past && !cal.allowPast ? " disabled" : "") + ">" + d + "</button>";
     }
     calEl.innerHTML =
       '<div class="cal-head">' +

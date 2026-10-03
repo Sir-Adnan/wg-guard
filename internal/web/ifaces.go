@@ -18,6 +18,9 @@ type ifaceRow struct {
 	I          *iface.Interface
 	Devices    int
 	CountKnown bool
+	Pools      []iface.PoolUsage
+	Capacity   uint64
+	Free       uint64
 }
 
 type ifacesData struct {
@@ -45,7 +48,15 @@ func (s *Server) handleIfaceList(w http.ResponseWriter, r *http.Request) {
 		if i.Enabled {
 			enabled++
 		}
-		rows = append(rows, ifaceRow{I: safeInterfaceView(i), Devices: counts[i.ID], CountKnown: err == nil})
+		row := ifaceRow{I: safeInterfaceView(i), Devices: counts[i.ID], CountKnown: err == nil}
+		if usage, e := s.Ifaces.Capacity(r.Context(), i.ID); e == nil {
+			row.Pools = usage
+			for _, p := range usage {
+				row.Capacity += p.Capacity
+				row.Free += p.Free
+			}
+		}
+		rows = append(rows, row)
 	}
 	_ = s.render(w, r, "ifaces", "app", ifacesData{Rows: rows, Enabled: enabled})
 }
@@ -55,6 +66,7 @@ type ifaceFormData struct {
 	I                      *iface.Interface
 	Form                   operationalForm
 	HasHeaderProtectionKey bool
+	Pools                  []iface.PoolUsage
 }
 
 func (s *Server) handleIfaceNew(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +85,9 @@ func (s *Server) handleIfaceEditPage(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	_ = s.render(w, r, "iface_form", "app", newIfaceFormData(i))
+	data := newIfaceFormData(i)
+	data.Pools, _ = s.Ifaces.Capacity(r.Context(), i.ID)
+	_ = s.render(w, r, "iface_form", "app", data)
 }
 
 func (s *Server) handleProfilePreview(w http.ResponseWriter, r *http.Request) {
@@ -343,6 +357,14 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 		BackendMode:      domain.BackendKernel,
 		EndpointOverride: strings.TrimSpace(r.PostFormValue("endpoint_override")),
 	}
+	if extra := poolFormExtras(r.PostFormValue("extra_pools")); len(extra) > 0 {
+		if in.Subnet == "" {
+			s.ifaceFormError(w, r, nil, domain.E(domain.CodeSubnetInvalid, "enter the primary pool when specifying overflow pools"))
+			return
+		}
+		in.Pools = append([]string{in.Subnet}, extra...)
+		in.Subnet = ""
+	}
 	i, err := s.Ifaces.Create(r.Context(), in)
 	if err != nil {
 		s.ifaceFormError(w, r, nil, err)
@@ -373,6 +395,10 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	in := iface.UpdateInput{
 		Obfuscation:      ptrOf(obfuscation),
 		GeneratedProfile: generated,
+	}
+	// Older forms omit this field; current forms submit the complete ordered extras.
+	if _, present := r.PostForm["extra_pools"]; present {
+		in.Pools = append([]string{prev.Subnet}, poolFormExtras(r.PostFormValue("extra_pools"))...)
 	}
 	if generated {
 		in.Preset = &policy
@@ -489,7 +515,7 @@ func ptrOf(o iface.Obfuscation) *iface.Obfuscation { return &o }
 func newIfaceFormData(i *iface.Interface) ifaceFormData {
 	values := profileFormFields(iface.Obfuscation{})
 	delete(values, "obf_hpk")
-	for key, value := range map[string]string{"name": "", "listen_port": "", "subnet": "", "mtu": "", "endpoint_override": "", "enabled": "1", "profile_policy": "plain", "profile_token": "", "obf_hpk_clear": ""} {
+	for key, value := range map[string]string{"name": "", "listen_port": "", "subnet": "", "extra_pools": "", "mtu": "", "endpoint_override": "", "enabled": "1", "profile_policy": "plain", "profile_token": "", "obf_hpk_clear": ""} {
 		values[key] = value
 	}
 	if i != nil {
@@ -499,12 +525,19 @@ func newIfaceFormData(i *iface.Interface) ifaceFormData {
 			}
 		}
 		values["name"], values["listen_port"], values["subnet"], values["mtu"] = i.Name, strconv.Itoa(i.ListenPort), i.Subnet, strconv.Itoa(i.MTU)
+		if len(i.Pools) > 1 {
+			values["extra_pools"] = strings.Join(i.Pools[1:], "\n")
+		}
 		values["endpoint_override"], values["profile_policy"] = i.EndpointOverride, i.Preset
 		if !i.Enabled {
 			values["enabled"] = "0"
 		}
 	}
 	return ifaceFormData{I: safeInterfaceView(i), Form: operationalForm{Values: values}, HasHeaderProtectionKey: i != nil && i.Obfuscation.HeaderProtectionKey != ""}
+}
+
+func poolFormExtras(raw string) []string {
+	return strings.FieldsFunc(raw, func(r rune) bool { return r == '\n' || r == '\r' || r == ',' || r == ' ' || r == '\t' })
 }
 
 func (s *Server) ifaceFormError(w http.ResponseWriter, r *http.Request, i *iface.Interface, err error) {
@@ -523,6 +556,9 @@ func (s *Server) ifaceFormError(w http.ResponseWriter, r *http.Request, i *iface
 		d.Form.Values["profile_token"] = ""
 	}
 	if key := operationalErrorField(err, false); key != "" {
+		if key == "subnet" && r.PostFormValue("extra_pools") != "" {
+			key = "extra_pools"
+		}
 		d.Form.Fields[key] = "common.error_validation"
 	}
 	for _, key := range []string{"listen_port", "mtu"} {

@@ -139,6 +139,19 @@ calendar labels belong to the panel display; do not send a Jalali date or Unix m
 in a `date-time` field. The webhook signature header's `t` is the distinct exception: Unix
 **seconds** since 1970-01-01 UTC, while the event body's `timestamp` remains RFC3339.
 
+### Account deletion and address capacity
+
+Account deletion now permanently cascades to all devices, customer links, chart history and
+queued successors. IPs and the username are released; recovery requires a coordinated archive.
+Disabling, expiration and quota exhaustion retain addresses. Interface create accepts either
+`ipv4_subnet` or ordered `ipv4_pools` (1–16 canonical RFC1918 CIDRs, /29 or larger). PATCH keeps
+the primary first and refuses removing/resizing occupied pools. `GET /interfaces/{id}/capacity`
+returns total/per-pool registered capacity, used and free for owner/node integrations with
+`interfaces.read`; it is an advisory snapshot, not a reservation. Full pools return 409
+`DEVICE_POOL_EXHAUSTED` and an atomic purchase rolls back every requested resource. Allocation
+advances within the selected interface, never across unrelated profiles. See
+[account/address maintenance](../operations/cleanup.md) for detailed capacity and cleanup behavior.
+
 ### Settings and protocol-specific quantities
 
 Settings retain the unit indicated by the key; they do not inherit user-field units:
@@ -191,7 +204,7 @@ reseller tokens use the authorized template-gated purchase workflow instead.
 
 | Panel field or action | REST equivalent | Exact behavior |
 |---|---|---|
-| Username / account | `username` on create | Required ASCII letters, digits, `_` or `-`, 3–32 characters; globally unique and immutable. Soft deletion keeps the name reserved. Resource paths use the returned opaque `id`, never the username. |
+| Username / account | `username` on create | Required ASCII letters, digits, `_` or `-`, 3–32 characters; globally unique and immutable. Permanent deletion releases the name; recreation receives a new opaque ID. Resource paths use the returned opaque `id`, never the username. |
 | Display name | `display_name` | Optional presentation label, separate from immutable identity; an empty string clears it on PATCH. |
 | Subscription template / Custom | `template_id` | Omit or use `null` for manual terms. An enabled template copies quota, duration, start policy, device cap, up/down speed caps and interface on creation, overriding conflicting manual terms. PATCH changes only the reference; it does not reapply terms. Prices and external product IDs belong in the caller's catalog. |
 | Traffic volume and GB/MB selector | `traffic_limit_bytes` | Exact integer bytes; decimal GB × 1,000,000,000 or MB × 1,000,000. Absent/null on manual create means unlimited; explicit null on PATCH removes the cap. Zero is a finite zero-byte allowance. Quota presets are form shortcuts, not API enums. |

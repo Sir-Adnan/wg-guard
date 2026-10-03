@@ -129,7 +129,12 @@ func renderTable(ifaces []Interface, dropExisting bool) []byte {
 	sb.WriteString("table " + TableName + " {\n")
 	sb.WriteString("\tchain forward {\n")
 	sb.WriteString("\t\ttype filter hook forward priority 10; policy accept;\n")
+	seen := map[string]bool{}
 	for _, ifc := range ifaces {
+		if seen[ifc.Name] {
+			continue
+		}
+		seen[ifc.Name] = true
 		sb.WriteString(fmt.Sprintf("\t\tiifname %q accept comment %q\n", ifc.Name, managedComment(ifc.Name)))
 		sb.WriteString(fmt.Sprintf("\t\toifname %q accept comment %q\n", ifc.Name, managedComment(ifc.Name)))
 	}

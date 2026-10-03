@@ -23,7 +23,7 @@ type Contract struct {
 
 func CurrentContract() Contract {
 	return Contract{
-		Revision: 2, DataContract: "schema7-h-ranges-v1", Prerequisites: true,
+		Revision: 2, DataContract: "schema15-ipv4-pools-v1", Prerequisites: true,
 		Recovery: true, LocalOwner: true, CoordinatedRestore: true, DataLease: true,
 		PersistentManager: true, SecureExposure: true,
 		MaintenanceProtocol: 2,

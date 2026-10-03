@@ -678,11 +678,12 @@ func (s *Server) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.Users.SoftDelete(r.Context(), u.ID); err != nil {
+	if err := s.Users.Delete(r.Context(), u.ID); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
 	s.audit(r, "user.deleted", u.ID, map[string]any{"username": u.Username})
+	s.runReconcile(r)
 	s.redirectToast(w, r, "/users", "users.toast.deleted", u.Username)
 }
 
@@ -919,7 +920,7 @@ func (s *Server) handleBulkAction(w http.ResponseWriter, r *http.Request) {
 		case "disable":
 			_, err = s.Users.SetEnabledStatus(r.Context(), id, false, domain.DisableManual)
 		case "delete":
-			err = s.Users.SoftDelete(r.Context(), id)
+			err = s.Users.Delete(r.Context(), id)
 		default:
 			s.badRequest(w, r, "action")
 			return

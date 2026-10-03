@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
+	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 )
 
 // validHostname is the syntactic hostname check used by node.endpoint
@@ -326,5 +327,6 @@ func ValidSubnet(s string) error {
 	if !p.Addr().Is4() {
 		return fmt.Errorf("only IPv4 pools are supported")
 	}
-	return nil
+	_, err = ipam.Parse(s)
+	return err
 }

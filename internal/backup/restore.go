@@ -16,6 +16,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/migrations"
 )
 
@@ -36,9 +37,10 @@ func newTarReader(r io.Reader) (*tarReader, error) {
 
 // IfaceSummary is one interface row from the staged DB (environment review).
 type IfaceSummary struct {
-	Name   string
-	Port   int
-	Subnet string
+	Name       string
+	Port       int
+	Subnet     string
+	ExtraPools string
 }
 
 // RestoreReport is the environment review produced at stage time: what the
@@ -312,7 +314,30 @@ func stagedSetting(ctx context.Context, db interface {
 func stagedInterfaces(ctx context.Context, db interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }) ([]IfaceSummary, error) {
-	rows, err := db.QueryContext(ctx, `SELECT name, listen_port, ipv4_subnet FROM tunnel_interfaces ORDER BY name`)
+	// Original-schema recovery also reviews older archives without migrating.
+	columns, err := db.QueryContext(ctx, `PRAGMA table_info(tunnel_interfaces)`)
+	if err != nil {
+		return nil, err
+	}
+	poolColumn := "'[]'"
+	for columns.Next() {
+		var index, required, pk int
+		var name, kind string
+		var defaultValue any
+		if err := columns.Scan(&index, &name, &kind, &required, &defaultValue, &pk); err != nil {
+			columns.Close()
+			return nil, err
+		}
+		if name == "ipv4_extra_pools" {
+			poolColumn = "ipv4_extra_pools"
+		}
+	}
+	err = columns.Err()
+	columns.Close()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.QueryContext(ctx, `SELECT name, listen_port, ipv4_subnet, `+poolColumn+` FROM tunnel_interfaces ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("backup: read staged interfaces: %w", err)
 	}
@@ -321,10 +346,16 @@ func stagedInterfaces(ctx context.Context, db interface {
 	for rows.Next() {
 		var f IfaceSummary
 		var subnet sql.NullString
-		if err := rows.Scan(&f.Name, &f.Port, &subnet); err != nil {
+		var extras string
+		if err := rows.Scan(&f.Name, &f.Port, &subnet, &extras); err != nil {
 			return nil, fmt.Errorf("backup: read staged interface row: %w", err)
 		}
 		f.Subnet = subnet.String
+		pools, err := ipam.Decode(f.Subnet, extras)
+		if err != nil {
+			return nil, err
+		}
+		f.ExtraPools = strings.Join(pools[1:], ", ")
 		out = append(out, f)
 	}
 	if err := rows.Err(); err != nil {

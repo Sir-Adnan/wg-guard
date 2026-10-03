@@ -92,7 +92,7 @@ Statuses: `active`, `disabled`, `suspended`, `expired`, `traffic_exceeded`,
   current template or incompatible devices requires re-approval rather than silent activation.
   Incomplete traffic observations defer activation so carried volume is never computed from stale
   metering.
-- Operations: create/edit/enable/disable/suspend/delete (soft delete + restore)/renew/clone,
+- Operations: create/edit/enable/disable/suspend/delete (permanent account + device cascade)/renew/clone,
   reset/add/remove traffic, change quota/duration/devices/speed/profile, regenerate and revoke
   device configs. Bulk create (10–100+ with shared properties), bulk actions, export (CSV/ZIP).
 

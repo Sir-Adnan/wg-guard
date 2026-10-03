@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- Permanently delete an account and all devices in one transaction; release IPs and username,
+  remove customer access and successors, and retain durable public-peer removal intent.
+- Support stable primary and ordered overflow IPv4 pools per interface, host/other-profile
+  overlap guards, available automatic defaults and an owner/node API capacity snapshot.
+- Add a bilingual cleanup workspace with owner/status/date filters, sealed state-checked
+  previews, queued-successor protection, bounded atomic batches and separate chart-history cleanup.
+- Show reusable database/WAL space with manual optimize and owner-only compaction. Extend
+  the shared Jalali/Gregorian picker for historical dates without changing expiry-picker defaults.
+- Introduce the schema15 pool data contract; refuse pool-unaware release selection/rollback
+  without coordinated archive recovery. API/OpenAPI and living maintenance docs match these changes.
+
 ## [v0.1.7] — 2026-10-03
 
 - Redesign Update Center with separate component identity, release selection, real archive

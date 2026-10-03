@@ -48,6 +48,7 @@ const (
 	ScopeBackupManage    = "backup.manage"
 	ScopeUpdateManage    = "update.manage"
 	ScopeUpdateRead      = "update.read"
+	ScopeCleanupManage   = "cleanup.manage"
 )
 
 // scopes is the complete registry. A grant must be a member (or a family
@@ -68,7 +69,7 @@ var scopes = map[string]bool{
 	ScopeNextPlansRead: true, ScopeNextPlansWrite: true,
 	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
 	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
-	ScopeUpdateManage: true, ScopeUpdateRead: true,
+	ScopeUpdateManage: true, ScopeUpdateRead: true, ScopeCleanupManage: true,
 }
 
 // New permissions must be classified before they appear in the REST token
@@ -91,7 +92,7 @@ var apiScopes = map[string]bool{
 var panelOnlyScopes = map[string]bool{
 	ScopeAuditView: true, ScopeAPITokensManage: true, ScopeAdminsManage: true,
 	ScopeServerView: true, ScopeServerManage: true, ScopeBackupManage: true,
-	ScopeUpdateManage: true, ScopeUpdateRead: true,
+	ScopeUpdateManage: true, ScopeUpdateRead: true, ScopeCleanupManage: true,
 }
 
 // resellerGrantable is a closed allowlist: a newly registered node-level

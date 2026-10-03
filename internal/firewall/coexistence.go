@@ -68,7 +68,12 @@ func (m *Manager) EnsureUfwRoutes(ctx context.Context, ifaces []Interface) (appl
 	if err != nil || !ok || !active {
 		return nil, err
 	}
+	seen := map[string]bool{}
 	for _, ifc := range ifaces {
+		if seen[ifc.Name] {
+			continue
+		}
+		seen[ifc.Name] = true
 		if _, err := m.Run.Run(ctx, []string{"ufw", "route", "allow", "in", "on", ifc.Name}); err != nil {
 			return applied, fmt.Errorf("firewall: ufw route allow for %s: %w", ifc.Name, err)
 		}

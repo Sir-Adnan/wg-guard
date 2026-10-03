@@ -113,6 +113,17 @@ func (b *Backend) CreateInterface(_ context.Context, spec tunnel.InterfaceSpec) 
 	return nil
 }
 
+func (b *Backend) EnsureAddresses(_ context.Context, name string, addresses []string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	i, ok := b.interfaces[name]
+	if !ok {
+		return tunnel.ErrInterfaceNotFound
+	}
+	i.spec.Addresses = append([]string(nil), addresses...)
+	return nil
+}
+
 func (b *Backend) RemoveInterface(_ context.Context, name string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

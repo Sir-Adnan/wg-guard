@@ -228,6 +228,7 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 		Name             string          `json:"name"`
 		ListenPort       int             `json:"listen_port"`
 		Subnet           string          `json:"ipv4_subnet"`
+		Pools            []string        `json:"ipv4_pools"`
 		MTU              int             `json:"mtu"`
 		Obfuscation      *obfuscationReq `json:"obfuscation"`
 		Preset           string          `json:"preset"`
@@ -244,6 +245,7 @@ func (s *Server) handleIfaceCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	in := iface.CreateInput{
 		Name: req.Name, ListenPort: req.ListenPort, Subnet: req.Subnet, MTU: req.MTU,
+		Pools:  req.Pools,
 		Preset: req.Preset, BackendMode: domain.BackendMode(req.BackendMode),
 		EndpointOverride: req.EndpointOverride,
 	}
@@ -273,6 +275,7 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r, "id")
 	var req struct {
 		MTU              *int            `json:"mtu"`
+		Pools            []string        `json:"ipv4_pools"`
 		Enabled          *bool           `json:"enabled"`
 		EndpointOverride *string         `json:"endpoint_override"`
 		Obfuscation      *obfuscationReq `json:"obfuscation"`
@@ -292,6 +295,7 @@ func (s *Server) handleIfaceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	ifc, err := s.Ifaces.Update(r.Context(), id, iface.UpdateInput{
 		MTU: req.MTU, Enabled: req.Enabled,
+		Pools:            req.Pools,
 		EndpointOverride: req.EndpointOverride, Obfuscation: obfuscation,
 	})
 	if err != nil {

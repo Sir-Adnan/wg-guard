@@ -143,8 +143,12 @@ func (b *Backend) CreateInterface(ctx context.Context, spec tunnel.InterfaceSpec
 		b.rollbackLink(ctx, spec.Name)
 		return fmt.Errorf("amneziawg: verify %s: %w", spec.Name, err)
 	}
-	if spec.Address != "" {
-		if err := b.links.AddAddress(ctx, spec.Name, spec.Address); err != nil {
+	addresses := spec.Addresses
+	if len(addresses) == 0 && spec.Address != "" {
+		addresses = []string{spec.Address}
+	}
+	for _, address := range addresses {
+		if err := b.links.AddAddress(ctx, spec.Name, address); err != nil {
 			b.rollbackLink(ctx, spec.Name)
 			return fmt.Errorf("amneziawg: address %s: %w", spec.Name, err)
 		}
@@ -154,6 +158,11 @@ func (b *Backend) CreateInterface(ctx context.Context, spec tunnel.InterfaceSpec
 		return fmt.Errorf("amneziawg: up %s: %w", spec.Name, err)
 	}
 	return nil
+}
+
+// EnsureAddresses adjusts link addressing without replacing peers or sessions.
+func (b *Backend) EnsureAddresses(ctx context.Context, name string, addresses []string) error {
+	return b.links.SyncAddresses(ctx, name, addresses)
 }
 
 func (b *Backend) rollbackLink(ctx context.Context, name string) {

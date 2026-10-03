@@ -100,7 +100,11 @@ func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Read
 		u.Field(printer.text("endpoint"), report.Endpoint)
 		u.Field("TLS", report.TLSMode+" · "+report.Listen)
 		for _, f := range report.Interfaces {
-			u.Text(fmt.Sprintf("%s · %d · %s", f.Name, f.Port, f.Subnet))
+			pools := f.Subnet
+			if f.ExtraPools != "" {
+				pools += ", " + f.ExtraPools
+			}
+			u.Text(fmt.Sprintf("%s · %d · %s", f.Name, f.Port, pools))
 		}
 		for _, w := range report.Warnings {
 			u.Text(printer.text("warning", w.Localized(printer.language())))

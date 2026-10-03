@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/accounting"
@@ -21,6 +22,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
+	"github.com/Sir-Adnan/wg-guard/internal/cleanup"
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
@@ -104,6 +106,8 @@ type Server struct {
 	loginRL         *ipLimiter
 	subRL           *ipLimiter // public /sub/ surface: request-rate window per IP
 	updateCache     releaseCache
+	cleanup         *cleanup.Service
+	cleanupMu       sync.Mutex
 }
 
 // New builds the panel: parse templates once, hash assets once.
@@ -127,6 +131,9 @@ func New(d Deps) (*Server, error) {
 	if s.ProfileGenerator == nil && d.Ifaces != nil {
 		s.ProfileGenerator = d.Ifaces.GenerateProfile
 	}
+	if d.DB != nil {
+		s.cleanup = cleanup.New(d.DB, d.Users, d.Ring)
+	}
 	var err error
 	s.visualPresets, s.visualPresetCSS, err = loadVisualPresets()
 	if err != nil {
@@ -147,6 +154,10 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", s.handleNotFound)
 	mux.HandleFunc("GET /assets/", s.handleAssets)
+	mux.HandleFunc("GET /cleanup", s.requirePermission(auth.ScopeCleanupManage, s.handleCleanupPage))
+	mux.HandleFunc("POST /cleanup/preview", s.requirePermission(auth.ScopeCleanupManage, s.handleCleanupPreview))
+	mux.HandleFunc("POST /cleanup/execute", s.requirePermission(auth.ScopeCleanupManage, s.handleCleanupExecute))
+	mux.HandleFunc("POST /cleanup/optimize", s.requirePermission(auth.ScopeCleanupManage, s.handleCleanupOptimize))
 
 	// --- auth (public) ---
 	mux.HandleFunc("GET /login", s.handleLoginPage)

@@ -24,6 +24,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
@@ -34,7 +35,8 @@ type Interface struct {
 	ID               string
 	Name             string // awgN
 	ListenPort       int
-	Subnet           string // CIDR
+	Subnet           string   // CIDR
+	Pools            []string // primary first, ordered overflow networks
 	MTU              int
 	PublicKey        string // base64 server key (client configs embed it)
 	PrivKeyEnc       []byte // AES-GCM envelope
@@ -45,6 +47,8 @@ type Interface struct {
 	EndpointOverride string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	automaticPool    bool
+	blockedRoutes    []netip.Prefix
 }
 
 // Obfuscation mirrors the pinned parameter set: legacy 1.0 (Jc/Jmin/Jmax/
@@ -197,10 +201,15 @@ type Service struct {
 	profiles       *ProfileGenerator
 	now            func() time.Time
 	userspaceReady func(context.Context) error
+	hostRoutes     func(context.Context, string) ([]netip.Prefix, error)
 }
 
 // ServiceOption configures an interface service dependency.
 type ServiceOption func(*Service)
+
+func WithHostRoutes(check func(context.Context, string) ([]netip.Prefix, error)) ServiceOption {
+	return func(service *Service) { service.hostRoutes = check }
+}
 
 // WithProfileEntropy replaces the profile generator's entropy source. It is
 // intended for deterministic and failure-path tests; production uses
@@ -234,9 +243,10 @@ func (s *Service) GenerateProfile(policy ProfilePolicy) (Obfuscation, error) {
 // CreateInput is a validated-at-the-edge request; all rules run here.
 type CreateInput struct {
 	Name        string
-	ListenPort  int    // 0 → allocate randomly from network.port_min..port_max
-	Subnet      string // CIDR; "" → default pool for the name (10.8.N.0/24)
-	MTU         int    // 0 → network.mtu setting
+	ListenPort  int      // 0 → allocate randomly from network.port_min..port_max
+	Subnet      string   // CIDR; "" → default pool for the name (10.8.N.0/24)
+	Pools       []string // full ordered list; mutually exclusive with Subnet
+	MTU         int      // 0 → network.mtu setting
 	Obfuscation Obfuscation
 	Preset      string
 	// GeneratedProfile is set only by a trusted server-side preview flow. It
@@ -287,7 +297,16 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 		return nil, err
 	}
 
+	if in.Pools != nil && len(in.Pools) == 0 {
+		return nil, domain.E(domain.CodeSubnetInvalid, "ipv4_pools must not be empty")
+	}
+	if in.Subnet != "" && len(in.Pools) > 0 {
+		return nil, domain.E(domain.CodeInvalidRequest, "send ipv4_subnet or ipv4_pools, not both")
+	}
 	subnet := in.Subnet
+	if len(in.Pools) > 0 {
+		subnet = in.Pools[0]
+	}
 	if subnet == "" {
 		subnet = s.defaultPool(ctx, n)
 	}
@@ -296,6 +315,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 	}
 	prefix := netip.MustParsePrefix(subnet)
 	if err := validatePoolSize(prefix); err != nil {
+		return nil, err
+	}
+	pools := in.Pools
+	if len(pools) == 0 {
+		pools = []string{subnet}
+	}
+	if err := ipam.Validate(pools); err != nil {
 		return nil, err
 	}
 
@@ -337,6 +363,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 		Name:             in.Name,
 		ListenPort:       port,
 		Subnet:           subnet,
+		Pools:            pools,
 		MTU:              mtu,
 		PublicKey:        kp.Public,
 		PrivKeyEnc:       privEnc,
@@ -347,6 +374,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Interface, error
 		EndpointOverride: strings.TrimSpace(in.EndpointOverride),
 		CreatedAt:        s.now().UTC(),
 		UpdatedAt:        s.now().UTC(),
+		automaticPool:    len(in.Pools) == 0 && in.Subnet == "",
+	}
+	if s.hostRoutes != nil {
+		ifc.blockedRoutes, err = s.hostRoutes(ctx, ifc.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = s.db.WithTx(ctx, func(tx *sql.Tx) error {
@@ -425,8 +459,18 @@ func (s *Service) insertWithChecks(ctx context.Context, tx *sql.Tx, ifc *Interfa
 	if !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("iface: port check: %w", err)
 	}
-	if err := s.checkOverlaps(ctx, tx, ifc.ID, ifc.Subnet); err != nil {
-		return err
+	if ifc.automaticPool {
+		if err := s.selectAutomaticPool(ctx, tx, ifc); err != nil {
+			return err
+		}
+	}
+	for _, pool := range ifc.Pools {
+		if err := checkHostPool(pool, ifc.blockedRoutes); err != nil {
+			return err
+		}
+		if err := s.checkOverlaps(ctx, tx, ifc.ID, pool); err != nil {
+			return err
+		}
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO tunnel_interfaces
 		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
@@ -461,30 +505,33 @@ func (s *Service) insertWithChecks(ctx context.Context, tx *sql.Tx, ifc *Interfa
 		}
 		return fmt.Errorf("iface: insert: %w", err)
 	}
-	return nil
+	_, err = tx.ExecContext(ctx, `UPDATE tunnel_interfaces SET ipv4_extra_pools = ? WHERE id = ?`, ipam.Extras(ifc.Pools), ifc.ID)
+	return err
 }
 
 // checkOverlaps rejects pools overlapping another interface's pool or common
 // host-network ranges (RFC1918 overlap among pools is the dangerous case; a
 // pool inside the host's own subnet breaks routing).
 func (s *Service) checkOverlaps(ctx context.Context, tx *sql.Tx, excludeID, subnet string) error {
-	rows, err := tx.QueryContext(ctx, `SELECT id, name, ipv4_subnet FROM tunnel_interfaces WHERE id != ?`, excludeID)
+	rows, err := tx.QueryContext(ctx, `SELECT id, name, ipv4_subnet, ipv4_extra_pools FROM tunnel_interfaces WHERE id != ?`, excludeID)
 	if err != nil {
 		return fmt.Errorf("iface: overlap scan: %w", err)
 	}
 	defer rows.Close()
 	prefix := netip.MustParsePrefix(subnet)
 	for rows.Next() {
-		var id, name, other string
-		if err := rows.Scan(&id, &name, &other); err != nil {
+		var id, name, other, extras string
+		if err := rows.Scan(&id, &name, &other, &extras); err != nil {
 			return fmt.Errorf("iface: overlap scan: %w", err)
 		}
-		otherPrefix, err := netip.ParsePrefix(other)
+		pools, err := ipam.Decode(other, extras)
 		if err != nil {
-			continue // unparseable legacy row: leave it alone
+			return err
 		}
-		if prefix.Overlaps(otherPrefix) {
-			return domain.E(domain.CodeSubnetOverlap, "pool %s overlaps interface %s pool %s", subnet, name, other)
+		for _, pool := range pools {
+			if prefix.Overlaps(netip.MustParsePrefix(pool)) {
+				return domain.E(domain.CodeSubnetOverlap, "pool %s overlaps interface %s pool %s", subnet, name, pool)
+			}
 		}
 	}
 	return rows.Err()
@@ -681,7 +728,7 @@ const ifaceColumns = `id, name, listen_port, ipv4_subnet, mtu, public_key, priva
 	endpoint_override, created_at, updated_at,
 	s3, s4, header_protection_key, content_padding_addition,
 	rekey_after_time, rekey_timeout, reject_after_time, keepalive_timeout,
-	max_handshake_attempts, random_trailers, disable_cookies`
+	max_handshake_attempts, random_trailers, disable_cookies, ipv4_extra_pools`
 
 type rowScanner interface{ Scan(dest ...any) error }
 
@@ -707,6 +754,7 @@ func scanIface(row rowScanner) (*Interface, error) {
 		maxHandshake           awgparam.U16Range
 		randomTrailers         sql.NullInt64
 		disableCookies         sql.NullInt64
+		extraPools             string
 	)
 	err := row.Scan(&ifc.ID, &ifc.Name, &ifc.ListenPort, &ifc.Subnet, &ifc.MTU,
 		&ifc.PublicKey, &ifc.PrivKeyEnc,
@@ -714,7 +762,11 @@ func scanIface(row rowScanner) (*Interface, error) {
 		&i1, &i2, &i3, &i4, &i5, &preset, &enabled, &mode, &endpoint,
 		&createdStr, &updatedStr,
 		&s3, &s4, &hpk, &padding, &rekeyAfter, &rekeyTimeout, &rejectAfter,
-		&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies)
+		&keepaliveTimeout, &maxHandshake, &randomTrailers, &disableCookies, &extraPools)
+	if err != nil {
+		return nil, err
+	}
+	ifc.Pools, err = ipam.Decode(ifc.Subnet, extraPools)
 	if err != nil {
 		return nil, err
 	}
@@ -793,13 +845,14 @@ func (s *Service) UpdateMTU(ctx context.Context, id string, mtu int) error {
 	return nil
 }
 
-// UpdateInput is a partial profile update. The name, port, and pool are
-// deliberately immutable here: moving an interface's port happens through
-// reconcile, and a pool change would orphan allocated device addresses.
+// UpdateInput is a partial profile update. Name, port and primary pool stay
+// immutable. Ordered overflow pools may change only when existing allocated
+// addresses remain protected; pool validation shares the allocation transaction.
 // Obfuscation-mode changes (plain ↔ obfuscated) are supported — the
 // reconcile engine recreates the link for that transition (pinned fact:
 // setconf cannot switch modes in place).
 type UpdateInput struct {
+	Pools            []string // nil leaves pools unchanged; primary is immutable
 	MTU              *int
 	Enabled          *bool
 	EndpointOverride *string
@@ -813,6 +866,12 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 	ifc, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if in.Pools != nil && s.hostRoutes != nil {
+		ifc.blockedRoutes, err = s.hostRoutes(ctx, ifc.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if in.MTU != nil {
 		if *in.MTU < 576 || *in.MTU > 65535 {
@@ -840,7 +899,13 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		return nil, domain.E(domain.CodeParamConstraint, "profile classification requires obfuscation values")
 	}
 	ifc.UpdatedAt = s.now().UTC()
-	_, err = s.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET
+	err = s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		if in.Pools != nil {
+			if err := s.updatePoolsTx(ctx, tx, ifc, in.Pools); err != nil {
+				return err
+			}
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE tunnel_interfaces SET
 		mtu = ?, enabled = ?, endpoint_override = ?,
 		jc = ?, jmin = ?, jmax = ?, s1 = ?, s2 = ?, h1 = ?, h2 = ?, h3 = ?, h4 = ?,
 		h1_range = ?, h2_range = ?, h3_range = ?, h4_range = ?,
@@ -849,23 +914,25 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*Inter
 		rekey_after_time = ?, rekey_timeout = ?, reject_after_time = ?, keepalive_timeout = ?,
 		max_handshake_attempts = ?, random_trailers = ?, disable_cookies = ?
 		WHERE id = ?`,
-		ifc.MTU, boolInt(ifc.Enabled), nullText(ifc.EndpointOverride),
-		nullInt(ifc.Obfuscation.Jc, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.Jmin, ifc.Obfuscation.Enabled),
-		nullInt(ifc.Obfuscation.Jmax, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.S1, ifc.Obfuscation.Enabled),
-		nullInt(ifc.Obfuscation.S2, ifc.Obfuscation.Enabled),
-		nullU32(ifc.Obfuscation.H1, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H2, ifc.Obfuscation.Enabled),
-		nullU32(ifc.Obfuscation.H3, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H4, ifc.Obfuscation.Enabled),
-		ifc.Obfuscation.H1, ifc.Obfuscation.H2, ifc.Obfuscation.H3, ifc.Obfuscation.H4,
-		nullText(ifc.Obfuscation.I1), nullText(ifc.Obfuscation.I2), nullText(ifc.Obfuscation.I3),
-		nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
-		ifc.Preset, ifc.UpdatedAt.Format(time.RFC3339Nano),
-		ifc.Obfuscation.S3, ifc.Obfuscation.S4,
-		ifc.Obfuscation.HeaderProtectionKey, ifc.Obfuscation.ContentPaddingAddition,
-		ifc.Obfuscation.RekeyAfterTime, ifc.Obfuscation.RekeyTimeout,
-		ifc.Obfuscation.RejectAfterTime, ifc.Obfuscation.KeepaliveTimeout,
-		ifc.Obfuscation.MaxHandshakeAttempts,
-		boolInt(ifc.Obfuscation.RandomTrailers), boolInt(ifc.Obfuscation.DisableCookies),
-		ifc.ID)
+			ifc.MTU, boolInt(ifc.Enabled), nullText(ifc.EndpointOverride),
+			nullInt(ifc.Obfuscation.Jc, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.Jmin, ifc.Obfuscation.Enabled),
+			nullInt(ifc.Obfuscation.Jmax, ifc.Obfuscation.Enabled), nullInt(ifc.Obfuscation.S1, ifc.Obfuscation.Enabled),
+			nullInt(ifc.Obfuscation.S2, ifc.Obfuscation.Enabled),
+			nullU32(ifc.Obfuscation.H1, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H2, ifc.Obfuscation.Enabled),
+			nullU32(ifc.Obfuscation.H3, ifc.Obfuscation.Enabled), nullU32(ifc.Obfuscation.H4, ifc.Obfuscation.Enabled),
+			ifc.Obfuscation.H1, ifc.Obfuscation.H2, ifc.Obfuscation.H3, ifc.Obfuscation.H4,
+			nullText(ifc.Obfuscation.I1), nullText(ifc.Obfuscation.I2), nullText(ifc.Obfuscation.I3),
+			nullText(ifc.Obfuscation.I4), nullText(ifc.Obfuscation.I5),
+			ifc.Preset, ifc.UpdatedAt.Format(time.RFC3339Nano),
+			ifc.Obfuscation.S3, ifc.Obfuscation.S4,
+			ifc.Obfuscation.HeaderProtectionKey, ifc.Obfuscation.ContentPaddingAddition,
+			ifc.Obfuscation.RekeyAfterTime, ifc.Obfuscation.RekeyTimeout,
+			ifc.Obfuscation.RejectAfterTime, ifc.Obfuscation.KeepaliveTimeout,
+			ifc.Obfuscation.MaxHandshakeAttempts,
+			boolInt(ifc.Obfuscation.RandomTrailers), boolInt(ifc.Obfuscation.DisableCookies),
+			ifc.ID)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("iface: update: %w", err)
 	}

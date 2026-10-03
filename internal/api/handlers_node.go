@@ -34,6 +34,7 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		items = append(items, map[string]any{
 			"id": ifc.ID, "name": ifc.Name, "listen_port": ifc.ListenPort,
 			"ipv4_subnet": ifc.Subnet, "enabled": ifc.Enabled,
+			"ipv4_pools":   ifc.Pools,
 			"backend_mode": string(ifc.BackendMode), "devices": devices,
 		})
 	}
