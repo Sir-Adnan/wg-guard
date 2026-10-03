@@ -16,6 +16,10 @@ non-secret integration result journals keep their existing retention. A replayed
 result is historical evidence, not proof that its subsequently deleted account still exists.
 Backups remain independent and are not erased by account deletion.
 
+Buffered chart samples for a device removed before a flush are discarded inside the
+flush transaction; they cannot fail the live-device sample/rollup batch. This applies to
+ordinary device deletion and cascading account cleanup. Charged usage remains independent.
+
 This replaces ordinary soft-delete behavior. Existing soft-deleted rows are not silently
 purged by migration: the cleanup screen can explicitly remove them. Disabling, expiration
 and quota exhaustion retain devices/IPs so renewal can reuse existing configs. Restore cannot

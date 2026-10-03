@@ -91,9 +91,10 @@ func (s *Service) FlushSamples(ctx context.Context) (int, error) {
 	if len(batch) == 0 {
 		return 0, nil
 	}
+	written := 0
 	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
 		sampleStmt, err := tx.PrepareContext(ctx, `INSERT INTO traffic_samples (device_id, ts, rx_delta, tx_delta)
-			VALUES (?, ?, ?, ?)
+			SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM devices WHERE id = ?)
 			ON CONFLICT(device_id, ts) DO UPDATE SET
 				rx_delta = rx_delta + excluded.rx_delta, tx_delta = tx_delta + excluded.tx_delta`)
 		if err != nil {
@@ -111,9 +112,21 @@ func (s *Service) FlushSamples(ctx context.Context) (int, error) {
 
 		for k, v := range batch {
 			ts := k.bucket.UTC().Format(time.RFC3339Nano)
-			if _, err := sampleStmt.ExecContext(ctx, k.device, ts, int64(v.rx), int64(v.tx)); err != nil {
+			result, err := sampleStmt.ExecContext(ctx, k.device, ts, int64(v.rx), int64(v.tx), k.device)
+			if err != nil {
 				return fmt.Errorf("accounting: sample upsert %s: %w", k.device, err)
 			}
+			// Account/device deletion can commit after the sample was buffered.
+			// A retired device must not poison unrelated live chart rows. The
+			// same write transaction protects live peers through rollup writes.
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if rows == 0 {
+				continue
+			}
+			written++
 			hourly := k.bucket.Truncate(time.Hour).UTC().Format(time.RFC3339Nano)
 			if _, err := rollupStmt.ExecContext(ctx, k.device, "hourly", hourly, int64(v.rx), int64(v.tx)); err != nil {
 				return fmt.Errorf("accounting: hourly upsert %s: %w", k.device, err)
@@ -128,7 +141,7 @@ func (s *Service) FlushSamples(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return len(batch), nil
+	return written, nil
 }
 
 // PruneReport counts removed rows.

@@ -7,11 +7,52 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
+	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 func newShaperForTest(run subprocess.Runner) *shaper.Manager { return shaper.New(run) }
+
+func TestBufferedRetiredDeviceDoesNotDiscardLiveHistory(t *testing.T) {
+	for _, kind := range []string{"account", "device"} {
+		t.Run(kind, func(t *testing.T) {
+			e := newEnv(t)
+			ctx := context.Background()
+			removedUser := e.seedUser(t, "removed", "active", nil, "immediate")
+			liveUser := e.seedUser(t, "kept", "active", nil, "immediate")
+			removed := e.seedDevice(t, removedUser, "removed-phone", keyA, 0, 0)
+			kept := e.seedDevice(t, liveUser, "kept-phone", keyB, 0, 0)
+			e.svc.samples.push(removed, e.now, 300*time.Second, 100, 200)
+			e.svc.samples.push(kept, e.now, 300*time.Second, 300, 400)
+			var err error
+			if kind == "account" {
+				err = user.NewService(e.db).Delete(ctx, removedUser)
+			} else {
+				err = device.NewService(e.db, nil).Delete(ctx, removed)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			count, err := e.svc.FlushSamples(ctx)
+			if err != nil || count != 1 {
+				t.Fatalf("retired buffer poisoned live flush: %d %v", count, err)
+			}
+			var rx, tx, rows int
+			if err := e.db.QueryRow(`SELECT rx_delta,tx_delta FROM traffic_samples WHERE device_id=?`, kept).Scan(&rx, &tx); err != nil || rx != 300 || tx != 400 {
+				t.Fatal("live chart sample lost")
+			}
+			_ = e.db.QueryRow(`SELECT COUNT(*) FROM traffic_rollups WHERE device_id=?`, kept).Scan(&rows)
+			if rows != 2 {
+				t.Fatal("live hourly/daily rollups lost")
+			}
+			if count, err := e.svc.FlushSamples(ctx); err != nil || count != 0 {
+				t.Fatal("retired buffer was not drained")
+			}
+		})
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Samples, rollups, pruning

@@ -4,6 +4,8 @@
 
 - Permanently delete an account and all devices in one transaction; release IPs and username,
   remove customer access and successors, and retain durable public-peer removal intent.
+- Ignore buffered chart samples belonging to retired devices without losing the remaining
+  live-device sample/rollup batch; account usage remains independent.
 - Support stable primary and ordered overflow IPv4 pools per interface, host/other-profile
   overlap guards, available automatic defaults and an owner/node API capacity snapshot.
 - Add a bilingual cleanup workspace with owner/status/date filters, sealed state-checked
