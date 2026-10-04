@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 )
 
@@ -43,6 +44,9 @@ func inspectArchiveData(ctx context.Context, path string, key []byte) (Inventory
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
+	if status, err := (&database.DB{DB: db}).MigrationStatus(ctx); err != nil || status.Applied == 0 {
+		return inventory, verificationError(safetyError("data_inspection", err))
+	}
 	var version string
 	if err := db.QueryRowContext(ctx, `SELECT MAX(version) FROM migrations`).Scan(&version); err != nil || version == "" {
 		return inventory, verificationError(safetyError("data_inspection", err))
@@ -115,6 +119,9 @@ func inspectArchiveData(ctx context.Context, path string, key []byte) (Inventory
 			return inventory, safetyError("data_envelope", nil)
 		}
 		return inventory, verificationError(safetyError("data_inspection", err))
+	}
+	if err := inspectDomainData(ctx, db, version, cipher); err != nil {
+		return inventory, err
 	}
 	return inventory, nil
 }

@@ -66,6 +66,7 @@ func ValidatePrivateKey(b64 string) error {
 // PublicKeyFromPrivate derives the public key for a base64 private key.
 func PublicKeyFromPrivate(b64 string) (string, error) {
 	raw, err := base64.StdEncoding.DecodeString(b64)
+	defer clear(raw)
 	if err != nil || len(raw) != 32 {
 		return "", fmt.Errorf("private key must be 32 base64 bytes")
 	}
@@ -74,4 +75,27 @@ func PublicKeyFromPrivate(b64 string) (string, error) {
 		return "", fmt.Errorf("tunnel: private key: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(priv.PublicKey().Bytes()), nil
+}
+
+// ValidateKeyPair checks canonical storage and that the public identity belongs
+// to this private key. Errors never contain either key.
+func ValidateKeyPair(private, public string) error {
+	if err := ValidateEncodedKey(private); err != nil {
+		return err
+	}
+	derived, err := PublicKeyFromPrivate(private)
+	if err != nil || derived != public {
+		return fmt.Errorf("stored key pair does not match")
+	}
+	return nil
+}
+
+// ValidateEncodedKey accepts the canonical 32-byte base64 form used for keys/PSKs.
+func ValidateEncodedKey(value string) error {
+	raw, err := base64.StdEncoding.DecodeString(value)
+	defer clear(raw)
+	if err != nil || len(raw) != 32 || base64.StdEncoding.EncodeToString(raw) != value {
+		return fmt.Errorf("key must use canonical 32-byte base64 encoding")
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package i18n
 
 func init() {
 	for key, value := range map[string]string{
+		"backup.safety.data_semantics":          "backup: stored tunnel, address, key, subscription or setting data violates the supported contract; no data was replaced; repair the source before retrying",
 		"backup.safety.verification_incomplete": "backup: verification was interrupted or timed out; no validity result is available; retry before approving a restore",
 		"backup.safety.archive_busy":            "backup: another archive operation is running; retry after it finishes",
 		"backup.safety.migration_inspection":    "backup: schema could not be safely inspected; migration stopped",
@@ -23,6 +24,7 @@ func init() {
 		catalogs[En][key] = value
 	}
 	for key, value := range map[string]string{
+		"backup.safety.data_semantics":          "دادهٔ تونل، آدرس، کلید، اشتراک یا تنظیمات با قرارداد پشتیبانی‌شده سازگار نیست؛ داده‌ای جایگزین نشد؛ پیش از تلاش دوباره دادهٔ مبدأ را اصلاح کنید",
 		"backup.safety.verification_incomplete": "بررسی پشتیبان لغو شد یا به پایان مهلت رسید؛ معتبر یا خراب بودن آن مشخص نشد؛ پیش از تأیید بازیابی دوباره بررسی کنید",
 		"backup.safety.archive_busy":            "یک عملیات پشتیبان‌گیری دیگر در حال اجراست؛ پس از پایان آن دوباره تلاش کنید",
 		"backup.safety.migration_inspection":    "بررسی ایمن ساختار پایگاه داده ممکن نشد؛ مهاجرت متوقف شد",

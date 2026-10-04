@@ -41,6 +41,10 @@ preparation release still requires owner approval and its artifact gate.
    Enter the saved password, not a newly generated one. Verification needs no
    installed state, running container, AWG or host network changes. A successful
    report covers supported archived data, references and all encrypted fields.
+   It also checks the documented [stored-domain contract](backup-restore.md), including
+   key-pair identity, IP assignments, pinned AWG parameter relationships, subscription/
+   accounting state, critical dates, customer hashes and known settings. Kernel/userspace
+   inventory describes target requirements; it does not prove they are installed there.
    Compare the stored inventory with step 1; historical/disabled records are counted.
    A timed-out/canceled check is incomplete and must be retried. A key or integrity
    failure must be resolved while the original server still exists.

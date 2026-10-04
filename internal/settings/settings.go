@@ -618,6 +618,21 @@ func (r *Registry) validateValue(def Definition, typed any) error {
 	return nil
 }
 
+// ValidateStoredValue uses the current setting contract without opening a node
+// or changing its cache. Secret values must already be decrypted by the caller.
+func ValidateStoredValue(def Definition, stored string) error {
+	var registry Registry
+	var typed any = stored
+	if def.Kind != KindSecret {
+		var err error
+		typed, err = registry.decode(def, stored)
+		if err != nil {
+			return err
+		}
+	}
+	return registry.validateValue(def, typed)
+}
+
 func toInt(v any) (int, bool) {
 	switch n := v.(type) {
 	case int:

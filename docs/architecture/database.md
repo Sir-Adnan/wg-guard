@@ -70,6 +70,13 @@ pre-update archive policy remains. Staged restore copies migrate privately rathe
 the live-node gate. Regression tests cover fresh installs, legacy archives, every automatic
 opener, archive/inspection failure and shared-reader contention.
 
+Portable-data inspection now verifies this same contiguous history on the immutable snapshot,
+plus the [documented domain gate](../operations/backup-restore.md): key/pool/parameter identity,
+accounting/subscription bounds and lifecycle dates, customer lookup hashes and current settings.
+It does not repair corrupt records, reassign IPs, discard historical rows or infer installed core
+support. Original-schema recovery uses version-aware read expressions; it never migrates those
+archived bytes merely to inspect them.
+
 Migration `0008_retired_peer_keys.sql` records former public peer identities when a device is
 rotated/deleted or a user's subscription access is replaced. The reconciler removes those peers
 even under the default report drift policy, then clears each confirmed intent. Failed syncs and

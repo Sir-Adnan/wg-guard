@@ -31,6 +31,12 @@ func Last(p netip.Prefix) netip.Addr {
 
 func Capacity(p netip.Prefix) uint64 { return uint64(1)<<(32-p.Bits()) - 3 }
 
+// Assignable checks a device host address against the shared reserved-address policy.
+func Assignable(pool netip.Prefix, address netip.Addr) bool {
+	return address.Is4() && pool.Addr().Is4() && pool.Contains(address) &&
+		address != pool.Masked().Addr() && address != pool.Masked().Addr().Next() && address != Last(pool)
+}
+
 func Gateway(cidr string) string {
 	p, err := netip.ParsePrefix(cidr)
 	if err != nil || !p.Addr().Is4() {

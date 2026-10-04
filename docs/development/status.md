@@ -137,6 +137,20 @@ reviews export/password recovery and memory/disk limits. Restored domain/core se
 actual host lag/resource measurement and the owner's off-host backup still gate the rest
 of Phase 15.
 
+**Phase 15 domain-data admission (2026-10-04; not yet published):** Immutable archive
+inspection now checks known contiguous schema history, matching canonical interface/device
+keys and PSKs, supported AWG parameter/profile values, disjoint pools and assignable device
+IPs, subscription/accounting/lifecycle/date values, customer token/hash consistency and current
+setting definitions. Creation, preview, standalone verification and pre-replacement apply share
+this gate; original-schema recovery reads version-aware fields without changing its bytes.
+Expired/disabled/legacy-deleted and legitimate over-limit records plus unknown historical
+settings remain portable. Fixed fa/en errors contain no raw rows or secret values.
+Focused corruption, old-preview and legacy/current-schema checks plus final local full Go tests,
+vet/build and format/diff inspection passed; unchanged packages reused applicable Go cache.
+Exact-source CI remains pending. This closes the documented stored-domain subset, not target
+core/module/daemon provenance or real-host connectivity. Actual host lag/resource measurement
+and a reviewed off-host owner backup still gate completion of Phase 15.
+
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe
 stage/history reports and recovery. `update.read` is distinct from execution; queued new-format

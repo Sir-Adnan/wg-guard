@@ -14,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/migrations"
 )
 
@@ -37,7 +38,11 @@ func TestPre0007AWGRangeBackupRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateKey, err := ring.Encrypt([]byte("synthetic-legacy-private-key"))
+	pair, err := tunnel.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey, err := ring.Encrypt([]byte(pair.Private))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,10 +51,10 @@ func TestPre0007AWGRangeBackupRestore(t *testing.T) {
 		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
 		 jc, jmin, jmax, s1, s2, h1, h2, h3, h4, preset_name, enabled, backend_mode,
 		 endpoint_override, created_at, updated_at, s3, s4, content_padding_addition)
-		VALUES ('legacy-iface', 'awg0', 39001, '10.77.0.0/24', 1380, 'synthetic-public', ?,
+		VALUES ('legacy-iface', 'awg0', 39001, '10.77.0.0/24', 1380, ?, ?,
 		        4, 40, 70, 15, 64, 101, 202, 303, 404, 'recommended', 1, 'kernel',
 		        'legacy.example.com', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z',
-		        0, 0, '10-100')`, privateKey); err != nil {
+		        0, 0, '10-100')`, pair.Public, privateKey); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.DB.ExecContext(ctx, `INSERT INTO templates

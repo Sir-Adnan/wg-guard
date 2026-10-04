@@ -24,9 +24,32 @@ containing no encrypted values. A malformed/mismatched pair or data requiring an
 unarchived rotation key is refused; retain the original node and repair its
 database/key pair before migration. The logical archive format remains schema 1.
 
+Portable verification also checks domain semantics on the immutable snapshot, including
+original-schema recovery: contiguous known migration history; canonical matching interface/
+device key pairs and PSKs; supported interface names, kernel/userspace mode, port/MTU and the
+existing pinned AWG parameter relationships; ordered pools with no cross-profile overlap;
+canonical `/32` device addresses belonging to an assignable pool slot; nonnegative accounting
+and valid subscription limits/lifecycle values; readable critical timestamps; customer tokens
+matching their lookup hashes; and current setting definitions/validators. Creation, preview,
+independent verification and pre-replacement apply use the same gate. Correct checksums and
+AES authentication alone do not make malformed domain data recoverable.
+
+Inspection reads old scalar/range/overflow layouts without changing archived bytes. Historical
+unknown settings, disabled/deleted accounts and legitimate over-limit/expired states survive;
+stored device counts need not fall below a subsequently reduced device limit. Fields outside
+this documented gate are not claimed to have a complete semantic audit. Stored backend counts
+identify required reviewed kernel/userspace support; offline validation does not observe or
+certify the target's module, pinned daemon, TLS, routes or client compatibility.
+
 Inspection streams one envelope at a time, caps encoded values at 8 KiB and has
 a one-minute deadline. Snapshot size must fit the existing 1 GiB restore limit.
 Plaintext is cleared immediately; public errors and counts contain no secret values.
+Domain scans additionally bound selected technical values/timestamps before Go allocation;
+setting values are capped at 1 MiB and interface pool JSON at 2 KiB. Profile memory is bounded
+by the finite `awgN` name language and at most 16 pools per profile; global pool overlap checks
+sort intervals rather than doing quadratic comparisons. Other record rows stream and timestamp
+scan buffers are reused. Domain checks share the one-minute inspection deadline and report
+incomplete on cancellation/timeouts. Invalid-data guidance never includes keys or raw row values.
 The encrypted field definitions are shared with startup/rotation in `internal/secrets`;
 secret-settings parity is tested. Interrupted or timed-out verification reports
 **incomplete**, preserving its cancellation cause, without publishing a restore preview.

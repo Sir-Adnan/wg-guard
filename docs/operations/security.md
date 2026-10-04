@@ -69,6 +69,15 @@ are emitted as diagnostics. Local regressions cover all fields, multi-page rotat
 mixed-key retries, foreign/invalid keys and a portable post-rotation archive; these do not
 replace a real-host power-loss or client acceptance drill.
 
+Archive admission now reuses the typed key/pool/parameter/setting contracts to inspect the
+immutable stored domain, not just secret decryption. Canonical key pairs, PSKs, usable device
+addresses, non-overlapping profiles and valid critical lifecycle/expiry/revocation dates prevent
+a readable archive from silently losing connectivity or access-control state after restore.
+Historical/disabled/over-limit data remains admissible. This gate runs again before replacing an
+approved payload, including previews from older builds. Errors expose fixed fa/en guidance,
+not private keys, customer capabilities, raw settings or detailed SQL causes. See the exact
+scope and resource/host boundaries in [backup/restore](backup-restore.md).
+
 No `math/rand` for secrets; `crypto/rand` everywhere. Secrets are passed to subprocesses via
 stdin or 0600 temp files, never argv, never shell interpolation. All exec traffic goes through
 `internal/subprocess` — the single audited choke point (explicit argv, per-command timeout,

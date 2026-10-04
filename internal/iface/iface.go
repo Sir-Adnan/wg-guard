@@ -87,6 +87,9 @@ const (
 
 var nameRe = regexp.MustCompile(`^awg([0-9]{1,3})$`)
 
+// ValidName checks the supported interface name syntax independently of admission caps.
+func ValidName(name string) bool { return nameRe.MatchString(name) }
+
 // ValidateObfuscation enforces the constraint set. A zero params struct with
 // Enabled=false is the plain-WG profile; Enabled=true requires a complete,
 // constraint-clean parameter set (no partial profiles).

@@ -90,8 +90,14 @@ No dates, performance promises, release numbers or completion percentages are in
   and independent post-rotation archive verification.
 - [x] Distinguish invalid data from incomplete/timed-out archive verification;
   cancellation retains its cause and cannot publish a restore preview.
-- [ ] Validate relevant restored domain semantics and supported core requirements;
+- [x] Validate relevant restored domain semantics and supported core requirements;
   cryptographic decryption alone is insufficient.
+  The shared immutable-snapshot gate now verifies migration history, matching keys/PSKs,
+  supported AWG profiles, pool/IP assignment, entitlement/accounting/lifecycle/timestamp
+  values, customer lookup hashes and current settings. It reads original schema versions
+  without modifying them and rechecks older approved previews before replacement.
+  Stored backend inventory identifies reviewed kernel/userspace requirements; actual
+  installation, module/daemon provenance, networking and clients remain host gates.
 - [x] Review export encryption, bounded memory/disk and off-host password recovery.
   Keep local pre-update recovery policy distinct from downloadable/off-host archives.
   The [preparation drill](../operations/migration-preparation.md) records optional
