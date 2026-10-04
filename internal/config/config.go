@@ -14,6 +14,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 )
 
 // TLSMode selects how the panel terminates transport security.
@@ -75,7 +76,7 @@ type LogConfig struct {
 // /etc/wg-guard + /var/lib/wg-guard; callers may replace DataDir).
 func Defaults() *Config {
 	return &Config{
-		DataDir:    "/var/lib/wg-guard",
+		DataDir:    layout.DataDir,
 		HTTPListen: "127.0.0.1:8080",
 		TLS:        TLSConfig{Mode: TLSModeDev},
 		Log:        LogConfig{Level: "info", Format: "text"},
@@ -85,10 +86,10 @@ func Defaults() *Config {
 // Complete derives dependent paths from DataDir when unset.
 func (c *Config) Complete() {
 	if c.DatabasePath == "" {
-		c.DatabasePath = filepath.Join(c.DataDir, "wg-guard.db")
+		c.DatabasePath = layout.DatabaseFile(c.DataDir)
 	}
 	if c.MasterKeyFile == "" {
-		c.MasterKeyFile = filepath.Join(c.DataDir, "master.key")
+		c.MasterKeyFile = layout.MasterKeyFile(c.DataDir)
 	}
 	if c.TLS.ACMEHTTPPort == 0 && c.TLS.Mode == TLSModeACME {
 		c.TLS.ACMEHTTPPort = defaultACMEHTTPPort

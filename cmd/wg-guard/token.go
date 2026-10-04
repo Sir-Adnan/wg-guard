@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
-	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
-	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestate"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
@@ -182,32 +180,9 @@ func openForToken(configPath string) (*database.DB, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	lease, err := (&backup.Service{Cfg: cfg}).OpenData(false)
+	state, err := nodestate.OpenDatabase(context.Background(), nodestate.Options{Config: cfg, ConfigPath: configPath, Version: version.String()})
 	if err != nil {
 		return nil, nil, err
 	}
-	owned := false
-	defer func() {
-		if !owned {
-			lease.Close()
-		}
-	}()
-	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o755); err != nil {
-		return nil, nil, domain.Wrap(err, domain.CodeConfigInvalid, "create data dir")
-	}
-	db, err := database.Open(cfg.DatabasePath, database.Options{})
-	if err != nil {
-		return nil, nil, domain.Wrap(err, domain.CodeConfigInvalid, "open database %s", cfg.DatabasePath)
-	}
-	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: configPath, Version: version.String()}
-	if err := migration.MigrateNode(context.Background(), lease); err != nil {
-		_ = db.Close()
-		return nil, nil, err
-	}
-	if err := lease.Share(); err != nil {
-		_ = db.Close()
-		return nil, nil, err
-	}
-	owned = true
-	return db, func() { _ = db.Close(); lease.Close() }, nil
+	return state.DB, func() { _ = state.Close() }, nil
 }

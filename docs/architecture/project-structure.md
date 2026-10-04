@@ -25,10 +25,16 @@ cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (f
                          parsing — no CLI framework)
 internal/
   config/                boot config (TOML + env overrides), validation, exposure modes
+  layout/                current host/node paths and closed managed replacement targets
+  nodestate/             shared DB/key admission, migration recovery, key/settings composition
+                         and database-only/shared/exclusive/startup session lifetime
+  runtimeapply/          bounded serialized desired/applied/pending runtime observations and
+                         shared request application (no new worker, queue or durable table)
   database/              SQLite open (WAL, busy_timeout, FK, txlock=immediate), migrations runner, tx helpers
   domain/                shared types: IDs (UUIDv7), statuses, disable reasons, machine error codes
   settings/              typed runtime settings registry (validators, categories, defaults)
   user/ device/ plan/    domain packages: model + service + repository
+                         device key/PSK generation is shared sealed-material provisioning
   iface/                 tunnel interface/profile service (ports, subnets, params);
                          package name `iface` — `interface` is a Go keyword
   admin/ auth/           owner/admin accounts, argon2id, sessions, permission registry
@@ -75,6 +81,8 @@ internal/
   terminal/              single-column English presentation, bounded/cancellable input and actual-FD
                          hidden secrets; no deployment or database business logic (Phase 8.1)
   install/               deployment layer: install plan + wizard, independent verified manager cache,
+                         extracted deployment_install/service_runtime concrete adapters; one
+                         coordinator retains host admission/lock/journal/recovery,
                          compose/systemd renderers,
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
                          bounded fixed-metadata operation journal and Docker/native log policy,

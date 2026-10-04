@@ -21,6 +21,11 @@ Restore and interrupted pair recovery require exclusive ownership; stopping the 
 alone is insufficient if another data command is still running. Startup completes any
 pending restore exclusively and converts to lifetime shared ownership while admission stays
 closed. Preview/archive staging remains possible while the server is running.
+The shared `internal/nodestate` session now owns this opening sequence for startup and all
+automatic data CLI callers. Database-only owner/token access never initializes a key;
+key-bearing and stopped-node exclusive access retain their existing admission semantics.
+Host stop/start and deployment installation are concrete adapters separated from the single
+install/update/restore coordinator; they do not create a nested lifecycle lock or new journal.
 Startup retains exclusive ownership until DB/key initialization finishes. A CLI opening
 a node whose master key does not yet exist also keeps exclusive ownership until key
 initialization finishes, preventing concurrent first-key creation. Database-only commands

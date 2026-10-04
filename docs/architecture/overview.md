@@ -70,8 +70,11 @@ minute. Each worker has one coalesced pending signal, no overlapping pass and a 
 deadline (4 min for delivery, 15 min for archives). Durable due rows remain the retry source;
 signals do not carry per-account tasks. The telemetry source runs
 one bounded `/proc` pass and one aggregate SQLite statement; API, metrics, and browser readers
-consume immutable ring copies and never sample the host. Runtime reconcile passes are serialized
-behind one mutex shared by accounting/enforcement and API/web mutations. The canonical pass owns
+consume immutable ring copies and never sample the host. Runtime reconcile passes use
+`internal/runtimeapply`'s single cancellation-aware gate shared by accounting/enforcement,
+runtime repair and API/web mutations. Process-local desired/applied revisions keep older success
+from marking newer canceled/queued changes applied; persisted DB state remains the restart/retry
+source. No durable queue/table is added. The canonical pass owns
 the complete network state—AWG links/peers, rendered firewall/NAT, supported manager coexistence
 and shaping—so a post-start interface cannot exist without its route policy. A failure makes the
 readiness endpoint unready until a complete pass succeeds; concurrent AWG operations on one
@@ -92,6 +95,10 @@ approved restore exclusively, then converts to shared lifetime ownership with ad
 closed. The separate host lifecycle lock still owns deployment orchestration, so installed
 CLI subprocesses do not inherit or reacquire it. See the exact protocol and older-binary
 boundary in [lifecycle recovery](../operations/lifecycle-recovery.md).
+`internal/nodestate` owns shared data opening and key/settings composition; database-only
+owner/token operations never create a key. View/CLI parsing and host admission stay outside
+the session. `internal/layout` owns current default/managed paths; concrete deployment adapters
+remain under the one host lifecycle coordinator.
 
 Lifecycle completion requires both `/healthz` liveness and `/readyz` data/network readiness.
 ACME sidecars expose readiness only to an actual loopback socket peer; forwarded headers do

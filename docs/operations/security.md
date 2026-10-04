@@ -16,6 +16,13 @@ access). Principles: least privilege, secure defaults, standard primitives only,
 
 ## Secrets inventory & storage
 
+Live data/key access is orchestrated by `internal/nodestate`, including startup pending restore,
+required pre-migration recovery, database-only versus key-bearing access and lifetime ownership.
+`internal/layout` defines the fixed host/node paths and closed managed-replacement targets.
+Host execution/state/artifacts remain outside the node's writable data mount. Device key/PSK
+provisioning is one shared sealed-material operation in `internal/device`; request parsing and
+principal checks remain in their web/REST adapters. The refactor adds no host privileges.
+
 | Secret | Storage |
 |---|---|
 | Admin passwords | Argon2id (OWASP parameter baseline), never persisted/logged as plaintext; an installer-generated password is displayed once on the interactive terminal after successful lifecycle/health completion |

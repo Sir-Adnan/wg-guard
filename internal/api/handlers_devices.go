@@ -1,13 +1,11 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/clientconf"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
-	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 )
 
 func (s *Server) handleDeviceListForUser(w http.ResponseWriter, r *http.Request) {
@@ -55,27 +53,7 @@ func (s *Server) handleDeviceCreate(w http.ResponseWriter, r *http.Request) {
 // generateKeys mints a device keypair and encrypts the private key with the
 // master key ring (plaintext keys never touch logs or responses).
 func (s *Server) generateKeys(r *http.Request, withPSK bool) (*device.KeyMaterial, error) {
-	kp, err := tunnel.GenerateKeyPair()
-	if err != nil {
-		return nil, err
-	}
-	privEnc, err := s.Ring.Encrypt([]byte(kp.Private))
-	if err != nil {
-		return nil, fmt.Errorf("encrypt private key: %w", err)
-	}
-	keys := &device.KeyMaterial{PublicKey: kp.Public, PrivateKeyEnc: privEnc}
-	if withPSK {
-		psk, err := tunnel.GeneratePresharedKey()
-		if err != nil {
-			return nil, err
-		}
-		pskEnc, err := s.Ring.Encrypt([]byte(psk))
-		if err != nil {
-			return nil, fmt.Errorf("encrypt preshared key: %w", err)
-		}
-		keys.PresharedEnc = pskEnc
-	}
-	return keys, nil
+	return device.GenerateKeys(s.Ring, withPSK)
 }
 
 func (s *Server) handleDeviceGet(w http.ResponseWriter, r *http.Request) {

@@ -7,11 +7,12 @@ the linked phase records; release blockers and audit findings live in
 
 **Current gate (2026-10-04):** Phases 0–14 are complete within their documented scopes.
 The [refactor program, Phases 15–20](refactor-program.md), is newly planned:
-Phase 15 engineering preparation is complete, with final delivery/publication gates pending;
+Phase 15 engineering preparation is complete and v0.1.9 is public;
 the [Phase 15 record](phase15.md) separates synthetic Linux evidence from host certification.
 The owner authorized preparation publication followed by full Phase 16 source work without
 another release. Owner-server update/export is a post-publication checkpoint before rebuild.
-Phases 16–20 remain planned until their execution gates. Integrated domain/certificate management and native retirement
+Phase 16 implementation is complete with its exact delivery CI pending; Phases 17–20 remain
+planned. Integrated domain/certificate management and native retirement
 are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
 
@@ -20,8 +21,24 @@ The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle
 state/artifacts, flags, renderers, logs, tests and current docs. Host CLI, kernel/
 DKMS, required systemd broker/renewal/retention and fake development remain.
 This is planned scope, not a claim that current main or v0.1.8 is Docker-only.
-[v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) is the latest stable
-release. Its exact `cf718a926f81202b7ed8060cac27bb5322dbba82` source passed
+The [Phase 16 record](phase16.md) describes the completed source refactor: shared node-data
+sessions, bounded runtime application with desired/applied observations, sealed device-key
+provisioning, centralized managed paths and separate deployment/diagnostic adapters. Full local
+Go tests, vet/build and ordinary/race Linux load checks passed; exact-source CI is pending.
+Account/API/renderer/archive/deployment contracts remain preserved, and no post-Phase-16 release
+is authorized. Ordinary/race synthetic 512-device load remains within 15 s enforcement budget
+and drains from 9 baseline goroutines to 3; these checks do not certify the owner's live host.
+[v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9) is the latest stable
+preparation release. Its exact `dd034fe5aa1d2f327998bc88a6229756449077c2` source passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37221761826) and
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37222439063), including
+both Linux race jobs, isolated encrypted-archive load gates, build/image identity, attestations
+and downloaded artifact verification. All five public assets were independently downloaded;
+four manifest checksums, binary/metadata/SBOM and annotated tag matched that SHA. Metadata
+SHA-256: `d77c0b8ee31e28d140da4f4ba45c2463bd0e9872ac9d362347203969cd0f7c88`.
+The owner's update/export checkpoint follows publication and still gates rebuilding the only
+host; actual host/kernel/client/resource acceptance remains separate.
+The earlier v0.1.8 exact `cf718a926f81202b7ed8060cac27bb5322dbba82` source passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
 [release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37158268158),
 including both Go race jobs, checksummed amd64 assets, image/binary identity, attestations and

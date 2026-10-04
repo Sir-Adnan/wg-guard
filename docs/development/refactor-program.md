@@ -31,8 +31,8 @@ directories. No current layout migration is implied by this plan.
 
 | Phase | Purpose | State | Required predecessor |
 |---|---|---|---|
-| 15 | Operational safety and migration preparation | Preparation implementation complete; final delivery/publication gate | Existing release contracts |
-| 16 | Application/runtime/host responsibility boundaries | Planned | 15 safety gates |
+| 15 | Operational safety and migration preparation | Engineering complete; v0.1.9 public | Existing release contracts |
+| 16 | Application/runtime/host responsibility boundaries | Implementation complete; exact delivery CI gate | 15 safety gates |
 | 17 | Verified Docker distribution and complete native removal | Planned; scope confirmed | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Planned | 16 host operation model; 17 deployment ownership |
 | 19 | Cohesive installer and operational panel UX | Planned | Implemented 15–18 services |
@@ -138,29 +138,34 @@ post-publication/migration checkpoints, never inferred from synthetic fixture re
 
 ## Phase 16 — Modular responsibilities and runtime consistency
 
-- [ ] Inventory concrete duplication in CLI, panel, API and lifecycle. Keep one
+- [x] Inventory concrete duplication in CLI, panel, API and lifecycle. Keep one
   application operation for each supported action and explicit operation state.
-- [ ] Separate request/view parsing, application orchestration, domain policy,
+- [x] Separate request/view parsing, application orchestration, domain policy,
   persistence, runtime adapters, host platform and lifecycle coordination.
   Do not force an interface/repository framework around every table.
-- [ ] Make desired/persisted/applied/failed states distinguishable. Preserve durable
+- [x] Make desired/persisted/applied/failed states distinguishable. Preserve durable
   peer removal, transaction boundaries and idempotent reconciliation; runtime
   failure after a committed account change must have a recoverable outcome.
-- [ ] Centralize validated host/container paths and ownership. Keep the host journal,
+- [x] Centralize validated host/container paths and ownership. Keep the host journal,
   executable and retained artifact set outside node-writable mounts.
-- [ ] Split `internal/install` and large CLI responsibilities by actual behavior,
+- [x] Split `internal/install` and large CLI responsibilities by actual behavior,
   retaining one coordinator/lock instead of competing installers for core/TLS/panel.
-- [ ] Identify shared host/data responsibilities before native removal. Keep
+- [x] Identify shared host/data responsibilities before native removal. Keep
   concrete Docker execution rather than introducing a deployment-plugin abstraction
   for a second backend which the product will no longer support.
-- [ ] Retain the typed WireGuard-family backend and canonical client renderer.
+- [x] Retain the typed WireGuard-family backend and canonical client renderer.
   Preserve device keys/IPs, principals/scopes, units and public API semantics.
-- [ ] Audit backup, leases, pending restores and concurrent commands across the
+- [x] Audit backup, leases, pending restores and concurrent commands across the
   refactored boundaries; keep fake-backend development independent of host changes.
 
 Exit: behavior-equivalence and persistence/concurrency/failure tests; coherent
 dependency direction; measured resource baseline. Update API/OpenAPI only if an
 actual public contract changes, never merely for internal package movement.
+
+Implementation/inventory and local Go/failure/ordinary+race Linux load evidence:
+[Phase 16 record](phase16.md). `nodestate`, `runtimeapply`, device credential
+provisioning and `layout` own shared rules; concrete host adapters retain one
+lifecycle coordinator and the current deployment contract. No post-Phase-16 release.
 
 ## Phase 17 — Docker-only distribution and native cleanup
 

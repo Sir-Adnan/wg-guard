@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
+	"github.com/Sir-Adnan/wg-guard/internal/runtimeapply"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
@@ -274,29 +274,9 @@ func (s *Server) audit(r *http.Request, action, target string, meta map[string]a
 // because the database is their retry source, while destructive mutations can
 // require runtime success before removing that source of truth.
 func (s *Server) reconcile(r *http.Request) error {
-	if s.Reconciler == nil {
-		return nil
+	log := s.Log
+	if log != nil {
+		log = log.With("request_id", RequestID(r.Context()))
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	rep, err := s.Reconciler.Run(ctx)
-	if err != nil && s.Log != nil {
-		s.Log.Warn("reconcile after mutation failed", "error", err, "request_id", RequestID(r.Context()))
-	}
-	if rep != nil {
-		for _, e := range rep.Errors {
-			if s.Log != nil {
-				s.Log.Warn("reconcile interface error", "interface", e.Interface,
-					"error", e.Err, "request_id", RequestID(r.Context()))
-			}
-		}
-	}
-	if err != nil {
-		return err
-	}
-	if rep != nil && len(rep.Errors) > 0 {
-		first := rep.Errors[0]
-		return fmt.Errorf("reconcile interface %s: %s", first.Interface, first.Err)
-	}
-	return nil
+	return runtimeapply.Attempt(r.Context(), s.Reconciler, log).Err
 }

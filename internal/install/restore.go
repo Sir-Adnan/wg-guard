@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 	"io"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -39,7 +39,7 @@ func Restore(ctx context.Context, h Host, o RestoreOptions) error {
 	if err != nil {
 		return err
 	}
-	if cfg.DataDir != DataDir || cfg.DatabasePath != filepath.Join(DataDir, "wg-guard.db") || cfg.MasterKeyFile != filepath.Join(DataDir, "master.key") {
+	if layout.CheckManagedData(ConfigPath, cfg.DataDir, cfg.DatabasePath, cfg.MasterKeyFile) != nil {
 		return terminalError("backup.cli.layout")
 	}
 	j, err := LoadJournal(h)

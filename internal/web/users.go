@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
+	"github.com/Sir-Adnan/wg-guard/internal/runtimeapply"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -1096,26 +1096,5 @@ func (s *Server) humanizeDomainError(r *http.Request, err error) string {
 // best-effort retry semantics by ignoring the return, while destructive
 // mutations can require success before removing database ownership.
 func (s *Server) runReconcile(r *http.Request) error {
-	if s.Reconciler == nil {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	rep, err := s.Reconciler.Run(ctx)
-	if err != nil && s.Log != nil {
-		s.Log.Warn("reconcile after mutation failed", "error", err)
-	}
-	if rep != nil && len(rep.Errors) > 0 && s.Log != nil {
-		for _, e := range rep.Errors {
-			s.Log.Warn("reconcile interface error", "interface", e.Interface, "error", e.Err)
-		}
-	}
-	if err != nil {
-		return err
-	}
-	if rep != nil && len(rep.Errors) > 0 {
-		first := rep.Errors[0]
-		return fmt.Errorf("reconcile interface %s: %s", first.Interface, first.Err)
-	}
-	return nil
+	return runtimeapply.Attempt(r.Context(), s.Reconciler, s.Log).Err
 }

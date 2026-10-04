@@ -13,7 +13,6 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
-	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
@@ -371,25 +370,5 @@ func (s *Server) loadDevice(w http.ResponseWriter, r *http.Request) (*device.Dev
 // generateKeys mints a fresh X25519 keypair with the private half sealed by
 // the master key ring (same path as the API; plaintext keys never persist).
 func (s *Server) generateKeys(r *http.Request, withPSK bool) (*device.KeyMaterial, error) {
-	kp, err := tunnel.GenerateKeyPair()
-	if err != nil {
-		return nil, err
-	}
-	privEnc, err := s.Ring.Encrypt([]byte(kp.Private))
-	if err != nil {
-		return nil, fmt.Errorf("encrypt private key: %w", err)
-	}
-	keys := &device.KeyMaterial{PublicKey: kp.Public, PrivateKeyEnc: privEnc}
-	if withPSK {
-		psk, err := tunnel.GeneratePresharedKey()
-		if err != nil {
-			return nil, err
-		}
-		pskEnc, err := s.Ring.Encrypt([]byte(psk))
-		if err != nil {
-			return nil, fmt.Errorf("encrypt preshared key: %w", err)
-		}
-		keys.PresharedEnc = pskEnc
-	}
-	return keys, nil
+	return device.GenerateKeys(s.Ring, withPSK)
 }

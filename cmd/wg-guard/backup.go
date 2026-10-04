@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestate"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
@@ -24,7 +24,7 @@ type cliEnv struct {
 	DB         *database.DB
 	Reg        *settings.Registry
 	Ring       *secrets.KeyRing
-	lease      *backup.DataLease
+	state      *nodestate.Session
 }
 
 // loadCLIEnv loads the boot config and opens the node state. It is the
@@ -38,50 +38,18 @@ func loadCLIEnvOwnership(configPath string, exclusive bool) (*cliEnv, error) {
 	if err != nil {
 		return nil, err
 	}
-	lease, err := (&backup.Service{Cfg: cfg}).OpenKeys(exclusive)
-	if err != nil {
-		return nil, err
-	}
-	owned := false
-	defer func() {
-		if !owned {
-			lease.Close()
-		}
-	}()
-	db, err := database.Open(cfg.DatabasePath, database.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
-	}
 	quiet := logsafe.WithComponent(
 		slog.New(logsafe.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
 		logsafe.ComponentBackup,
 	)
-	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: configPath, Version: version.String(), Log: quiet}
-	if err := migration.MigrateNode(context.Background(), lease); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
-	ring, err := secrets.LoadNodeKeyRing(context.Background(), db.DB, cfg.MasterKeyFile)
+	state, err := nodestate.OpenServices(context.Background(), nodestate.Options{Config: cfg, ConfigPath: configPath, Version: version.String(), Log: quiet}, exclusive)
 	if err != nil {
-		db.Close()
 		return nil, err
 	}
-	if !exclusive {
-		if err := lease.Share(); err != nil {
-			db.Close()
-			return nil, err
-		}
-	}
-	reg, err := settings.New(db, ring, settings.Defaults())
-	if err != nil {
-		db.Close()
-		return nil, err
-	}
-	owned = true
-	return &cliEnv{Cfg: cfg, ConfigPath: configPath, DB: db, Reg: reg, Ring: ring, lease: lease}, nil
+	return &cliEnv{Cfg: cfg, ConfigPath: configPath, DB: state.DB, Reg: state.Settings, Ring: state.Ring, state: state}, nil
 }
 
-func (e *cliEnv) Close() { e.DB.Close(); e.lease.Close() }
+func (e *cliEnv) Close() { _ = e.state.Close() }
 
 // newBackupService builds the archive engine over the CLI environment.
 func (e *cliEnv) newBackupService() *backup.Service {

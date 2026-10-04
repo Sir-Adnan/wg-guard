@@ -48,6 +48,8 @@ Implementation and test evidence must support any claimed behavior.
 [release readiness](development/release-readiness.md) · [roadmap](../ROADMAP.md).
 [Phase 15 preparation evidence](development/phase15.md) records measured crypto/slow-delivery
 isolation and the owner's release/update/export checkpoint separately from real-host acceptance.
+[Phase 16 responsibility boundaries](development/phase16.md) records the concrete duplication
+inventory, shared operation ownership, runtime consistency and retained deployment contracts.
 
 **Completed phase evidence:** [Phase 8](development/phase8.md) ·
 [8.1](development/phase8.1.md) · [8.2](development/phase8.2.md) ·

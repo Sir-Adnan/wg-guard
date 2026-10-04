@@ -8,14 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/boot"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
-	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
-	"github.com/Sir-Adnan/wg-guard/internal/secrets"
-	"github.com/Sir-Adnan/wg-guard/internal/settings"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestate"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
@@ -45,35 +42,16 @@ func runReconcile(args []string) error {
 	if err != nil {
 		return err
 	}
-	lease, err := (&backup.Service{Cfg: cfg}).OpenKeys(false)
-	if err != nil {
-		return err
-	}
-	defer lease.Close()
-	db, err := database.Open(cfg.DatabasePath, database.Options{})
-	if err != nil {
-		return fmt.Errorf("open database: %w", err)
-	}
-	defer db.Close()
 	quiet := logsafe.WithComponent(
 		slog.New(logsafe.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
 		logsafe.ComponentAWG,
 	)
-	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: configPath, Version: version.String(), Log: quiet}
-	if err := migration.MigrateNode(context.Background(), lease); err != nil {
-		return err
-	}
-	ring, err := secrets.LoadNodeKeyRing(context.Background(), db.DB, cfg.MasterKeyFile)
+	state, err := nodestate.OpenServices(context.Background(), nodestate.Options{Config: cfg, ConfigPath: configPath, Version: version.String(), Log: quiet}, false)
 	if err != nil {
 		return err
 	}
-	if err := lease.Share(); err != nil {
-		return err
-	}
-	reg, err := settings.New(db, ring, settings.Defaults())
-	if err != nil {
-		return err
-	}
+	defer state.Close()
+	db, ring, reg := state.DB, state.Ring, state.Settings
 
 	runner := subprocess.NewSystem()
 	backend := amneziawg.New(runner)

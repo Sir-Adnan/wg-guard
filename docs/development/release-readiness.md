@@ -40,6 +40,14 @@ The browser matrix/fallback evidence from unchanged implementation `1e60dc4` rem
 covers this version only, not later versions or an official registry publication. New real-host
 multi-pool forwarding and production database compaction remain unclaimed.
 
+The owner-authorized preparation v0.1.9 is public at
+`dd034fe5aa1d2f327998bc88a6229756449077c2`. Its [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37221761826)
+and [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37222439063) passed,
+including isolated encrypted-archive load, binary/image identity and downloaded assets.
+All five public files/four checksums, metadata/SBOM/binary and annotated tag were independently
+verified. Owner update/export follows publication and still gates rebuilding. Phase 16 has no
+further release authorization.
+
 ## Program status
 
 | Phase | State | Exit dependency |
@@ -54,8 +62,8 @@ multi-pool forwarding and production database compaction remain unclaimed.
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
-| 15 — Safety/migration preparation | engineering complete; preparation publication gate | Exact source/artifact publication, then owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
-| 16 — Modular boundaries | planned | Behavior-preserving domain/runtime/host separation and path ownership |
+| 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
+| 16 — Modular boundaries | implemented; final CI gate | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load checks passed |
 | 17 — Docker-only/native cleanup | planned; removal confirmed | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
 | 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |

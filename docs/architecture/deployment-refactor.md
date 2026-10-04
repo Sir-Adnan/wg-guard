@@ -55,6 +55,12 @@ and prove directory ownership before changing that contract. Native retirement
 is gated on verified image distribution, recovery and host acceptance; it does
 not make a systemd deployment inherently less correct or less secure.
 
+Phase 16 now centralizes the current constants/managed-data admission in `internal/layout`
+and live DB/key/migration/initialization in `internal/nodestate`. The existing host state,
+artifact directory and lifecycle journal are already under `/etc/wg-guard`, outside the writable
+data mount; the earlier proposed alternative host-state directory is not required or moved
+in this source refactor. [Phase 16 evidence](../development/phase16.md) records the boundary.
+
 Remove native branches, renderers, state/artifact fields, flags, error hints and
 current native-only acceptance cells together. Preserve one operation coordinator
 and the concrete Docker path; do not retain a deployment-plugin framework solely

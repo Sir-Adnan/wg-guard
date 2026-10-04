@@ -37,6 +37,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
+	"github.com/Sir-Adnan/wg-guard/internal/runtimeapply"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
@@ -67,7 +68,7 @@ func TestRuntimeRepairRestoresReadinessAfterPolicyLoss(t *testing.T) {
 	inner := &reconcileSequence{err: errors.New("policy restore failed")}
 	n := &Node{runtimePolicyHealthy: func(context.Context) (bool, error) { return probeHealthy, nil }}
 	n.networkReady.Store(true)
-	n.reconciler = &serializedReconciler{inner: inner, healthy: &n.networkReady}
+	n.reconciler = runtimeapply.New(inner, n.networkReady.Store)
 	if err := n.jobRuntimeRepair(context.Background()); err == nil || n.networkReady.Load() {
 		t.Fatal("failed policy repair kept node ready")
 	}
@@ -84,7 +85,7 @@ func TestRuntimeRepairRechecksAfterUnsupportedPolicyClears(t *testing.T) {
 	inner := &reconcileSequence{}
 	n := &Node{runtimePolicyHealthy: func(context.Context) (bool, error) { return true, nil }}
 	n.networkReady.Store(false)
-	n.reconciler = &serializedReconciler{inner: inner, healthy: &n.networkReady}
+	n.reconciler = runtimeapply.New(inner, n.networkReady.Store)
 	if err := n.jobRuntimeRepair(t.Context()); err != nil || !n.networkReady.Load() || inner.calls != 1 {
 		t.Fatalf("cleared policy did not restore readiness: calls=%d ready=%v err=%v", inner.calls, n.networkReady.Load(), err)
 	}
@@ -285,10 +286,7 @@ func TestRuntimeMutationReconcilesTunnelAndFirewallTogether(t *testing.T) {
 func TestSerializedReconcilerTracksRuntimeNetworkHealth(t *testing.T) {
 	var healthy atomic.Bool
 	healthy.Store(true)
-	r := &serializedReconciler{
-		inner:   &reconcileSequence{err: errors.New("forwarding apply failed")},
-		healthy: &healthy,
-	}
+	r := runtimeapply.New(&reconcileSequence{err: errors.New("forwarding apply failed")}, healthy.Store)
 	if _, err := r.Run(context.Background()); err == nil {
 		t.Fatal("injected runtime failure accepted")
 	}

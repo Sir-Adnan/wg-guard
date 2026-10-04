@@ -15,6 +15,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 )
 
 // Mode selects the deployment shape (ADR-0006): Docker is the default, the
@@ -31,15 +32,15 @@ func (m Mode) Valid() bool { return m == ModeDocker || m == ModeNative }
 // Fixed layout (docs/operations/deployment.md): identical in both modes so
 // backups, restore and mode switches are layout-independent.
 const (
-	EtcDir     = "/etc/wg-guard"
-	DataDir    = "/var/lib/wg-guard"
-	ConfigPath = EtcDir + "/wg-guard.toml"
-	StatePath  = EtcDir + "/install-state.json"
-	ComposePth = EtcDir + "/compose.yaml"
-	UnitPath   = "/etc/systemd/system/wg-guard.service"
-	BinPath    = "/usr/local/bin/wg-guard"
+	EtcDir     = layout.ConfigDir
+	DataDir    = layout.DataDir
+	ConfigPath = layout.ConfigFile
+	StatePath  = layout.InstallState
+	ComposePth = layout.ComposeFile
+	UnitPath   = layout.HostUnit
+	BinPath    = layout.HostBinary
 	// ManagerBuildPath records the verified build cached before setup starts.
-	ManagerCacheDir   = "/var/cache/wg-guard"
+	ManagerCacheDir   = layout.ManagerCache
 	ManagerBuildPath  = ManagerCacheDir + "/manager-build.json"
 	ManagerBinaryPath = ManagerCacheDir + "/manager"
 	Container         = "wg-guard"

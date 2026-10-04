@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -44,8 +43,10 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/network"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestate"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
+	"github.com/Sir-Adnan/wg-guard/internal/runtimeapply"
 	"github.com/Sir-Adnan/wg-guard/internal/scheduler"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
@@ -150,27 +151,6 @@ func newNodeLoggers(base *slog.Logger) nodeLoggers {
 	}
 }
 
-// serializedReconciler serializes reconcile passes: the accounting cycle,
-// the expiry pass and API-triggered reconcile share one backend, and
-// concurrent AWG subprocess operations on the same interface are exactly the
-// race the verify-after-apply gate exists to catch. It implements
-// accounting.Reconciler so both paths hold one engine.
-type serializedReconciler struct {
-	mu      sync.Mutex
-	inner   accounting.Reconciler
-	healthy *atomic.Bool
-}
-
-func (r *serializedReconciler) Run(ctx context.Context) (*reconcile.Report, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	rep, err := r.inner.Run(ctx)
-	if r.healthy != nil {
-		r.healthy.Store(err == nil && (rep == nil || len(rep.Errors) == 0))
-	}
-	return rep, err
-}
-
 // Start brings up a node and begins serving. It returns once the listener is
 // bound and background jobs are scheduled; the caller blocks on its own
 // signal context and then calls Shutdown. On error, everything started so
@@ -197,25 +177,21 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	// A staged restore (panel wizard) is consumed BEFORE the database is
 	// opened — never against a live WAL handle. Any restore failure aborts boot.
 	n := &Node{cfg: cfg, log: log, logs: logs}
-	n.backup = &backup.Service{
-		Cfg: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: logs.backup,
-	}
-	pendingRestoreArchive, lease, err := n.backup.PrepareOpen()
+	state, err := nodestate.OpenRuntime(ctx, nodestate.Options{Config: cfg, ConfigPath: o.ConfigPath, Version: version.Version, Log: logs.backup})
 	if err != nil {
-		return nil, fmt.Errorf("serve: restore must be resolved before startup: %w", err)
+		return nil, fmt.Errorf("serve: open node state: %w", err)
 	}
+	n.backup = state.Backup
+	n.ring, n.reg = state.Ring, state.Settings
+	pendingRestoreArchive, lease, db := state.RestoredArchive, state.Lease, state.DB
 	n.dataLease = lease
 	owned := false
 	defer func() {
 		if !owned {
-			lease.Close()
+			_ = state.Close()
 		}
 	}()
 
-	db, err := database.Open(cfg.DatabasePath, database.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("serve: open database: %w", err)
-	}
 	n.db = db
 	// Any failure from here on tears the node back down.
 	fail := func(err error) (*Node, error) {
@@ -226,19 +202,6 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		return nil, err
 	}
 
-	n.backup.DB = db
-	if err := n.backup.MigrateNode(ctx, lease); err != nil {
-		return fail(fmt.Errorf("serve: migrate: %w", err))
-	}
-	if n.ring, err = secrets.LoadNodeKeyRing(ctx, db.DB, cfg.MasterKeyFile); err != nil {
-		return fail(fmt.Errorf("serve: master key: %w", err))
-	}
-	if err := lease.Share(); err != nil {
-		return fail(err)
-	}
-	if n.reg, err = settings.New(db, n.ring, settings.Defaults()); err != nil {
-		return fail(fmt.Errorf("serve: settings: %w", err))
-	}
 	if err := n.ensureNodeID(ctx); err != nil {
 		return fail(err)
 	}
@@ -311,7 +274,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		inner = runtime
 		n.runtimePolicyHealthy = runtime.NetworkPolicyHealthy
 	}
-	rec := &serializedReconciler{inner: inner, healthy: &n.networkReady}
+	rec := runtimeapply.New(inner, n.networkReady.Store)
 	n.reconciler = rec
 
 	// Domain services. The webhook recorder is injected into user, device

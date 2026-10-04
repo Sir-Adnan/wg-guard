@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 	"io/fs"
 	"path"
 	"strings"
 )
 
-const JournalPath = EtcDir + "/lifecycle.json"
-const ArtifactDir = EtcDir + "/lifecycle"
+const JournalPath = layout.LifecycleJournal
+const ArtifactDir = layout.LifecycleArtifacts
 
 type BackupIdentity struct {
 	Path            string `json:"path"`

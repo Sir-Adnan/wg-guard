@@ -13,10 +13,10 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
-	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestate"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
@@ -71,35 +71,15 @@ func loadOwnerService(path string) (*admin.Service, func(), error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, err
 	}
-	lease, err := (&backup.Service{Cfg: cfg}).OpenData(false)
-	if err != nil {
-		return nil, nil, err
-	}
-	owned := false
-	defer func() {
-		if !owned {
-			lease.Close()
-		}
-	}()
-	db, err := database.Open(cfg.DatabasePath, database.Options{})
-	if err != nil {
-		return nil, nil, err
-	}
 	quiet := logsafe.WithComponent(
 		slog.New(logsafe.New(slog.NewTextHandler(io.Discard, nil))),
 		logsafe.ComponentServe,
 	)
-	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: path, Version: version.String(), Log: quiet}
-	if err := migration.MigrateNode(context.Background(), lease); err != nil {
-		db.Close()
+	state, err := nodestate.OpenDatabase(context.Background(), nodestate.Options{Config: cfg, ConfigPath: path, Version: version.String(), Log: quiet})
+	if err != nil {
 		return nil, nil, err
 	}
-	if err := lease.Share(); err != nil {
-		db.Close()
-		return nil, nil, err
-	}
-	owned = true
-	return admin.NewService(db, nil), func() { db.Close(); lease.Close() }, nil
+	return admin.NewService(state.DB, nil), func() { _ = state.Close() }, nil
 }
 func bootstrapOwnerInput(ctx context.Context, svc *admin.Service, in io.Reader, out io.Writer) error {
 	fail := func() error { return fmt.Errorf("%s", i18n.T(i18n.En, "owner.failed")) }
