@@ -73,7 +73,7 @@ before claiming the preparation/migration workflow complete:
 | RF-15-02 | Lifecycle health probe used liveness/challenge response, which cannot prove network/data readiness | Source now requires bounded local readiness and separate TLS proof; local responding/unready, malformed/redirect and ACME fallback tests pass. New real-host acceptance remains open |
 | RF-15-03 | Scheduler directly ran slow backup/delivery passes | Source now uses two fixed coalescing workers and cross-process archive/scheduled-pass claims; local stalled-job, cancellation, edit/contention and shutdown tests pass. A two-account fake-backend fixture also proves quota/expiry transitions and peer removal within one 15 s cadence (1 ms locally). Actual production accounting/expiry lag and peak crypto costs remain unmeasured |
 | RF-15-04 | Master-key rotation omitted customer links/webhooks and could replace the required predecessor during an interrupted retry | Source now shares one field inventory, rotates bounded pages, reuses a retained dual-key window and verifies/checkpoints current-key values before dropping the predecessor. Local all-field, 129-device, mixed-key retry and portable-archive tests plus exact source CI pass; new real-host acceptance remains separate |
-| RF-15-05 | Correct checksums/decryption did not prove that stored keys, addresses, profiles or access/entitlement data were usable after restore | Shared immutable/version-aware domain checks now run during creation, stage, standalone verification and pre-replacement apply; local readable-but-invalid, legacy/current and old-approved-preview regressions pass. Final source delivery/CI and target host acceptance remain separate |
+| RF-15-05 | Correct checksums/decryption did not prove that stored keys, addresses, profiles or access/entitlement data were usable after restore | Shared immutable/version-aware domain checks now run during creation, stage, standalone verification and pre-replacement apply; local readable-but-invalid, legacy/current and old-approved-preview regressions plus exact source CI pass. Target host acceptance remains separate |
 | RF-18-01 | Subscription URL setting has no independent certificate/enrollment/host-role lifecycle | Implement bounded approved domains, SNI, manual/automatic host operations, renewal/replacement and public-route isolation |
 | RF-17-01 | Native branches and artifacts multiply deployment execution/state/acceptance paths | Complete the [native cleanup inventory](../architecture/docker-only-cleanup.md), preserve shared host/data behavior and prove one Docker lifecycle |
 
@@ -88,6 +88,11 @@ local full Go tests/vet/build and
 [exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37202081662), including
 both Linux race jobs, bootstrap/synthetic fixtures and vulnerability scan. These results do not
 close the restored-domain, actual host resource/lag or reviewed owner-backup gates.
+The stored-domain subset at `bb60bfd06696fcb3355debc76a0982bd39b22a1f` passed local full Go
+tests/vet/build and [exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37207442547),
+including both Linux race jobs. Actual host resource/lag and the reviewed owner-backup gates
+remain open; the target core/TLS/network/client requirements are not certified by offline data
+validation.
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.

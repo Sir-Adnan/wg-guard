@@ -114,6 +114,11 @@ at `7c9d1908dedfb04dec55239b3a5db44d67f0a558` passed local full Go tests/vet/bui
 [exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37202081662), including both
 Linux race jobs. Local unchanged-package evidence used applicable Go cache. No new real-host,
 browser, public release or registry publication is inferred from these gates.
+Stored-domain admission at `bb60bfd06696fcb3355debc76a0982bd39b22a1f` passed local full Go
+tests, vet/build and [exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37207442547),
+including both Linux race jobs. Original/current layouts, readable invalid data, old approved
+previews and supported backend inventory have regression evidence; real-host requirements
+and the owner's verified off-host copy remain open.
 
 Exit: failure-injection/race coverage for the changed boundaries; actual offline
 restore with preserved identity/data; measured slow-job isolation; a reviewed

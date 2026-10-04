@@ -147,7 +147,10 @@ Expired/disabled/legacy-deleted and legitimate over-limit records plus unknown h
 settings remain portable. Fixed fa/en errors contain no raw rows or secret values.
 Focused corruption, old-preview and legacy/current-schema checks plus final local full Go tests,
 vet/build and format/diff inspection passed; unchanged packages reused applicable Go cache.
-Exact-source CI remains pending. This closes the documented stored-domain subset, not target
+Exact source `bb60bfd06696fcb3355debc76a0982bd39b22a1f` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37207442547), including both
+Linux race jobs, build, bootstrap/synthetic fixtures and vulnerability scan.
+This closes the documented stored-domain subset, not target
 core/module/daemon provenance or real-host connectivity. Actual host lag/resource measurement
 and a reviewed off-host owner backup still gate completion of Phase 15.
 
