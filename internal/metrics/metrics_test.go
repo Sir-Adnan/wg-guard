@@ -20,12 +20,17 @@ func TestAccountingStatusTracksRecentFailureAndRecovery(t *testing.T) {
 	if failed, available := c.AccountingStatus(t0.Add(time.Minute), 5*time.Minute); !failed || !available {
 		t.Fatalf("recent failure = failed %v available %v", failed, available)
 	}
-	if failed, available := c.AccountingStatus(t0.Add(10*time.Minute), 5*time.Minute); failed || !available {
+	if failed, available := c.AccountingStatus(t0.Add(10*time.Minute), 5*time.Minute); failed || available {
 		t.Fatalf("expired failure = failed %v available %v", failed, available)
 	}
 	c.SetLastCycle(time.Second, t0.Add(11*time.Minute), 0)
 	if failed, available := c.AccountingStatus(t0.Add(11*time.Minute), 5*time.Minute); failed || !available {
 		t.Fatalf("recovered status = failed %v available %v", failed, available)
+	}
+	for _, now := range []time.Time{t0.Add(10 * time.Minute), t0.Add(20 * time.Minute)} {
+		if failed, available := c.AccountingStatus(now, 5*time.Minute); failed || available {
+			t.Fatal("future/stale success was interpreted as fresh accounting")
+		}
 	}
 }
 

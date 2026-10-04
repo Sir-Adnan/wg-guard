@@ -31,7 +31,7 @@ directories. No current layout migration is implied by this plan.
 
 | Phase | Purpose | State | Required predecessor |
 |---|---|---|---|
-| 15 | Operational safety and migration preparation | Active; preparation partly implemented | Existing release contracts |
+| 15 | Operational safety and migration preparation | Preparation implementation complete; final delivery/publication gate | Existing release contracts |
 | 16 | Application/runtime/host responsibility boundaries | Planned | 15 safety gates |
 | 17 | Verified Docker distribution and complete native removal | Planned; scope confirmed | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Planned | 16 host operation model; 17 deployment ownership |
@@ -79,9 +79,14 @@ No dates, performance promises, release numbers or completion percentages are in
   deliberately stalled, with an additional-lag budget of one configured accounting
   cadence. The two-account fake-backend Windows fixture completed in 1 ms against
   15 s; the test checks state and removed peers, not merely dispatch.
-- [ ] Measure production enforcement lag during actual backup crypto/delivery; define
+- [x] Measure production-code enforcement lag during actual backup crypto/delivery; define
   and test a budget relative to configured accounting cadence. Unknown/stale metering
   is reported, not converted to zero or a false enforcement-success claim.
+  Linux integration uses the real node/scheduler, factor-18 encrypted archive, local
+  delayed webhook/Telegram receivers and 512 fake-backend devices at GOMAXPROCS=1.
+  Quota enforcement and expiry stay within the 15 s cadence; peak RSS includes KDF
+  memory. Stale/future accounting observations are unavailable rather than healthy.
+  Actual VPS/kernel/client lag and peak-resource certification remain Phase 20 gates.
 - [x] Consolidate encrypted-storage definitions for startup, archive inspection and
   bounded node rotation, with secret-settings parity. Rotation now covers customer
   links/webhooks and safely completes an interrupted window without replacing its
@@ -104,7 +109,11 @@ No dates, performance promises, release numbers or completion percentages are in
   age export encryption, the independent password-recovery requirement, streaming/
   admission limits, transient KDF memory and remaining real-host resource gates.
 - [x] Produce an owner-usable backup/export/verify/recovery drill linked above.
-- [ ] Download and independently verify the owner's off-host copy before any rebuild.
+- [ ] Owner checkpoint after the preparation release: download and independently verify
+  the off-host copy before any rebuild. This is not a pre-publication or Phase 16
+  source-refactor dependency: on 2026-10-04 the owner explicitly requested release
+  first so the installed server can be updated and backed up, then full Phase 16
+  implementation without another release. The rebuild remains separately gated.
 
 Implementation evidence: migration/readiness/worker safety at
 `39bfb0a4a5f27e4fc80bb27529cccd30d91cdaec` passed
@@ -120,9 +129,12 @@ including both Linux race jobs. Original/current layouts, readable invalid data,
 previews and supported backend inventory have regression evidence; real-host requirements
 and the owner's verified off-host copy remain open.
 
-Exit: failure-injection/race coverage for the changed boundaries; actual offline
-restore with preserved identity/data; measured slow-job isolation; a reviewed
-owner backup. Any preparation release still needs approval and its artifact gate.
+Preparation exit: failure-injection/race coverage for changed boundaries; actual offline
+fixture restore with preserved identity/data; measured real crypto/slow-delivery isolation;
+owner-ready export/verify drill and exact-source/artifact publication gates. The owner
+authorized the next preparation release and Phase 16 in sequence on 2026-10-04.
+Owner-server backup and actual VPS resource/kernel/client acceptance remain explicit
+post-publication/migration checkpoints, never inferred from synthetic fixture results.
 
 ## Phase 16 — Modular responsibilities and runtime consistency
 

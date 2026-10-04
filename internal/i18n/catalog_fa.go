@@ -796,6 +796,7 @@ var catalogFA = map[string]string{
 	"dash.host_network":                   "شبکه میزبان",
 	"dash.issue.source_unavailable":       "منبع تله‌متری در دسترس نیست",
 	"dash.issue.host_metrics_unavailable": "آمار میزبان در دسترس نیست",
+	"dash.issue.accounting_unavailable":   "حسابداری در دسترس نیست یا به‌روز نیست",
 	"dash.issue.host_network_unavailable": "شمارنده‌های مسیر پیش‌فرض در دسترس نیست",
 	"dash.issue.vpn_metrics_unavailable":  "شمارنده‌های VPN در دسترس نیست",
 	"dash.issue.awg_interface_missing":    "یک رابط فعال VPN پیدا نشد",

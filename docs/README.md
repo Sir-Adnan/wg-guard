@@ -46,6 +46,8 @@ Implementation and test evidence must support any claimed behavior.
 **Development and current claims:** [workflow](development/workflow.md) ·
 [testing](development/testing.md) · [status](development/status.md) ·
 [release readiness](development/release-readiness.md) · [roadmap](../ROADMAP.md).
+[Phase 15 preparation evidence](development/phase15.md) records measured crypto/slow-delivery
+isolation and the owner's release/update/export checkpoint separately from real-host acceptance.
 
 **Completed phase evidence:** [Phase 8](development/phase8.md) ·
 [8.1](development/phase8.1.md) · [8.2](development/phase8.2.md) ·

@@ -104,6 +104,11 @@ The owner explicitly requested v0.1.8 on 2026-10-04. Exact released source
 [manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37158268158).
 All public assets were independently downloaded and verified, and v0.1.8 is Latest stable.
 This authorization covers v0.1.8 only; it does not authorize a later version or registry publication.
+On 2026-10-04 the owner explicitly authorized the next Phase 15 preparation release, v0.1.9,
+after its source/artifact gates, then full Phase 16 on main without another release. This
+authorizes that preparation publication only; no live-host rebuild or registry publication,
+and no post-Phase-16 release, is included. The owner takes/verifies the off-host copy after
+updating to the preparation release and before any rebuild.
 For local immutable candidate
 artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
 

@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+## [v0.1.9] — 2026-10-04
+
+- Add independent `backup verify` and shared full DB/key, reference and stored-domain validation
+  for creation, previews and pre-replacement recovery, including older approved previews.
+- Stop automatic existing-node migrations when history inspection or a required original-schema
+  recovery archive fails; share the gate across startup and host data commands.
+- Require runtime readiness independently of liveness and certificate proof during lifecycle
+  transitions, with loopback-only ACME readiness and bounded retained-artifact fallback.
+- Isolate archive/webhook work in two fixed coalescing workers, serialize archive/scheduled
+  claims across processes and preserve due rows and data ownership on cancellation or failed drain.
+- Make master-key rotation cover every encrypted field, preserve mixed-key recovery windows,
+  verify/checkpoint all current-key values before dropping the predecessor and remove duplicated
+  rotation implementations.
+- Treat stale/future accounting observations as unavailable, with cadence-aware freshness.
+- Document the owner's encrypted export, independent verification and fresh-host recovery drill.
+
+Local source/failure tests and Linux integration cover real factor-18 archive crypto and delayed
+local delivery on a 512-device fake-backend node, including enforced quota/expiry and shutdown.
+Source CI and the publication workflow separately gate race tests, binary/image identity,
+checksums, attestations and downloaded assets. New real-host resource/kernel/client acceptance
+is not inferred from the synthetic fixture. Account REST payloads and archive schema 1 remain
+unchanged; telemetry adds the documented `accounting_unavailable` issue code.
+
+Upgrade note: use this preparation release to update the existing server, take and download an
+encrypted archive, retain its password off-host and run `backup verify` before any rebuild.
+Missing/mismatched keys or invalid stored data now fail closed; repair the original node instead
+of replacing its master key. This release retains the existing installation layout and deployment
+support; the Docker-only/native-removal refactor remains a later gated change.
+
 ## [v0.1.8] — 2026-10-04
 
 - Add independent Latin/Persian number presentation, Latin by default, with owner defaults,

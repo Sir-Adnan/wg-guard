@@ -185,7 +185,7 @@ func TestDashboardLiveUsesSharedTelemetryWithoutSampling(t *testing.T) {
 			VPNNetwork:  telemetry.Counter{Identity: "private-awg", RXBytes: uint64(n * 3_000), TXBytes: uint64(n * 4_000), Available: true},
 			OnlineUsers: 2, ActivePeers: 3, ActivityAvailable: true,
 			EnabledInterfaces: 1, ObservedInterfaces: 1, InterfacesAvailable: true,
-			Ready: true, ReadinessAvailable: true,
+			Ready: true, ReadinessAvailable: true, AccountingAvailable: true,
 		}, nil
 	}), telemetry.DefaultCadence)
 	base := time.Now().UTC().Add(-telemetry.DefaultCadence)

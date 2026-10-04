@@ -429,6 +429,11 @@ are explicit in field names: bytes, bytes per second, percentages, seconds, and 
 never contains interface names, endpoints, database/subprocess errors, or raw configuration. Live
 history is intentionally lost on restart; accounting rollups remain the durable traffic history.
 
+Active-interface health includes `accounting_unavailable` when no fresh accounting observation
+exists. Stale/future observations are not interpreted as a successful enforcement pass. The
+freshness window is at least five minutes and at least twice the configured accounting cadence.
+A node without enabled interfaces does not claim a missing tunnel-accounting requirement.
+
 ## AmneziaWG interface profile contract
 
 The interface API uses explicit request and response DTOs; repository structs never reach the

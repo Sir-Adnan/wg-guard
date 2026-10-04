@@ -796,6 +796,7 @@ var catalogEN = map[string]string{
 	"dash.host_network":                   "Host network",
 	"dash.issue.source_unavailable":       "Telemetry source unavailable",
 	"dash.issue.host_metrics_unavailable": "Host metrics unavailable",
+	"dash.issue.accounting_unavailable":   "Accounting unavailable or stale",
 	"dash.issue.host_network_unavailable": "Default-route counters unavailable",
 	"dash.issue.vpn_metrics_unavailable":  "VPN counters unavailable",
 	"dash.issue.awg_interface_missing":    "An enabled VPN interface is missing",

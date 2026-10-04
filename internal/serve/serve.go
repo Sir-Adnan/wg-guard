@@ -367,7 +367,11 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 			},
 			ready: n.ready,
 			accounting: func(now time.Time) (bool, bool) {
-				return n.metrics.AccountingStatus(now, recentAccountingWindow)
+				window := recentAccountingWindow
+				if configured := 2 * n.accountingInterval(ctx); configured > window {
+					window = configured
+				}
+				return n.metrics.AccountingStatus(now, window)
 			},
 		}
 	}

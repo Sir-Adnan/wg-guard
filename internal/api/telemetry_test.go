@@ -35,7 +35,7 @@ func apiTelemetrySampler(t *testing.T, count int) *telemetry.Sampler {
 				Identity: "private-awg-name", RXBytes: uint64(n * 3_000), TXBytes: uint64(n * 4_000), Available: true,
 			},
 			OnlineUsers: 2, ActivePeers: 3, ActivityAvailable: true,
-			Ready: true, ReadinessAvailable: true,
+			Ready: true, ReadinessAvailable: true, AccountingAvailable: true,
 		}
 		if n == count {
 			raw.CPUPercent = nil

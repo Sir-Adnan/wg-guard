@@ -133,6 +133,20 @@ removal for two accounts while both worker operations wait. Enforcement complete
 against a 15 s cadence budget in the recorded Windows fixture run; this small synthetic result
 is not a production latency promise or an actual archive-KDF/remote-delivery measurement.
 
+The Phase 15 Linux integration fixture now also runs the actual factor-18 archive and local
+delayed webhook/Telegram receivers with 512 fake-backend devices, GOMAXPROCS=1 and the 15 s
+accounting cadence. Mutable metering/expiry and peer removals continue during crypto and a
+full cadence of delayed upload, and the completed encrypted archive is independently verified.
+RSS is sampled from `/proc` (including transient KDF cost); shutdown/drain is checked. This
+provides measured production-code/control-plane evidence, not real-kernel/client or VPS
+certification. The reproducible check is:
+
+```bash
+GOMAXPROCS=1 go test -race -tags integration ./internal/serve -run TestEncryptedBackupLoadPreservesEnforcementCadence -count=1 -v
+```
+
+The fixture uses temporary data/local receivers only, no real credentials or installed state.
+
 ## Delivery sinks
 
 | Sink | Details |

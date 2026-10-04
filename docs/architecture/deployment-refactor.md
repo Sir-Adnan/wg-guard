@@ -144,9 +144,11 @@ leases or explicitly document weaker semantics; unavailable statistics are not z
 
 ## Delivery sequence
 
-1. Close Phase 15 backup ordering, readiness and slow-job isolation before declaring
-   migration preparation complete. A preparation release needs its own approval;
-   verify and retain the owner's backup off-host before rebuilding.
+1. Close Phase 15 backup ordering, readiness and measured production-code slow-job isolation
+   before declaring engineering preparation complete. The owner authorized the preparation
+   release on 2026-10-04, then Phase 16 without another release. Publication precedes the
+   owner's update/export checkpoint; retain its verified off-host copy before rebuilding.
+   Synthetic Linux load evidence is distinct from the actual VPS Phase 20 measurements.
 2. Refactor shared application/runtime/host operations in Phase 16 while preserving
    public APIs, archive import and actual behavior. Test failure and recovery boundaries.
 3. Deliver verified distribution and gated Docker-only production in Phase 17,

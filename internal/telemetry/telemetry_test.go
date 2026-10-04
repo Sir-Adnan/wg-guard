@@ -184,6 +184,23 @@ func TestSamplerHealthStatesAndStaleness(t *testing.T) {
 	}
 }
 
+func TestMissingAccountingCannotImplyHealthyEnforcement(t *testing.T) {
+	t0 := time.Unix(1_700_000_000, 0)
+	raw := completeRaw(t0)
+	raw.AccountingAvailable = false
+	s := New(sequenceSource(raw), 10*time.Second)
+	point := sampleOK(t, s, t0)
+	if point.Health != HealthDegraded || !point.Issues.Has(IssueAccountingUnavailable) {
+		t.Fatal("missing accounting appeared healthy")
+	}
+	raw.EnabledInterfaces, raw.ObservedInterfaces = 0, 0
+	s = New(sequenceSource(raw), 10*time.Second)
+	point = sampleOK(t, s, t0)
+	if point.Issues.Has(IssueAccountingUnavailable) {
+		t.Fatal("empty private node claimed a missing tunnel accounting requirement")
+	}
+}
+
 func TestSamplerSourceFailureIsUnavailable(t *testing.T) {
 	t0 := time.Unix(1_700_000_000, 0)
 	s := New(SourceFunc(func(context.Context, time.Time) (RawSample, error) {

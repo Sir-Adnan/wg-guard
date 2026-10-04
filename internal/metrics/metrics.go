@@ -68,15 +68,16 @@ func (c *Collector) SetAccountingError(at time.Time) {
 	c.accountingAt = at
 }
 
-// AccountingStatus reports whether the most recently observed accounting
-// state is a failure inside the bounded recent window.
+// AccountingStatus reports only a fresh observed accounting state. Old successes
+// or failures and future timestamps are unavailable, never an implied recovery.
 func (c *Collector) AccountingStatus(now time.Time, recent time.Duration) (failed, available bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.accountingSeen {
+	age := now.Sub(c.accountingAt)
+	if !c.accountingSeen || recent <= 0 || age < 0 || age > recent {
 		return false, false
 	}
-	return c.accountingFailed && recent > 0 && now.Sub(c.accountingAt) <= recent, true
+	return c.accountingFailed, true
 }
 
 // SetTelemetry connects the shared sampler to the optional Prometheus

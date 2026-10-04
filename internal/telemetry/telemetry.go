@@ -48,6 +48,7 @@ const (
 	IssueReadinessFailed
 	IssueAccountingError
 	IssueSampleStale
+	IssueAccountingUnavailable
 )
 
 // Has reports whether an issue is present.
@@ -67,6 +68,7 @@ func (i Issues) Codes() []string {
 		{IssueReadinessFailed, "readiness_failed"},
 		{IssueAccountingError, "accounting_recent_error"},
 		{IssueSampleStale, "sample_stale"},
+		{IssueAccountingUnavailable, "accounting_unavailable"},
 	}
 	result := make([]string, 0, len(known))
 	for _, item := range known {
@@ -265,6 +267,9 @@ func healthIssues(raw RawSample) Issues {
 	}
 	if raw.AccountingAvailable && raw.RecentAccountingError {
 		issues |= IssueAccountingError
+	}
+	if raw.InterfacesAvailable && raw.EnabledInterfaces > 0 && !raw.AccountingAvailable {
+		issues |= IssueAccountingUnavailable
 	}
 	return issues
 }

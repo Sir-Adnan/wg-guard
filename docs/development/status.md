@@ -7,8 +7,11 @@ the linked phase records; release blockers and audit findings live in
 
 **Current gate (2026-10-04):** Phases 0–14 are complete within their documented scopes.
 The [refactor program, Phases 15–20](refactor-program.md), is newly planned:
-Phase 15 is active with archive/migration/readiness/worker safety implemented as described below; 16–20
-remain planned. Integrated domain/certificate management and native retirement
+Phase 15 engineering preparation is complete, with final delivery/publication gates pending;
+the [Phase 15 record](phase15.md) separates synthetic Linux evidence from host certification.
+The owner authorized preparation publication followed by full Phase 16 source work without
+another release. Owner-server update/export is a post-publication checkpoint before rebuild.
+Phases 16–20 remain planned until their execution gates. Integrated domain/certificate management and native retirement
 are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
 

@@ -578,7 +578,7 @@
         "properties": {
           "timestamp": { "type": "string", "format": "date-time", "description": "RFC3339 instant with an explicit timezone (for example 2026-10-30T12:00:00Z); responses use UTC (Z). Not a localized calendar date or Unix milliseconds." },
           "health": { "type": "string", "enum": ["healthy", "degraded", "unavailable"] },
-          "issues": { "type": "array", "items": { "type": "string", "enum": ["source_unavailable", "host_metrics_unavailable", "host_network_unavailable", "vpn_metrics_unavailable", "awg_interface_missing", "readiness_failed", "accounting_recent_error", "sample_stale"] } },
+          "issues": { "type": "array", "items": { "type": "string", "enum": ["source_unavailable", "host_metrics_unavailable", "host_network_unavailable", "vpn_metrics_unavailable", "awg_interface_missing", "readiness_failed", "accounting_recent_error", "sample_stale", "accounting_unavailable"] } },
           "cpu_percent": { "type": ["number", "null"], "format": "double", "minimum": 0, "maximum": 100, "description": "CPU utilization as a percentage on a 0-100 scale; 25 means 25%, not 0.25. null = measurement unavailable." },
           "memory_used_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Used host memory in bytes (B). null = measurement unavailable." },
           "memory_total_bytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0, "description": "Total host memory in bytes (B). null = measurement unavailable." },
