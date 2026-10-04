@@ -8,9 +8,52 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestOfflineArchiveVerificationIgnoresLiveConfigAndKeepsEnglishOutput(t *testing.T) {
+	cfg := testTokenConfig(t)
+	env, err := loadCLIEnv(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Reg.SetRaw(context.Background(), "backup.telegram_token", "synthetic-verify-secret"); err != nil {
+		env.Close()
+		t.Fatal(err)
+	}
+	keyPath := env.Cfg.MasterKeyFile
+	archive, err := env.newBackupService().Create(context.Background(), backup.CreateOpts{})
+	env.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeKey, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The verification environment must not consume inherited node paths.
+	t.Setenv("WGG_DATA_DIR", filepath.Join(t.TempDir(), "must-not-open-node"))
+	t.Setenv("WGG_DATABASE_PATH", "must-not-open-database")
+	for _, lang := range []string{"fa", "en"} {
+		output := captureStdout(t, func() {
+			if err := runBackup([]string{"verify", "--archive", archive.Path, "--lang", lang}); err != nil {
+				t.Fatal(err)
+			}
+		})
+		if !strings.Contains(output, "Verified archive:") || !strings.Contains(output, "encrypted values checked: 1") || containsRTLScript(output) || strings.Contains(output, "synthetic-verify-secret") {
+			t.Fatal("offline verification omitted its result or violated terminal/secret boundaries")
+		}
+	}
+	afterKey, readErr := os.ReadFile(keyPath)
+	if readErr != nil || string(beforeKey) != string(afterKey) {
+		t.Fatal("offline verification changed the node key")
+	}
+	if _, err := parseBackupFlags("verify", []string{"--archive", archive.Path, "--config", cfg}); err == nil {
+		t.Fatal("offline verifier accepted a live-configuration flag")
+	}
+}
 
 func TestBackupShortExplicitPasswordIsEnglish(t *testing.T) {
 	for _, lang := range []string{"fa", "en"} {

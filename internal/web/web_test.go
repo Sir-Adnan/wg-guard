@@ -42,7 +42,10 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	db, err := database.Open(filepath.Join(t.TempDir(), "web.db"), database.Options{})
+	dataDir := t.TempDir()
+	dbPath := filepath.Join(dataDir, "web.db")
+	keyPath := filepath.Join(dataDir, "master.key")
+	db, err := database.Open(dbPath, database.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +53,7 @@ func newEnv(t *testing.T) *env {
 	if err := db.Migrate(context.Background(), nil); err != nil {
 		t.Fatal(err)
 	}
-	ring, err := secrets.LoadKeyRing(filepath.Join(t.TempDir(), "master.key"))
+	ring, err := secrets.LoadKeyRing(keyPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,9 +63,9 @@ func newEnv(t *testing.T) *env {
 	}
 	auditSvc := audit.NewService(db)
 	cfg := config.Defaults()
-	cfg.DataDir = t.TempDir()
-	cfg.DatabasePath = filepath.Join(t.TempDir(), "x.db")
-	cfg.MasterKeyFile = filepath.Join(t.TempDir(), "k.key")
+	cfg.DataDir = dataDir
+	cfg.DatabasePath = dbPath
+	cfg.MasterKeyFile = keyPath
 	cfg.Complete()
 	bak := &backup.Service{
 		DB: db, Reg: reg, Audit: auditSvc, Cfg: cfg,

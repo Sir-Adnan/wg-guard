@@ -33,15 +33,23 @@ func TestPre0007AWGRangeBackupRestore(t *testing.T) {
 	ctx := context.Background()
 	svc, dir := newLegacyServiceThrough0006(t)
 	writeBootConfig(t, dir)
+	ring, err := secrets.LoadKeyRing(svc.Cfg.MasterKeyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey, err := ring.Encrypt([]byte("synthetic-legacy-private-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := svc.DB.ExecContext(ctx, `INSERT INTO tunnel_interfaces
 		(id, name, listen_port, ipv4_subnet, mtu, public_key, private_key_encrypted,
 		 jc, jmin, jmax, s1, s2, h1, h2, h3, h4, preset_name, enabled, backend_mode,
 		 endpoint_override, created_at, updated_at, s3, s4, content_padding_addition)
-		VALUES ('legacy-iface', 'awg0', 39001, '10.77.0.0/24', 1380, 'synthetic-public', X'0102',
+		VALUES ('legacy-iface', 'awg0', 39001, '10.77.0.0/24', 1380, 'synthetic-public', ?,
 		        4, 40, 70, 15, 64, 101, 202, 303, 404, 'recommended', 1, 'kernel',
 		        'legacy.example.com', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z',
-		        0, 0, '10-100')`); err != nil {
+		        0, 0, '10-100')`, privateKey); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.DB.ExecContext(ctx, `INSERT INTO templates

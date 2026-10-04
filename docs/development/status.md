@@ -64,6 +64,23 @@ two no-JavaScript fallback cells per engine. Exact correction source
 source passed the separate gates linked above. No new physical-device or real-host acceptance
 is claimed for these follow-ups.
 
+**Migration preparation on main (2026-10-04; not yet published):** Archive creation,
+restore preview and pre-replacement apply now check every known encrypted carrier
+against the archived master key plus foreign-key integrity. Missing keys are allowed
+only for data with no encrypted values; exports depending on an unarchived rotation
+key are refused. The independent `backup verify` command needs no installed state,
+Docker or AWG and reports safe stored-record/backend counts. Archive schema and
+public account API remain unchanged. Local full Go tests passed, with applicable
+unchanged-package cache reuse; final focused backup/CLI/web/catalog checks and
+vet/build passed after the last bounded-inspection correction. Regression coverage
+includes second-record corruption, PSKs, webhook text envelopes, settings, incorrect/
+missing keys, rotation, broken references, old approved previews and fresh-layout
+restore with unchanged config bytes, customer token and charged usage. No new
+real-host, Linux race or browser-engine result is claimed here; exact CI/publication
+acceptance is separate. The owner-selected
+[Docker refactor target](../architecture/deployment-refactor.md) is a design plan:
+the current installation layout and native runtime support have not changed yet.
+
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe
 stage/history reports and recovery. `update.read` is distinct from execution; queued new-format

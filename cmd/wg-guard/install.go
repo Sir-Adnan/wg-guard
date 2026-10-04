@@ -29,8 +29,9 @@ func routeDockerMode() {
 	}
 	// Operational logs are always host-owned. In particular, the fixed
 	// operation journal must remain readable when install state is absent or
-	// damaged, which is exactly when it is most useful.
-	if len(os.Args) > 1 && os.Args[1] == "logs" {
+	// damaged, which is exactly when it is most useful. Offline archive
+	// verification likewise needs neither installation state nor a container.
+	if len(os.Args) > 1 && os.Args[1] == "logs" || len(os.Args) > 2 && os.Args[1] == "backup" && os.Args[2] == "verify" {
 		return
 	}
 	st, err := install.LoadState(install.NewRealHost())

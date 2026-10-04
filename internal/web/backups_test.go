@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -256,7 +257,8 @@ func TestBackupCreationWarningsRedirectAndRefreshDoesNotCreate(t *testing.T) {
 	e := newEnv(t)
 	e.seedOwner()
 	cookie := e.loginEN("owner")
-	// This fixture's missing archived key is a real nonfatal archive warning.
+	// An empty node without encrypted values may still archive without a key.
+	e.srv.Backup.Cfg.MasterKeyFile = filepath.Join(t.TempDir(), "missing.key")
 	e.srv.Backup.ConfigPath = "/does-not-exist/private-config"
 	rec := e.postForm("/backups/create", url.Values{}, cookie)
 	if rec.Code != http.StatusSeeOther {
@@ -265,7 +267,7 @@ func TestBackupCreationWarningsRedirectAndRefreshDoesNotCreate(t *testing.T) {
 	location := rec.Header().Get("Location")
 	for range 2 {
 		page := e.get(location, cookie)
-		if page.Code != 200 || !strings.Contains(page.Body.String(), "master key missing from archive") {
+		if page.Code != 200 || !strings.Contains(page.Body.String(), "archive has no master key") {
 			t.Fatalf("warning lost across redirect: status=%d location=%s", page.Code, location)
 		}
 	}
@@ -428,6 +430,11 @@ func TestBackupRestoreFlow(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), name) {
 		t.Fatal("review lost the archive name")
+	}
+	for _, label := range []string{"Stored accounts / devices", "Encrypted values checked", "Interfaces: kernel / userspace"} {
+		if !strings.Contains(rec.Body.String(), label) {
+			t.Fatal("restore review omitted the portable data inventory")
+		}
 	}
 
 	// Confirm → pending banner appears on the page.

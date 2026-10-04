@@ -11,13 +11,14 @@ import (
 
 type interruptApply struct {
 	context.Context
-	calls int
-	crash bool
+	database, originalHash string
+	crash                  bool
 }
 
 func (c *interruptApply) Err() error {
-	c.calls++
-	if c.calls == 3 {
+	// Trigger at the actual database/key replacement boundary, independent
+	// of how many context checks offline archive validation performs.
+	if fileHash(c.database) != c.originalHash {
 		if c.crash {
 			panic("synthetic process death after DB replacement")
 		}
@@ -57,7 +58,7 @@ func TestRestoreRecoversDatabaseKeyPairAfterReplacementInterruption(t *testing.T
 						t.Fatal(v)
 					}
 				}()
-				_, err = s.ApplyStaged(&interruptApply{Context: ctx, crash: crash})
+				_, err = s.ApplyStaged(&interruptApply{Context: ctx, database: s.Cfg.DatabasePath, originalHash: beforeDB, crash: crash})
 				if !crash && !errors.Is(err, context.Canceled) {
 					t.Fatal("expected interrupted replacement")
 				}

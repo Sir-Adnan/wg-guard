@@ -185,6 +185,11 @@ func (s *Service) apply(ctx context.Context, p *PendingRestore) (*RestoreReport,
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	// Recheck before any replacement, including previews approved by an older
+	// build which checked member hashes but not every encrypted carrier.
+	if _, err := inspectStagedData(ctx, p.Dir); err != nil {
+		return nil, err
+	}
 	txdir := filepath.Join(s.Cfg.DataDir, transactionDir)
 	if _, err := os.Lstat(txdir); !os.IsNotExist(err) {
 		return nil, safetyError("unfinished", nil)

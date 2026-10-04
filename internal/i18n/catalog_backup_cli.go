@@ -4,7 +4,7 @@ func init() {
 	en := map[string]string{
 		"node":         "Node ID",
 		"secret_stdin": "Secret settings must be supplied with -stdin, never as an argument.",
-		"usage":        "backup create|list|send --archive PATH|telegram-test|schedule-add|schedule-update|schedule-list|schedule-enable|schedule-disable|schedule-delete",
+		"usage":        "backup create|list|verify --archive PATH|send --archive PATH|telegram-test|schedule-add|schedule-update|schedule-list|schedule-enable|schedule-disable|schedule-delete",
 		"flags":        "Invalid or missing backup flag value.", "input": "Input must not exceed 4096 bytes.", "days": "Interval days must be 1–7; do not combine --days with --hours.", "schedule_invalid": "Invalid schedule: daily/weekly HH:MM UTC, weekday 0–6, interval 1–168 hours, retention 0–365.",
 		"password": "Archive password (at least 8 characters; hidden)", "telegram_ok": "Telegram delivery verified; check the destination chat.", "archives": "Archive | size | created (UTC) | encrypted", "schedules": "Schedule ID | name | timing (UTC) | retention, enabled, next run", "deleted": "Schedule deleted.", "result": "Encrypted: %v · delivered: %s", "warning": "Warning: %s", "schedule_state": "keep %d (0 = default), enabled=%v, next=%s", "interval": "every %d hours",
 		"restore_usage": "restore ARCHIVE [--password|--password-file PATH] [--yes] [--retry], or restore --recover [--password-file PATH] [--yes]",
@@ -14,7 +14,7 @@ func init() {
 	fa := map[string]string{
 		"node":         "شناسه گره",
 		"secret_stdin": "تنظیمات محرمانه باید از -stdin دریافت شوند و نباید در آرگومان فرمان قرار گیرند.",
-		"usage":        "backup create|list|send --archive PATH|telegram-test|schedule-add|schedule-update|schedule-list|schedule-enable|schedule-disable|schedule-delete",
+		"usage":        "backup create|list|verify --archive PATH|send --archive PATH|telegram-test|schedule-add|schedule-update|schedule-list|schedule-enable|schedule-disable|schedule-delete",
 		"flags":        "مقدار گزینه پشتیبان نامعتبر است یا وارد نشده است.", "input": "ورودی نباید بیشتر از 4096 بایت باشد.", "days": "فاصله روزانه باید 1 تا 7 باشد؛ --days و --hours را هم‌زمان وارد نکنید.", "schedule_invalid": "زمان‌بندی نامعتبر: ساعت HH:MM به UTC، روز هفته 0 تا 6، فاصله 1 تا 168 ساعت و نگهداری 0 تا 365.",
 		"password": "گذرواژه آرشیو (حداقل 8 کاراکتر؛ مخفی)", "telegram_ok": "ارسال تلگرام تأیید شد؛ گفت‌وگوی مقصد را بررسی کنید.", "archives": "آرشیو | حجم | زمان ساخت UTC | رمزگذاری", "schedules": "شناسه | نام | زمان UTC | نگهداری، فعال بودن، اجرای بعدی", "deleted": "زمان‌بندی حذف شد.", "result": "رمزگذاری: %v · مقصدهای ارسال: %s", "warning": "هشدار: %s", "schedule_state": "نگهداری %d (0 = پیش‌فرض)، فعال=%v، بعدی=%s", "interval": "هر %d ساعت",
 		"restore_usage": "restore ARCHIVE [--password|--password-file PATH] [--yes] [--retry] یا restore --recover [--password-file PATH] [--yes]",

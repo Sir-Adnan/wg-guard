@@ -99,6 +99,7 @@ func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Read
 		u.Field(printer.text("node"), report.NodeID)
 		u.Field(printer.text("endpoint"), report.Endpoint)
 		u.Field("TLS", report.TLSMode+" · "+report.Listen)
+		printer.printInventory(report.Inventory)
 		for _, f := range report.Interfaces {
 			pools := f.Subnet
 			if f.ExtraPools != "" {

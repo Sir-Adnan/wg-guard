@@ -47,7 +47,9 @@ func parseBackupFlags(command string, args []string) (backupFlags, error) {
 	o := backupFlags{}
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.StringVar(&o.config, "config", install.ConfigPath, "")
+	if command != "verify" {
+		fs.StringVar(&o.config, "config", install.ConfigPath, "")
+	}
 	fs.StringVar(&o.lang, "lang", terminalLocale(), "")
 	switch command {
 	case "create":
@@ -57,6 +59,10 @@ func parseBackupFlags(command string, args []string) (backupFlags, error) {
 		fs.StringVar(&o.reason, "reason", "manual", "")
 	case "send":
 		fs.StringVar(&o.archive, "archive", "", "")
+	case "verify":
+		fs.StringVar(&o.archive, "archive", "", "")
+		fs.BoolVar(&o.password, "password", false, "")
+		fs.StringVar(&o.passwordFile, "password-file", "", "")
 	case "schedule-add", "schedule-update":
 		fs.StringVar(&o.id, "id", "", "")
 		fs.StringVar(&o.schedule.Name, "name", "installer-daily", "")
@@ -84,7 +90,7 @@ func parseBackupFlags(command string, args []string) (backupFlags, error) {
 	if o.password && o.passwordFile != "" || len(o.reason) > 64 {
 		return o, fmt.Errorf("%s", backupText("flags"))
 	}
-	if command == "send" && o.archive == "" || strings.HasPrefix(command, "schedule-") && command != "schedule-add" && command != "schedule-list" && o.id == "" {
+	if (command == "send" || command == "verify") && o.archive == "" || strings.HasPrefix(command, "schedule-") && command != "schedule-add" && command != "schedule-list" && o.id == "" {
 		return o, fmt.Errorf("%s", backupText("flags"))
 	}
 	if command == "schedule-add" || command == "schedule-update" {
@@ -140,6 +146,19 @@ func runBackup(args []string) (resultErr error) {
 		if err := backup.ValidatePassword(password); err != nil {
 			return err
 		}
+	}
+	if args[0] == "verify" {
+		report, err := backup.VerifyArchive(ctx, o.archive, password)
+		if err != nil {
+			return err
+		}
+		fmt.Println(printer.text("verified", terminal.Clean(report.Archive)))
+		printer.printInventory(report.Inventory)
+		for _, warning := range report.Warnings {
+			fmt.Println(printer.text("warning", warning.Localized(printer.language())))
+		}
+		fmt.Println(printer.text("verified_scope"))
+		return nil
 	}
 	env, err := loadCLIEnv(o.config)
 	if err != nil {
@@ -216,6 +235,11 @@ func (printer backupPrinter) printBackupResult(r *backup.Result) {
 	for _, w := range r.Warnings {
 		fmt.Println(printer.text("warning", terminal.Clean(w.Localized(printer.language()))))
 	}
+}
+func (printer backupPrinter) printInventory(v backup.Inventory) {
+	fmt.Println(printer.text("inventory", v.Users, v.Devices, v.Templates, v.CustomerLinks))
+	fmt.Println(printer.text("inventory_access", v.Admins, v.APITokens, v.Webhooks, v.Resellers))
+	fmt.Println(printer.text("inventory_backends", v.KernelInterfaces, v.UserspaceInterfaces, v.EncryptedValues))
 }
 func (printer backupPrinter) printSchedules(ctx context.Context, s *backup.Service) error {
 	rows, err := s.Schedules(ctx)

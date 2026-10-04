@@ -42,6 +42,12 @@ EOF, partial input and interruption never grant consent.
 
 ## Operational logs
 
+Before a server rebuild, `wg-guard backup verify --archive /private/backup.wgg`
+checks portable archive data without loading the installation or starting Docker.
+Use `--password` for hidden input or `--password-file` for a regular 0600 file.
+It reports stored counts and checked encrypted values; it does not apply a restore
+or certify the destination network. See [archive verification](backup-restore.md#independent-archive-verification).
+
 **Logs** on the main menu (also under **System & diagnostics**) first selects the source. Service logs can show every component
 or one of `serve`, `http`, `scheduler`, `accounting`, `webhook`, `backup`, `awg`, and `network`.
 Choose **Last 200 lines** or **Last 200 lines + live follow**. Installer/update command output has

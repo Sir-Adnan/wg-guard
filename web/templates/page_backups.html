@@ -15,6 +15,9 @@
 <dt>{{.T "backups.review_archive"}}</dt><dd><bdi>{{.Data.Review.Archive}}</bdi></dd>
 <dt>{{.T "backups.review_created"}}</dt><dd>{{if not .Data.Review.CreatedAt.IsZero}}<bdi>{{.DateTime .Data.Review.CreatedAt}} UTC</bdi>{{else}}—{{end}}</dd>
 <dt>{{.T "backups.review_source"}}</dt><dd><bdi>{{.Data.Review.Hostname}} · {{.Data.Review.AppVersion}}</bdi></dd>
+<dt>{{.T "backups.review_inventory"}}</dt><dd><bdi>{{.N (i64u .Data.Review.Inventory.Users)}} / {{.N (i64u .Data.Review.Inventory.Devices)}}</bdi></dd>
+<dt>{{.T "backups.review_secrets"}}</dt><dd>{{.N (i64u .Data.Review.Inventory.EncryptedValues)}}</dd>
+<dt>{{.T "backups.review_backends"}}</dt><dd><bdi>{{.N (i64u .Data.Review.Inventory.KernelInterfaces)}} / {{.N (i64u .Data.Review.Inventory.UserspaceInterfaces)}}</bdi></dd>
 <dt>{{.T "backups.review_node"}}</dt><dd><bdi>{{if .Data.Review.NodeID}}{{.Data.Review.NodeID}}{{else}}—{{end}}</bdi></dd>
 <dt>{{.T "backups.review_endpoint"}}</dt><dd><bdi>{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</bdi></dd>
 {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd><bdi>{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</bdi></dd>{{end}}

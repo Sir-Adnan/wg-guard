@@ -56,6 +56,7 @@ Commands:
               token list | token revoke ID | token scopes
   backup      Manage archives (docs/operations/backup-restore.md)
               backup create [-password] [-output DIR] [-reason TEXT] | backup list
+              backup verify --archive PATH [--password|--password-file PATH]
               backup schedule-add|schedule-update --name N --hours N|--days N
               backup schedule-list|schedule-enable|schedule-disable|schedule-delete --id ID
               backup telegram-test | backup send --archive PATH

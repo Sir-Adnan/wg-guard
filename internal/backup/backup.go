@@ -158,11 +158,18 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 		return nil, err
 	}
 
-	// 2. Other members (missing master key degrades the archive honestly).
+	// 2. Validate the exact portable DB/key pair before publishing or delivery.
 	configBytes := s.configBytes()
 	keyBytes, err := readSmall(s.Cfg.MasterKeyFile, 32)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("backup: read master key: %w", err)
+	}
+	if err == nil && len(keyBytes) != 32 {
+		return nil, safetyError("data_key", nil)
+	}
+	defer clear(keyBytes)
+	if _, err := inspectArchiveData(ctx, snapPath, keyBytes); err != nil {
+		return nil, err
 	}
 
 	// 3. Manifest with hashes over the exact member bytes.

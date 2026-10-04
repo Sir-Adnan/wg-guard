@@ -59,6 +59,7 @@ type RestoreReport struct {
 	HasKey     bool // master key member present
 	Encrypted  bool
 	Warnings   []Message
+	Inventory  Inventory // complete offline DB/key and reference checks passed
 }
 
 // PendingRestore describes a private preview or explicitly approved payload.
@@ -167,6 +168,10 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 
 	if err := s.prepareStagedDB(ctx, pending, report, original); err != nil {
 		os.RemoveAll(pending)
+		return nil, nil, err
+	}
+	report.Inventory, err = inspectStagedData(ctx, pending)
+	if err != nil {
 		return nil, nil, err
 	}
 

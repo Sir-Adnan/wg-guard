@@ -16,6 +16,18 @@ REST API ([ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)).
 | `config.toml` | boot configuration |
 | `master_key.wrap` | the at-rest master key (required to decrypt device secrets on restore) |
 
+Archive publication validates the exact snapshot against its archived key. Every
+encrypted interface/device key, optional PSK, customer link, webhook secret and
+secret setting is checked, including records beyond startup's key samples.
+Foreign-key references must be intact. A missing key is accepted only for data
+containing no encrypted values. A malformed/mismatched pair or data requiring an
+unarchived rotation key is refused; retain the original node and repair its
+database/key pair before migration. The logical archive format remains schema 1.
+
+Inspection streams one envelope at a time, caps encoded values at 8 KiB and has
+a one-minute deadline. Snapshot size must fit the existing 1 GiB restore limit.
+Plaintext is cleared immediately; public errors and counts contain no secret values.
+
 **Encryption is optional.** By default the archive is plain `tar.gz` (simple backup
 experience). If the administrator sets a **single backup password** — once, from the installer,
 CLI, or Settings panel; changeable later; stored encrypted at rest — archives are additionally
@@ -29,6 +41,28 @@ this writer remains compatible, but externally encrypted higher-factor archives 
 refused. Streaming bounds archive-member memory; it does not eliminate this crypto working set.
 
 ## Sources
+
+### Independent archive verification
+
+Before rebuilding the source server, download a backup off-host and verify it:
+
+```bash
+wg-guard backup verify --archive /private/wg-guard-backup.wgg
+wg-guard backup verify --archive /private/wg-guard-backup.wgg --password
+```
+
+`--password` uses hidden input; `--password-file /private/password` accepts a
+regular 0600 file. Password values never belong in arguments. This host command
+loads no installed configuration/state, starts no Docker service, opens no active
+node data and applies no restore. It privately stages/migrates only the archived
+copy, checks references and all encrypted values, and reports stored account/device/
+template/access counts and backend inventory. Disabled and historical soft-deleted
+rows are included. Temporary files are removed on success or ordinary failure.
+
+Success covers portable data, not the target kernel/TLS/network or client traffic.
+Certificates, DKMS and Docker images are not archive members. The
+[refactor target](../architecture/deployment-refactor.md) describes planned packaging;
+current installation paths have not changed in this preparation update.
 
 - **Manual** — Dashboard can create and download a fresh archive in one action; the Backups page
   also creates local archives. CLI equivalent: `wg-guard backup create [--password] [--output …]`.
@@ -181,6 +215,9 @@ unsafe):
    to 64 KiB and master key to exactly 32 bytes. The total decompressed stream, including tar
    padding, is capped at 1 GiB + 2 MiB + 64 KiB. Unknown, duplicate, path-containing, symlink,
    oversized and truncated entries and incomplete manifests are rejected.
+   The offline database/key pair is then checked completely, with reference and
+   encrypted-value inventory. Original-schema recovery uses the same data checks
+   without forward migration.
 3. **Environment review** — the report shows the archive's provenance (source host, app
    version), the staged node id, endpoint, TLS mode/listen from the archived boot config, and
    the interface list, with explicit warnings (missing master key, missing config). The
@@ -203,6 +240,8 @@ unsafe):
      replacements retain those files under `restore.previous`; prior retained sets are moved
      to `restore.previous-<nonce>` so retries never erase the earlier recovery copy. Archived boot config is saved
      as `<config>.restored` for separate review and never replaces active configuration.
+     The pair is checked again before replacement, including pending previews
+     approved by an older checksum-only implementation.
 5. **Reconcile** — the normal boot bring-up recreates tunnels, peers, nftables and shaping
    from the restored database; `wg-guard doctor` confirms.
 
