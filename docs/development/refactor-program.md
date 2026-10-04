@@ -100,6 +100,15 @@ No dates, performance promises, release numbers or completion percentages are in
 - [x] Produce an owner-usable backup/export/verify/recovery drill linked above.
 - [ ] Download and independently verify the owner's off-host copy before any rebuild.
 
+Implementation evidence: migration/readiness/worker safety at
+`39bfb0a4a5f27e4fc80bb27529cccd30d91cdaec` passed
+[exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37200471956).
+Shared storage/rotation, incomplete verification and the actual-service stalled-pass regression
+at `7c9d1908dedfb04dec55239b3a5db44d67f0a558` passed local full Go tests/vet/build and
+[exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37202081662), including both
+Linux race jobs. Local unchanged-package evidence used applicable Go cache. No new real-host,
+browser, public release or registry publication is inferred from these gates.
+
 Exit: failure-injection/race coverage for the changed boundaries; actual offline
 restore with preserved identity/data; measured slow-job isolation; a reviewed
 owner backup. Any preparation release still needs approval and its artifact gate.

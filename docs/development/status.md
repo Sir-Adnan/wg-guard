@@ -128,7 +128,10 @@ foreign/oversized/invalid keys and portable post-rotation archives. Actual accou
 and fake peer removal completed in 1 ms while two simulated worker operations stalled, within
 a 15 s cadence budget; this does not measure actual KDF/I/O or real-host enforcement.
 Final local full Go tests, vet/build and focused affected-package checks passed; applicable
-unchanged-package results reused Go cache. Exact follow-up CI remains pending. API/OpenAPI
+unchanged-package results reused Go cache. Exact follow-up source
+`7c9d1908dedfb04dec55239b3a5db44d67f0a558` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37202081662), including both
+Linux race jobs, build, fixtures and vulnerability scan. API/OpenAPI
 and archive schema remain unchanged. The [owner preparation drill](../operations/migration-preparation.md)
 reviews export/password recovery and memory/disk limits. Restored domain/core semantics,
 actual host lag/resource measurement and the owner's off-host backup still gate the rest
