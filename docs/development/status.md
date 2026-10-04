@@ -6,6 +6,11 @@ the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
 **Current gate (2026-10-04):** Phases 0–14 are complete within their documented scopes.
+The [refactor program, Phases 15–20](refactor-program.md), is newly planned:
+Phase 15 is active with only the preparation described below implemented; 16–20
+remain planned. Integrated domain/certificate management and native retirement
+are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
+separates current workarounds from the Phase 18 target.
 [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) is the latest stable
 release. Its exact `cf718a926f81202b7ed8060cac27bb5322dbba82` source passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
@@ -75,11 +80,25 @@ unchanged-package cache reuse; final focused backup/CLI/web/catalog checks and
 vet/build passed after the last bounded-inspection correction. Regression coverage
 includes second-record corruption, PSKs, webhook text envelopes, settings, incorrect/
 missing keys, rotation, broken references, old approved previews and fresh-layout
-restore with unchanged config bytes, customer token and charged usage. No new
-real-host, Linux race or browser-engine result is claimed here; exact CI/publication
-acceptance is separate. The owner-selected
+restore with unchanged config bytes, customer token and charged usage. Exact source
+`00c41618b4384b2ac60d297123d265955a292204` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37165992240), including
+both Linux race jobs, build, bootstrap/fixture and vulnerability checks. No new
+real-host or browser-engine result is claimed; publication remains separate.
+The owner-selected
 [Docker refactor target](../architecture/deployment-refactor.md) is a design plan:
 the current installation layout and native runtime support have not changed yet.
+
+**Critical review and planning (2026-10-04):** Phase 15 must correct startup
+pre-migration backup ordering/failure handling, distinguish liveness from runtime
+readiness at lifecycle commit, and keep slow archive/delivery work from delaying
+the central scheduler's enforcement. These are source-inspected open work items,
+not newly reproduced real-host failures. Phases 16–20 cover modular responsibility
+boundaries, verified images/deployment, two-domain TLS/SNI and route isolation,
+operational UI/terminal flows and real-host acceptance. Directory movement is
+conditional on ownership/recovery benefit; existing config/node data paths are
+retained in the revised plan. No source behavior changes or new release is implied
+by documenting this program.
 
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe

@@ -4,6 +4,13 @@
 systemd mode is fully supported for administrators who prefer it. Both modes share identical
 data paths, so backups and mode-switching are layout-independent.
 
+The [Phases 15–20 refactor](../development/refactor-program.md) is planned and
+does not change this current Docker/native contract. It prioritizes backup/
+readiness/scheduling safety before packaging changes and integrated domain/TLS UI.
+For a separate subscription hostname, see [domains and TLS](domains-and-tls.md):
+Nginx is an option, not an inherent requirement, and the current URL setting alone
+does not configure its certificate or endpoint.
+
 ## Docker mode (default)
 
 - **Verified local runtime image**: the installer builds an Ubuntu 24.04 amd64 image from the

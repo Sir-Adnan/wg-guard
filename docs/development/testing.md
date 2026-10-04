@@ -8,6 +8,13 @@ phase are historical, not instructions to rerun it now. Current claims and limit
 
 ## Current test selection
 
+For Phase 15–20 changes, the [refactor program](refactor-program.md) supplies the
+specific exit evidence: migration refusal and readiness, slow-worker isolation,
+data/runtime state equivalence, artifact/host ownership, two-domain TLS and route
+boundaries, affected browser/terminal flows and final real-host migration/resource
+drills. Apply those gates when implementing the phase; do not run them to certify
+a prose-only planning change. Historical results never certify a new layout or TLS role model.
+
 Start with the affected behavior and its dependencies, then extend to the failure mode that
 matters. These are starting points, not automatic checklists:
 

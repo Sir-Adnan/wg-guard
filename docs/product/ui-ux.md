@@ -7,6 +7,15 @@ The post-v0.1.0 appearance extension below adds visual presets without reopening
 
 ## Architecture and visual direction
 
+The [refactor program](../development/refactor-program.md) preserves this design
+system. Its Phase 18–19 domain/TLS workspace is planned: independent panel and
+subscription cards, automatic/manual/external choices, certificate metadata and
+safe operation/recovery status, with advanced controlled cert/key paths when useful.
+Do not display private material or make operators edit Nginx/Compose for the
+standard same-host workflow. These controls are not available in the current panel.
+The [domain/TLS contract](../operations/domains-and-tls.md) defines role/ownership
+and verification boundaries for implementation.
+
 Go `html/template` renders the product; HTMX enhances targeted regions and ordinary forms/links
 retain meaningful fallback paths. `internal/web` calls existing services directly, never the REST
 API. Typed page/view data owns formatting and states; templates own semantic markup. No React,

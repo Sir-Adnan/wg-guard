@@ -147,6 +147,18 @@ reconciliation fails, rather than reviving old credentials.
 - Systemd hardening in native mode; non-privileged container defaults with only `NET_ADMIN`
   added, in Docker mode.
 
+## Planned domain/certificate management boundary
+
+The [Phase 18 specification](domains-and-tls.md) adds an owner-authorized, bounded
+certificate operation model in the future. It grants no new filesystem or host
+rights today. Keep the existing update bridge identity-only; certificate imports
+need their own reviewed staging/ownership contract and closed requests, never
+arbitrary root paths, raw commands, Docker socket access or public private-key output.
+SNI certificate selection and HTTP hostname-role authorization are distinct checks;
+unknown/retired names must be denied even with cached certificates. A dedicated
+subscription hostname must not serve administrative/API routes or log customer
+capability URLs. See the [refactor acceptance program](../development/refactor-program.md).
+
 ## Dependency discipline
 
 Every dependency justified (binary size, transitive deps, maintenance, security history);

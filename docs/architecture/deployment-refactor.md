@@ -1,13 +1,15 @@
 # Docker deployment refactor target
 
-Owner-selected scope, 2026-10-04. This is a target design and acceptance plan,
-not the currently shipped deployment contract. The owner operates one server
+Owner-selected product scope, revised after critical review on 2026-10-04.
+This is a target design, not the currently shipped deployment contract. Phase
+order, milestones and exit gates are in the [Phases 15–20 program](../development/refactor-program.md).
+The owner operates one server
 and will export a verified backup, rebuild it, install the new distribution and
 restore. Live-host rebuilds and public publication remain separately authorized.
 
 ## Product boundary
 
-Keep WG-Guard an AmneziaWG node panel: Docker-only production deployment,
+Keep WG-Guard an AmneziaWG node panel: target Docker-only production deployment,
 host kernel backend by default, and the pinned userspace backend as an explicit
 advanced choice. Its binary does not run for kernel profiles. Preserve fake-backend
 development without Docker or host-network mutation.
@@ -17,20 +19,22 @@ Preserve public account/device/template/automation behavior. Remote nodes, nativ
 WireGuard, Xray, sing-box and OpenVPN are deferred; extension points are not a
 support claim. Do not add generic protocol tables or new databases/services now.
 
-## Proposed host layout
+## Host layout and ownership
 
-Use `/opt/wg-guard` for the Docker deployment bundle and `/var/lib` for persistent
-application state. This is an operational Docker layout, not a claim that the
-whole application is packaged as an FHS `/opt` software tree.
+Use `/opt/wg-guard` for deployment assets where it simplifies distribution, while
+retaining stable configuration and node-data paths. Moving directories is not a
+performance/security improvement. The earlier `/etc/opt` and `node/` relocation
+proposal is withdrawn; only a demonstrated ownership/recovery need justifies a move.
+The private host-state path below is a proposed separation, not an implemented migration.
 
 | Host path | Responsibility | Container access |
 |---|---|---|
 | `/opt/wg-guard/compose.yaml` | Versioned deployment manifest | none |
 | `/opt/wg-guard/bin/` | Verified host manager | none |
-| `/etc/opt/wg-guard/wg-guard.toml` | Host-specific boot configuration | one read-only file |
-| `/etc/opt/wg-guard/tls/` | Managed certificate/key pair | approved read-only material |
-| `/var/lib/wg-guard/node/` | DB, master key, backups and ACME cache | node data only |
-| `/var/lib/wg-guard/host/` | Host state, journal and recovery artifacts | none |
+| `/etc/wg-guard/wg-guard.toml` | Host-specific boot configuration | one read-only file |
+| `/etc/wg-guard/tls/` | Managed certificate/key pair | approved read-only material |
+| `/var/lib/wg-guard/` | DB, master key, backups and ACME cache | node data only |
+| `/var/lib/wg-guard-host/` | Proposed private host state/journal/recovery artifacts | none |
 | `/var/cache/wg-guard/` | Bounded acquisition/manager cache | none |
 | `/var/log/wg-guard/` | Bounded private installer log | none |
 
@@ -40,6 +44,11 @@ remain in their required system locations. Centralize validated host/container
 paths rather than duplicating absolute strings. Do not mount host executables,
 journals or recovery/cache material as writable node storage. Preserve the narrow
 update request/status bridge.
+
+Current host state is still under the existing managed layout. Centralize paths
+and prove directory ownership before changing that contract. Native retirement
+is gated on verified image distribution, recovery and host acceptance; it does
+not make a systemd deployment inherently less correct or less secure.
 
 An `.env` file is optional and contains only necessary non-secret deployment
 selection. Runtime settings remain in SQLite; boot-only paths/listener/TLS remain
@@ -52,6 +61,12 @@ in boot configuration. Do not create three competing sources for one setting.
 - Lifecycle owns one lock, durable stages, compatibility, rollback and recovery.
 - Distribution binds release/image digest, binary identity, reviewed core and protocols.
 - Application retains domain services, accounting, rendering and web/REST adapters.
+
+The central scheduler owns due-time decisions and short enforcement work. Slow
+archive/delivery work needs finite in-process workers/queues so quota and expiry
+do not wait behind remote I/O or crypto. Desired DB state and runtime application
+outcome remain distinguishable and recoverable. Existing pre-migration backup
+ordering and readiness gates are Phase 15 priorities, before packaging changes.
 
 The host manager must work when the container cannot start. Data commands normally
 execute in the container; offline verification needs no installation. Keep one
@@ -119,17 +134,25 @@ leases or explicitly document weaker semantics; unavailable statistics are not z
 
 ## Delivery sequence
 
-1. Ship preparation on the existing layout. Verify an owner's backup off-host;
-   this public release needs its own approval.
-2. Implement Docker-only packaging, centralized layout/ownership and simplified
-   terminal workflows as the next deployment change. Refuse unsupported direct
-   upgrades from the old layout before mutation; migration is fresh install/restore.
-3. Preserve public account APIs and archive import. Exercise interrupted operations
-   and rollback, not only clean installation.
-4. Run source/CI/artifact gates and a real Ubuntu drill: install, migrated restore,
-   kernel and explicit userspace, reboot, renewal, update/recovery and preserved
-   client/customer access. Historical native evidence cannot certify this layout.
-5. Reassess native WireGuard or remote AWG nodes under a new implementation scope.
+1. Close Phase 15 backup ordering, readiness and slow-job isolation before declaring
+   migration preparation complete. A preparation release needs its own approval;
+   verify and retain the owner's backup off-host before rebuilding.
+2. Refactor shared application/runtime/host operations in Phase 16 while preserving
+   public APIs, archive import and actual behavior. Test failure and recovery boundaries.
+3. Deliver verified distribution and gated Docker-only production in Phase 17,
+   integrated domains/TLS in 18, and common panel/terminal workflows in 19. Keep
+   stable paths unless ownership/recovery evidence warrants a change; refuse unknown
+   installation state before mutation. Owner migration is fresh install/restore.
+4. Phase 20 adds exact-source/artifact gates and real Ubuntu install, restore,
+   kernel/userspace, reboot, renewal, update/recovery, resource and client acceptance.
+   Historical native evidence cannot certify changed deployment or TLS boundaries.
+5. Native WireGuard and remote AWG nodes require a new implementation scope.
+
+The sequence above is subordinate to the detailed [phase gates](../development/refactor-program.md):
+Phase 15 reliability/migration, 16 internal boundaries, 17 distribution/deployment,
+18 integrated domains/TLS, 19 operational UX and 20 real-host acceptance/publication.
+Certificate management in the web panel is a planned feature, with the current
+limits and target behavior in [domains and TLS](../operations/domains-and-tls.md).
 
 References: [deployment](../operations/deployment.md),
 [recovery](../operations/lifecycle-recovery.md), [backup](../operations/backup-restore.md),

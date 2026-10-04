@@ -138,6 +138,14 @@ in the web panel.
 
 ## Panel access & HTTPS
 
+For a different subscription hostname, see [domains and TLS](domains-and-tls.md).
+The current wizard imports one active shared certificate/key pair; a SAN pair
+covering both names can serve them on the same host. Separate web-panel certificate
+fields and automatic two-domain enrollment are Phase 18 plans, not current menu
+options. The standard future panel/terminal flow will share the same bounded host
+operation service and will not require hand-written Nginx configuration on a free,
+same-host direct listener.
+
 The recommended post-install wizard presents product choices rather than raw TLS modes:
 
 | Choice | Use when | Requirement |

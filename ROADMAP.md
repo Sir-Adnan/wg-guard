@@ -26,6 +26,20 @@ unverified work. Detailed release-readiness tracking lives in
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
 | **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; security in v0.1.2, integration in v0.1.3, template/direct-entitlement follow-up in v0.1.4 after exact-source CI and release gates |
+| **15 — Operational safety and migration preparation** | Complete portable backup checks, pre-migration ordering, readiness and slow-job isolation | Active; archive preparation on main, remaining gates open |
+| **16 — Modular responsibility boundaries** | Shared application operations, desired/applied state, host/runtime/lifecycle separation and centralized paths | Planned |
+| **17 — Verified distribution and deployment** | One runtime image recipe, exact provenance, recovery independent of Docker and gated native retirement | Planned |
+| **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | Planned |
+| **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | Planned |
+| **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | Planned |
+
+The [refactor program](docs/development/refactor-program.md) defines Phase 15–20
+milestones, dependencies and exit evidence. Historical Phases 0–14 remain complete
+within their recorded scopes; planned refactor features are not current support.
+The [revised architecture target](docs/architecture/deployment-refactor.md) and
+[domain/TLS specification](docs/operations/domains-and-tls.md) govern that work.
+No new release, registry upload, native removal or live-server rebuild is implied
+by roadmap approval alone.
 
 ## Phase gates
 

@@ -1,6 +1,7 @@
 # Release-readiness program
 
-Living tracker for the approved release program through Phase 14. `ROADMAP.md` owns phase order and gates;
+Living tracker for completed releases through Phase 14 and the planned
+[Phases 15–20 refactor](refactor-program.md). `ROADMAP.md` owns phase order and gates;
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
@@ -53,6 +54,29 @@ multi-pool forwarding and production database compaction remain unclaimed.
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
+| 15 — Safety/migration preparation | active; archive subset implemented | Required backup ordering, readiness, bounded slow workers and reviewed off-host owner backup |
+| 16 — Modular boundaries | planned | Behavior-preserving domain/runtime/host separation and path ownership |
+| 17 — Distribution/deployment | planned | Verified image/provenance, recovery and native-retirement acceptance |
+| 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
+| 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |
+| 20 — Refactor certification | planned | Exact-source/artifact, real-host migration/resource/failure gates and publication approval |
+
+### Refactor entry findings
+
+Source-inspected on 2026-10-04; these findings do not invalidate unrelated historical
+results or claim a newly reproduced production incident. They are required work
+before claiming the preparation/migration workflow complete:
+
+| ID | Finding | Required resolution/evidence |
+|---|---|---|
+| RF-15-01 | Startup attempts pre-migration backup before its service is fully wired and continues when backup fails | Existing-data failure must stop migration; empty first setup handled separately; test every automatic opener |
+| RF-15-02 | Lifecycle health probe uses liveness/challenge response, which cannot prove network/data readiness | Separate readiness and TLS proof; simulate a responding but unready node and refuse success |
+| RF-15-03 | Scheduler directly runs slow backup/delivery passes | Bounded workers/claims, cancellation and measured accounting/expiry lag under stalled jobs |
+| RF-18-01 | Subscription URL setting has no independent certificate/enrollment/host-role lifecycle | Implement bounded approved domains, SNI, manual/automatic host operations, renewal/replacement and public-route isolation |
+
+The archive/data subset at `00c41618b4384b2ac60d297123d265955a292204` passed
+[exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37165992240).
+This is not whole-program acceptance, registry authorization or a new public release.
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.

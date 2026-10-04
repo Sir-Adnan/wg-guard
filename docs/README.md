@@ -14,6 +14,8 @@ Implementation and test evidence must support any claimed behavior.
 | AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
 | Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
 | Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
+| Refactor phases, scope and acceptance | [Refactor program, Phases 15–20](development/refactor-program.md); [architecture target](architecture/deployment-refactor.md) |
+| Different panel/subscription domains or certificate paths | [Domains and TLS](operations/domains-and-tls.md), separating current behavior from planned panel management |
 
 ## Reference index
 
@@ -34,6 +36,9 @@ Implementation and test evidence must support any claimed behavior.
 [Update Center](operations/update-center.md) · [account/address cleanup](operations/cleanup.md) ·
 [backup and restore](operations/backup-restore.md) · [runbook](operations/runbook.md) ·
 [security](operations/security.md).
+
+**Planned refactor:** [Phase 15–20 execution program](development/refactor-program.md) ·
+[integrated domain/TLS specification](operations/domains-and-tls.md).
 
 **Development and current claims:** [workflow](development/workflow.md) ·
 [testing](development/testing.md) · [status](development/status.md) ·
