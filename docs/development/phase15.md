@@ -32,10 +32,10 @@ Linux/amd64, Go 1.26.0, GOMAXPROCS=1, 512 devices/three accounts and one IPv4 pr
 
 | Measurement | Ordinary run | Race run |
 |---|---|---|
-| Quota enforcement during observed KDF allocation | 4 ms | 125 ms |
-| Expiry cycle while local delivery is deliberately delayed | 4 ms | 60 ms |
+| Quota enforcement during observed KDF allocation | 4 ms | 126 ms |
+| Expiry cycle while local delivery is deliberately delayed | 4 ms | 70 ms |
 | Accounting cadence/budget | 15 s | 15 s |
-| Process RSS baseline / observed peak | 79.7 / 334.8 MiB | 231.2 / 1031.2 MiB |
+| Process RSS baseline / observed peak | 79.7 / 334.8 MiB | 246.1 / 1047.5 MiB |
 | Goroutines baseline / after shutdown | 9 / 3 | 9 / 3 |
 
 Commands:
