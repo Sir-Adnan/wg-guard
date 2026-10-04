@@ -11,6 +11,11 @@ For a separate subscription hostname, see [domains and TLS](domains-and-tls.md):
 Nginx is an option, not an inherent requirement, and the current URL setting alone
 does not configure its certificate or endpoint.
 
+Complete native production removal is an explicitly selected Phase 17 deliverable.
+Its [cleanup scope](../architecture/docker-only-cleanup.md) removes the alternative
+server lifecycle, not host CLI/kernel/systemd infrastructure. Current native
+instructions below continue to describe shipped behavior until that implementation.
+
 ## Docker mode (default)
 
 - **Verified local runtime image**: the installer builds an Ubuntu 24.04 amd64 image from the

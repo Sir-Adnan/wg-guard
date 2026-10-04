@@ -14,6 +14,11 @@ host kernel backend by default, and the pinned userspace backend as an explicit
 advanced choice. Its binary does not run for kernel profiles. Preserve fake-backend
 development without Docker or host-network mutation.
 
+The owner explicitly confirmed complete native production cleanup on 2026-10-04.
+It is a mandatory Phase 17 outcome; gates determine its safe delivery, not whether
+to keep a second production profile. [Removal inventory and acceptance](docker-only-cleanup.md)
+distinguish native server execution from host CLI/systemd/DKMS and userspace.
+
 Keep the Go/SQLite/HTMX modular monolith, one node process and its bounded scheduler.
 Preserve public account/device/template/automation behavior. Remote nodes, native
 WireGuard, Xray, sing-box and OpenVPN are deferred; extension points are not a
@@ -49,6 +54,11 @@ Current host state is still under the existing managed layout. Centralize paths
 and prove directory ownership before changing that contract. Native retirement
 is gated on verified image distribution, recovery and host acceptance; it does
 not make a systemd deployment inherently less correct or less secure.
+
+Remove native branches, renderers, state/artifact fields, flags, error hints and
+current native-only acceptance cells together. Preserve one operation coordinator
+and the concrete Docker path; do not retain a deployment-plugin framework solely
+for a removed backend or delete host systemd tasks by a text search.
 
 An `.env` file is optional and contains only necessary non-secret deployment
 selection. Runtime settings remain in SQLite; boot-only paths/listener/TLS remain

@@ -13,10 +13,13 @@ Remote nodes, native WireGuard, Xray, sing-box and OpenVPN remain outside this p
 Keep their possible implementation boundaries clear without adding placeholder
 tables, generic protocol blobs, remote agents or production dependencies.
 
-Docker is the target single production profile once verified images and operational
-gates exist. Current native support is not removed during preparation. Native is
-not intrinsically inferior; retirement is a maintenance/support decision gated in
-Phase 17. Host CLI recovery remains independent of container availability.
+Docker-only is the owner-confirmed production target. Removing native deployment
+is a mandatory Phase 17 deliverable, not a future optional choice. Verification
+gates govern safe delivery; current support is not removed in the preparation release.
+The [cleanup specification](../architecture/docker-only-cleanup.md) identifies
+all native branches/artifacts/flags/tests/docs and the host functions that remain.
+Native is not intrinsically inferior; the decision reduces recurring deployment
+duplication and acceptance cost. Host CLI recovery remains container-independent.
 
 Use `/opt/wg-guard` for deployment assets when helpful. Retain `/etc/wg-guard`
 configuration/TLS and `/var/lib/wg-guard` node data unless a demonstrated ownership
@@ -30,7 +33,7 @@ directories. No current layout migration is implied by this plan.
 |---|---|---|---|
 | 15 | Operational safety and migration preparation | Active; preparation partly implemented | Existing release contracts |
 | 16 | Application/runtime/host responsibility boundaries | Planned | 15 safety gates |
-| 17 | Verified distribution and production deployment | Planned | 16 boundaries; registry approval for publication |
+| 17 | Verified Docker distribution and complete native removal | Planned; scope confirmed | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Planned | 16 host operation model; 17 deployment ownership |
 | 19 | Cohesive installer and operational panel UX | Planned | Implemented 15–18 services |
 | 20 | Real-host acceptance and migration/release readiness | Planned | 15–19 evidence |
@@ -90,6 +93,9 @@ owner backup. Any preparation release still needs approval and its artifact gate
   executable and retained artifact set outside node-writable mounts.
 - [ ] Split `internal/install` and large CLI responsibilities by actual behavior,
   retaining one coordinator/lock instead of competing installers for core/TLS/panel.
+- [ ] Identify shared host/data responsibilities before native removal. Keep
+  concrete Docker execution rather than introducing a deployment-plugin abstraction
+  for a second backend which the product will no longer support.
 - [ ] Retain the typed WireGuard-family backend and canonical client renderer.
   Preserve device keys/IPs, principals/scopes, units and public API semantics.
 - [ ] Audit backup, leases, pending restores and concurrent commands across the
@@ -99,7 +105,10 @@ Exit: behavior-equivalence and persistence/concurrency/failure tests; coherent
 dependency direction; measured resource baseline. Update API/OpenAPI only if an
 actual public contract changes, never merely for internal package movement.
 
-## Phase 17 — Distribution, Docker and host lifecycle
+## Phase 17 — Docker-only distribution and native cleanup
+
+Mandatory milestones 17.0–17.5 and removal inventory:
+[Docker-only cleanup](../architecture/docker-only-cleanup.md).
 
 - [ ] One reviewed runtime build recipe for release/install. Remove divergence
   between the repository Dockerfile and installer-generated runtime composition.
@@ -109,9 +118,15 @@ actual public contract changes, never merely for internal package movement.
 - [ ] Build/test runtime images in CI. Publish only with owner authorization.
   Support bounded cache/local verified artifacts so outage recovery does not require
   a functioning registry, internet connection or running container.
-- [ ] Select Docker as the only new production install path after its dependency,
-  identity, recovery and supported-host gates pass. Remove native install/runtime
-  selection then, while preserving host manager and fake development mode.
+- [ ] Remove native production install/update/rollback/server rendering and all
+  mode-specific status/log/restart/health/restore/exposure paths. Keep one Docker
+  execution path under the shared lifecycle coordinator and preserve host/fake roles.
+- [ ] Remove native choices/flags/aliases, native unit/journal artifacts and state
+  fields. Version the Docker state contract; legacy state is a migration refusal,
+  not permission to execute a retained native runtime.
+- [ ] Replace native mode-cross-product tests/current guidance while preserving
+  Docker-equivalent failure, data/security/lease and host broker/kernel coverage.
+  Historical recorded native evidence remains historical.
 - [ ] Preserve host kernel/DKMS ownership, loaded/on-disk identity and reviewed
   compatibility. No `privileged: true`, Docker socket mount, foreign firewall flush
   or silent switch to userspace.
@@ -127,7 +142,8 @@ actual public contract changes, never merely for internal package movement.
 
 Exit: exact artifact verification plus isolated/real Docker install, failure/recovery,
 rollback, unavailable-container and offline-manager drills. Supported Ubuntu/amd64
-scope does not expand just because the runtime is in Docker.
+scope does not expand just because the runtime is in Docker. The explicit native
+cleanup checklist must pass; merely removing its menu option is incomplete.
 
 ## Phase 18 — Domains and TLS inside the panel
 

@@ -10,6 +10,12 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 
 ## Layout
 
+The [Phase 17 native cleanup](docker-only-cleanup.md) is planned, not reflected
+as completed in this current layout. Remove native deployment branching while
+retaining one lifecycle coordinator, concrete Docker execution and narrow host
+testing seams. Production native retirement does not remove the host CLI,
+kernel/DKMS, broker tasks or fake-backend developer entry point.
+
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
                          HTTP + scheduler + graceful shutdown), token, install/update/

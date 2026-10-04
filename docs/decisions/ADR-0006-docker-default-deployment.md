@@ -2,6 +2,13 @@
 
 Status: accepted · Date: 2026-08-29
 
+Transition note (2026-10-04): this records the currently shipped two-mode decision.
+The owner has selected [complete native production removal](../architecture/docker-only-cleanup.md)
+for Phase 17 of the [refactor program](../development/refactor-program.md). It becomes
+the current deployment contract only after implementation and acceptance; retained
+host CLI/systemd/DKMS tasks are not native server support. This historical record
+must not be read as a requirement to preserve the second deployment indefinitely.
+
 ## Context
 
 The product needs a clean, polished, easy-to-manage install experience. The VPN data plane runs

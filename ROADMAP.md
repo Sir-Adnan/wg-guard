@@ -28,7 +28,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; security in v0.1.2, integration in v0.1.3, template/direct-entitlement follow-up in v0.1.4 after exact-source CI and release gates |
 | **15 — Operational safety and migration preparation** | Complete portable backup checks, pre-migration ordering, readiness and slow-job isolation | Active; archive preparation on main, remaining gates open |
 | **16 — Modular responsibility boundaries** | Shared application operations, desired/applied state, host/runtime/lifecycle separation and centralized paths | Planned |
-| **17 — Verified distribution and deployment** | One runtime image recipe, exact provenance, recovery independent of Docker and gated native retirement | Planned |
+| **17 — Docker-only distribution and native cleanup** | One image recipe, exact provenance, complete native lifecycle/flags/state/tests cleanup and independent host recovery | Planned; native removal explicitly confirmed |
 | **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | Planned |
 | **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | Planned |
 | **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | Planned |
@@ -38,8 +38,9 @@ milestones, dependencies and exit evidence. Historical Phases 0–14 remain comp
 within their recorded scopes; planned refactor features are not current support.
 The [revised architecture target](docs/architecture/deployment-refactor.md) and
 [domain/TLS specification](docs/operations/domains-and-tls.md) govern that work.
-No new release, registry upload, native removal or live-server rebuild is implied
-by roadmap approval alone.
+Native production removal is explicitly selected for Phase 17; it has not been
+implemented by this roadmap edit. No new release, registry upload or live-server
+rebuild is implied. Detailed inventory: [Docker-only cleanup](docs/architecture/docker-only-cleanup.md).
 
 ## Phase gates
 

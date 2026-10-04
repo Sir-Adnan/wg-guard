@@ -26,6 +26,7 @@ Implementation and test evidence must support any claimed behavior.
 [project structure](architecture/project-structure.md) · [database](architecture/database.md) ·
 [API](architecture/api.md) · [networking](architecture/networking.md) ·
 [Docker refactor target](architecture/deployment-refactor.md) ·
+[native deployment cleanup](architecture/docker-only-cleanup.md) ·
 [AmneziaWG pin and verification](integrations/amneziawg.md) ·
 [webhooks](integrations/webhooks.md) · [ADRs](decisions/).
 

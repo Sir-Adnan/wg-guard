@@ -15,6 +15,13 @@ boundaries, affected browser/terminal flows and final real-host migration/resour
 drills. Apply those gates when implementing the phase; do not run them to certify
 a prose-only planning change. Historical results never certify a new layout or TLS role model.
 
+The [native cleanup inventory](../architecture/docker-only-cleanup.md) requires
+replacing current native-only/mode-cross-product tests with equivalent Docker
+failure acceptance, while retaining shared data/lease/security, kernel/userspace,
+host broker and fake-backend coverage. A smaller test matrix is not permission to
+remove failure checks. Historical captured native fixtures are evidence, not a
+second supported implementation in the new product.
+
 Start with the affected behavior and its dependencies, then extend to the failure mode that
 matters. These are starting points, not automatic checklists:
 

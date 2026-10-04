@@ -56,7 +56,7 @@ multi-pool forwarding and production database compaction remain unclaimed.
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 | 15 — Safety/migration preparation | active; archive subset implemented | Required backup ordering, readiness, bounded slow workers and reviewed off-host owner backup |
 | 16 — Modular boundaries | planned | Behavior-preserving domain/runtime/host separation and path ownership |
-| 17 — Distribution/deployment | planned | Verified image/provenance, recovery and native-retirement acceptance |
+| 17 — Docker-only/native cleanup | planned; removal confirmed | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
 | 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |
 | 20 — Refactor certification | planned | Exact-source/artifact, real-host migration/resource/failure gates and publication approval |
@@ -73,6 +73,7 @@ before claiming the preparation/migration workflow complete:
 | RF-15-02 | Lifecycle health probe uses liveness/challenge response, which cannot prove network/data readiness | Separate readiness and TLS proof; simulate a responding but unready node and refuse success |
 | RF-15-03 | Scheduler directly runs slow backup/delivery passes | Bounded workers/claims, cancellation and measured accounting/expiry lag under stalled jobs |
 | RF-18-01 | Subscription URL setting has no independent certificate/enrollment/host-role lifecycle | Implement bounded approved domains, SNI, manual/automatic host operations, renewal/replacement and public-route isolation |
+| RF-17-01 | Native branches and artifacts multiply deployment execution/state/acceptance paths | Complete the [native cleanup inventory](../architecture/docker-only-cleanup.md), preserve shared host/data behavior and prove one Docker lifecycle |
 
 The archive/data subset at `00c41618b4384b2ac60d297123d265955a292204` passed
 [exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37165992240).

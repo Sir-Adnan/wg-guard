@@ -11,6 +11,12 @@ Phase 15 is active with only the preparation described below implemented; 16–2
 remain planned. Integrated domain/certificate management and native retirement
 are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
+
+The owner explicitly selected complete native production removal in Phase 17.
+The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle,
+state/artifacts, flags, renderers, logs, tests and current docs. Host CLI, kernel/
+DKMS, required systemd broker/renewal/retention and fake development remain.
+This is planned scope, not a claim that current main or v0.1.8 is Docker-only.
 [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) is the latest stable
 release. Its exact `cf718a926f81202b7ed8060cac27bb5322dbba82` source passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
