@@ -75,16 +75,30 @@ No dates, performance promises, release numbers or completion percentages are in
   concurrent schedule edits are protected and shutdown retains active DB/key ownership.
   Local regressions cover stalled work and cross-process admission. Crash retry remains
   at-least-once; the following production lag/resource measurement is still open.
-- [ ] Measure enforcement lag while backups/delivery are deliberately slow; define
+- [x] Test actual accounting/expiry/peer removal while both worker operations are
+  deliberately stalled, with an additional-lag budget of one configured accounting
+  cadence. The two-account fake-backend Windows fixture completed in 1 ms against
+  15 s; the test checks state and removed peers, not merely dispatch.
+- [ ] Measure production enforcement lag during actual backup crypto/delivery; define
   and test a budget relative to configured accounting cadence. Unknown/stale metering
   is reported, not converted to zero or a false enforcement-success claim.
-- [ ] Consolidate encrypted-storage definitions and distinguish invalid data from
-  incomplete/timed-out verification. Validate relevant restored domain semantics
-  and supported core requirements; cryptographic decryption alone is insufficient.
-- [ ] Review export encryption, bounded memory/disk and off-host password recovery.
+- [x] Consolidate encrypted-storage definitions for startup, archive inspection and
+  bounded node rotation, with secret-settings parity. Rotation now covers customer
+  links/webhooks and safely completes an interrupted window without replacing its
+  required keys; full current-key verification/checkpoint precedes predecessor removal.
+  Local tests cover 129 devices/all encrypted fields, mixed-key retries, invalid keys
+  and independent post-rotation archive verification.
+- [x] Distinguish invalid data from incomplete/timed-out archive verification;
+  cancellation retains its cause and cannot publish a restore preview.
+- [ ] Validate relevant restored domain semantics and supported core requirements;
+  cryptographic decryption alone is insufficient.
+- [x] Review export encryption, bounded memory/disk and off-host password recovery.
   Keep local pre-update recovery policy distinct from downloadable/off-host archives.
-- [ ] Produce an owner-usable backup/export/verify/recovery drill and download a
-  verified copy off the server before any rebuild.
+  The [preparation drill](../operations/migration-preparation.md) records optional
+  age export encryption, the independent password-recovery requirement, streaming/
+  admission limits, transient KDF memory and remaining real-host resource gates.
+- [x] Produce an owner-usable backup/export/verify/recovery drill linked above.
+- [ ] Download and independently verify the owner's off-host copy before any rebuild.
 
 Exit: failure-injection/race coverage for the changed boundaries; actual offline
 restore with preserved identity/data; measured slow-job isolation; a reviewed

@@ -71,13 +71,18 @@ before claiming the preparation/migration workflow complete:
 |---|---|---|
 | RF-15-01 | Startup attempted pre-migration backup before its service was fully wired and continued when backup failed | Source corrected with a shared live migration gate; local tests cover original-schema archives, every automatic opener, inspection/backup failure and reader contention. Exact CI/host acceptance remain separate |
 | RF-15-02 | Lifecycle health probe used liveness/challenge response, which cannot prove network/data readiness | Source now requires bounded local readiness and separate TLS proof; local responding/unready, malformed/redirect and ACME fallback tests pass. New real-host acceptance remains open |
-| RF-15-03 | Scheduler directly ran slow backup/delivery passes | Source now uses two fixed coalescing workers and cross-process archive/scheduled-pass claims; local stalled-job, cancellation, edit/contention and shutdown tests pass. Actual production accounting/expiry lag and peak crypto costs remain unmeasured |
+| RF-15-03 | Scheduler directly ran slow backup/delivery passes | Source now uses two fixed coalescing workers and cross-process archive/scheduled-pass claims; local stalled-job, cancellation, edit/contention and shutdown tests pass. A two-account fake-backend fixture also proves quota/expiry transitions and peer removal within one 15 s cadence (1 ms locally). Actual production accounting/expiry lag and peak crypto costs remain unmeasured |
+| RF-15-04 | Master-key rotation omitted customer links/webhooks and could replace the required predecessor during an interrupted retry | Source now shares one field inventory, rotates bounded pages, reuses a retained dual-key window and verifies/checkpoints current-key values before dropping the predecessor. Local all-field, 129-device, mixed-key retry and portable-archive tests pass; exact follow-up CI/real-host acceptance remain separate |
 | RF-18-01 | Subscription URL setting has no independent certificate/enrollment/host-role lifecycle | Implement bounded approved domains, SNI, manual/automatic host operations, renewal/replacement and public-route isolation |
 | RF-17-01 | Native branches and artifacts multiply deployment execution/state/acceptance paths | Complete the [native cleanup inventory](../architecture/docker-only-cleanup.md), preserve shared host/data behavior and prove one Docker lifecycle |
 
 The archive/data subset at `00c41618b4384b2ac60d297123d265955a292204` passed
 [exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37165992240).
 This is not whole-program acceptance, registry authorization or a new public release.
+The migration/readiness/worker safety subset at
+`39bfb0a4a5f27e4fc80bb27529cccd30d91cdaec` also passed
+[exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37200471956).
+Secret-storage follow-up delivery/CI remains a separate gate.
 
 Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
 implementation does not cross the active phase boundary.

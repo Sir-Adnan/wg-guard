@@ -104,7 +104,10 @@ cross-process archive/scheduled-pass claims, conditional schedule advancement an
 retryable shutdown protect data ownership. Focused local migration, readiness,
 contention, cancellation and shutdown tests passed. Final local `go test ./...`,
 `go vet ./...` and `go build ./...` passed; unchanged packages reused applicable
-Go cache. Exact-revision CI is pending; no new host/client lag, browser or release claim is made.
+Go cache. Exact safety source `39bfb0a4a5f27e4fc80bb27529cccd30d91cdaec` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37200471956), including both
+Linux race jobs, build, fixtures and vulnerability scan. No new host/client lag, browser or
+release claim is made.
 Production lag/resource measurement, broader restored semantics/export review and an
 owner-reviewed off-host backup remain Phase 15 gates. Phases 16–20 cover modular responsibility
 boundaries, verified images/deployment, two-domain TLS/SNI and route isolation,
@@ -112,6 +115,24 @@ operational UI/terminal flows and real-host acceptance. Directory movement is
 conditional on ownership/recovery benefit; existing config/node data paths are
 retained in the revised plan. These later changes are planned, not implemented by
 the safety changes above, and no new release is implied.
+
+**Phase 15 secret-storage follow-up (2026-10-04; not yet published):** Startup sampling,
+full archive inspection and node rotation now share the concrete encrypted-field inventory.
+The old rotation omitted customer-link/webhook fields; the corrected bounded sweep includes
+them and optional PSKs, verifies all values with the current key and checkpoints SQLite before
+dropping the predecessor. Interrupted retries reuse the retained current/previous pair;
+invalid predecessor keys are refused. Private atomic key writes are fsynced on Linux.
+Verification cancellation/timeouts report incomplete and cannot publish restore previews.
+Focused local tests passed all encrypted fields, 129-device paging, mixed-key interruption,
+foreign/oversized/invalid keys and portable post-rotation archives. Actual accounting/expiry
+and fake peer removal completed in 1 ms while two simulated worker operations stalled, within
+a 15 s cadence budget; this does not measure actual KDF/I/O or real-host enforcement.
+Final local full Go tests, vet/build and focused affected-package checks passed; applicable
+unchanged-package results reused Go cache. Exact follow-up CI remains pending. API/OpenAPI
+and archive schema remain unchanged. The [owner preparation drill](../operations/migration-preparation.md)
+reviews export/password recovery and memory/disk limits. Restored domain/core semantics,
+actual host lag/resource measurement and the owner's off-host backup still gate the rest
+of Phase 15.
 
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe

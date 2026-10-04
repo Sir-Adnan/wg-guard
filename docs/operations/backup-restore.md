@@ -27,6 +27,12 @@ database/key pair before migration. The logical archive format remains schema 1.
 Inspection streams one envelope at a time, caps encoded values at 8 KiB and has
 a one-minute deadline. Snapshot size must fit the existing 1 GiB restore limit.
 Plaintext is cleared immediately; public errors and counts contain no secret values.
+The encrypted field definitions are shared with startup/rotation in `internal/secrets`;
+secret-settings parity is tested. Interrupted or timed-out verification reports
+**incomplete**, preserving its cancellation cause, without publishing a restore preview.
+It gives neither a valid nor a corrupt result. Malformed/checksum/key failures remain distinct;
+retry incomplete verification before approving a restore. Delivery cancellation keeps its
+separate delivery guidance and does not invalidate a verified local archive.
 
 **Encryption is optional.** By default the archive is plain `tar.gz` (simple backup
 experience). If the administrator sets a **single backup password** — once, from the installer,
@@ -98,6 +104,11 @@ per pass, but a crash after archive publication and before row advancement can r
 archive or delivery. This is at-least-once execution. Isolation tests cover a stalled worker,
 cross-process claims and shutdown; production enforcement lag/peak KDF costs remain a separate
 measurement gate. The lease file is never an archive member; do not delete it to bypass a claim.
+
+The local stalled-pass regression also runs actual accounting/expiry and fake-backend peer
+removal for two accounts while both worker operations wait. Enforcement completed in 1 ms
+against a 15 s cadence budget in the recorded Windows fixture run; this small synthetic result
+is not a production latency promise or an actual archive-KDF/remote-delivery measurement.
 
 ## Delivery sinks
 
@@ -313,6 +324,10 @@ confirming no restore command is running. Review retained `restore.previous` fil
 deliberate cleanup; they may contain unencrypted keys and WAL data.
 
 ## Server migration & disaster recovery
+
+For the planned Docker refactor, follow the [owner preparation drill](migration-preparation.md)
+before any rebuild. A downloaded archive, saved off-host password and independent verification
+are prerequisites; current main preparation is not a new public target release.
 
 Migrating = fresh install on the new server + restore + environment review. Because client
 configs are generated on demand from current settings, confirming the public endpoint during

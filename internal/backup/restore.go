@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -87,13 +88,15 @@ const (
 // Nothing on the live node is touched. A private preview cannot be boot-applied;
 // Approve must explicitly publish it before offline or next-boot application.
 func (s *Service) Stage(ctx context.Context, archivePath, password string) (*PendingRestore, *RestoreReport, error) {
-	return s.stage(ctx, archivePath, password, false)
+	preview, report, err := s.stage(ctx, archivePath, password, false)
+	return preview, report, verificationError(err)
 }
 
 // StageOriginal preserves the exact archived schema and bytes for rollback.
 // It never opens active node data or invokes the forward migrator.
 func (s *Service) StageOriginal(ctx context.Context, archivePath, password string) (*PendingRestore, *RestoreReport, error) {
-	return s.stage(ctx, archivePath, password, true)
+	preview, report, err := s.stage(ctx, archivePath, password, true)
+	return preview, report, verificationError(err)
 }
 
 func (s *Service) stage(ctx context.Context, archivePath, password string, original bool) (*PendingRestore, *RestoreReport, error) {
@@ -168,7 +171,7 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 
 	if err := s.prepareStagedDB(ctx, pending, report, original); err != nil {
 		os.RemoveAll(pending)
-		return nil, nil, err
+		return nil, nil, verificationError(err)
 	}
 	report.Inventory, err = inspectStagedData(ctx, pending)
 	if err != nil {
@@ -184,6 +187,13 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 	}
 	keep = true
 	return pr, report, nil
+}
+
+func verificationError(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return safetyError("verification_incomplete", err)
+	}
+	return err
 }
 
 // writeStagedMeta records the verified manifest beside the staged payload so
@@ -242,7 +252,10 @@ func (s *Service) prepareStagedDB(ctx context.Context, dir string, report *Resto
 		}
 		defer db.Close()
 		var integrity string
-		if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
+		if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil {
+			return verificationError(err)
+		}
+		if integrity != "ok" {
 			return safetyError("original_integrity", nil)
 		}
 		report.NodeID = stagedSetting(ctx, db, "node.id")
@@ -259,7 +272,10 @@ func (s *Service) prepareStagedDB(ctx context.Context, dir string, report *Resto
 		return fmt.Errorf("backup: migrate staged database: %w", err)
 	}
 	var integrity string
-	if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
+	if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil {
+		return verificationError(err)
+	}
+	if integrity != "ok" {
 		return domain.E(domain.CodeInvalidRequest, "backup: staged database failed integrity_check (%s)", integrity)
 	}
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)

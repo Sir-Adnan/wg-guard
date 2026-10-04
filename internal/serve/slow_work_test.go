@@ -9,7 +9,13 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/device"
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/scheduler"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
+	"github.com/Sir-Adnan/wg-guard/internal/user"
 )
 
 func TestSlowWorkDoesNotDelayCentralEnforcementAndCoalescesRequests(t *testing.T) {
@@ -132,4 +138,97 @@ func TestShutdownPreservesDatabaseAndOwnershipUntilSlowWorkDrains(t *testing.T) 
 		t.Fatal("successful drain leaked data ownership", err)
 	}
 	contender.Close()
+}
+
+func TestStalledSlowPassesDoNotDelayQuotaAndExpiryEnforcement(t *testing.T) {
+	ctx := context.Background()
+	backend := fake.New()
+	n, err := Start(ctx, Options{Config: testConfig(t, "127.0.0.1:0"), Backend: backend, Log: quietLogger()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer n.Shutdown(ctx)
+	if err := n.reg.SetRaw(ctx, "accounting.interval_seconds", "15"); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := n.apiServer.Ifaces.Create(ctx, iface.CreateInput{Name: "awg0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids, publicKeys []string
+	for _, name := range []string{"quota-fixture", "expiry-fixture"} {
+		account, err := n.apiServer.Users.Create(ctx, user.Input{Username: name, TrafficLimitBytes: domain.OptInt64{Set: true, Value: 100}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		pair, err := tunnel.GenerateKeyPair()
+		if err != nil {
+			t.Fatal(err)
+		}
+		private, err := n.ring.Encrypt([]byte(pair.Private))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := n.apiServer.Devices.Create(ctx, account.ID, name, device.KeyMaterial{PublicKey: pair.Public, PrivateKeyEnc: private}, profile.ID); err != nil {
+			t.Fatal(err)
+		}
+		ids, publicKeys = append(ids, account.ID), append(publicKeys, pair.Public)
+	}
+	if _, err := n.reconciler.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.SetPeerActivity(profile.Name, publicKeys[0], time.Now(), 101, 0); err != nil {
+		t.Fatal("quota fixture peer was not applied")
+	}
+	if _, err := n.db.Exec(`UPDATE users SET expires_at=? WHERE id=?`, time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano), ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	// Use the production worker/dispatch/shutdown code with deliberately stalled
+	// operations. Metering, expiry and peer reconciliation remain the real services.
+	n.sched.Stop()
+	for _, work := range n.slowWork {
+		_ = work.stop(ctx)
+	}
+	started := make(chan struct{}, 2)
+	stalled := func(job context.Context) error { started <- struct{}{}; <-job.Done(); return job.Err() }
+	n.slowWork = []*slowWork{
+		startSlowWork(ctx, quietLogger(), "delivery-fixture", time.Minute, stalled),
+		startSlowWork(ctx, quietLogger(), "archive-fixture", time.Minute, stalled),
+	}
+	for _, work := range n.slowWork {
+		_ = work.request(ctx)
+	}
+	for range 2 {
+		select {
+		case <-started:
+		case <-time.After(time.Second):
+			t.Fatal("slow-work fixture did not start")
+		}
+	}
+	n.sched = scheduler.New(quietLogger())
+	finished := make(chan struct{})
+	begin := time.Now()
+	n.sched.At("accounting", begin, func(job context.Context) error {
+		err := n.jobAccounting(job)
+		close(finished)
+		return err
+	})
+	n.sched.Start(ctx)
+	budget := n.accountingInterval(ctx)
+	select {
+	case <-finished:
+	case <-time.After(budget):
+		t.Fatal("stalled slow work exceeded one accounting cadence of enforcement lag")
+	}
+	for index, expected := range []string{"traffic_exceeded", "expired"} {
+		var actual string
+		if err := n.db.QueryRow(`SELECT status FROM users WHERE id=?`, ids[index]).Scan(&actual); err != nil || actual != expected {
+			t.Fatal("stalled work prevented the expected lifecycle transition")
+		}
+	}
+	state, err := backend.Dump(ctx, profile.Name)
+	if err != nil || len(state.Peers) != 0 {
+		t.Fatal("status changed without removing the enforced peers")
+	}
+	t.Logf("local fake-backend enforcement completed in %s while both slow passes were stalled; budget %s", time.Since(begin).Round(time.Millisecond), budget)
 }

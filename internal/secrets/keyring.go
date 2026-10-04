@@ -5,11 +5,12 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // KeyRing holds the current master key and, during a rotation window, the
@@ -36,12 +37,17 @@ func loadKeyRing(keyFile string, create bool) (*KeyRing, error) {
 	if keyFile == "" {
 		return nil, fmt.Errorf("secrets: empty key file path")
 	}
-	data, err := os.ReadFile(keyFile)
+	data, err := readKeyFile(keyFile)
+	defer clear(data)
 	if errors.Is(err, os.ErrNotExist) {
+		if _, previousErr := os.Lstat(keyFile + KeyFileSuffixPrev); !errors.Is(previousErr, os.ErrNotExist) {
+			return nil, fmt.Errorf("secrets: current key is missing during a retained rotation; recover the matching key pair")
+		}
 		if !create {
 			return nil, fmt.Errorf("secrets: existing encrypted node data requires its original master key")
 		}
 		key := make([]byte, 32)
+		defer clear(key)
 		if _, err := rand.Read(key); err != nil {
 			return nil, fmt.Errorf("secrets: generate key: %w", err)
 		}
@@ -63,13 +69,14 @@ func loadKeyRing(keyFile string, create bool) (*KeyRing, error) {
 	}
 	ring := &KeyRing{current: cur}
 
-	prevData, err := os.ReadFile(keyFile + KeyFileSuffixPrev)
+	prevData, err := readKeyFile(keyFile + KeyFileSuffixPrev)
+	defer clear(prevData)
 	if err == nil {
-		if prev, err := NewCipher(prevData); err == nil {
-			ring.prev = prev
+		prev, err := NewCipher(prevData)
+		if err != nil {
+			return nil, fmt.Errorf("secrets: invalid retained rotation key")
 		}
-		// An unreadable .prev is non-fatal: it only mattered for rows that
-		// should already have been re-encrypted before the swap.
+		ring.prev = prev
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("secrets: read %s%s: %w", keyFile, KeyFileSuffixPrev, err)
 	}
@@ -84,52 +91,24 @@ func loadKeyRing(keyFile string, create bool) (*KeyRing, error) {
 // under the on-disk key (or its rotation-window predecessor) before the node
 // or an offline data command can proceed.
 func LoadNodeKeyRing(ctx context.Context, db *sql.DB, keyFile string) (*KeyRing, error) {
-	queries := []struct {
-		statement string
-		text      bool
-	}{
-		{"SELECT private_key_encrypted FROM tunnel_interfaces LIMIT 1", false},
-		{"SELECT private_key_encrypted FROM devices LIMIT 1", false},
-		{"SELECT token_encrypted FROM sub_links LIMIT 1", false},
-		// Webhook writers use EncryptString (enc: + base64), even though
-		// SQLite's original column declaration is BLOB. Decode the envelope
-		// just as the webhook delivery reader does before checking the key.
-		{"SELECT secret_encrypted FROM webhook_endpoints LIMIT 1", true},
-		// Keep in step with the secret definitions in internal/settings.
-		{"SELECT value FROM settings WHERE key IN ('backup.password', 'backup.telegram_token') LIMIT 1", true},
-	}
-	type sample struct {
-		value []byte
-		text  bool
-	}
-	var samples []sample
-	for _, query := range queries {
-		var value []byte
-		err := db.QueryRowContext(ctx, query.statement).Scan(&value)
-		if errors.Is(err, sql.ErrNoRows) {
-			continue
+	var samples [][]byte
+	defer func() {
+		for _, sample := range samples {
+			clear(sample)
 		}
-		if err != nil {
-			return nil, fmt.Errorf("secrets: inspect encrypted node data: %w", err)
-		}
-		samples = append(samples, sample{value: value, text: query.text})
+	}()
+	if err := WalkStoredSecrets(ctx, db, "", true, func(value []byte) error {
+		samples = append(samples, bytes.Clone(value))
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("secrets: inspect encrypted node data: %w", err)
 	}
 	ring, err := loadKeyRing(keyFile, len(samples) == 0)
 	if err != nil {
 		return nil, err
 	}
 	for _, item := range samples {
-		ciphertext := item.value
-		if item.text {
-			if !bytes.HasPrefix(ciphertext, []byte("enc:")) {
-				return nil, fmt.Errorf("secrets: stored encrypted text secret is invalid")
-			}
-			ciphertext, err = base64.StdEncoding.DecodeString(string(ciphertext[4:]))
-			if err != nil {
-				return nil, fmt.Errorf("secrets: stored encrypted text secret is invalid")
-			}
-		}
-		plaintext, err := ring.Decrypt(ciphertext)
+		plaintext, err := ring.Decrypt(item)
 		clear(plaintext)
 		if err != nil {
 			return nil, fmt.Errorf("secrets: master key does not decrypt existing node data; restore the matching key or archive")
@@ -167,7 +146,8 @@ func (k *KeyRing) DecryptString(s string) (string, error) {
 }
 
 // Carrier is one storage area that holds encrypted values. Rotation asks each
-// carrier to re-encrypt in place (its own transaction).
+// carrier to re-encrypt in bounded passes. A carrier must skip already-current
+// values when resuming an interrupted dual-key window.
 type Carrier interface {
 	ReencryptSecrets(from, to *Cipher) error
 }
@@ -176,7 +156,8 @@ type Carrier interface {
 // with the previous key retained), re-encrypts every carrier, and removes the
 // previous key file on success.
 func Rotate(keyFile string, carriers ...Carrier) (*KeyRing, error) {
-	oldData, err := os.ReadFile(keyFile)
+	oldData, err := readKeyFile(keyFile)
+	defer clear(oldData)
 	if err != nil {
 		return nil, fmt.Errorf("secrets: rotate: read current key: %w", err)
 	}
@@ -187,22 +168,35 @@ func Rotate(keyFile string, carriers ...Carrier) (*KeyRing, error) {
 	if err != nil {
 		return nil, err
 	}
-	newKey := make([]byte, 32)
-	if _, err := rand.Read(newKey); err != nil {
-		return nil, fmt.Errorf("secrets: rotate: generate: %w", err)
-	}
-	newCipher, err := NewCipher(newKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// 1. Swap key files first (old -> .prev, new -> current) so every stored
-	//    envelope stays decryptable no matter where we are interrupted.
-	if err := writeKeyFile(keyFile+KeyFileSuffixPrev, oldData); err != nil {
-		return nil, err
-	}
-	if err := writeKeyFile(keyFile, newKey); err != nil {
-		return nil, err
+	previous, err := readKeyFile(keyFile + KeyFileSuffixPrev)
+	defer clear(previous)
+	newCipher := oldCipher
+	if err == nil {
+		// Complete the existing window. Never replace its predecessor while
+		// untouched rows may still depend on it.
+		oldCipher, err = NewCipher(previous)
+		if err != nil {
+			return nil, fmt.Errorf("secrets: invalid retained rotation key")
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		newKey := make([]byte, 32)
+		defer clear(newKey)
+		if _, err := rand.Read(newKey); err != nil {
+			return nil, fmt.Errorf("secrets: rotate: generate: %w", err)
+		}
+		newCipher, err = NewCipher(newKey)
+		if err != nil {
+			return nil, err
+		}
+		// Publish the previous key durably before replacing the current key.
+		if err := writeKeyFile(keyFile+KeyFileSuffixPrev, oldData); err != nil {
+			return nil, err
+		}
+		if err := writeKeyFile(keyFile, newKey); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("secrets: read retained rotation key: %w", err)
 	}
 
 	// 2. Re-encrypt all carriers. A failure aborts rotation; the previous key
@@ -217,6 +211,9 @@ func Rotate(keyFile string, carriers ...Carrier) (*KeyRing, error) {
 	if err := os.Remove(keyFile + KeyFileSuffixPrev); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("secrets: rotate: remove previous key: %w", err)
 	}
+	if err := syncKeyDirectory(filepath.Dir(keyFile)); err != nil {
+		return nil, err
+	}
 	return &KeyRing{current: newCipher}, nil
 }
 
@@ -225,15 +222,50 @@ func writeKeyFile(path string, key []byte) error {
 		// Best-effort hardening; may be a no-op on some filesystems.
 		_ = os.MkdirAll(dir, 0o700)
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, key, 0o600); err != nil {
+	f, err := os.CreateTemp(filepath.Dir(path), ".wg-guard-key-*")
+	if err != nil {
 		return fmt.Errorf("secrets: write key %s: %w", path, err)
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	defer os.Remove(f.Name())
+	defer f.Close()
+	if _, err := f.Write(key); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(f.Name(), path); err != nil {
 		return fmt.Errorf("secrets: swap key %s: %w", path, err)
 	}
-	return nil
+	return syncKeyDirectory(filepath.Dir(path))
+}
+
+func readKeyFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("secrets: key is not a regular file")
+	}
+	return io.ReadAll(io.LimitReader(f, 33))
+}
+
+func syncKeyDirectory(path string) error {
+	if runtime.GOOS == "windows" {
+		return nil // Windows does not support fsync on directory handles.
+	}
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
 }
 
 // tamperProbe guards tests and doctor: verifies the ring can decrypt what it

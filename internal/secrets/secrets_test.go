@@ -228,6 +228,9 @@ type mapCarrier struct{ data map[string]string }
 
 func (m *mapCarrier) ReencryptSecrets(from, to *Cipher) error {
 	for k, v := range m.data {
+		if _, err := to.DecryptString(v); err == nil {
+			continue
+		}
 		pt, err := from.DecryptString(v)
 		if err != nil {
 			return err
@@ -239,6 +242,85 @@ func (m *mapCarrier) ReencryptSecrets(from, to *Cipher) error {
 		m.data[k] = enc
 	}
 	return nil
+}
+
+func TestRotateResumesWithoutReplacingRetainedKeys(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	keyFile := filepath.Join(dir, "master.key")
+	db, err := database.Open(filepath.Join(dir, "node.db"), database.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.Migrate(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	ring, err := LoadKeyRing(keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range SecretSettingKeys() {
+		sealed, err := ring.EncryptString("synthetic-rotation-value")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`INSERT INTO settings (key,value,updated_at) VALUES (?,?,'2026-01-01T00:00:00Z')`, key, sealed); err != nil {
+			t.Fatal(err)
+		}
+	}
+	boom := errors.New("synthetic interrupted rotation")
+	// One field is changed, one remains on the predecessor key.
+	partial := partialStoredCarrier{db: db}
+	if _, err := Rotate(keyFile, partial, &failingCarrier{err: boom}); !errors.Is(err, boom) {
+		t.Fatal("rotation failure was not preserved")
+	}
+	current, _ := os.ReadFile(keyFile)
+	previous, _ := os.ReadFile(keyFile + KeyFileSuffixPrev)
+	if bytes.Equal(current, previous) {
+		t.Fatal("fixture did not enter a dual-key window")
+	}
+	if _, err := Rotate(keyFile, &failingCarrier{err: boom}); !errors.Is(err, boom) {
+		t.Fatal("retry failure was not preserved")
+	}
+	currentAgain, _ := os.ReadFile(keyFile)
+	previousAgain, _ := os.ReadFile(keyFile + KeyFileSuffixPrev)
+	if !bytes.Equal(current, currentAgain) || !bytes.Equal(previous, previousAgain) {
+		t.Fatal("retry overwrote a key still required by stored rows")
+	}
+	finished, err := Rotate(keyFile, NodeCarrier(ctx, db.DB))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(keyFile + KeyFileSuffixPrev); !os.IsNotExist(err) {
+		t.Fatal("completed rotation retained its predecessor")
+	}
+	if err := WalkStoredSecrets(ctx, db.DB, "", false, func(value []byte) error {
+		plaintext, err := finished.Decrypt(value)
+		clear(plaintext)
+		return err
+	}); err != nil {
+		t.Fatal("completed rotation requires an unretained key")
+	}
+}
+
+type partialStoredCarrier struct{ db *database.DB }
+
+func (p partialStoredCarrier) ReencryptSecrets(from, to *Cipher) error {
+	var stored string
+	if err := p.db.QueryRow(`SELECT value FROM settings WHERE key='backup.password'`).Scan(&stored); err != nil {
+		return err
+	}
+	plaintext, err := from.DecryptString(stored)
+	if err != nil {
+		return err
+	}
+	sealed, err := to.EncryptString(plaintext)
+	if err != nil {
+		return err
+	}
+	_, err = p.db.Exec(`UPDATE settings SET value=? WHERE key='backup.password'`, sealed)
+	return err
 }
 
 type failingCarrier struct{ err error }

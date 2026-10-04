@@ -661,69 +661,6 @@ func (s *Service) PresharedKey(ctx context.Context, d *Device) (string, error) {
 	return string(pt), nil
 }
 
-// ReencryptSecrets rotates device key envelopes (master-key rotation
-// carrier). Runs outside a transaction deliberately: rotation order in
-// secrets.Rotate guarantees both keys stay available (see package docs).
-func (s *Service) ReencryptSecrets(from, to *secrets.Cipher) error {
-	rows, err := s.db.Query(`SELECT id, private_key_encrypted, preshared_key_encrypted FROM devices`)
-	if err != nil {
-		return fmt.Errorf("device: rotate scan: %w", err)
-	}
-	type row struct {
-		id  string
-		pk  []byte
-		psk []byte
-	}
-	var updates []row
-	for rows.Next() {
-		var r row
-		var psk []byte
-		if err := rows.Scan(&r.id, &r.pk, &psk); err != nil {
-			rows.Close()
-			return fmt.Errorf("device: rotate: %w", err)
-		}
-		pt, err := from.Decrypt(r.pk)
-		if err != nil {
-			rows.Close()
-			return fmt.Errorf("device: rotate %s: %w", r.id, err)
-		}
-		r.pk, err = to.Encrypt(pt)
-		if err != nil {
-			rows.Close()
-			return fmt.Errorf("device: rotate %s: %w", r.id, err)
-		}
-		if psk != nil {
-			pt, err := from.Decrypt(psk)
-			if err != nil {
-				rows.Close()
-				return fmt.Errorf("device: rotate %s psk: %w", r.id, err)
-			}
-			r.psk, err = to.Encrypt(pt)
-			if err != nil {
-				rows.Close()
-				return fmt.Errorf("device: rotate %s psk: %w", r.id, err)
-			}
-		}
-		updates = append(updates, r)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return fmt.Errorf("device: rotate: %w", err)
-	}
-	rows.Close()
-	for _, r := range updates {
-		var psk any
-		if r.psk != nil {
-			psk = r.psk
-		}
-		if _, err := s.db.Exec(`UPDATE devices SET private_key_encrypted = ?, preshared_key_encrypted = ? WHERE id = ?`,
-			r.pk, psk, r.id); err != nil {
-			return fmt.Errorf("device: rotate write %s: %w", r.id, err)
-		}
-	}
-	return nil
-}
-
 const deviceColumns = `SELECT id, user_id, interface_id, name, ipv4_address, public_key,
 	private_key_encrypted, preshared_key_encrypted, enabled, last_handshake_at, last_endpoint,
 	rx_bytes, tx_bytes, last_rx, last_tx, created_at, updated_at`

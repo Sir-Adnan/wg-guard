@@ -555,54 +555,6 @@ func (r *Registry) All(ctx context.Context) ([]Item, error) {
 	return out, nil
 }
 
-// ReencryptSecrets re-encrypts every stored secret row from `from` to `to`
-// (master-key rotation carrier, secrets.Carrier contract).
-func (r *Registry) ReencryptSecrets(from, to *secrets.Cipher) error {
-	rows, err := r.db.Query(`SELECT key, value FROM settings`)
-	if err != nil {
-		return fmt.Errorf("settings: rotate scan: %w", err)
-	}
-	type pair struct{ key, newVal string }
-	var updates []pair
-	for rows.Next() {
-		var key, val string
-		if err := rows.Scan(&key, &val); err != nil {
-			rows.Close()
-			return fmt.Errorf("settings: rotate: %w", err)
-		}
-		if !secrets.IsEncryptedText(val) {
-			continue
-		}
-		pt, err := from.DecryptString(val)
-		if err != nil {
-			rows.Close()
-			return fmt.Errorf("settings: rotate %s: %w", key, err)
-		}
-		enc, err := to.EncryptString(pt)
-		if err != nil {
-			rows.Close()
-			return fmt.Errorf("settings: rotate %s: %w", key, err)
-		}
-		updates = append(updates, pair{key, enc})
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return fmt.Errorf("settings: rotate: %w", err)
-	}
-	rows.Close()
-
-	for _, u := range updates {
-		if _, err := r.db.Exec(`UPDATE settings SET value = ? WHERE key = ?`, u.newVal, u.key); err != nil {
-			return fmt.Errorf("settings: rotate write %s: %w", u.key, err)
-		}
-	}
-	r.mu.Lock()
-	r.cache = map[string]cacheEntry{} // encrypted values changed wholesale
-	r.generation++
-	r.mu.Unlock()
-	return nil
-}
-
 // decode converts a stored TEXT value into its typed form (decrypting
 // secrets).
 func (r *Registry) decode(def Definition, stored string) (any, error) {

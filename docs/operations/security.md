@@ -21,7 +21,7 @@ access). Principles: least privilege, secure defaults, standard primitives only,
 | Admin passwords | Argon2id (OWASP parameter baseline), never persisted/logged as plaintext; an installer-generated password is displayed once on the interactive terminal after successful lifecycle/health completion |
 | Admin sessions | random tokens, stored hashed; HttpOnly, Secure, SameSite=Lax cookies; absolute + idle expiry; rotation on login |
 | API tokens | `wg_` + 32 chars crypto/rand; stored as SHA-256 with indexed prefix; scopes, expiry, optional CIDR allowlist; revocable |
-| Device private keys / preshared keys | AES-256-GCM encrypted with the node-local master key (32 B, file 0600 outside the DB); required for config re-download; rotation procedure below + loss consequence documented |
+| Interface/device private keys, preshared keys and customer-link capabilities | AES-256-GCM encrypted with the node-local master key (32 B, file 0600 outside the DB); required for config/link re-display; rotation procedure below + loss consequence documented |
 | Webhook secrets, Telegram credentials, backup password | encrypted at rest with the master key |
 | Audit log | never contains secrets (redaction list enforced in code) |
 
@@ -37,10 +37,16 @@ see [lifecycle recovery](lifecycle-recovery.md).
 
 Rotation is crash-safe via a dual-key window: (1) the old key file is renamed to
 `master.key.prev` and a new key takes its place — from this instant both key versions can
-decrypt; (2) every carrier (interface keys, device keys, encrypted settings) re-encrypts its
-rows old→new; (3) on full success `.prev` is deleted. A crash at any point leaves the key ring
-(current + previous) able to decrypt every stored envelope; the next boot resumes with both keys
-loaded. If the master key **and** every backup are lost, encrypted secrets (device private keys,
+decrypt; (2) the shared node storage carrier re-encrypts interface/device keys, optional PSKs,
+customer-link capabilities, webhook secrets and secret settings; (3) after full current-key
+verification and a completed SQLite WAL checkpoint, `.prev` is deleted. Key publication uses
+private temporary files, file fsync, atomic rename and directory fsync on Linux.
+A crash leaves current/previous keys available. Startup loads both without rewriting rows;
+the next explicit `secrets rotate` completes this existing window, skips already-current values
+and never overwrites either retained key. A malformed predecessor is refused, not ignored or
+replaced. The service must remain stopped until completion; the command has a 15 min deadline
+and preserves its dual-key recovery window on failure/cancellation.
+If the master key **and** every backup are lost, encrypted secrets (device private keys,
 webhook/Telegram credentials) are unrecoverable by design — devices can be re-enrolled, but this
 is documented honestly as data loss. If encrypted node data exists, service startup and offline
 data commands refuse a missing or wrong master key before creating replacement key material.
@@ -51,6 +57,17 @@ are binary envelopes; webhook secrets and encrypted settings are `enc:`-prefixed
 The startup/offline check must decode webhook text before authenticating it. A valid webhook
 must not be mistaken for a wrong master key. Missing keys, malformed text and failed
 authentication still fail closed without regenerating key material or exposing stored values.
+
+`internal/secrets/storage.go` is the closed source inventory for startup sampling, full portable
+backup inspection and rotation. A parity check covers the secret settings catalog. Startup
+samples at most one nonempty optional value per field; it is not a full data-integrity audit.
+Inspection streams values; rotation reads/writes at most 128 records per page and performs a
+full current-key check before discarding the predecessor. Encoded values are capped at 8 KiB,
+storage IDs at 128 bytes and key-file reads at 33 bytes before exact 32-byte validation.
+Plaintext is cleared after each cryptographic operation. No keys, tokens, envelopes or configs
+are emitted as diagnostics. Local regressions cover all fields, multi-page rotation, interrupted
+mixed-key retries, foreign/invalid keys and a portable post-rotation archive; these do not
+replace a real-host power-loss or client acceptance drill.
 
 No `math/rand` for secrets; `crypto/rand` everywhere. Secrets are passed to subprocesses via
 stdin or 0600 temp files, never argv, never shell interpolation. All exec traffic goes through

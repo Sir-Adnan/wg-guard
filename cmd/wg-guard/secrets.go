@@ -1,20 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
-	"github.com/Sir-Adnan/wg-guard/internal/device"
-	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 )
 
 // runSecrets rotates the node master key (security.md §Master-key rotation):
-// a crash-safe dual-key window re-encrypts every carrier (device keys,
-// interface keys, encrypted settings) old→new, then removes the previous
+// a crash-safe dual-key window re-encrypts every stored node field
+// old→new, then removes the previous
 // key. The service must be stopped — the running node holds the old ring.
 //
 //	wg-guard secrets rotate [-yes]
@@ -47,7 +47,8 @@ func runSecrets(args []string) error {
 	}
 	if !*yes {
 		fmt.Println("Rotation generates a new master key and re-encrypts every stored secret")
-		fmt.Println("(device keys, interface keys, encrypted settings). It is crash-safe:")
+		fmt.Println("(interface/device keys, customer links, webhook secrets and settings).")
+		fmt.Println("It is crash-safe:")
 		fmt.Println("an interruption leaves both key versions able to decrypt and the")
 		fmt.Println("next run resumes. Archives are unaffected.")
 		fmt.Print("Proceed? Type YES to confirm: ")
@@ -58,13 +59,9 @@ func runSecrets(args []string) error {
 		}
 	}
 
-	// Carriers: device keys, interface private keys, encrypted settings.
-	carriers := []secrets.Carrier{
-		device.NewService(env.DB, env.Ring),
-		iface.NewService(env.DB, env.Reg, env.Ring),
-		env.Reg,
-	}
-	if _, err := secrets.Rotate(env.Cfg.MasterKeyFile, carriers...); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	if _, err := secrets.Rotate(env.Cfg.MasterKeyFile, secrets.NodeCarrier(ctx, env.DB.DB)); err != nil {
 		return err
 	}
 	fmt.Println("master key rotated: all stored secrets were re-encrypted; previous key removed")

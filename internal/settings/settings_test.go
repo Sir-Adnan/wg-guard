@@ -335,63 +335,6 @@ func TestSetBatchValidationFailureWritesNothing(t *testing.T) {
 	}
 }
 
-func TestReencryptSecrets(t *testing.T) {
-	reg, db := newRegistry(t)
-	ctx := context.Background()
-	if err := reg.Set(ctx, "backup.telegram_token", "bot-token"); err != nil {
-		t.Fatal(err)
-	}
-	old, err := secrets.NewCipher(key32(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	neu, err := secrets.NewCipher(key32(2))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := reg.ReencryptSecrets(old, neu); err == nil {
-		t.Fatal("rotation with a foreign old key must fail loudly")
-	}
-
-	// Simulate a rotation where the registry's rows were written by a ring
-	// whose key we rotate: build a second registry on the same DB with its
-	// own ring, then rotate through that ring.
-	reg2, _ := registryWithFreshRing(t, db)
-	if err := reg2.Set(ctx, "backup.telegram_token", "bot-token"); err != nil {
-		t.Fatal(err)
-	}
-	ringNew, err := secrets.NewCipher(key32(3))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Decrypt-with-old then encrypt-with-new needs the old key: recover it by
-	// re-writing the row with a known cipher, exercising the carrier.
-	knownOld, _ := secrets.NewCipher(key32(4))
-	enc, _ := knownOld.EncryptString("bot-token")
-	if _, err := db.Exec(`UPDATE settings SET value=? WHERE key='backup.telegram_token'`, enc); err != nil {
-		t.Fatal(err)
-	}
-	if err := reg2.ReencryptSecrets(knownOld, ringNew); err != nil {
-		t.Fatalf("reencrypt: %v", err)
-	}
-	var stored string
-	if err := db.QueryRow(`SELECT value FROM settings WHERE key='backup.telegram_token'`).Scan(&stored); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := ringNew.DecryptString(stored); err != nil || got != "bot-token" {
-		t.Fatalf("new key cannot decrypt re-encrypted row: %v %q", err, got)
-	}
-}
-
-func registryWithFreshRing(t *testing.T, db *database.DB) (*Registry, error) {
-	t.Helper()
-	ring, err := secrets.LoadKeyRing(filepath.Join(t.TempDir(), "master.key"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return New(db, ring, Defaults())
-}
-
 func TestDefinitionsAreSane(t *testing.T) {
 	reg, _ := newRegistry(t)
 	seen := map[string]bool{}

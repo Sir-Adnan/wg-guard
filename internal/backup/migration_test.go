@@ -153,7 +153,7 @@ func TestMigrationRejectsMissingWrongAndMixedArchiveKeys(t *testing.T) {
 					value = []byte("synthetic-malformed-envelope")
 				}
 				if kind == "oversized-text" {
-					value = "\x00" + strings.Repeat("x", maxSecretEnvelopeBytes+1)
+					value = "\x00" + strings.Repeat("x", secrets.MaxStoredEnvelopeBytes+1)
 				}
 			case "preshared":
 				query = `UPDATE devices SET preshared_key_encrypted=? WHERE id='device-two'`

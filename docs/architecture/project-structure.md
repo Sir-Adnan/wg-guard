@@ -29,11 +29,12 @@ internal/
   domain/                shared types: IDs (UUIDv7), statuses, disable reasons, machine error codes
   settings/              typed runtime settings registry (validators, categories, defaults)
   user/ device/ plan/    domain packages: model + service + repository
-  iface/                 tunnel interface/profile service (ports, subnets, params, rotation);
+  iface/                 tunnel interface/profile service (ports, subnets, params);
                          package name `iface` — `interface` is a Go keyword
   admin/ auth/           owner/admin accounts, argon2id, sessions, permission registry
   token/                 API tokens (hash storage, scopes, CIDR allowlists)
-  secrets/               master key ring, AES-256-GCM cipher, crash-safe master-key rotation
+  secrets/               master key ring, AES-256-GCM cipher, shared stored-field inventory,
+                         bounded/resumable node master-key rotation
   tunnel/                TunnelBackend interface + types + key generation (standard X25519)
     amneziawg/           pinned AWG implementation: exec-driven backend, conf renderer,
                          29-field dump parser, verify-after-apply, capability probe
