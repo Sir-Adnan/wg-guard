@@ -54,7 +54,7 @@ multi-pool forwarding and production database compaction remain unclaimed.
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
-| 15 — Safety/migration preparation | active; archive subset implemented | Required backup ordering, readiness, bounded slow workers and reviewed off-host owner backup |
+| 15 — Safety/migration preparation | active; archive/migration/readiness/worker safety implemented locally | Full delivery/CI, measured enforcement/resource limits, restored semantics/export review and reviewed off-host owner backup |
 | 16 — Modular boundaries | planned | Behavior-preserving domain/runtime/host separation and path ownership |
 | 17 — Docker-only/native cleanup | planned; removal confirmed | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
@@ -69,9 +69,9 @@ before claiming the preparation/migration workflow complete:
 
 | ID | Finding | Required resolution/evidence |
 |---|---|---|
-| RF-15-01 | Startup attempts pre-migration backup before its service is fully wired and continues when backup fails | Existing-data failure must stop migration; empty first setup handled separately; test every automatic opener |
-| RF-15-02 | Lifecycle health probe uses liveness/challenge response, which cannot prove network/data readiness | Separate readiness and TLS proof; simulate a responding but unready node and refuse success |
-| RF-15-03 | Scheduler directly runs slow backup/delivery passes | Bounded workers/claims, cancellation and measured accounting/expiry lag under stalled jobs |
+| RF-15-01 | Startup attempted pre-migration backup before its service was fully wired and continued when backup failed | Source corrected with a shared live migration gate; local tests cover original-schema archives, every automatic opener, inspection/backup failure and reader contention. Exact CI/host acceptance remain separate |
+| RF-15-02 | Lifecycle health probe used liveness/challenge response, which cannot prove network/data readiness | Source now requires bounded local readiness and separate TLS proof; local responding/unready, malformed/redirect and ACME fallback tests pass. New real-host acceptance remains open |
+| RF-15-03 | Scheduler directly ran slow backup/delivery passes | Source now uses two fixed coalescing workers and cross-process archive/scheduled-pass claims; local stalled-job, cancellation, edit/contention and shutdown tests pass. Actual production accounting/expiry lag and peak crypto costs remain unmeasured |
 | RF-18-01 | Subscription URL setting has no independent certificate/enrollment/host-role lifecycle | Implement bounded approved domains, SNI, manual/automatic host operations, renewal/replacement and public-route isolation |
 | RF-17-01 | Native branches and artifacts multiply deployment execution/state/acceptance paths | Complete the [native cleanup inventory](../architecture/docker-only-cleanup.md), preserve shared host/data behavior and prove one Docker lifecycle |
 

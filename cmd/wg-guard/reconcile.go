@@ -19,6 +19,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/amneziawg"
+	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
 // runReconcile brings the node to DB state outside the service: tooling
@@ -58,7 +59,8 @@ func runReconcile(args []string) error {
 		slog.New(logsafe.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
 		logsafe.ComponentAWG,
 	)
-	if err := db.Migrate(context.Background(), quiet); err != nil {
+	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: configPath, Version: version.String(), Log: quiet}
+	if err := migration.MigrateNode(context.Background(), lease); err != nil {
 		return err
 	}
 	ring, err := secrets.LoadNodeKeyRing(context.Background(), db.DB, cfg.MasterKeyFile)

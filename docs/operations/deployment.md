@@ -162,13 +162,27 @@ and HSTS is emitted only for direct TLS or HTTPS asserted by a trusted private/l
 See [terminal management](terminal-management.md#panel-access--https) and
 [lifecycle recovery](lifecycle-recovery.md).
 
+Install/update/recovery now wait for both local `/healthz` and an exact bounded `/readyz`
+response before committing runtime success. A responsive but unready node cannot complete the
+lifecycle transition. In ACME mode the sidecar answers only actual loopback readiness; for older
+retained artifacts its redirect triggers a fixed local TLS probe with the recorded SNI, never a
+request to an arbitrary redirect target. This runtime check does not certify public DNS, TLS trust
+or a physical client's tunnel; exposure verification retains its separate certificate proof.
+
 ### Scheduler & background work
 
-All periodic work runs on ONE scheduler goroutine: the accounting delta cycle +
+ONE scheduler goroutine runs the accounting delta cycle +
 expiry pass (every `accounting.interval_seconds`, live-reloadable), traffic-sample flush
-(`accounting.sample_flush_seconds`), webhook delivery pass (5 s), and housekeeping (10 min:
+(`accounting.sample_flush_seconds`), telemetry and housekeeping (10 min:
 idempotency-key, session, traffic-history and webhook-event pruning + rate-limit reload).
-Graceful shutdown drains in-flight HTTP requests before stopping jobs and closing the DB.
+Delivery (5 s) and backup (1 min) callbacks signal two fixed workers with one coalesced pending
+signal each; slow I/O/crypto runs outside the scheduler. Delivery passes have a 4 min deadline,
+backup passes 15 min. Archive work is claimed across data-volume processes; scheduled scans
+are also serialized and capped at eight due rows. On cancellation/contention due rows remain
+eligible. Crashes can repeat a published archive before its schedule advances.
+Graceful shutdown first marks readiness false, drains HTTP, stops scheduling and cancels/drains
+the workers. A timed-out handler/worker keeps the DB/key lease and DB open until a successful
+retry or process exit; it does not admit restore/rotation while readers remain.
 
 ### Dev/benchmark backend
 

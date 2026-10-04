@@ -35,6 +35,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
+	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
@@ -366,6 +367,9 @@ func TestShutdownKeepsDataOwnershipUntilHandlersDrain(t *testing.T) {
 		l.Close()
 		t.Fatal("shutdown released data while handler still held keys")
 	}
+	if err := db.PingContext(context.Background()); err != nil {
+		t.Fatal("shutdown closed the database before its handler drained")
+	}
 	close(release)
 	released = true
 	<-done
@@ -604,6 +608,35 @@ func TestServeACMEWiring(t *testing.T) {
 	if c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", challengePort)); err == nil {
 		_ = c.Close()
 		t.Fatal("challenge sidecar still accepting after shutdown")
+	}
+}
+
+func TestACMESidecarReadinessIsLoopbackOnlyAndReflectsRuntime(t *testing.T) {
+	var ready bool
+	n := &Node{cfg: &config.Config{HTTPListen: "127.0.0.1:443", TLS: config.TLSConfig{Domain: "panel.example.com"}}, metrics: metrics.New()}
+	n.metrics.SetReady(func() bool { return ready })
+	handler := n.acmeRedirectFallback()
+	for _, value := range []bool{false, true} {
+		ready = value
+		request := httptest.NewRequest(http.MethodGet, "http://panel.example.com/readyz", nil)
+		request.RemoteAddr = "127.0.0.1:32100"
+		record := httptest.NewRecorder()
+		handler.ServeHTTP(record, request)
+		want := http.StatusServiceUnavailable
+		if value {
+			want = http.StatusOK
+		}
+		if record.Code != want {
+			t.Fatal("local readiness did not reflect the runtime gate")
+		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "http://panel.example.com/readyz", nil)
+	request.RemoteAddr = "198.51.100.44:32100"
+	request.Header.Set("X-Forwarded-For", "127.0.0.1")
+	record := httptest.NewRecorder()
+	handler.ServeHTTP(record, request)
+	if record.Code != http.StatusFound || strings.Contains(record.Body.String(), `"status":"ready"`) {
+		t.Fatal("a public peer obtained the internal plaintext readiness proof")
 	}
 }
 

@@ -83,7 +83,7 @@ func TestPrepareCertificateHookIsFixedPrivateAndReversible(t *testing.T) {
 func installedDirectCertificateFixture(t *testing.T) (*memHost, string, []byte, []byte) {
 	t.Helper()
 	h := installedFixture(t, ModeDocker)
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"status":"ready"}`)) }))
 	t.Cleanup(server.Close)
 	port := portOf(server.Listener.Addr().String())
 	identifier := "8.8.8.8"

@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -234,13 +235,22 @@ func (s *Service) auditSchedule(ctx context.Context, action string, sc *Schedule
 	})
 }
 
-// RunDue fires every enabled schedule whose next_run_at has passed: one
-// archive per due schedule, each with its own retention, then the schedule
-// advances — a missed window (downtime) runs exactly once. The scheduler
-// calls this once per minute.
+// RunDue attempts at most eight due schedules. A data-volume claim covers the
+// query through advancement, so concurrent processes cannot use the same stale
+// due rows. Missed windows coalesce; a crash after publication but before the
+// advancement can repeat an archive on retry (at-least-once execution).
 func (s *Service) RunDue(ctx context.Context) (int, error) {
+	lease, err := s.OpenData(false)
+	if err != nil {
+		return 0, err
+	}
+	defer lease.Close()
+	if err := leaseLock(lease.file, scheduleLockOffset, true); err != nil {
+		return 0, safetyError("archive_busy", ErrArchiveBusy)
+	}
+	defer leaseUnlock(lease.file, scheduleLockOffset)
 	rows, err := s.DB.QueryContext(ctx, `SELECT `+scheduleCols+` FROM backup_schedules
-		WHERE enabled = 1 AND next_run_at <= ? ORDER BY next_run_at`,
+		WHERE enabled = 1 AND next_run_at <= ? ORDER BY next_run_at LIMIT 8`,
 		formatTime(s.now()))
 	if err != nil {
 		return 0, fmt.Errorf("backup: due query: %w", err)
@@ -267,6 +277,14 @@ func (s *Service) RunDue(ctx context.Context) (int, error) {
 			Retention:  sc.RetentionCount,
 			Deliver:    true,
 		})
+		if ctx.Err() != nil {
+			return ran, ctx.Err()
+		}
+		if errors.Is(err, ErrArchiveBusy) {
+			// A coalesced worker retries the durable due row later. Contention
+			// or shutdown must not advance its schedule as a completed attempt.
+			return ran, err
+		}
 		now := s.now().UTC()
 		status := "ok"
 		if err != nil {
@@ -285,8 +303,10 @@ func (s *Service) RunDue(ctx context.Context) (int, error) {
 			next = NextRun(sc, now)
 		}
 		if _, err := s.DB.ExecContext(ctx, `UPDATE backup_schedules
-			SET last_run_at=?, last_status=?, next_run_at=? WHERE id=?`,
-			formatTime(now), status, formatTime(next), sc.ID); err != nil {
+			SET last_run_at=?, last_status=?, next_run_at=?
+			WHERE id=? AND enabled=1 AND next_run_at=? AND updated_at=?`,
+			formatTime(now), status, formatTime(next), sc.ID,
+			formatTime(sc.NextRunAt), formatTime(sc.UpdatedAt)); err != nil {
 			return ran, fmt.Errorf("backup: advance schedule %s: %w", sc.ID, err)
 		}
 	}

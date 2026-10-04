@@ -24,15 +24,27 @@ closed. Preview/archive staging remains possible while the server is running.
 Startup retains exclusive ownership until DB/key initialization finishes. A CLI opening
 a node whose master key does not yet exist also keeps exclusive ownership until key
 initialization finishes, preventing concurrent first-key creation. Database-only commands
-do not create a key as a side effect. A timed-out server shutdown retains its lease until a later
-successful handler drain or process exit.
+do not create a key as a side effect. A timed-out server shutdown retains both its DB and lease
+until a later successful handler/background-worker drain or process exit. Readiness is false
+throughout shutdown.
+
+Before any automatic live migration, read-only inspection distinguishes an empty database
+from a known older schema. Existing data requires exclusive ownership and a verified local
+pre-migration archive before DDL or key/settings initialization; backup/inspection failure stops
+the opener. Shared CLI ownership promotes under closed admission without evicting other readers.
+If another server/CLI remains, migration fails immediately and keeps its original schema/key.
 
 Contention fails immediately with fa/en guidance to finish other data commands and stop the
 service before rotation/restore. A failed managed restore retains its journal/guard and
 keeps the service stopped: finish the contender, then use `restore ARCHIVE --retry` (or
 `restore --recover` for recorded original-schema recovery). Locks are kernel-owned and
 released on process exit/death; the file is never archived, replaced or removed during
-restore. Never unlink the lock file to bypass an owner. On Linux the two byte ranges use
+restore. Never unlink the lock file to bypass an owner. Byte 0 serializes admission, byte 1
+protects DB/key ownership, byte 2 is the purge marker, byte 3 serializes archive/crypto work and
+byte 4 covers scheduled due queries through conditional advancement. Archive/schedule claims
+are nonblocking and do not exclude ordinary shared accounting access. Cancellation/contention
+keeps schedule rows due; process death releases claims, so a crash after publishing an archive
+but before advancing its row may repeat it. On Linux these byte ranges use
 open-file-description locks, which also serialize distinct processes and survive pathname
 aliases into the same volume. No lifecycle-lock inheritance or nested subprocess exception
 is required; lifecycle commands may still invoke installed data CLI helpers.

@@ -26,6 +26,16 @@ func TestDataLeaseProcess(t *testing.T) {
 			os.Exit(23)
 		}
 		defer lease.Close()
+		if claim := os.Getenv("WGG_TEST_WORK_LOCK"); claim != "" {
+			offset := archiveLockOffset
+			if claim == "schedules" {
+				offset = scheduleLockOffset
+			}
+			if err := leaseLock(lease.file, offset, true); err != nil {
+				os.Exit(24)
+			}
+			defer leaseUnlock(lease.file, offset)
+		}
 		if os.Getenv("WGG_TEST_LEASE_HOLD") == "1" {
 			os.Stdout.Write([]byte("ready\n"))
 			var b [1]byte

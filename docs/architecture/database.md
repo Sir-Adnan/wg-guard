@@ -58,9 +58,17 @@ no traffic data, API numeric unit or client configuration.
 
 ## Migrations
 
-Forward-only, numbered, embedded; each applied in a transaction. Automatic pre-migration
-backup on risky upgrades and on every update. Migration tests cover fresh installs and
-upgrade-from-backup paths.
+Forward-only, numbered, embedded; each applied in a transaction. Read-only inspection requires
+the recorded migration names to be a contiguous prefix of embedded versions. Unknown versions,
+holes, an unreadable history or a nonempty schema without history are refused before DDL.
+An empty initial database is distinguished from an existing node; only existing nodes need the
+automatic pre-migration archive. Server and data CLI openers share this fail-closed gate under
+exclusive DB/key ownership, before settings/key initialization. The verified local plaintext
+archive preserves the original schema, does not need the settings registry and is retained in
+`<data_dir>/backups-auto` (keep five). A required archive failure blocks migration; the separate
+pre-update archive policy remains. Staged restore copies migrate privately rather than entering
+the live-node gate. Regression tests cover fresh installs, legacy archives, every automatic
+opener, archive/inspection failure and shared-reader contention.
 
 Migration `0008_retired_peer_keys.sql` records former public peer identities when a device is
 rotated/deleted or a user's subscription access is replaced. The reconciler removes those peers

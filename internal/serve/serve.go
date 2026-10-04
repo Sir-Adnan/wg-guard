@@ -2,12 +2,12 @@
 // key → settings → services → boot bring-up → HTTP listener → the central
 // scheduler. It owns the runtime wiring that cmd/wg-guard keeps thin and
 // testable, and the shutdown contract: stop accepting HTTP, drain in-flight
-// requests, let the scheduler finish its current job, close the DB.
+// requests, stop the scheduler, drain the bounded slow workers, close the DB.
 //
-// All periodic work runs on the one scheduler goroutine (docs/architecture/
-// overview.md §Resources): accounting cycle + expiry, sample flush, webhook
-// delivery pass, housekeeping. Jobs are short; the webhook worker caps its
-// own delivery concurrency internally.
+// One scheduler goroutine runs accounting, expiry, sample flush and housekeeping
+// (docs/architecture/overview.md §Resources). It signals two fixed workers for
+// archive creation and webhook delivery so their slow I/O cannot hold up the
+// scheduler. Signals coalesce; persisted due rows remain the retry source.
 package serve
 
 import (
@@ -77,8 +77,6 @@ const (
 	// that matter are dead-lettered and redeliverable within the window
 	// (docs/integrations/webhooks.md: "payloads are pruned per retention").
 	webhookRetention = 7 * 24 * time.Hour
-	// preMigrationRetention caps the automatic backups-auto pool.
-	preMigrationRetention = 5
 )
 
 // Options configures one node. Config is required; Backend substitutes the
@@ -104,6 +102,7 @@ type Node struct {
 	ring                 *secrets.KeyRing
 	reg                  *settings.Registry
 	sched                *scheduler.Scheduler
+	slowWork             []*slowWork
 	httpServer           *http.Server
 	listener             net.Listener
 	acmeServer           *http.Server // ACME HTTP-01 sidecar (tls.mode=acme only)
@@ -227,22 +226,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		return nil, err
 	}
 
-	// Automatic pre-migration backup (backup-restore.md §Sources): plain
-	// archives, on-box only, separate retention pool.
-	if pending, err := db.PendingCount(ctx); err == nil && pending > 0 {
-		if res, err := n.backup.Create(ctx, backup.CreateOpts{
-			Reason:    "pre-migration",
-			Dir:       filepath.Join(cfg.DataDir, "backups-auto"),
-			Deliver:   false,
-			Retention: preMigrationRetention,
-		}); err != nil {
-			logs.backup.Warn("pre-migration backup failed; migrating anyway", "err", err)
-		} else {
-			logs.backup.Info("pre-migration backup created", "archive", res.Name)
-		}
-	}
-
-	if err := db.Migrate(ctx, log); err != nil {
+	n.backup.DB = db
+	if err := n.backup.MigrateNode(ctx, lease); err != nil {
 		return fail(fmt.Errorf("serve: migrate: %w", err))
 	}
 	if n.ring, err = secrets.LoadNodeKeyRing(ctx, db.DB, cfg.MasterKeyFile); err != nil {
@@ -475,21 +460,6 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		ErrorLog:          slog.NewLogLogger(logs.http.Handler(), slog.LevelWarn),
 	}
 
-	// Scheduler: one goroutine for all periodic work. Jobs are registered
-	// before Start so nothing can fire before the node is up; intervals are
-	// re-read from settings on every run (live-apply without restart).
-	n.sched = scheduler.New(logs.scheduler)
-	n.sched.Every("accounting", n.accountingInterval(ctx), n.jobAccounting)
-	n.sched.Every("samples", n.sampleFlushInterval(ctx), n.jobSamples)
-	n.sched.Every("webhooks", webhookPassInterval, n.jobWebhooks)
-	n.sched.Every("housekeeping", housekeepingEvery, n.jobHousekeeping)
-	n.sched.Every("backups", time.Minute, n.jobBackups)
-	n.sched.Every("telemetry", telemetryCadence(o.TelemetryCadence), n.jobTelemetry)
-	if n.userspace != nil || n.runtimePolicyHealthy != nil {
-		n.sched.Every("runtime-repair", 15*time.Second, n.jobRuntimeRepair)
-	}
-	n.sched.Start(ctx)
-
 	serveErr := make(chan error, 1)
 	go func() {
 		defer close(serveErr)
@@ -499,10 +469,28 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	}()
 	select {
 	case err := <-serveErr:
-		n.sched.Stop()
 		return fail(fmt.Errorf("serve: http: %w", err))
 	default:
 	}
+
+	// Scheduler: one goroutine for short periodic jobs and worker dispatch. Jobs are registered
+	// before Start so nothing can fire before the node is up; intervals are
+	// re-read from settings on every run (live-apply without restart).
+	n.sched = scheduler.New(logs.scheduler)
+	n.sched.Every("accounting", n.accountingInterval(ctx), n.jobAccounting)
+	n.sched.Every("samples", n.sampleFlushInterval(ctx), n.jobSamples)
+	deliveryWork := startSlowWork(ctx, logs.webhook, "webhooks", 4*time.Minute, n.jobWebhooks)
+	archiveWork := startSlowWork(ctx, logs.backup, "backups", 15*time.Minute, n.jobBackups)
+	n.slowWork = []*slowWork{deliveryWork, archiveWork}
+	n.sched.Every("webhooks", webhookPassInterval, deliveryWork.request)
+	n.sched.Every("housekeeping", housekeepingEvery, n.jobHousekeeping)
+	n.sched.Every("backups", time.Minute, archiveWork.request)
+	n.sched.Every("telemetry", telemetryCadence(o.TelemetryCadence), n.jobTelemetry)
+	if n.userspace != nil || n.runtimePolicyHealthy != nil {
+		n.sched.Every("runtime-repair", 15*time.Second, n.jobRuntimeRepair)
+	}
+	n.sched.Start(ctx)
+
 	n.booted.Store(true)
 	if err := n.jobTelemetry(ctx); err != nil {
 		log.Warn("initial telemetry sample failed", "err", err)
@@ -589,6 +577,18 @@ func (n *Node) acmeRedirectFallback() http.Handler {
 		port = ":" + p
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Internal readiness is distinct from public HTTP challenge/redirects.
+		// Trust the actual socket peer only, never forwarded headers. No CA
+		// request is required to inspect a newly started local ACME node.
+		peer, _, err := net.SplitHostPort(r.RemoteAddr)
+		if ip := net.ParseIP(peer); err == nil && ip != nil && ip.IsLoopback() && r.Method == http.MethodGet && r.URL.Path == "/readyz" {
+			if n.metrics == nil {
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			n.metrics.Readyz(w, r)
+			return
+		}
 		http.Redirect(w, r, "https://"+domain+port+r.URL.RequestURI(), http.StatusFound)
 	})
 }
@@ -672,9 +672,11 @@ func (n *Node) Addr() string {
 }
 
 // Shutdown drains HTTP (both the TLS listener and, in ACME mode, the port-80
-// challenge sidecar), lets the current scheduler job finish, and closes the
-// database. It is safe to call more than once.
+// challenge sidecar), stops scheduling, cancels/drains slow workers and closes
+// the database. A failed drain preserves DB/key ownership for a later retry.
+// It is safe to call more than once.
 func (n *Node) Shutdown(ctx context.Context) error {
+	n.booted.Store(false)
 	var errs []error
 	if n.httpServer != nil {
 		if err := n.httpServer.Shutdown(ctx); err != nil {
@@ -691,6 +693,20 @@ func (n *Node) Shutdown(ctx context.Context) error {
 	}
 	if n.sched != nil {
 		n.sched.Stop()
+	}
+	for _, work := range n.slowWork {
+		work.cancel()
+	}
+	var workErrors []error
+	for _, work := range n.slowWork {
+		if err := work.stop(ctx); err != nil {
+			workErrors = append(workErrors, err)
+		}
+	}
+	if len(errs) != 0 || len(workErrors) != 0 {
+		// A timed-out handler or operation may still own DB/key readers. Keep both the
+		// database and data lease alive; a later Shutdown can finish the drain.
+		return errors.Join(append(errs, workErrors...)...)
 	}
 	if n.userspace != nil {
 		if err := n.userspace.Close(); err != nil {

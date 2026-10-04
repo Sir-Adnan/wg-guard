@@ -59,11 +59,16 @@ Integrated panel/subscription certificate management is specified in
 
 ## Runtime (`serve`)
 
-`wg-guard serve` composes the whole node (internal/serve): boot config → DB + migrations →
-master key → settings → domain services → boot bring-up → HTTP(S) listener → the central
-scheduler. All periodic work runs on the one scheduler goroutine: accounting cycle + expiry
-(`accounting.interval_seconds`, live-reloadable), sample flush, webhook delivery pass (5 s), live
-telemetry (10 s), and housekeeping (10 min prunes + rate-limit reload). The telemetry source runs
+`wg-guard serve` composes the whole node (internal/serve): boot config → exclusively owned
+DB inspection + required pre-migration archive → migrations → master key → settings → domain
+services → boot bring-up → HTTP(S) listener → the central scheduler. Unknown/incomplete migration
+history or a failed existing-data archive stops startup before schema changes.
+One scheduler goroutine runs accounting + expiry (`accounting.interval_seconds`, live-reloadable),
+sample flush, live telemetry (10 s), and housekeeping (10 min prunes + rate-limit reload).
+It signals two fixed in-process workers: webhook delivery every 5 s and backup schedules every
+minute. Each worker has one coalesced pending signal, no overlapping pass and a cancellation
+deadline (4 min for delivery, 15 min for archives). Durable due rows remain the retry source;
+signals do not carry per-account tasks. The telemetry source runs
 one bounded `/proc` pass and one aggregate SQLite statement; API, metrics, and browser readers
 consume immutable ring copies and never sample the host. Runtime reconcile passes are serialized
 behind one mutex shared by accounting/enforcement and API/web mutations. The canonical pass owns
@@ -74,8 +79,10 @@ interface remain the race verify-after-apply exists to catch.
 Explicit userspace profiles use one pin-checked foreground daemon per interface under the node;
 the scheduler checks the bounded process/socket set and retries failed members through the same
 canonical pass. Kernel profiles retain direct link creation; active unowned daemons are refused.
-Graceful shutdown drains HTTP (both the TLS listener and, in ACME mode, the port-80 challenge
-sidecar), lets the running job finish, stops owned userspace children, then closes the DB. TLS: manual cert, proxy, loopback
+Graceful shutdown marks readiness false, drains HTTP (both the TLS listener and, in ACME mode,
+the port-80 challenge sidecar), stops scheduling, cancels/drains both slow workers, stops owned
+userspace children, then closes the DB. A failed handler/worker drain retains the DB and data
+lease for a later shutdown attempt or process cleanup. TLS: manual cert, proxy, loopback
 dev, and ACME (`autocert`; HTTP-01 sidecar + certificate cache under the data dir) — all four
 implemented, ACME verified against a public domain in Phase 7.
 
@@ -85,6 +92,11 @@ approved restore exclusively, then converts to shared lifetime ownership with ad
 closed. The separate host lifecycle lock still owns deployment orchestration, so installed
 CLI subprocesses do not inherit or reacquire it. See the exact protocol and older-binary
 boundary in [lifecycle recovery](../operations/lifecycle-recovery.md).
+
+Lifecycle completion requires both `/healthz` liveness and `/readyz` data/network readiness.
+ACME sidecars expose readiness only to an actual loopback socket peer; forwarded headers do
+not establish locality. Older retained sidecars that redirect are probed on the fixed local TLS
+listener with recorded SNI instead. Certificate trust/identity remains a separate exposure gate.
 
 Structured runtime records cross one recursive redaction handler and carry a closed component
 label before reaching deployment-native storage. Docker owns a compressed local-driver ring;
@@ -136,3 +148,10 @@ not eliminate standard age/scrypt's transient crypto cost: the pinned writer use
 before expensive derivation. Idle-process budgets are not peak encrypted-backup/restore budgets.
 Phase 11 resource measurements cover the steady-state node, not peak backup KDF memory;
 see [backup limits and recovery](../operations/backup-restore.md).
+
+Archive creation/crypto holds a nonblocking data-volume claim across host/container processes.
+Scheduled passes hold a separate claim from the due query through conditional advancement,
+reading at most eight rows per pass. Cancellation or contention leaves due work for retry.
+A crash between archive publication and schedule advancement can repeat the archive; this is
+at-least-once execution, not exactly-once delivery. Slow I/O isolation is regression-tested;
+production accounting/enforcement lag and peak crypto resource budgets still need measurement.

@@ -56,7 +56,8 @@ func loadCLIEnvOwnership(configPath string, exclusive bool) (*cliEnv, error) {
 		slog.New(logsafe.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
 		logsafe.ComponentBackup,
 	)
-	if err := db.Migrate(context.Background(), quiet); err != nil {
+	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: configPath, Version: version.String(), Log: quiet}
+	if err := migration.MigrateNode(context.Background(), lease); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}

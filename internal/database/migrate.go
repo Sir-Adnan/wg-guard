@@ -12,24 +12,67 @@ import (
 	"github.com/Sir-Adnan/wg-guard/migrations"
 )
 
-// PendingCount reports how many embedded migrations are not applied yet —
-// the pre-migration automatic backup gate (serve). Forward-only migrations
-// mean the applied row count is always a subset of the embedded list.
-func (db *DB) PendingCount(ctx context.Context) (int, error) {
+// MigrationStatus distinguishes an empty installation from a known older schema.
+// Inspection is read-only; unreadable, foreign or non-prefix histories are errors.
+type MigrationStatus struct {
+	Applied int
+	Pending int
+}
+
+func (db *DB) MigrationStatus(ctx context.Context) (MigrationStatus, error) {
+	var status MigrationStatus
 	entries, err := fs.Glob(migrations.FS, "*.sql")
 	if err != nil {
-		return 0, fmt.Errorf("database: list migrations: %w", err)
+		return status, fmt.Errorf("database: list migrations: %w", err)
 	}
-	var applied int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations`).Scan(&applied); err != nil {
-		// No migrations table yet: everything is pending.
-		return len(entries), nil
+	sort.Strings(entries)
+	var history, otherTables int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='migrations'`).Scan(&history); err != nil {
+		return status, fmt.Errorf("database: inspect migration history: %w", err)
 	}
-	pending := len(entries) - applied
-	if pending < 0 {
-		pending = 0
+	if history == 0 {
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'`).Scan(&otherTables); err != nil {
+			return status, fmt.Errorf("database: inspect initial schema: %w", err)
+		}
+		if otherTables != 0 {
+			return status, fmt.Errorf("database: existing schema has no migration history")
+		}
+		status.Pending = len(entries)
+		return status, nil
 	}
-	return pending, nil
+	rows, err := db.QueryContext(ctx, `SELECT version FROM migrations ORDER BY version`)
+	if err != nil {
+		return status, fmt.Errorf("database: read migration history: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return status, fmt.Errorf("database: read migration history: %w", err)
+		}
+		if status.Applied >= len(entries) || entries[status.Applied] != name {
+			return status, fmt.Errorf("database: migration history is unknown or incomplete")
+		}
+		status.Applied++
+	}
+	if err := rows.Err(); err != nil {
+		return status, fmt.Errorf("database: read migration history: %w", err)
+	}
+	if status.Applied == 0 {
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' AND name<>'migrations'`).Scan(&otherTables); err != nil {
+			return status, fmt.Errorf("database: inspect initial schema: %w", err)
+		}
+		if otherTables != 0 {
+			return status, fmt.Errorf("database: existing schema has empty migration history")
+		}
+	}
+	status.Pending = len(entries) - status.Applied
+	return status, nil
+}
+
+func (db *DB) PendingCount(ctx context.Context) (int, error) {
+	status, err := db.MigrationStatus(ctx)
+	return status.Pending, err
 }
 
 // Migrate applies pending embedded migrations, each inside its own
@@ -44,6 +87,9 @@ func (db *DB) Migrate(ctx context.Context, log *slog.Logger) error {
 		return fmt.Errorf("database: list migrations: %w", err)
 	}
 	sort.Strings(entries)
+	if _, err := db.MigrationStatus(ctx); err != nil {
+		return err
+	}
 
 	if err := db.ensureMigrationsTable(ctx); err != nil {
 		return err

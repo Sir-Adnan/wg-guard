@@ -7,7 +7,7 @@ the linked phase records; release blockers and audit findings live in
 
 **Current gate (2026-10-04):** Phases 0–14 are complete within their documented scopes.
 The [refactor program, Phases 15–20](refactor-program.md), is newly planned:
-Phase 15 is active with only the preparation described below implemented; 16–20
+Phase 15 is active with archive/migration/readiness/worker safety implemented as described below; 16–20
 remain planned. Integrated domain/certificate management and native retirement
 are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
@@ -95,16 +95,23 @@ The owner-selected
 [Docker refactor target](../architecture/deployment-refactor.md) is a design plan:
 the current installation layout and native runtime support have not changed yet.
 
-**Critical review and planning (2026-10-04):** Phase 15 must correct startup
-pre-migration backup ordering/failure handling, distinguish liveness from runtime
-readiness at lifecycle commit, and keep slow archive/delivery work from delaying
-the central scheduler's enforcement. These are source-inspected open work items,
-not newly reproduced real-host failures. Phases 16–20 cover modular responsibility
+**Phase 15 safety implementation on main (2026-10-04; not yet published):** Automatic
+live openers now fail closed on broken/unknown migration history or failed required
+pre-migration archives, preserving the original schema/key. Install/update/recovery
+require local data/network readiness independently of liveness and certificate proof.
+Two fixed coalescing workers move archive/delivery I/O outside the central scheduler;
+cross-process archive/scheduled-pass claims, conditional schedule advancement and
+retryable shutdown protect data ownership. Focused local migration, readiness,
+contention, cancellation and shutdown tests passed. Final local `go test ./...`,
+`go vet ./...` and `go build ./...` passed; unchanged packages reused applicable
+Go cache. Exact-revision CI is pending; no new host/client lag, browser or release claim is made.
+Production lag/resource measurement, broader restored semantics/export review and an
+owner-reviewed off-host backup remain Phase 15 gates. Phases 16–20 cover modular responsibility
 boundaries, verified images/deployment, two-domain TLS/SNI and route isolation,
 operational UI/terminal flows and real-host acceptance. Directory movement is
 conditional on ownership/recovery benefit; existing config/node data paths are
-retained in the revised plan. No source behavior changes or new release is implied
-by documenting this program.
+retained in the revised plan. These later changes are planned, not implemented by
+the safety changes above, and no new release is implied.
 
 **v0.1.7 maintenance workspace (2026-10-03; owner-authorized and published):** Update Center now separates installed
 component identity, release selection, readiness/prepared artifacts, scheduled windows, safe

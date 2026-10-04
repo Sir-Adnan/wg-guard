@@ -258,7 +258,7 @@ func TestBackupCreationWarningsRedirectAndRefreshDoesNotCreate(t *testing.T) {
 	e.seedOwner()
 	cookie := e.loginEN("owner")
 	// An empty node without encrypted values may still archive without a key.
-	e.srv.Backup.Cfg.MasterKeyFile = filepath.Join(t.TempDir(), "missing.key")
+	e.srv.Backup.Cfg.MasterKeyFile = filepath.Join(e.srv.Backup.Cfg.DataDir, "missing.key")
 	e.srv.Backup.ConfigPath = "/does-not-exist/private-config"
 	rec := e.postForm("/backups/create", url.Values{}, cookie)
 	if rec.Code != http.StatusSeeOther {

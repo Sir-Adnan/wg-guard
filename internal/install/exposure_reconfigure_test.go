@@ -118,7 +118,7 @@ func TestReconfigurePrivateToDirectAndBackRewritesDockerTLSMounts(t *testing.T) 
 	h := installedFixture(t, ModeDocker)
 	privateState, _ := LoadState(h)
 	privatePlan, _ := installedPlan(h, privateState)
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"status":"ready"}`)) }))
 	defer server.Close()
 	directPort := portOf(server.Listener.Addr().String())
 	domain := "panel.example.com"

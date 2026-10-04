@@ -67,11 +67,37 @@ current installation paths have not changed in this preparation update.
 - **Manual** — Dashboard can create and download a fresh archive in one action; the Backups page
   also creates local archives. CLI equivalent: `wg-guard backup create [--password] [--output …]`.
 - **Scheduled** — stored schedules (`backup_schedules`): daily@HH:MM, every-N-hours,
-  weekly-day@time; stored UTC (CLI displays UTC); run in-process by the central
-  scheduler (no cron dependency); per-schedule retention (default keep 14). Created in the
+  weekly-day@time; stored UTC (CLI displays UTC); the central scheduler signals one fixed
+  in-process archive worker (no cron dependency); per-schedule retention (default keep 14). Created in the
   panel (`/backups`) or with `wg-guard backup schedule-add -kind daily -time 03:30`; the
   installer can create a daily Telegram schedule during setup.
-- **Automatic** — before risky migrations and every update.
+- **Automatic** — before any pending live-node migration over existing data and every update.
+
+### Migration and concurrency safety
+
+Server startup and data CLI openers inspect migration history before DDL. A fresh empty database
+needs no archive. Existing older data is archived under exclusive DB/key ownership before
+settings or key initialization; unknown/incomplete history, unreadable data, a wrong key,
+reader contention or archive failure blocks migration. The local recovery archive is plaintext,
+private (0600 files/0700 directory), has no remote delivery and goes to
+`<data_dir>/backups-auto` (keep five after publishing the new verified archive). It preserves
+the original schema. It intentionally does not depend on loading a stored backup password from
+the database being migrated. Downloadable/off-host backups retain the chosen password policy.
+
+Archive creation/crypto/delivery holds one nonblocking claim across service instances and
+host/container processes sharing the data volume. Contention returns safe retry guidance.
+Scheduled passes separately hold ownership from the due query through advancement, read at
+most eight due rows and have a 15 min worker deadline. A concurrent schedule edit/disable is
+not overwritten by the old pass. Cancellation or contention does not consume a due attempt;
+ordinary failed attempts retain the existing failed-status/next-slot policy. Streaming checks
+cancellation between members and copied chunks; age's synchronous KDF can finish after
+cancellation, so the worker is drained before its DB/key ownership is released.
+
+Due rows survive signal coalescing and process restart. Missed slots coalesce into one attempt
+per pass, but a crash after archive publication and before row advancement can repeat the
+archive or delivery. This is at-least-once execution. Isolation tests cover a stalled worker,
+cross-process claims and shutdown; production enforcement lag/peak KDF costs remain a separate
+measurement gate. The lease file is never an archive member; do not delete it to bypass a claim.
 
 ## Delivery sinks
 

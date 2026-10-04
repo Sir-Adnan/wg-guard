@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -29,6 +30,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -60,6 +62,14 @@ const (
 	MaxArchiveBytes int64 = 8 << 30
 )
 
+const (
+	archiveLockOffset  int64 = 3
+	scheduleLockOffset int64 = 4
+)
+
+// ErrArchiveBusy means another archive or scheduled pass owns the node claim.
+var ErrArchiveBusy = errors.New("backup: another archive operation is running")
+
 // Manifest is the self-describing header inside every archive. File hashes
 // are verified before anything is applied.
 type Manifest struct {
@@ -70,10 +80,9 @@ type Manifest struct {
 	Files      map[string]string `json:"files"` // member → sha256 hex
 }
 
-// Service is the backup engine. It is safe for concurrent use; the heavy
-// work runs on scheduler or request goroutines but every archive write is
-// serialized by SQLite's write lock (VACUUM INTO takes a read snapshot of a
-// live writer).
+// Service is the backup engine. Heavy work runs on a fixed background worker
+// or an administrative request. Archive/crypto work is serialized within this
+// service and across data-volume processes; SQLite provides a consistent snapshot.
 type Service struct {
 	DB         *database.DB
 	Reg        *settings.Registry
@@ -84,6 +93,7 @@ type Service struct {
 	Log        *slog.Logger
 	HTTPClient HTTPDoer // Telegram delivery; nil = default client
 	Now        func() time.Time
+	archiveMu  sync.Mutex // one archive/crypto/delivery operation per node service
 }
 
 // CreateOpts tunes one archive run.
@@ -137,6 +147,36 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 			return nil, domain.Wrap(err, domain.CodeSettingInvalid, "backup")
 		}
 	}
+	return s.createArchive(ctx, opts, password, nil)
+}
+
+// createArchive also serves the local pre-migration gate, before registry/key
+// initialization. Its caller supplies the explicit encryption policy.
+func (s *Service) createArchive(ctx context.Context, opts CreateOpts, password string, lease *DataLease) (*Result, error) {
+	if s.DB == nil || s.Cfg == nil {
+		return nil, domain.E(domain.CodeInternal, "backup: service not wired")
+	}
+	if !s.archiveMu.TryLock() {
+		return nil, safetyError("archive_busy", ErrArchiveBusy)
+	}
+	defer s.archiveMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if lease == nil {
+		var err error
+		lease, err = s.OpenData(false)
+		if err != nil {
+			return nil, err
+		}
+		defer lease.Close()
+	}
+	// Byte 3 bounds archive/KDF operations across host/container CLI processes
+	// sharing this data volume. Pre-migration reuses its exclusive data lease.
+	if err := leaseLock(lease.file, archiveLockOffset, true); err != nil {
+		return nil, safetyError("archive_busy", ErrArchiveBusy)
+	}
+	defer leaseUnlock(lease.file, archiveLockOffset)
 
 	dir := opts.Dir
 	if dir == "" {
@@ -211,7 +251,7 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 		members = append(members, member{name: KeyMember, data: keyBytes})
 	}
 	members = append(members, member{name: ManifestName, data: manifestJSON})
-	if err := s.writeArchive(tmpPath, password, members); err != nil {
+	if err := s.writeArchiveContext(ctx, tmpPath, password, members); err != nil {
 		os.Remove(tmpPath)
 		return nil, err
 	}
@@ -228,6 +268,9 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 		os.Remove(tmpPath)
 		return nil, fmt.Errorf("backup: publish archive: %w", err)
 	}
+	if err := syncDir(dir); err != nil {
+		return nil, fmt.Errorf("backup: persist archive directory: %w", err)
+	}
 	res.Size = st.Size()
 
 	// 5. Delivery sinks + retention.
@@ -235,7 +278,7 @@ func (s *Service) Create(ctx context.Context, opts CreateOpts) (*Result, error) 
 		s.deliver(ctx, res, password, warn)
 	}
 	keep := opts.Retention
-	if keep == 0 {
+	if keep == 0 && s.Reg != nil {
 		keep, _ = s.Reg.GetInt(ctx, "backup.retention_count")
 	}
 	if opts.Dir == "" && keep > 0 {
@@ -266,6 +309,10 @@ type member struct {
 }
 
 func (s *Service) writeArchive(dest, password string, members []member) error {
+	return s.writeArchiveContext(context.Background(), dest, password, members)
+}
+
+func (s *Service) writeArchiveContext(ctx context.Context, dest, password string, members []member) error {
 	f, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return fmt.Errorf("backup: create archive: %w", err)
@@ -286,6 +333,9 @@ func (s *Service) writeArchive(dest, password string, members []member) error {
 	tw := tar.NewWriter(gz)
 
 	for _, m := range members {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		hdr := &tar.Header{Name: m.name, Mode: 0o600, Format: tar.FormatPAX}
 		if m.data != nil {
 			hdr.Size = int64(len(m.data))
@@ -311,7 +361,7 @@ func (s *Service) writeArchive(dest, password string, members []member) error {
 		if err != nil {
 			return fmt.Errorf("backup: open member %s: %w", m.name, err)
 		}
-		_, err = io.Copy(tw, src)
+		_, err = io.Copy(tw, restoreReader{ctx: ctx, r: src})
 		src.Close()
 		if err != nil {
 			return fmt.Errorf("backup: tar stream %s: %w", m.name, err)

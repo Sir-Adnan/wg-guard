@@ -17,6 +17,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
+	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
 // runToken manages REST API tokens (docs/architecture/api.md). Until the
@@ -198,7 +199,12 @@ func openForToken(configPath string) (*database.DB, func(), error) {
 	if err != nil {
 		return nil, nil, domain.Wrap(err, domain.CodeConfigInvalid, "open database %s", cfg.DatabasePath)
 	}
-	if err := db.Migrate(context.Background(), nil); err != nil {
+	migration := &backup.Service{DB: db, Cfg: cfg, ConfigPath: configPath, Version: version.String()}
+	if err := migration.MigrateNode(context.Background(), lease); err != nil {
+		_ = db.Close()
+		return nil, nil, err
+	}
+	if err := lease.Share(); err != nil {
 		_ = db.Close()
 		return nil, nil, err
 	}

@@ -14,6 +14,8 @@ import (
 // the shared data volume, outside all archive and restore replacement members.
 // Byte 0 serializes admission; byte 1 protects the DB/key pair. An exclusive
 // owner keeps admission locked, so downgrade never exposes an unlocked pair.
+// Byte 2 is the purge marker. Bytes 3 and 4 serialize archive work and scheduled
+// due-row scans across processes without blocking shared accounting DB access.
 // Never unlink this file to recover from contention: the kernel releases locks
 // when the process exits, including interruption and ungraceful death.
 type DataLease struct {
@@ -260,6 +262,35 @@ func (s *Service) OpenKeys(exclusive bool) (*DataLease, error) {
 		}
 	}
 	return lease, nil
+}
+
+// RequireExclusive promotes a shared data owner under the admission lock. A
+// concurrent server/CLI blocks migration. The single caller must close its lease
+// after an error; existing readers are not evicted and the inode is never replaced.
+func (l *DataLease) RequireExclusive() error {
+	if l == nil || l.file == nil {
+		return safetyError("data_busy", nil)
+	}
+	if l.exclusive {
+		return nil
+	}
+	if err := leaseLock(l.file, 0, true); err != nil {
+		return safetyError("data_busy", nil)
+	}
+	if err := leaseUnlock(l.file, 1); err != nil {
+		_ = leaseUnlock(l.file, 0)
+		return safetyError("data_busy", nil)
+	}
+	if err := leaseLock(l.file, 1, true); err != nil {
+		// Restore our shared ownership before reopening admission. On an
+		// unexpected relock failure retain admission until Close releases it.
+		if restoreErr := leaseLock(l.file, 1, false); restoreErr == nil {
+			_ = leaseUnlock(l.file, 0)
+		}
+		return safetyError("data_busy", nil)
+	}
+	l.exclusive = true
+	return nil
 }
 
 // Share converts exclusive startup ownership after the DB/key are initialized.

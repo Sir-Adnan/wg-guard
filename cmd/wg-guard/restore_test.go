@@ -157,7 +157,11 @@ func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 			e.Close()
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"status":"ok"}`))
+				if r.URL.Path == "/readyz" {
+					_, _ = w.Write([]byte(`{"status":"ready"}`))
+				} else {
+					_, _ = w.Write([]byte(`{"status":"ok"}`))
+				}
 			}))
 			defer ts.Close()
 			cfg := e.Cfg

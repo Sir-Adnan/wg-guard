@@ -53,17 +53,28 @@ No dates, performance promises, release numbers or completion percentages are in
   Implemented at `00c41618b4384b2ac60d297123d265955a292204`, with local checks and
   [exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37165992240).
   These changes are on main, not a new public release or real-host certification.
-- [ ] Correct pre-migration backup ordering/wiring. Distinguish empty initial setup
+- [x] Correct pre-migration backup ordering/wiring. Distinguish empty initial setup
   from existing data. An existing-node migration must not continue after a failed
   required backup. No CLI/settings/data opener may silently migrate first and call
   its later backup "pre-migration".
-- [ ] Separate liveness, data/network readiness and certificate proof. Install,
+  Shared `MigrateNode` now archives the original schema before live DDL/settings/key
+  initialization; regression tests cover every opener, broken history, backup failure
+  and reader contention. This is local source/test evidence, not a host upgrade drill.
+- [x] Separate liveness, data/network readiness and certificate proof. Install,
   update and recovery must not commit based only on `/healthz` or a challenge redirect.
   Handle no-interface/private installations honestly; do not invent a client test.
-- [ ] Keep scheduler callbacks short. Dispatch backup and slow webhook work to
+  Lifecycle now requires an exact bounded local readiness response; responding/unready,
+  malformed/oversized/redirected responses are tested. ACME loopback handling and fixed
+  local TLS fallback retain certificate proof as a separate gate.
+- [x] Keep scheduler callbacks short. Dispatch backup and slow webhook work to
   bounded in-process workers with finite queues, one concurrent archive, cancellation,
   duplicate suppression, durable retry/claims and deterministic shutdown.
   Accounting/expiry must not wait behind slow delivery or archive crypto.
+  Two fixed workers each coalesce one pending signal. Data-volume claims serialize
+  archives and scheduled due scans; cancellation/contention preserves due rows,
+  concurrent schedule edits are protected and shutdown retains active DB/key ownership.
+  Local regressions cover stalled work and cross-process admission. Crash retry remains
+  at-least-once; the following production lag/resource measurement is still open.
 - [ ] Measure enforcement lag while backups/delivery are deliberately slow; define
   and test a budget relative to configured accounting cadence. Unknown/stale metering
   is reported, not converted to zero or a false enforcement-success claim.

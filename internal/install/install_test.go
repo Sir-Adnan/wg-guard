@@ -226,6 +226,13 @@ func healthServer(t *testing.T, status int) int {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
 	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		if status != http.StatusOK && status != http.StatusFound {
+			w.WriteHeader(status)
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"ready"}`))
+	})
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
 	t.Cleanup(func() {

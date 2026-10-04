@@ -640,28 +640,30 @@ func preflight(ctx context.Context, h Host, p Plan, out io.Writer) error {
 	return nil
 }
 
-// waitHealthy polls the health probe until it answers 200 (or, on the ACME
-// sidecar, 302 — the redirect IS the healthy answer).
+// waitHealthy separately proves liveness and readiness. The ACME challenge
+// redirect may prove liveness, but can never certify data/network readiness.
 func waitHealthy(ctx context.Context, h Host, p Plan, within time.Duration) error {
 	url, skipVerify, err := p.HealthProbeURL()
 	if err != nil {
 		return err
 	}
-	deadline := time.Now().Add(within)
+	ctx, cancel := context.WithTimeout(ctx, within)
+	defer cancel()
 	var lastErr error
-	for time.Now().Before(deadline) {
-		if err := ProbeHealth(ctx, url, skipVerify); err == nil {
-			return nil
-		} else {
+	for {
+		if err := ProbeHealth(ctx, url, skipVerify); err != nil {
 			lastErr = err
+		} else if err := ProbeReadiness(ctx, p); err != nil {
+			lastErr = err
+		} else {
+			return nil
 		}
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("health check aborted: %w", ctx.Err())
+			return fmt.Errorf("node readiness not proved within %s: %w", within, errors.Join(ctx.Err(), lastErr))
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return fmt.Errorf("node did not become healthy within %s: %v", within, lastErr)
 }
 
 func printSummary(out io.Writer, p Plan, st *State) { printSummaryLocale(out, p, st, i18n.En) }
