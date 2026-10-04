@@ -63,7 +63,7 @@ further release authorization.
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 | 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
-| 16 — Modular boundaries | implemented; final CI gate | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load checks passed |
+| 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
 | 17 — Docker-only/native cleanup | planned; removal confirmed | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
 | 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |

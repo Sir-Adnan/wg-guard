@@ -11,7 +11,7 @@ Phase 15 engineering preparation is complete and v0.1.9 is public;
 the [Phase 15 record](phase15.md) separates synthetic Linux evidence from host certification.
 The owner authorized preparation publication followed by full Phase 16 source work without
 another release. Owner-server update/export is a post-publication checkpoint before rebuild.
-Phase 16 implementation is complete with its exact delivery CI pending; Phases 17–20 remain
+Phase 16 is complete within its documented source scope with exact CI passed; Phases 17–20 remain
 planned. Integrated domain/certificate management and native retirement
 are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
@@ -24,7 +24,10 @@ This is planned scope, not a claim that current main or v0.1.8 is Docker-only.
 The [Phase 16 record](phase16.md) describes the completed source refactor: shared node-data
 sessions, bounded runtime application with desired/applied observations, sealed device-key
 provisioning, centralized managed paths and separate deployment/diagnostic adapters. Full local
-Go tests, vet/build and ordinary/race Linux load checks passed; exact-source CI is pending.
+Go tests, vet/build and ordinary/race Linux load checks passed. Exact implementation
+`8c11b87efa48bffe8afe3bed7823242aaac50f76` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37229319774), including both
+Linux race jobs, encrypted-archive load and build/vulnerability/bootstrap checks.
 Account/API/renderer/archive/deployment contracts remain preserved, and no post-Phase-16 release
 is authorized. Ordinary/race synthetic 512-device load remains within 15 s enforcement budget
 and drains from 9 baseline goroutines to 3; these checks do not certify the owner's live host.

@@ -73,7 +73,10 @@ passed after the refactor: quota lag 105 ms, expiry cycle 59 ms against 15 s cad
 RSS baseline/peak 227.9/1034.6 MiB under race, goroutines 9 baseline/3 after shutdown.
 Ordinary load on the final refactor also passed: quota lag/expiry cycle 3/3 ms, RSS baseline/
 peak 75.4/332.8 MiB and goroutines 9/3 at the same 512-device/15 s/GOMAXPROCS=1 point.
-Race memory is not a production budget. Exact-source CI remains the delivery gate.
+Race memory is not a production budget. Exact implementation
+`8c11b87efa48bffe8afe3bed7823242aaac50f76` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37229319774), including both
+Linux race jobs, encrypted-archive load, build/vulnerability/bootstrap gates.
 No new real-host, browser, deployment-layout or protocol support is
 inferred; changed Go boundaries preserve the existing presentation/assets/public account contract.
 

@@ -32,7 +32,7 @@ directories. No current layout migration is implied by this plan.
 | Phase | Purpose | State | Required predecessor |
 |---|---|---|---|
 | 15 | Operational safety and migration preparation | Engineering complete; v0.1.9 public | Existing release contracts |
-| 16 | Application/runtime/host responsibility boundaries | Implementation complete; exact delivery CI gate | 15 safety gates |
+| 16 | Application/runtime/host responsibility boundaries | Complete within documented source scope; no release | 15 safety gates |
 | 17 | Verified Docker distribution and complete native removal | Planned; scope confirmed | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Planned | 16 host operation model; 17 deployment ownership |
 | 19 | Cohesive installer and operational panel UX | Planned | Implemented 15–18 services |
@@ -166,6 +166,9 @@ Implementation/inventory and local Go/failure/ordinary+race Linux load evidence:
 [Phase 16 record](phase16.md). `nodestate`, `runtimeapply`, device credential
 provisioning and `layout` own shared rules; concrete host adapters retain one
 lifecycle coordinator and the current deployment contract. No post-Phase-16 release.
+Exact implementation `8c11b87efa48bffe8afe3bed7823242aaac50f76` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37229319774), including both
+Linux race jobs, build/vulnerability/bootstrap checks and the actual encrypted-archive load gate.
 
 ## Phase 17 — Docker-only distribution and native cleanup
 
