@@ -2,8 +2,12 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"path"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -78,7 +82,7 @@ func ensurePinnedCheckout(ctx context.Context, h Host, b CoreBundle, component, 
 
 func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle) error {
 	if sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) && dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
-		return nil
+		return ensureInstalledKernelBuilds(ctx, h, kernel, b)
 	}
 	if raw, err := h.Output(ctx, []string{"dkms", "status", "-m", "amneziawg", "-v", b.KernelDKMSVersion}, 15*time.Second); err == nil && strings.TrimSpace(raw) != "" {
 		if err := runQuiet(ctx, h, []string{"dkms", "remove", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
@@ -111,7 +115,53 @@ func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle
 	if !dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
 		return fmt.Errorf("install: reviewed AWG DKMS build did not report installed")
 	}
+	if err := ensureInstalledKernelBuilds(ctx, h, kernel, b); err != nil {
+		return err
+	}
 	return h.WriteFile(kernelInstalledMarker(b), []byte(b.KernelCommit+"\n"), 0o600)
+}
+
+var installedKernelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$`)
+
+// Header meta-packages may install the next boot kernel before the reviewed
+// source is registered with DKMS. Cover those already bootable/header-ready
+// kernels now; future package hooks retain AUTOINSTALL. Never build other modules.
+func ensureInstalledKernelBuilds(ctx context.Context, h Host, running string, b CoreBundle) error {
+	if !installedKernelName.MatchString(running) {
+		return fmt.Errorf("install: invalid running kernel identity")
+	}
+	targets := []string{running}
+	entries, err := h.ReadDir("/lib/modules")
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("install: inspect installed kernels: %w", err)
+	}
+	if len(entries) > 32 {
+		return fmt.Errorf("install: installed kernel inventory exceeds reviewed bound")
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || name == running || !installedKernelName.MatchString(name) {
+			continue
+		}
+		image, imageErr := h.Stat(path.Join("/boot", "vmlinuz-"+name))
+		headers, headerErr := h.Stat(path.Join("/lib/modules", name, "build", "Makefile"))
+		if imageErr == nil && headerErr == nil && image.Mode().IsRegular() && headers.Mode().IsRegular() {
+			targets = append(targets, name)
+		}
+	}
+	sort.Strings(targets[1:])
+	for _, kernel := range targets {
+		if dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
+			continue
+		}
+		if err := runQuiet(ctx, h, []string{"dkms", "install", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "-k", kernel}, longTimeout); err != nil {
+			return fmt.Errorf("install: build reviewed AWG module for installed kernel %s: %w", kernel, err)
+		}
+		if !dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
+			return fmt.Errorf("install: reviewed AWG DKMS build did not report installed for kernel %s", kernel)
+		}
+	}
+	return nil
 }
 
 func dkmsInstalled(ctx context.Context, h Host, kernel, version string) bool {

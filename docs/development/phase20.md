@@ -53,6 +53,16 @@ Interactive SSL status now shows readable address, ownership, expiry and renewal
 guidance instead of policy JSON and zero dates. Real corrected-target checks and
 final delivery are still pending.
 
+The real reboot moved from `6.8.0-138-generic` to the already installed
+`6.8.0-146-generic`. The initial header-meta package transaction preceded reviewed
+source registration, leaving DKMS installed only for the original running kernel.
+The new boot had no module/kernel links and readiness correctly returned 503.
+Current source builds the selected reviewed module for the running kernel and a
+bounded inventory of already bootable, header-ready installed kernels. It does not
+build unrelated DKMS modules or claim compatibility with failed future headers.
+Focused tests cover the additional boot target, unavailable headers/build failure
+and inventory bounds. Real corrected reinstall/reboot must pass before publication.
+
 ## Owner report
 
 The owner reports a successful fresh installation of current main followed by
