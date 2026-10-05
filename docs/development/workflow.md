@@ -112,6 +112,11 @@ updating to the preparation release and before any rebuild.
 For local immutable candidate
 artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
 
+On 2026-10-05 the owner conditionally requested v0.1.10 after remaining work and
+acceptance gates are complete. This overrides the earlier no-further-release scope
+for v0.1.10 only. Their subsequent fresh-install/restore/client report and the
+remaining physical boundaries are recorded in [Phase 20](phase20.md).
+
 Keep commits coherent and imperative (`feat(user): …`, `fix(api): …`, `docs: …`, `build: …`). Do not
 knowingly deliver broken code, but an extra full local build/test cycle is not required for every
 checkpoint commit when applicable evidence and CI cover the final revision. When behavior,
@@ -125,5 +130,5 @@ Phase 17 source adds an unpublished runtime CI job: exact immutable-HEAD manager
 one embedded recipe, image/binary/engine provenance and fake-node persistence/hardening smoke.
 Candidates are GitHub Actions artifacts retained for seven days, not a public release/registry.
 The release workflow includes offline image metadata/archive in its checksums and attestations;
-the owner's no-further-release instruction still applies. Physical host/client acceptance is
+publication remains subject to the owner's current version-specific request and gates. Physical host/client acceptance is
 not inferred from this container fixture.

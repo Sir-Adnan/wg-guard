@@ -38,19 +38,45 @@ reachable VPN endpoint. Historical releases are certified on this target; the ne
 The installer checks and can provision its catalogued prerequisites. Keep access to the
 server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 
+**Latest published stable release:**
+
 ```bash
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
 ```
 
-This fetches the current entry script and installs the **latest published stable release**;
-it does not install the development `main` build. The English-language setup guides you
+**Development · latest `main` source (explicit choice):**
+
+```bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
+```
+
+**Exact published release:** replace `vX.Y.Z` with a real published tag.
+
+```bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --release vX.Y.Z'
+```
+
+**Exact development commit:** replace the placeholder with a real full 40-character SHA.
+
+```bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit FULL_40_CHARACTER_LOWERCASE_SHA'
+```
+
+The first command chooses the latest **published release**, even though the entry script
+is fetched from `main`. `--commit main` starts the selected development manager directly,
+with source pinned to the resolved immutable SHA. It is not necessary to install a stable
+release first and switch from its older manager. Development is not a production-certification
+claim. A pre-refactor installed deployment is still not converted in-place.
+
+
+The English-language setup guides you
 through Docker runtime deployment, administrator account, and HTTPS or private access.
 It verifies the release asset before installing. The manager survives an interrupted setup,
 so a retry can start from `sudo wg-guard`.
 
 | Your goal | Use |
 |---|---|
-| **Latest stable, guided** | Run the command above; use the Docker workflow. |
+| **Latest stable, guided** | Run the first command; use the Docker workflow. |
 | **Inspect before running** | Download and read the script with the commands below, then run it locally. |
 | **Exact release or development commit** | Select a tag or full SHA explicitly; see the [installation guide](docs/operations/github-install.md). |
 | **Unattended setup** | Forward install flags and supply a protected owner-password file; see the [terminal guide](docs/operations/terminal-management.md). |

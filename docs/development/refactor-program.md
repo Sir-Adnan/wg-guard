@@ -38,7 +38,7 @@ stable. [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md) explains owners
 | 17 | Verified Docker distribution and complete native removal | Source/image/CI gates passed; physical acceptance in 20; unreleased | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Source implemented; local/browser gates; physical acceptance in 20; unreleased | 16 host operation model; 17 deployment ownership |
 | 19 | Cohesive installer and operational panel UX | Source implemented; focused/browser/race gates; unreleased | Implemented 15–18 services |
-| 20 | Real-host acceptance and migration/release readiness | Planned | 15–19 evidence |
+| 20 | Real-host acceptance and migration/release readiness | Partial owner-host observation; certification incomplete | 15–19 evidence |
 
 Design work may clarify a later phase; unrelated implementation does not silently
 cross the active phase. Every phase records exact source/environment, fresh/reused
@@ -278,6 +278,11 @@ Exit: actual terminal cancellation/redirect/secret/failure fixtures, affected br
 matrix and no-JS fallback, and a documented operator journey with no hidden steps.
 
 ## Phase 20 — Certification, migration and publication
+
+Current [acceptance record](phase20.md) captures the owner's successful fresh main
+installation/old-archive restore on Ubuntu 26.04 and working Kernel clients. The
+owner has no retained old deployments requiring in-place conversion. Their v0.1.10
+request is conditional on completion and gates; it does not waive the checks below.
 
 - [ ] Freeze an exact source/artifact candidate; run applicable source/security/race gates.
 - [ ] Use an explicitly authorized isolated Ubuntu 24.04 amd64 host or an owner-coordinated

@@ -5,6 +5,12 @@ Living tracker for completed releases through Phase 14 and the planned
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
+Current owner scope: [Phase 20](phase20.md) records reported fresh installation,
+restore and Kernel client connectivity on Ubuntu 26.04 at exact `e81e4a6`. The
+conditional v0.1.10 request supersedes the prior no-further-release instruction for
+that version only. Remaining physical/candidate gates are open; no new support
+certification, registry publication or agent-run live-host mutation is implied.
+
 Last updated: 2026-10-05. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.

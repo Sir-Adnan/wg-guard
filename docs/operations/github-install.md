@@ -133,6 +133,30 @@ Boolean prompts display `[Y/n]` or `[y/N]`, accept `y/yes/n/no` case-insensitive
 displayed default on Enter. Capable TTYs use cyan information, green success, yellow warning and
 red failure; redirected output, `TERM=dumb` and `NO_COLOR` remain plain.
 
+## One-line selection examples
+
+```bash
+# Latest published stable release (default)
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
+
+# Latest development source; opens its manager directly
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
+
+# Exact official release: replace vX.Y.Z with a published tag
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --release vX.Y.Z'
+
+# Exact development source: replace the placeholder with its full immutable SHA
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit FULL_40_CHARACTER_LOWERCASE_SHA'
+```
+
+On a fresh development-test server, choose `--commit main` at bootstrap instead of
+opening preparation v0.1.9 and selecting new source inside that old manager. The old
+manager's candidate contract gate can reject the new installer **before installation**,
+even with no active node. That is separate from new source failing on the host. Existing
+pre-refactor state remains a fresh-install/export boundary; no compatibility bypass or
+in-place converter is added. A development manager's header uses `0.0.0-dev.<short SHA>`;
+a default stable header uses the published release version.
+
 ## Build prerequisites and cost
 
 The installer accepts Ubuntu 24.04 or newer on amd64/x86_64 only. Ubuntu 24.04 is the currently

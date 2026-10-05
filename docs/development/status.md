@@ -1,5 +1,21 @@
 # Product and verification status
 
+**Presentation follow-up (2026-10-05; unreleased):** shared help anchoring/input
+alignment, interface metadata, compact backup creation, page/drawer creation modes
+and structured SVG chart inspection are implemented. Focused source, Linux race and
+Chromium/WebKit results and their limits are in the [layout record](presentation-layout.md).
+Public API/OpenAPI and runtime/deployment/data contracts are unchanged by this work.
+
+**Owner host observation (2026-10-05):** fresh Docker installation and restoration
+of an older archive on exact `e81e4a6efc61436f051d2348f83fb67fb7ab102a` are reported
+working on Ubuntu 26.04 amd64, with two Kernel interfaces and working client connections.
+Restored administrator credentials correctly follow the archive. This starts
+[Phase 20 evidence](phase20.md); it does not complete host certification or certify
+Ubuntu 26.04. The owner no longer needs an in-place old-deployment converter and
+conditionally requested v0.1.10 after completion/gates. Earlier no-further-release
+and sole-old-server export assumptions below are historical; the current release
+boundary is recorded in Phase 20.
+
 **System health follow-up (2026-10-05; main source, unreleased):** the panel and
 authenticated `node.read` API expose shared safe readiness/runtime/accounting/telemetry
 observations. Scope/cache/null semantics, pending/failed/freshness, real fake-node
@@ -8,7 +24,8 @@ race/vet/build and Chromium/WebKit matrices passed within the
 [recorded scope](system-health.md). Exact `a58fc5b5a0cdb4c7f1d9c77ec6f2a183fc2c972a`
 passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37323212880), including both full Linux
 race/load jobs and build/vulnerability/runtime checks. The owner
-has not yet taken the off-host export; physical Phase 20 and release remain open.
+has since reported a successful fresh-host restore within the Phase 20 scope above;
+the remaining physical acceptance and release gates remain open.
 
 **Backup workbench follow-up (2026-10-05; current main, unreleased):**
 
@@ -66,7 +83,8 @@ acceptance remains separate. [Phase 18](phase18.md) now implements independent
 domain/certificate management on main; physical acceptance remains Phase 20. The
 [domain/TLS guide](../operations/domains-and-tls.md) separates unreleased main
 implementation from published v0.1.9 and physical acceptance.
-[Phase 19](phase19.md) adds the installer/operator source journey; Phase 20 remains planned.
+[Phase 19](phase19.md) adds the installer/operator source journey;
+[Phase 20](phase20.md) has partial owner-host observations and remains incomplete.
 
 The owner explicitly selected complete native production removal in Phase 17.
 The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle,
