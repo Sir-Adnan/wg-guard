@@ -73,7 +73,7 @@ Center, Backups and Domains (320/390/768/1440px), keyboard, truthful operation
 states, localized next actions and 6 no-JavaScript cells. Browser viewport checks
 are not physical-device verification. No new axe scan was run.
 
-Exact CI/artifact acceptance remains separate and is recorded after source freeze.
+Exact CI/artifact acceptance passed for the frozen implementation SHA as recorded below.
 Physical new-host install-from-backup, real kernel/userspace, CA/forwarding/reboot,
 client traffic and resource acceptance stay in Phase 20. The owner's off-host
 backup verification and explicit rebuild/publication approvals still gate that work.
@@ -82,3 +82,24 @@ No account REST API, archive format, data contract or runtime dependency changed
 Contracts: [operator journey](../operations/terminal-management.md),
 [backup/restore](../operations/backup-restore.md), [security](../operations/security.md),
 [refactor program](refactor-program.md).
+
+
+## Exact source and candidate evidence
+
+Implementation `e589b2a5fc1ad4d92afb689c1c5dfea45e91d862` was committed/pushed to
+main and passed [CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37298179907):
+both Go 1.25.x/stable full race and isolated encrypted-archive load jobs, build,
+vulnerability scan and runtime-image provenance/offline-load/fake persistence/
+hardening checks succeeded. Source verification is separate from physical Phase 20.
+
+The unpublished seven-day Actions artifact `11340587799` (67,526,564 B) was
+independently downloaded. ZIP SHA-256
+`e3094198433e4713d0e5c04dbb2c1c1193cb5dcda6ff13b9d45bf416942130be`
+matched GitHub's digest; all six contained checksums passed. Manager/runtime
+source and binary bindings matched; binary version ran in WSL and named the
+same SHA. Docker archive config digest/source/domain protocol labels were read
+independently and matched metadata. Image ID:
+`sha256:b943a3240518df98e20ac2bdf1e6552e0f457cd610117b49699215a619f94732`.
+Runtime metadata SHA-256:
+`1b223ec7da2578c1c2281ddf0ca43d685bf56a8eb4553a300b71c04a916794b0`.
+No registry image or new public release was published; latest stable remains v0.1.9.

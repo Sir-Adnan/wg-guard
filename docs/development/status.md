@@ -5,7 +5,10 @@ archive before managed listener start, source access/settings preservation and
 shared CLI/panel operation receipts are implemented. Focused portability/failure/
 terminal/queue/catalog checks, full ordinary suite, vet/build, Linux race and both
 48-cell operational browser matrices passed within the [recorded source scope](phase19.md).
-Exact delivery CI is pending. No owner-server/rebuild/real CA claim or new release
+Exact source `e589b2a5fc1ad4d92afb689c1c5dfea45e91d862` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37298179907), including
+both full Linux race/load jobs, build, vulnerability and runtime-image checks.
+The independently checked unpublished candidate is recorded in Phase 19. No owner-server/rebuild/real CA claim or new release
 is made; latest stable remains v0.1.9.
 
 
