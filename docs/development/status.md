@@ -1,5 +1,11 @@
 # Product and verification status
 
+**Acquisition staging correction (2026-10-05; unreleased):** an owner report exposes
+limited RAM-backed `/tmp` staging and a clipped compiler failure. Current source uses
+private cache staging, preserves the sanitized final cause and records pre-deployment
+acquisition failures in the installer log. Focused local/vet/Linux race scope and
+the remaining host boundary are in the [correction record](acquisition-staging.md).
+
 **Presentation follow-up (2026-10-05; unreleased):** shared help anchoring/input
 alignment, interface metadata, compact backup creation, page/drawer creation modes
 and structured SVG chart inspection are implemented. Focused source, Linux race and

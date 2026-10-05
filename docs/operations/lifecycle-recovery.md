@@ -121,6 +121,14 @@ new real-host execution is not claimed. The terminal recovery URL points to this
 document; it is not an installed `/docs/...` path. Log source **Installer and update commands**
 contains command errors; **Lifecycle outcomes** intentionally contains only safe action/results.
 
+Source acquisition precedes the update journal's deployment stages. A compiler/download
+failure at that point does not mean the panel was stopped or data were replaced; inspect
+the installed version and current health rather than invoking rollback on an old journal.
+Current main records bounded redacted acquisition errors in the installer log and stages
+in `/var/cache/wg-guard/staging`. Managers before this correction can have only unrelated
+older host-command output in that log. A small or quota-limited RAM-backed `/tmp` is
+independent of free root-disk space; see the [acquisition guide](github-install.md).
+
 Pre-update archives use the existing backup service in the owning environment (Docker exec
 or explicit offline helper) with a dedicated local output directory:
 `/var/lib/wg-guard/backups/lifecycle-<operation-id>/`. The journal records the actual returned

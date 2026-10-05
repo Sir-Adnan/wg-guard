@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/version"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 )
 
@@ -60,10 +62,37 @@ func (c *Client) buildSource(ctx context.Context, b Build, stage string) (string
 	flags := "-s -w -X github.com/Sir-Adnan/wg-guard/internal/version.Version=" + b.Version + " -X github.com/Sir-Adnan/wg-guard/internal/version.Commit=" + b.Commit
 	_, err = runner.RunConfigured(ctx, []string{compiler, "build", "-trimpath", "-buildvcs=false", "-mod=readonly", "-modcacherw", "-ldflags", flags, "-o", output, "./cmd/wg-guard"}, source, env)
 	if err != nil {
-		return "", fmt.Errorf("distribution: source compilation failed: %w", err)
+		return "", sourceCompilationError(err)
 	}
 	return output, nil
 }
+
+// Go prints download progress before the actual failure. Keep the sanitized
+// diagnostic suffix so a long path cannot hide ENOSPC, quota or permission errors.
+func sourceCompilationError(err error) error {
+	var exit *subprocess.ExitError
+	if !errors.As(err, &exit) {
+		return fmt.Errorf("distribution: source compilation failed: %w", err)
+	}
+	text := logsafe.RedactText(exit.Stderr)
+	text = strings.Join(strings.Fields(strings.ToValidUTF8(text, "�")), " ")
+	const limit = 768
+	if len(text) > limit {
+		text = "…" + strings.ToValidUTF8(text[len(text)-limit:], "�")
+	}
+	return &compilationFailure{cause: err, code: exit.ExitCode, detail: text}
+}
+
+type compilationFailure struct {
+	cause  error
+	code   int
+	detail string
+}
+
+func (e *compilationFailure) Error() string {
+	return fmt.Sprintf("distribution: source compilation failed: compiler exited with status %d: %s", e.code, e.detail)
+}
+func (e *compilationFailure) Unwrap() error { return e.cause }
 
 func buildEnvironment(stage, arch string) []string {
 	// Preserve host executable lookup, OS requirements, and explicit transport

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 	"io"
 	"os"
@@ -29,8 +30,9 @@ func sourceSelection(release, commit string) (distribution.Selection, error) {
 }
 
 func prepareBuild(ctx context.Context, s distribution.Selection, metadata string, onStage ...func(string)) (distribution.Build, string, func(), error) {
-	parent, err := os.MkdirTemp("", "wg-guard-lifecycle-")
+	parent, err := newLifecycleStage()
 	if err != nil {
+		_ = install.RecordAcquisitionFailure(err)
 		return distribution.Build{}, "", func() {}, err
 	}
 	child := ""
@@ -79,6 +81,7 @@ func prepareBuild(ctx context.Context, s distribution.Selection, metadata string
 		}
 	}
 	if err != nil {
+		_ = install.RecordAcquisitionFailure(err)
 		cleanup()
 		return distribution.Build{}, "", func() {}, err
 	}

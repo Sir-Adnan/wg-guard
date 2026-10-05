@@ -248,7 +248,7 @@ func prepareMaintenanceArtifact(ctx context.Context, h install.Host, selection d
 		if err := distribution.NewClient(nil, distribution.Options{}).ValidateCachedRelease(ctx, cached); err != nil {
 			return distribution.Build{}, "", func() {}, err
 		}
-		parent, err := os.MkdirTemp("", "wg-guard-lifecycle-")
+		parent, err := newLifecycleStage()
 		if err != nil {
 			return distribution.Build{}, "", func() {}, err
 		}

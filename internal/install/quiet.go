@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
@@ -20,6 +22,41 @@ const (
 
 const installerLogLimit = int64(4 << 20)
 const quietHeartbeatInterval = 15 * time.Second
+
+// Source acquisition happens before any deployment operation. Its failures must
+// still appear in the private installer log; no stdout, argv or source is logged.
+func RecordAcquisitionFailure(cause error) error {
+	if cause == nil {
+		return nil
+	}
+	if err := rotateInstallerLog(); err != nil {
+		return err
+	}
+	log, err := os.OpenFile(InstallerLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer log.Close()
+	if err := log.Chmod(0o600); err != nil {
+		return err
+	}
+	info, err := log.Stat()
+	if err != nil {
+		return err
+	}
+	output := &boundedLogWriter{Writer: log, remaining: installerLogLimit - info.Size()}
+	return writeAcquisitionFailure(output, cause, time.Now().UTC())
+}
+
+func writeAcquisitionFailure(output io.Writer, cause error, at time.Time) error {
+	message := logsafe.RedactText(cause.Error())
+	message = strings.Join(strings.Fields(message), " ")
+	if len(message) > 2048 {
+		message = "…" + strings.ToValidUTF8(message[len(message)-2048:], "�")
+	}
+	_, err := fmt.Fprintf(output, "\n[%s] acquisition failed: %s\n", at.Format(time.RFC3339), message)
+	return err
+}
 
 type boundedLogWriter struct {
 	io.Writer

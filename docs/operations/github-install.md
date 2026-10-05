@@ -197,11 +197,36 @@ writable for reliable cleanup. No repository hooks or `go generate` run.
 
 Source builds can take several minutes and require substantially more RAM/disk than the running
 panel, especially pure-Go SQLite compilation. Allow roughly 2 GiB of free temporary space and
-adequate build memory; constrained nodes should use verified release binaries. Each HTTP request
+adequate build memory; constrained nodes should use verified release binaries. Managed Go
+acquisition and runtime assembly use fresh private directories below
+`/var/cache/wg-guard/staging`, rather than inheriting `/tmp` or `TMPDIR`. Each build
+still isolates and removes its source/toolchain/module caches on ordinary exit;
+this is scratch space, not a shared mutable Go cache. A host that mounts this cache
+on tmpfs must provision it appropriately. Each HTTP request
 has a five-minute deadline; source compilation has a fifteen-minute deadline. The Go acquisition
 operation has a twenty-minute overall context deadline. Shell transfers have at most six
 validated redirect requests, each bounded separately. Cancellation stops acquisition before
 promotion. SIGKILL/power loss can leave an owned temporary directory for manual removal.
+
+Compiler failures preserve a bounded, redacted diagnostic suffix so download chatter
+cannot hide a final disk/quota/permission error. Acquisition failures are also recorded
+in the private installer log before any panel stop. The generic subprocess error
+policy and stdout confidentiality remain unchanged.
+
+On older development managers that still stage under `/tmp`, a RAM-backed `/tmp`
+can run out independently of the root disk. Check it with `findmnt -T /tmp`,
+`df -h /tmp /var/cache` and `df -i /tmp /var/cache`; quota exhaustion is a separate
+possibility even when `df` shows free space. For an already-installed node with a
+verified manager cache, an explicit disk-backed temporary root can be used for one
+pinned panel update:
+
+```bash
+sudo env TMPDIR=/var/cache/wg-guard wg-guard update panel --commit FULL_40_CHARACTER_LOWERCASE_SHA
+```
+
+This retains pre-update backup and readiness/rollback gates. It does not request a
+core transition or delete temporary data belonging to other processes. After moving
+to the corrected manager, the managed staging path is selected without this override.
 
 ## Integrity and ownership
 

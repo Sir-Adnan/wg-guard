@@ -23,6 +23,7 @@ const (
 	ComposeFile        = DeploymentDir + "/compose.yaml"
 	HostBinary         = "/usr/local/bin/wg-guard"
 	ManagerCache       = "/var/cache/wg-guard"
+	BuildStaging       = ManagerCache + "/staging"
 	DatabaseName       = "wg-guard.db"
 	MasterKeyName      = "master.key"
 )

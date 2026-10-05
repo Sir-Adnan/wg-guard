@@ -213,6 +213,10 @@ var textRedactors = []struct {
 	{regexp.MustCompile(`([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s:]+:[^@\s/]+@`), `$1` + Redacted + `@`},
 }
 
+// RedactText applies the same secret corpus to bounded non-slog diagnostics.
+// Callers still own the size limit and must not supply raw configs or key dumps.
+func RedactText(value string) string { return sanitizeText(value) }
+
 func sanitizeText(value string) string {
 	for _, redactor := range textRedactors {
 		value = redactor.pattern.ReplaceAllString(value, redactor.replace)
