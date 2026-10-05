@@ -131,7 +131,9 @@ func ensureInstalledKernelBuilds(ctx context.Context, h Host, running string, b 
 		return fmt.Errorf("install: invalid running kernel identity")
 	}
 	targets := []string{running}
-	entries, err := h.ReadDir("/lib/modules")
+	// Ubuntu's /lib is a usr-merge symlink; use its canonical root so the
+	// managed host's no-symlink read guard remains intact.
+	entries, err := h.ReadDir("/usr/lib/modules")
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("install: inspect installed kernels: %w", err)
 	}
@@ -144,7 +146,7 @@ func ensureInstalledKernelBuilds(ctx context.Context, h Host, running string, b 
 			continue
 		}
 		image, imageErr := h.Stat(path.Join("/boot", "vmlinuz-"+name))
-		headers, headerErr := h.Stat(path.Join("/lib/modules", name, "build", "Makefile"))
+		headers, headerErr := h.Stat(path.Join("/usr/lib/modules", name, "build", "Makefile"))
 		if imageErr == nil && headerErr == nil && image.Mode().IsRegular() && headers.Mode().IsRegular() {
 			targets = append(targets, name)
 		}
