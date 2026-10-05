@@ -7,7 +7,9 @@ resumable bounded review reports, enabled-source-owner preflight, conditional ca
 cursor archive pages and separated native sections. Crypto/review/apply/purge claims and
 shared flash navigation have failure/concurrency coverage. Fresh local Go/web/vet/build,
 focused Linux race and Chromium/WebKit workbench matrices passed within the recorded
-scope; exact final main CI is a separate gate. No REST/OpenAPI contract, archive schema,
+scope. Exact `d07bc6ad6dae97b9549867f1169f7bea64bf4f7d` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37311043902), including both full Linux
+race/load jobs and build/vulnerability/runtime checks. No REST/OpenAPI contract, archive schema,
 new release or real-host acceptance is implied. Phase 20 remains required.
 
 **Phase 19 source (2026-10-05; unreleased):** fresh-target install from validated

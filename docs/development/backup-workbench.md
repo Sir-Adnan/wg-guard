@@ -51,7 +51,11 @@ packages reusing Go cache. A fresh web check passed after controller/flash chang
 unchanged API contract checks reused cache. Go vet and a build passed. Linux Go 1.26
 race checks passed for backup, web, nodestate and CLI, including the existing recovery/
 rotation/initial-install tests. Controller file movement does not change those tested
-declarations; exact final main CI remains a separate gate. Asset measurement passed.
+declarations. Asset measurement passed. Exact source `d07bc6ad6dae97b9549867f1169f7bea64bf4f7d` then
+passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37311043902):
+both full Linux race/encrypted-load jobs, build, vulnerability and runtime-image checks.
+This is exact-source CI evidence; the generated candidate archive was not independently
+downloaded/verified in this follow-up and is not a new release.
 
 Chromium and WebKit each passed 80 fa/en Light/Dark cells at 320/390/768/1440 px over
 archives, restore selection, saved review, schedule editing and delivery. The matrix
@@ -63,3 +67,7 @@ instrumentation; this does not enable the application scripts. No fresh axe scan
 physical browser/device, actual Docker restart/host restore, network or client result
 is inferred from these fixtures. Prior Phase 19 artifact evidence is not a candidate
 artifact identity for this changed source.
+
+The existing Chromium Phase 10.4-backups regression also passed its 32 composition
+cells and actual creation/download/import/restore-cancel/schedule/native-edit journeys
+after adapting navigation to the new sections. Local changed-document links passed.
