@@ -66,7 +66,7 @@ further release authorization.
 | 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
 | 17 — Docker-only/native cleanup | source/image/CI gates passed; unreleased; physical acceptance in 20 | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | source/local TLS/browser gates implemented; unreleased | Actual CA issuance/renewal/replacement and physical route/forwarding/reboot acceptance remains Phase 20 |
-| 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |
+| 19 — Operational UX | source implemented; unreleased | Offline archive initialization, isolated terminal/failure/race and affected browser gates; actual migration remains Phase 20 |
 | 20 — Refactor certification | planned | Exact-source/artifact, real-host migration/resource/failure gates and publication approval |
 
 ### Refactor entry findings

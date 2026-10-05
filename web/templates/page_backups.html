@@ -1,6 +1,8 @@
 {{define "title"}}{{.T "backups.title"}}{{end}}
 {{define "content"}}
 <div class="backup-workspace">
+{{if .Data.Receipt.State}}{{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}{{end}}
+{{if eq .Data.Receipt.State "awaiting_restart"}}<div class="callout"><div><p>{{.T "operations.restart.cli"}}</p><code class="ltr-data">sudo wg-guard restart --yes</code></div></div>{{end}}
 
 <div class="page-head page-head--hero ops-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "database"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "backups.title"}}</h1><p>{{.T "backups.subtitle"}}</p></div></div>{{if .Data.Available}}<div class="actions"><a class="btn btn--primary" href="#new-backup">{{.IconS "plus"}}{{.T "backups.create_now"}}</a><a class="btn" href="#restore-workbench">{{.IconS "upload"}}{{.T "backups.restore"}}</a></div>{{end}}</div>
 {{if .Data.LifecycleBackup}}<section class="card card--pad"><div class="section-head"><div><span class="eyebrow">{{.T "nav.updates"}}</span><h2>{{.T "updates.recovery_backup"}}</h2><p>{{.T "updates.backup_recorded_hint"}}</p></div><a class="btn btn--outline" href="/updates/backup">{{.IconS "download"}}{{.T "updates.download_backup"}}</a></div><p class="ltr-data">{{.Data.LifecycleBackup.Name}}</p></section>{{end}}

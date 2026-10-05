@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 	"golang.org/x/term"
 )
 
@@ -260,6 +261,10 @@ func (u *UI) StatusCard(status, title string, fields []StatusField) {
 	}
 }
 func (u *UI) Result(err error) {
+	if errors.Is(err, ErrBack) || errors.Is(err, ErrCanceled) {
+		u.Operation(operation.Present("", operation.Canceled, false))
+		return
+	}
 	if err == nil {
 		u.Success(u.T("terminal.done"))
 	} else {
@@ -271,6 +276,11 @@ func (u *UI) Result(err error) {
 		u.Failure(u.T("terminal.failed", Clean(message)))
 		u.Warning(u.T("terminal.recovery"))
 	}
+}
+
+func (u *UI) Operation(receipt operation.Receipt) {
+	u.Field("Status", i18n.T(i18n.En, receipt.Label))
+	u.Text(i18n.T(i18n.En, receipt.Next))
 }
 
 // ReadLine deliberately performs no read-ahead: secret reads can safely switch

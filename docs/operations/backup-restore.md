@@ -385,3 +385,16 @@ Phase 17 runtime delivery uses private disk spool files under `backup-delivery/`
 volume. Normal completion/cancellation removes each body; this directory is not an archive
 member. AWG temporary configs retain the bounded runtime `/tmp`. Independent verification is
 normally run with the host manager, so large archive expansion uses private disk staging.
+
+
+## Fresh-target installation from archive
+
+Current unreleased main offers the [terminal install-from-backup journey](terminal-management.md#install-from-a-verified-backup-current-main-unreleased).
+It prepares an offline validated archive before host installation, requires an
+enabled source owner, refuses existing target data and applies the DB/key under
+exclusive ownership before managed listener start. Defaults/owner seeding are
+skipped. Target boot/TLS stays active; archived config becomes `.restored` for
+review. Private staging keeps no password and is removed on ordinary completion/
+failure; interrupted staging remains private for operator inspection. No archive
+schema or public REST endpoint changes. Tests cover preserved device/customer/
+usage/access data; actual target-host/client acceptance remains Phase 20.

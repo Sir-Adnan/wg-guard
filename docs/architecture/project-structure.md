@@ -33,6 +33,7 @@ internal/
   database/              SQLite open (WAL, busy_timeout, FK, txlock=immediate), migrations runner, tx helpers
   domaintls/             approved origins, hostname roles, TLS/SNI/session admission, chain/SAN
                          validation, bounded active-pair cache and public route isolation
+  operation/             shared safe CLI/web receipt states; no request transport or executor
   domainqueue/           closed owner intent, atomic mailbox/status and bounded private imports
                          (host CA/lifecycle executor stays in install; no panel root shell)
   domain/                shared types: IDs (UUIDv7), statuses, disable reasons, machine error codes

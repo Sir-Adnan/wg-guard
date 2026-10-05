@@ -65,7 +65,7 @@ func managerRootMenu(view managerView) managerMenu {
 	case managerRecovery:
 		return managerMenu{key: "recovery_menu", items: []string{"recover_now", "lifecycle", "access", "backups", "operations", "logs"}, defaultItem: 1}
 	default:
-		return managerMenu{key: "fresh_menu", items: []string{"install_cached", "install_choose", "readiness", "help_short", "logs"}, defaultItem: 1}
+		return managerMenu{key: "fresh_menu", items: []string{"install_cached", "install_choose", "install_restore", "readiness", "help_short", "logs"}, defaultItem: 1}
 	}
 }
 
@@ -450,9 +450,20 @@ func (m *manager) uninstallAction(ctx context.Context) error {
 
 func (m *manager) freshAction(ctx context.Context, n int) error {
 	switch n {
-	case 1, 2:
+	case 1, 2, 3:
 		var args []string
-		if n == 1 && m.bootstrapMetadata != "" {
+		archive := ""
+		if n == 3 {
+			var err error
+			archive, err = m.ui.Ask("Portable backup archive path", "")
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(archive) == "" {
+				return terminal.ErrBack
+			}
+		}
+		if (n == 1 || n == 3) && m.bootstrapMetadata != "" {
 			args = []string{"install", "--build-metadata", m.bootstrapMetadata, "--lang", string(m.ui.Locale)}
 		} else {
 			selection, err := pickSource(ctx, m.ui, m.catalog, "")
@@ -461,20 +472,23 @@ func (m *manager) freshAction(ctx context.Context, n int) error {
 			}
 			args = []string{"install", "--" + selection.Channel, selection.Ref, "--lang", string(m.ui.Locale)}
 		}
+		if archive != "" {
+			args = append(args, "--from-backup", archive)
+		}
 		err := m.run(ctx, args, nil)
 		m.ui.Result(err)
 		if ctx.Err() != nil {
 			return terminal.ErrCanceled
 		}
 		return nil
-	case 3:
+	case 4:
 		err := m.run(ctx, []string{"doctor"}, nil)
 		m.ui.Result(err)
 		return nil
-	case 4:
+	case 5:
 		m.ui.Section(m.ui.T("manage.help_short"))
 		m.ui.Text(m.ui.T("manage.help_body"))
-	case 5:
+	case 6:
 		return m.logsMenu(ctx)
 	}
 	return nil
@@ -509,7 +523,7 @@ func (m *manager) group(ctx context.Context, group int) error {
 		case 3:
 			n, err = m.ui.Choose(m.ui.T("manage.backups"), []string{m.ui.T("manage.backup_create"), m.ui.T("manage.backup_list"), m.ui.T("manage.restore"), m.ui.T("manage.schedules"), m.ui.T("manage.telegram"), m.ui.T("backup.cli.backup_password"), m.ui.T("backup.cli.recover")}, 0)
 		case 4:
-			n, err = m.menu("access", "access_status", "access_configure", "access_renew", "access_private", "tls")
+			n, err = m.menu("access", "access_status", "access_configure", "access_renew", "access_private", "tls", "domains")
 		}
 		if err != nil {
 			if errors.Is(err, terminal.ErrCanceled) && ctx.Err() == nil {
@@ -589,6 +603,11 @@ func (m *manager) group(ctx context.Context, group int) error {
 				review = "access_private_review"
 			case 5:
 				args = []string{"tls-check"}
+			case 6:
+				if err := m.domainsMenu(ctx); err != nil && !errors.Is(err, terminal.ErrBack) {
+					return err
+				}
+				continue
 			}
 		}
 		if review != "" {

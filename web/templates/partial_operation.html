@@ -1,0 +1,6 @@
+{{define "operation-receipt"}}
+<div class="operation-receipt" data-operation-state="{{.r.State}}" data-tone="{{.r.Tone}}" role="status">
+  <span class="badge">{{.v.T .r.Label}}</span>
+  <p class="hint">{{.v.T .r.Next}}</p>
+</div>
+{{end}}

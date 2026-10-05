@@ -12,10 +12,12 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 )
 
 type updatesData struct {
+	Receipt                           operation.Receipt
 	Available                         bool
 	ReleasesKnown                     bool
 	Active                            bool
@@ -149,6 +151,7 @@ func (s *Server) updateRuntimeData() updatesData {
 		}
 	}
 	d.Cores = install.ReviewedCoreBundles()
+	d.Receipt = operation.Present(d.Status.ID, d.Status.State, d.InventoryKnown && d.Inventory.Recovery != "")
 	return d
 }
 

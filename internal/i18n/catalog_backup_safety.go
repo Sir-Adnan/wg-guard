@@ -1,6 +1,10 @@
 package i18n
 
 func init() {
+	catalogEN["backup.safety.install_owner"] = "backup: installation requires an enabled source owner; repair access on the original node before migration"
+	catalogFA["backup.safety.install_owner"] = "نصب از بکاپ به مالک فعال در دادهٔ مبدأ نیاز دارد؛ پیش از مهاجرت دسترسی را در نود اصلی اصلاح کنید."
+	catalogEN["backup.safety.install_existing"] = "backup: installation from archive requires empty target data; existing files were preserved"
+	catalogFA["backup.safety.install_existing"] = "نصب از آرشیو به دادهٔ خالی مقصد نیاز دارد؛ فایل‌های موجود حفظ شدند."
 	for key, value := range map[string]string{
 		"password_required": "backup: archive is password-protected; a password is required",
 		"archive_invalid":   "backup: archive container is invalid or incomplete",

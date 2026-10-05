@@ -12,6 +12,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 )
 
@@ -20,6 +21,7 @@ const maxStreamingCSRFBytes = 128
 // backupsData feeds the /backups screen: archive list, schedules, telegram
 // state, the pending-restore banner and the restore review card.
 type backupsData struct {
+	Receipt                                                operation.Receipt
 	Error                                                  string // localized message or safe engine error text
 	Field                                                  string
 	Available, ArchivesKnown, SchedulesKnown, PendingKnown bool
@@ -104,6 +106,9 @@ func (s *Server) backupsData(r *http.Request) backupsData {
 		d.SettingsKnown = false
 	}
 	d.TelegramReady = d.Available && d.SettingsKnown && d.TelegramSet && strings.TrimSpace(d.TelegramChat) != ""
+	if d.Pending != nil {
+		d.Receipt = operation.Present(d.Pending.PreviewID(), operation.AwaitingRestart, false)
+	}
 	return d
 }
 
@@ -267,6 +272,7 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	d := s.backupsData(r)
 	d.Pending = pr
 	d.Review = report
+	d.Receipt = operation.Present(pr.PreviewID(), operation.Review, false)
 	d.Warnings = backup.WarningTexts(report.Warnings, s.localeFor(r))
 	_ = s.render(w, r, "backups", "app", d)
 }

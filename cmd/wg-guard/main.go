@@ -34,6 +34,8 @@ Commands:
                       [--cloudflare-token-file PRIVATE_FILE] [--acme-email EMAIL]
                       [--cert-file F --key-file F]
                       [--image REF] [--skip-module] [--yes]
+                      [--from-backup ARCHIVE]
+                      [--backup-password | --backup-password-file PRIVATE_FILE]
   update      Open the update center or update one safe component boundary
               update manager|panel|core|all|status [flags]
               legacy panel flags remain accepted: update --release TAG,

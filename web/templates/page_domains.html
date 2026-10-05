@@ -195,6 +195,7 @@
 <h2>{{.T "domains.operation"}}</h2>
 {{if .Data.Status.State}}<span class="badge">{{.T (printf "domains.operation.%s" .Data.Status.State)}}</span>{{end}}
 </div>
+{{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}
 {{if .Data.PanelTarget}}<p class="hint">{{.T "domains.panel_change.hint"}}</p><a class="btn btn--secondary ltr-data" href="{{.Data.PanelTarget}}/settings/domains" target="_blank" rel="noopener noreferrer">{{.Data.PanelTarget}}</a>{{end}}
 {{if .Data.Status.ID}}<p>{{.T (printf "domains.stage.%s" .Data.Status.Stage)}}</p>
 {{if .Data.Status.Failure}}<p class="callout callout--warn">{{.T "domains.operation.failed_hint"}}</p>{{end}}{{else}}<p class="hint">{{.T "domains.operation.idle"}}</p>{{end}}{{if and .Data.CanManage .Data.Available (eq .Data.Status.State "failed")}}<form action="/settings/domains" method="post">

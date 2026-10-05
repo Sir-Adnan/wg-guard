@@ -30,6 +30,7 @@ Implementation and test evidence must support any claimed behavior.
 [Docker-only cleanup](architecture/docker-only-cleanup.md) ·
 [Phase 17 implementation](development/phase17.md) ·
 [Phase 18 domains/HTTPS](development/phase18.md) ·
+[Phase 19 operator journeys](development/phase19.md) ·
 [AmneziaWG pin and verification](integrations/amneziawg.md) ·
 [webhooks](integrations/webhooks.md) · [ADRs](decisions/).
 

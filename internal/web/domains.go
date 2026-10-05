@@ -11,9 +11,11 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domainqueue"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 )
 
 type domainPageData struct {
+	Receipt                      operation.Receipt
 	Inventory                    install.DomainInventory
 	Cards                        []domainCard
 	Status                       domainqueue.Status
@@ -43,6 +45,7 @@ func (s *Server) domainData(r *http.Request) domainPageData {
 		d.Available = d.Available && d.Inventory.Available
 	}
 	d.Form.ExpectedRevision = d.Inventory.Revision
+	d.Receipt = operation.Present(d.Status.ID, d.Status.State, d.Status.Failure == "interrupted")
 	if d.Status.Role == domaintls.Panel && d.Status.Origin != "" {
 		d.PanelTarget = d.Status.Origin
 	}
@@ -85,7 +88,7 @@ func (s *Server) handleDomainsStatus(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if r.URL.Query().Get("id") == d.Status.ID && r.URL.Query().Get("state") == d.Status.State && r.URL.Query().Get("stage") == d.Status.Stage {
+	if r.URL.Query().Get("id") == d.Status.ID && r.URL.Query().Get("state") == string(d.Status.State) && r.URL.Query().Get("stage") == d.Status.Stage {
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(204)
 		return

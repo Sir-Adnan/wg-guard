@@ -71,6 +71,14 @@ func runInstall(args []string) error {
 	if err := install.CheckLifecycleReady(h); err != nil {
 		return err
 	}
+	if o.ArchivePath != "" {
+		prepared, err := prepareInstallArchive(ctx, h, o)
+		if err != nil {
+			return err
+		}
+		defer prepared.Close()
+		o.InitialData = prepared
+	}
 	if !o.Yes && o.Selection.Channel == "" && o.BuildMetadata == "" {
 		u := terminal.New(o.Stdin, o.Stdout, terminal.Detect(o.Stdin, o.Stdout, o.Locale))
 		u.Context = ctx
@@ -118,36 +126,42 @@ func runRecoverInstallWith(ctx context.Context, args []string, h install.Host, o
 func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	var (
-		domain         = fs.String("domain", "", "panel domain (enables ACME TLS)")
-		tlsMode        = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
-		exposure       = fs.String("exposure", "auto", "auto | private | direct | nginx | external-proxy")
-		certificate    = fs.String("certificate", "auto", "auto | builtin | webroot | cloudflare-dns | ip | manual | cloudflare-origin | external")
-		panelPort      = fs.Int("panel-port", 0, "panel port (default 443 with TLS, 8080 plain)")
-		httpsPort      = fs.Int("https-port", 443, "public HTTPS port for Nginx/external proxy")
-		acmePort       = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
-		acmeEmail      = fs.String("acme-email", "", "optional ACME account email")
-		cloudflareFile = fs.String("cloudflare-token-file", "", "private 0600 file containing a scoped Cloudflare API token")
-		image          = fs.String("image", install.DefaultImage, "container image (docker mode)")
-		certFile       = fs.String("cert-file", "", "TLS certificate file (manual mode)")
-		keyFile        = fs.String("key-file", "", "TLS key file (manual mode)")
-		yes            = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
-		skipMod        = fs.Bool("skip-module", false, i18n.T(i18n.En, "install.cli.skip_module"))
-		publicIP       = fs.String("public-ip", "", i18n.T(i18n.En, "install.cli.public_ip"))
-		prerequisites  = fs.String("prerequisites", "auto", i18n.T(i18n.En, "install.cli.prerequisites"))
-		core           = fs.String("core", "recommended", i18n.T(i18n.En, "install.cli.core"))
-		release        = fs.String("release", "", i18n.T(i18n.En, "install.cli.release"))
-		commit         = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
-		metadata       = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
-		localImage     = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
-		ownerName      = fs.String("owner-username", "", i18n.T(i18n.En, "owner.username"))
-		ownerFile      = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
-		locale         = fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
+		domain             = fs.String("domain", "", "panel domain (enables ACME TLS)")
+		tlsMode            = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
+		exposure           = fs.String("exposure", "auto", "auto | private | direct | nginx | external-proxy")
+		certificate        = fs.String("certificate", "auto", "auto | builtin | webroot | cloudflare-dns | ip | manual | cloudflare-origin | external")
+		panelPort          = fs.Int("panel-port", 0, "panel port (default 443 with TLS, 8080 plain)")
+		httpsPort          = fs.Int("https-port", 443, "public HTTPS port for Nginx/external proxy")
+		acmePort           = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
+		acmeEmail          = fs.String("acme-email", "", "optional ACME account email")
+		cloudflareFile     = fs.String("cloudflare-token-file", "", "private 0600 file containing a scoped Cloudflare API token")
+		image              = fs.String("image", install.DefaultImage, "container image (docker mode)")
+		certFile           = fs.String("cert-file", "", "TLS certificate file (manual mode)")
+		keyFile            = fs.String("key-file", "", "TLS key file (manual mode)")
+		yes                = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
+		skipMod            = fs.Bool("skip-module", false, i18n.T(i18n.En, "install.cli.skip_module"))
+		publicIP           = fs.String("public-ip", "", i18n.T(i18n.En, "install.cli.public_ip"))
+		prerequisites      = fs.String("prerequisites", "auto", i18n.T(i18n.En, "install.cli.prerequisites"))
+		core               = fs.String("core", "recommended", i18n.T(i18n.En, "install.cli.core"))
+		release            = fs.String("release", "", i18n.T(i18n.En, "install.cli.release"))
+		commit             = fs.String("commit", "", i18n.T(i18n.En, "install.cli.commit"))
+		metadata           = fs.String("build-metadata", "", i18n.T(i18n.En, "install.cli.metadata"))
+		localImage         = fs.Bool("local-image", false, i18n.T(i18n.En, "install.cli.local_image"))
+		ownerName          = fs.String("owner-username", "", i18n.T(i18n.En, "owner.username"))
+		ownerFile          = fs.String("owner-password-file", "", i18n.T(i18n.En, "owner.file"))
+		fromBackup         = fs.String("from-backup", "", "install verified portable data before starting any listener")
+		backupPasswordFile = fs.String("backup-password-file", "", "private 0600 archive password file; no password values in argv")
+		backupPassword     = fs.Bool("backup-password", false, "read archive password from hidden input")
+		locale             = fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return install.InstallOptions{}, err
 	}
 	if fs.NArg() != 0 {
 		return install.InstallOptions{}, fmt.Errorf("%s", i18n.T(i18n.En, "install.cli.arguments"))
+	}
+	if *fromBackup == "" && (*backupPasswordFile != "" || *backupPassword) || *backupPasswordFile != "" && *backupPassword || *fromBackup != "" && (*ownerName != "" || *ownerFile != "") {
+		return install.InstallOptions{}, fmt.Errorf("install: archive password options require --from-backup, cannot be combined, and source owner credentials cannot be overridden")
 	}
 	terminalLang, ok := terminalLanguage(*locale)
 	if !ok {
@@ -219,6 +233,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	plan.PublicIP = *publicIP
 
 	return install.InstallOptions{
+		ArchivePath: *fromBackup, ArchivePasswordFile: *backupPasswordFile, AskArchivePassword: *backupPassword,
 		Owner: install.OwnerOptions{Username: *ownerName, PasswordFile: *ownerFile}, Locale: terminalLang,
 		Selection: selection, BuildMetadata: *metadata, LocalImage: *localImage,
 		Plan:          plan,

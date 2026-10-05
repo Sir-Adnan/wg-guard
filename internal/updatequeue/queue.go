@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 )
 
 const (
@@ -28,7 +30,7 @@ const (
 )
 
 type Operation string
-type State string
+type State = operation.State
 type Failure string
 
 const (

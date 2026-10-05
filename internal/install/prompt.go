@@ -26,6 +26,7 @@ func renderBootConfig(p Plan) ([]byte, error) {
 type prompt struct {
 	yes      bool
 	advanced bool
+	restore  bool
 	ui       *terminal.UI
 	out      io.Writer
 }
@@ -130,11 +131,13 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	if err := q.planAccess(p, facts, explicitAccess); err != nil {
 		return err
 	}
-	if err := q.planNetwork(p); err != nil {
-		return err
-	}
-	if err := q.planTelegram(p); err != nil {
-		return err
+	if !q.restore {
+		if err := q.planNetwork(p); err != nil {
+			return err
+		}
+		if err := q.planTelegram(p); err != nil {
+			return err
+		}
 	}
 	if p.Image == DefaultImage {
 		customImage, askErr := q.askYesNo(q.t("custom_image"), false)
@@ -375,7 +378,10 @@ func (q *prompt) confirm(p Plan) error {
 	}
 	fields := []struct{ k, v string }{
 		{"mode", string(ModeDocker)}, {"access_method", string(p.Exposure)}, {"certificate", certificate},
-		{"panel", p.PanelURL()}, {"endpoint", p.VPNEndpoint()},
+		{"panel", p.PanelURL()},
+	}
+	if !q.restore {
+		fields = append(fields, struct{ k, v string }{"endpoint", p.VPNEndpoint()})
 	}
 	if q.advanced {
 		fields = append(fields, struct{ k, v string }{"config", p.BootConfigPath()}, struct{ k, v string }{"data", p.DataDir})
@@ -394,7 +400,9 @@ func (q *prompt) confirm(p Plan) error {
 		hi = 50000
 	}
 	if q.advanced {
-		q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
+		if !q.restore {
+			q.ui.Field(q.t("udp"), fmt.Sprintf("%d–%d", lo, hi))
+		}
 		if p.Exposure != ExposureDirect {
 			q.ui.Field(q.t("backend_port"), strconv.Itoa(p.PanelPort))
 		}
@@ -414,7 +422,7 @@ func (q *prompt) confirm(p Plan) error {
 	if dns == "" {
 		dns = "1.1.1.1, 1.0.0.1"
 	}
-	if q.advanced {
+	if q.advanced && !q.restore {
 		q.ui.Field(q.t("pool"), pool)
 		q.ui.Field(q.t("mtu"), strconv.Itoa(mtu))
 		q.ui.Field(q.t("dns"), dns)
@@ -424,7 +432,7 @@ func (q *prompt) confirm(p Plan) error {
 	}
 	if p.TelegramToken != "" {
 		q.ui.Field(q.t("backup"), q.t("backup_set", p.TelegramChat, p.TelegramTime))
-	} else if q.advanced {
+	} else if q.advanced && !q.restore {
 		q.ui.Text(q.t("backup_later"))
 	}
 	q.ui.Info(q.t("impact"))

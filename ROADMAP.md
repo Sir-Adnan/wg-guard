@@ -260,3 +260,10 @@ TLS admission, a dedicated owner-authorized certificate mailbox, versioned impor
 CA renewal/retirement and snapshot recovery. Source and isolated browser/TLS checks
 remain distinct from physical Phase 20 acceptance. It is unreleased; latest stable
 remains v0.1.9. See [Phase 18](docs/development/phase18.md).
+
+
+Phase 19 implements archive initialization before managed listener start and
+shared safe CLI/panel operation states with explicit review/restart/recovery actions.
+Source owners/settings/keys/usage survive the verified archive path; target HTTPS
+is reviewed separately. Source/browser/race evidence stays distinct from physical
+Phase 20 migration and publication. See [Phase 19](docs/development/phase19.md).

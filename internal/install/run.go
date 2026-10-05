@@ -12,9 +12,11 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/admin"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
+	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/layout"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
@@ -31,8 +33,11 @@ var (
 // InstallOptions drives one install run. Plan is pre-filled from CLI flags;
 // empty fields are prompted for unless Yes.
 type InstallOptions struct {
-	Owner  OwnerOptions
-	Locale i18n.Locale
+	InitialData                      InitialData
+	ArchivePath, ArchivePasswordFile string
+	AskArchivePassword               bool
+	Owner                            OwnerOptions
+	Locale                           i18n.Locale
 	// BeforeStart is M4's local-owner setup point, after configuration/settings
 	// exist and before any public listener starts. Nil uses BootstrapLocalOwner.
 	BeforeStart   func(context.Context, Host, Plan, *State) error
@@ -50,6 +55,13 @@ type InstallOptions struct {
 	Core           string // recommended, latest-compatible or exact catalog bundle ID
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
+}
+
+// InitialData is the narrow offline archive seam. It supplies a safe review and
+// applies a verified pair to an empty target; it has no host command authority.
+type InitialData interface {
+	RestoreReport() *backup.RestoreReport
+	ApplyInitialData(context.Context, *config.Config, string) error
 }
 
 // UpdateOptions drives one update.
@@ -74,6 +86,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		out = io.Discard
 	}
 	prompt := newPrompt(o.Stdin, out, o.Yes)
+	prompt.restore = o.InitialData != nil
 	prompt.ui.Context = ctx
 	prompt.ui.Locale = o.Locale
 	if !prompt.ui.Locale.Valid() {
@@ -84,7 +97,14 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if ownerResult == nil {
 		ownerResult = &OwnerResult{}
 	}
-	if o.BeforeStart == nil {
+	if o.InitialData != nil {
+		if o.BeforeStart != nil || o.Owner.Username != "" || o.Owner.PasswordFile != "" {
+			return nil, fmt.Errorf("install: archive installation preserves source owner access; owner overrides are not accepted")
+		}
+		o.BeforeStart = func(ctx context.Context, h Host, p Plan, _ *State) error {
+			return maintenanceTask(out, "backup", "restore", "Restoring verified account data", func() error { return o.InitialData.ApplyInitialData(ctx, p.BootConfig(), p.BootConfigPath()) })
+		}
+	} else if o.BeforeStart == nil {
 		o.BeforeStart = func(ctx context.Context, h Host, p Plan, _ *State) error {
 			owner := o.Owner
 			owner.Yes = o.Yes
@@ -171,6 +191,21 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		}
 	}
 	prompt.ui.Field(prompt.ui.T("manage.build"), buildLabel)
+	if o.InitialData != nil {
+		report := o.InitialData.RestoreReport()
+		if report == nil {
+			return nil, fmt.Errorf("install: verified archive review is unavailable")
+		}
+		if o.SkipModule && report.Inventory.KernelInterfaces > 0 {
+			return nil, fmt.Errorf("install: archive contains kernel profiles; --skip-module cannot satisfy their target requirements")
+		}
+		prompt.ui.Section("Restore source")
+		prompt.ui.Field("Archive", report.Archive)
+		prompt.ui.Field("Source", report.Hostname+" · "+report.AppVersion)
+		prompt.ui.Field("Stored accounts/devices", fmt.Sprintf("%d / %d", report.Inventory.Users, report.Inventory.Devices))
+		prompt.ui.Field("Preserved VPN endpoint", report.Endpoint)
+		prompt.ui.Text("Source owners, passwords, tokens, usage and settings are preserved. The target listener/TLS is configured above; archived host configuration is not activated.")
+	}
 	if prompt.advanced && o.Build.SHA256 != "" {
 		prompt.ui.Field("SHA-256", o.Build.SHA256)
 	}
@@ -194,6 +229,14 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 	if err := checkFreshContainerAbsent(ctx, h); err != nil {
 		return nil, err
+	}
+	if o.InitialData != nil {
+		cfg := p.BootConfig()
+		for _, file := range []string{cfg.DatabasePath, cfg.DatabasePath + "-wal", cfg.DatabasePath + "-shm", cfg.MasterKeyFile, cfg.MasterKeyFile + ".prev", p.DataDir + "/" + backup.RestoreGuardName, p.DataDir + "/restore.pending", p.DataDir + "/restore.transaction"} {
+			if _, err := h.Stat(file); !errors.Is(err, fs.ErrNotExist) {
+				return nil, fmt.Errorf("install: archive installation requires empty node data; existing data is preserved")
+			}
+		}
 	}
 	targets := []string{ConfigPath, ComposePth, legacyServerUnitPath, OperationRetentionPath, UpdateBrokerServicePath, UpdateBrokerPathPath, UpdateBrokerMarkerPath}
 
@@ -340,7 +383,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}()
 	p.CloudflareToken = ""
 	o.Plan.CloudflareToken = ""
-	if p.Exposure == ExposureNginx {
+	if p.Exposure == ExposureNginx && o.InitialData == nil {
 		if err := FinalizeNginx(ctx, journalHost{Host: h, j: j}, p, out); err != nil {
 			return st, err
 		}
@@ -413,7 +456,16 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := j.save(h, "started"); err != nil {
 		return st, err
 	}
-	if err := installDocker(ctx, h, p, st, out, o.BeforeStart); err != nil {
+	if p.Exposure == ExposureNginx && o.InitialData != nil {
+		initialize := o.BeforeStart
+		o.BeforeStart = func(ctx context.Context, h Host, p Plan, st *State) error {
+			if err := initialize(ctx, h, p, st); err != nil {
+				return err
+			}
+			return FinalizeNginx(ctx, journalHost{Host: h, j: j}, p, out)
+		}
+	}
+	if err := installDocker(ctx, h, p, st, out, o.BeforeStart, o.InitialData == nil); err != nil {
 		return nil, err
 	}
 	installedContract, err := inspectContract(ctx, h, []string{BinPath})
@@ -471,6 +523,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		return st, err
 	}
 	printSummaryLocale(out, p, st, o.Locale)
+	prompt.ui.Operation(operation.Present(j.ID, operation.Succeeded, false))
 	printOwnerSummary(out, p, *ownerResult)
 	ownerResult.GeneratedPassword = ""
 	return st, nil

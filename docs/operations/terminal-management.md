@@ -258,3 +258,40 @@ a percentage or ETA for work whose duration cannot be known.
 The running service picks up backup schedules/settings on its next scheduler pass. Coordinated
 restore stays on the host so it can safely stop and restart either deployment mode. See
 [backup and restore](backup-restore.md) for encryption, Telegram delivery and schedule details.
+
+
+## Install from a verified backup (current main, unreleased)
+
+On a fresh target, choose **Install from verified backup**. Enter the archive path,
+use the verified cached manager or select a source, then enter the hidden archive
+password when needed. Verification precedes installation changes. Review source
+counts/endpoint and choose the target access/TLS separately. The source owner's
+password/access are restored; no new owner password prompt or default-setting
+seeding overwrites them. A backup without an enabled source owner is refused.
+
+```sh
+sudo wg-guard install --from-backup /private/recovery.wgg
+sudo wg-guard install --from-backup /private/recovery.wgg --backup-password-file /private/password --yes
+```
+
+Keep the source endpoint only when its DNS/tunnel/IP routing still suits the target;
+it is preserved rather than inferred from the new panel domain. Host certificates,
+CA credentials, images and kernel packages remain target responsibilities. Existing
+target node data blocks this path. On interruption retain the archive and review
+**Finish interrupted setup**; never clear locks or overwrite a live SQLite/WAL pair.
+
+**Panel access & HTTPS → Independent domains and HTTPS** uses the same domain
+service as the owner page. The wizard reviews role/origin/certificate ownership;
+manual mode takes controlled host file paths, and automatic DNS mode uses existing
+host-private credentials. Cancel/back does not execute a change. Use named renewal
+and recorded recovery actions even when the web panel is unavailable.
+
+## Understand the operation result
+
+Review means nothing is applied; queued/running/scheduled identify ongoing ownership.
+Approved backup means **awaiting restart**, not restored. Use the shown supported
+`sudo wg-guard restart --yes` after review, or cancel the pending restore first.
+CLI restore completion follows readiness and journal completion. A failed operation
+requires status/receipt inspection; a recorded recovery must finish before a new
+operation. Prompt cancellation is neutral. No arbitrary Compose/Nginx editing is
+required for these supported workflows. See [Phase 19 evidence](../development/phase19.md).

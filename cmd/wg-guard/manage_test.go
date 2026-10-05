@@ -65,7 +65,7 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 		first string
 		want  []string
 	}{
-		{managerFresh, "install_cached", []string{"install_cached", "install_choose", "readiness", "help_short", "logs"}},
+		{managerFresh, "install_cached", []string{"install_cached", "install_choose", "install_restore", "readiness", "help_short", "logs"}},
 		{managerInstalled, "lifecycle", []string{"lifecycle", "access", "backups", "operations", "logs", "uninstall"}},
 		{managerInstallRecovery, "cleanup_install", []string{"cleanup_install", "readiness", "logs"}},
 		{managerUninstallRecovery, "uninstall_resume", []string{"uninstall_resume", "logs"}},

@@ -34,6 +34,11 @@
 .pool-capacity-list { display: grid; gap: .5rem; }
 .pool-capacity-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; padding: .75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .pool-capacity-row > span { color: var(--fg-muted); font-size: .875rem; }
+.operation-receipt { display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-3); padding:var(--sp-4); border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg-subtle); margin-block:var(--sp-3); }
+.operation-receipt p { margin:0; flex:1 1 220px; }
+.operation-receipt[data-tone=warning] { border-inline-start:3px solid var(--warn); }
+.operation-receipt[data-tone=danger] { border-inline-start:3px solid var(--danger); }
+.operation-receipt[data-tone=success] { border-inline-start:3px solid var(--success); }
 
 .domains-workspace { max-inline-size: 1120px; margin-inline: auto; }
 .domains-sites-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--sp-4); }

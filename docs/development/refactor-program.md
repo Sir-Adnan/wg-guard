@@ -37,7 +37,7 @@ stable. [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md) explains owners
 | 16 | Application/runtime/host responsibility boundaries | Complete within documented source scope; no release | 15 safety gates |
 | 17 | Verified Docker distribution and complete native removal | Source/image/CI gates passed; physical acceptance in 20; unreleased | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Source implemented; local/browser gates; physical acceptance in 20; unreleased | 16 host operation model; 17 deployment ownership |
-| 19 | Cohesive installer and operational panel UX | Planned | Implemented 15–18 services |
+| 19 | Cohesive installer and operational panel UX | Source implemented; focused/browser/race gates; unreleased | Implemented 15–18 services |
 | 20 | Real-host acceptance and migration/release readiness | Planned | 15–19 evidence |
 
 Design work may clarify a later phase; unrelated implementation does not silently
@@ -256,19 +256,23 @@ No public backup/bot certificate API is added by this plan.
 
 ## Phase 19 — Installer and operational UX
 
-- [ ] Keep bootstrap small: acquire/verify the manager; Go owns product operations.
+- [x] Keep bootstrap small: acquire/verify the manager; Go owns product operations.
   Terminal remains English-only with actual stages and recent/live component logs.
-- [ ] Expose a short fresh-install flow plus advanced access/core choices. Provide
+- [x] Expose a short fresh-install flow plus advanced access/core choices. Provide
   install-from-backup before exposing the public listener; review target deployment
   separately and restore the source owner/access data rather than guessing credentials.
-- [ ] Use the same operation model in CLI, Update Center, Backups and domain/TLS pages.
+- [x] Use the same operation model in CLI, Update Center, Backups and domain/TLS pages.
   Present progress, queued/running/recovery-needed states and specific next actions.
-- [ ] Remove duplicated prompts, misleading "Done" states and manual Compose/Nginx
+- [x] Remove duplicated prompts, misleading "Done" states and manual Compose/Nginx
   editing from supported standard workflows. Never stop an unknown port owner.
-- [ ] Reuse fields, help, tabs, dialogs, receipt/status cards and responsive layouts.
+- [x] Reuse fields, help, tabs, dialogs, receipt/status cards and responsive layouts.
   Preserve fa/en, RTL/LTR, numeral preferences, technical Latin values, CSP and
   meaningful fallback paths. Do not rewrite unrelated pages for visual novelty.
-- [ ] Keep acquisition, broker recovery and logs usable without a healthy web panel.
+- [x] Keep acquisition, broker recovery and logs usable without a healthy web panel.
+
+Implementation and fresh/reused/unrun evidence: [Phase 19](phase19.md). These
+checks cover source/isolated terminal/browser behavior; actual owner migration
+and physical host/network/client acceptance remain Phase 20.
 
 Exit: actual terminal cancellation/redirect/secret/failure fixtures, affected browser
 matrix and no-JS fallback, and a documented operator journey with no hidden steps.

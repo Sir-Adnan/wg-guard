@@ -1,5 +1,14 @@
 # Product and verification status
 
+**Phase 19 source (2026-10-05; unreleased):** fresh-target install from validated
+archive before managed listener start, source access/settings preservation and
+shared CLI/panel operation receipts are implemented. Focused portability/failure/
+terminal/queue/catalog checks, full ordinary suite, vet/build, Linux race and both
+48-cell operational browser matrices passed within the [recorded source scope](phase19.md).
+Exact delivery CI is pending. No owner-server/rebuild/real CA claim or new release
+is made; latest stable remains v0.1.9.
+
+
 **Phase 18 source (2026-10-05; unreleased):** independent panel/public origins,
 SNI and resumed TLS admission, per-request role isolation, owner-authorized
 certificate staging/host mailbox, CA renewal/retirement and snapshot recovery are
@@ -29,9 +38,10 @@ Phase 16 is complete within its documented source scope with exact CI passed.
 [Phase 17](phase17.md) implements Docker-only source, schema-4 private host state, one runtime
 recipe and verified offline image distribution. Its exact image/CI gate passed; real-host
 acceptance remains separate. [Phase 18](phase18.md) now implements independent
-domain/certificate management on main; Phases 19–20 remain planned. The
+domain/certificate management on main; physical acceptance remains Phase 20. The
 [domain/TLS guide](../operations/domains-and-tls.md) separates unreleased main
 implementation from published v0.1.9 and physical acceptance.
+[Phase 19](phase19.md) adds the installer/operator source journey; Phase 20 remains planned.
 
 The owner explicitly selected complete native production removal in Phase 17.
 The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle,

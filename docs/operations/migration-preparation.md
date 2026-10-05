@@ -61,7 +61,7 @@ Docker images, OS routes/firewall configuration or host lifecycle state. Preserv
 manual certificate files privately or plan fresh issuance; preserve DNS/proxy/tunnel
 requirements separately. Keep endpoint routing and subscription/admin hostname
 roles explicit. The [domain/TLS guide](domains-and-tls.md) describes current limits
-and the future integrated workflow.
+and current unreleased management workflow.
 
 Review the target release's supported OS/core/backend requirements, installation
 paths, restore contract and certificate/network setup. Independent data verification
@@ -69,7 +69,9 @@ does not establish that those target requirements are installed. Stock WireGuard
 remote nodes and other VPN engines are outside this refactor's current scope.
 
 Once the preparation/target gates pass and the owner separately authorizes the
-rebuild, install the approved target on the fresh host. Use the supported restore
+rebuild, install the approved target on the fresh host. Current unreleased main can use `install --from-backup ARCHIVE` before
+listener start, preserving source owners/settings while reviewing target HTTPS
+separately. Otherwise use the supported restore
 workflow from [backup/restore](backup-restore.md) and
 [lifecycle recovery](lifecycle-recovery.md); do not copy live SQLite/WAL or replace
 only the database without its matching key. Review settings/endpoints before apply.

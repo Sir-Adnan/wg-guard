@@ -9,7 +9,7 @@ import (
 
 // Deployment installation is called by the shared lifecycle coordinator after
 // admission, acquisition and ownership checks. These adapters own no lock/journal.
-func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer, beforeStart func(context.Context, Host, Plan, *State) error) error {
+func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer, beforeStart func(context.Context, Host, Plan, *State) error, seedDefaults bool) error {
 	step(out, "Docker preflight")
 	if _, err := h.LookPath("docker"); err != nil {
 		return fmt.Errorf("install: docker not found — install docker first (https://docs.docker.com/engine/install/)")
@@ -44,16 +44,18 @@ func installDocker(ctx context.Context, h Host, p Plan, st *State, out io.Writer
 
 	// Runtime settings (wizard choices) seed through the installed CLI while
 	// the state file still doesn't exist — see seedSettings for why.
-	if err := seedSettings(ctx, h, p, out); err != nil {
-		return err
+	if seedDefaults {
+		if err := seedSettings(ctx, h, p, out); err != nil {
+			return err
+		}
 	}
 
-	step(out, "Starting container")
 	if beforeStart != nil {
 		if err := beforeStart(ctx, h, p, st); err != nil {
 			return err
 		}
 	}
+	step(out, "Starting container")
 	if err := runQuiet(ctx, h, []string{"docker", "compose", "-f", ComposePth, "up", "-d", "--pull", "never"}, longTimeout); err != nil {
 		return fmt.Errorf("install: docker compose up: %w", err)
 	}

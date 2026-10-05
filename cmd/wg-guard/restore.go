@@ -7,6 +7,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 	"io"
 	"os"
@@ -66,7 +67,7 @@ func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Read
 			_ = svc.DiscardPreview(preview.PreviewID())
 		}
 	}()
-	return install.Restore(ctx, h, install.RestoreOptions{Recover: *recover, Retry: *retry, Prepare: func(ctx context.Context, id *install.BackupIdentity) (func(context.Context) error, error) {
+	err := install.Restore(ctx, h, install.RestoreOptions{Recover: *recover, Retry: *retry, Prepare: func(ctx context.Context, id *install.BackupIdentity) (func(context.Context) error, error) {
 		cfg, err := install.ReadBootConfig(h, *configPath)
 		if err != nil {
 			return nil, err
@@ -135,10 +136,12 @@ func runRestoreWithServiceFactory(ctx context.Context, args []string, in io.Read
 					_, err = svc.ApplyStaged(ctx)
 				}
 			}
-			if err == nil {
-				u.Text(printer.text("restored"))
-			}
 			return err
 		}, nil
 	}})
+	if err == nil {
+		u.Text(printer.text("restored"))
+		u.Operation(operation.Present("", operation.Succeeded, false))
+	}
+	return err
 }

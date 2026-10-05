@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
+	"github.com/Sir-Adnan/wg-guard/internal/operation"
 )
 
 const Schema = 1
@@ -45,14 +46,14 @@ type Request struct {
 }
 
 type Status struct {
-	Schema    int            `json:"schema"`
-	ID        string         `json:"id"`
-	State     string         `json:"state"`
-	Stage     string         `json:"stage"`
-	Failure   string         `json:"failure,omitempty"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	Role      domaintls.Role `json:"role,omitempty"`
-	Origin    string         `json:"origin,omitempty"`
+	Schema    int             `json:"schema"`
+	ID        string          `json:"id"`
+	State     operation.State `json:"state"`
+	Stage     string          `json:"stage"`
+	Failure   string          `json:"failure,omitempty"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	Role      domaintls.Role  `json:"role,omitempty"`
+	Origin    string          `json:"origin,omitempty"`
 }
 
 type Queue struct {
@@ -219,7 +220,7 @@ func validStatus(s Status) bool {
 }
 
 func (q *Queue) Record(r Request, state, stage, failure string) error {
-	s := Status{Schema: Schema, ID: r.ID, State: state, Stage: stage, Failure: failure, UpdatedAt: time.Now().UTC(), Role: r.Role, Origin: r.Origin}
+	s := Status{Schema: Schema, ID: r.ID, State: operation.State(state), Stage: stage, Failure: failure, UpdatedAt: time.Now().UTC(), Role: r.Role, Origin: r.Origin}
 	if !validRequest(r) || !validStatus(s) || state == "queued" {
 		return ErrInvalid
 	}

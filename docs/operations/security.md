@@ -214,3 +214,13 @@ not ship these new rights. See [Phase 18 evidence](../development/phase18.md).
 
 Every dependency justified (binary size, transitive deps, maintenance, security history);
 pinned versions; `govulncheck` in CI; no vendoring of GPL components (executed, not linked).
+
+
+Fresh-target archive installation on current main verifies private offline staging
+before host mutation, requires an enabled source owner and applies only to an
+empty DB/key target under exclusive ownership. Archived boot config is inactive;
+no password/token/default owner is invented and no stored data is reseeded.
+Archive secrets are not arguments, logs or status; prepared staging retains no
+password. The existing paired replacement/guard and lifecycle recovery remain in
+force. Shared operation receipts carry catalog states and safe IDs only; they add
+no generic host execution authority. Physical migration acceptance is separate.
