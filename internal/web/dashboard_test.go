@@ -294,7 +294,7 @@ func TestDashboardRecoveryActionsRespectBackupPermission(t *testing.T) {
 	e.seedOwner()
 	owner := e.loginEN("owner")
 	body := e.get("/dashboard", owner).Body.String()
-	for _, want := range []string{`action="/backups/create"`, `name="download" value="1"`, `href="/backups#restore-workbench"`} {
+	for _, want := range []string{`action="/backups/create"`, `name="download" value="1"`, `href="/backups?tab=restore#restore-workbench"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("owner dashboard missing recovery action %q", want)
 		}

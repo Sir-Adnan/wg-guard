@@ -182,6 +182,10 @@ func TestSamplerHealthStatesAndStaleness(t *testing.T) {
 	if h.Latest.Health != HealthDegraded || !h.Latest.Issues.Has(IssueSampleStale) {
 		t.Fatalf("stale state = %s/%v", h.Latest.Health, h.Latest.Issues.Codes())
 	}
+	future := s.Snapshot(t0.Add(29*time.Second), 1)
+	if !future.Latest.Issues.Has(IssueSampleStale) || future.Latest.Health != HealthDegraded {
+		t.Fatal("future observation implied fresh health")
+	}
 }
 
 func TestMissingAccountingCannotImplyHealthyEnforcement(t *testing.T) {

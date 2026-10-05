@@ -11,6 +11,7 @@
 package web
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestatus"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reseller"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -68,6 +70,7 @@ type Deps struct {
 	// Reconciler runs the complete serialized network pass after structural
 	// mutations (see api.Server).
 	Reconciler accounting.Reconciler
+	NodeStatus func(context.Context, time.Time) nodestatus.Snapshot
 
 	// ClientConf renders client configs + QR (shared with the REST API).
 	ClientConf *clientconf.Renderer
@@ -281,6 +284,7 @@ func (s *Server) Handler() http.Handler {
 
 	// --- backups (backup.manage; ADR-0007: panel/CLI only) ---
 	mux.HandleFunc("GET /backups", s.requirePermission(auth.ScopeBackupManage, s.handleBackupsPage))
+	mux.HandleFunc("GET /system", s.requirePermission(auth.ScopeNodeRead, s.handleSystemPage))
 	mux.HandleFunc("POST /backups/create", s.requireBackup(s.handleBackupCreate))
 	mux.HandleFunc("POST /backups/import", s.requireBackup(s.handleBackupImport))
 	mux.HandleFunc("POST /backups/delete", s.requireBackup(s.handleBackupDelete))

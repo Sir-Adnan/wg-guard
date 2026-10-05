@@ -43,6 +43,34 @@
         "responses": { "200": { "description": "Node description", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Node" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
       }
     },
+    "/api/v1/node/status": {
+      "get": {
+        "tags": [
+          "node"
+        ],
+        "summary": "Authenticated operational status (read-only; node.read)",
+        "description": "Returns current bounded readiness and recorded runtime/accounting/telemetry evidence. HTTP 200 means the snapshot was returned, not that the node is ready. No reconciliation, host commands or telemetry sampling is triggered. Reseller-bound tokens are denied. No raw errors, topology or credentials are returned.",
+        "security": [{"BearerAuth": ["node.read"]}],
+        "responses": {
+          "200": {
+            "description": "Safe process-local operational evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeOperationalStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/v1/node/stats": {
       "get": {
         "tags": ["node"],
@@ -517,6 +545,168 @@
       "Unavailable": { "description": "Operation committed but runtime reconciliation is pending; recover the journaled result and retry", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
     },
     "schemas": {
+      "NodeOperationalStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "captured_at",
+          "readiness",
+          "runtime",
+          "accounting",
+          "telemetry"
+        ],
+        "properties": {
+          "captured_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readiness": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready",
+              "unavailable"
+            ]
+          },
+          "runtime": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "requested_sequence",
+              "applied_sequence",
+              "in_flight",
+              "last_completed_at",
+              "last_result"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "unavailable",
+                  "unobserved",
+                  "applied",
+                  "pending"
+                ]
+              },
+              "requested_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "format": "int64"
+              },
+              "applied_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "format": "int64"
+              },
+              "in_flight": {
+                "type": "boolean"
+              },
+              "last_completed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "UTC RFC3339 instant; null when unobserved."
+              },
+              "last_result": {
+                "type": "string",
+                "enum": [
+                  "unobserved",
+                  "applied",
+                  "failed"
+                ]
+              }
+            },
+            "description": "Process-local attempt counters reset on restart. They are not durable DB revisions/order IDs. Pending can coexist with a completed successful older attempt."
+          },
+          "accounting": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "observed_at",
+              "max_age_seconds"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "unavailable",
+                  "current",
+                  "failed"
+                ]
+              },
+              "observed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "UTC RFC3339 instant; null when unobserved."
+              },
+              "max_age_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "format": "int64"
+              }
+            },
+            "description": "A completed observation is current only inside max_age_seconds, never when its timestamp is in the future."
+          },
+          "telemetry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "observed_at",
+              "cadence_seconds",
+              "issues"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "unavailable",
+                  "healthy",
+                  "degraded"
+                ]
+              },
+              "observed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "UTC RFC3339 instant; null when unobserved."
+              },
+              "cadence_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "format": "int64"
+              },
+              "issues": {
+                "type": "array",
+                "maxItems": 9,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "source_unavailable",
+                    "host_metrics_unavailable",
+                    "host_network_unavailable",
+                    "vpn_metrics_unavailable",
+                    "awg_interface_missing",
+                    "readiness_failed",
+                    "accounting_recent_error",
+                    "sample_stale",
+                    "accounting_unavailable"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
       "PurchaseRequest": {"type": "object", "additionalProperties": false, "oneOf": [{"required": ["template_id"]}, {"required": ["entitlement"]}], "properties": {"template_id": {"type": "string", "description": "Existing technical template ID; required for reseller-bound tokens."}, "entitlement": {"$ref": "#/components/schemas/DirectEntitlement"}, "username": {"type": "string", "description": "Optional global username; omitted uses a stable generated identifier."}, "device_name": {"type": "string", "description": "Single device: exact trimmed name, default device-1. Multiple devices: name prefix, default device; generated labels append -1, -2, etc. Each final name must occupy 1-64 UTF-8 bytes."}, "device_count": {"type": ["integer", "null"], "minimum": 1, "maximum": 100, "default": 1, "description": "Number of independent ready device configurations to create atomically with the account and customer link. Omitted/null defaults to one. Must not exceed the selected template or direct entitlement device_limit. Not a device cap. Replay fingerprints include the effective count."}}},
       "DirectEntitlement": { "type": "object", "description": "Owner-scoped technical terms, independent of external price/SKU. All three finite limits are mandatory to prevent accidental unlimited subscriptions.", "required": ["traffic_limit_bytes", "duration_seconds", "device_limit"], "additionalProperties": false, "properties": { "traffic_limit_bytes": { "type": "integer", "format": "int64", "minimum": 1, "description": "Quota in exact bytes (B). 1 GB = 1000000000 B; 100 GB = 100000000000 B. 100 GiB = 107374182400 B and displays as 107.4 GB." }, "duration_seconds": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 315360000, "description": "Duration in seconds: 86400 = 1 day; 2592000 = 30 days. The panel month shortcut means 30 days, not a calendar month." }, "device_limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum device/peer configuration count for the user; not a bandwidth or simultaneous-connection measurement." }, "start_policy": { "$ref": "#/components/schemas/StartPolicy" }, "speed_limit_down_kbps": { "type": "integer", "minimum": 1, "description": "Download (server to client) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 100000 = 100 Mbps = 12.5 MB/s in the panel speed form." }, "speed_limit_up_kbps": { "type": "integer", "minimum": 1, "description": "Upload (client to server) limit in decimal kilobits/s (1 Kbps = 1000 bits/s). 20000 = 20 Mbps = 2.5 MB/s in the panel speed form." }, "interface_id": { "type": "string", "description": "Optional connection profile; omitted uses the current system default." } } },
       "QuotaTopUpRequest": { "type": "object", "required": ["bytes"], "additionalProperties": false, "properties": { "bytes": { "type": "integer", "format": "int64", "minimum": 1, "description": "Positive increment in exact bytes (B) to a finite allowance, not charged usage. 1000000000 adds 1 GB; 1073741824 adds 1 GiB (about 1.1 GB in the panel)." } } },

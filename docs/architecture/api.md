@@ -180,7 +180,7 @@ GB, speed Kbps or calendar dates.
 
 | Group | Endpoints |
 |---|---|
-| Node | `GET /node`, `GET /node/health`, `GET /node/stats` |
+| Node | `GET /node`, `GET /node/health`, `GET /node/stats`, `GET /node/status` |
 | Users | `POST/GET /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/enable\|disable\|renew`, `POST /users/{id}/traffic/add\|set\|reset`, `GET /users/{id}/traffic` (series) |
 | Integration | `POST /purchases`, `POST /users/{id}/quota/add`, `GET /operations/result` (all use an `Idempotency-Key` header), `GET /users/{id}/subscription` (private relative customer link), `POST /users/{id}/subscription/rotate` (link and all device keys), `GET/PUT/DELETE /users/{id}/next-plan` (one authorized successor), `GET /users/{id}/next-plan/activations` (bounded recovery history) |
 | Bulk | `POST /users/bulk`, `POST /users/bulk-action` (`{action, user_ids, params}`) |
@@ -199,6 +199,33 @@ conditional cancellation and pagination routes are browser forms, not token-auth
 integration endpoints. They do not change REST request/response schemas or add API scopes;
 OpenAPI remains unchanged for this workbench refactor. See the
 [backup contract](../operations/backup-restore.md#panel-workbench-current-unreleased-main).
+
+## Operational status (current unreleased main)
+
+`GET /api/v1/node/status` requires `node.read`, is node-wide (reseller-bound tokens
+are denied), and sends `Cache-Control: no-store`. HTTP 200 means a snapshot was
+returned; it does **not** imply readiness or successful runtime application.
+The public `/node/health` remains version/liveness only, and `/readyz` retains its
+existing 200/503 readiness contract. Missing status collaborators return explicit
+`unavailable` states and null timestamps rather than invented successful data.
+
+| Field | Meaning |
+|---|---|
+| `captured_at` | UTC RFC3339 instant when this response was composed. |
+| `readiness` | `ready`, `not_ready` (bring-up/runtime repair outstanding), or `unavailable` (DB probe cannot establish readiness). Existing bounded DB probe; no host command or client traffic test. |
+| `runtime.state` | `unavailable`, `unobserved`, `applied`, or `pending`. New processes can be ready from boot without a completed coordinated runtime-mutation observation. |
+| `runtime.in_flight` | Whether a serialized apply pass is currently inside its runner. |
+| `runtime.requested_sequence` / `applied_sequence` | Unsigned process-local apply-request counters. Reset on process restart; **not** durable DB revisions, order IDs, idempotency results or synchronization cursors. A canceled newer request can leave requested ahead of applied. |
+| `runtime.last_completed_at` / `last_result` | UTC/null completion timestamp and `unobserved`, `applied`, or `failed` result. An older successful completion can coexist with current pending state. Raw errors/interface names/credentials are omitted. |
+| `accounting.state` / `observed_at` | `current`, `failed`, or `unavailable`; UTC/null provenance remains visible for old/future observations. `failed` requires a recent failed pass. Old successes are not recovery evidence. |
+| `accounting.max_age_seconds` | Freshness window in seconds: the greater of five minutes and twice the configured accounting cadence. |
+| `telemetry.state`, `observed_at`, `cadence_seconds`, `issues` | The newest existing bounded sample's health, UTC/null timestamp, cadence in seconds and known safe issue codes. No new host sampling runs on the request. Past/future out-of-window timestamps carry `sample_stale`. |
+
+This operation is read-only. It neither retries reconciliation nor authorizes root
+repairs. Bots must reconcile resource/operation results after ambiguous mutations;
+runtime status is supplementary node evidence, not an order result. Use existing
+operation-result/idempotency contracts for billing recovery. OpenAPI and the embedded
+`/docs` reference describe the same additive endpoint.
 
 ## User form to API mapping
 

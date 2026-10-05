@@ -117,6 +117,9 @@ derived (handshake within a configurable window, default 3 min).
 - **API tokens** separate from admin sessions: `wg_…`, hashed at rest, scopes, optional CIDR
   allowlist, expiry, revocation.
 - The web panel and REST API share one business layer — no duplicated logic.
+- Operational status remains read-only and node-wide (`node.read`). Public liveness
+  does not expose private runtime state; saved/pending/applied state, fresh accounting
+  and real client/network/TLS verification must remain distinguishable.
 
 Phase 14 adds owner-managed **Reseller** accounts with configurable permissions and an isolated
 customer namespace. Owner integrations remain node-wide; a reseller's panel session and API

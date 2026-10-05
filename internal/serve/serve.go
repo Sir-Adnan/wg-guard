@@ -47,6 +47,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/network"
 	"github.com/Sir-Adnan/wg-guard/internal/nodestate"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestatus"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/runtimeapply"
@@ -343,6 +344,13 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	}
 	n.telemetry = telemetry.New(telemetrySource, o.TelemetryCadence)
 	n.metrics.SetTelemetry(n.telemetry, time.Now)
+	statusSource := nodestatus.Source{
+		Readiness:        n.readiness,
+		Runtime:          rec.Snapshot,
+		Accounting:       n.metrics.AccountingObservation,
+		AccountingWindow: func(ctx context.Context) time.Duration { return 2 * n.accountingInterval(ctx) },
+		Telemetry:        func(now time.Time) telemetry.History { return n.telemetry.Snapshot(now, 1) },
+	}
 
 	nodeID, _ := n.reg.GetString(ctx, "node.id")
 	tokens := token.NewService(db)
@@ -364,6 +372,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Integration:  integrations,
 		Log:          logs.http,
 		Reconciler:   rec,
+		NodeStatus:   statusSource.Read,
 		NodeID:       nodeID,
 		ToolsVersion: toolsVersion,
 	})
@@ -392,6 +401,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Webhooks:      webhooksSvc,
 		Log:           logs.http,
 		Reconciler:    rec,
+		NodeStatus:    statusSource.Read,
 		Telemetry:     n.telemetry,
 		Version:       version.Version,
 		TLSMode:       cfg.TLS.Mode,
@@ -689,15 +699,22 @@ func (n *Node) sessionAbsoluteTTL(ctx context.Context) time.Duration {
 
 // ready is the readiness gate: bring-up finished and the DB answers.
 func (n *Node) ready() bool {
+	return n.readiness(context.Background()) == nodestatus.Ready
+}
+
+func (n *Node) readiness(parent context.Context) nodestatus.State {
 	if !n.booted.Load() || !n.networkReady.Load() {
-		return false
+		return nodestatus.NotReady
 	}
 	if n.userspace != nil && n.userspace.NeedsRepair() {
-		return false
+		return nodestatus.NotReady
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
-	return n.db.PingContext(ctx) == nil
+	if n.db == nil || n.db.PingContext(ctx) != nil {
+		return nodestatus.Unavailable
+	}
+	return nodestatus.Ready
 }
 
 // Addr returns the bound listener address (useful for tests and logs).

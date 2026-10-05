@@ -64,6 +64,8 @@ type Observation struct {
 	Status           Status
 	At               time.Time
 	Desired, Applied uint64
+	InFlight         bool
+	LastFailed       bool
 }
 type Coordinator struct {
 	inner Runner
@@ -102,9 +104,14 @@ func (c *Coordinator) Run(ctx context.Context) (*reconcile.Report, error) {
 	c.mu.RLock()
 	revision := c.last.Desired
 	c.mu.RUnlock()
+	c.mu.Lock()
+	c.last.InFlight = true
+	c.mu.Unlock()
 	report, err := c.inner.Run(ctx)
 	good := err == nil && (report == nil || len(report.Errors) == 0)
 	c.mu.Lock()
+	c.last.InFlight = false
+	c.last.LastFailed = !good
 	if good {
 		c.last.Applied = revision
 	}

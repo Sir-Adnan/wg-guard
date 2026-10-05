@@ -316,7 +316,8 @@ func (s *Sampler) Snapshot(now time.Time, limit int) History {
 		return result
 	}
 	result.Latest = result.Points[count-1]
-	if now.Sub(result.Latest.At) > 2*s.cadence && result.Latest.Health != HealthUnavailable {
+	age := now.Sub(result.Latest.At)
+	if (age < 0 || age > 2*s.cadence) && result.Latest.Health != HealthUnavailable {
 		result.Latest.Health = HealthDegraded
 		result.Latest.Issues |= IssueSampleStale
 	}

@@ -1,5 +1,13 @@
 # Product and verification status
 
+**System health follow-up (2026-10-05; main source, unreleased):** the panel and
+authenticated `node.read` API expose shared safe readiness/runtime/accounting/telemetry
+observations. Scope/cache/null semantics, pending/failed/freshness, real fake-node
+wiring and future sample handling have focused tests; local full Go, focused Linux
+race/vet/build and Chromium/WebKit matrices passed within the
+[recorded scope](system-health.md). Exact final main CI is a separate gate. The owner
+has not yet taken the off-host export; physical Phase 20 and release remain open.
+
 **Backup workbench follow-up (2026-10-05; current main, unreleased):**
 
 The [workbench follow-up](backup-workbench.md) adds non-destructive panel verification,

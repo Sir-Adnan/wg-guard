@@ -71,13 +71,28 @@ func (c *Collector) SetAccountingError(at time.Time) {
 // AccountingStatus reports only a fresh observed accounting state. Old successes
 // or failures and future timestamps are unavailable, never an implied recovery.
 func (c *Collector) AccountingStatus(now time.Time, recent time.Duration) (failed, available bool) {
+	value := c.AccountingObservation(now, recent)
+	return value.Failed, value.Available
+}
+
+// AccountingObservation is a safe value-only receipt. ObservedAt is retained
+// when stale/future, so clients can distinguish missing data from old evidence.
+type AccountingObservation struct {
+	ObservedAt time.Time
+	Failed     bool
+	Available  bool
+}
+
+func (c *Collector) AccountingObservation(now time.Time, recent time.Duration) AccountingObservation {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	value := AccountingObservation{ObservedAt: c.accountingAt}
 	age := now.Sub(c.accountingAt)
 	if !c.accountingSeen || recent <= 0 || age < 0 || age > recent {
-		return false, false
+		return value
 	}
-	return c.accountingFailed, true
+	value.Failed, value.Available = c.accountingFailed, true
+	return value
 }
 
 // SetTelemetry connects the shared sampler to the optional Prometheus

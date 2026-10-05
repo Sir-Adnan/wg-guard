@@ -14,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
+	"github.com/Sir-Adnan/wg-guard/internal/nodestatus"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/runtimeapply"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -53,6 +54,7 @@ type Deps struct {
 	// boot.RuntimeReconciler behind one serialization lock. Nil = status-only
 	// (tests without a backend).
 	Reconciler accounting.Reconciler
+	NodeStatus func(context.Context, time.Time) nodestatus.Snapshot
 
 	// NodeID and ToolsVersion populate /node.
 	NodeID       string
@@ -178,6 +180,7 @@ func (s *Server) registerRoutes() {
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/health", Handler: s.handleNodeHealth})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node", Scope: "node.read", Handler: s.handleNode})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/stats", Scope: "node.read", Handler: s.handleNodeStats})
+	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/status", Scope: "node.read", Handler: s.handleNodeStatus, NoStore: true})
 	add(routeDef{Method: http.MethodGet, Path: "/api/v1/node/telemetry", Scope: "stats.read", Handler: s.handleTelemetry})
 
 	// --- Users ---

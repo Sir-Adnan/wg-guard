@@ -23,6 +23,9 @@ func TestCanceledWaiterCannotOverlapRuntimePass(t *testing.T) {
 	done := make(chan struct{})
 	go func() { defer close(done); c.Run(context.Background()) }()
 	<-entered
+	if !c.Snapshot().InFlight {
+		t.Fatal("active pass was not observable")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	if _, err := c.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
@@ -30,6 +33,9 @@ func TestCanceledWaiterCannotOverlapRuntimePass(t *testing.T) {
 	}
 	close(release)
 	<-done
+	if c.Snapshot().InFlight {
+		t.Fatal("completed pass still in flight")
+	}
 	if c.Snapshot().Status != Pending || c.Snapshot().Desired != 2 || c.Snapshot().Applied != 1 {
 		t.Fatal("newer canceled mutation was mistaken for applied state")
 	}
@@ -47,5 +53,8 @@ func TestAttemptDistinguishesPendingFromAppliedAndUnconfigured(t *testing.T) {
 	outcome := Attempt(context.Background(), c, nil)
 	if outcome.Status != Pending || outcome.Err == nil || ready || c.Snapshot().Status != Pending {
 		t.Fatal("partial runtime report was treated as applied")
+	}
+	if !c.Snapshot().LastFailed {
+		t.Fatal("partial application did not record a failed outcome")
 	}
 }

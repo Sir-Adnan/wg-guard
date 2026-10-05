@@ -30,6 +30,8 @@ internal/
                          and database-only/shared/exclusive/startup session lifetime
   runtimeapply/          bounded serialized desired/applied/pending runtime observations and
                          shared request application (no new worker, queue or durable table)
+  nodestatus/            safe readiness/runtime/accounting/telemetry receipts shared by panel
+                         and authenticated REST; no collector, repair, host command or table
   database/              SQLite open (WAL, busy_timeout, FK, txlock=immediate), migrations runner, tx helpers
   domaintls/             approved origins, hostname roles, TLS/SNI/session admission, chain/SAN
                          validation, bounded active-pair cache and public route isolation

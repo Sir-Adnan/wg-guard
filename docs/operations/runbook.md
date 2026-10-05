@@ -129,6 +129,15 @@ Settings → Backups for the credentials. The REST API intentionally has no back
 
 ## Doctor
 
+Current unreleased main adds **System health** at `/system` (`node.read`). It shows
+the existing readiness gate and recorded runtime/accounting/telemetry evidence without
+running repairs, host commands or a new collector. Refresh does not apply settings.
+The authenticated `GET /api/v1/node/status` carries the same safe snapshot for owner
+automation; its HTTP 200 is not a ready/applied guarantee. Process-local sequences
+reset after restart and are not durable resource/order revisions. Review pending
+changes, fresh accounting results and the existing lifecycle recovery record before
+retrying a mutation. Host-level inspection remains the command below.
+
 `wg-guard doctor` (implemented) checks: platform, privileges, data-dir/master-key permissions,
 AWG tool version, kernel-module presence, DB integrity (`PRAGMA integrity_check`), interface
 state vs DB (missing links, port drift, peer-count mismatch), nftables table presence, effective

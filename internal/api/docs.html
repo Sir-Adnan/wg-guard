@@ -22,10 +22,11 @@
 <p class="sub">REST management surface — <code>/api/v1</code>. Full machine-readable contract:
 <a href="/openapi.json"><code>/openapi.json</code></a>. Auth: <code>Authorization: Bearer wg_…</code> token with scopes.</p>
 
+<p><code>GET /api/v1/node/status</code> returns readiness and recorded runtime/accounting/telemetry status. A 200 response means a snapshot was returned; readiness can still be <code>not_ready</code> or <code>unavailable</code>. It never applies settings or runs host commands. Apply sequences are process-local and reset on restart. Use <code>/node/health</code> for public liveness only.</p>
 <table>
   <tr><th>Group</th><th>Endpoints</th></tr>
   <tr><td>Ops</td><td><code>GET /healthz</code>, <code>GET /readyz</code> (public)</td></tr>
-  <tr><td>Node</td><td><code>GET /api/v1/node</code>, <code>GET /api/v1/node/health</code> (public), <code>GET /api/v1/node/stats</code></td></tr>
+  <tr><td>Node</td><td><code>GET /api/v1/node</code>, <code>GET /api/v1/node/health</code> (public), <code>GET /api/v1/node/stats</code>, <code>GET /api/v1/node/status</code> (<code>node.read</code>)</td></tr>
   <tr><td>Users</td><td><code>POST/GET /users</code>, <code>GET/PATCH/DELETE /users/{id}</code>, <code>POST /users/{id}/enable|disable|renew</code>, <code>POST /users/{id}/traffic/add|set|reset</code>, <code>GET /users/{id}/traffic</code></td></tr>
   <tr><td>Integration</td><td><code>POST /purchases</code>, <code>GET /operations/result</code>, <code>POST /users/{id}/quota/add</code>, <code>GET /users/{id}/subscription</code>, <code>POST /users/{id}/subscription/rotate</code>, <code>GET/PUT/DELETE /users/{id}/next-plan</code>, <code>GET /users/{id}/next-plan/activations</code></td></tr>
   <tr><td>Bulk</td><td><code>POST /users/bulk</code>, <code>POST /users/bulk-action</code></td></tr>

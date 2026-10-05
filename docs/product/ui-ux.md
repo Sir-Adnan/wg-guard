@@ -8,11 +8,12 @@ The post-v0.1.0 appearance extension below adds visual presets without reopening
 ## Architecture and visual direction
 
 The [refactor program](../development/refactor-program.md) preserves this design
-system. Its Phase 18–19 domain/TLS workspace is planned: independent panel and
+system. Its Phase 18–19 domain/TLS workspace is implemented on unreleased main: independent panel and
 subscription cards, automatic/manual/external choices, certificate metadata and
 safe operation/recovery status, with advanced controlled cert/key paths when useful.
 Do not display private material or make operators edit Nginx/Compose for the
-standard same-host workflow. These controls are not available in the current panel.
+standard same-host workflow. These controls are absent from published preparation v0.1.9;
+physical CA/host acceptance remains Phase 20.
 The [domain/TLS contract](../operations/domains-and-tls.md) defines role/ownership
 and verification boundaries for implementation.
 
@@ -234,6 +235,17 @@ phone, both locales/themes and changed states; 10.7 owns the full route/state/br
 matrix and relevant live TLS deployment evidence. Unavailable engines/devices remain unverified.
 
 ## Operational forms and collections
+
+System health is a read-only `node.read` workspace with independent readiness,
+runtime-application, accounting-freshness and telemetry cards. Pending desired state
+is retained rather than described as a completed network change. Last attempt,
+current activity and process-local counters remain distinct; missing/stale/future
+evidence never becomes a healthy zero. The page reuses bounded observations and
+the existing DB readiness probe, with no reconciliation, host commands or additional
+sampler. Refresh and technical disclosure have native keyboard/no-JavaScript paths.
+Related recovery links follow their own permissions; the sidebar/dashboard entry
+is hidden without node-wide read permission. TLS/client traffic acceptance remains
+separate from a responding panel or ready node.
 
 Backups uses four server-navigated sections: Archives, Verify & restore, Schedules
 and Delivery. Its archive collection has bounded cursor pages and explicit page-size

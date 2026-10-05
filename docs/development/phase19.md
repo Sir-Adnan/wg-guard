@@ -1,5 +1,10 @@
 # Phase 19 — Installer and operational journeys
 
+The later [system health follow-up](system-health.md) exposes shared read-only
+runtime/readiness/accounting/telemetry evidence to the panel and authenticated REST,
+with an additive OpenAPI contract. Its verification is separate from the original
+Phase 19 source/artifact identities below.
+
 The later [backup workbench follow-up](backup-workbench.md) adds panel verification,
 saved reports/conditional cancellation, enabled-owner access checks and native section
 navigation. Its changed source has a separate verification record; the initial Phase 19
