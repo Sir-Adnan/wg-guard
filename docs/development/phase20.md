@@ -5,6 +5,34 @@ The [execution program](refactor-program.md#phase-20--certification-migration-an
 still owns the remaining acceptance requirements. Phases 15–19 source/CI evidence
 remains in its existing records and is not replayed or relabelled here.
 
+## Authorized isolated drill in progress
+
+The owner subsequently provided a raw dedicated VPS and explicitly authorized
+Phase 20 installation/testing, documentation updates and v0.1.10 publication after
+completion. This supersedes the earlier absence of live-host authorization for
+this isolated target only. The host is Ubuntu 24.04.4 amd64, kernel
+`6.8.0-138-generic`, two vCPUs and about 3.8 GiB RAM. No credentials or hostnames
+are retained in the repository.
+
+Exact `57f48eb99f20411b04d33c048c9d6b7da8792014` installed through the pinned Bash
+entry on the empty host; reviewed tools/module/source-built Docker runtime and
+readiness passed. Actual owner login, template terms, three API/panel config
+comparisons and independently decoded QR payloads passed. Two kernel profiles and
+one explicit userspace profile passed gateway/bidirectional and public DNS/HTTPS/NAT
+traffic on real host network-namespace clients. These are Linux client drills,
+not physical mobile-app verification. Initial HTTP-01 HTTPS and an independent
+subscription certificate were issued and admitted. Further recovery/resource/TLS
+and exact delivery gates remain in progress; this section is not phase completion.
+
+The multiple-pool drill exposed a diagnostic defect: Doctor loaded only primary
+CIDRs and rejected the complete Docker allow chain containing overflow CIDRs.
+Current source decodes the same ordered pool inventory used by reconciliation.
+Focused regression checks accept complete primary/overflow paths and still reject
+missing overflow paths. The correction must also pass on the real updated target.
+The owner's additional installer request adds an explicit domain/SSL menu shortcut,
+guided first HTTPS setup, separate panel/subscription acquisition/replacement and
+due renewal actions; source/terminal/bootstrap checks remain separate from CA evidence.
+
 ## Owner report
 
 The owner reports a successful fresh installation of current main followed by

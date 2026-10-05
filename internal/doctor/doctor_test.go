@@ -285,6 +285,40 @@ func TestDoctorReportsIncompleteDockerForwardingPath(t *testing.T) {
 	}
 }
 
+func TestDoctorRecognizesCompleteForwardingAcrossOverflowPools(t *testing.T) {
+	deps, db := newDoctorEnv(t)
+	addEnabledInterface(t, db, "awg0", 39001)
+	if _, err := db.Exec(`UPDATE tunnel_interfaces SET ipv4_extra_pools = '["10.88.0.0/24"]' WHERE name = 'awg0'`); err != nil {
+		t.Fatal(err)
+	}
+	deps.Run = &doctorRunner{responses: map[string]subprocess.Result{
+		"nft list table inet wgguard":  {Stdout: []byte("table inet wgguard {}\n")},
+		"iptables --version":           {Stdout: []byte("iptables v1.8.10 (nf_tables)\n")},
+		"iptables -w 5 -S FORWARD":     {Stdout: []byte("-P FORWARD DROP\n-A FORWARD -j DOCKER-USER\n")},
+		"iptables -w 5 -S DOCKER-USER": {Stdout: []byte("-N DOCKER-USER\n-A DOCKER-USER -m comment --comment wgguard:managed:docker-forward -j WGGUARD-FORWARD\n")},
+		"iptables -w 5 -S WGGUARD-FORWARD": {Stdout: []byte("-N WGGUARD-FORWARD\n" +
+			"-A WGGUARD-FORWARD -s 10.8.0.0/24 -i awg0 -j ACCEPT\n" +
+			"-A WGGUARD-FORWARD -d 10.8.0.0/24 -o awg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n" +
+			"-A WGGUARD-FORWARD -s 10.88.0.0/24 -i awg0 -j ACCEPT\n" +
+			"-A WGGUARD-FORWARD -d 10.88.0.0/24 -o awg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n")},
+	}}
+	doc := &doctor{d: deps}
+	doc.checkFirewall(t.Context())
+	if got := statusOf(&doc.report, "forwarding"); got.Status != StatusPass {
+		t.Fatalf("complete overflow forwarding rejected: %+v", got)
+	}
+	// A genuinely missing overflow return path must remain a failure.
+	runner := deps.Run.(*doctorRunner)
+	runner.responses["iptables -w 5 -S WGGUARD-FORWARD"] = subprocess.Result{Stdout: []byte("-N WGGUARD-FORWARD\n" +
+		"-A WGGUARD-FORWARD -s 10.8.0.0/24 -i awg0 -j ACCEPT\n" +
+		"-A WGGUARD-FORWARD -d 10.8.0.0/24 -o awg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n")}
+	doc = &doctor{d: deps}
+	doc.checkFirewall(t.Context())
+	if got := statusOf(&doc.report, "forwarding"); got.Status != StatusFail {
+		t.Fatal("missing overflow forwarding was accepted")
+	}
+}
+
 func TestDoctorRejectsActiveFirewalld(t *testing.T) {
 	deps, db := newDoctorEnv(t)
 	addEnabledInterface(t, db, "awg0", 39001)

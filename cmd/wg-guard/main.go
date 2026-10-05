@@ -20,6 +20,7 @@ var usage = `wg-guard — lightweight AmneziaWG VPN node management panel
 Usage:
   wg-guard                 Open the local manager
   wg-guard <command> [flags]
+  wg-guard manage --https    Domain and SSL management on the installed host
 
 Commands:
   version     Print version information

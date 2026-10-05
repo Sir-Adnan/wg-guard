@@ -10,6 +10,23 @@ sudo wg-guard
 legacy language flags and locale environment variables no longer change terminal output. The web
 panel remains bilingual Persian/English with RTL support.
 
+For direct access to domain and SSL operations, use `sudo wg-guard manage --https`.
+The GitHub entry also accepts `--https`; it refreshes the independent manager and
+opens this menu without updating/reinstalling the running panel. This shortcut
+requires an installed node with no pending lifecycle recovery.
+
+The **Domains & SSL certificates** menu provides status, separate panel/public
+domain configuration and certificate acquisition/replacement, due renewal checks,
+returning subscriptions to the panel address and recorded-operation recovery.
+Domains and subdomains are accepted as bare hostnames or complete HTTPS origins.
+Use **First HTTPS setup / access method** for a private listener before configuring
+independent domains. Automatic HTTP-01 is the recommended option; existing managed
+Cloudflare credentials, controlled manual PEM files and an explicit external proxy
+retain their existing ownership boundaries. Renewal remains due-based rather than
+forcing unnecessary issuance; owned automatic lineages also have scheduled checks.
+The supported direct arrangement is one panel origin and one optional distinct
+public origin, not an unbounded collection of certificates.
+
 Opening the manager reads installation, health, TLS/core readiness and lifecycle state without
 changing the deployment. The [GitHub installer](github-install.md) opens this same local manager
 when it detects a valid installed node, but the local command is faster and performs no download.

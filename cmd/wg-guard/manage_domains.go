@@ -3,14 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
 func (m *manager) domainsMenu(ctx context.Context) error {
+	m.ui.Text("Panel and subscription addresses have separate SSL certificates. Automatic certificates renew when due.")
+	m.ui.Text("For a private node, use First HTTPS setup before configuring domain certificates.")
 	for {
-		n, err := m.ui.Choose("Independent domains and HTTPS", []string{"Current domain status", "Configure subscription address", "Configure panel address", "Check subscription renewal", "Check panel renewal", "Use panel origin for subscriptions", "Recover interrupted domain operation"}, 0)
+		n, err := m.ui.Choose("Domains & SSL certificates", []string{"Domain and SSL status", "Subscription domain · obtain / replace SSL", "Panel domain · obtain / replace SSL", "Check / renew subscription SSL", "Check / renew panel SSL", "Use panel address for subscriptions", "Recover interrupted domain / SSL change", "First HTTPS setup / access method"}, 0)
 		if err != nil {
 			return err
 		}
@@ -42,6 +45,8 @@ func (m *manager) domainsMenu(ctx context.Context) error {
 			args = []string{"domains", "remove", "--role", "subscription"}
 		case 7:
 			args = []string{"domains", "recover"}
+		case 8:
+			args = []string{"exposure", "configure"}
 		}
 		err = m.run(ctx, args, nil)
 		m.ui.Result(err)
@@ -52,15 +57,19 @@ func (m *manager) domainsMenu(ctx context.Context) error {
 }
 
 func (m *manager) domainForm(role string) ([]string, error) {
-	origin, err := m.ui.Ask("HTTPS origin (no path)", "")
+	origin, err := m.ui.Ask("Domain or subdomain (HTTPS; no path)", "")
 	if err != nil {
 		return nil, err
+	}
+	origin = strings.TrimSpace(origin)
+	if !strings.Contains(origin, "://") {
+		origin = "https://" + origin
 	}
 	o, err := domaintls.ParseOrigin(origin)
 	if err != nil {
 		return nil, fmt.Errorf("enter a complete HTTPS origin without path or credentials")
 	}
-	n, err := m.ui.Choose("Certificate ownership", []string{"Automatic HTTPS · HTTP-01", "Automatic HTTPS · existing Cloudflare DNS credentials", "Manual certificate · controlled host files", "Existing external proxy"}, 1)
+	n, err := m.ui.Choose("How to obtain the SSL certificate", []string{"Automatic SSL · HTTP-01 (recommended)", "Automatic SSL · existing Cloudflare DNS credentials", "Manual SSL · controlled host certificate files", "Existing external proxy"}, 1)
 	if err != nil {
 		return nil, err
 	}

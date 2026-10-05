@@ -53,6 +53,6 @@ func init() {
 	}
 	for _, locale := range []Locale{En, Fa} {
 		catalogs[locale]["manage.install_restore"] = "Install from verified backup"
-		catalogs[locale]["manage.domains"] = "Independent domains and HTTPS"
+		catalogs[locale]["manage.domains"] = "Domains & SSL certificates"
 	}
 }

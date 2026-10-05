@@ -29,16 +29,18 @@ channel=release
 ref=latest
 list=0
 refresh=0
+https_menu=0
 args=()
 while (($#)); do
   case "$1" in
     --help|-h)
       printf '%s\n' 'WG-Guard GitHub bootstrap' \
-        'Usage: bash install.sh [--release latest|TAG | --commit main|FULL_SHA | --refresh | --list-releases] [-- INSTALL_FLAGS]' \
+        'Usage: bash install.sh [--release latest|TAG | --commit main|FULL_SHA | --refresh | --list-releases | --https] [-- INSTALL_FLAGS]' \
         'Platform: Ubuntu 24.04 or newer on amd64/x86_64.' \
         'Default: latest published stable release. Development source is never selected implicitly.' \
         'Terminal UI: English only.' \
         'Everyday command after the first download: sudo wg-guard' \
+        '--https opens domain and SSL management on an installed node; sudo wg-guard manage --https works offline.' \
         '--refresh strictly reacquires the selected GitHub build; ordinary runs reuse a verified current manager.' \
         'Production runs in Docker. Advanced install flags (for example --yes --domain panel.example.com) are forwarded unchanged.'
       exit 0 ;;
@@ -47,10 +49,14 @@ while (($#)); do
       channel=${1#--}; ref=$2; shift 2 ;;
     --list-releases) list=1; shift ;;
     --refresh) refresh=1; shift ;;
+    --https) https_menu=1; shift ;;
     --) shift; args+=("$@"); break ;;
     *) args+=("$1"); shift ;;
   esac
 done
+if ((https_menu)); then
+  ((list == 0 && ${#args[@]} == 0)) || die '--https cannot be combined with installation flags or --list-releases'
+fi
 for argument in "${args[@]}"; do
   case "$argument" in --mode|--mode=*) die 'Deployment mode selection was removed; production uses Docker. Use the original release manager to export an existing deployment before rebuilding.';; esac
 done
@@ -524,6 +530,7 @@ done
 ((interactive)) || entry=install
 dispatch_args=("${args[@]}")
 [[ $entry == manage ]] && dispatch_args=(--lang en)
+((https_menu == 0)) || dispatch_args+=(--https)
 if ((interactive)) && { true </dev/tty; } 2>/dev/null; then
   "${sudo_cmd[@]}" "$run_bin" "$entry" --build-metadata "$run_metadata" "${dispatch_args[@]}" </dev/tty
 else

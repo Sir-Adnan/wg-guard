@@ -90,6 +90,7 @@ func runManage(args []string) error {
 	fs := flag.NewFlagSet("manage", flag.ContinueOnError)
 	lang := fs.String("lang", terminalLocale(), "terminal UI language (English; fa is a legacy alias)")
 	metadata := fs.String("build-metadata", "", "private bootstrap build identity")
+	https := fs.Bool("https", false, "open domain and SSL management on an installed node")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -210,8 +211,29 @@ func runManage(args []string) error {
 		}
 		return nil
 	}
-	err = m.loop(ctx)
+	if *https {
+		err = m.httpsEntry(ctx)
+	} else {
+		err = m.loop(ctx)
+	}
 	if errors.Is(err, terminal.ErrCanceled) && ctx.Err() != nil {
+		return nil
+	}
+	return err
+}
+
+func (m *manager) httpsEntry(ctx context.Context) error {
+	m.ui.Locale = i18n.En
+	if m.overview != nil {
+		if err := m.overview(); err != nil {
+			return err
+		}
+	}
+	if m.view != managerInstalled {
+		return fmt.Errorf("install WG-Guard or finish its recorded recovery before managing domains and SSL")
+	}
+	err := m.domainsMenu(ctx)
+	if errors.Is(err, terminal.ErrBack) {
 		return nil
 	}
 	return err

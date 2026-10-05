@@ -25,6 +25,17 @@ Latest published stable release, with an interactive deployment wizard:
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
 ```
 
+On an installed node, open domain and SSL management directly:
+
+```bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --https'
+```
+
+This opens the independent host manager's HTTPS menu; it does not reinstall or
+update the running panel. `sudo wg-guard manage --https` opens the same menu offline.
+The shortcut can combine with a build selector such as `--commit main`, but not
+installation flags or `--list-releases`. See [domain/SSL operations](terminal-management.md).
+
 The entry script comes from `main`, but its default selection is `--release latest`: it resolves
 the newest **published stable** GitHub release, not the development branch. `pipefail` makes a
 failed download fail the one-liner. Normal HTTPS certificate validation remains enabled. The

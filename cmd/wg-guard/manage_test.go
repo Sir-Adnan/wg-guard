@@ -79,6 +79,57 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 	}
 }
 
+func TestHTTPSShortcutRefusesFreshOrRecoveringNodesWithoutMutation(t *testing.T) {
+	for _, view := range []managerView{managerFresh, managerRecovery, managerInstallRecovery, managerUninstallRecovery} {
+		calls := 0
+		m := manager{view: view, ui: terminal.New(strings.NewReader("1\n"), io.Discard, terminal.Options{}),
+			run: func(context.Context, []string, io.Reader) error { calls++; return nil }}
+		if err := m.httpsEntry(context.Background()); err == nil || calls != 0 {
+			t.Fatalf("HTTPS shortcut admitted state %d or mutated it", view)
+		}
+	}
+}
+
+func TestHTTPSMenuDispatchesSetupRenewalAndReviewedDomains(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  []string
+	}{
+		{"1\n0\n", []string{"domains", "status"}},
+		{"4\n0\n", []string{"domains", "renew", "subscription"}},
+		{"5\n0\n", []string{"domains", "renew", "panel"}},
+		{"8\n0\n", []string{"exposure", "configure"}},
+		{"2\nsub.example.com\n1\n\ny\n0\n", []string{"domains", "configure", "--role", "subscription", "--origin", "https://sub.example.com", "--challenge", "http", "--method", "automatic"}},
+		{"3\nhttps://panel.example.com\n1\n\ny\n0\n", []string{"domains", "configure", "--role", "panel", "--origin", "https://panel.example.com", "--challenge", "http", "--method", "automatic"}},
+	} {
+		var output bytes.Buffer
+		calls := 0
+		m := manager{view: managerInstalled, ui: terminal.New(strings.NewReader(tc.input), &output, terminal.Options{Locale: i18n.Fa}),
+			run: func(_ context.Context, argv []string, input io.Reader) error {
+				calls++
+				if !reflect.DeepEqual(argv, tc.want) || input != nil {
+					t.Fatalf("HTTPS action = %v", argv)
+				}
+				return nil
+			}}
+		if err := m.httpsEntry(context.Background()); err != nil || calls != 1 || containsRTLScript(output.String()) {
+			t.Fatalf("HTTPS menu dispatch/locale failed: %v, calls=%d", err, calls)
+		}
+	}
+}
+
+func TestHTTPSDomainCancellationAndInvalidOriginsDoNotRun(t *testing.T) {
+	for _, input := range []string{"2\nhttps://example.com/path\n", "3\nhttps://user:secret@example.com\n", "2\nsub.example.com\n1\n\nn\n0\n", "0\n"} {
+		calls := 0
+		m := manager{view: managerInstalled, ui: terminal.New(strings.NewReader(input), io.Discard, terminal.Options{}),
+			run: func(context.Context, []string, io.Reader) error { calls++; return nil }}
+		_ = m.httpsEntry(context.Background())
+		if calls != 0 {
+			t.Fatal("invalid or canceled HTTPS operation executed")
+		}
+	}
+}
+
 func TestInterruptedUninstallGetsDedicatedRecoveryView(t *testing.T) {
 	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
 	j := &install.Journal{Schema: install.JournalSchema, Operation: "uninstall", Stage: "recovery-required", Before: st}

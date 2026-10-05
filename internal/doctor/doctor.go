@@ -25,6 +25,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
+	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
@@ -468,7 +469,7 @@ func enabledFirewallInterfaces(ctx context.Context, db *database.DB) ([]firewall
 		return nil, nil
 	}
 	rows, err := db.QueryContext(ctx,
-		`SELECT name, ipv4_subnet FROM tunnel_interfaces WHERE enabled = 1 ORDER BY name`)
+		`SELECT name, ipv4_subnet, ipv4_extra_pools FROM tunnel_interfaces WHERE enabled = 1 ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -476,10 +477,17 @@ func enabledFirewallInterfaces(ctx context.Context, db *database.DB) ([]firewall
 	var out []firewall.Interface
 	for rows.Next() {
 		var ifc firewall.Interface
-		if err := rows.Scan(&ifc.Name, &ifc.Subnet); err != nil {
+		var extras string
+		if err := rows.Scan(&ifc.Name, &ifc.Subnet, &extras); err != nil {
 			return nil, err
 		}
-		out = append(out, ifc)
+		pools, err := ipam.Decode(ifc.Subnet, extras)
+		if err != nil {
+			return nil, err
+		}
+		for _, pool := range pools {
+			out = append(out, firewall.Interface{Name: ifc.Name, Subnet: pool})
+		}
 	}
 	return out, rows.Err()
 }

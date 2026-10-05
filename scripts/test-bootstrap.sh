@@ -186,6 +186,12 @@ test "$(head -n 1 "$fixture/argv")" = manage || fail 'refreshed manager did not 
 setsid --wait bash "$fixture/bootstrap" --release v1 -- --lang fa </dev/null
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy language management entry'
 test "$(tail -n 1 "$fixture/argv")" = en || fail 'legacy language alias did not normalize to English'
+setsid --wait bash "$fixture/bootstrap" --release v1 --https </dev/null
+test "$(head -n 1 "$fixture/argv")" = manage || fail 'HTTPS shortcut did not select management'
+test "$(tail -n 1 "$fixture/argv")" = --https || fail 'HTTPS shortcut was not forwarded'
+before=$(request_count)
+if bash "$fixture/bootstrap" --release v1 --https --yes </dev/null; then fail 'HTTPS shortcut accepted install flags'; fi
+test "$(request_count)" = "$before" || fail 'invalid HTTPS shortcut performed acquisition'
 setsid --wait bash "$fixture/bootstrap" --release v1 -- --panel-port 8443 </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'explicit setup flags lost'
 bash "$fixture/bootstrap" --release v1 -- --yes --panel-port 8443 </dev/null
