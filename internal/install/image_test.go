@@ -52,6 +52,7 @@ func (h *imageHost) Run(ctx context.Context, a []string, d time.Duration) error 
 		}
 		for i, arg := range a {
 			if arg == "--iidfile" {
+				h.output["docker image inspect --format {{.Id}} "+h.identity] = h.identity
 				return os.WriteFile(a[i+1], []byte(h.identity), 0o600)
 			}
 		}
@@ -94,19 +95,20 @@ func TestLegacyBundleRuntimeUsesTheSamePinnedToolsSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dockerfile := runtimeDockerfile(b)
+	dockerfile := RuntimeDockerfile(b)
 	if !strings.Contains(dockerfile, "https://github.com/amnezia-vpn/amneziawg-tools.git") || !strings.Contains(dockerfile, b.ToolsCommit) {
 		t.Fatalf("legacy install update lost its immutable tools source:\n%s", dockerfile)
 	}
 }
 
 func TestRepositoryDockerfileUsesReviewedSourceTools(t *testing.T) {
-	data, err := os.ReadFile("../../Dockerfile")
+	data, err := os.ReadFile("runtime/Dockerfile")
 	if err != nil {
 		t.Fatal(err)
 	}
 	dockerfile := string(data)
 	b, _ := SelectCore("recommended")
+	dockerfile = strings.NewReplacer("{{TOOLS_REPOSITORY}}", b.ToolsRepository, "{{TOOLS_VERSION}}", b.ToolsVersion, "{{TOOLS_COMMIT}}", b.ToolsCommit).Replace(dockerfile)
 	for _, required := range []string{b.ToolsRepository, b.ToolsVersion, b.ToolsCommit, "/usr/local/bin/awg", "iptables"} {
 		if !strings.Contains(dockerfile, required) {
 			t.Fatalf("repository Dockerfile omitted reviewed source identity %q", required)

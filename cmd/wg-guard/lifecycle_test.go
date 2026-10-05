@@ -26,6 +26,20 @@ func TestParseLifecycleSources(t *testing.T) {
 	}
 }
 
+func TestRemovedDeploymentFlagAndDirectProductionServeAreRefused(t *testing.T) {
+	for _, value := range []string{"native", "docker"} {
+		if _, err := parseInstallOptions([]string{"--yes", "--mode", value}); err == nil {
+			t.Fatal("removed deployment flag accepted")
+		}
+	}
+	if checkServerRuntime(false, false) == nil {
+		t.Fatal("direct production server accepted")
+	}
+	if checkServerRuntime(true, false) != nil || checkServerRuntime(false, true) != nil {
+		t.Fatal("Docker/fake runtime incorrectly refused")
+	}
+}
+
 func TestInteractiveInstallLeavesAdministratorUsernameForThePrompt(t *testing.T) {
 	o, err := parseInstallOptions(nil)
 	if err != nil {

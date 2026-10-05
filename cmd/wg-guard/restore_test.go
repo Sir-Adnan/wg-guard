@@ -101,7 +101,7 @@ func TestRestoreCryptoFailuresLocalizedBeforeServiceMutation(t *testing.T) {
 	if err := os.WriteFile(invalid, []byte("age-encryption.org/v1\nsynthetic-sensitive-invalid-header\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	st := install.State{Schema: 1, Mode: install.ModeNative, ConfigPath: install.ConfigPath, DataDir: install.DataDir, BinPath: install.BinPath, UnitPath: install.UnitPath, ComposePath: install.ComposePth}
+	st := install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, BinPath: install.BinPath, ComposePath: install.ComposePth}
 	state, _ := json.Marshal(st)
 	for _, locale := range []string{"fa", "en"} {
 		for _, kind := range []string{"missing", "wrong", "invalid"} {
@@ -135,8 +135,8 @@ func TestRestoreCryptoFailuresLocalizedBeforeServiceMutation(t *testing.T) {
 	}
 }
 
-func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
-	for _, mode := range []install.Mode{install.ModeNative, install.ModeDocker} {
+func TestRestoreCLIUsesHostCoordinatorWithDockerCoordinator(t *testing.T) {
+	for _, mode := range []install.Mode{install.ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {
 			cfgPath := testTokenConfig(t)
 			e, err := loadCLIEnv(cfgPath)
@@ -179,7 +179,7 @@ func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			state := &install.State{Schema: 1, Mode: mode, ConfigPath: install.ConfigPath, DataDir: install.DataDir, BinPath: install.BinPath, UnitPath: install.UnitPath, ComposePath: install.ComposePth}
+			state := &install.State{Schema: install.StateSchema, Mode: mode, ConfigPath: install.ConfigPath, DataDir: install.DataDir, BinPath: install.BinPath, ComposePath: install.ComposePth}
 			stateBytes, _ := json.Marshal(state)
 			h := &restoreCLIHost{files: map[string][]byte{install.StatePath: stateBytes, install.ConfigPath: raw, install.ComposePth: []byte("fixture")}}
 			h.afterStart = func() {
@@ -213,9 +213,7 @@ func TestRestoreCLIUsesHostCoordinatorInNativeAndDockerModes(t *testing.T) {
 			if mode == install.ModeDocker && !strings.Contains(joined, " down") {
 				t.Fatal("Docker service not stopped")
 			}
-			if mode == install.ModeNative && !strings.Contains(joined, "systemctl stop") {
-				t.Fatal("native service not stopped")
-			}
+
 		})
 	}
 }

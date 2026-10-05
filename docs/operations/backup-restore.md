@@ -299,7 +299,7 @@ unsafe):
    are generated on demand, so a corrected endpoint is enough for clients to reconnect.
 4. **Apply** — one of:
    - **CLI** (`wg-guard restore ARCHIVE [--password] [--yes]`): runs on the deployment host
-     in both Docker and native modes. The shared lifecycle lock/journal owns review, verified
+     for the Docker deployment. The shared lifecycle lock/journal owns review, verified
      service stop, offline apply, service start and health check. Active data is never opened
      during review. `--yes` is explicit scripted consent; interactive confirmation defaults no.
    - **Panel wizard**: explicit confirmation names the exact preview and publishes it as
@@ -379,3 +379,9 @@ is restored. Without either, device re-enrollment requires an explicit node reco
 Archives 0600; the backup password and Telegram credentials are stored encrypted at rest and
 never logged; every backup/restore is audit-logged; restore requires explicit confirmation and
 `backup.manage` permission (panel) or root (CLI).
+
+
+Phase 17 runtime delivery uses private disk spool files under `backup-delivery/` in the data
+volume. Normal completion/cancellation removes each body; this directory is not an archive
+member. AWG temporary configs retain the bounded runtime `/tmp`. Independent verification is
+normally run with the host manager, so large archive expansion uses private disk staging.

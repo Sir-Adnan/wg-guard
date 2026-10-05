@@ -18,7 +18,10 @@ import (
 )
 
 type Selection struct{ Channel, Ref string }
-type Build struct{ Channel, Ref, Commit, Version, SHA256, BinaryPath string }
+type Build struct {
+	Channel, Ref, Commit, Version, SHA256, BinaryPath string
+	Runtime                                           *RuntimeManifest `json:"runtime,omitempty"`
+}
 type Release struct {
 	Tag         string  `json:"tag_name"`
 	PublishedAt string  `json:"published_at"`

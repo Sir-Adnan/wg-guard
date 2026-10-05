@@ -3,7 +3,9 @@
 Decision confirmed by the owner on 2026-10-04. Native production deployment will
 be removed as an explicit Phase 17 deliverable. Correctness/artifact gates determine
 when the change is deliverable, not whether native is retained as a second profile.
-This document is a cleanup specification; current shipped support is unchanged.
+This specification is implemented in current unreleased source. Published v0.1.9 remains the
+preparation build with its previous deployment contract; [Phase 17](../development/phase17.md)
+records source/image and remaining physical-host acceptance separately.
 
 ## Meaning of native
 
@@ -104,25 +106,25 @@ Phase 15 backup/readiness/slow-work gates or Phase 20 final certification.
 
 ## Completion criteria
 
-- [ ] New production parsing/wizards/recipes/state contain no native selection or
+- [x] New production parsing/wizards/recipes/state contain no native selection or
   executable native lifecycle; no `ModeNative`, `installNative` or panel `RenderUnit`
   remains in current production implementation.
 - [ ] The image is actually the supported server runtime; direct fake-backend
   development remains explicitly separate and does not certify host networking.
-- [ ] Source search results for `native`, `ModeDocker`, `systemd`, `UnitPath` and
+- [x] Source search results for `native`, `ModeDocker`, `systemd`, `UnitPath` and
   artifact/unit fields are reviewed semantically. Legitimate host tasks, native
   WireGuard terminology and historical fixtures are explained, not silently deleted.
-- [ ] One install/update/rollback/restart/restore/exposure/uninstall implementation
+- [x] One install/update/rollback/restart/restore/exposure/uninstall implementation
   covers Docker operation, pending jobs, interruption, disk pressure and failed health.
-- [ ] Wrong image/binary/data identities, old native state, unsupported flags and
+- [x] Wrong image/binary/data identities, old native state, unsupported flags and
   unowned paths fail before active mutation. No implicit pull/build/serve fallback exists.
-- [ ] Shared leases, encryption, idempotency, backup/restore, key/config/token/IP/
+- [x] Shared leases, encryption, idempotency, backup/restore, key/config/token/IP/
   quota preservation and network ownership retain equivalent or stronger coverage.
 - [ ] Host manager works offline and with a stopped container; broker/renewal/owned
   retention survives restart/rollback and is cleaned up without touching foreign resources.
 - [ ] Supported Docker kernel and explicit userspace client traffic, reboot, update,
   restored backup and scoped removal pass real-host acceptance; other cells stay unverified.
-- [ ] Current living docs describe Docker-only only after implementation; old
+- [x] Current living docs describe Docker-only only after implementation; old
   published docs/fixtures remain explicitly historical. Public API/OpenAPI changes
   follow affected contracts, not the absence of a deployment choice alone.
 

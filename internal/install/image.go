@@ -3,10 +3,15 @@ package install
 import (
 	"context"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
+	"fmt"
+	legal "github.com/Sir-Adnan/wg-guard"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
@@ -55,11 +60,23 @@ func BuildRuntimeImage(ctx context.Context, h Host, build distribution.Build, b 
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(runtimeDockerfile(b)), 0o600); err != nil {
+	if err := WriteRuntimeContext(dir, b); err != nil {
 		return "", err
 	}
 	iid := filepath.Join(dir, "image-id")
-	args := []string{"docker", "build", "--iidfile", iid, "--label", "org.opencontainers.image.revision=" + build.Commit, "--label", "io.wg-guard.binary.sha256=" + build.SHA256, "--label", "io.wg-guard.core.bundle=" + b.ID, "--label", "io.wg-guard.awg-tools.commit=" + b.ToolsCommit, "--label", "io.wg-guard.awg-userspace.commit=" + b.UserspaceCommit, dir}
+	c := CurrentContract()
+	labels := runtimeIdentityLabels(build, distribution.RuntimeManifest{RecipeSHA256: RuntimeRecipeSHA256(), NoticesSHA256: RuntimeNoticesSHA256(), DataContract: c.DataContract, DeploymentSchema: c.DeploymentSchema, MaintenanceProtocol: c.MaintenanceProtocol, ToolsCommit: b.ToolsCommit, UserspaceCommit: b.UserspaceCommit})
+	labels["io.wg-guard.core.bundle"] = b.ID
+	keys := make([]string, 0, len(labels))
+	for key := range labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	args := []string{"docker", "build", "--platform", "linux/amd64", "--iidfile", iid}
+	for _, key := range keys {
+		args = append(args, "--label", key+"="+labels[key])
+	}
+	args = append(args, dir)
 	if err := runQuiet(ctx, h, args, longTimeout); err != nil {
 		return "", terminalError("install.error.image.6", err)
 	}
@@ -87,36 +104,85 @@ func hexLength(s string, n int) bool {
 	return err == nil
 }
 
-func runtimeDockerfile(b CoreBundle) string {
-	return `FROM ubuntu:24.04 AS awg-tools-build
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git build-essential \
- && rm -rf /var/lib/apt/lists/*
-RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch ` + b.ToolsVersion + ` --single-branch ` + b.ToolsRepository + ` /src/amneziawg-tools \
- && test "$(git -C /src/amneziawg-tools rev-parse HEAD)" = "` + b.ToolsCommit + `" \
- && git -C /src/amneziawg-tools diff --quiet ` + b.ToolsCommit + ` -- \
- && make -C /src/amneziawg-tools/src
+//go:embed runtime/Dockerfile
+var runtimeRecipe string
 
-FROM golang:1.27.1-alpine AS awg-userspace-build
-RUN apk add --no-cache git
-RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch ` + b.UserspaceVersion + ` --single-branch https://github.com/amnezia-vpn/amneziawg-go.git /src/amneziawg-go \
- && test "$(git -C /src/amneziawg-go rev-parse HEAD)" = "` + b.UserspaceCommit + `" \
- && git -C /src/amneziawg-go diff --quiet ` + b.UserspaceCommit + ` --
-RUN cd /src/amneziawg-go && CGO_ENABLED=0 go build -trimpath -o /out/amneziawg-go . \
- && go version -m /out/amneziawg-go | grep -F 'vcs.revision=` + b.UserspaceCommit + `' \
- && go version -m /out/amneziawg-go | grep -F 'vcs.modified=false'
+// RuntimeDockerfile is the only runtime recipe used by acquisition and CI.
+// Callers must select a reviewed bundle before rendering.
+func RuntimeDockerfile(b CoreBundle) string {
+	return strings.NewReplacer("{{TOOLS_VERSION}}", b.ToolsVersion, "{{TOOLS_REPOSITORY}}", b.ToolsRepository, "{{TOOLS_COMMIT}}", b.ToolsCommit, "{{USERSPACE_VERSION}}", b.UserspaceVersion, "{{USERSPACE_COMMIT}}", b.UserspaceCommit).Replace(runtimeRecipe)
+}
 
-FROM ubuntu:24.04
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates nftables iptables iproute2 procps curl \
- && rm -rf /var/lib/apt/lists/*
-COPY --from=awg-tools-build /src/amneziawg-tools/src/wg /usr/local/bin/awg
-COPY --from=awg-userspace-build /out/amneziawg-go /usr/local/bin/amneziawg-go
-COPY wg-guard /usr/local/bin/wg-guard
-ENV WGG_IN_CONTAINER=1
-ENTRYPOINT ["/usr/local/bin/wg-guard"]
-CMD ["serve", "-config", "/etc/wg-guard/wg-guard.toml"]
-`
+func RuntimeRecipeSHA256() string {
+	sum := sha256.Sum256([]byte(runtimeRecipe))
+	return hex.EncodeToString(sum[:])
+}
+
+func RuntimeNoticesSHA256() string {
+	h := sha256.New()
+	_ = fs.WalkDir(legal.Notices, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			data, _ := legal.Notices.ReadFile(name)
+			_, _ = fmt.Fprintf(h, "%s\x00%d\x00", name, len(data))
+			_, _ = h.Write(data)
+		}
+		return err
+	})
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// RuntimeBuildInfo is a data-free build probe for CI and offline packaging.
+// Its legal files and recipe come from this exact binary, not the working tree.
+func RuntimeBuildInfo(selector string) (any, error) {
+	b, err := SelectCore(selector)
+	if err != nil {
+		return nil, err
+	}
+	notices := map[string]string{}
+	if err := fs.WalkDir(legal.Notices, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			data, e := legal.Notices.ReadFile(name)
+			if e != nil {
+				return e
+			}
+			notices[name] = string(data)
+		}
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return struct {
+		Dockerfile    string            `json:"dockerfile"`
+		RecipeSHA256  string            `json:"recipe_sha256"`
+		NoticesSHA256 string            `json:"notices_sha256"`
+		Contract      Contract          `json:"contract"`
+		Core          CoreBundle        `json:"core"`
+		Kernels       []CoreBundle      `json:"kernels"`
+		Notices       map[string]string `json:"notices"`
+	}{RuntimeDockerfile(b), RuntimeRecipeSHA256(), RuntimeNoticesSHA256(), CurrentContract(), b, ReviewedCoreBundles(), notices}, nil
+}
+
+// WriteRuntimeContext writes into a newly owned private staging directory.
+// Fixed embedded paths cannot read live configuration or private keys.
+func WriteRuntimeContext(dir string, b CoreBundle) error {
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(RuntimeDockerfile(b)), 0600); err != nil {
+		return err
+	}
+	return fs.WalkDir(legal.Notices, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || name == "." {
+			return err
+		}
+		target := filepath.Join(dir, "notices", filepath.FromSlash(name))
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0700)
+		}
+		data, err := legal.Notices.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0600)
+	})
 }

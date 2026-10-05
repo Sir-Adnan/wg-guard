@@ -8,7 +8,7 @@ import (
 )
 
 func TestUninstallEOFIsNotConsent(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	before := string(h.files[StatePath].data)
 	if _, err := Uninstall(context.Background(), h, UninstallOptions{Stdin: strings.NewReader("uninstall")}); err == nil {
 		t.Fatal("EOF accepted as consent")
@@ -27,7 +27,7 @@ func TestCandidateOwnerGatePreservesPriorDataContract(t *testing.T) {
 	if !dataCompatible(&Artifact{Contract: old}, &Artifact{Contract: CurrentContract()}) {
 		t.Fatal("known prior schema lost")
 	}
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	b, _ := json.Marshal(old)
 	h.output[BinPath+" installer-contract"] = string(b)
 	prior, err := retainCurrent(context.Background(), h, mustState(t, h))
@@ -45,7 +45,7 @@ func mustState(t *testing.T, h Host) *State {
 }
 
 func TestManagedRestartLockJournalAndRetry(t *testing.T) {
-	for _, mode := range []Mode{ModeNative, ModeDocker} {
+	for _, mode := range []Mode{ModeDocker} {
 		h := installedFixture(t, mode)
 		h.commands = nil
 		unlock, _ := h.LockLifecycle()

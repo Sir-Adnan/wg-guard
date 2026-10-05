@@ -14,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
@@ -58,7 +59,7 @@ type UpdateOptions struct {
 	LocalImage     bool // explicitly local: never pull; remote must pull successfully
 	Recover        bool
 	Image          string // docker: new image reference (default: keep compose value)
-	BinaryPath     string // native: staged binary to install
+	BinaryPath     string // verified host command matching the candidate image
 	SkipBackup     bool
 	Rollback       bool // re-deploy the state-recorded last-known-good artifact
 	Stdout, Stderr io.Writer
@@ -153,9 +154,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err != nil {
 		return nil, fmt.Errorf("install: %w", err)
 	}
-	if p.Mode == ModeNative && platform.Init != "systemd" {
-		return nil, terminalError("install.error.systemd")
-	}
+
 	if err := resolveEndpoint(ctx, h, &p); err != nil {
 		return nil, err
 	}
@@ -190,10 +189,14 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := preflight(ctx, h, p, out); err != nil {
 		return nil, err
 	}
-	targets := []string{ConfigPath, ComposePth, UnitPath, OperationRetentionPath, UpdateBrokerServicePath, UpdateBrokerPathPath, UpdateBrokerMarkerPath}
-	if p.Mode == ModeNative {
-		targets = append(targets, JournalRetentionPath)
+	if err := checkLegacyServerAbsent(ctx, h); err != nil {
+		return nil, err
 	}
+	if err := checkFreshContainerAbsent(ctx, h); err != nil {
+		return nil, err
+	}
+	targets := []string{ConfigPath, ComposePth, legacyServerUnitPath, OperationRetentionPath, UpdateBrokerServicePath, UpdateBrokerPathPath, UpdateBrokerMarkerPath}
+
 	for _, target := range targets {
 		if _, err := h.Stat(target); err == nil {
 			return nil, terminalError("install.error.state")
@@ -227,24 +230,28 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		Schema:     StateSchema,
 		CreatedAt:  time.Now().UTC().Format(time.RFC3339),
 		Version:    o.Version,
-		Mode:       p.Mode,
+		Mode:       ModeDocker,
 		ConfigPath: p.BootConfigPath(),
 		DataDir:    p.DataDir,
 		PublicIP:   p.PublicIP,
 		Exposure:   p.ExposureRecord(),
 	}
 	st.BinPath = BinPath
-	if p.Mode == ModeDocker {
-		st.ComposePath = ComposePth
-		st.Image = p.Image
-	} else {
-		st.UnitPath = UnitPath
-	}
+
+	st.ComposePath = ComposePth
+	st.Image = p.Image
+
 	inheritSafePrerequisiteOwnership(st, priorJournal)
 	if err := h.MkdirAll(EtcDir, 0700); err != nil {
 		return st, err
 	}
-	j := &Journal{Schema: 1, ID: transactionID(), Operation: "install", After: st}
+	if err := h.MkdirAll(layout.HostStateDir, 0700); err != nil {
+		return st, err
+	}
+	if err := h.MkdirAll(layout.DeploymentDir, 0700); err != nil {
+		return st, err
+	}
+	j := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "install", After: st}
 	if err := j.save(h, "prepared"); err != nil {
 		return st, err
 	}
@@ -283,6 +290,9 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	prerequisitesComplete = true
 	j.PrerequisitesComplete = true
 	if err := j.save(h, "prepared"); err != nil {
+		return st, err
+	}
+	if err := checkFreshContainerAbsent(ctx, h); err != nil {
 		return st, err
 	}
 	var nginxCleanup func() error
@@ -333,10 +343,10 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := j.save(h, "prepared"); err != nil {
 		return st, err
 	}
-	if o.StageParent != "" && p.Mode == ModeDocker && p.Image == DefaultImage {
+	if o.StageParent != "" && p.Image == DefaultImage {
 		step(out, "Runtime image")
 		progress(out, "runtime_build")
-		p.Image, err = BuildRuntimeImage(ctx, h, o.Build, bundle, o.StageParent)
+		p.Image, err = PrepareRuntimeImage(ctx, h, &o.Build, bundle, o.StageParent)
 		if err != nil {
 			return st, err
 		}
@@ -358,13 +368,13 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		return st, err
 	}
 	operations := newOperationJournal(h)
-	_ = operations.record(operationInstall, operationStarted, p.Mode)
+	_ = operations.record(operationInstall, operationStarted, ModeDocker)
 	defer func() {
 		outcome := operationSucceeded
 		if resultErr != nil {
 			outcome = operationFailed
 		}
-		_ = operations.record(operationInstall, outcome, p.Mode)
+		_ = operations.record(operationInstall, outcome, ModeDocker)
 	}()
 	cfgToml, err := renderBootConfig(p)
 	if err != nil {
@@ -375,11 +385,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 
 	if o.Build.BinaryPath != "" {
-		if p.Mode == ModeDocker {
-			if err := atomicWrite(h, ComposePth, []byte(RenderCompose(p)), 0644); err != nil {
-				return st, err
-			}
+
+		if err := atomicWrite(h, ComposePth, []byte(RenderCompose(p)), 0644); err != nil {
+			return st, err
 		}
+
 		a, err := stageCandidate(ctx, h, st, UpdateOptions{Build: o.Build, Image: p.Image, LocalImage: o.LocalImage})
 		if err != nil {
 			return st, err
@@ -388,6 +398,9 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		p.Image = a.Image
 		st.Image = a.Image
 	}
+	if err := checkFreshContainerAbsent(ctx, h); err != nil {
+		return st, err
+	}
 	if err := j.save(h, "swap-pending"); err != nil {
 		return st, err
 	}
@@ -395,15 +408,8 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := j.save(h, "started"); err != nil {
 		return st, err
 	}
-	switch p.Mode {
-	case ModeDocker:
-		if err := installDocker(ctx, h, p, st, out, o.BeforeStart); err != nil {
-			return nil, err
-		}
-	case ModeNative:
-		if err := installNative(ctx, h, p, st, out, o.BeforeStart); err != nil {
-			return nil, err
-		}
+	if err := installDocker(ctx, h, p, st, out, o.BeforeStart); err != nil {
+		return nil, err
 	}
 	installedContract, err := inspectContract(ctx, h, []string{BinPath})
 	if err != nil {
@@ -564,7 +570,7 @@ func printSummaryLocale(out io.Writer, p Plan, st *State, locale i18n.Locale) {
 		u.Locale = locale
 	}
 	u.Section(u.T("terminal.done"))
-	for _, f := range []struct{ k, v string }{{"manage.panel", p.PanelURL()}, {"manage.endpoint", p.VPNEndpoint()}, {"setup.mode", string(p.Mode)}, {"setup.config", p.BootConfigPath()}, {"setup.data", p.DataDir}, {"manage.core", st.Core.Requested.ID}} {
+	for _, f := range []struct{ k, v string }{{"manage.panel", p.PanelURL()}, {"manage.endpoint", p.VPNEndpoint()}, {"setup.mode", string(ModeDocker)}, {"setup.config", p.BootConfigPath()}, {"setup.data", p.DataDir}, {"manage.core", st.Core.Requested.ID}} {
 		u.Field(u.T(f.k), f.v)
 	}
 	u.Field("TLS", st.TLSReadiness)

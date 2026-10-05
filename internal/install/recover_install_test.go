@@ -15,7 +15,7 @@ func interruptedInitialInstall(t *testing.T, h *memHost, dataChanged bool) {
 	if err := saveState(h, st); err != nil {
 		t.Fatal(err)
 	}
-	j := &Journal{Schema: 1, ID: transactionID(), Operation: "install", Stage: "recovery-required", After: st, DataMayHaveChanged: dataChanged}
+	j := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "install", Stage: "recovery-required", After: st, DataMayHaveChanged: dataChanged}
 	if err := j.save(h, "recovery-required"); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestCleanupIncompleteInitialInstallRefusesPossibleRuntimeChanges(t *testing
 func TestCleanupAcceptsAbruptInterruptionBeforePrerequisitesComplete(t *testing.T) {
 	h := newMemHost()
 	st := &State{Schema: StateSchema, Mode: ModeDocker, ConfigPath: ConfigPath, DataDir: DataDir, ComposePath: ComposePth, BinPath: BinPath}
-	j := &Journal{Schema: 1, ID: transactionID(), Operation: "install", After: st}
+	j := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "install", After: st}
 	if err := j.save(h, "prerequisites"); err != nil {
 		t.Fatal(err)
 	}

@@ -1,12 +1,14 @@
 package install
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/layout"
+	"io"
 	"io/fs"
 	"path"
 	"strings"
@@ -14,6 +16,8 @@ import (
 
 const JournalPath = layout.LifecycleJournal
 const ArtifactDir = layout.LifecycleArtifacts
+
+const JournalSchema = 2
 
 type BackupIdentity struct {
 	Path            string `json:"path"`
@@ -27,7 +31,6 @@ type Artifact struct {
 	Binary       string             `json:"binary"`
 	BinarySHA256 string             `json:"binary_sha256"`
 	Compose      string             `json:"compose,omitempty"`
-	Unit         string             `json:"unit,omitempty"`
 	Contract     Contract           `json:"contract"`
 	Backup       *BackupIdentity    `json:"backup,omitempty"`
 }
@@ -82,7 +85,12 @@ func LoadJournal(h Host) (*Journal, error) {
 		return nil, terminalError("install.error.journal")
 	}
 	var j Journal
-	if json.Unmarshal(b, &j) != nil || j.Schema != 1 || !hexLength(j.ID, 32) {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&j) != nil || j.Schema != JournalSchema || !hexLength(j.ID, 32) {
+		return nil, terminalError("install.error.journal")
+	}
+	if decoder.Decode(new(any)) != io.EOF {
 		return nil, terminalError("install.error.journal")
 	}
 	switch j.Operation {
@@ -116,7 +124,7 @@ func validateArtifact(a *Artifact) error {
 	if a == nil {
 		return nil
 	}
-	if !artifactPath(a.Binary, "binary") || !hexLength(a.BinarySHA256, 64) || a.Compose != "" && !artifactPath(a.Compose, "compose.yaml") || a.Unit != "" && !artifactPath(a.Unit, "wg-guard.service") {
+	if !artifactPath(a.Binary, "binary") || !hexLength(a.BinarySHA256, 64) || a.Compose != "" && !artifactPath(a.Compose, "compose.yaml") {
 		return terminalError("install.error.state")
 	}
 	if a.Image != "" && (!strings.HasPrefix(a.Image, "sha256:") || !hexLength(strings.TrimPrefix(a.Image, "sha256:"), 64)) {
@@ -144,7 +152,12 @@ func noPending(h Host) error {
 // CheckLifecycleReady is the cheap read-only guard used before remote source
 // discovery or artifact builds. Mutating operations still repeat the check
 // under the lifecycle lock; this early check prevents needless acquisition.
-func CheckLifecycleReady(h Host) error { return noPending(h) }
+func CheckLifecycleReady(h Host) error {
+	if _, err := LoadState(h); err != nil {
+		return err
+	}
+	return noPending(h)
+}
 
 func pendingOperationError(j *Journal) error {
 	if j != nil {

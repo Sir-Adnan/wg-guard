@@ -2,9 +2,7 @@ package install
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"path"
 	"strings"
 	"time"
@@ -14,19 +12,13 @@ const (
 	coreSourcePackage = "ubuntu-package"
 	coreSourceGitHub  = "github-source"
 
-	CoreCacheDir         = "/var/cache/wg-guard/core"
-	ManagedAWGBinaryPath = "/usr/local/bin/awg"
-	ManagedAWGBuildPath  = CoreCacheDir + "/awg-2026-09/tools/src/wg"
-	coreRevisionMarker   = ".wg-guard-revision"
-	coreInstalledMarker  = ".wg-guard-installed"
+	CoreCacheDir        = "/var/cache/wg-guard/core"
+	coreRevisionMarker  = ".wg-guard-revision"
+	coreInstalledMarker = ".wg-guard-installed"
 )
 
 func coreCheckoutPath(b CoreBundle, component string) string {
 	return path.Join(CoreCacheDir, b.ID, component)
-}
-
-func toolsInstalledMarker(b CoreBundle) string {
-	return path.Join(coreCheckoutPath(b, "tools"), coreInstalledMarker)
 }
 
 func kernelInstalledMarker(b CoreBundle) string {
@@ -84,41 +76,6 @@ func ensurePinnedCheckout(ctx context.Context, h Host, b CoreBundle, component, 
 	return destination, nil
 }
 
-func ensurePinnedTools(ctx context.Context, h Host, b CoreBundle) error {
-	if sourceInstalled(h, toolsInstalledMarker(b), b.ToolsCommit) {
-		if _, err := h.Stat(ManagedAWGBinaryPath); err == nil {
-			if raw, outErr := h.Output(ctx, []string{"awg", "--version"}, 10*time.Second); outErr == nil && strings.Contains(raw, b.ToolsVersion) {
-				return nil
-			}
-		}
-	}
-	if _, err := h.Stat(ManagedAWGBinaryPath); err == nil && !sourceInstalled(h, toolsInstalledMarker(b), b.ToolsCommit) {
-		return fmt.Errorf("install: %s already exists and is not owned by this reviewed core", ManagedAWGBinaryPath)
-	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-
-	source, err := ensurePinnedCheckout(ctx, h, b, "tools", b.ToolsRepository, b.ToolsVersion, b.ToolsCommit)
-	if err != nil {
-		return err
-	}
-	if err := runQuiet(ctx, h, []string{"make", "-C", path.Join(source, "src"), "clean"}, time.Minute); err != nil {
-		return fmt.Errorf("install: clean reviewed AWG tools build: %w", err)
-	}
-	if err := runQuiet(ctx, h, []string{"make", "-C", path.Join(source, "src")}, longTimeout); err != nil {
-		return fmt.Errorf("install: build reviewed AWG tools: %w", err)
-	}
-	built := path.Join(source, "src", "wg")
-	if err := h.CopyFile(built, ManagedAWGBinaryPath, 0o755); err != nil {
-		return fmt.Errorf("install: install reviewed AWG tool: %w", err)
-	}
-	if raw, err := h.Output(ctx, []string{"awg", "--version"}, 10*time.Second); err != nil || !strings.Contains(raw, b.ToolsVersion) {
-		_ = h.Remove(ManagedAWGBinaryPath)
-		return fmt.Errorf("install: reviewed AWG tool failed version verification")
-	}
-	return h.WriteFile(toolsInstalledMarker(b), []byte(b.ToolsCommit+"\n"), 0o600)
-}
-
 func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle) error {
 	if sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) && dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
 		return nil
@@ -171,13 +128,8 @@ func purgePinnedSourceCore(ctx context.Context, h Host, r CoreReport) error {
 	if err != nil || b != r.Requested || b.Source != coreSourceGitHub {
 		return fmt.Errorf("uninstall: recorded reviewed core source is invalid")
 	}
-	if r.ToolsSource == coreSourceGitHub {
-		if !sourceInstalled(h, toolsInstalledMarker(b), b.ToolsCommit) {
-			return fmt.Errorf("uninstall: managed AWG tool ownership marker is missing")
-		}
-		if err := h.Remove(ManagedAWGBinaryPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
+	if r.ExternalModule {
+		return nil
 	}
 	if r.KernelSource == coreSourceGitHub {
 		if !sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) || r.KernelDKMS != b.KernelDKMSVersion {

@@ -1,5 +1,5 @@
 // Package install implements the deployment layer: the interactive
-// `wg-guard install` wizard (Docker default, native secondary — ADR-0006),
+// `wg-guard install` wizard (Docker production runtime),
 // `update` with a pre-upgrade backup and health-checked rollback, and
 // `uninstall --dry-run` that removes only WG-Guard-owned artifacts. Pure
 // renderers and the plan type live here; host mutations go through the Host
@@ -18,16 +18,14 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/layout"
 )
 
-// Mode selects the deployment shape (ADR-0006): Docker is the default, the
-// native systemd path is fully supported and shares the same data layout.
+// Mode describes the installed deployment. It is not a selectable backend.
 type Mode string
 
 const (
 	ModeDocker Mode = "docker"
-	ModeNative Mode = "native"
 )
 
-func (m Mode) Valid() bool { return m == ModeDocker || m == ModeNative }
+func (m Mode) Valid() bool { return m == ModeDocker }
 
 // Fixed layout (docs/operations/deployment.md): identical in both modes so
 // backups, restore and mode switches are layout-independent.
@@ -37,7 +35,6 @@ const (
 	ConfigPath = layout.ConfigFile
 	StatePath  = layout.InstallState
 	ComposePth = layout.ComposeFile
-	UnitPath   = layout.HostUnit
 	BinPath    = layout.HostBinary
 	// ManagerBuildPath records the verified build cached before setup starts.
 	ManagerCacheDir   = layout.ManagerCache
@@ -46,15 +43,13 @@ const (
 	Container         = "wg-guard"
 )
 
-// DefaultImage is the official image reference. The Phase 12 release pipeline
-// publishes versioned tags; until then :latest tracks releases and the
-// installer accepts --image for local/registry overrides.
-const DefaultImage = "wgguard/wg-guard:latest"
+// DefaultImage is an acquisition sentinel. It never designates a public registry
+// tag: the coordinator replaces it with a verified, immutable local image ID.
+const DefaultImage = "wg-guard:verified"
 
 // Plan is one resolved installation. Fields with zero values are filled by
 // Resolve from flags + prompts before use.
 type Plan struct {
-	Mode Mode
 	// Exposure is the public topology; Certificate is its certificate owner.
 	// CloudflareToken is memory-only and must never enter rendered config/state.
 	Exposure            ExposureMode
@@ -108,7 +103,6 @@ type Plan struct {
 // loopback), panel 8080. Resolve upgrades dev→acme when a domain is set.
 func Defaults() Plan {
 	return Plan{
-		Mode:         ModeDocker,
 		Exposure:     ExposureAuto,
 		Certificate:  CertificateAuto,
 		PublicPort:   443,
@@ -127,9 +121,6 @@ func Defaults() Plan {
 func (p Plan) Resolve() (Plan, error) {
 	if p.EtcDir != EtcDir || p.DataDir != DataDir {
 		return p, terminalError("install.error.state")
-	}
-	if !p.Mode.Valid() {
-		return p, terminalError("install.error.plan.1", p.Mode)
 	}
 	p.Domain = strings.ToLower(strings.TrimSpace(p.Domain))
 	if p.Domain != "" && !validHostname(p.Domain) {
@@ -198,7 +189,7 @@ func (p Plan) Resolve() (Plan, error) {
 	if p.TLSMode == config.TLSModeACME && p.PanelPort == p.ACMEHTTPPort {
 		return p, terminalError("install.error.plan.11")
 	}
-	if p.Mode == ModeDocker && strings.TrimSpace(p.Image) == "" {
+	if strings.TrimSpace(p.Image) == "" {
 		p.Image = DefaultImage
 	}
 	return p, nil
@@ -334,10 +325,9 @@ type State struct {
 	Image             string         `json:"image,omitempty"`
 	ComposePath       string         `json:"compose_path,omitempty"`
 	BinPath           string         `json:"binary_path,omitempty"`
-	UnitPath          string         `json:"unit_path,omitempty"`
 	ExtraFiles        []string       `json:"extra_files,omitempty"`
 	PackagesInstalled []string       `json:"packages_installed,omitempty"`
 }
 
 // StateSchema is the current install-state schema version.
-const StateSchema = 3
+const StateSchema = 4

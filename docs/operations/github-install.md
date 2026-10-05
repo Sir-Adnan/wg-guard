@@ -1,3 +1,6 @@
+> Current main is Docker-only and unreleased. v0.1.9 is the preparation release. Existing
+> state/layout is not converted in-place; export with the original manager before rebuilding.
+
 # GitHub installation and verified builds
 
 The Bash entry point obtains a Linux executable, atomically persists it as an independent local manager and
@@ -49,20 +52,21 @@ less wg-guard-install.sh
 bash wg-guard-install.sh
 ```
 
-Keep the downloaded script to choose a different mode or source:
+Keep the downloaded script to choose a source or explicit setup flags:
 
 | Goal | Command |
 |---|---|
 | List stable releases | `bash wg-guard-install.sh --list-releases` |
-| Latest stable, Docker wizard | `bash wg-guard-install.sh -- --mode docker` |
-| Latest stable, native wizard | `bash wg-guard-install.sh -- --mode native` |
+| Latest stable, guided setup | `bash wg-guard-install.sh` |
 | Exact published release | `bash wg-guard-install.sh --release v0.1.3` |
 | Development branch (explicit) | `bash wg-guard-install.sh --commit main` |
 
-The `--` separates bootstrap selection from installer flags. Supplying `--mode` starts installation
+The `--` separates bootstrap selection from installer flags. Supplying setup flags starts installation
 directly; with no forwarded flags, the manager menu offers the same choice. `--release latest` is
-implicit in the first three installation commands. The Docker runtime image is built from the
-selected verified binary; there is no official registry image to pull.
+implicit in the guided installation command. New-format releases supply a verified offline image asset; explicit commit builds use the one
+embedded recipe. There is no official registry image to pull. The removed `--mode` flag fails
+before acquisition. Latest stable v0.1.9 retains its preparation-era manager; use its tagged
+guide on an existing node, not the unreleased new manager.
 
 For an **exact release**, pin both the entry script and the selected asset to the tag:
 
@@ -96,11 +100,11 @@ in an argument or shell history:
 
 ```bash
 bash wg-guard-install.sh --release latest -- \
-  --mode docker --yes --owner-username admin \
+  --yes --owner-username admin \
   --owner-password-file /root/wg-guard-owner-password
 ```
 
-The same flags work with `--mode native`. Read [owner setup and terminal constraints](terminal-management.md)
+Read [owner setup and terminal constraints](terminal-management.md)
 for exposure, domain and secret handling before automating a deployment.
 
 `--release latest` is the default. The catalog is one bounded page of 30 GitHub releases; drafts,
@@ -118,7 +122,7 @@ is retained for lifecycle verification and diagnostics.
 
 With no forwarded setup flags (or only a legacy language flag), the bootstrap calls
 `wg-guard manage`.
-Explicit setup flags such as `--mode native` select `wg-guard install`; all arguments after `--`
+Explicit setup flags such as `--domain panel.example.com` select `wg-guard install`; all arguments after `--`
 and unrecognized bootstrap flags are forwarded unchanged. `--yes` always selects install with
 noninteractive flags/defaults, including the existing installed-node refusal. Interactive
 input is reopened from `/dev/tty` when available, otherwise `/dev/null`. A piped script is never

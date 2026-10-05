@@ -35,7 +35,7 @@ func TestManagedGenericCoreTracksFutureKernelHeaders(t *testing.T) {
 	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b,
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b,
 		PrerequisitesAuto, false, st, io.Discard); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestInstalledExactCoreReuseDoesNotRequireRepositoryAccess(t *testing.T) {
 	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
 	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
 	r, _ := InspectPlatform(context.Background(), h)
-	report, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	report, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 	if err != nil || report.ModuleIdentity != "matches-disk" {
 		t.Fatalf("validated installed bundle cannot be reused offline: %+v %v", report, err)
 	}
@@ -81,63 +81,6 @@ func TestInstalledExactCoreReuseDoesNotRequireRepositoryAccess(t *testing.T) {
 	}
 }
 
-func TestNativePrerequisitesInstallIPTablesCompatibilityTool(t *testing.T) {
-	h := newPackageHost()
-	delete(h.installed, "iptables")
-	b, _ := SelectCore("awg-2026-08")
-	h.installed["amneziawg-tools"] = b.ToolsPackage
-	h.installed["amneziawg-dkms"] = b.KernelPackage
-	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
-	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
-	r, _ := InspectPlatform(context.Background(), h)
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b,
-		PrerequisitesAuto, false, &State{}, io.Discard); err != nil {
-		t.Fatal(err)
-	}
-	if !contains(h.installedArgs, "iptables") {
-		t.Fatalf("iptables compatibility tool not installed: %v", h.installedArgs)
-	}
-}
-
-func TestAnyMissingCorePackageRequiresBothMetadataPins(t *testing.T) {
-	for _, missing := range []string{"amneziawg-tools", "amneziawg-dkms"} {
-		for _, otherAvailable := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/other-available=%t", missing, otherAvailable), func(t *testing.T) {
-				h := newPackageHost()
-				b, _ := SelectCore("awg-2026-08")
-				h.installed["amneziawg-tools"] = b.ToolsPackage
-				h.installed["amneziawg-dkms"] = b.KernelPackage
-				delete(h.installed, missing)
-				h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
-				h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("MATCHINGBUILD")}
-				other := "amneziawg-tools"
-				if missing == other {
-					other = "amneziawg-dkms"
-				}
-				if !otherAvailable {
-					delete(h.available, other)
-				}
-				r, _ := InspectPlatform(context.Background(), h)
-				_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
-				if !otherAvailable {
-					if err == nil || len(h.installedArgs) != 0 {
-						t.Fatal("installed a core package without the other exact metadata pin")
-					}
-					return
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !contains(h.metadataQueries, "amneziawg-tools") || !contains(h.metadataQueries, "amneziawg-dkms") {
-					t.Fatal("did not check both metadata pins")
-				}
-				if len(h.installedArgs) != 1 || !strings.HasPrefix(h.installedArgs[0], missing+"=") {
-					t.Fatalf("unexpected package changes: %v", h.installedArgs)
-				}
-			})
-		}
-	}
-}
 func (h *packageHost) Run(ctx context.Context, a []string, d time.Duration) error {
 	if a[0] == "modprobe" && len(a) == 2 && a[1] == "amneziawg" {
 		h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
@@ -228,7 +171,7 @@ func (h *sourceCoreHost) Output(ctx context.Context, a []string, d time.Duration
 
 func (h *sourceCoreHost) Run(ctx context.Context, a []string, d time.Duration) error {
 	if len(a) > 0 && a[0] == "make" {
-		h.files[ManagedAWGBuildPath] = memFile{data: []byte("reviewed awg binary"), perm: 0o755}
+		h.files[CoreCacheDir+"/unexpected-host-tools"] = memFile{data: []byte("reviewed awg binary"), perm: 0o755}
 	}
 	if len(a) > 1 && a[0] == "dkms" && a[1] == "install" {
 		h.dkmsInstalled = true
@@ -241,7 +184,7 @@ func TestMissingAWGPackagesUsePinnedGitHubSource(t *testing.T) {
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, st, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,11 +197,8 @@ func TestMissingAWGPackagesUsePinnedGitHubSource(t *testing.T) {
 	if !h.ran("dkms", "install", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "-k", r.Kernel) {
 		t.Fatalf("reviewed module was not installed with DKMS: %v", h.ranCommands())
 	}
-	if !h.ran("git", "-c", "advice.detachedHead=false", "clone", "--quiet", "--depth", "1", "--branch", "v3.1.20260812") {
-		t.Fatalf("tools source was not fetched from the reviewed tag: %v", h.ranCommands())
-	}
-	if got := string(h.files[ManagedAWGBinaryPath].data); got != "reviewed awg binary" {
-		t.Fatalf("managed awg binary = %q", got)
+	if _, ok := h.files["/usr/local/bin/awg"]; ok {
+		t.Fatal("host AWG tooling must not be provisioned by Docker prerequisites")
 	}
 	for _, arg := range h.installedArgs {
 		if strings.HasPrefix(arg, "amneziawg-") {
@@ -275,7 +215,7 @@ func TestSourceCoreKeepsNoisyBuildCommandsOutOfTheTerminal(t *testing.T) {
 	h := &quietSourceCoreHost{sourceCoreHost: newSourceCoreHost()}
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, false, &State{}, io.Discard); err != nil {
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	for _, command := range []string{"git", "make", "dkms"} {
@@ -297,7 +237,7 @@ func TestSourceRevisionMismatchStopsBeforeBuildOrDKMS(t *testing.T) {
 	h.revision = strings.Repeat("f", 40)
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 	if err == nil {
 		t.Fatal("mismatched upstream revision accepted")
 	}
@@ -312,8 +252,8 @@ func TestSourceInstallRecordsMissingGitAsValidPrerequisite(t *testing.T) {
 	h.available["git"] = "system"
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
-	st := &State{Schema: StateSchema, Mode: ModeNative, ConfigPath: ConfigPath, DataDir: DataDir, BinPath: BinPath, UnitPath: UnitPath}
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard); err != nil {
+	st := &State{Schema: StateSchema, Mode: ModeDocker, ConfigPath: ConfigPath, DataDir: DataDir, BinPath: BinPath, ComposePath: ComposePth}
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, st, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if !contains(st.PackagesInstalled, "git") {
@@ -329,14 +269,14 @@ func TestCoreMissingPackagesInstallExactAvailableVersions(t *testing.T) {
 	b, _ := SelectCore("awg-2026-08")
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, st, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !contains(h.installedArgs, "amneziawg-tools=1.0.20210914-0~202608130144+ee0f0a9~ubuntu24.04.1") || !contains(h.installedArgs, "amneziawg-dkms=1.0.0-0~202608282205+3c38e16~ubuntu24.04.1") {
+	if !contains(h.installedArgs, "amneziawg-dkms=1.0.0-0~202608282205+3c38e16~ubuntu24.04.1") {
 		t.Fatalf("core not installed with exact versions: %v", h.installedArgs)
 	}
-	if !contains(st.PackagesInstalled, "amneziawg-tools") {
+	if !contains(st.PackagesInstalled, "amneziawg-dkms") || contains(st.PackagesInstalled, "amneziawg-tools") {
 		t.Fatal("new package ownership not recorded")
 	}
 }
@@ -346,13 +286,13 @@ func TestCoreAvailabilityAndVersionConflictPreventInstalls(t *testing.T) {
 		t.Run(fmt.Sprint(conflict), func(t *testing.T) {
 			h := newPackageHost()
 			if conflict {
-				h.installed["amneziawg-tools"] = "foreign-version"
+				h.installed["amneziawg-dkms"] = "foreign-version"
 			} else {
 				delete(h.available, "amneziawg-dkms")
 			}
 			b, _ := SelectCore("awg-2026-08")
 			r, _ := InspectPlatform(context.Background(), h)
-			_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+			_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 			if err == nil {
 				t.Fatal("unavailable/conflicting core accepted")
 			}
@@ -370,7 +310,7 @@ func TestCoreCheckOnlyDoesNotInstallOrLoadModule(t *testing.T) {
 	r.OS = "debian"
 	r.Version = "12"
 	r.AutomaticPackages = false
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 	if err == nil {
 		t.Fatal("missing manual prerequisites accepted")
 	}
@@ -388,7 +328,7 @@ func TestCoreReportsLoadedMismatchWithoutUnloading(t *testing.T) {
 	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
 	h.output["modinfo"] = "NEW"
 	r, _ := InspectPlatform(context.Background(), h)
-	report, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	report, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 	if err == nil || !report.RebootRequired {
 		t.Fatalf("loaded mismatch not reported: %+v %v", report, err)
 	}
@@ -404,7 +344,7 @@ func TestCoreUnknownLoadedIdentityIsNotReady(t *testing.T) {
 	h.installed["amneziawg-dkms"] = b.KernelPackage
 	h.files["/sys/module/amneziawg/version"] = memFile{data: []byte("3.1.20260812")}
 	r, _ := InspectPlatform(context.Background(), h)
-	report, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
+	report, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, &State{}, io.Discard)
 	if err == nil {
 		t.Fatalf("unknown loaded build certified: %+v", report)
 	}
@@ -416,7 +356,7 @@ func TestUbuntuRepositoryPreparationPrecedesExactCoreInstall(t *testing.T) {
 	b, _ := SelectCore("awg-2026-08")
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesAuto, false, st, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, false, st, io.Discard)
 	if err == nil {
 		t.Fatal("missing pin accepted")
 	}
@@ -436,15 +376,15 @@ func TestOtherLinuxExternalCoreChecksToolsWithoutUbuntuPackages(t *testing.T) {
 	h.installed = map[string]string{}
 	b, _ := SelectCore("recommended")
 	r := PlatformReport{OS: "debian", Version: "12", Arch: "amd64", Init: "systemd", Kernel: "6.1.0"}
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesCheck, true, &State{}, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesCheck, true, &State{}, io.Discard)
 	if err != nil {
 		t.Fatalf("manually supplied compatible tools rejected: %v", err)
 	}
 	if h.ran("apt-get") || h.ran("add-apt-repository") || h.ran("modprobe") {
 		t.Fatal("manual route mutated prerequisites")
 	}
-	h.failCmd["awg"] = fmt.Errorf("missing")
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeNative}, r, b, PrerequisitesCheck, true, &State{}, io.Discard); err == nil {
+	h.failCmd["docker"] = fmt.Errorf("missing")
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesCheck, true, &State{}, io.Discard); err == nil {
 		t.Fatal("external module bypassed required tools")
 	}
 }
@@ -480,7 +420,7 @@ func TestDockerMissingDependenciesUseUbuntuAdapter(t *testing.T) {
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
 	st := &State{}
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, st, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, true, st, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +453,7 @@ func TestDockerModeStartsInactiveSystemdDaemon(t *testing.T) {
 	h.installed["docker-compose-v2"] = "system"
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if !h.started || !h.ran("systemctl", "daemon-reload") || !h.ran("systemctl", "restart", "docker.socket") || !h.ran("systemctl", "start", "docker.service") {
@@ -527,7 +467,7 @@ func TestUbuntuPackageSetupUsesQuietInstallerRunner(t *testing.T) {
 	h.available["docker-compose-v2"] = "system"
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
-	if _, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
+	if _, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, true, &State{}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	for _, subcommand := range []string{"update", "install"} {
@@ -556,7 +496,7 @@ func TestExistingDockerGetsOnlyMissingComposeWithNoRemoval(t *testing.T) {
 	h.available["docker-compose-v2"] = "system"
 	b, _ := SelectCore("recommended")
 	r, _ := InspectPlatform(context.Background(), h)
-	_, err := EnsurePrerequisites(context.Background(), h, Plan{Mode: ModeDocker}, r, b, PrerequisitesAuto, true, &State{}, io.Discard)
+	_, err := EnsurePrerequisites(context.Background(), h, Plan{}, r, b, PrerequisitesAuto, true, &State{}, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -574,7 +514,7 @@ func TestExistingDockerGetsOnlyMissingComposeWithNoRemoval(t *testing.T) {
 
 func TestInstalledCoreReportsContainerToolsAndHostModule(t *testing.T) {
 	h := newMemHost()
-	h.files[StatePath] = memFile{data: []byte(`{"schema":1,"mode":"docker","config_path":"/etc/wg-guard/wg-guard.toml","data_dir":"/var/lib/wg-guard","compose_path":"/etc/wg-guard/compose.yaml","binary_path":"/usr/local/bin/wg-guard"}`)}
+	h.files[StatePath] = memFile{data: []byte(`{"schema":4,"mode":"docker","config_path":"/etc/wg-guard/wg-guard.toml","data_dir":"/var/lib/wg-guard","compose_path":"/opt/wg-guard/compose.yaml","binary_path":"/usr/local/bin/wg-guard"}`)}
 	h.output["docker exec wg-guard awg --version"] = "amneziawg-tools v3.1.20260812"
 	h.output["docker exec wg-guard dpkg-query -W -f=${db:Status-Status}\t${Version} amneziawg-tools"] = "installed\tcontainer-package"
 	r, err := InspectInstalledCore(context.Background(), h)

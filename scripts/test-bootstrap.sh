@@ -84,7 +84,7 @@ build_count() { if [[ -f $fixture/build-args ]]; then wc -l < "$fixture/build-ar
 python3 - "$root/install.sh" "$fixture/bootstrap" "$fixture/os-release" "$fixture/installed-wg-guard" "$fixture/install-state.json" "$fixture/manager-build.json" "$fixture/manager-bin" <<'PY'
 import pathlib,sys
 source,target,os_release,installed_bin,installed_state,manager_receipt,manager_bin=map(pathlib.Path,sys.argv[1:])
-text=source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)).replace('/var/cache/wg-guard/manager',str(manager_bin)).replace('HEARTBEAT=15.0','HEARTBEAT=0.05')
+text=source.read_text().replace('/etc/os-release',str(os_release)).replace('/usr/local/bin/wg-guard',str(installed_bin)).replace('/var/lib/wg-guard-host/install-state.json',str(installed_state)).replace('/etc/wg-guard/install-state.json',str(installed_state)).replace('/var/cache/wg-guard/manager-build.json',str(manager_receipt)).replace('/var/cache/wg-guard/manager',str(manager_bin)).replace('HEARTBEAT=15.0','HEARTBEAT=0.05')
 target.write_text(text)
 target.chmod(0o755)
 installed_bin.write_text('''#!/bin/sh
@@ -186,15 +186,19 @@ test "$(head -n 1 "$fixture/argv")" = manage || fail 'refreshed manager did not 
 setsid --wait bash "$fixture/bootstrap" --release v1 -- --lang fa </dev/null
 test "$(head -n 1 "$fixture/argv")" = manage || fail 'legacy language management entry'
 test "$(tail -n 1 "$fixture/argv")" = en || fail 'legacy language alias did not normalize to English'
-setsid --wait bash "$fixture/bootstrap" --release v1 -- --mode native </dev/null
+setsid --wait bash "$fixture/bootstrap" --release v1 -- --panel-port 8443 </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'explicit setup flags lost'
-bash "$fixture/bootstrap" --release v1 -- --yes --mode native </dev/null
+bash "$fixture/bootstrap" --release v1 -- --yes --panel-port 8443 </dev/null
 test "$(head -n 1 "$fixture/argv")" = install || fail 'install dispatch'
 test "$(sed -n '2p' "$fixture/argv")" = --build-metadata || fail 'build identity forwarding'
 test "$(sed -n '4p' "$fixture/argv")" = --yes || fail 'argument forwarding'
-test "$(tail -n 1 "$fixture/argv")" = native || fail 'argument value forwarding'
+test "$(tail -n 1 "$fixture/argv")" = 8443 || fail 'argument value forwarding'
 test -z "$(ls -A "$fixture/tmp")" || fail 'success cleanup'
 rm "$fixture/argv"
+before=$(request_count)
+if bash "$fixture/bootstrap" --release v1 -- --mode native </dev/null; then fail 'retired mode flag accepted'; fi
+test "$(request_count)" = "$before" || fail 'retired mode flag triggered acquisition'
+test ! -e "$fixture/argv" || fail 'retired mode executed installer'
 if FIXTURE_MODE=old-installer bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'old installer accepted'; fi
 test ! -e "$fixture/argv" || fail 'old installer deployment ran'
 if FIXTURE_MODE=owner-unsafe bash "$fixture/bootstrap" --release v1 --yes </dev/null; then fail 'owner-unsafe installer accepted'; fi

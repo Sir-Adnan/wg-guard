@@ -6,7 +6,7 @@ import (
 )
 
 func TestHostAuthorityIsOutsideNodeWritableMount(t *testing.T) {
-	for _, file := range []string{InstallState, LifecycleJournal, LifecycleArtifacts, HostBinary, ManagerCache, ComposeFile, HostUnit} {
+	for _, file := range []string{InstallState, LifecycleJournal, LifecycleArtifacts, HostBinary, ManagerCache, ComposeFile} {
 		if file == DataDir || path.Dir(file) == DataDir {
 			t.Fatal("host authority moved into node-writable data", file)
 		}

@@ -53,6 +53,9 @@ func runServe(args []string) error {
 		}
 		devBackend = true
 	}
+	if err := checkServerRuntime(devBackend, os.Getenv("WGG_IN_CONTAINER") == "1"); err != nil {
+		return err
+	}
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -84,6 +87,13 @@ func runServe(args []string) error {
 		return fmt.Errorf("shutdown: %w", err)
 	}
 	processLog.Info("stopped")
+	return nil
+}
+
+func checkServerRuntime(fakeBackend, inContainer bool) error {
+	if !fakeBackend && !inContainer {
+		return fmt.Errorf("serve: production is owned by the Docker deployment; use 'wg-guard install' or 'wg-guard restart'; direct development requires --backend fake")
+	}
 	return nil
 }
 

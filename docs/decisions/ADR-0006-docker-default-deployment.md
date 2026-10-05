@@ -2,6 +2,9 @@
 
 Status: accepted · Date: 2026-08-29
 
+Current-source production choice is superseded by [ADR-0015](ADR-0015-docker-only-runtime.md).
+The shipped v0.1.9 preparation build still follows this historical record.
+
 Transition note (2026-10-04): this records the currently shipped two-mode decision.
 The owner has selected [complete native production removal](../architecture/docker-only-cleanup.md)
 for Phase 17 of the [refactor program](../development/refactor-program.md). It becomes

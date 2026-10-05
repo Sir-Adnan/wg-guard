@@ -33,7 +33,6 @@ type exposureBackupManifest struct {
 var exposureBackupFiles = []struct{ path, name string }{
 	{ConfigPath, "boot-config"},
 	{ComposePth, "compose"},
-	{UnitPath, "systemd-unit"},
 	{NginxConfigPath, "nginx"},
 	{ManagedCertPath, "certificate"},
 	{ManagedKeyPath, "private-key"},
@@ -47,7 +46,6 @@ func exposureBackupDir(id string) string { return ArtifactDir + "/" + id + "/exp
 func InstalledPlan(h Host, st *State) (Plan, error) { return installedPlan(h, st) }
 
 func resolveReconfigurePlan(ctx context.Context, h Host, current, requested Plan) (Plan, error) {
-	requested.Mode = current.Mode
 	requested.Image = current.Image
 	requested.EtcDir = EtcDir
 	requested.DataDir = DataDir
@@ -216,23 +214,19 @@ func writeAccessRuntime(ctx context.Context, h Host, p Plan, st *State) error {
 	if err := atomicWrite(h, ConfigPath, boot, 0o600); err != nil {
 		return err
 	}
-	if st.Mode == ModeDocker {
-		if p.Image == "" {
-			current, readErr := h.ReadFile(ComposePth)
-			if readErr != nil {
-				return readErr
-			}
-			p.Image = imageFromCompose(string(current))
+
+	if p.Image == "" {
+		current, readErr := h.ReadFile(ComposePth)
+		if readErr != nil {
+			return readErr
 		}
-		if p.Image == "" {
-			return fmt.Errorf("installer: installed Docker image is not recorded")
-		}
-		return atomicWrite(h, ComposePth, []byte(RenderCompose(p)), 0o644)
+		p.Image = imageFromCompose(string(current))
 	}
-	if err := atomicWrite(h, UnitPath, []byte(RenderUnit(p)), 0o644); err != nil {
-		return err
+	if p.Image == "" {
+		return fmt.Errorf("installer: installed Docker image is not recorded")
 	}
-	return h.Run(ctx, []string{"systemctl", "daemon-reload"}, 30*time.Second)
+	return atomicWrite(h, ComposePth, []byte(RenderCompose(p)), 0o644)
+
 }
 
 func exposureTLSReadiness(p Plan) string {
@@ -286,9 +280,7 @@ func rollbackExposure(h Host, journal *Journal) error {
 	}
 	stopErr := stopService(ctx, h, journal.Before)
 	restoreErr := restoreExposureBackup(h, journal.ID)
-	if restoreErr == nil && journal.Before.Mode == ModeNative {
-		restoreErr = h.Run(ctx, []string{"systemctl", "daemon-reload"}, 30*time.Second)
-	}
+
 	if restoreErr == nil {
 		restoreErr = reactivateNginxForExposure(ctx, h, journal.Before, journal.After)
 	}
@@ -360,7 +352,7 @@ func ReconfigureExposure(ctx context.Context, h Host, o ReconfigureOptions) (res
 	next.Exposure = candidate.ExposureRecord()
 	next.TLSReadiness = exposureTLSReadiness(candidate)
 	next.Recovery = ""
-	journal := &Journal{Schema: 1, ID: transactionID(), Operation: "exposure", Before: &before, After: &next}
+	journal := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "exposure", Before: &before, After: &next}
 	if err := journal.save(h, "prepared"); err != nil {
 		return nil, err
 	}

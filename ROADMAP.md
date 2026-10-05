@@ -38,8 +38,8 @@ milestones, dependencies and exit evidence. Historical Phases 0–14 remain comp
 within their recorded scopes; planned refactor features are not current support.
 The [revised architecture target](docs/architecture/deployment-refactor.md) and
 [domain/TLS specification](docs/operations/domains-and-tls.md) govern that work.
-Native production removal is explicitly selected for Phase 17; it has not been
-implemented by this roadmap edit. No new release, registry upload or live-server
+Native production removal is implemented in unreleased Phase 17 source, with
+image/source checks distinct from physical acceptance. No new release, registry upload or live-server
 rebuild is implied. Detailed inventory: [Docker-only cleanup](docs/architecture/docker-only-cleanup.md).
 
 ## Phase gates
@@ -248,3 +248,8 @@ Nothing is done unless [docs/development/status.md](docs/development/status.md) 
 verified. WSL2 and containers do not count as real kernel/architecture verification. A planned or
 implemented item is not described as production verified until its relevant real-host matrix cell
 has evidence.
+
+
+Phase 17 source now has one verified Docker runtime recipe, strict new deployment state and
+separated private host authority. Exact image/fake-container CI and the physical Phase 20
+acceptance/publication gates remain distinct. See [Phase 17](docs/development/phase17.md).

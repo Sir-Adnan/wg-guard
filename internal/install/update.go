@@ -56,11 +56,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if err := ensureOperationRetention(ctx, h, st, true); err != nil {
 		return err
 	}
-	if st.Mode == ModeNative {
-		if err := requireOwnedOrAbsent(h, st, JournalRetentionPath); err != nil {
-			return err
-		}
-	}
+
 	action := operationUpdate
 	if o.Rollback {
 		action = operationRollback
@@ -76,7 +72,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	}()
 	step(out, "Update")
 	progress(out, "update_prepare")
-	j = &Journal{Schema: 1, ID: transactionID(), Operation: "update", Before: st}
+	j = &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "update", Before: st}
 	previous, err := retainCurrent(ctx, h, st)
 	if err != nil {
 		return err
@@ -130,23 +126,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	next.Version = j.Candidate.Build.Version
 	next.Recovery = ""
 	next.ExtraFiles = append([]string(nil), st.ExtraFiles...)
-	if st.Mode == ModeNative && j.Candidate.Unit != "" {
-		unit, readErr := h.ReadFile(j.Candidate.Unit)
-		if readErr != nil {
-			return readErr
-		}
-		if strings.Contains(string(unit), "LogNamespace=wg-guard") {
-			next.ExtraFiles = addUnique(next.ExtraFiles, JournalRetentionPath)
-		} else {
-			filtered := next.ExtraFiles[:0]
-			for _, file := range next.ExtraFiles {
-				if file != JournalRetentionPath {
-					filtered = append(filtered, file)
-				}
-			}
-			next.ExtraFiles = filtered
-		}
-	}
+
 	j.After = &next
 	if err = j.save(h, "prepared"); err != nil {
 		return err
@@ -156,7 +136,7 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 		_ = j.save(h, "aborted")
 		return err
 	}
-	// systemd may restart independently immediately after a binary rename.
+	// The stopped old container must not write data while deployment changes.
 	j.DataMayHaveChanged = true
 	if err = j.save(h, "swap-pending"); err != nil {
 		return err
@@ -164,6 +144,9 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	step(out, "Applying update")
 	fail := func(cause error) error {
 		return errors.Join(cause, recoverTransaction(h, j, o.Stdout), terminalError("install.error.update_failed"))
+	}
+	if err = stopService(ctx, h, st); err != nil {
+		return fail(err)
 	}
 	if err = deployArtifact(h, st, j.Candidate); err != nil {
 		return fail(err)
@@ -255,7 +238,7 @@ func removeArtifact(h Host, a *Artifact) {
 		return
 	}
 	if _, ok := h.(realHost); ok {
-		if safeHostPath(a.Binary) != nil || a.Compose != "" && safeHostPath(a.Compose) != nil || a.Unit != "" && safeHostPath(a.Unit) != nil {
+		if safeHostPath(a.Binary) != nil || a.Compose != "" && safeHostPath(a.Compose) != nil {
 			return
 		}
 	}
@@ -263,9 +246,7 @@ func removeArtifact(h Host, a *Artifact) {
 	if a.Compose != "" {
 		_ = h.Remove(a.Compose)
 	}
-	if a.Unit != "" {
-		_ = h.Remove(a.Unit)
-	}
+
 	_ = h.Remove(path.Dir(a.Binary))
 }
 func dataCompatible(a, b *Artifact) bool {
@@ -288,7 +269,6 @@ func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, re
 		if resultErr != nil {
 			_ = h.Remove(dir + "/binary")
 			_ = h.Remove(dir + "/compose.yaml")
-			_ = h.Remove(dir + "/wg-guard.service")
 			_ = h.Remove(dir)
 		}
 	}()
@@ -303,35 +283,34 @@ func retainCurrent(ctx context.Context, h Host, st *State) (result *Artifact, re
 		return nil, err
 	}
 	a.BinarySHA256 = digest
-	args := []string{BinPath}
-	if st.Mode == ModeDocker {
-		raw, err := h.Output(ctx, []string{"docker", "inspect", "--format", "{{.Image}}", Container}, 30*time.Second)
-		if err != nil {
-			return nil, err
-		}
-		a.Image = strings.TrimSpace(raw)
-		if !imageID(a.Image) {
-			return nil, terminalError("install.error.image_identity")
-		}
-		a.Compose = dir + "/compose.yaml"
-		b, err := h.ReadFile(ComposePth)
-		if err != nil {
-			return nil, err
-		}
-		b, err = composeImage(b, a.Image)
-		if err != nil {
-			return nil, err
-		}
-		if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
-			return nil, err
-		}
-		args = []string{"docker", "exec", Container, BinPath}
-	} else {
-		a.Unit = dir + "/wg-guard.service"
-		if err := h.CopyFile(UnitPath, a.Unit, 0o600); err != nil {
-			return nil, err
-		}
+	// Recover from recorded immutable assets even when the container is absent.
+	// Never start a service just to inspect its declared binary/data contract.
+	ref := st.Image
+	if st.Current != nil {
+		ref = st.Current.Image
 	}
+	raw, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Id}}", ref}, 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	a.Image = strings.TrimSpace(raw)
+	if !imageID(a.Image) {
+		return nil, terminalError("install.error.image_identity")
+	}
+	a.Compose = dir + "/compose.yaml"
+	b, err := h.ReadFile(ComposePth)
+	if err != nil {
+		return nil, err
+	}
+	b, err = composeImage(b, a.Image)
+	if err != nil {
+		return nil, err
+	}
+	if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
+		return nil, err
+	}
+	args := []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", BinPath, a.Image}
+
 	// Absent legacy contract never proves interpretation compatibility.
 	a.Contract, _ = readContract(ctx, h, args)
 	return a, nil
@@ -354,7 +333,6 @@ func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (re
 		if resultErr != nil {
 			_ = h.Remove(dir + "/binary")
 			_ = h.Remove(dir + "/compose.yaml")
-			_ = h.Remove(dir + "/wg-guard.service")
 			_ = h.Remove(dir)
 		}
 	}()
@@ -375,60 +353,49 @@ func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (re
 	if err != nil {
 		return nil, err
 	}
-	if st.Mode == ModeDocker {
-		if o.Image == "" {
-			return nil, terminalError("install.error.image_identity")
-		}
-		if !o.LocalImage {
-			if err := runQuiet(ctx, h, []string{"docker", "pull", o.Image}, longTimeout); err != nil {
-				return nil, err
-			}
-		}
-		raw, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Id}}", o.Image}, 30*time.Second)
-		if err != nil {
-			return nil, err
-		}
-		a.Image = strings.TrimSpace(raw)
-		if !imageID(a.Image) {
-			return nil, terminalError("install.error.image_identity")
-		}
-		contract, err := inspectContract(ctx, h, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", BinPath, a.Image})
-		if err != nil {
-			return nil, err
-		}
-		if contract != a.Contract {
-			return nil, terminalError("install.error.contract")
-		}
-		sum, err := h.Output(ctx, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", "sha256sum", a.Image, BinPath}, 30*time.Second)
-		if err != nil {
-			return nil, err
-		}
-		fields := strings.Fields(sum)
-		if len(fields) != 2 || fields[0] != digest || fields[1] != BinPath {
-			return nil, terminalError("install.error.shim")
-		}
-		b, err := h.ReadFile(ComposePth)
-		if err != nil {
-			return nil, err
-		}
-		b, err = composeImage(b, a.Image)
-		if err != nil {
-			return nil, err
-		}
-		a.Compose = dir + "/compose.yaml"
-		if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
-			return nil, err
-		}
-	} else {
-		plan, err := installedPlan(h, st)
-		if err != nil {
-			return nil, err
-		}
-		a.Unit = dir + "/wg-guard.service"
-		if err = atomicWrite(h, a.Unit, []byte(RenderUnit(plan)), 0o600); err != nil {
+
+	if o.Image == "" {
+		return nil, terminalError("install.error.image_identity")
+	}
+	if !o.LocalImage {
+		if err := runQuiet(ctx, h, []string{"docker", "pull", o.Image}, longTimeout); err != nil {
 			return nil, err
 		}
 	}
+	raw, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Id}}", o.Image}, 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	a.Image = strings.TrimSpace(raw)
+	if !imageID(a.Image) {
+		return nil, terminalError("install.error.image_identity")
+	}
+	contract, err := inspectContract(ctx, h, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", BinPath, a.Image})
+	if err != nil {
+		return nil, err
+	}
+	if contract != a.Contract {
+		return nil, terminalError("install.error.contract")
+	}
+	sum, err := h.Output(ctx, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", "sha256sum", a.Image, BinPath}, 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	fields := strings.Fields(sum)
+	if len(fields) != 2 || fields[0] != digest || fields[1] != BinPath {
+		return nil, terminalError("install.error.shim")
+	}
+	plan, err := installedPlan(h, st)
+	if err != nil {
+		return nil, err
+	}
+	plan.Image = a.Image
+	b := []byte(RenderCompose(plan))
+	a.Compose = dir + "/compose.yaml"
+	if err = atomicWrite(h, a.Compose, b, 0600); err != nil {
+		return nil, err
+	}
+
 	return a, nil
 }
 func imageID(s string) bool {
@@ -517,37 +484,17 @@ func deployArtifact(h Host, st *State, a *Artifact) error {
 	if err = h.CopyFile(a.Binary, BinPath, 0755); err != nil {
 		return err
 	}
-	if st.Mode == ModeDocker {
-		b, err := h.ReadFile(a.Compose)
-		if err != nil {
-			return err
-		}
-		b, err = composeImage(b, a.Image)
-		if err != nil {
-			return err
-		}
-		return atomicWrite(h, ComposePth, b, 0644)
+
+	b, err := h.ReadFile(a.Compose)
+	if err != nil {
+		return err
 	}
-	if a.Unit != "" {
-		unit, err := h.ReadFile(a.Unit)
-		if err != nil {
-			return err
-		}
-		if err := atomicWrite(h, UnitPath, unit, 0o644); err != nil {
-			return err
-		}
-		if strings.Contains(string(unit), "LogNamespace=wg-guard") {
-			if err := h.MkdirAll(JournalRetentionDir, 0o755); err != nil {
-				return err
-			}
-			if err := atomicWrite(h, JournalRetentionPath, []byte(RenderJournalRetention()), 0o644); err != nil {
-				return err
-			}
-		} else if err := h.Remove(JournalRetentionPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
+	b, err = composeImage(b, a.Image)
+	if err != nil {
+		return err
 	}
-	return nil
+	return atomicWrite(h, ComposePth, b, 0644)
+
 }
 func recoverTransaction(h Host, j *Journal, out io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -659,7 +606,7 @@ func fileDigest(ctx context.Context, h Host, p string, limit int64) (string, boo
 // data lease and creates/hashes the archive before any deployment swap.
 func createUpdateBackup(ctx context.Context, h Host, st *State, id string, previous, candidate *Artifact, out io.Writer) (*BackupIdentity, error) {
 	b, originalErr := createBackup(ctx, h, st, id)
-	if originalErr == nil || st.Mode != ModeDocker || !dataCompatible(previous, candidate) ||
+	if originalErr == nil || !dataCompatible(previous, candidate) ||
 		!previous.Contract.DataLease || !candidate.Contract.DataLease ||
 		!strings.Contains(originalErr.Error(), "master key does not decrypt existing node data") || ctx.Err() != nil {
 		return b, originalErr
@@ -697,9 +644,9 @@ func createBackup(ctx context.Context, h Host, st *State, id string) (*BackupIde
 		return nil, err
 	}
 	args := []string{BinPath}
-	if st.Mode == ModeDocker {
-		args = []string{"docker", "exec", Container, BinPath}
-	}
+
+	args = []string{"docker", "exec", Container, BinPath}
+
 	args = append(args, "backup", "create", "--reason", "pre-upgrade", "--output", dir)
 	raw, err := h.Output(ctx, args, 5*time.Minute)
 	if err != nil {
@@ -733,7 +680,7 @@ func waitHealthyRecorded(ctx context.Context, h Host, st *State, within time.Dur
 	if err != nil {
 		return err
 	}
-	p := Plan{Mode: st.Mode, DataDir: st.DataDir, TLSMode: cfg.TLS.Mode, Domain: cfg.TLS.Domain, PanelPort: portOf(cfg.HTTPListen), ACMEHTTPPort: cfg.TLS.ACMEHTTPPort}
+	p := Plan{DataDir: st.DataDir, TLSMode: cfg.TLS.Mode, Domain: cfg.TLS.Domain, PanelPort: portOf(cfg.HTTPListen), ACMEHTTPPort: cfg.TLS.ACMEHTTPPort}
 	if p.ACMEHTTPPort == 0 {
 		p.ACMEHTTPPort = 80
 	}

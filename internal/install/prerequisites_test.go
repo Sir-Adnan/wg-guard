@@ -53,12 +53,12 @@ func TestTelegramGroupIDAccepted(t *testing.T) {
 }
 
 func TestInstallPrerequisiteFailureBeforeDeploymentWrites(t *testing.T) {
-	for _, tool := range []string{"ip", "tc", "nft", "awg", "systemctl", "sysctl"} {
+	for _, tool := range []string{"ip", "nft", "iptables", "systemctl", "sysctl", "docker"} {
 		t.Run(tool, func(t *testing.T) {
 			h := newMemHost()
 			h.failCmd[tool] = fmt.Errorf("missing")
 			p := Defaults()
-			p.Mode = ModeNative
+
 			_, err := Install(context.Background(), h, InstallOptions{Plan: p, Yes: true, Stdin: strings.NewReader(""), Stdout: io.Discard})
 			if err == nil {
 				t.Error("missing prerequisite accepted")

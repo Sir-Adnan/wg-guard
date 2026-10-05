@@ -10,11 +10,11 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 
 ## Layout
 
-The [Phase 17 native cleanup](docker-only-cleanup.md) is planned, not reflected
-as completed in this current layout. Remove native deployment branching while
-retaining one lifecycle coordinator, concrete Docker execution and narrow host
-testing seams. Production native retirement does not remove the host CLI,
-kernel/DKMS, broker tasks or fake-backend developer entry point.
+Current main removes the native production lifecycle. Docker execution retains one host
+coordinator and narrow fault seams; host CLI, DKMS, broker tasks and fake development remain.
+The canonical recipe and bounded release loader are in `internal/install`; immutable image
+metadata/acquisition are in `internal/distribution`. `layout` separates deployment/configuration,
+node data and private host authority. See [Phase 17 evidence](../development/phase17.md).
 
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
@@ -85,7 +85,7 @@ internal/
                          coordinator retains host admission/lock/journal/recovery,
                          compose/systemd renderers,
                          prerequisite/core catalog, TLS readiness, lifecycle lock/journal,
-                         bounded fixed-metadata operation journal and Docker/native log policy,
+                         bounded fixed-metadata operation journal and Docker log policy,
                          update/rollback, coordinated offline restore and uninstall,
                          versioned state/artifact contract and owned systemd update path/oneshot,
                          Host seam for fault-injection/stream testing, mode-aware operational logs
@@ -115,8 +115,8 @@ migrations/              numbered SQL migrations (embedded; 0004 sub_links,
                          0005 gated interface obfuscation parameters,
                          0006 backup schedules, 0007 lossless H1–H4 ranges)
 deploy/                  reference compose for Docker mode (installer generates the tailored one)
-Dockerfile               official image: multi-stage build onto ubuntu:24.04 + exact reviewed
-                         upstream amneziawg-tools source commit + nftables
+notices.go               fixed embedded legal inventory for image packaging
+internal/install/runtime/Dockerfile  one rendered recipe; exact precompiled manager and reviewed AWG sources
 install.sh               GitHub bootstrap/update check; refreshes only the verified manager cache
                          and delegates host lifecycle to the Go binary
 scripts/                 dev helpers, immutable candidate builder and executable bootstrap fixtures

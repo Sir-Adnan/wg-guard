@@ -26,8 +26,6 @@ func init() {
 	catalogFA["install.cli.tls_arguments"] = "tls-check: آرگومانی پذیرفته نمی‌شود"
 	catalogEN["install.cli.help"] = "\nPrerequisites and certificates:\n  install     --public-ip IP --prerequisites auto|check --core BUNDLE\n  core        installed | recommended | latest-compatible | exact BUNDLE\n  tls-check   Retry certificate verification for an installed node\n"
 	catalogFA["install.cli.help"] = "\nپیش‌نیازها و گواهی‌ها:\n  install     --public-ip IP --prerequisites auto|check --core BUNDLE\n  core        installed | recommended | latest-compatible | exact BUNDLE\n  tls-check   تلاش مجدد برای تأیید گواهی گره نصب‌شده\n"
-	catalogEN["install.error.systemd"] = "install: native mode requires systemd as PID 1"
-	catalogFA["install.error.systemd"] = "نصب: حالت native به systemd با PID 1 نیاز دارد"
 	catalogEN["install.summary.certificate"] = "   2. Certificate readiness: %s (HTTP-01 needs external TCP 80).\n"
 	catalogFA["install.summary.certificate"] = "   2. آمادگی گواهی: %s (HTTP-01 به TCP 80 خارجی نیاز دارد).\n"
 	catalogEN["install.summary.core"] = "  Core requested: %s (tools %s; kernel source %s)\n  Core installed: tools %s; kernel package %s\n  Module loaded:  %s; identity %s; reboot required %t\n"
@@ -89,7 +87,6 @@ func init() {
 		"install.error.health.6":   "parse %s: %v (remove it if this host was reinstalled)",
 		"install.error.health.7":   "read boot config: %v",
 		"install.error.health.8":   "parse boot config: %v",
-		"install.error.plan.1":     "mode %q is not docker|native",
 		"install.error.plan.2":     "domain must be a bare hostname with valid DNS labels",
 		"install.error.plan.3":     "public-ip must be a unicast address outside private, shared and non-public special-use ranges; address classification does not verify reachability",
 		"install.error.plan.4":     "Telegram chat ID must be a nonzero signed integer",
@@ -154,7 +151,6 @@ func init() {
 		"install.error.health.6":   "خواندن %s: %v (اگر میزبان دوباره نصب شده است آن را حذف کنید)",
 		"install.error.health.7":   "خواندن تنظیمات راه‌اندازی: %v",
 		"install.error.health.8":   "تحلیل تنظیمات راه‌اندازی: %v",
-		"install.error.plan.1":     "حالت %q باید docker یا native باشد",
 		"install.error.plan.2":     "دامنه باید نام میزبان بدون پورت و با برچسب‌های معتبر DNS باشد",
 		"install.error.plan.3":     "public-ip باید نشانی تک‌پخشی خارج از محدوده‌های خصوصی، اشتراکی و خاص غیرعمومی باشد؛ طبقه‌بندی نشانی، دسترسی‌پذیری را تأیید نمی‌کند",
 		"install.error.plan.4":     "شناسهٔ گفت‌وگوی Telegram باید عدد صحیح علامت‌دار و غیرصفر باشد",

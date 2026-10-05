@@ -39,13 +39,13 @@ func UpdateAll(ctx context.Context, h Host, o FullUpdateOptions) error {
 	}
 	image := ""
 	localImage := false
-	if st.Mode == ModeDocker {
-		image, err = BuildRuntimeImage(ctx, h, o.Build, bundle, o.StageParent)
-		if err != nil {
-			return fmt.Errorf("update all: manager updated; Docker runtime not changed: %w", err)
-		}
-		localImage = true
+
+	image, err = PrepareRuntimeImage(ctx, h, &o.Build, bundle, o.StageParent)
+	if err != nil {
+		return fmt.Errorf("update all: manager updated; Docker runtime not changed: %w", err)
 	}
+	localImage = true
+
 	if err = Update(ctx, h, UpdateOptions{
 		Build: o.Build, BinaryPath: o.Build.BinaryPath, Image: image,
 		LocalImage: localImage, Stdout: o.Stdout,

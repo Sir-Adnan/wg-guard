@@ -89,7 +89,6 @@ func installedPlan(h Host, st *State) (Plan, error) {
 		return Plan{}, err
 	}
 	p := Defaults()
-	p.Mode = st.Mode
 	p.Image = st.Image
 	p.DataDir = st.DataDir
 	p.PublicIP = st.PublicIP
@@ -183,7 +182,7 @@ func SyncManagedCertificate(ctx context.Context, h Host, renewedLineage string) 
 	beforeState := *st
 	if journal == nil || journal.terminal() {
 		afterState := *st
-		journal = &Journal{Schema: 1, ID: transactionID(), Operation: "certificate", Before: &beforeState, After: &afterState}
+		journal = &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "certificate", Before: &beforeState, After: &afterState}
 	}
 	identity, err := certificateIdentity(st)
 	if err != nil {

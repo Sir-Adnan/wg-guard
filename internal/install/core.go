@@ -110,18 +110,12 @@ func installedPackage(ctx context.Context, h Host, name string) string {
 // InspectCore records package identity and observable module facts separately.
 // sysfs version/srcversion are NOT proof of a Git source commit.
 func InspectCore(ctx context.Context, h Host, b CoreBundle) CoreReport {
-	r := CoreReport{Requested: b, ToolsLocation: "host", ToolsPackage: installedPackage(ctx, h, "amneziawg-tools"), KernelPackage: installedPackage(ctx, h, "amneziawg-dkms")}
+	r := CoreReport{Requested: b, ToolsLocation: "container", KernelPackage: installedPackage(ctx, h, "amneziawg-dkms")}
 	if b.Source == coreSourceGitHub {
-		if sourceInstalled(h, toolsInstalledMarker(b), b.ToolsCommit) {
-			r.ToolsSource = coreSourceGitHub
-		}
 		if sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) {
 			r.KernelSource = coreSourceGitHub
 			r.KernelDKMS = b.KernelDKMSVersion
 		}
-	}
-	if raw, err := h.Output(ctx, []string{"awg", "--version"}, 10*time.Second); err == nil {
-		r.ToolsVersion = strings.TrimSpace(raw)
 	}
 	if raw, err := h.ReadFile("/sys/module/amneziawg/version"); err == nil {
 		r.ModuleLoaded = true
@@ -168,7 +162,7 @@ func packageAvailable(ctx context.Context, h Host, name, version string) bool {
 
 // EnsurePrerequisites never upgrades/downgrades an installed AWG package or
 // unloads a module. external explicitly leaves host module lifecycle to the
-// operator; native tools remain mandatory.
+// operator; Docker and the host's diagnostic/network tools remain mandatory.
 func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformReport, b CoreBundle, policy PrerequisitePolicy, external bool, st *State, out io.Writer) (CoreReport, error) {
 	r := InspectCore(ctx, h, b)
 	r.ExternalModule = external
@@ -200,35 +194,32 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		pending = append(pending, dependency{name, version})
 		return nil
 	}
-	if p.Mode == ModeNative && managedUbuntu {
+	if managedUbuntu {
+		// Host diagnostics, forwarding admission and owned network cleanup must
+		// remain available when the container cannot start. AWG tools stay inside.
 		for _, name := range []string{"iproute2", "nftables", "iptables", "procps", "ca-certificates"} {
 			if err := require(name, ""); err != nil {
 				return r, err
 			}
 		}
-		if b.Source == coreSourcePackage {
-			if err := require("amneziawg-tools", b.ToolsPackage); err != nil {
-				return r, err
-			}
+	}
+
+	if _, err := h.LookPath("docker"); err != nil {
+		if err := require("docker.io", ""); err != nil {
+			return r, err
 		}
 	}
-	if p.Mode == ModeDocker {
-		if _, err := h.LookPath("docker"); err != nil {
-			if err := require("docker.io", ""); err != nil {
-				return r, err
-			}
+	if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+		// Ubuntu's plugin recommends (does not require) docker.io. Disable
+		// recommends and removals so an existing Docker CE engine is preserved.
+		if !automatic {
+			return r, terminalError("install.error.core.6")
 		}
-		if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
-			// Ubuntu's plugin recommends (does not require) docker.io. Disable
-			// recommends and removals so an existing Docker CE engine is preserved.
-			if !automatic {
-				return r, terminalError("install.error.core.6")
-			}
-			if err := require("docker-compose-v2", ""); err != nil {
-				return r, err
-			}
+		if err := require("docker-compose-v2", ""); err != nil {
+			return r, err
 		}
 	}
+
 	if !external && managedUbuntu {
 		// The running-kernel header package alone does not follow a later
 		// generic kernel upgrade. Keep DKMS headers moving with Ubuntu's
@@ -251,7 +242,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 			}
 		}
 	}
-	if b.Source == coreSourceGitHub && managedUbuntu && (p.Mode == ModeNative || !external) {
+	if b.Source == coreSourceGitHub && managedUbuntu && !external {
 		for _, name := range []string{"git", "build-essential", "ca-certificates"} {
 			if err := require(name, ""); err != nil {
 				return r, err
@@ -270,12 +261,12 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 				needCore = true
 			}
 		}
-		if b.Source == coreSourcePackage && needCore && (!packageAvailable(ctx, h, "amneziawg-tools", b.ToolsPackage) || !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage)) {
+		if b.Source == coreSourcePackage && needCore && !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage) {
 			if err := prepareUbuntuRepository(ctx, h, st); err != nil {
 				return r, err
 			}
 		}
-		if b.Source == coreSourcePackage && needCore && (!packageAvailable(ctx, h, "amneziawg-tools", b.ToolsPackage) || !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage)) {
+		if b.Source == coreSourcePackage && needCore && !packageAvailable(ctx, h, "amneziawg-dkms", b.KernelPackage) {
 			return r, terminalError("install.error.core.8")
 		}
 	}
@@ -307,11 +298,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	if b.Source == coreSourceGitHub && automatic {
 		step(out, "AmneziaWG core")
 		progress(out, "core_source", b.ID)
-		if p.Mode == ModeNative {
-			if err := ensurePinnedTools(ctx, h, b); err != nil {
-				return r, err
-			}
-		}
+
 		if !external {
 			if err := ensurePinnedKernel(ctx, h, platform.Kernel, b); err != nil {
 				return r, err
@@ -319,46 +306,38 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 		progress(out, "core_ready", b.ID)
 	}
-	requiredTools := []string{}
-	if p.Mode == ModeNative {
-		requiredTools = []string{"systemctl", "ip", "tc", "nft", "iptables", "sysctl", "awg"}
-	}
-	if p.Mode == ModeDocker {
-		requiredTools = []string{"docker"}
-	}
+	requiredTools := []string{"docker", "systemctl", "ip", "nft", "iptables", "sysctl"}
+
 	for _, tool := range requiredTools {
 		if _, err := h.LookPath(tool); err != nil {
 			return r, terminalError("install.error.core.11", tool)
 		}
 	}
-	if p.Mode == ModeDocker {
-		if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
-			return r, terminalError("install.error.core.12")
+
+	if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+		return r, terminalError("install.error.core.12")
+	}
+	if err := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); err != nil {
+		if !automatic {
+			return r, terminalError("install.error.core.13")
 		}
-		if err := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); err != nil {
-			if !automatic {
-				return r, terminalError("install.error.core.13")
-			}
-			progress(out, "docker_start")
-			if reloadErr := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, time.Minute); reloadErr != nil {
-				return r, terminalError("install.error.core.13")
-			}
-			if socketErr := runQuiet(ctx, h, []string{"systemctl", "restart", "docker.socket"}, time.Minute); socketErr != nil {
-				return r, terminalError("install.error.core.13")
-			}
-			if startErr := runQuiet(ctx, h, []string{"systemctl", "start", "docker.service"}, time.Minute); startErr != nil {
-				return r, terminalError("install.error.core.13")
-			}
-			if retryErr := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); retryErr != nil {
-				return r, terminalError("install.error.core.13")
-			}
+		progress(out, "docker_start")
+		if reloadErr := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, time.Minute); reloadErr != nil {
+			return r, terminalError("install.error.core.13")
+		}
+		if socketErr := runQuiet(ctx, h, []string{"systemctl", "restart", "docker.socket"}, time.Minute); socketErr != nil {
+			return r, terminalError("install.error.core.13")
+		}
+		if startErr := runQuiet(ctx, h, []string{"systemctl", "start", "docker.service"}, time.Minute); startErr != nil {
+			return r, terminalError("install.error.core.13")
+		}
+		if retryErr := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); retryErr != nil {
+			return r, terminalError("install.error.core.13")
 		}
 	}
+
 	r = InspectCore(ctx, h, b)
 	r.ExternalModule = external
-	if p.Mode == ModeNative && (b.Source == coreSourcePackage && managedUbuntu && r.ToolsPackage != b.ToolsPackage || b.Source == coreSourceGitHub && managedUbuntu && r.ToolsSource != coreSourceGitHub || !strings.Contains(r.ToolsVersion, b.ToolsVersion)) {
-		return r, terminalError("install.error.core.14")
-	}
 	if external {
 		return r, nil
 	}

@@ -65,9 +65,6 @@ func TestResolveValidation(t *testing.T) {
 		{"domain with port", func(p *Plan) {
 			p.Domain = "x.example.com:443"
 		}, "bare hostname"},
-		{"bad mode", func(p *Plan) {
-			p.Mode = "kubernetes"
-		}, "mode"},
 		{"bad panel port", func(p *Plan) {
 			p.PanelPort = 0
 		}, "panel port"},
@@ -127,31 +124,6 @@ func TestRenderComposeShape(t *testing.T) {
 	} {
 		if !strings.Contains(c, want) {
 			t.Errorf("compose missing %q\n%s", want, c)
-		}
-	}
-}
-
-func TestRenderUnitHardening(t *testing.T) {
-	p := Defaults()
-	p.TLSMode = config.TLSModeManual
-	p.CertFile, p.KeyFile = "/x/c.pem", "/x/k.pem"
-	res, err := p.Resolve()
-	if err != nil {
-		t.Fatal(err)
-	}
-	u := RenderUnit(res)
-	for _, want := range []string{
-		"ExecStart=/usr/local/bin/wg-guard serve -config /etc/wg-guard/wg-guard.toml",
-		"CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE",
-		"NoNewPrivileges=true",
-		"ProtectSystem=strict",
-		"ReadWritePaths=/var/lib/wg-guard /proc/sys/net/ipv4/ip_forward",
-		"MemoryDenyWriteExecute=true",
-		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK",
-		"LogNamespace=wg-guard",
-	} {
-		if !strings.Contains(u, want) {
-			t.Errorf("unit missing %q\n%s", want, u)
 		}
 	}
 }
@@ -250,7 +222,7 @@ func TestInstallDockerHappyPath(t *testing.T) {
 	h := newMemHost()
 	port := healthServer(t, http.StatusOK)
 	p := Defaults()
-	p.Mode = ModeDocker
+
 	p.TLSMode = config.TLSModeProxy // legacy input resolves to private loopback dev mode
 	p.PanelPort = port
 
@@ -311,7 +283,7 @@ func TestFreshInstallAcceptsBootstrapCopyWhileRunningIndependentManager(t *testi
 	digest := sha256.Sum256([]byte("verified manager"))
 	h := managerSelfHost{base}
 	p := Defaults()
-	p.Mode = ModeDocker
+
 	p.TLSMode = config.TLSModeProxy
 	p.PanelPort = healthServer(t, http.StatusOK)
 	b := distribution.Build{
@@ -321,53 +293,6 @@ func TestFreshInstallAcceptsBootstrapCopyWhileRunningIndependentManager(t *testi
 
 	if _, err := Install(context.Background(), h, InstallOptions{Plan: p, Build: b, Yes: true, Version: b.Version, Stdout: io.Discard}); err != nil {
 		t.Fatalf("fresh install from independent manager: %v", err)
-	}
-}
-
-// TestInstallNativeHappyPath checks the binary copy + unit + enable/start.
-func TestInstallNativeHappyPath(t *testing.T) {
-	h := newMemHost()
-	// The running binary (SelfExe) must exist for the copy.
-	h.files["/src/wg-guard"] = memFile{data: []byte("/src/wg-guard"), perm: 0o755}
-	port := healthServer(t, http.StatusOK)
-	p := Defaults()
-	p.Mode = ModeNative
-	p.TLSMode = config.TLSModeProxy
-	p.PanelPort = port
-
-	st, err := Install(context.Background(), h, InstallOptions{
-		Plan: p, Yes: true, Version: "test", Stdin: strings.NewReader(""),
-		Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
-	})
-	if err != nil {
-		t.Fatalf("install: %v", err)
-	}
-	if st.BinPath != BinPath || st.UnitPath != UnitPath {
-		t.Fatalf("state = %+v", st)
-	}
-	if _, ok := h.files[UnitPath]; !ok {
-		t.Error("unit not written")
-	}
-	if _, ok := h.files[BinPath]; !ok {
-		t.Error("binary not copied")
-	}
-	if file, ok := h.files[JournalRetentionPath]; !ok {
-		t.Error("journal retention policy not written")
-	} else if file.perm != 0o644 || string(file.data) != RenderJournalRetention() {
-		t.Fatalf("journal retention policy = %o %q", file.perm, file.data)
-	}
-	if !contains(st.ExtraFiles, JournalRetentionPath) || !contains(st.ExtraFiles, OperationRetentionPath) {
-		t.Fatalf("retention policies are not installer-owned: %v", st.ExtraFiles)
-	}
-	assertUpdateBrokerInstalled(t, h)
-	for _, want := range [][]string{
-		{"systemctl", "daemon-reload"},
-		{"systemctl", "try-restart", "systemd-journald@wg-guard.service"},
-		{"systemctl", "enable", "--now", "wg-guard"},
-	} {
-		if !h.ran(want...) {
-			t.Errorf("command not run: %v", want)
-		}
 	}
 }
 
@@ -388,21 +313,6 @@ func assertUpdateBrokerInstalled(t *testing.T, h *memHost) {
 	}
 }
 
-func TestRenderJournalRetentionIsScopedAndBounded(t *testing.T) {
-	got := RenderJournalRetention()
-	for _, want := range []string{
-		"[Journal]", "MaxRetentionSec=7day", "MaxFileSec=1day",
-		"SystemMaxUse=128M", "RuntimeMaxUse=64M",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("retention policy missing %q:\n%s", want, got)
-		}
-	}
-	if strings.Contains(got, "Storage=") || strings.Contains(got, "ForwardTo") {
-		t.Fatalf("retention policy changes unrelated journal behavior:\n%s", got)
-	}
-}
-
 func TestRenderOperationRetentionUsesDailyMTimeCleanup(t *testing.T) {
 	want := "d /var/lib/wg-guard/operations 0700 root root m:7d -\n"
 	if got := RenderOperationRetention(); got != want {
@@ -420,7 +330,7 @@ func TestInstallRefusesExistingAndBusyPort(t *testing.T) {
 	_, err := Install(context.Background(), h, InstallOptions{
 		Plan: Defaults(), Yes: true, Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
 	})
-	if err == nil || !strings.Contains(err.Error(), "already installed") {
+	if err == nil || !strings.Contains(err.Error(), "legacy deployment") {
 		t.Fatalf("existing install: want refusal, got %v", err)
 	}
 
@@ -576,70 +486,6 @@ func TestUpdateDockerRollbackOnUnhealthy(t *testing.T) {
 	}
 }
 
-// TestUpdateNativeRollback: a failing health check restores the previous
-// binary.
-func TestUpdateNativeRollback(t *testing.T) {
-	h := newMemHost()
-	h.files["/src/wg-guard"] = memFile{data: []byte("/src/wg-guard"), perm: 0o755}
-	port := healthServer(t, http.StatusOK)
-	p := Defaults()
-	p.Mode = ModeNative
-	p.TLSMode = config.TLSModeProxy
-	p.PanelPort = port
-	if _, err := Install(context.Background(), h, InstallOptions{
-		Plan: p, Yes: true, Version: "test", Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	// Stage a "new" binary and break the health endpoint (closed port).
-	if err := h.WriteFile("/tmp/new-wg-guard", []byte("new-binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	closed, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	closedPort := closed.Addr().(*net.TCPAddr).Port
-	closed.Close()
-	badCfg := strings.Replace(string(h.files[ConfigPath].data), fmt.Sprint(port), fmt.Sprint(closedPort), 1)
-	if err := h.WriteFile(ConfigPath, []byte(badCfg), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	err = Update(context.Background(), h, UpdateOptions{
-		BinaryPath: "/tmp/new-wg-guard", SkipBackup: true, Stdout: &strings.Builder{},
-	})
-	if err == nil || !strings.Contains(err.Error(), "rolled back") {
-		t.Fatalf("update: want rollback, got %v", err)
-	}
-	if string(h.files[BinPath].data) != "/src/wg-guard" {
-		t.Errorf("binary not restored: %q", h.files[BinPath].data)
-	}
-	if !h.ran("systemctl", "restart", "wg-guard") {
-		t.Error("service not restarted")
-	}
-}
-
-// TestUpdateNativeRequiresBinary.
-func TestUpdateNativeRequiresBinary(t *testing.T) {
-	h := newMemHost()
-	h.files["/src/wg-guard"] = memFile{data: []byte("/src/wg-guard"), perm: 0o755}
-	port := healthServer(t, http.StatusOK)
-	p := Defaults()
-	p.Mode = ModeNative
-	p.TLSMode = config.TLSModeProxy
-	p.PanelPort = port
-	if _, err := Install(context.Background(), h, InstallOptions{
-		Plan: p, Yes: true, Version: "test", Stdout: &strings.Builder{}, Stderr: &strings.Builder{},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	err := Update(context.Background(), h, UpdateOptions{Stdout: &strings.Builder{}})
-	if err == nil || !strings.Contains(err.Error(), "--binary") {
-		t.Fatalf("want --binary requirement, got %v", err)
-	}
-}
-
 // TestPromptWizardRecommendedPath keeps the normal install to three concise
 // decisions: optional domain, recommended-setup gate, and final confirmation.
 func TestPromptWizardRecommendedPath(t *testing.T) {
@@ -651,7 +497,7 @@ func TestPromptWizardRecommendedPath(t *testing.T) {
 			"\n"), // install: yes
 		&out, false)
 	p := Defaults()
-	p.Mode = ""
+
 	if err := q.plan(&p, h); err != nil {
 		t.Fatal(err)
 	}
@@ -663,7 +509,7 @@ func TestPromptWizardRecommendedPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	if res.TLSMode != config.TLSModeACME || res.Domain != "vpn.example.com" ||
-		res.PanelPort != 443 || res.Mode != ModeDocker {
+		res.PanelPort != 443 {
 		t.Fatalf("resolved plan: %+v", res)
 	}
 	if res.PortMin != 0 || res.MTU != 0 || res.TelegramToken != "" {
@@ -682,14 +528,14 @@ func TestPromptWizardRecommendedPath(t *testing.T) {
 func TestPromptWizardBlankPathUsesSafeRecommendedDefaults(t *testing.T) {
 	q := newPrompt(strings.NewReader("\n\n\n"), &strings.Builder{}, false)
 	p := Defaults()
-	p.Mode = ""
+
 	if err := q.plan(&p, newMemHost()); err != nil {
 		t.Fatal(err)
 	}
 	if err := q.confirm(p); err != nil {
 		t.Fatal(err)
 	}
-	if p.Mode != ModeDocker || p.TLSMode != config.TLSModeDev || p.Domain != "" {
+	if p.TLSMode != config.TLSModeDev || p.Domain != "" {
 		t.Fatalf("blank path defaults = %+v", p)
 	}
 }
@@ -704,7 +550,6 @@ func TestPromptWizardCustomSettings(t *testing.T) {
 	q := newPrompt(strings.NewReader(
 		"vpn.example.com\n"+ // domain
 			"n\n"+ // use recommended setup: no (open advanced)
-			"1\n"+ // mode: docker
 			"1\n"+ // keep detected direct HTTPS
 			"\n"+ // panel port
 			"\n"+ // acme port
@@ -723,7 +568,7 @@ func TestPromptWizardCustomSettings(t *testing.T) {
 			"yes\n"), // confirm
 		&out, false)
 	p := Defaults()
-	p.Mode = ""
+
 	if err := q.plan(&p, h); err != nil {
 		t.Fatal(err)
 	}
@@ -748,7 +593,6 @@ func TestPromptWizardEmptyTokenSkips(t *testing.T) {
 	q := newPrompt(strings.NewReader(
 		"vpn.example.com\n"+ // domain
 			"n\n"+ // use recommended setup: no (open advanced)
-			"1\n"+ // mode
 			"1\n"+ // keep detected direct HTTPS
 			"\n"+ // panel port
 			"\n"+ // acme port
@@ -760,7 +604,7 @@ func TestPromptWizardEmptyTokenSkips(t *testing.T) {
 			"yes\n"), // confirm
 		&strings.Builder{}, false)
 	p := Defaults()
-	p.Mode = ""
+
 	if err := q.plan(&p, h); err != nil {
 		t.Fatal(err)
 	}
@@ -909,7 +753,7 @@ func TestInstallSeedsSettings(t *testing.T) {
 	h := newMemHost()
 	port := healthServer(t, http.StatusOK)
 	p := Defaults()
-	p.Mode = ModeDocker
+
 	p.TLSMode = config.TLSModeProxy
 	p.PanelPort = port
 	p.Domain = "vpn.example.com"
@@ -950,7 +794,7 @@ func TestInstallSeedsSettings(t *testing.T) {
 		return -1
 	}
 	if seed, up := find([]string{BinPath, "settings", "set", "node.endpoint", "vpn.example.com"}),
-		find([]string{"docker", "compose", "-f", ComposePth, "up", "-d"}); seed < 0 || up < 0 || seed > up {
+		find([]string{"docker", "compose", "-f", ComposePth, "up", "-d", "--pull", "never"}); seed < 0 || up < 0 || seed > up {
 		t.Fatalf("seeding must precede compose up (seed %d, up %d)", seed, up)
 	}
 
@@ -975,7 +819,7 @@ func TestInstallSeedFailureAborts(t *testing.T) {
 	h := newMemHost()
 	port := healthServer(t, http.StatusOK)
 	p := Defaults()
-	p.Mode = ModeDocker
+
 	p.TLSMode = config.TLSModeProxy
 	p.PanelPort = port
 	p.Domain = "vpn.example.com"

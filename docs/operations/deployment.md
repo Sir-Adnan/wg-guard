@@ -1,75 +1,70 @@
 # Deployment
 
-**Docker is the default installation method** (clean, declarative, easily managed); a native
-systemd mode is fully supported for administrators who prefer it. Both modes share identical
-data paths, so backups and mode-switching are layout-independent.
+Current `main` implements the Docker-only deployment contract. **Latest stable v0.1.9 is the
+preparation release and still uses the previous deployment/layout.** The new source is unreleased;
+the Phase 17 source/image checks and Phase 20 real-host gates are separate. Existing installations
+must export and independently verify their backup using the original manager, then use the
+approved fresh-install/restore route. This is not an in-place layout converter.
 
-The [Phases 15–20 refactor](../development/refactor-program.md) is planned and
-does not change this current Docker/native contract. It prioritizes backup/
-readiness/scheduling safety before packaging changes and integrated domain/TLS UI.
-For a separate subscription hostname, see [domains and TLS](domains-and-tls.md):
-Nginx is an option, not an inherent requirement, and the current URL setting alone
-does not configure its certificate or endpoint.
+## Docker production runtime
 
-Complete native production removal is an explicitly selected Phase 17 deliverable.
-Its [cleanup scope](../architecture/docker-only-cleanup.md) removes the alternative
-server lifecycle, not host CLI/kernel/systemd infrastructure. Current native
-instructions below continue to describe shipped behavior until that implementation.
+- One reviewed recipe: [`internal/install/runtime/Dockerfile`](../../internal/install/runtime/Dockerfile),
+  embedded/rendered by the manager. CI and source builds consume the exact precompiled manager;
+  they do not independently recompile a different panel into the image.
+- New-format releases provide a checksummed compressed Docker image archive and
+  `runtime-metadata.json`; no registry is required. The manifest binds the image config digest,
+  archive bytes, binary hash/commit, reviewed tools/userspace/kernel inventory, deployment/data/
+  maintenance contracts, notices and Go-module SBOM. Missing or inconsistent image assets fail
+  closed. Explicit development commits use the same recipe in a private build context.
+- The image uses host networking and only `NET_ADMIN`/`NET_BIND_SERVICE` after dropping other
+  capabilities. Root is read-only, with temporary `/run` (32 MiB) and `/tmp` (64 MiB). Boot config
+  and approved TLS material are individual read-only mounts; node data is the one writable host
+  mount. There is no privileged container, Docker socket, module-loading capability or silent
+  userspace fallback. Host networking is not full host-network isolation.
+- Large archive staging uses the node-data disk. Telegram multipart bodies use a private
+  `backup-delivery/` directory there and retain the existing upload limit; they do not compete
+  with AWG's small `/tmp`. Independent `backup verify` is normally a host command with private
+  disk staging; an explicit container invocation must provide adequate temporary disk space.
+- No arbitrary CPU/memory limit is guessed. Exact host resource budgets and kernel/userspace
+  traffic under the new hardening profile remain Phase 20 acceptance gates.
+- The host owns kernel/DKMS, headers, module load/persistence, diagnostic/network utilities,
+  certificate/proxy tasks, the narrow update broker, acquisition and recovery. AWG tools and
+  the explicit userspace daemon live in the image; native WG-Guard server execution is removed.
+- Deployments pin immutable local image IDs and use `pull_policy: never`. Acquisition/verification
+  occurs before stopping an existing service; backup, stop, deploy, readiness/TLS proof and state
+  commit share one coordinator. Retained images can be inspected without a running container.
 
-## Docker mode (default)
+## Host paths and configuration
 
-- **Verified local runtime image**: the installer builds an Ubuntu 24.04 amd64 image from the
-  selected verified binary and exact-source AmneziaWG tools/userspace components.
-  No public registry image is required or published. The repository
-  [Dockerfile](../../Dockerfile) builds the runtime composition verified in the v0.1.0
-  host gate; v0.1.3 does not change its tunnel data-plane behavior. An operator may supply
-  an explicitly checked local image via `--image`.
-- **Run profile**: `network_mode: host`, `CAP_NET_ADMIN`, `restart: unless-stopped`, volumes
-  `/etc/wg-guard` (boot config, TLS material) and `/var/lib/wg-guard` (DB, master key, backups,
-  ACME cache). The generated compose file adds a TLS-mode-aware healthcheck.
-- **Host layout**: no `/opt` application directory is needed. Docker owns immutable image layers
-  in its configured engine data root (commonly `/var/lib/docker`, but operator-configurable).
-  WG-Guard's stable host artifacts are `/etc/wg-guard/compose.yaml`, `/etc/wg-guard`,
-  `/var/lib/wg-guard`, `/usr/local/bin/wg-guard`, and the verified manager under
-  `/var/cache/wg-guard`.
-- **Why this split**: the AmneziaWG kernel module and forwarding run on the **host** — the VPN
-  data plane never traverses the container, so Docker adds zero hot-path overhead. The panel and
-  AWG tooling run in the container with host networking (interfaces appear on the host; nftables
-  and the iptables-nft compatibility CLI edit host policy through the shared netns). Rejected alternatives (host agent process;
-  privileged module-loading container) are recorded in [ADR-0006](../decisions/ADR-0006-docker-default-deployment.md).
-- **Host `wg-guard` shim**: the same binary, mode-aware — panel/data commands exec into the
-  container; `manage`, `install`, `update`, `uninstall`, `restart`, `owner-bootstrap`, `core`,
-  `status`, `doctor`, `version` run on the host;
-  `serve` is refused with compose hints. The host-owned `doctor` delegates only AWG tool/interface
-  inspection to the running container; system and network-policy checks stay on the host. Its
-  explicit `--fix` uses the managed Docker restart so container startup performs canonical
-  reconciliation before the host verifies the result. Every CLI command is identical in both modes.
-- **Kernel module**: the installer writes `/etc/modules-load.d/wg-guard.conf` (boot
-  persistence). On supported Ubuntu it checks out the exact catalogued upstream kernel tag and
-  commit, registers versioned DKMS source, installs matching running-kernel headers when needed,
-  loads the module, and can rebuild only that recorded identity. It never unloads active tunnels.
+| Path | Responsibility | Container access |
+|---|---|---|
+| `/opt/wg-guard/compose.yaml` | Generated deployment manifest | none |
+| `/etc/wg-guard/wg-guard.toml` | Boot paths, listener and TLS | one read-only file |
+| `/etc/wg-guard/tls/` | Managed TLS material | approved read-only files |
+| `/var/lib/wg-guard/` | DB/key, backups, archive/delivery staging, ACME | node data only |
+| `/var/lib/wg-guard-host/` | Private installed state, journal and retained artifacts | none |
+| `/var/cache/wg-guard/` | Independent manager and acquisition cache | none |
+| `/var/log/wg-guard/` | Private bounded installer logs | none |
+| `/usr/local/bin/wg-guard` | Active verified host command | none |
 
-`internal/install.BuildRuntimeImage` can build a local Ubuntu 24.04 runtime image directly from
-a checksum-verified acquired panel binary plus the exact catalogued tools source, `iproute2`,
-`nftables`, `iptables`, `procps` (`sysctl`), CA roots and curl. It executes no candidate installer and returns
-only an immutable Docker image ID. Its private build context is removed after success/failure;
-the caller's staging parent is preserved. Acquisition-to-lifecycle plumbing and recording that
-ID as the active/previous artifact are implemented by the shared lifecycle engine. No official
-public image publication is implied.
+This is a service-oriented split, not the full FHS `/opt` package family. Strict `/opt` packages
+use `/etc/opt` and `/var/opt` ([FHS](https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch03s13.html)).
+WG-Guard retains the established configuration/node-data paths and separates mutable host
+authority from them. Renaming data paths alone provides no measured performance benefit.
 
-Private mode uses the config's loopback-only `dev` transport because no reverse proxy terminates
-TLS; this permits its session cookie over the documented local SSH tunnel. Managed Nginx and
-operator-proxy modes use `proxy` transport and keep `Secure` cookies because the browser-facing
-connection is HTTPS.
+There is deliberately no required `.env`. TOML owns boot configuration, SQLite owns runtime
+settings, and the generated Compose manifest owns immutable deployment identity. Existing
+`WGG_*` environment overrides remain available; the program does not auto-read `.env` files.
+Compose `.env` interpolation is a separate feature and does not automatically populate container
+environment ([Docker](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/)).
+Do not duplicate one setting across these stores or put private keys/passwords in a deployment
+environment file. A future operator-managed Compose workflow can use a small non-secret env file
+only when it has a concrete purpose; the managed workflow needs none.
 
-## Native mode (secondary, fully supported)
-
-Same binary as a hardened systemd service (`NoNewPrivileges`, `ProtectSystem=strict`,
-`PrivateTmp`, ambient `NET_ADMIN`), same `/etc/wg-guard` + `/var/lib/wg-guard` layout.
-The unit starts after Docker when that service is also part of boot, without requiring Docker
-for native operation. Runtime policy checks restore an owned forwarding path if Docker later
-rebuilds its chains.
-Spec compliance: Docker is never *required*.
+The host CLI routes data commands into Docker; lifecycle/status/logs/doctor and independent archive
+verification stay on the host. Direct `serve` with a real backend is refused outside the runtime;
+`--backend fake` remains development-only. Ubuntu 24.04 amd64 remains the verified historical
+target; new-layout host/client certification is still pending, not inferred from image tests.
 
 ## Interactive installer
 
@@ -82,7 +77,7 @@ uses flags and defaults; legacy explicit `--tls` remains compatible but cannot c
 new `--exposure`/`--certificate` choices.
 
 1. Optional domain and a conservative access recommendation based on actual 80/443 ownership.
-2. *Optional advanced settings* — Docker/native mode, certificate strategy, panel/public/challenge
+2. *Optional advanced settings* — certificate strategy, panel/public/challenge
    ports and **VPN network defaults** (Enter keeps the recommendation):
    AWG listen-port allocation range (`network.port_min/port_max`), the VPN pool offered to
    the first interface (`network.default_pool`), client MTU (`network.mtu`), client DNS
@@ -90,7 +85,7 @@ new `--exposure`/`--certificate` choices.
 3. *Optional* — **Telegram backups** (skipping leaves the panel defaults): bot token
    (input is hidden on terminals and travels via stdin — never argv, logs or state),
    chat ID, and a daily UTC backup time that creates an enabled `installer-daily` schedule.
-4. Container image (Docker mode) and a final plan confirmation.
+4. Optional explicitly verified container image and a final plan confirmation.
 5. Create the first local owner before starting the public listener. Username defaults to `admin`;
    a blank hidden password generates a 24-character value shown once after final success, while
    invalid/mismatched manual input is retried. Reuse an existing owner without changing its
@@ -151,7 +146,7 @@ the owner or expose public HTTP as a fallback.
 
 Managed Certbot material is copied to `/etc/wg-guard/tls` (certificate 0644, key 0600). A fixed
 0700 deploy hook accepts only the recorded deterministic lineage, refreshes both files under the
-lifecycle lock, reloads Nginx or restarts the correct Docker/native service, then proves health and
+lifecycle lock, reloads Nginx or restarts the Docker service, then proves health and
 certificate identity. `wg-guard exposure status`/`doctor` report SAN, issuer class, expiry, timer,
 hook, credential permissions, Nginx drift and listener drift without printing secrets.
 
@@ -199,14 +194,10 @@ operator's decision, ideally not on a public listener.
 
 ### Operational logs
 
-`wg-guard logs` is always a host command. Validated install state selects `docker logs` for the
-owned container or `journalctl --namespace=wg-guard -u wg-guard.service` for native mode. It
-defaults to the latest 200 records from 24 hours, caps tail at 10,000 and since at seven days, and
-supports cancellable follow plus a closed structured-component filter. The filter processes only
-complete lines with a 64 KiB per-line bound and never places the filter value in subprocess argv.
-Docker container stdout and stderr are merged into this one redirectable log stream because the
-application logger writes structured records to stderr; native journal records already arrive on
-stdout. Source command failures still return a nonzero CLI status.
+`wg-guard logs` is host-owned and selects Docker logs from validated state. It defaults to
+200 records over 24 hours, caps tail at 10,000 and since at seven days, and supports cancellable
+follow and a bounded structured-component filter. Container stdout/stderr are merged into one
+redirectable stream; command failures remain nonzero.
 `--source operations` instead reads the fixed, private lifecycle journal without requiring install
 state. `--source installer` reads the current and rotated root-private host command log without
 install state and can follow new lines by name through rotation. Follow applies to service and
@@ -215,12 +206,7 @@ log endpoint.
 
 Docker Compose selects the efficient `local` driver with compression, `max-size=16m` and
 `max-file=8`. This hard-bounds the owned container near 128 MiB, but Docker has no age option: the
-seven-day CLI query horizon is not a claim of exact physical age deletion. Native service output
-uses `LogNamespace=wg-guard`; the installer-owned
-`/etc/systemd/journald@wg-guard.conf.d/retention.conf` sets `MaxRetentionSec=7day`,
-`MaxFileSec=1day`, `SystemMaxUse=128M` and `RuntimeMaxUse=64M` without changing global journald
-policy. Install/update reload the namespace; rollback restores the previous unit/policy and
-uninstall removes the owned drop-in.
+seven-day CLI query horizon is not a claim of exact physical age deletion.
 
 Lifecycle work outside the service manager writes only fixed action/outcome/mode metadata through
 the same redaction boundary under `/var/lib/wg-guard/operations`. At most seven UTC daily JSONL
@@ -266,7 +252,7 @@ The authenticated Web Panel exposes the same stable panel and reviewed core tran
 installer-owned `wg-guard-update.path` starts a root oneshot that revalidates the catalog identity
 and invokes only bounded existing lifecycle arguments. The container receives no Docker socket,
 systemd control or general host agent. One request may be active, the oneshot is time-bounded, and
-public status persists only a safe outcome code. Fresh Docker/native installs enable the bridge;
+public status persists only a safe outcome code. Fresh Docker installs enable the bridge;
 `sudo wg-guard update-broker-install` repairs it for an existing installation. Uninstall disables
 and removes only recognized WG-Guard-owned bridge artifacts.
 
@@ -292,7 +278,7 @@ wg-guard core installed
 wg-guard core recommended
 wg-guard core latest-compatible
 wg-guard core exact awg-2026-09
-wg-guard install --mode native --yes --public-ip PUBLIC_IP --prerequisites auto --core recommended
+wg-guard install --yes --public-ip PUBLIC_IP --prerequisites auto --core recommended
 ```
 
 Replace `PUBLIC_IP` with the server's real public address; documentation-only addresses are rejected.
@@ -302,7 +288,7 @@ messages retain fa/en catalog parity.
 Preflight requires Ubuntu 24.04 or newer on amd64/x86_64 and inspects the running kernel, init,
 endpoint and TCP ports before package/deployment writes. Other distributions, older Ubuntu and
 other architectures stop before acquisition or deployment. Ubuntu 24.04 is the verified target.
-Native mode needs `ip`, `tc`, `nft`, `iptables`, `sysctl`, matching `awg` and systemd. Docker mode checks the
+The host needs systemd, `ip`, `nft`, `iptables` and `sysctl`, plus the Docker
 engine, Compose and daemon while keeping host module management separate. A missing engine uses
 Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendations and removals
 disabled, preserving an existing Docker CE engine. An inactive supported systemd daemon/socket is
@@ -316,8 +302,7 @@ interface mutations refresh both layers before readiness is healthy; `doctor` re
 or partial path. Uninstall removes only the owned table, jump and child chain.
 
 The recommended `awg-2026-09` bundle does not depend on PPA retention. It clones only the exact
-catalogued official tools/kernel tags, verifies both full commits and clean trees, builds the
-native `awg` tool/runtime layer, and registers `amneziawg/1.0.0-wgguard.20260906` with DKMS.
+catalogued official kernel tag, verifies its full commit and clean tree, and registers `amneziawg/1.0.0-wgguard.20260906` with DKMS.
 Versioned source and a bounded installer-owned cache make retry deterministic. The package-backed
 `awg-2026-08` identity remains for legacy installed-state/update compatibility and fails closed if
 its historical exact packages are unavailable; it is not the recommended fresh-install path.
@@ -332,9 +317,9 @@ ownership into the next attempt so later `--purge-packages` remains complete. Ex
 purge stops installer-owned Docker service/socket before removing Docker and source-core assets.
 
 `--prerequisites check` requires operator-provisioned prerequisites and makes no package/module
-mutations. Native tools must report the catalogued version, and managed modules need observable
+mutations. Container tools must match their reviewed image provenance; managed modules need observable
 matching loaded/disk build identity. `--skip-module` explicitly delegates host module lifecycle
-to the operator, but still checks required native AWG tools. It does not silently select
+to the operator, while still requiring Docker and host diagnostic/network tools. It does not silently select
 userspace. A normal managed-core installation fails if the module is absent, different from disk,
 or its loaded build identity cannot be established.
 
@@ -345,8 +330,7 @@ fail closed for enabled tunnels until it is disabled. Docker's scoped forwarding
 and test-backed UFW-managed routes are the supported coexistence paths. Root is required. Kernel mode needs
 DKMS build prerequisites (`build-essential`, matching kernel
 headers). Explicit userspace profiles now have a service-owned daemon lifecycle: the Docker
-image carries the reviewed daemon and maps `/dev/net/tun`; native nodes need that exact daemon
-installed from a clean pinned Git checkout, with Go VCS build metadata, and a usable TUN device.
+image carries the reviewed daemon and maps `/dev/net/tun`, with embedded Go VCS build provenance.
 The daemon's stale `--version` text is not proof of the source revision. New profiles fail before persistence when those
-prerequisites are absent. The kernel remains the installed default; Docker and native managed
-userspace client traffic passed on Ubuntu 24.04 ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).
+prerequisites are absent. The kernel remains the installed default; historical Docker/kernel and userspace
+client traffic passed on Ubuntu 24.04; the new profile needs its own host gate ([ADR-0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md)).

@@ -2,7 +2,7 @@
   <a href="https://github.com/Sir-Adnan/wg-guard"><img src="docs/assets/readme-hero.svg" width="100%" alt="WG-Guard — one node, clear control"></a>
   <h1>WG-Guard</h1>
   <p><strong>A considered control panel for your AmneziaWG node.</strong></p>
-  <p>One Go binary · SQLite · Server-rendered UI · Docker or native · REST API</p>
+  <p>One Go binary · SQLite · Server-rendered UI · Docker runtime · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
     <img alt="Release v0.1.9" src="https://img.shields.io/badge/release-v0.1.9-2563eb">
@@ -27,10 +27,14 @@ recovery without turning the server into a large application stack.
 | 🧹 | **Reviewed maintenance** — combined account/history cleanup with status, owner and date filters, impact previews, and database space maintenance |
 | 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, ten optional visual presets, desktop and mobile |
 
+> Current `main` implements an unreleased Docker-only refactor. Latest stable **v0.1.9** is the
+> preparation release; keep its original manager for existing-node export. New-layout deployment
+> and real-host acceptance are tracked in [Phase 17](docs/development/phase17.md).
+
 ### Install
 
 **Production-verified target:** Ubuntu 24.04 LTS on amd64, with root or sudo access and a
-reachable VPN endpoint. Docker is the recommended mode; native systemd is also verified.
+reachable VPN endpoint. Historical releases are certified on this target; the new Docker-only source needs its own host acceptance.
 The installer checks and can provision its catalogued prerequisites. Keep access to the
 server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 
@@ -40,13 +44,13 @@ bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-g
 
 This fetches the current entry script and installs the **latest published stable release**;
 it does not install the development `main` build. The English-language setup guides you
-through Docker or native deployment, administrator account, and HTTPS or private access.
+through Docker runtime deployment, administrator account, and HTTPS or private access.
 It verifies the release asset before installing. The manager survives an interrupted setup,
 so a retry can start from `sudo wg-guard`.
 
 | Your goal | Use |
 |---|---|
-| **Latest stable, guided** | Run the command above; choose Docker (recommended) or native in the menu. |
+| **Latest stable, guided** | Run the command above; use the Docker workflow. |
 | **Inspect before running** | Download and read the script with the commands below, then run it locally. |
 | **Exact release or development commit** | Select a tag or full SHA explicitly; see the [installation guide](docs/operations/github-install.md). |
 | **Unattended setup** | Forward install flags and supply a protected owner-password file; see the [terminal guide](docs/operations/terminal-management.md). |
@@ -66,9 +70,8 @@ less wg-guard-install.sh
 bash wg-guard-install.sh
 ```
 
-For a **native** installation, run `bash wg-guard-install.sh -- --mode native` instead.
 The [installation guide](docs/operations/github-install.md) gives copyable commands for
-latest and exact releases, Docker/native, development builds and unattended setup, plus
+latest and exact releases, Docker, development builds and unattended setup, plus
 prerequisites and integrity details.
 
 ### First steps in the panel

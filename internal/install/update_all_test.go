@@ -5,24 +5,43 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 )
 
+type fullUpdateFixtureHost struct {
+	*imageHost
+	body string
+}
+
+func (h *fullUpdateFixtureHost) Output(ctx context.Context, args []string, timeout time.Duration) (string, error) {
+	return (archiveHost{h.memHost, h.body, "created wg-guard-test.wgg (1 KiB, age-encrypted)\n"}).Output(ctx, args, timeout)
+}
+
 func TestUpdateAllCachesManagerThenUpdatesPanelAndCompatibleCore(t *testing.T) {
-	base := installedFixture(t, ModeNative)
+	base := installedFixture(t, ModeDocker)
 	contractFixture(base)
 	body := "age-encryption.org/v1\nfull update backup"
-	h := archiveHost{base, body, "created wg-guard-test.wgg (1 KiB, age-encrypted)\n"}
+	h := &fullUpdateFixtureHost{imageHost: &imageHost{memHost: base, t: t, identity: "sha256:" + strings.Repeat("b", 64)}, body: body}
+	stage := t.TempDir()
+	binary := filepath.Join(stage, "candidate")
+	if err := os.WriteFile(binary, []byte("candidate"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	base.files[binary] = memFile{data: []byte("candidate"), perm: 0o755}
 	digest := sha256.Sum256([]byte("candidate"))
 	b := distribution.Build{
 		Channel: "commit", Ref: "0123456789abcdef0123456789abcdef01234567",
 		Commit: "0123456789abcdef0123456789abcdef01234567", Version: "0.0.0-dev.0123456789ab",
-		SHA256: fmt.Sprintf("%x", digest), BinaryPath: "/tmp/candidate",
+		SHA256: fmt.Sprintf("%x", digest), BinaryPath: binary,
 	}
 
-	if err := UpdateAll(context.Background(), h, FullUpdateOptions{Build: b, Core: "recommended", Stdout: io.Discard}); err != nil {
+	if err := UpdateAll(context.Background(), h, FullUpdateOptions{Build: b, StageParent: stage, Core: "recommended", Stdout: io.Discard}); err != nil {
 		t.Fatal(err)
 	}
 	if string(base.files[ManagerBinaryPath].data) != "candidate" || string(base.files[BinPath].data) != "candidate" {
@@ -39,7 +58,7 @@ func TestUpdateAllCachesManagerThenUpdatesPanelAndCompatibleCore(t *testing.T) {
 }
 
 func TestUpdateAllStopsBeforePanelWhenManagerCandidateIsInvalid(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	before := string(h.files[BinPath].data)
 	h.files["/tmp/candidate"] = memFile{data: []byte("candidate"), perm: 0o755}
 	b := distribution.Build{

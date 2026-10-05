@@ -11,6 +11,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 	"github.com/Sir-Adnan/wg-guard/internal/subprocess"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
@@ -100,9 +101,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	if st.ComposePath != "" {
 		artifacts = append(artifacts, st.ComposePath)
 	}
-	if st.UnitPath != "" {
-		artifacts = append(artifacts, st.UnitPath)
-	}
+
 	if st.BinPath != "" {
 		artifacts = append(artifacts, st.BinPath)
 	}
@@ -114,9 +113,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 			if a.Compose != "" {
 				artifacts = append(artifacts, a.Compose)
 			}
-			if a.Unit != "" {
-				artifacts = append(artifacts, a.Unit)
-			}
+
 		}
 	}
 	for _, path := range managedExposureArtifacts(st.Exposure) {
@@ -160,7 +157,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	}()
 
 	// Stop first: a still-running service could reopen files being removed.
-	j := &Journal{Schema: 1, ID: transactionID(), Operation: "uninstall", Before: st}
+	j := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "uninstall", Before: st}
 	if err := j.save(h, "prepared"); err != nil {
 		return rep, err
 	}
@@ -168,17 +165,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 		return rep, err
 	}
 	step(out, "Stopping the node")
-	if st.Mode == ModeNative {
-		absent, err := stopNativeService(ctx, h)
-		if err != nil {
-			return rep, err
-		}
-		if !absent {
-			if err := h.Run(ctx, []string{"systemctl", "disable", "wg-guard"}, 30*time.Second); err != nil {
-				return rep, err
-			}
-		}
-	} else if err := stopService(ctx, h, st); err != nil {
+	if err := stopService(ctx, h, st); err != nil {
 		return rep, err
 	}
 	rep.Stopped = true
@@ -215,16 +202,12 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 			fmt.Fprintf(out, "  removed %s\n", path)
 		}
 	}
-	if st.Mode == ModeNative || broker.hasUnits() {
+	// Only remove the empty deployment directory; unrelated contents survive.
+	_ = h.Remove(layout.DeploymentDir)
+	if broker.hasUnits() {
 		if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
 			return rep, err
 		}
-	}
-	if st.Mode == ModeNative {
-		if err := runQuiet(ctx, h, []string{"systemctl", "try-restart", "systemd-journald@wg-guard.service"}, 30*time.Second); err != nil {
-			return rep, err
-		}
-		_ = h.Remove(JournalRetentionDir) // succeeds only when the owned drop-in directory is empty
 	}
 
 	if o.PurgeData {
@@ -285,6 +268,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 		}
 		if err := h.RemoveAll(EtcDir); err != nil {
 			return rep, fmt.Errorf("uninstall: purge configuration directory: %w", err)
+		}
+		if err := h.RemoveAll(layout.HostStateDir); err != nil {
+			return rep, fmt.Errorf("uninstall: purge private host state: %w", err)
 		}
 		fmt.Fprintln(out, "\nWG-Guard completely removed. Run the GitHub install command to use it again.")
 		return rep, nil

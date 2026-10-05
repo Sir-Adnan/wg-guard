@@ -81,7 +81,7 @@ func TestManagerRootMenusAreStateAware(t *testing.T) {
 
 func TestInterruptedUninstallGetsDedicatedRecoveryView(t *testing.T) {
 	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
-	j := &install.Journal{Schema: 1, Operation: "uninstall", Stage: "recovery-required", Before: st}
+	j := &install.Journal{Schema: install.JournalSchema, Operation: "uninstall", Stage: "recovery-required", Before: st}
 	if got := classifyManagerView(st, j); got != managerUninstallRecovery {
 		t.Fatalf("interrupted uninstall view = %v", got)
 	}
@@ -94,7 +94,7 @@ func TestInterruptedUninstallOverviewDoesNotReadMissingBootConfig(t *testing.T) 
 	var out bytes.Buffer
 	m := manager{ui: terminal.New(strings.NewReader(""), &out, terminal.Options{Locale: i18n.En})}
 	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
-	j := &install.Journal{Schema: 1, Operation: "uninstall", Stage: "recovery-required", Before: st}
+	j := &install.Journal{Schema: install.JournalSchema, Operation: "uninstall", Stage: "recovery-required", Before: st}
 	if handled := m.prepareOverview(st, j); !handled {
 		t.Fatal("uninstall recovery fell through to runtime config and health probing")
 	}
@@ -106,7 +106,7 @@ func TestInterruptedUninstallOverviewDoesNotReadMissingBootConfig(t *testing.T) 
 
 func TestInterruptedInitialSetupGetsOnlySafeCleanupAndDiagnostics(t *testing.T) {
 	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, Recovery: "install-incomplete", ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
-	j := &install.Journal{Schema: 1, Operation: "install", Stage: "recovery-required", After: st}
+	j := &install.Journal{Schema: install.JournalSchema, Operation: "install", Stage: "recovery-required", After: st}
 	if got := classifyManagerView(st, j); got != managerInstallRecovery {
 		t.Fatalf("safe interrupted setup view = %v", got)
 	}

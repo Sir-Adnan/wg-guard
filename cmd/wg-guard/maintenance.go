@@ -177,6 +177,21 @@ func executeMaintenance(ctx context.Context, h install.Host, q *updatequeue.Queu
 		if candidate == nil {
 			return nil
 		}
+		st, e := install.LoadState(h)
+		if e != nil || st == nil {
+			return fmt.Errorf("maintenance: installed state required")
+		}
+		selector := st.Core.Requested.ID
+		if input.Operation == updatequeue.OperationAll {
+			selector = input.Core
+		}
+		bundle, e := install.SelectCore(selector)
+		if e != nil {
+			return e
+		}
+		if e = o.task("panel", "image", func() error { _, err := install.PrepareRuntimeImage(ctx, h, &build, bundle, parent); return err }); e != nil {
+			return e
+		}
 		return o.task("panel", "verify", func() error {
 			return install.CacheMaintenanceBuild(ctx, h, build)
 		})
@@ -205,17 +220,17 @@ func executeMaintenance(ctx context.Context, h install.Host, q *updatequeue.Queu
 		return err
 	}
 	image := ""
-	if st.Mode == install.ModeDocker {
-		if err := o.task("panel", "image", func() error {
-			var e error
-			image, e = install.BuildRuntimeImage(ctx, h, build, bundle, parent)
-			return e
-		}); err != nil {
-			return err
-		}
+
+	if err := o.task("panel", "image", func() error {
+		var e error
+		image, e = install.PrepareRuntimeImage(ctx, h, &build, bundle, parent)
+		return e
+	}); err != nil {
+		return err
 	}
+
 	if err := o.task("panel", "deploy", func() error {
-		return install.Update(ctx, h, install.UpdateOptions{Build: build, BinaryPath: build.BinaryPath, Image: image, LocalImage: st.Mode == install.ModeDocker, Stdout: o})
+		return install.Update(ctx, h, install.UpdateOptions{Build: build, BinaryPath: build.BinaryPath, Image: image, LocalImage: true, Stdout: o})
 	}); err != nil {
 		return err
 	}

@@ -2,8 +2,8 @@
 
 One Go binary (`wg-guard`), one process: HTTP server (panel + REST API), authentication,
 scheduler, quota manager, accounting, webhook dispatcher, and AWG management. SQLite for
-persistence. AmneziaWG is driven through its pinned CLI as a subprocess. Docker is the default
-deployment; native systemd is fully supported. Decisions and their rationale live in
+persistence. AmneziaWG is driven through its pinned CLI as a subprocess. Current main uses Docker-only production deployment; the historical v0.1.9 preparation release
+retains its earlier deployment contract. Decisions and their rationale live in
 [../decisions/](../decisions/); this document describes the shape.
 
 ## Component diagram
@@ -12,7 +12,7 @@ deployment; native systemd is fully supported. Decisions and their rationale liv
                 ┌────────────────────────── wg-guard (single process) ──────────────────────────┐
  admin browser ─▶ web/ (session auth, i18n fa/en, templates+HTMX)  ┐                            │
  external bots ─▶ api/ /api/v1 (token auth, scopes, idempotency)   ├▶ domain services           │
-                  webhook/ (durable delivery, HMAC)                │   user/device/plan/        │
+                  webhook/ (durable delivery, HMAC)                │   user/device/template/        │
                   scheduler/ (one goroutine, due-heap)             │   interface/admin          │
                   telemetry/ (10 s bounded live ring)              │        │                   │
                   accounting/ (delta pipeline)                     │        │                   │
@@ -33,8 +33,8 @@ No cycles; no `utils` packages. Package responsibilities:
 [project-structure.md](project-structure.md).
 
 The reviewed [refactor target](deployment-refactor.md) and
-[Phases 15–20](../development/refactor-program.md) are planned transitions, not
-changes to the runtime below. They prioritize fail-closed existing-data migration,
+[Phases 15–20](../development/refactor-program.md) track implemented safety/responsibility/
+Docker source changes separately from future domain/TLS and physical acceptance. They prioritize fail-closed existing-data migration,
 readiness and bounded slow-work isolation before packaging/native retirement.
 Integrated panel/subscription certificate management is specified in
 [domains and TLS](../operations/domains-and-tls.md).
@@ -48,7 +48,7 @@ Integrated panel/subscription certificate management is specified in
 | Kernel module primary, userspace fallback | [0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md) |
 | Namespaced nftables table; never touch foreign rules | [0004](../decisions/ADR-0004-namespaced-nftables.md) |
 | Pure-Go SQLite (modernc), CGO_ENABLED=0 | [0005](../decisions/ADR-0005-pure-go-sqlite.md) |
-| Docker-default deployment, native secondary | [0006](../decisions/ADR-0006-docker-default-deployment.md) |
+| Docker-only runtime, verified artifacts and separated host authority | [0015](../decisions/ADR-0015-docker-only-runtime.md) |
 | Backup/restore excluded from the REST API (panel + CLI only) | [0007](../decisions/ADR-0007-no-backup-rest-api.md) |
 | Optional backup password via standard age encryption | [0008](../decisions/ADR-0008-optional-backup-password.md) |
 | Vanilla-JS frontend (no Alpine), HTMX | [0009](../decisions/ADR-0009-vanilla-js-frontend.md) |
@@ -106,9 +106,9 @@ not establish locality. Older retained sidecars that redirect are probed on the 
 listener with recorded SNI instead. Certificate trust/identity remains a separate exposure gate.
 
 Structured runtime records cross one recursive redaction handler and carry a closed component
-label before reaching deployment-native storage. Docker owns a compressed local-driver ring;
-native mode owns a scoped journal namespace; neither is copied into SQLite or exposed over HTTP.
-The host-side `wg-guard logs` command normalizes both. Fixed lifecycle outcomes that occur outside
+label before reaching deployment storage. Docker owns a compressed local-driver ring;
+these raw logs are not copied into SQLite or exposed over HTTP.
+The host-side `wg-guard logs` command normalizes that stream. Fixed lifecycle outcomes that occur outside
 the service manager use a separate size/time-bounded private JSONL journal under the data directory.
 
 The Web Panel's version workflow crosses the container/host boundary through `internal/updatequeue`,

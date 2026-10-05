@@ -119,3 +119,11 @@ compatibility, a documented claim or the public API changes, update the correspo
 in the same change; edit OpenAPI only if its contract changes. Internal refactors and prose edits
 do not require touching unrelated status, phase or release documents. Frontend assets are
 prebuilt/embedded; dependency notices remain in [THIRD_PARTY.md](../../THIRD_PARTY.md).
+
+
+Phase 17 source adds an unpublished runtime CI job: exact immutable-HEAD manager assets,
+one embedded recipe, image/binary/engine provenance and fake-node persistence/hardening smoke.
+Candidates are GitHub Actions artifacts retained for seven days, not a public release/registry.
+The release workflow includes offline image metadata/archive in its checksums and attestations;
+the owner's no-further-release instruction still applies. Physical host/client acceptance is
+not inferred from this container fixture.

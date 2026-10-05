@@ -93,7 +93,7 @@ func newMemHost() *memHost {
 		dirs:    map[string]bool{},
 		failCmd: map[string]error{},
 		dkms:    map[string]bool{},
-		output:  map[string]string{"uname -s": "Linux", "uname -m": "x86_64", "uname -r": "6.8.0-138-generic", "modinfo": "MATCHINGBUILD", "awg": "amneziawg-tools v3.1.20260812", "ip": `[{"addr_info":[{"local":"8.8.8.8"}]}]`},
+		output:  map[string]string{"systemctl show wg-guard.service --property=LoadState --property=ActiveState": "LoadState=not-found\nActiveState=inactive\n", "uname -s": "Linux", "uname -m": "x86_64", "uname -r": "6.8.0-138-generic", "modinfo": "MATCHINGBUILD", "awg": "amneziawg-tools v3.1.20260812", "ip": `[{"addr_info":[{"local":"8.8.8.8"}]}]`},
 		now:     func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) },
 	}
 }
@@ -165,6 +165,10 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 		return "present\n", nil
 	}
 	if len(argv) > 2 && argv[0] == "docker" && (argv[1] == "inspect" || argv[1] == "image" && argv[2] == "inspect") {
+		if strings.Contains(strings.Join(argv, " "), "io.wg-guard.awg-tools.commit") {
+			b, _ := SelectCore("recommended")
+			return b.ToolsCommit, nil
+		}
 		return "sha256:" + strings.Repeat("a", 64), nil
 	}
 	if len(argv) > 6 && argv[0] == "docker" && argv[1] == "run" && argv[6] == "sha256sum" {
@@ -181,7 +185,14 @@ func (m *memHost) Output(ctx context.Context, argv []string, timeout time.Durati
 		}
 	}
 	if strings.Join(argv, " ") == "systemctl show wg-guard.service --property=LoadState --property=ActiveState" {
-		return "LoadState=loaded\nActiveState=inactive\n", nil
+		return "LoadState=not-found\nActiveState=inactive\n", nil
+	}
+	if strings.Join(argv, " ") == "docker exec wg-guard awg --version" {
+		return m.output["awg"], nil
+	}
+	if strings.Join(argv, " ") == "docker inspect --format {{ index .Config.Labels \"io.wg-guard.awg-tools.commit\" }} wg-guard" {
+		b, _ := SelectCore("recommended")
+		return b.ToolsCommit, nil
 	}
 	return m.output[argv[0]], nil
 }

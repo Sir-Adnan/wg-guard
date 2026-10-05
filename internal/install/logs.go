@@ -38,7 +38,7 @@ type LogOptions struct {
 }
 
 // StreamLogs selects the deployment-owned service log source from validated
-// install state. Docker and native mode stay host-side; no shell is involved.
+// install state. Docker logs remain host-side; no shell is involved.
 func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, stdout, stderr io.Writer) error {
 	if options.Source == "" {
 		options.Source = LogSourceService
@@ -99,12 +99,11 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 	}
 	// Docker preserves the container's stdout/stderr split. WG-Guard's
 	// structured logger writes to stderr, so route both container streams into
-	// the command's single documented stdout stream. Native journalctl already
-	// emits journal records on stdout and keeps diagnostics on stderr.
+	// the command's single documented stdout stream.
 	sourceStderr := stderr
-	if state.Mode == ModeDocker {
-		sourceStderr = logOutput
-	}
+
+	sourceStderr = logOutput
+
 	if err := h.Stream(ctx, argv, logOutput, sourceStderr); err != nil {
 		return fmt.Errorf("logs: %s source: %w", state.Mode, err)
 	}
@@ -293,15 +292,6 @@ func logArgv(mode Mode, options LogOptions) ([]string, error) {
 			argv = append(argv, "--follow")
 		}
 		return append(argv, Container), nil
-	case ModeNative:
-		argv := []string{
-			"journalctl", "--namespace=wg-guard", "--unit=wg-guard.service",
-			"--no-pager", "--output=cat", "--lines", tail, "--since", since,
-		}
-		if options.Follow {
-			argv = append(argv, "--follow")
-		}
-		return argv, nil
 	default:
 		return nil, fmt.Errorf("logs: unsupported install mode %q", mode)
 	}

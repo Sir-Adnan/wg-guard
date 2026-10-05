@@ -81,8 +81,7 @@ current file by name across rotation. It works without install state and refuses
 non-private files. Logs stay host-local and are not exposed through the panel or REST API.
 
 Docker service storage uses its compressed local driver with eight 16 MiB files (a hard size cap;
-Docker has no age option). Native service storage uses a dedicated journal namespace capped at
-seven days, 128 MiB persistent and 64 MiB runtime. Operation records keep no more than seven UTC
+Docker has no age option). Operation records keep no more than seven UTC
 daily files and 8 MiB; lifecycle writes prune immediately and Ubuntu's existing tmpfiles-clean
 timer removes files whose mtime exceeds seven days. Queries never return records older than the
 requested seven-day maximum. The root-private installer build log remains separately bounded to
@@ -125,7 +124,7 @@ network defaults. A domain enables ACME HTTPS; external TCP ports 80 and 443 mus
 Without a domain the panel TCP listener remains private. The VPN UDP port is separate from the
 panel/HTTPS TCP ports.
 
-Advanced setup exposes native systemd, TLS mode and ports, network/MTU/DNS settings, container
+Advanced setup exposes TLS mode and ports, network/MTU/DNS settings, container
 image and Telegram backup setup. It does not permit arbitrary or unverified AmneziaWG versions.
 
 Before any public listener starts, setup securely creates or reuses the administrator account.
@@ -228,7 +227,7 @@ Non-interactive fresh setup requires a private regular password file with mode `
 
 ```bash
 sudo wg-guard install --commit FULL_40_CHARACTER_LOWERCASE_SHA \
-  --mode native --domain vpn.example.com --yes \
+  --domain vpn.example.com --yes \
   --owner-username admin --owner-password-file /root/wg-guard-owner-password
 ```
 

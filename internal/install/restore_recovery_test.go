@@ -31,7 +31,7 @@ func (h *recoveringHost) Run(ctx context.Context, args []string, timeout time.Du
 }
 
 func TestRestoreRecoveryVerifiesOriginalArchiveBeforeStartingPreviousArtifact(t *testing.T) {
-	for _, mode := range []Mode{ModeNative, ModeDocker} {
+	for _, mode := range []Mode{ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {
 			ctx := context.Background()
 			dir := t.TempDir()
@@ -97,14 +97,14 @@ func TestRestoreRecoveryVerifiesOriginalArchiveBeforeStartingPreviousArtifact(t 
 			recorded := DataDir + "/backups/lifecycle-" + strings.Repeat("e", 32) + "/" + archive.Name
 			m.files[recorded] = memFile{data: raw, perm: 0600}
 			previous.Backup = &BackupIdentity{Path: recorded, SHA256: digest, Encrypted: true, RestoreRequired: true}
-			j := &Journal{Schema: 1, ID: strings.Repeat("d", 32), Operation: "update", Before: st, Previous: previous, Candidate: &Artifact{Binary: ArtifactDir + "/" + strings.Repeat("f", 32) + "/binary", BinarySHA256: strings.Repeat("c", 64), Contract: CurrentContract()}, DataMayHaveChanged: true}
+			j := &Journal{Schema: JournalSchema, ID: strings.Repeat("d", 32), Operation: "update", Before: st, Previous: previous, Candidate: &Artifact{Binary: ArtifactDir + "/" + strings.Repeat("f", 32) + "/binary", BinarySHA256: strings.Repeat("c", 64), Contract: CurrentContract()}, DataMayHaveChanged: true}
 			if err := j.save(m, "restore-required"); err != nil {
 				t.Fatal(err)
 			}
 			m.files[BinPath] = memFile{data: []byte("candidate")}
-			if mode == ModeDocker {
-				m.output["docker run --rm --network none --entrypoint sha256sum "+previous.Image+" "+BinPath] = previous.BinarySHA256 + "  " + BinPath
-			}
+
+			m.output["docker run --rm --network none --entrypoint sha256sum "+previous.Image+" "+BinPath] = previous.BinarySHA256 + "  " + BinPath
+
 			h := &recoveringHost{memHost: m, beforeStart: func() {
 				restored, err := database.Open(cfg.DatabasePath, database.Options{})
 				if err != nil {

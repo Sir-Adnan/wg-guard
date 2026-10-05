@@ -23,9 +23,11 @@ Usage:
 
 Commands:
   version     Print version information
-  install     Interactive installer (Docker default, native systemd secondary;
+  image-import  Import a checksum-verified offline runtime into Docker's cache
+              --archive PATH --runtime-metadata PATH --build-metadata PATH [--core BUNDLE]
+  install     Interactive Docker installer (
               --yes for non-interactive installs)
-              install [--mode docker|native] [--domain D]
+              install [--domain D]
                       [--exposure auto|private|direct|nginx|external-proxy]
                       [--certificate auto|builtin|webroot|cloudflare-dns|ip|manual|cloudflare-origin|external]
                       [--panel-port N] [--https-port N] [--acme-http-port N]
@@ -93,6 +95,23 @@ func main() {
 		}
 		return
 	}
+	if os.Args[1] == "runtime-recipe" {
+		selector := "recommended"
+		if len(os.Args) == 3 {
+			selector = os.Args[2]
+		} else if len(os.Args) != 2 {
+			os.Exit(2)
+		}
+		info, err := install.RuntimeBuildInfo(selector)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(info); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	maybeDelegateManager()
 	// Docker-mode host shim: on a docker-mode install the host binary routes
 	// panel/data commands into the container (ADR-0006). No-op otherwise.
@@ -135,6 +154,11 @@ func main() {
 		}
 	case "version":
 		fmt.Println(version.String())
+	case "image-import":
+		if err := runImageImport(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 	case "install":

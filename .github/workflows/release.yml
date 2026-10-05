@@ -77,24 +77,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          built_at=$(date -u -d "@$(git show -s --format=%ct HEAD)" +%Y-%m-%dT%H:%M:%SZ)
-          image="wg-guard:release-$RELEASE_VERSION"
-          docker build --platform linux/amd64 --build-arg "VERSION=$RELEASE_VERSION" \
-            --build-arg "COMMIT=$RELEASE_COMMIT" --build-arg "BUILD_DATE=$built_at" -t "$image" .
-          test "$(docker image inspect --format '{{.Architecture}}' "$image")" = amd64
-          docker run --rm --entrypoint /usr/local/bin/wg-guard "$image" version | grep -F "$RELEASE_VERSION"
-          asset_hash=$(sha256sum "dist/$RELEASE_VERSION/wg-guard_linux_amd64" | cut -d' ' -f1)
-          image_hash=$(docker run --rm --entrypoint sha256sum "$image" /usr/local/bin/wg-guard | cut -d' ' -f1)
-          test "$asset_hash" = "$image_hash"
-          docker run --rm --entrypoint /usr/local/bin/awg "$image" --version
-          docker run --rm --entrypoint /usr/local/bin/amneziawg-go "$image" --version
-          docker run --rm --entrypoint test "$image" -s /usr/share/doc/wg-guard/THIRD_PARTY.md
+          python3 scripts/build-runtime-artifacts.py --assets "dist/$RELEASE_VERSION"
+          (cd "dist/$RELEASE_VERSION" && sha256sum --check checksums.txt)
+          bash scripts/test-runtime-image.sh "dist/$RELEASE_VERSION/runtime-metadata.json"
       - name: Attest binary and release bundle
         uses: actions/attest@v4
         with:
           subject-path: |
             dist/${{ inputs.version }}/wg-guard_linux_amd64
             dist/${{ inputs.version }}/wg-guard_${{ inputs.version }}_linux_amd64.tar.gz
+            dist/${{ inputs.version }}/runtime_linux_amd64.tar.gz
+            dist/${{ inputs.version }}/runtime-metadata.json
       - name: Attest SBOM
         uses: actions/attest@v4
         with:

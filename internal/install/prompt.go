@@ -124,20 +124,9 @@ func (q *prompt) plan(p *Plan, h Host) error {
 		}
 	}
 	if !q.advanced {
-		p.Mode = ModeDocker
 		return nil
 	}
 
-	if !p.Mode.Valid() {
-		n, e := q.askChoice(q.t("mode"), []string{q.t("docker"), q.t("native")}, 1)
-		if e != nil {
-			return e
-		}
-		p.Mode = ModeDocker
-		if n == 2 {
-			p.Mode = ModeNative
-		}
-	}
 	if err := q.planAccess(p, facts, explicitAccess); err != nil {
 		return err
 	}
@@ -147,7 +136,7 @@ func (q *prompt) plan(p *Plan, h Host) error {
 	if err := q.planTelegram(p); err != nil {
 		return err
 	}
-	if p.Mode == ModeDocker && p.Image == DefaultImage {
+	if p.Image == DefaultImage {
 		customImage, askErr := q.askYesNo(q.t("custom_image"), false)
 		if askErr != nil {
 			return askErr
@@ -280,7 +269,7 @@ func (q *prompt) planAccess(p *Plan, facts ExposureFacts, explicit bool) error {
 }
 
 func advancedSettingsRequested(p *Plan) bool {
-	return p.Mode.Valid() || p.TLSModeExplicit || p.PanelPortExplicit || p.ACMEHTTPPort != 80 ||
+	return p.TLSModeExplicit || p.PanelPortExplicit || p.ACMEHTTPPort != 80 ||
 		p.ExposureExplicit || p.CertificateExplicit || p.PublicPort != 443 || p.ACMEEmail != "" || p.CloudflareTokenFile != "" ||
 		p.PublicIP != "" || p.CertFile != "" || p.KeyFile != "" || p.Image != DefaultImage
 }
@@ -385,7 +374,7 @@ func (q *prompt) confirm(p Plan) error {
 		certificate = q.t("not_applicable")
 	}
 	fields := []struct{ k, v string }{
-		{"mode", string(p.Mode)}, {"access_method", string(p.Exposure)}, {"certificate", certificate},
+		{"mode", string(ModeDocker)}, {"access_method", string(p.Exposure)}, {"certificate", certificate},
 		{"panel", p.PanelURL()}, {"endpoint", p.VPNEndpoint()},
 	}
 	if q.advanced {
@@ -394,7 +383,7 @@ func (q *prompt) confirm(p Plan) error {
 	for _, field := range fields {
 		q.ui.Field(q.t(field.k), field.v)
 	}
-	if q.advanced && p.Mode == ModeDocker {
+	if q.advanced {
 		q.ui.Field(q.t("image"), p.Image)
 	}
 	lo, hi := p.PortMin, p.PortMax

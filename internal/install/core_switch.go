@@ -71,7 +71,7 @@ func SwitchCore(ctx context.Context, h Host, o CoreSwitchOptions) (CoreReport, e
 	after.Recovery = ""
 	j := pending
 	if !pendingCore {
-		j = &Journal{Schema: 1, ID: transactionID(), Operation: "core", Before: &before, After: &after}
+		j = &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "core", Before: &before, After: &after}
 	}
 	if err := j.save(h, "prepared"); err != nil {
 		return current, err

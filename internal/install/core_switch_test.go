@@ -9,7 +9,7 @@ import (
 )
 
 func TestCoreSwitchRequiresImpactConfirmation(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	if _, err := SwitchCore(context.Background(), h, CoreSwitchOptions{Selector: "recommended"}); err == nil {
 		t.Fatal("unconfirmed impact accepted")
 	}
@@ -18,12 +18,12 @@ func TestCoreSwitchRequiresImpactConfirmation(t *testing.T) {
 func TestCoreRetryInterruptedStagesAndStateFailure(t *testing.T) {
 	for _, stage := range []string{"prepared", "pending-reboot", "recovery-required"} {
 		t.Run(stage, func(t *testing.T) {
-			h := installedFixture(t, ModeNative)
+			h := installedFixture(t, ModeDocker)
 			st, err := LoadState(h)
 			if err != nil {
 				t.Fatal(err)
 			}
-			j := &Journal{Schema: 1, ID: transactionID(), Operation: "core", Before: st, After: st}
+			j := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "core", Before: st, After: st}
 			if err := j.save(h, stage); err != nil {
 				t.Fatal(err)
 			}
@@ -36,7 +36,7 @@ func TestCoreRetryInterruptedStagesAndStateFailure(t *testing.T) {
 			}
 		})
 	}
-	h := &faultHost{memHost: installedFixture(t, ModeNative), failRename: StatePath}
+	h := &faultHost{memHost: installedFixture(t, ModeDocker), failRename: StatePath}
 	o := CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true}
 	if _, err := SwitchCore(context.Background(), h, o); err == nil {
 		t.Fatal("state write failure hidden")
@@ -65,7 +65,7 @@ func (h *coreCommitFault) Rename(a, b string) error {
 	return h.Host.Rename(a, b)
 }
 func TestCoreRetryAfterFinalJournalWriteFailure(t *testing.T) {
-	h := &coreCommitFault{Host: installedFixture(t, ModeNative)}
+	h := &coreCommitFault{Host: installedFixture(t, ModeDocker)}
 	o := CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true}
 	if _, err := SwitchCore(context.Background(), h, o); err == nil {
 		t.Fatal("journal failure hidden")
@@ -78,12 +78,12 @@ func TestCoreRetryAfterFinalJournalWriteFailure(t *testing.T) {
 func TestCoreRetryNeverBypassesDifferentOperation(t *testing.T) {
 	for _, operation := range []string{"restart", "restore", "update", "uninstall"} {
 		t.Run(operation, func(t *testing.T) {
-			h := installedFixture(t, ModeNative)
+			h := installedFixture(t, ModeDocker)
 			st, err := LoadState(h)
 			if err != nil {
 				t.Fatal(err)
 			}
-			j := &Journal{Schema: 1, ID: transactionID(), Operation: operation, Before: st, After: st}
+			j := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: operation, Before: st, After: st}
 			if err := j.save(h, "prepared"); err != nil {
 				t.Fatal(err)
 			}
@@ -98,7 +98,7 @@ func TestCoreRetryNeverBypassesDifferentOperation(t *testing.T) {
 	}
 }
 func TestCoreSwitchRejectsUnknownTransition(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	h.output["awg"] = "amneziawg-tools unknown"
 	if _, err := SwitchCore(context.Background(), h, CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true, Stdout: io.Discard}); err == nil {
 		t.Fatal("unknown installed core accepted")
@@ -109,7 +109,7 @@ func TestCoreSwitchRejectsUnknownTransition(t *testing.T) {
 }
 
 func TestCoreSwitchUpdatesRecordedCompatibleBundleToRecommendedSource(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	legacy, _ := SelectCore("awg-2026-08")
 	recommended, _ := SelectCore("recommended")
 	st, err := LoadState(h)
@@ -124,8 +124,6 @@ func TestCoreSwitchUpdatesRecordedCompatibleBundleToRecommendedSource(t *testing
 	if err = saveState(h, st); err != nil {
 		t.Fatal(err)
 	}
-	delete(h.files, ManagedAWGBinaryPath)
-	delete(h.files, toolsInstalledMarker(recommended))
 	delete(h.files, kernelInstalledMarker(recommended))
 	h.commands = nil
 
@@ -133,7 +131,7 @@ func TestCoreSwitchUpdatesRecordedCompatibleBundleToRecommendedSource(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Requested != recommended || !h.ran("make", "-C", coreCheckoutPath(recommended, "tools")+"/src") || !h.ran("dkms", "install", "-m", "amneziawg") {
+	if r.Requested != recommended || !h.ran("dkms", "install", "-m", "amneziawg") {
 		t.Fatalf("recommended source was not provisioned: %+v, commands=%v", r, h.ranCommands())
 	}
 	stored, err := LoadState(h)
@@ -142,7 +140,7 @@ func TestCoreSwitchUpdatesRecordedCompatibleBundleToRecommendedSource(t *testing
 	}
 }
 func TestCoreSwitchPreservesPendingReboot(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	h.files["/sys/module/amneziawg/srcversion"] = memFile{data: []byte("OLDLOADEDBUILD")}
 	r, err := SwitchCore(context.Background(), h, CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true, Stdout: io.Discard})
 	if err == nil || !r.RebootRequired {
@@ -158,7 +156,7 @@ func TestCoreSwitchPreservesPendingReboot(t *testing.T) {
 }
 
 func TestCoreRetryAfterObservationRecovers(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	previous := h.output["modinfo"]
 	h.output["modinfo"] = ""
 	options := CoreSwitchOptions{Selector: "recommended", ConfirmImpact: true, Stdout: io.Discard}

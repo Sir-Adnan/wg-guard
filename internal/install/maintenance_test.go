@@ -41,7 +41,7 @@ func TestPreflightIsReadOnlyAndBlocksLowDisk(t *testing.T) {
 
 func TestManagedRuntimeIncludesExactUserspaceProvenance(t *testing.T) {
 	b, _ := SelectCore("recommended")
-	dockerfile := runtimeDockerfile(b)
+	dockerfile := RuntimeDockerfile(b)
 	for _, value := range []string{b.UserspaceVersion, b.UserspaceCommit, "/usr/local/bin/amneziawg-go", "vcs.modified=false", "CGO_ENABLED=0"} {
 		if !strings.Contains(dockerfile, value) {
 			t.Fatalf("managed image missing %s", value)

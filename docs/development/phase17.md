@@ -1,0 +1,87 @@
+# Phase 17 — Docker-only distribution and native removal
+
+Source implementation on 2026-10-05, following verified Phase 16. The owner asked to continue
+without another public release. Latest stable remains the preparation v0.1.9. No live-server
+mutation, rebuild or registry publication is performed. This record distinguishes source,
+image/fake-container, physical host/client and publication acceptance.
+
+## Final boundaries
+
+- Production has one Docker plan. Removed `ModeNative`, native server install/start/stop,
+  `RenderUnit`, journal namespace policy, native artifact/state unit fields and mode flags/choices.
+  Logs/status/doctor/restart/restore/exposure/update/rollback/uninstall use that one path.
+- Explicit fake development remains direct; real `serve` outside the runtime is refused.
+  Kernel/DKMS, module persistence, host diagnostics, broker/renewal/retention and the independent
+  manager remain host responsibilities. Container tools/userspace are not host installations.
+- Host state schema 4, journal schema 2 and installer contract revision 3/deployment schema 4
+  define the new boundary. Legacy state/paths, retired/unknown fields and ambiguous records fail
+  closed. Legacy service/container collision probes are read-only, never adoption/removal.
+- `/opt/wg-guard/compose.yaml` separates deployment; boot/TLS and node data retain their existing
+  paths. Host state/journal/retained artifacts are private `/var/lib/wg-guard-host`, not a mount.
+  Backup import remains logical archive schema 1, preserving its existing data/key checks.
+- One embedded recipe replaces root Dockerfile versus installer recipe divergence. Image
+  construction consumes the already verified binary and embedded legal inventory. Its record
+  binds immutable image ID/archive bytes, binary SHA/commit, exact reviewed engines/kernel list,
+  deployment/data/maintenance contracts, notices and the linked-Go-module SBOM.
+- New releases require `runtime-metadata.json` and `runtime_linux_amd64.tar.gz`; missing old-format
+  images never trigger production compilation. Explicit source acquisition uses the same recipe.
+  Offline `image-import` hashes before loading and rechecks platform/provenance. A verified cached
+  release image needs no network/build/load, and retained artifacts can be inspected without a
+  container. Candidate preparation retains the verified release descriptor with its private receipt.
+- Generated deployment pins local image IDs, forbids implicit pulls, drops capabilities except
+  NET_ADMIN/NET_BIND_SERVICE, uses no-new-privileges/read-only root and bounded run/tmp mounts.
+  No Docker socket, privileged mode, module loading inside the container or silent backend switch.
+- Update acquisition/contract/hash checks precede stop. Backup, stop/deploy, readiness/TLS,
+  persistence, cancellation and independent recovery retain the shared coordinator/journal.
+  Shared DB/key leases and durable peer removal are unchanged.
+- Telegram multipart/probe staging uses a private disk directory in the node volume; cleanup
+  remains on normal completion/cancellation. It does not consume the small AWG tmpfs. Large
+  independent archive verification normally runs on the host, separate from the installed node.
+
+The new recipe uses reviewed engine Git commits; Ubuntu build/runtime package inputs are not
+claimed bit-for-bit reproducible. Published image/archive hashes freeze the actual result.
+The bound SBOM covers the main binary's linked Go modules, not an invented complete inventory
+of Ubuntu packages or the userspace daemon's transitive dependencies. Broader image SBOM and
+base-image lock policy can be added with a concrete maintenance owner.
+
+## Checks and evidence
+
+Fresh focused Go checks cover distribution metadata/archive integrity and cleanup; wrong binary,
+platform, data/deployment/core/label identities; offline verified image reuse; strict old state,
+retired fields, trailing records and unowned legacy unit/container refusal. Native-only cells
+were removed while Docker fault/recovery, stop-before-delete, lock, backup, owner-before-listener,
+key/tenant/accounting, core/reboot, broker and retained-artifact tests remain.
+
+The resulting source is checked with the full Go suite, vet/build, formatting/diff inspection and
+Linux bootstrap fixtures. A fresh selected encrypted-archive enforcement load check covers the
+changed disk-delivery path; historical Phase 16 numbers are not relabeled as a fresh result.
+Exact CI also builds the manager/canonical Docker image, verifies image/binary/core provenance,
+checksums and an isolated fake-node readiness/DB/key/restart/read-only-root smoke test. CI retains
+unpublished candidate assets for seven days; it does not publish a release or registry image.
+
+Local Windows Go checks cannot supply Linux race evidence. WSL has no enabled Docker engine;
+actual image/fake-container evidence must come from the new exact CI job. Final source/results
+are recorded after that gate, not inferred here while it is pending.
+
+Fresh ordinary Linux encrypted-archive load after disk-spool changes: 512 fake devices,
+GOMAXPROCS=1, quota lag/expiry cycle 3/3 ms against a 15 s cadence; RSS baseline/peak
+76.0/333.8 MiB; goroutines 9 at baseline and 3 after drain. This proves the isolated production-
+code path, not a VPS/kernel/client limit. Fresh local full Go tests, focused final image/CLI/
+host checks, vet/build and WSL bootstrap fixtures passed. Unchanged packages used applicable
+Go cache. The pre-commit bootstrap artifact fixture still freezes the prior HEAD; exact CI
+must additionally test the new committed artifact.
+
+## Remaining acceptance
+
+Phase 17 source removal/distribution is implemented; the entire production acceptance program
+is not complete merely because source/image/fake tests pass. Physical Ubuntu Docker kernel and
+explicit userspace traffic, reboot, restored archives, update/failure/offline-manager recovery,
+certificate behavior and idle/load/backup resource ceilings remain the authorized Phase 20
+host/client gate. Current/previous recorded file artifacts are bounded; Docker images/build
+cache are deliberately not globally pruned because they can be shared/needed for recovery.
+An explicit owned-image retention/recovery policy needs its own Docker/shared-use test before
+automatic deletion is claimed.
+
+The owner still needs the independently verified off-host v0.1.9 backup before any rebuild.
+Next source work is integrated domain/TLS ownership (Phase 18), then operational UX (19).
+No later release is authorized by this record. Design rationale: [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md).

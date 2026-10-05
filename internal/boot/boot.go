@@ -71,7 +71,7 @@ func (r *RuntimeReconciler) Run(ctx context.Context) (*reconcile.Report, error) 
 }
 
 // NetworkPolicyHealthy is a bounded read-only check for host firewall changes
-// after startup (notably Docker rebuilding DOCKER-USER after a native boot).
+// after startup (notably Docker rebuilding DOCKER-USER).
 // The caller uses the canonical Run path to repair a missing owned path.
 func (r *RuntimeReconciler) NetworkPolicyHealthy(ctx context.Context) (bool, error) {
 	ifaces, err := enabledInterfaces(ctx, r.Deps.DB)

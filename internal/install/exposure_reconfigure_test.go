@@ -159,8 +159,8 @@ func TestReconfigurePrivateToDirectAndBackRewritesDockerTLSMounts(t *testing.T) 
 	}
 }
 
-func TestReconfigureWritesNativeRuntimeForExternalProxy(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+func TestReconfigureWritesDockerRuntimeForExternalProxy(t *testing.T) {
+	h := installedFixture(t, ModeDocker)
 	st, _ := LoadState(h)
 	current, _ := installedPlan(h, st)
 	p := Defaults()
@@ -174,7 +174,7 @@ func TestReconfigureWritesNativeRuntimeForExternalProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	if next.Exposure.Mode != ExposureExternalProxy || next.TLSReadiness != "external-unverified" || !h.ran("systemctl", "daemon-reload") {
-		t.Fatalf("native external-proxy transition incomplete: %+v", next.Exposure)
+		t.Fatalf("Docker external-proxy transition incomplete: %+v", next.Exposure)
 	}
 	if !strings.Contains(string(h.files[ConfigPath].data), `http_listen = "127.0.0.1:`) {
 		t.Fatal("external proxy backend is not loopback-only")
@@ -211,7 +211,7 @@ func TestRecoverExposureRestoresInterruptedSnapshot(t *testing.T) {
 	next := cloneState(before)
 	next.Exposure = p.ExposureRecord()
 	next.TLSReadiness = "origin-proxy-unverified"
-	journal := &Journal{Schema: 1, ID: transactionID(), Operation: "exposure", Before: before, After: &next}
+	journal := &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "exposure", Before: before, After: &next}
 	if err := journal.save(h, "prepared"); err != nil {
 		t.Fatal(err)
 	}

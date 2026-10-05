@@ -270,7 +270,7 @@ func (d *doctor) checkTools(ctx context.Context) bool {
 	v, err := prober.ToolsVersion(ctx)
 	if err != nil {
 		d.add("awg-tools", StatusFail, fmt.Sprintf("probe failed: %v", err),
-			"restore the selected AWG runtime (the container in Docker mode or pinned host tools in native mode), then run wg-guard doctor again")
+			"restore the selected AWG runtime in its Docker container, then run wg-guard doctor again")
 		return false
 	}
 	d.add("awg-tools", StatusPass, v, "")

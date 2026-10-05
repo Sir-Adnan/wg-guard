@@ -10,13 +10,10 @@ var managedLineage = regexp.MustCompile(`\Awg-guard-[0-9a-f]{12}\z`)
 // State is privileged deletion and execution input. Only the documented fixed
 // layout can be managed; custom/manual layouts require manual migration.
 func validateState(st *State) error {
-	if st.Schema < 1 || st.Schema > StateSchema || !st.Mode.Valid() {
+	if st.Schema != StateSchema || !st.Mode.Valid() {
 		return terminalError("install.error.state")
 	}
-	if st.ConfigPath != ConfigPath || st.DataDir != DataDir || (st.BinPath != "" && st.BinPath != BinPath) || (st.ComposePath != "" && st.ComposePath != ComposePth) || (st.UnitPath != "" && st.UnitPath != UnitPath) {
-		return terminalError("install.error.state")
-	}
-	if st.Mode == ModeDocker && st.ComposePath != ComposePth || st.Mode == ModeNative && (st.BinPath != BinPath || st.UnitPath != UnitPath) {
+	if st.ConfigPath != ConfigPath || st.DataDir != DataDir || (st.BinPath != "" && st.BinPath != BinPath) || st.ComposePath != ComposePth {
 		return terminalError("install.error.state")
 	}
 	// An empty exposure record is the bounded migration sentinel written by the
@@ -30,13 +27,13 @@ func validateState(st *State) error {
 		}
 	}
 	for _, p := range st.ExtraFiles {
-		if p != ModuleAutoLoadPath && p != JournalRetentionPath && p != OperationRetentionPath {
+		if p != ModuleAutoLoadPath && p != OperationRetentionPath {
 			return terminalError("install.error.state")
 		}
 	}
 	for _, p := range st.PackagesInstalled {
 		switch p {
-		case "amneziawg-dkms", "amneziawg-tools", "kmod", "dkms", "build-essential", "git", "docker.io", "docker-compose-v2", "iproute2", "nftables", "procps", "ca-certificates", "software-properties-common":
+		case "amneziawg-dkms", "kmod", "dkms", "build-essential", "git", "docker.io", "docker-compose-v2", "iproute2", "nftables", "iptables", "procps", "ca-certificates", "software-properties-common":
 			continue
 		}
 		if !strings.HasPrefix(p, "linux-headers-") || len(p) > 128 || strings.ContainsAny(p, " /\\\t\r\n=:;") {

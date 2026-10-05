@@ -19,21 +19,23 @@ type Contract struct {
 	PersistentManager   bool   `json:"persistent_manager"`
 	SecureExposure      bool   `json:"secure_exposure"`
 	MaintenanceProtocol int    `json:"maintenance_protocol,omitempty"`
+	DeploymentSchema    int    `json:"deployment_schema,omitempty"`
 }
 
 func CurrentContract() Contract {
 	return Contract{
-		Revision: 2, DataContract: "schema15-ipv4-pools-v1", Prerequisites: true,
+		Revision: 3, DataContract: "schema15-ipv4-pools-v1", Prerequisites: true,
 		Recovery: true, LocalOwner: true, CoordinatedRestore: true, DataLease: true,
 		PersistentManager: true, SecureExposure: true,
 		MaintenanceProtocol: 2,
+		DeploymentSchema:    StateSchema,
 	}
 }
 func CheckContract(c Contract) error {
 	if c.MaintenanceProtocol != 0 && c.MaintenanceProtocol != 2 {
 		return terminalError("install.error.contract")
 	}
-	if c.Revision != 2 || !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore || !c.DataLease || !c.PersistentManager || !c.SecureExposure {
+	if c.Revision != 3 || c.DeploymentSchema != StateSchema || !knownDataContract(c) || !c.Prerequisites || !c.Recovery || !c.LocalOwner || !c.CoordinatedRestore || !c.DataLease || !c.PersistentManager || !c.SecureExposure {
 		return terminalError("install.error.contract")
 	}
 	return nil
@@ -49,7 +51,7 @@ func inspectContract(ctx context.Context, h Host, args []string) (Contract, erro
 // Data compatibility and candidate admission are distinct: old artifacts can
 // understand the same schema while lacking today's fresh-install capabilities.
 func knownDataContract(c Contract) bool {
-	return (c.Revision == 1 || c.Revision == 2) && c.DataContract != ""
+	return (c.Revision == 1 || c.Revision == 2 || c.Revision == 3) && c.DataContract != ""
 }
 func readContract(ctx context.Context, h Host, args []string) (Contract, error) {
 	raw, err := h.Output(ctx, append(args, "installer-contract"), 15*time.Second)

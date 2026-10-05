@@ -1,12 +1,12 @@
 # Refactor migration preparation
 
 This is the owner's preparation drill for one existing node, not authorization to
-rebuild a host. The Docker-only target is still planned. Use the current
+rebuild a host. The Docker-only source is implemented but unreleased and not yet real-host certified. Use the current
 [status](../development/status.md) and [refactor gates](../development/refactor-program.md);
 do not rebuild until the target release, data verification and acceptance are ready.
-The independent `backup verify` and safety corrections are on main, not v0.1.8.
-Run verification with a trusted build containing those commands; a new public
-preparation release still requires owner approval and its artifact gate.
+The independent `backup verify` and safety corrections are published in v0.1.9.
+Use that preparation release to export/verify the existing server before any rebuild;
+new target publication still needs its own authorization and acceptance gate.
 
 ## Capture a recoverable copy
 

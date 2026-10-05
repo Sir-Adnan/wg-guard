@@ -41,9 +41,9 @@ func MaintenanceInventory(ctx context.Context, h Host) (updatequeue.Inventory, e
 			i.RebootRequired = r.RebootRequired
 		}
 		argv := []string{BinPath, "userspace-check"}
-		if st.Mode == ModeDocker {
-			argv = []string{"docker", "exec", Container, "/usr/local/bin/wg-guard", "userspace-check"}
-		}
+
+		argv = []string{"docker", "exec", Container, "/usr/local/bin/wg-guard", "userspace-check"}
+
 		if raw, e := h.Output(ctx, argv, 10*time.Second); e == nil {
 			switch strings.TrimSpace(raw) {
 			case "verified":
@@ -129,9 +129,9 @@ func MaintenancePreflight(ctx context.Context, h Host, input updatequeue.Input, 
 		add("runtime", "fail")
 	} else {
 		tool := "systemctl"
-		if st.Mode == ModeDocker {
-			tool = "docker"
-		}
+
+		tool = "docker"
+
 		if _, e := h.LookPath(tool); e == nil {
 			add("runtime", "pass")
 		} else {

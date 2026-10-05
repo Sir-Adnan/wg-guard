@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/Sir-Adnan/wg-guard/internal/config"
 )
 
 func TestLifecycleLockContention(t *testing.T) {
@@ -28,7 +26,7 @@ func TestLifecycleLockContention(t *testing.T) {
 	}
 }
 func TestAtomicStateWriteKeepsPreviousOnFailure(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	before := string(m.files[StatePath].data)
 	h := &faultHost{memHost: m, failRename: StatePath}
 	st, _ := LoadState(h)
@@ -41,7 +39,7 @@ func TestAtomicStateWriteKeepsPreviousOnFailure(t *testing.T) {
 	}
 }
 func contractFixture(h *memHost) {
-	h.output["systemctl show wg-guard.service --property=LoadState --property=ActiveState"] = "LoadState=loaded\nActiveState=inactive\n"
+	h.output["systemctl show wg-guard.service --property=LoadState --property=ActiveState"] = "LoadState=not-found\nActiveState=inactive\n"
 	h.output["docker inspect --format {{.Image}} "+Container] = "sha256:" + strings.Repeat("a", 64)
 	h.output["docker run --rm --network none --entrypoint sha256sum sha256:"+strings.Repeat("b", 64)+" "+BinPath] = fmt.Sprintf("%x  %s", sha256.Sum256([]byte("candidate")), BinPath)
 	b, _ := json.Marshal(CurrentContract())
@@ -50,7 +48,7 @@ func contractFixture(h *memHost) {
 	h.output["docker run --rm --network none --entrypoint "+BinPath+" sha256:"+strings.Repeat("b", 64)+" installer-contract"] = string(b)
 	h.output["docker image inspect --format {{.Id}} image:new"] = "sha256:" + strings.Repeat("b", 64)
 	h.output["docker image inspect --format {{.Id}} "+DefaultImage] = "sha256:" + strings.Repeat("a", 64)
-	h.output["docker exec "+Container+" "+BinPath+" installer-contract"] = string(b)
+	h.output["docker run --rm --network none --entrypoint "+BinPath+" sha256:"+strings.Repeat("a", 64)+" installer-contract"] = string(b)
 	h.files["/tmp/candidate"] = memFile{data: []byte("candidate"), perm: 0755}
 }
 func TestFailedRemotePullDoesNotMutateActive(t *testing.T) {
@@ -67,15 +65,15 @@ func TestFailedRemotePullDoesNotMutateActive(t *testing.T) {
 	}
 }
 func TestRestartFailureRestoresArtifact(t *testing.T) {
-	for _, mode := range []Mode{ModeNative, ModeDocker} {
+	for _, mode := range []Mode{ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {
 			m := installedFixture(t, mode)
 			contractFixture(m)
 			old := string(m.files[BinPath].data)
-			h := &faultHost{memHost: m, failRun: "systemctl restart"}
-			if mode == ModeDocker {
-				h.failRun = " up -d"
-			}
+			h := &faultHost{memHost: m, failRun: " up -d"}
+
+			h.failRun = " up -d"
+
 			err := Update(context.Background(), h, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard})
 			if err == nil {
 				t.Fatal("restart failure accepted")
@@ -91,7 +89,7 @@ func TestRestartFailureRestoresArtifact(t *testing.T) {
 	}
 }
 func TestHealthyUpdateThenRollbackRetainsPrevious(t *testing.T) {
-	for _, mode := range []Mode{ModeNative, ModeDocker} {
+	for _, mode := range []Mode{ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {
 			m := installedFixture(t, mode)
 			contractFixture(m)
@@ -148,7 +146,7 @@ func (h *faultHost) ReadFile(p string) ([]byte, error) {
 	return h.memHost.ReadFile(p)
 }
 func (h *faultHost) Run(ctx context.Context, a []string, d time.Duration) error {
-	if h.cancel != nil && strings.Contains(strings.Join(a, " "), "systemctl restart") {
+	if h.cancel != nil && strings.Contains(strings.Join(a, " "), " up -d") {
 		cancel := h.cancel
 		h.cancel = nil
 		cancel()
@@ -165,11 +163,11 @@ func (h *faultHost) Run(ctx context.Context, a []string, d time.Duration) error 
 }
 
 func TestStateCommitFailureRecovers(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	contractFixture(m)
 	h := &faultHost{memHost: m, failRename: StatePath}
 	old := string(m.files[BinPath].data)
-	if err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
+	if err := Update(context.Background(), h, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
 		t.Fatal("state commit failure accepted")
 	}
 	if string(m.files[BinPath].data) != old {
@@ -181,13 +179,13 @@ func TestStateCommitFailureRecovers(t *testing.T) {
 	}
 }
 func TestCanceledUpdateUsesIndependentRecoveryContext(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	contractFixture(m)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	h := &faultHost{memHost: m, cancel: cancel}
 	old := string(m.files[BinPath].data)
-	if err := Update(ctx, h, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
+	if err := Update(ctx, h, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
 		t.Fatal("cancellation accepted")
 	}
 	if string(m.files[BinPath].data) != old {
@@ -199,11 +197,11 @@ func TestCanceledUpdateUsesIndependentRecoveryContext(t *testing.T) {
 	}
 }
 func TestIncompatibleUpdateNeverRestartsOldCode(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	contractFixture(m)
-	m.output[BinPath+" installer-contract"] = ""
-	h := &faultHost{memHost: m, failRun: "systemctl restart", archive: true}
-	err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", Stdout: io.Discard})
+	m.output["docker run --rm --network none --entrypoint "+BinPath+" sha256:"+strings.Repeat("a", 64)+" installer-contract"] = ""
+	h := &faultHost{memHost: m, failRun: " up -d", archive: true}
+	err := Update(context.Background(), h, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", Stdout: io.Discard})
 	if err == nil {
 		t.Fatal("missing old contract accepted")
 	}
@@ -216,18 +214,18 @@ func TestIncompatibleUpdateNeverRestartsOldCode(t *testing.T) {
 	}
 }
 func TestInterruptedJournalRecovers(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	contractFixture(m)
 	st, _ := LoadState(m)
 	previous, err := retainCurrent(context.Background(), m, st)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate, err := stageCandidate(context.Background(), m, st, UpdateOptions{BinaryPath: "/tmp/candidate"})
+	candidate, err := stageCandidate(context.Background(), m, st, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	j := &Journal{Schema: 1, ID: strings.Repeat("c", 32), Operation: "update", Before: st, Previous: previous, Candidate: candidate, DataMayHaveChanged: true}
+	j := &Journal{Schema: JournalSchema, ID: strings.Repeat("c", 32), Operation: "update", Before: st, Previous: previous, Candidate: candidate, DataMayHaveChanged: true}
 	if err := j.save(m, "started"); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +256,7 @@ func TestInstallHonorsLifecycleLock(t *testing.T) {
 func TestInstallFailureJournalsPartialOwnership(t *testing.T) {
 	h := &faultHost{memHost: newMemHost(), failRun: "systemctl enable"}
 	p := Defaults()
-	p.Mode = ModeNative
+
 	p.PanelPort = healthServer(t, http.StatusOK)
 	if _, err := Install(context.Background(), h, InstallOptions{Plan: p, Yes: true, Stdout: io.Discard}); err == nil {
 		t.Fatal("start failure accepted")
@@ -284,7 +282,7 @@ func (h archiveHost) Output(ctx context.Context, args []string, timeout time.Dur
 	return h.memHost.Output(ctx, args, timeout)
 }
 func TestBackupRecordsActualLocalEncryptedArchive(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	st, _ := LoadState(m)
 	body := "age-encryption.org/v1\nfixture encrypted payload"
 	h := archiveHost{m, body, "created wg-guard-test.wgg (1 KiB, age-encrypted)\n"}
@@ -297,7 +295,7 @@ func TestBackupRecordsActualLocalEncryptedArchive(t *testing.T) {
 	}
 }
 func TestBackupRejectsClaimWithoutLocalArchive(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	st, _ := LoadState(m)
 	h := archiveHost{m, "fixture", "created absent.wgg (1 KiB)\n"}
 	if _, err := createBackup(context.Background(), h, st, strings.Repeat("d", 32)); err == nil {
@@ -307,85 +305,14 @@ func TestBackupRejectsClaimWithoutLocalArchive(t *testing.T) {
 func TestOwnerPreparationFailurePreventsListenerStart(t *testing.T) {
 	h := newMemHost()
 	p := Defaults()
-	p.Mode = ModeNative
+
 	p.PanelPort = healthServer(t, http.StatusOK)
 	_, err := Install(context.Background(), h, InstallOptions{Plan: p, Yes: true, Stdout: io.Discard, BeforeStart: func(context.Context, Host, Plan, *State) error { return errors.New("owner preparation failed") }})
 	if err == nil {
 		t.Fatal("owner failure accepted")
 	}
-	if h.ran("systemctl", "enable", "--now") {
+	if h.ran("docker", "compose", "-f", ComposePth, "up", "-d") {
 		t.Fatal("listener started before owner prepared")
-	}
-}
-
-func TestLegacyInstallHealthyUpgradeRetainsCoordinatedRestoreRequirement(t *testing.T) {
-	m := installedFixture(t, ModeNative)
-	contractFixture(m)
-	m.output[BinPath+" installer-contract"] = ""
-	st, _ := LoadState(m)
-	st.Schema = 1
-	st.Current = nil
-	if err := saveState(m, st); err != nil {
-		t.Fatal(err)
-	}
-	h := &faultHost{memHost: m, archive: true}
-	if err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", Stdout: io.Discard}); err != nil {
-		t.Fatal(err)
-	}
-	st, err := LoadState(h)
-	if err != nil || st.Previous == nil || st.Previous.Backup == nil || !st.Previous.Backup.Encrypted {
-		t.Fatal("legacy backup recovery identity missing")
-	}
-	before := string(m.files[BinPath].data)
-	if err := Update(context.Background(), h, UpdateOptions{Rollback: true, Stdout: io.Discard}); err == nil {
-		t.Fatal("legacy rollback allowed without coordinated data restoration")
-	}
-	if string(m.files[BinPath].data) != before {
-		t.Fatal("rollback refusal mutated active binary")
-	}
-}
-
-func TestUpdateMigratesLegacyDirectACMEExposure(t *testing.T) {
-	m := installedFixture(t, ModeDocker)
-	contractFixture(m)
-
-	legacy, err := LoadState(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	currentConfig, err := ReadBootConfig(m, ConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p := Defaults()
-	p.Mode = ModeDocker
-	p.Exposure = ExposureDirect
-	p.Certificate = CertificateBuiltin
-	p.TLSMode = config.TLSModeACME
-	p.Domain = "panel.example.com"
-	p.PanelPort = 4443
-	p.ACMEHTTPPort = portOf(currentConfig.HTTPListen)
-	rawConfig, err := renderBootConfig(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.files[ConfigPath] = memFile{data: rawConfig, perm: 0o600}
-	legacy.Schema = 1
-	legacy.Exposure = ExposureState{}
-	legacy.TLSReadiness = ""
-	if err := saveState(m, legacy); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := Update(context.Background(), m, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
-		t.Fatal(err)
-	}
-	upgraded, err := LoadState(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if upgraded.Schema != StateSchema || upgraded.Exposure.Mode != ExposureDirect || upgraded.Exposure.Certificate != CertificateBuiltin || upgraded.Exposure.PublicURL != "https://panel.example.com:4443" || upgraded.TLSReadiness != "pending" {
-		t.Fatalf("legacy exposure migration incomplete: schema=%d exposure=%+v tls=%q", upgraded.Schema, upgraded.Exposure, upgraded.TLSReadiness)
 	}
 }
 
@@ -411,11 +338,11 @@ func TestLoadStateAcceptsInterruptedExposureMigrationSentinel(t *testing.T) {
 }
 
 func TestIncompatibleUpdateCannotSkipBackup(t *testing.T) {
-	m := installedFixture(t, ModeNative)
+	m := installedFixture(t, ModeDocker)
 	contractFixture(m)
-	m.output[BinPath+" installer-contract"] = ""
+	m.output["docker run --rm --network none --entrypoint "+BinPath+" sha256:"+strings.Repeat("a", 64)+" installer-contract"] = ""
 	before := string(m.files[BinPath].data)
-	if err := Update(context.Background(), m, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
+	if err := Update(context.Background(), m, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
 		t.Fatal("unsafe update allowed without backup")
 	}
 	if string(m.files[BinPath].data) != before {
@@ -433,7 +360,7 @@ func installedFixture(t *testing.T, mode Mode) *memHost {
 	t.Helper()
 	h := newMemHost()
 	p := Defaults()
-	p.Mode = mode
+
 	p.PanelPort = healthServer(t, http.StatusOK)
 	if _, err := Install(context.Background(), h, InstallOptions{Plan: p, Yes: true, Stdout: io.Discard}); err != nil {
 		t.Fatal(err)
@@ -489,13 +416,11 @@ func TestUninstallRejectsStatePaths(t *testing.T) {
 	}
 }
 func TestUninstallStopFailurePreservesArtifacts(t *testing.T) {
-	for _, mode := range []Mode{ModeDocker, ModeNative} {
+	for _, mode := range []Mode{ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {
 			m := installedFixture(t, mode)
 			h := &faultHost{memHost: m, failRun: " down"}
-			if mode == ModeNative {
-				h.failRun = "systemctl stop"
-			}
+
 			_, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, PurgeData: true, Stdout: io.Discard})
 			if err == nil {
 				t.Fatal("stop failure ignored")

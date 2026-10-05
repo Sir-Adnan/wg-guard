@@ -5,22 +5,25 @@ builds, passes a unit test, or ran in WSL/container emulation. Detailed phase ev
 the linked phase records; release blockers and audit findings live in
 [release-readiness.md](release-readiness.md).
 
-**Current gate (2026-10-04):** Phases 0–14 are complete within their documented scopes.
-The [refactor program, Phases 15–20](refactor-program.md), is newly planned:
+**Current gate (2026-10-05):** Phases 0–14 are complete within their documented scopes.
+The [refactor program, Phases 15–20](refactor-program.md), is in progress:
 Phase 15 engineering preparation is complete and v0.1.9 is public;
 the [Phase 15 record](phase15.md) separates synthetic Linux evidence from host certification.
 The owner authorized preparation publication followed by full Phase 16 source work without
 another release. Owner-server update/export is a post-publication checkpoint before rebuild.
-Phase 16 is complete within its documented source scope with exact CI passed; Phases 17–20 remain
-planned. Integrated domain/certificate management and native retirement
-are not current features. The [domain/TLS guide](../operations/domains-and-tls.md)
+Phase 16 is complete within its documented source scope with exact CI passed.
+[Phase 17](phase17.md) implements Docker-only source, schema-4 private host state, one runtime
+recipe and verified offline image distribution. Its exact image/CI gate is pending; real-host
+acceptance remains separate. Phases 18–20 remain planned. Integrated domain/certificate
+management is not a current feature. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
 
 The owner explicitly selected complete native production removal in Phase 17.
 The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle,
 state/artifacts, flags, renderers, logs, tests and current docs. Host CLI, kernel/
 DKMS, required systemd broker/renewal/retention and fake development remain.
-This is planned scope, not a claim that current main or v0.1.8 is Docker-only.
+Current main removes Native production execution; the published v0.1.9 preparation release
+retains the prior deployment contract. No later release or registry publication is authorized.
 The [Phase 16 record](phase16.md) describes the completed source refactor: shared node-data
 sessions, bounded runtime application with desired/applied observations, sealed device-key
 provisioning, centralized managed paths and separate deployment/diagnostic adapters. Full local

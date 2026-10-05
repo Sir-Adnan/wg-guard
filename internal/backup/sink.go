@@ -30,9 +30,10 @@ const (
 // The token never appears in errors or logs — failures report the HTTP
 // status only; URL errors and remote descriptions are never exposed.
 type TelegramSink struct {
-	Token string
-	Chat  string
-	HTTP  HTTPDoer // nil = default client with httpTimeout
+	Token    string
+	Chat     string
+	HTTP     HTTPDoer // nil = default client with httpTimeout
+	SpoolDir string   // private disk staging supplied by the owning service
 }
 
 func (t *TelegramSink) Name() string { return "telegram" }
@@ -55,7 +56,7 @@ func (t *TelegramSink) Deliver(ctx context.Context, archivePath, filename string
 	}
 	defer src.Close()
 
-	body, err := os.CreateTemp("", "wgg-tg-*.body")
+	body, err := os.CreateTemp(t.SpoolDir, "wgg-tg-*.body")
 	if err != nil {
 		return fmt.Errorf("temp body: %w", err)
 	}
@@ -128,7 +129,7 @@ func (t *TelegramSink) Deliver(ctx context.Context, archivePath, filename string
 // TestDelivery sends a tiny probe document so operators can verify the
 // credentials without waiting for a scheduled archive.
 func (t *TelegramSink) TestDelivery(ctx context.Context) error {
-	dir, err := os.MkdirTemp("", "wgg-tg-test")
+	dir, err := os.MkdirTemp(t.SpoolDir, "wgg-tg-test")
 	if err != nil {
 		return err
 	}

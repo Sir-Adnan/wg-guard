@@ -49,8 +49,7 @@ type Host interface {
 	Rename(old, new string) error
 	CopyFile(src, dst string, perm fs.FileMode) error
 
-	// SelfExe is the path of the running wg-guard binary (native installs
-	// copy it into /usr/local/bin).
+	// SelfExe is the running manager, separate from the installed host command.
 	SelfExe() (string, error)
 	IsRoot() bool
 

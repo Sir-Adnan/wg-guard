@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -171,6 +172,11 @@ func LoadState(h Host) (*State, error) {
 	data, err := readRecord(h, StatePath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
+			if _, legacyErr := h.Stat(legacyInstallStatePath); legacyErr == nil {
+				return nil, legacyDeploymentError()
+			} else if !errors.Is(legacyErr, fs.ErrNotExist) {
+				return nil, legacyErr
+			}
 			return nil, nil
 		}
 		return nil, err
@@ -179,15 +185,23 @@ func LoadState(h Host) (*State, error) {
 	if len(data) > 256<<10 {
 		return nil, terminalError("install.error.state")
 	}
-	if err := json.Unmarshal(data, &st); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&st); err != nil {
 		return nil, terminalError("install.error.health.6", StatePath, err)
+	}
+	if decoder.Decode(new(any)) != io.EOF {
+		return nil, terminalError("install.error.state")
+	}
+	if st.Schema >= 1 && st.Schema < StateSchema {
+		return nil, legacyDeploymentError()
 	}
 	if err := validateState(&st); err != nil {
 		return nil, err
 	}
 	if _, ok := h.(realHost); ok {
 		exposurePaths := []string{st.Exposure.NginxConfigPath, st.Exposure.ACMEWebroot, st.Exposure.CertFile, st.Exposure.KeyFile, st.Exposure.DeployHook, st.Exposure.CredentialsFile}
-		for _, p := range append(append([]string{st.ConfigPath, st.DataDir, st.BinPath, st.ComposePath, st.UnitPath, ArtifactDir}, st.ExtraFiles...), exposurePaths...) {
+		for _, p := range append(append([]string{st.ConfigPath, st.DataDir, st.BinPath, st.ComposePath, ArtifactDir}, st.ExtraFiles...), exposurePaths...) {
 			if p != "" {
 				if err := safeHostPath(p); err != nil {
 					return nil, err
@@ -196,7 +210,7 @@ func LoadState(h Host) (*State, error) {
 		}
 		for _, a := range []*Artifact{st.Current, st.Previous} {
 			if a != nil {
-				for _, p := range []string{a.Binary, a.Compose, a.Unit} {
+				for _, p := range []string{a.Binary, a.Compose} {
 					if p != "" {
 						if err := safeHostPath(p); err != nil {
 							return nil, err
@@ -207,6 +221,10 @@ func LoadState(h Host) (*State, error) {
 		}
 	}
 	return &st, nil
+}
+
+func legacyDeploymentError() error {
+	return fmt.Errorf("install: legacy deployment state requires the original manager; export and independently verify a backup, then perform a fresh Docker install and restore (docs/operations/migration-preparation.md)")
 }
 
 // readBootConfig parses the live boot config (update paths use its TLS

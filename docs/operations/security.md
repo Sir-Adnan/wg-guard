@@ -177,8 +177,11 @@ reconciliation fails, rather than reviving old credentials.
   checks embedded pinned-source provenance and its UAPI socket, never captures daemon output, refuses an active
   unowned daemon, and terminates owned children on shutdown; Linux parent-death signaling covers
   abrupt node exit. `/dev/net/tun` is mapped only as a device in Docker.
-- Systemd hardening in native mode; non-privileged container defaults with only `NET_ADMIN`
-  added, in Docker mode.
+- Docker runtime drops all capabilities and adds only `NET_ADMIN`/`NET_BIND_SERVICE`, uses
+  no-new-privileges and a read-only root with bounded temporary mounts. Only individual boot/TLS
+  files are read-only mounts; node data is writable. Host state/journal/manager are not mounted,
+  and neither a Docker socket nor privileged execution is granted. New-profile real-host
+  networking/resource acceptance remains separate from source/fake-container checks.
 
 ## Planned domain/certificate management boundary
 

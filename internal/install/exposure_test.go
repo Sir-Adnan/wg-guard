@@ -177,8 +177,8 @@ func TestStateSchemaThreeValidatesExposureWithoutSecrets(t *testing.T) {
 	legacy := *base
 	legacy.Schema = 2
 	legacy.Exposure = ExposureState{}
-	if err := validateState(&legacy); err != nil {
-		t.Fatalf("schema-two state lost compatibility: %v", err)
+	if err := validateState(&legacy); err == nil {
+		t.Fatal("legacy deployment must not be executed by the Docker-only manager")
 	}
 }
 

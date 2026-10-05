@@ -4,7 +4,7 @@ import "testing"
 
 func TestPersistentManagerContractAdmissionKeepsRevisionOneDataCompatible(t *testing.T) {
 	current := CurrentContract()
-	if current.Revision != 2 || !current.PersistentManager || !current.SecureExposure {
+	if current.Revision != 3 || current.DeploymentSchema != StateSchema || !current.PersistentManager || !current.SecureExposure {
 		t.Fatalf("current installer contract lacks Phase 8.2 capabilities: %+v", current)
 	}
 

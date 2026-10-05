@@ -14,7 +14,7 @@ changes and certificate synchronization share this lock. The application remains
 with one scheduler.
 
 DB/key access also uses `/var/lib/wg-guard/.wg-guard-data.lock`, a separate persistent
-inode shared by native commands and Docker's bind-mounted data volume. Every data CLI and
+inode shared by host recovery commands and Docker's bind-mounted data volume. Every data CLI and
 the server keep shared kernel ownership until their DB/key users close. `secrets rotate`
 takes exclusive ownership before loading keys or carriers, including while awaiting `YES`.
 Restore and interrupted pair recovery require exclusive ownership; stopping the service
@@ -65,15 +65,13 @@ Managed restore retains its separate canonical-filename/layout requirement.
 
 ## State and retained resources
 
-`/etc/wg-guard/install-state.json` is schema3 and mode 0600. Schema1/2 remain readable when
-their paths match the managed layout. Schema3 adds non-secret exposure/certificate ownership;
-the corrected updater can conservatively reconstruct an empty migration sentinel from the live
-boot configuration without claiming arbitrary manual-certificate paths or unproven readiness.
-Missing state is distinct from unreadable, corrupt or
-unsupported state; the latter cases stop lifecycle commands. Manual/custom layouts need
-explicit migration, not editing deletion targets to arbitrary paths.
+`/var/lib/wg-guard-host/install-state.json` is the private schema-4 Docker record. The manager
+rejects schema 1–3, retired unit fields and legacy `/etc/wg-guard/install-state.json` before
+deployment mutation. Use the original release manager for export and the fresh-install/restore
+route; changing a JSON schema/path by hand is not migration. Missing state differs from unreadable,
+corrupt or unsupported state, all of which block lifecycle operations.
 
-`/etc/wg-guard/lifecycle.json` is a private, atomically replaced and synced operation journal.
+`/var/lib/wg-guard-host/lifecycle.json` is a private schema-2, atomically replaced and synced operation journal.
 It records the stage, before/after state, previous/candidate artifact paths, prerequisite
 package intents, observed ownership and repository preparation. Package intents mean an
 interrupted apt command may have changed those packages; inspect `dpkg-query` before deciding
@@ -84,7 +82,7 @@ outcomes can be inspected with `wg-guard logs --source operations --since 7d`; t
 prompts, command arguments, error text, configuration or archive content.
 
 Retained binaries and Compose snapshots live in random private directories under
-`/etc/wg-guard/lifecycle/`. Their exact paths and binary SHA-256 are recorded. Successful
+`/var/lib/wg-guard-host/lifecycle/`. Their exact paths and binary SHA-256 are recorded. Successful
 updates retain current and previous artifacts and prune superseded recorded copies; Docker
 images and pre-update archives are retained. A process killed during staging can leave an
 unreferenced private directory. Inspect journal/state references before removing such a
@@ -120,7 +118,7 @@ document; it is not an installed `/docs/...` path. Log source **Installer and up
 contains command errors; **Lifecycle outcomes** intentionally contains only safe action/results.
 
 Pre-update archives use the existing backup service in the owning environment (Docker exec
-or native command) with a dedicated local output directory:
+or explicit offline helper) with a dedicated local output directory:
 `/var/lib/wg-guard/backups/lifecycle-<operation-id>/`. The journal records the actual returned
 archive name, SHA-256 of local bytes and whether the file has an age header. A remote delivery
 claim or a missing local file is insufficient. Archive hashing uses bounded memory; it is
@@ -161,10 +159,9 @@ The local manager recognizes an uninstall journal before reading the possibly re
 and promotes **Continue uninstall / reset**. Its safe choice preserves data; its separately
 confirmed full reset passes the existing data/package purge boundaries. It never dispatches
 update recovery for an uninstall record.
-Native cleanup first validates systemd's load and activity properties. Confirmed
-`LoadState=not-found` with `ActiveState=inactive` permits cleanup without stop/disable, including
-installation before unit creation or uninstall retried after unit removal. Missing unit files,
-failed queries, incomplete properties and inconsistent states do not establish absence.
+Fresh installation queries legacy unit load/activity read-only and refuses anything except
+confirmed absence. It never stops/disables an unowned old server. An existing named container
+or an unobservable engine also blocks fresh setup. Docker stop must be proven before deletion.
 
 A first-install failure before runtime/data mutation closes as `aborted`, leaves the verified
 local manager available, and returns to normal setup on `sudo wg-guard`; observed prerequisite
@@ -240,7 +237,7 @@ not certify the dedicated-VPS/M6 lifecycle drills.
 recommended bundle is source-backed `awg-2026-09`; recommended and latest-compatible resolve to
 it. Exact upstream tags/commits, the versioned DKMS identity and cached source ownership are
 verified before readiness. Package-backed `awg-2026-08` remains recognizable for legacy
-native-install transition compatibility. Owned catalogued source can be repaired or moved to the
+new-layout transition compatibility. Owned catalogued source can be repaired or moved to the
 recommended entry; no arbitrary upstream branch or unreviewed version is accepted. An unknown or
 unowned installed combination is refused with a manual migration requirement. Docker core changes
 that require a different userspace tool bundle must travel through the panel/runtime update path;

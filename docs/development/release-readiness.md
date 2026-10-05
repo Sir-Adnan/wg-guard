@@ -5,7 +5,7 @@ Living tracker for completed releases through Phase 14 and the planned
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
-Last updated: 2026-10-04. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-10-05. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
@@ -64,7 +64,7 @@ further release authorization.
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 | 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
 | 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
-| 17 — Docker-only/native cleanup | planned; removal confirmed | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
+| 17 — Docker-only/native cleanup | source implemented; exact image/CI gate pending; unreleased | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
 | 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |
 | 20 — Refactor certification | planned | Exact-source/artifact, real-host migration/resource/failure gates and publication approval |
@@ -290,3 +290,15 @@ and [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8)
 were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).
+
+
+### Phase 17 candidate gates
+
+See [the implementation record](phase17.md). Current source removes native server lifecycle and
+mode/unit artifacts, uses state 4/journal 2/installer 3, separates mutable host authority,
+loads new-format release images with binary/core/data/protocol/checksum bindings and retains
+one reviewed source recipe. Offline import/cache, Docker-only failure/recovery and private
+disk delivery have focused checks. A new CI job must verify the exact manager/image and fake
+container before source delivery is called verified. New physical Ubuntu kernel/userspace,
+reboot/TLS/restore/failure and resource acceptance remain Phase 20; historical evidence is not
+relabelled. No release, registry or live-host mutation is authorized here.

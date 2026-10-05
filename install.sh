@@ -40,7 +40,7 @@ while (($#)); do
         'Terminal UI: English only.' \
         'Everyday command after the first download: sudo wg-guard' \
         '--refresh strictly reacquires the selected GitHub build; ordinary runs reuse a verified current manager.' \
-        'Advanced install flags (for example --yes --mode native) are forwarded unchanged.'
+        'Production runs in Docker. Advanced install flags (for example --yes --domain panel.example.com) are forwarded unchanged.'
       exit 0 ;;
     --release|--commit)
       (($# >= 2)) || die 'Missing selection value'
@@ -50,6 +50,9 @@ while (($#)); do
     --) shift; args+=("$@"); break ;;
     *) args+=("$1"); shift ;;
   esac
+done
+for argument in "${args[@]}"; do
+  case "$argument" in --mode|--mode=*) die 'Deployment mode selection was removed; production uses Docker. Use the original release manager to export an existing deployment before rebuilding.';; esac
 done
 ((list)) || { ui_header; ui_step '1/4' 'Checking system compatibility'; }
 [[ $(uname -s) == Linux ]] || die 'Only Linux is supported'
@@ -86,7 +89,9 @@ for ((i=0; i<${#args[@]}; i++)); do
   esac
 done
 installed_bin=/usr/local/bin/wg-guard
-installed_state=/etc/wg-guard/install-state.json
+installed_state=/var/lib/wg-guard-host/install-state.json
+legacy_state=/etc/wg-guard/install-state.json
+has_install_state() { "${sudo_cmd[@]}" test -f "$installed_state" || "${sudo_cmd[@]}" test -f "$legacy_state"; }
 manager_receipt=/var/cache/wg-guard/manager-build.json
 manager_bin=/var/cache/wg-guard/manager
 ((list)) || ui_step '2/4' 'Preparing prerequisites'
@@ -155,7 +160,7 @@ PY
          CACHE_CONTRACT=$cache_contract python3 -I - <<'PY' >/dev/null 2>&1
 import json,os
 c=json.loads(os.environ['CACHE_CONTRACT'])
-assert c.get('revision')==2 and c.get('prerequisites') is True and c.get('recovery') is True
+assert (c.get('revision')==2 or c.get('revision')==3 and c.get('deployment_schema')==4) and c.get('prerequisites') is True and c.get('recovery') is True
 assert c.get('local_owner') is True and c.get('coordinated_restore') is True and c.get('data_lease') is True
 assert c.get('persistent_manager') is True and c.get('secure_exposure') is True
 assert isinstance(c.get('data_contract'),str) and c['data_contract']
@@ -421,7 +426,7 @@ try:
     with contract_path.open('wb') as contract_output:
         subprocess.run([str(stage/'wg-guard'),'installer-contract'],stdin=subprocess.DEVNULL,stdout=contract_output,stderr=subprocess.DEVNULL,timeout=15,check=True,preexec_fn=contract_limits)
     contract=json.loads(contract_path.read_bytes())
-    require(contract.get('revision')==2 and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and contract.get('persistent_manager') is True and contract.get('secure_exposure') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the Phase 8.2 persistent-manager/secure-exposure installer contract; choose a compatible build')
+    require((contract.get('revision')==2 or contract.get('revision')==3 and contract.get('deployment_schema')==4) and contract.get('prerequisites') is True and contract.get('recovery') is True and contract.get('local_owner') is True and contract.get('coordinated_restore') is True and contract.get('data_lease') is True and contract.get('persistent_manager') is True and contract.get('secure_exposure') is True and isinstance(contract.get('data_contract'),str) and contract['data_contract'],'Selected build lacks the required persistent-manager/secure-exposure deployment contract; choose a compatible build')
     (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=selected_ref,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
     (stage/'build.json').chmod(0o600)
     finish(True)
@@ -462,7 +467,7 @@ if "${sudo_cmd[@]}" test -L "$manager_dir"; then
   die "Refusing unsafe manager cache path: $manager_dir"
 fi
 "${sudo_cmd[@]}" install -d -m 0700 "$manager_dir"
-if ! "${sudo_cmd[@]}" test -f "$installed_state" && "${sudo_cmd[@]}" test -e "$installed_bin" && ((cache_trusted == 0)); then
+if ! has_install_state && "${sudo_cmd[@]}" test -e "$installed_bin" && ((cache_trusted == 0)); then
   die "Refusing to replace an unmanaged $installed_bin; move it explicitly and retry"
 fi
 cache_hit=0
@@ -488,7 +493,7 @@ PY
 fi
 run_bin=$manager_bin
 run_metadata=$manager_receipt
-if ! "${sudo_cmd[@]}" test -f "$installed_state"; then
+if ! has_install_state; then
   bin_tmp=$("${sudo_cmd[@]}" mktemp "${installed_bin}.new.XXXXXXXX")
   persist_cleanup() { "${sudo_cmd[@]}" rm -f -- "$bin_tmp"; }
   trap 'persist_cleanup; cleanup' EXIT

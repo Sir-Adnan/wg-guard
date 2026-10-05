@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ type ManagerUpdateOptions struct {
 
 // UpdateManager promotes one already-acquired build into the independent
 // manager cache. It intentionally never changes BinPath: that path belongs to
-// the active native service or Docker host shim and is updated transactionally.
+// the active Docker host command and is updated transactionally.
 func UpdateManager(ctx context.Context, h Host, o ManagerUpdateOptions) error {
 	if !h.IsRoot() {
 		return terminalError("install.error.root")
@@ -112,7 +113,7 @@ func validateManagerBuild(b distribution.Build, cached bool) error {
 		if b.BinaryPath != ManagerBinaryPath {
 			return terminalError("install.error.state")
 		}
-	} else if !path.IsAbs(b.BinaryPath) || b.BinaryPath == ManagerBinaryPath {
+	} else if (!path.IsAbs(b.BinaryPath) && !filepath.IsAbs(b.BinaryPath)) || b.BinaryPath == ManagerBinaryPath {
 		return terminalError("install.error.binary")
 	}
 	return nil

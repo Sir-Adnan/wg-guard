@@ -49,7 +49,7 @@ func Restart(ctx context.Context, h Host) (resultErr error) {
 	if j != nil && !j.terminal() && j.Operation != "restart" {
 		return pendingOperationError(j)
 	}
-	j = &Journal{Schema: 1, ID: transactionID(), Operation: "restart", Before: st, After: st}
+	j = &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "restart", Before: st, After: st}
 	if err := j.save(h, "prepared"); err != nil {
 		return err
 	}

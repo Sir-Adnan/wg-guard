@@ -40,11 +40,9 @@ func (h *logStreamHost) Stream(ctx context.Context, argv []string, stdout, stder
 
 func installedLogState(mode Mode) *State {
 	state := &State{Schema: StateSchema, Mode: mode, ConfigPath: ConfigPath, DataDir: DataDir, BinPath: BinPath}
-	if mode == ModeDocker {
-		state.ComposePath = ComposePth
-	} else {
-		state.UnitPath = UnitPath
-	}
+
+	state.ComposePath = ComposePth
+
 	return state
 }
 
@@ -95,7 +93,7 @@ func TestInstallerLogFollowRequiresExistingSafeFile(t *testing.T) {
 	}
 }
 
-func TestStreamLogsUsesExactModeNativeArgv(t *testing.T) {
+func TestStreamLogsUsesExactModeDockerArgv(t *testing.T) {
 	since := time.Date(2026, 9, 9, 8, 30, 45, 0, time.UTC)
 	for _, tc := range []struct {
 		name string
@@ -105,10 +103,6 @@ func TestStreamLogsUsesExactModeNativeArgv(t *testing.T) {
 		{
 			name: "docker", mode: ModeDocker,
 			want: []string{"docker", "logs", "--tail", "275", "--since", "2026-09-09T08:30:45Z", "--follow", Container},
-		},
-		{
-			name: "native", mode: ModeNative,
-			want: []string{"journalctl", "--namespace=wg-guard", "--unit=wg-guard.service", "--no-pager", "--output=cat", "--lines", "275", "--since", "2026-09-09T08:30:45Z", "--follow"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -192,7 +186,7 @@ func TestStreamLogsPropagatesSourceAndOutputFailures(t *testing.T) {
 
 	broken := errors.New("broken output")
 	h = &logStreamHost{memHost: newMemHost(), chunks: [][]byte{[]byte("component=http\n")}}
-	err = StreamLogs(context.Background(), h, installedLogState(ModeNative), LogOptions{
+	err = StreamLogs(context.Background(), h, installedLogState(ModeDocker), LogOptions{
 		Tail: 200, Since: time.Now().UTC(), Component: "http",
 	}, brokenLogWriter{broken}, io.Discard)
 	if !errors.Is(err, broken) {

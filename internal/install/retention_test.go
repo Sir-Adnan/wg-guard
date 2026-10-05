@@ -41,34 +41,6 @@ services:
 	}
 }
 
-func TestNativeUninstallRemovesOwnedJournalPolicy(t *testing.T) {
-	h := &nativeCleanupHost{memHost: installedFixture(t, ModeNative)}
-	state, err := LoadState(h)
-	if err != nil {
-		t.Fatal(err)
-	}
-	state.ExtraFiles = append(state.ExtraFiles, JournalRetentionPath)
-	h.files[JournalRetentionPath] = memFile{data: []byte("owned"), perm: 0o644}
-	h.files[OperationRetentionPath] = memFile{data: []byte(RenderOperationRetention()), perm: 0o644}
-	state.ExtraFiles = addUnique(state.ExtraFiles, OperationRetentionPath)
-	h.dirs[JournalRetentionDir] = true
-	if err := saveState(h, state); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Uninstall(context.Background(), h, UninstallOptions{Yes: true, Stdout: io.Discard}); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := h.files[JournalRetentionPath]; ok {
-		t.Fatal("native journal retention policy survived uninstall")
-	}
-	if _, ok := h.files[OperationRetentionPath]; ok {
-		t.Fatal("operation retention policy survived uninstall")
-	}
-	if !h.ran("systemctl", "daemon-reload") || !h.ran("systemctl", "try-restart", "systemd-journald@wg-guard.service") {
-		t.Fatalf("systemd did not forget the removed unit/policy: %v", h.ranCommands())
-	}
-}
-
 func TestUpdateMigratesExactOperationRetentionWithoutOverwritingForeignFile(t *testing.T) {
 	t.Run("missing", func(t *testing.T) {
 		h := installedFixture(t, ModeDocker)
@@ -152,82 +124,5 @@ func TestFreshInstallRefusesForeignOperationPolicyBeforePrerequisites(t *testing
 	}
 	if got := string(h.files[OperationRetentionPath].data); got != "foreign\n" {
 		t.Fatalf("foreign policy changed: %q", got)
-	}
-}
-
-func legacyNativeLogFixture(t *testing.T) *memHost {
-	t.Helper()
-	h := installedFixture(t, ModeNative)
-	state, err := LoadState(h)
-	if err != nil {
-		t.Fatal(err)
-	}
-	state.ExtraFiles = slices.DeleteFunc(state.ExtraFiles, func(path string) bool { return path == JournalRetentionPath })
-	delete(h.files, JournalRetentionPath)
-	unit := strings.ReplaceAll(string(h.files[UnitPath].data), "LogNamespace=wg-guard\n", "")
-	h.files[UnitPath] = memFile{data: []byte(unit), perm: 0o644}
-	if err := saveState(h, state); err != nil {
-		t.Fatal(err)
-	}
-	h.commands = nil
-	contractFixture(h)
-	return h
-}
-
-func TestNativeUpdateMigratesUnitAndRetentionTransactionally(t *testing.T) {
-	h := legacyNativeLogFixture(t)
-	if err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(h.files[UnitPath].data), "LogNamespace=wg-guard") {
-		t.Fatal("updated native unit did not select its journal namespace")
-	}
-	if _, ok := h.files[JournalRetentionPath]; !ok {
-		t.Fatal("updated native install has no retention policy")
-	}
-	state, err := LoadState(h)
-	if err != nil || !contains(state.ExtraFiles, JournalRetentionPath) {
-		t.Fatalf("updated state does not own retention policy: %v %+v", err, state)
-	}
-	if state.Previous == nil || state.Previous.Unit == "" || state.Current == nil || state.Current.Unit == "" {
-		t.Fatalf("unit snapshots missing from lifecycle artifacts: %+v", state)
-	}
-	if !h.ran("systemctl", "daemon-reload") || !h.ran("systemctl", "restart", "wg-guard") {
-		t.Fatalf("updated unit was not reloaded before restart: %v", h.ranCommands())
-	}
-	if !h.ran("systemctl", "try-restart", "systemd-journald@wg-guard.service") {
-		t.Fatalf("existing journal namespace did not reload its bounds: %v", h.ranCommands())
-	}
-}
-
-func TestNativeUpdateFailureRestoresLegacyUnitAndOwnership(t *testing.T) {
-	base := legacyNativeLogFixture(t)
-	legacyUnit := string(base.files[UnitPath].data)
-	h := &faultHost{memHost: base, failRun: "systemctl restart"}
-	err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard})
-	if err == nil {
-		t.Fatal("restart failure accepted")
-	}
-	if got := string(base.files[UnitPath].data); got != legacyUnit {
-		t.Fatalf("failed update did not restore legacy unit:\n%s", got)
-	}
-	if _, ok := base.files[JournalRetentionPath]; ok {
-		t.Fatal("failed update retained an unowned journal policy")
-	}
-	state, loadErr := LoadState(base)
-	if loadErr != nil || contains(state.ExtraFiles, JournalRetentionPath) {
-		t.Fatalf("failed update changed retention ownership: %v %+v", loadErr, state)
-	}
-}
-
-func TestNativeUpdateRefusesUnownedJournalPolicy(t *testing.T) {
-	h := legacyNativeLogFixture(t)
-	h.files[JournalRetentionPath] = memFile{data: []byte("foreign\n"), perm: 0o644}
-	before := string(h.files[UnitPath].data)
-	if err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
-		t.Fatal("unowned journal policy was overwritten")
-	}
-	if got := string(h.files[JournalRetentionPath].data); got != "foreign\n" || string(h.files[UnitPath].data) != before {
-		t.Fatal("unowned journal policy refusal mutated the host")
 	}
 }

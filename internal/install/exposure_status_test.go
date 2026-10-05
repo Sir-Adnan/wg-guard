@@ -11,7 +11,7 @@ func managedNginxDiagnosticFixture(t *testing.T) (*memHost, *State, Plan) {
 	t.Helper()
 	h := installedFixture(t, ModeDocker)
 	p := Defaults()
-	p.Mode = ModeDocker
+
 	p.Image = "ghcr.io/example/wg-guard:test"
 	p.Exposure = ExposureNginx
 	p.Certificate = CertificateWebroot
@@ -119,7 +119,7 @@ func TestDiagnoseExposureLabelsPrivateAndExternalOwnershipHonestly(t *testing.T)
 	}
 
 	p := Defaults()
-	p.Mode = ModeDocker
+
 	p.Exposure = ExposureExternalProxy
 	p.Certificate = CertificateExternal
 	p.Domain = "panel.example.com"

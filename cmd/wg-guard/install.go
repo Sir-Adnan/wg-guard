@@ -39,7 +39,7 @@ func routeDockerMode() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if st == nil || st.Mode != install.ModeDocker {
+	if st == nil {
 		return
 	}
 	cmd := os.Args[1]
@@ -118,7 +118,6 @@ func runRecoverInstallWith(ctx context.Context, args []string, h install.Host, o
 func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	var (
-		mode           = fs.String("mode", "", "docker (default) | native")
 		domain         = fs.String("domain", "", "panel domain (enables ACME TLS)")
 		tlsMode        = fs.String("tls", "", "acme | manual | proxy | dev (default: acme with domain, dev without)")
 		exposure       = fs.String("exposure", "auto", "auto | private | direct | nginx | external-proxy")
@@ -191,13 +190,6 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 	}
 
 	plan := install.Defaults()
-	switch {
-	case *mode != "":
-		plan.Mode = install.Mode(*mode)
-	case !*yes:
-		// Interactive: the wizard asks for the mode (Enter = Docker default).
-		plan.Mode = ""
-	} // --yes without --mode keeps the Docker default
 	plan.Domain = *domain
 	plan.Exposure = install.ExposureMode(*exposure)
 	plan.Certificate = install.CertificateSource(*certificate)
@@ -300,17 +292,18 @@ func runPanelUpdate(args []string) error {
 		if err != nil {
 			return err
 		}
-		if st != nil && st.Mode == install.ModeDocker {
-			u.Info("Building the local Docker runtime…")
+		if st != nil {
+			u.Info("Preparing the verified Docker runtime…")
 			bundle, err := install.SelectCore(st.Core.Requested.ID)
 			if err != nil {
 				return err
 			}
-			o.Image, err = install.BuildRuntimeImage(ctx, h, build, bundle, parent)
+			o.Image, err = install.PrepareRuntimeImage(ctx, h, &build, bundle, parent)
 			if err != nil {
 				return err
 			}
 			o.LocalImage = true
+			o.Build = build
 			u.Success("Docker runtime ready.")
 		}
 	}
@@ -320,7 +313,7 @@ func parseUpdateOptions(args []string) (install.UpdateOptions, error) {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	var (
 		image      = fs.String("image", "", "new image reference (docker mode)")
-		binaryPath = fs.String("binary", "", "staged new binary path (native mode)")
+		binaryPath = fs.String("binary", "", "verified host-manager binary matching the candidate image")
 		skipBackup = fs.Bool("skip-backup", false, "skip the pre-upgrade backup (not recommended)")
 		rollback   = fs.Bool("rollback", false, "re-deploy the last healthy image/binary recorded in the install state (recovery after a failed or interrupted update)")
 		recover    = fs.Bool("recover", false, i18n.T(i18n.En, "install.cli.recover"))
@@ -377,8 +370,7 @@ func runStatus(args []string) error {
 	}
 
 	fmt.Print("service:     ")
-	switch st.Mode {
-	case install.ModeDocker:
+	{
 		// The container's own docker status line (e.g. "Up 2 minutes
 		// (healthy)") is what an operator wants here.
 		stat, err := h.Output(ctx, []string{"docker", "ps",
@@ -389,12 +381,6 @@ func runStatus(args []string) error {
 			return nil
 		}
 		fmt.Println(stat)
-	default:
-		if err := h.Run(ctx, []string{"systemctl", "is-active", "--quiet", "wg-guard"}, 30*time.Second); err != nil {
-			fmt.Println("inactive")
-			return nil
-		}
-		fmt.Println("active")
 	}
 
 	p, err := install.InstalledPlan(h, st)

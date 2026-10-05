@@ -29,22 +29,22 @@ func InspectInstalledCore(ctx context.Context, h Host) (CoreReport, error) {
 		return r, nil
 	}
 	r.ExternalModule = st.Core.ExternalModule
-	if st.Mode == ModeDocker {
-		r.ToolsLocation = "container"
-		r.ToolsVersion = ""
-		r.ToolsPackage = ""
-		if raw, err := h.Output(ctx, []string{"docker", "exec", Container, "awg", "--version"}, 15*time.Second); err == nil {
-			r.ToolsVersion = strings.TrimSpace(raw)
-		}
-		if raw, err := h.Output(ctx, []string{"docker", "inspect", "--format", "{{ index .Config.Labels \"io.wg-guard.awg-tools.commit\" }}", Container}, 15*time.Second); err == nil && strings.TrimSpace(raw) == b.ToolsCommit {
-			r.ToolsSource = coreSourceGitHub
-		}
-		if raw, err := h.Output(ctx, []string{"docker", "exec", Container, "dpkg-query", "-W", "-f=${db:Status-Status}\t${Version}", "amneziawg-tools"}, 15*time.Second); err == nil {
-			status, version, ok := strings.Cut(strings.TrimSpace(raw), "\t")
-			if ok && status == "installed" {
-				r.ToolsPackage = version
-			}
+
+	r.ToolsLocation = "container"
+	r.ToolsVersion = ""
+	r.ToolsPackage = ""
+	if raw, err := h.Output(ctx, []string{"docker", "exec", Container, "awg", "--version"}, 15*time.Second); err == nil {
+		r.ToolsVersion = strings.TrimSpace(raw)
+	}
+	if raw, err := h.Output(ctx, []string{"docker", "inspect", "--format", "{{ index .Config.Labels \"io.wg-guard.awg-tools.commit\" }}", Container}, 15*time.Second); err == nil && strings.TrimSpace(raw) == b.ToolsCommit {
+		r.ToolsSource = coreSourceGitHub
+	}
+	if raw, err := h.Output(ctx, []string{"docker", "exec", Container, "dpkg-query", "-W", "-f=${db:Status-Status}\t${Version}", "amneziawg-tools"}, 15*time.Second); err == nil {
+		status, version, ok := strings.Cut(strings.TrimSpace(raw), "\t")
+		if ok && status == "installed" {
+			r.ToolsPackage = version
 		}
 	}
+
 	return r, nil
 }

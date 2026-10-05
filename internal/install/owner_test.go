@@ -28,10 +28,10 @@ func (w *credentialOrderWriter) Write(p []byte) (int, error) {
 func (w *credentialOrderWriter) String() string { return w.b.String() }
 
 func TestDefaultOwnerHookRunsAfterSettingsBeforeListener(t *testing.T) {
-	for _, mode := range []Mode{ModeNative, ModeDocker} {
+	for range []Mode{ModeDocker} {
 		h := newMemHost()
 		p := Defaults()
-		p.Mode = mode
+
 		p.PanelPort = healthServer(t, http.StatusOK)
 		h.output[BinPath+" owner-bootstrap --config "+p.BootConfigPath()+" --check"] = "absent\n"
 		h.files["/private-password"] = memFile{data: []byte("synthetic-password-123\n"), perm: 0600}

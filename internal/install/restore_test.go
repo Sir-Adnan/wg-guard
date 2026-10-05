@@ -10,7 +10,7 @@ import (
 func TestRestoreRejectsNoncanonicalLayoutBeforePrepareOrStop(t *testing.T) {
 	for _, field := range []string{"data_dir", "database_path", "master_key_file"} {
 		t.Run(field, func(t *testing.T) {
-			h := installedFixture(t, ModeNative)
+			h := installedFixture(t, ModeDocker)
 			h.files[ConfigPath] = memFile{data: []byte(field + " = '/outside/restore'\n"), perm: 0600}
 			before := len(h.commands)
 			journalBefore := string(h.files[JournalPath].data)
@@ -33,7 +33,7 @@ func TestRestoreRejectsNoncanonicalLayoutBeforePrepareOrStop(t *testing.T) {
 }
 
 func TestRestoreCoordinatesBothModes(t *testing.T) {
-	for _, mode := range []Mode{ModeNative, ModeDocker} {
+	for _, mode := range []Mode{ModeDocker} {
 		t.Run(string(mode), func(t *testing.T) {
 			h := installedFixture(t, mode)
 			contractFixture(h)
@@ -65,7 +65,7 @@ func TestRestoreCoordinatesBothModes(t *testing.T) {
 	}
 }
 func TestRestorePreviewCancellationDoesNotStopService(t *testing.T) {
-	h := installedFixture(t, ModeNative)
+	h := installedFixture(t, ModeDocker)
 	contractFixture(h)
 	err := Restore(context.Background(), h, RestoreOptions{Prepare: func(context.Context, *BackupIdentity) (func(context.Context) error, error) {
 		return nil, errors.New("review canceled")

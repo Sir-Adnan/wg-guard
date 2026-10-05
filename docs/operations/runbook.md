@@ -16,7 +16,7 @@ bundle and default networking. A domain selects automatic HTTPS; a blank domain 
 private on loopback and prints an SSH tunnel. The final fresh-install confirmation defaults to
 install, while destructive lifecycle confirmations always default to no.
 
-Advanced setup exposes native systemd, TLS and panel ports, container image, AWG UDP allocation,
+Advanced setup exposes TLS and panel ports, container image, AWG UDP allocation,
 first-interface pool, MTU/DNS and optional Telegram backups. The AWG UDP range is not a panel or
 HTTPS port. Automatic HTTPS requires external TCP 80 and 443.
 
@@ -31,7 +31,7 @@ password must be at least 10 characters; short or mismatched input is retried wi
 installer. Older completed installations keep their existing username (historically `owner`).
 
 What it writes: `/etc/wg-guard/wg-guard.toml` (0600), `/var/lib/wg-guard/`, the compose
-project (`/etc/wg-guard/compose.yaml`) or the hardened systemd unit, the host CLI at
+project (`/opt/wg-guard/compose.yaml`) and the private host state under `/var/lib/wg-guard-host`, the host CLI at
 `/usr/local/bin/wg-guard` (in Docker mode it is the mode-aware shim: panel commands exec into
 the container, `install|update|uninstall|status|doctor|version` run on the host, `serve` is
 refused with compose hints), and `/etc/modules-load.d/wg-guard.conf` so the AmneziaWG module
@@ -39,14 +39,14 @@ loads at boot. Preflight refuses busy ports and completed installs; a domain tha
 resolve yet is a loud warning (ACME will fail until DNS points at the host).
 
 Docker image layers belong to Docker's engine storage and are not copied into `/opt`. The stable
-operator-visible deployment is the Compose file under `/etc/wg-guard`; `/etc/wg-guard` and
-`/var/lib/wg-guard` are bind-mounted into the container.
+operator-visible deployment is `/opt/wg-guard/compose.yaml`. Only individual boot/TLS files and
+node data are mounted; private host state and deployment files are not mounted.
 
-Verify: `sudo wg-guard status` → container/unit healthy; open the printed panel URL and sign in
+Verify: `sudo wg-guard status` → container healthy; open the printed panel URL and sign in
 with the locally supplied administrator credentials. Diagnostics: `sudo wg-guard doctor`. See
 [terminal management](terminal-management.md) for navigation, restart, secrets and cancellation.
 
-Recent service logs use one command in either deployment mode:
+Recent service logs use one command for the Docker runtime:
 
 ```bash
 sudo wg-guard logs
@@ -55,7 +55,7 @@ sudo wg-guard logs --follow
 sudo wg-guard logs --source operations --since 7d
 ```
 
-The command derives Docker versus native journal access from validated install state. Tail is
+The command derives Docker log access from validated install state. Tail is
 bounded at 10,000, since at seven days, and `Ctrl+C` stops service follow mode. The operations
 source contains only fixed install/update/rollback/uninstall outcomes and remains readable when
 install state is absent.
@@ -65,7 +65,6 @@ install state is absent.
 ```bash
 wg-guard update --release latest               # published stable release; no source fallback
 wg-guard update --commit main                  # resolves an immutable development commit
-wg-guard update --binary /path/to/new-wg-guard  # explicit local native candidate
 wg-guard update --image registry/image:tag --binary /path/to/matching-wg-guard
 wg-guard update --local-image --image sha256:IMAGE_ID --binary /path/to/matching-wg-guard
 wg-guard update --rollback                     # previous healthy artifact, when data-compatible
@@ -149,15 +148,14 @@ peers, rebuild nft/tc, repair supported Docker/UFW forwarding, enable IP forward
 same orchestration as `serve`, then re-checks the affected areas. In Docker mode the explicit fix
 performs the lifecycle-locked, health-checked managed restart; container startup owns the canonical
 reconciliation, and the host then runs the read-only verification pass. Do not stop the container
-first. Native mode applies the repair directly and therefore **refuses while the service is up** to
-avoid racing its serialized AWG subprocess. Read-only doctor is safe anytime.
+first. Read-only doctor is safe anytime; no native production repair path remains.
 
 ## Incident playbook (first responses)
 
 | Symptom | First response |
 |---|---|
-| Handshake succeeds but peers get no Internet | `doctor` → both `nftables` and `forwarding`; Docker: run `doctor --fix` with the node installed/running; Native: stop the service first. Never change global `FORWARD` to ACCEPT as a first response |
-| Panel shows peer state differing from reality | drift detected → Docker: `doctor --fix`; Native: stop service, then `doctor --fix`; check `drift_policy` |
+| Handshake succeeds but peers get no Internet | `doctor` → both `nftables` and `forwarding`; Run `doctor --fix` with the node installed/running. Never change global `FORWARD` to ACCEPT as a first response |
+| Panel shows peer state differing from reality | drift detected → `doctor --fix`; check `drift_policy` |
 | Traffic counters look wrong after restart | expected behavior: delta re-baseline; verify accumulated totals unchanged in DB |
 | Users all `expired` suddenly | clock skew — check NTP/timezone; expiry sweeps use UTC |
 | DB errors / corruption hints | stop writes, run `doctor`, restore latest backup (runbook steps above) |
@@ -169,6 +167,4 @@ avoid racing its serialized AWG subprocess. Read-only doctor is safe anytime.
 
 Historical Phase 6/7 drills are recorded in [../development/phase7.md](../development/phase7.md).
 The Phase 8.1 lifecycle changes have host-seam/fault tests, Linux process-death lock and atomic
-filesystem tests, and executable bootstrap fixtures. Their new Docker/native deployment and
-legacy-data migration behavior still require the dedicated M6 VPS drill; prior drills do not
-certify them. Current certification is tracked in [../development/status.md](../development/status.md).
+filesystem tests, and executable bootstrap fixtures. Historical Docker/native certification does not certify the new Phase 17 layout/hardening. Current certification is tracked in [../development/status.md](../development/status.md).

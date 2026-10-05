@@ -48,7 +48,7 @@ func TestRenewManagedCertificateRefusesMissingHookAndPendingLifecycle(t *testing
 	t.Run("pending lifecycle", func(t *testing.T) {
 		h, _, _, _ := installedDirectCertificateFixture(t)
 		h.files[CertbotDeployHookPath] = memFile{data: []byte(certbotDeployHook), perm: 0o700}
-		if err := (&Journal{Schema: 1, ID: "pending", Operation: "update"}).save(h, "started"); err != nil {
+		if err := (&Journal{Schema: JournalSchema, ID: "pending", Operation: "update"}).save(h, "started"); err != nil {
 			t.Fatal(err)
 		}
 		h.commands = nil

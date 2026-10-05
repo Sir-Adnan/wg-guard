@@ -28,7 +28,7 @@ func (r dockerExecRunner) Run(ctx context.Context, argv []string) (subprocess.Re
 }
 
 func newDoctorInspector(state *install.State, host subprocess.Runner) *amneziawg.Backend {
-	if state != nil && state.Mode == install.ModeDocker {
+	if state != nil {
 		probe := func(ctx context.Context, name string) (string, error) {
 			// The daemon socket lives in the container mount namespace. The
 			// following script is fixed; the validated interface name is an arg.
@@ -51,9 +51,9 @@ func newDoctorInspector(state *install.State, host subprocess.Runner) *amneziawg
 // prepareDoctorFix maps Docker repair onto the managed lifecycle restart.
 // Container startup already runs the canonical boot reconciliation with its
 // pinned AWG tools; the subsequent read-only doctor pass verifies the result.
-// Native mode retains doctor's direct offline repair path.
+// Unmanaged fake development retains direct inspection/repair.
 func prepareDoctorFix(ctx context.Context, state *install.State, configPath string, fix bool, restart func(context.Context) error) (directFix bool, summary string, err error) {
-	if !fix || state == nil || state.Mode != install.ModeDocker || state.ConfigPath != configPath {
+	if !fix || state == nil || state.ConfigPath != configPath {
 		return fix, "", nil
 	}
 	if err := restart(ctx); err != nil {

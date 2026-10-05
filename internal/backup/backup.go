@@ -438,7 +438,12 @@ func (s *Service) deliver(ctx context.Context, res *Result, password string, war
 	if st, err := os.Stat(res.Path); err == nil && st.Size() >= telegramWarnSize {
 		warn(warning("telegram_near"))
 	}
-	tg := &TelegramSink{Token: token, Chat: chatID, HTTP: s.HTTPClient}
+	dir, err := s.deliverySpoolDir()
+	if err != nil {
+		warn(warning("telegram_failed", err))
+		return
+	}
+	tg := &TelegramSink{Token: token, Chat: chatID, HTTP: s.HTTPClient, SpoolDir: dir}
 	if err := tg.Deliver(ctx, res.Path, res.Name); err != nil {
 		warn(warning("telegram_failed", err))
 		return

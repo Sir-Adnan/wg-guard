@@ -1,7 +1,8 @@
 # Docker deployment refactor target
 
 Owner-selected product scope, revised after critical review on 2026-10-04.
-This is a target design, not the currently shipped deployment contract. Phase
+Phase 17 implements the source deployment boundary; shipped v0.1.9 retains the preparation
+contract. Domain/TLS and real-host acceptance remain later gates. Phase
 order, milestones and exit gates are in the [Phases 15–20 program](../development/refactor-program.md).
 The owner operates one server
 and will export a verified backup, rebuild it, install the new distribution and
@@ -30,16 +31,17 @@ Use `/opt/wg-guard` for deployment assets where it simplifies distribution, whil
 retaining stable configuration and node-data paths. Moving directories is not a
 performance/security improvement. The earlier `/etc/opt` and `node/` relocation
 proposal is withdrawn; only a demonstrated ownership/recovery need justifies a move.
-The private host-state path below is a proposed separation, not an implemented migration.
+Phase 17 makes the host-authority split explicit with schema-4 state. This is a fresh-layout
+boundary, not an in-place migration of the owner's existing installation.
 
 | Host path | Responsibility | Container access |
 |---|---|---|
 | `/opt/wg-guard/compose.yaml` | Versioned deployment manifest | none |
-| `/opt/wg-guard/bin/` | Verified host manager | none |
+| `/usr/local/bin/wg-guard` | Active verified host command | none |
 | `/etc/wg-guard/wg-guard.toml` | Host-specific boot configuration | one read-only file |
 | `/etc/wg-guard/tls/` | Managed certificate/key pair | approved read-only material |
 | `/var/lib/wg-guard/` | DB, master key, backups and ACME cache | node data only |
-| `/var/lib/wg-guard-host/` | Proposed private host state/journal/recovery artifacts | none |
+| `/var/lib/wg-guard-host/` | Private host state/journal/recovery artifacts | none |
 | `/var/cache/wg-guard/` | Bounded acquisition/manager cache | none |
 | `/var/log/wg-guard/` | Bounded private installer log | none |
 
@@ -50,8 +52,9 @@ paths rather than duplicating absolute strings. Do not mount host executables,
 journals or recovery/cache material as writable node storage. Preserve the narrow
 update request/status bridge.
 
-Current host state is still under the existing managed layout. Centralize paths
-and prove directory ownership before changing that contract. Native retirement
+Current source host state uses `/var/lib/wg-guard-host`; current/previous binaries and Compose
+snapshots are private beneath it. Legacy state/paths refuse mutation rather than changing JSON
+fields or guessing ownership. Configuration/TLS and node data stay in their established paths. Native retirement
 is gated on verified image distribution, recovery and host acceptance; it does
 not make a systemd deployment inherently less correct or less secure.
 
@@ -59,7 +62,8 @@ Phase 16 now centralizes the current constants/managed-data admission in `intern
 and live DB/key/migration/initialization in `internal/nodestate`. The existing host state,
 artifact directory and lifecycle journal are already under `/etc/wg-guard`, outside the writable
 data mount; the earlier proposed alternative host-state directory is not required or moved
-in this source refactor. [Phase 16 evidence](../development/phase16.md) records the boundary.
+in Phase 16. Phase 17 subsequently separates the mutable host state from configuration under
+its own versioned fresh-install contract. [Phase 16 evidence](../development/phase16.md) records the boundary.
 
 Remove native branches, renderers, state/artifact fields, flags, error hints and
 current native-only acceptance cells together. Preserve one operation coordinator

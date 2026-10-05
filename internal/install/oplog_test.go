@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"slices"
@@ -69,7 +68,7 @@ func TestOperationJournalEnforcesAggregateCapOldestFirst(t *testing.T) {
 	h.files[OperationLogDir+"/operations-2026-09-08.jsonl"] = memFile{data: bytes.Repeat([]byte("a"), 90), perm: 0o600}
 	h.files[OperationLogDir+"/operations-2026-09-09.jsonl"] = memFile{data: bytes.Repeat([]byte("b"), 90), perm: 0o600}
 	journal := operationJournal{host: h, now: func() time.Time { return now }, maxBytes: 220}
-	if err := journal.record(operationUpdate, operationSucceeded, ModeNative); err != nil {
+	if err := journal.record(operationUpdate, operationSucceeded, ModeDocker); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := h.files[OperationLogDir+"/operations-2026-09-08.jsonl"]; ok {
@@ -221,28 +220,28 @@ func TestLifecycleCommandsRecordOnlyFixedOutcomes(t *testing.T) {
 	})
 
 	t.Run("update success and failure", func(t *testing.T) {
-		base := installedFixture(t, ModeNative)
+		base := installedFixture(t, ModeDocker)
 		clearOperationLogs(base)
 		contractFixture(base)
-		if err := Update(context.Background(), base, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
+		if err := Update(context.Background(), base, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
 			t.Fatal(err)
 		}
 		requireOutcomes(t, base, "update:started", "update:succeeded")
 
-		failedBase := installedFixture(t, ModeNative)
+		failedBase := installedFixture(t, ModeDocker)
 		clearOperationLogs(failedBase)
 		contractFixture(failedBase)
-		failed := &faultHost{memHost: failedBase, failRun: "systemctl restart"}
-		if err := Update(context.Background(), failed, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
+		failed := &faultHost{memHost: failedBase, failRun: " up -d"}
+		if err := Update(context.Background(), failed, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err == nil {
 			t.Fatal("injected update failure accepted")
 		}
 		requireOutcomes(t, failedBase, "update:started", "update:failed")
 	})
 
 	t.Run("rollback success", func(t *testing.T) {
-		h := installedFixture(t, ModeNative)
+		h := installedFixture(t, ModeDocker)
 		contractFixture(h)
-		if err := Update(context.Background(), h, UpdateOptions{BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
+		if err := Update(context.Background(), h, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: io.Discard}); err != nil {
 			t.Fatal(err)
 		}
 		clearOperationLogs(h)
@@ -251,7 +250,7 @@ func TestLifecycleCommandsRecordOnlyFixedOutcomes(t *testing.T) {
 		}
 		requireOutcomes(t, h, "rollback:started", "rollback:succeeded")
 
-		failed := installedFixture(t, ModeNative)
+		failed := installedFixture(t, ModeDocker)
 		clearOperationLogs(failed)
 		if err := Update(context.Background(), failed, UpdateOptions{Rollback: true, Stdout: io.Discard}); err == nil {
 			t.Fatal("rollback without a previous build was accepted")
@@ -267,9 +266,9 @@ func TestLifecycleCommandsRecordOnlyFixedOutcomes(t *testing.T) {
 		}
 		requireOutcomes(t, base, "uninstall:started", "uninstall:succeeded")
 
-		failedBase := installedFixture(t, ModeNative)
+		failedBase := installedFixture(t, ModeDocker)
 		clearOperationLogs(failedBase)
-		failed := &nativeCleanupHost{memHost: failedBase, stopErr: errors.New("password=must-not-be-recorded")}
+		failed := &faultHost{memHost: failedBase, failRun: " down"}
 		if _, err := Uninstall(context.Background(), failed, UninstallOptions{Yes: true, Stdout: io.Discard}); err == nil {
 			t.Fatal("injected uninstall failure accepted")
 		}

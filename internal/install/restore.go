@@ -66,17 +66,17 @@ func Restore(ctx context.Context, h Host, o RestoreOptions) error {
 		if digest != j.Previous.BinarySHA256 {
 			return terminalError("install.error.image.5")
 		}
-		if j.Before.Mode == ModeDocker {
-			got, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Id}}", j.Previous.Image}, 30*time.Second)
-			if err != nil || strings.TrimSpace(got) != j.Previous.Image {
-				return terminalError("install.error.image_identity")
-			}
-			got, err = h.Output(ctx, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", "sha256sum", j.Previous.Image, BinPath}, 30*time.Second)
-			fields := strings.Fields(got)
-			if err != nil || len(fields) != 2 || fields[0] != j.Previous.BinarySHA256 {
-				return terminalError("install.error.image.5")
-			}
+
+		got, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Id}}", j.Previous.Image}, 30*time.Second)
+		if err != nil || strings.TrimSpace(got) != j.Previous.Image {
+			return terminalError("install.error.image_identity")
 		}
+		got, err = h.Output(ctx, []string{"docker", "run", "--rm", "--network", "none", "--entrypoint", "sha256sum", j.Previous.Image, BinPath}, 30*time.Second)
+		fields := strings.Fields(got)
+		if err != nil || len(fields) != 2 || fields[0] != j.Previous.BinarySHA256 {
+			return terminalError("install.error.image.5")
+		}
+
 	} else if j != nil && !j.terminal() && !(o.Retry && j.Operation == "restore") {
 		return pendingOperationError(j)
 	}
@@ -91,7 +91,7 @@ func Restore(ctx context.Context, h Host, o RestoreOptions) error {
 		return terminalError("install.error.restore_required")
 	}
 	if !o.Recover {
-		j = &Journal{Schema: 1, ID: transactionID(), Operation: "restore", Before: st, After: st}
+		j = &Journal{Schema: JournalSchema, ID: transactionID(), Operation: "restore", Before: st, After: st}
 		if err := j.save(h, "prepared"); err != nil {
 			return err
 		}

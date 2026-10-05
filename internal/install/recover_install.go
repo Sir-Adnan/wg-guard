@@ -39,7 +39,7 @@ func CleanupIncompleteInstall(_ context.Context, h Host, confirmed bool, out io.
 	if st != nil && (st.Recovery != "install-incomplete" || st.Mode != j.After.Mode || st.ConfigPath != j.After.ConfigPath || st.DataDir != j.After.DataDir) {
 		return fmt.Errorf("install: incomplete setup state does not match its lifecycle record")
 	}
-	for _, artifact := range []string{ConfigPath, ComposePth, UnitPath} {
+	for _, artifact := range []string{ConfigPath, ComposePth} {
 		if _, statErr := h.Stat(artifact); statErr == nil {
 			return fmt.Errorf("install: deployment artifacts exist; use guided manual recovery")
 		} else if !errors.Is(statErr, fs.ErrNotExist) {
