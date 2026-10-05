@@ -183,7 +183,7 @@ async function prepare(page, state, label) {
       case 'restore-pending':
         await Promise.all([
           page.waitForNavigation(),
-          page.locator('.backup-archives a[href^="/backups?restore="]').first().click(),
+          page.locator('.backup-archives a[href*="restore="]').first().click(),
         ]);
         stage = 'restore preview submit';
         cleanup = () => cancelRestore(page);

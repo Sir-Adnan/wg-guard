@@ -14,8 +14,8 @@ import (
 // the shared data volume, outside all archive and restore replacement members.
 // Byte 0 serializes admission; byte 1 protects the DB/key pair. An exclusive
 // owner keeps admission locked, so downgrade never exposes an unlocked pair.
-// Byte 2 is the purge marker. Bytes 3 and 4 serialize archive work and scheduled
-// due-row scans across processes without blocking shared accounting DB access.
+// Byte 2 is the purge marker. Bytes 3, 4 and 5 serialize archive/inspection work,
+// scheduled due-row scans and private restore publication/cancellation/apply.
 // Never unlink this file to recover from contention: the kernel releases locks
 // when the process exits, including interruption and ungraceful death.
 type DataLease struct {
@@ -108,6 +108,13 @@ func AcquirePurgeGuard(dir string) (*PurgeGuard, error) {
 	}
 	if err := leaseLock(f, 1, true); err != nil {
 		return fail(safetyError("data_busy", err))
+	}
+	// Inspection owns no active DB/key handle, but its private files must survive
+	// until it completes. Pending publication/cancellation shares the same inode.
+	for _, offset := range []int64{archiveLockOffset, reviewLockOffset} {
+		if err := leaseLock(f, offset, true); err != nil {
+			return fail(safetyError("data_busy", err))
+		}
 	}
 	return &PurgeGuard{dir: dir, file: f}, nil
 }

@@ -3,13 +3,12 @@ package web
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/operation"
@@ -17,6 +16,21 @@ import (
 )
 
 const maxStreamingCSRFBytes = 128
+
+// A stale form/download remains safe if the administrative engine is absent.
+// Permission checks precede availability, and no request body is consumed here.
+func (s *Server) requireBackup(next http.HandlerFunc) http.HandlerFunc {
+	return s.requirePermission(auth.ScopeBackupManage, func(w http.ResponseWriter, r *http.Request) {
+		if s.Backup == nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = s.render(w, r, "backups", "app", s.backupsData(r))
+			return
+		}
+		next(w, r)
+	})
+}
 
 // backupsData feeds the /backups screen: archive list, schedules, telegram
 // state, the pending-restore banner and the restore review card.
@@ -27,6 +41,15 @@ type backupsData struct {
 	Available, ArchivesKnown, SchedulesKnown, PendingKnown bool
 	TelegramReady, SettingsKnown                           bool
 	ScheduleOpen                                           bool
+	Tab                                                    string
+	Verification                                           bool
+	PreviewsKnown                                          bool
+	Previews                                               []backup.PreviewInfo
+	Preview                                                *backup.PendingRestore
+	ArchiveChoices                                         []backup.ArchiveInfo
+	Limit                                                  int
+	Cursor, NextCursor                                     string
+	TargetTLS, TargetListen                                string
 	RestoreName                                            string
 	Form                                                   operationalForm
 
@@ -39,14 +62,29 @@ type backupsData struct {
 	PasswordSet  bool
 	Retention    int
 
-	// Review carries the environment report of a freshly staged restore —
-	// rendered once between Stage and Confirm/Cancel.
+	// Review is either a saved private preview report or a non-destructive
+	// verification result. Only an exact private preview can be approved.
 	Review          *backup.RestoreReport
+	ReportCounts    []backupReportCount
 	Warnings        []string
 	LifecycleBackup *updatequeue.RecoveryBackup
 
 	// Submitted schedule form values redisplayed after a validation error.
 	SchedForm scheduleForm
+}
+
+type backupReportCount struct {
+	Label string
+	Value uint64
+}
+
+func backupReportCounts(report *backup.RestoreReport) []backupReportCount {
+	v := report.Inventory
+	return []backupReportCount{
+		{"nav.users", v.Users}, {"ops.family.devices", v.Devices},
+		{"backups.review_templates", v.Templates}, {"nav.admins", v.Admins},
+		{"nav.tokens", v.APITokens}, {"backups.customer_links", v.CustomerLinks},
+	}
 }
 
 type scheduleForm struct {
@@ -62,27 +100,50 @@ type scheduleForm struct {
 
 func (s *Server) backupsData(r *http.Request) backupsData {
 	ctx := r.Context()
-	d := backupsData{Available: s.Backup != nil, SettingsKnown: true, RestoreName: r.URL.Query().Get("restore"), Form: scheduleOperationalForm(nil)}
+	d := backupsData{Available: s.Backup != nil, SettingsKnown: true, RestoreName: r.URL.Query().Get("restore"), Form: scheduleOperationalForm(nil), Tab: backupTab(r), Limit: 25, Cursor: r.URL.Query().Get("cursor")}
+	if limit, _ := strconv.Atoi(r.URL.Query().Get("limit")); limit == 50 || limit == 100 {
+		d.Limit = limit
+	}
 	if s.UpdateQueue != nil && (maintenanceCan(r, "update.read") || maintenanceCan(r, "update.manage")) {
 		if inventory, err := s.UpdateQueue.Inventory(); err == nil {
 			d.LifecycleBackup = inventory.Backup
 		}
 	}
-	if r.URL.Path == "/backups/restore" {
+	if r.URL.Path == "/backups/restore" || r.URL.Path == "/backups/verify" {
 		d.RestoreName = r.PostFormValue("name")
 	}
 	if s.Backup != nil {
-		if arcs, err := s.Backup.List(); err == nil {
-			d.Archives = arcs
+		d.TargetTLS, d.TargetListen = string(s.Backup.Cfg.TLS.Mode), s.Backup.Cfg.HTTPListen
+		if page, err := s.Backup.ListPage(d.Limit, d.Cursor); err == nil {
+			d.Archives = page.Items
+			d.NextCursor = page.NextCursor
 			d.ArchivesKnown = true
 		}
-		if pending, err := s.Backup.Pending(); err == nil {
+		d.ArchiveChoices = append([]backup.ArchiveInfo(nil), d.Archives...)
+		if d.RestoreName != "" {
+			found := false
+			for _, archive := range d.ArchiveChoices {
+				found = found || archive.Name == d.RestoreName
+			}
+			if !found {
+				if file, size, err := s.Backup.Open(d.RestoreName); err == nil {
+					file.Close()
+					d.ArchiveChoices = append(d.ArchiveChoices, backup.ArchiveInfo{Name: d.RestoreName, Size: size})
+				}
+			}
+		}
+		if pending, err := s.Backup.PendingSummary(); err == nil {
 			d.Pending = pending
 			d.PendingKnown = true
 		}
 		if schedules, err := s.Backup.Schedules(ctx); err == nil {
 			d.Schedules = schedules
 			d.SchedulesKnown = true
+		}
+		if d.Tab == "restore" {
+			if previews, err := s.Backup.Previews(); err == nil {
+				d.Previews, d.PreviewsKnown = previews, true
+			}
 		}
 	}
 	if token, err := s.Settings.GetSecret(ctx, "backup.telegram_token"); err == nil {
@@ -112,9 +173,41 @@ func (s *Server) backupsData(r *http.Request) backupsData {
 	return d
 }
 
+func backupTab(r *http.Request) string {
+	q := r.URL.Query()
+	if q.Get("schedule") != "" || strings.HasPrefix(r.URL.Path, "/backups/schedules") {
+		return "schedules"
+	}
+	if q.Get("restore") != "" || q.Get("preview") != "" || strings.HasPrefix(r.URL.Path, "/backups/restore") || r.URL.Path == "/backups/verify" || r.URL.Path == "/backups/import" {
+		return "restore"
+	}
+	if r.URL.Path == "/backups/telegram-test" {
+		return "delivery"
+	}
+	switch q.Get("tab") {
+	case "restore", "schedules", "delivery":
+		return q.Get("tab")
+	default:
+		return "archives"
+	}
+}
+
 // handleBackupsPage renders the backups/ops screen.
 func (s *Server) handleBackupsPage(w http.ResponseWriter, r *http.Request) {
 	d := s.backupsData(r)
+	if id := r.URL.Query().Get("preview"); id != "" && d.Available {
+		preview, err := s.Backup.Preview(id)
+		if err != nil {
+			d.Error = backup.ErrorText(err, s.localeFor(r))
+		} else {
+			d.Preview, d.Review = preview, preview.Report
+			d.ReportCounts = backupReportCounts(d.Review)
+			d.Warnings = backup.WarningTexts(d.Review.Warnings, s.localeFor(r))
+			if d.Pending == nil {
+				d.Receipt = operation.Present(preview.PreviewID(), operation.Review, false)
+			}
+		}
+	}
 	if id := r.URL.Query().Get("schedule"); id != "" && d.Available {
 		d.ScheduleOpen = true
 		if id != "new" {
@@ -197,239 +290,6 @@ func (s *Server) serveBackupArchive(w http.ResponseWriter, r *http.Request, name
 	_ = size
 }
 
-// handleBackupImport accepts the panel's native multipart form without
-// buffering the archive. The first field must be the small CSRF token; only
-// after it validates do we stream the following file into the private sink.
-func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
-	mr, err := r.MultipartReader()
-	if err != nil {
-		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
-		return
-	}
-	csrfPart, err := mr.NextPart()
-	if err != nil || csrfPart.FormName() != csrfField || csrfPart.FileName() != "" {
-		s.surfaceError(w, r, http.StatusForbidden, "error.csrf", "")
-		return
-	}
-	presented, readErr := io.ReadAll(io.LimitReader(csrfPart, maxStreamingCSRFBytes+1))
-	closeErr := csrfPart.Close()
-	tok, _ := r.Context().Value(ctxSession).(string)
-	if readErr != nil || closeErr != nil || len(presented) > maxStreamingCSRFBytes ||
-		!csrfValid(tok, string(presented)) {
-		s.surfaceError(w, r, http.StatusForbidden, "error.csrf", "")
-		return
-	}
-
-	archivePart, err := mr.NextPart()
-	if err != nil || archivePart.FormName() != "archive" || archivePart.FileName() == "" {
-		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
-		return
-	}
-	info, importErr := s.Backup.Import(r.Context(), archivePart.FileName(), archivePart)
-	closeErr = archivePart.Close()
-	if importErr != nil {
-		s.backupError(w, r, importErr)
-		return
-	}
-	if closeErr != nil {
-		_ = s.Backup.Delete(r.Context(), info.Name)
-		s.backupError(w, r, closeErr)
-		return
-	}
-	s.audit(r, "backup.imported", info.Name, map[string]any{"size": info.Size})
-	q := url.Values{"restore": {info.Name}, "toast": {"backups.toast.imported"}}
-	http.Redirect(w, r, "/backups?"+q.Encode()+"#restore-workbench", http.StatusSeeOther)
-}
-
-// handleBackupRestore verifies + stages an archive and renders the review
-// card. Nothing is applied until the operator confirms AND the service
-// restarts (the swap happens before the database is opened).
-func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
-	name := r.PostFormValue("name")
-	password := r.PostFormValue("password")
-	f, _, err := s.Backup.Open(name)
-	if err != nil {
-		s.backupError(w, r, err)
-		return
-	}
-	path := f.Name()
-	f.Close()
-
-	pr, report, err := s.Backup.Stage(r.Context(), path, password)
-	if err != nil {
-		switch domain.CodeOf(err) {
-		case domain.CodeInvalidRequest, domain.CodeNotFound:
-			d := s.backupsData(r)
-			d.Error = backup.ErrorText(err, s.localeFor(r))
-			d.RestoreName = name
-			_ = s.render(w, r, "backups", "app", d)
-		default:
-			s.backupError(w, r, err)
-		}
-		return
-	}
-	s.audit(r, "backup.restore_staged", pr.Archive, nil)
-	d := s.backupsData(r)
-	d.Pending = pr
-	d.Review = report
-	d.Receipt = operation.Present(pr.PreviewID(), operation.Review, false)
-	d.Warnings = backup.WarningTexts(report.Warnings, s.localeFor(r))
-	_ = s.render(w, r, "backups", "app", d)
-}
-
-// handleBackupRestoreConfirm acknowledges the review; the staged payload
-// applies at the next restart.
-func (s *Server) handleBackupRestoreConfirm(w http.ResponseWriter, r *http.Request) {
-	pending, err := s.Backup.Approve(r.PostFormValue("preview"))
-	if err != nil || pending == nil {
-		s.redirectToast(w, r, "/backups", "backups.toast.no_pending")
-		return
-	}
-	s.audit(r, "backup.restore_confirmed", pending.Archive, nil)
-	s.redirectToast(w, r, "/backups", "backups.toast.restore_confirmed")
-}
-
-// handleBackupRestoreCancel discards the staged restore.
-func (s *Server) handleBackupRestoreCancel(w http.ResponseWriter, r *http.Request) {
-	var err error
-	if id := r.PostFormValue("preview"); id != "" {
-		err = s.Backup.DiscardPreview(id)
-	} else {
-		err = s.Backup.DiscardPending()
-	}
-	if err != nil {
-		s.backupError(w, r, err)
-		return
-	}
-	s.audit(r, "backup.restore_cancelled", "", nil)
-	s.redirectToast(w, r, "/backups", "backups.toast.restore_cancelled")
-}
-
-// --- schedules -----------------------------------------------------------------
-
-func scheduleOperationalForm(f *backup.Schedule) operationalForm {
-	v := map[string]string{"name": "", "kind": "daily", "time_of_day": "03:00", "weekday": "0", "interval_hours": "24", "retention": "0", "enabled": "1"}
-	if f != nil {
-		v["name"], v["kind"], v["time_of_day"] = f.Name, f.Kind, f.TimeOfDay
-		v["weekday"], v["interval_hours"], v["retention"] = strconv.Itoa(f.Weekday), strconv.Itoa(f.IntervalHours), strconv.Itoa(f.RetentionCount)
-		if !f.Enabled {
-			v["enabled"] = "0"
-		}
-	}
-	return operationalForm{Values: v, Fields: map[string]string{}}
-}
-
-func scheduleNumberErrors(r *http.Request) map[string]string {
-	fields := map[string]string{}
-	keys := []string{"retention"}
-	if r.PostFormValue("kind") == "interval" {
-		keys = append(keys, "interval_hours")
-	}
-	if r.PostFormValue("kind") == "weekly" {
-		keys = append(keys, "weekday")
-	}
-	for _, key := range keys {
-		if raw := r.PostFormValue(key); raw != "" {
-			if _, err := strconv.Atoi(raw); err != nil {
-				fields[key] = "forms.error.number"
-			}
-		}
-	}
-	return fields
-}
-
-func (s *Server) scheduleFromForm(r *http.Request) scheduleForm {
-	weekday, _ := strconv.Atoi(r.PostFormValue("weekday"))
-	interval, _ := strconv.Atoi(r.PostFormValue("interval_hours"))
-	retention, _ := strconv.Atoi(r.PostFormValue("retention"))
-	return scheduleForm{
-		Name:           strings.TrimSpace(r.PostFormValue("name")),
-		Kind:           r.PostFormValue("kind"),
-		TimeOfDay:      strings.TrimSpace(r.PostFormValue("time_of_day")),
-		Weekday:        weekday,
-		IntervalHours:  interval,
-		RetentionCount: retention,
-		Enabled:        r.PostFormValue("enabled") == "1",
-	}
-}
-
-func (f scheduleForm) toSchedule() *backup.Schedule {
-	return &backup.Schedule{
-		Name: f.Name, Kind: f.Kind, TimeOfDay: f.TimeOfDay,
-		Weekday: f.Weekday, IntervalHours: f.IntervalHours,
-		Enabled: f.Enabled, RetentionCount: f.RetentionCount,
-	}
-}
-
-// handleScheduleCreate adds a schedule.
-func (s *Server) handleScheduleCreate(w http.ResponseWriter, r *http.Request) {
-	f := s.scheduleFromForm(r)
-	if len(scheduleNumberErrors(r)) > 0 {
-		s.scheduleError(w, r, f, domain.E(domain.CodeInvalidRequest, "invalid schedule number"))
-		return
-	}
-	if _, err := s.Backup.CreateSchedule(r.Context(), f.toSchedule()); err != nil {
-		s.scheduleError(w, r, f, err)
-		return
-	}
-	s.audit(r, "backup.schedule_created", f.Name, map[string]any{"kind": f.Kind})
-	s.redirectToast(w, r, "/backups", "backups.toast.schedule_created")
-}
-
-// handleScheduleUpdate replaces one schedule's definition.
-func (s *Server) handleScheduleUpdate(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	f := s.scheduleFromForm(r)
-	f.ID = id
-	if len(scheduleNumberErrors(r)) > 0 {
-		s.scheduleError(w, r, f, domain.E(domain.CodeInvalidRequest, "invalid schedule number"))
-		return
-	}
-	if _, err := s.Backup.UpdateSchedule(r.Context(), id, f.toSchedule()); err != nil {
-		s.scheduleError(w, r, f, err)
-		return
-	}
-	s.audit(r, "backup.schedule_updated", f.Name, nil)
-	s.redirectToast(w, r, "/backups", "backups.toast.schedule_updated")
-}
-
-// handleScheduleDelete removes one schedule.
-func (s *Server) handleScheduleDelete(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	cur, err := s.Backup.GetSchedule(r.Context(), id)
-	if err != nil {
-		s.backupError(w, r, err)
-		return
-	}
-	if err := s.Backup.DeleteSchedule(r.Context(), id); err != nil {
-		s.backupError(w, r, err)
-		return
-	}
-	s.audit(r, "backup.schedule_deleted", cur.Name, nil)
-	s.redirectToast(w, r, "/backups", "backups.toast.schedule_deleted")
-}
-
-// handleScheduleToggle flips the enabled flag.
-func (s *Server) handleScheduleToggle(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	cur, err := s.Backup.GetSchedule(r.Context(), id)
-	if err != nil {
-		s.backupError(w, r, err)
-		return
-	}
-	next := *cur
-	next.Enabled = !cur.Enabled
-	if _, err := s.Backup.UpdateSchedule(r.Context(), id, &next); err != nil {
-		s.backupError(w, r, err)
-		return
-	}
-	if next.Enabled {
-		s.redirectToast(w, r, "/backups", "backups.toast.schedule_enabled")
-	} else {
-		s.redirectToast(w, r, "/backups", "backups.toast.schedule_disabled")
-	}
-}
-
 // --- telegram ------------------------------------------------------------------
 
 // handleTelegramTest sends the probe document with the stored credentials.
@@ -441,7 +301,7 @@ func (s *Server) handleTelegramTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "backup.telegram_test", chat, nil)
-	s.redirectToast(w, r, "/backups", "backups.toast.telegram_ok")
+	s.redirectToast(w, r, "/backups?tab=delivery", "backups.toast.telegram_ok")
 }
 
 // backupError maps engine errors onto the page; unexpected ones surface the

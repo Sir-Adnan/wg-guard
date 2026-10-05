@@ -975,14 +975,28 @@ func (s *Server) redirectToast(w http.ResponseWriter, r *http.Request, path, key
 	if len(targ) > 0 && targ[0] != "" {
 		q.Set("targ", targ[0])
 	}
-	http.Redirect(w, r, path+"?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, flashLocation(path, q), http.StatusSeeOther)
 }
 
 // redirectToastRaw carries an already-rendered message (e.g. a safe domain
 // error string) through the same PRG flash channel.
 func (s *Server) redirectToastRaw(w http.ResponseWriter, r *http.Request, path, msg string) {
 	q := url.Values{"rawmsg": {msg}}
-	http.Redirect(w, r, path+"?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, flashLocation(path, q), http.StatusSeeOther)
+}
+
+// Compose flash queries without losing workspace selection, filters or anchors.
+func flashLocation(path string, flash url.Values) string {
+	target, err := url.Parse(path)
+	if err != nil {
+		return "/?" + flash.Encode()
+	}
+	query := target.Query()
+	for key, values := range flash {
+		query[key] = values
+	}
+	target.RawQuery = query.Encode()
+	return target.String()
 }
 
 // actionFailed renders a toast-carrying redirect after a failed mutation —

@@ -65,6 +65,7 @@ const (
 const (
 	archiveLockOffset  int64 = 3
 	scheduleLockOffset int64 = 4
+	reviewLockOffset   int64 = 5
 )
 
 // ErrArchiveBusy means another archive or scheduled pass owns the node claim.
@@ -94,6 +95,7 @@ type Service struct {
 	HTTPClient HTTPDoer // Telegram delivery; nil = default client
 	Now        func() time.Time
 	archiveMu  sync.Mutex // one archive/crypto/delivery operation per node service
+	reviewMu   sync.Mutex // serialize approval/cancellation, including stale forms
 }
 
 // CreateOpts tunes one archive run.
@@ -156,27 +158,11 @@ func (s *Service) createArchive(ctx context.Context, opts CreateOpts, password s
 	if s.DB == nil || s.Cfg == nil {
 		return nil, domain.E(domain.CodeInternal, "backup: service not wired")
 	}
-	if !s.archiveMu.TryLock() {
-		return nil, safetyError("archive_busy", ErrArchiveBusy)
-	}
-	defer s.archiveMu.Unlock()
-	if err := ctx.Err(); err != nil {
+	release, err := s.claimArchiveWork(ctx, lease)
+	if err != nil {
 		return nil, err
 	}
-	if lease == nil {
-		var err error
-		lease, err = s.OpenData(false)
-		if err != nil {
-			return nil, err
-		}
-		defer lease.Close()
-	}
-	// Byte 3 bounds archive/KDF operations across host/container CLI processes
-	// sharing this data volume. Pre-migration reuses its exclusive data lease.
-	if err := leaseLock(lease.file, archiveLockOffset, true); err != nil {
-		return nil, safetyError("archive_busy", ErrArchiveBusy)
-	}
-	defer leaseUnlock(lease.file, archiveLockOffset)
+	defer release()
 
 	dir := opts.Dir
 	if dir == "" {
@@ -537,6 +523,9 @@ func (s *Service) Open(name string) (*os.File, int64, error) {
 		return nil, 0, domain.E(domain.CodeNotFound, "backup: unknown archive")
 	}
 	p := filepath.Join(s.localDir(), name)
+	if st, err := os.Lstat(p); err != nil || !st.Mode().IsRegular() {
+		return nil, 0, domain.E(domain.CodeNotFound, "backup: unknown archive")
+	}
 	f, err := os.Open(p)
 	if err != nil {
 		return nil, 0, domain.E(domain.CodeNotFound, "backup: unknown archive")

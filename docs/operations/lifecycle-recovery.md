@@ -45,8 +45,12 @@ keeps the service stopped: finish the contender, then use `restore ARCHIVE --ret
 `restore --recover` for recorded original-schema recovery). Locks are kernel-owned and
 released on process exit/death; the file is never archived, replaced or removed during
 restore. Never unlink the lock file to bypass an owner. Byte 0 serializes admission, byte 1
-protects DB/key ownership, byte 2 is the purge marker, byte 3 serializes archive/crypto work and
-byte 4 covers scheduled due queries through conditional advancement. Archive/schedule claims
+protects DB/key ownership, byte 2 is the purge marker, byte 3 serializes archive/crypto/inspection
+work, byte 4 covers scheduled due queries through conditional advancement, and byte 5
+serializes private approval/cancellation, offline apply and interrupted recovery. Purge also
+excludes bytes 3 and 5 so private inspection/publish work cannot race deletion; work admission
+rechecks the purge tombstone after acquiring its claim. Inspection of a portable archive opens
+no active pair and can coexist with exclusive rotation. Archive/schedule claims
 are nonblocking and do not exclude ordinary shared accounting access. Cancellation/contention
 keeps schedule rows due; process death releases claims, so a crash after publishing an archive
 but before advancing its row may repeat it. On Linux these byte ranges use

@@ -1,5 +1,10 @@
 # Phase 19 — Installer and operational journeys
 
+The later [backup workbench follow-up](backup-workbench.md) adds panel verification,
+saved reports/conditional cancellation, enabled-owner access checks and native section
+navigation. Its changed source has a separate verification record; the initial Phase 19
+CI/artifact identities below do not certify that subsequent implementation.
+
 Implemented on 2026-10-05 after Phase 18. Source remains unreleased; latest stable
 is preparation v0.1.9. No live-server rebuild, CA operation, destructive owner-data
 change, registry image or public release was performed.

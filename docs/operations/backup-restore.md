@@ -265,6 +265,59 @@ are excluded from public text and structured warning logs.
 
 ## Restore (panel wizard and CLI share one engine)
 
+### Panel workbench (current unreleased main)
+
+The panel separates **Archives**, **Verify & restore**, **Schedules** and **Delivery**
+with native server navigation; all journeys work without JavaScript. Archives use
+25/50/100-row cursor pages ordered by stored-file time and name. Listing scans fixed
+filesystem batches and retains only the requested page plus one candidate; an
+older archive selected from a later page remains bound to the restore form.
+
+**Verify archive** runs the same complete checksum, migration, reference and secret
+inspection as restore in a private temporary directory on the node data volume.
+It shows the exact input SHA-256, verification time, source identity, record counts
+and environment details. Ordinary completion/failure removes its decrypted data;
+it neither creates a saved review nor approves a restore. The bounded Docker `/tmp`
+is not used for database expansion. This checks that copy of the archive, not
+off-host storage, host packages, TLS, networking or real client connectivity.
+
+**Prepare restore review** instead retains a private preview and redirects to its
+GET report. Refreshing, returning from another page or recreating the panel service
+does not repeat password input/decryption or create another preview. Reports are
+bounded private metadata (64 KiB); GET reads the cached report rather than hashing
+a large database. The timestamp describes the completed inspection, not a new
+inspection on every visit. Approval rechecks the payload and the staged database/key;
+offline apply repeats the complete checks before replacement. Both preparation and
+confirmation require an enabled non-reseller source owner, including a directly
+submitted CLI/older preview. The general host/offline recovery engine remains
+available for deliberate owner-access recovery.
+
+The saved-review list exposes at most four private payloads. Incomplete interrupted
+or older previews count toward panel admission and can be explicitly discarded by
+exact identity; they never auto-apply. Additional legacy previews can be managed in
+successive batches after discarding the displayed ones. No password is stored in
+the report, a URL or an audit record. Approval and pending cancellation are serialized
+across cooperating processes. Cancellation must match the displayed metadata digest,
+so a stale tab cannot discard a newer request. The pending receipt shows the supported
+host command, `sudo wg-guard restart --yes`; a green archive verification is not a
+completed restore or service-health result.
+
+The review explains that source accounts, devices, usage, administrators, API tokens
+and customer links replace target data; operators need known source credentials after
+restart. Target boot paths/TLS remain active and archived TOML remains `.restored`.
+The panel also exposes a migration checklist and separately identifies a lifecycle
+recovery backup when one is recorded. Engine absence yields a safe unavailable response
+for stale forms/downloads instead of executing a handler with a missing dependency.
+
+Archive creation and panel/archive inspection share one nonblocking crypto-work claim
+per data volume. Independent CLI verification on a separate private volume is not a
+machine-wide memory limit. Inspection opens no live DB/key handle and can review an
+archive during exclusive rotation; active replacement still requires exclusive data
+ownership. Private approval/cancellation, offline apply and interrupted recovery share
+an additional work-byte claim. Purge excludes both inspection and review work and
+post-admission tombstones are checked; no lock inode is replaced or removed.
+These are source/local-test guarantees; fresh-host/client acceptance remains Phase 20.
+
 The panel accepts a downloaded `.wgg` file from another node. The authenticated `backup.manage`
 form validates CSRF before reading the file, streams it into the private local sink under a fresh
 server-generated name, and publishes it atomically at mode 0600. Import checks the outer gzip/age
@@ -294,7 +347,8 @@ unsafe):
    without forward migration.
 3. **Environment review** — the report shows the archive's provenance (source host, app
    version), the staged node id, endpoint, TLS mode/listen from the archived boot config, and
-   the interface list, with explicit warnings (missing master key, missing config). The
+   the interface list, inventory and exact input SHA-256, with explicit warnings
+   (missing master key, missing config). The
    operator can edit `node.endpoint`/`node.id` after apply through Settings — client configs
    are generated on demand, so a corrected endpoint is enough for clients to reconnect.
 4. **Apply** — one of:

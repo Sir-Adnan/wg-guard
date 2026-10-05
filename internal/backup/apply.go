@@ -2,6 +2,8 @@ package backup
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -23,6 +25,38 @@ func (s *Service) previewDir(id string) (string, error) {
 }
 
 func loadStaged(dir string) (*PendingRestore, error) {
+	p, err := readStagedMetadata(dir)
+	if err != nil {
+		return nil, err
+	}
+	for name, want := range p.Files {
+		limit := memberLimit(name)
+		st, err := os.Lstat(filepath.Join(dir, name))
+		if err != nil || !st.Mode().IsRegular() || st.Size() > limit {
+			return nil, safetyError("stage_member", nil)
+		}
+		if name == KeyMember && st.Size() != 32 {
+			return nil, safetyError("stage_key", nil)
+		}
+		if fileHash(filepath.Join(dir, name)) != want {
+			return nil, safetyError("stage_checksum", nil)
+		}
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range ents {
+		if e.Name() != pendingMeta && p.Files[e.Name()] == "" {
+			return nil, safetyError("stage_extra", nil)
+		}
+	}
+	return p, nil
+}
+
+// readStagedMetadata supplies a bounded cached receipt, not apply authority.
+// Approval and offline apply still recheck every payload hash and the DB/key pair.
+func readStagedMetadata(dir string) (*PendingRestore, error) {
 	st, err := os.Lstat(dir)
 	if err != nil {
 		return nil, err
@@ -38,7 +72,8 @@ func loadStaged(dir string) (*PendingRestore, error) {
 	if json.Unmarshal(raw, &m) != nil {
 		return nil, safetyError("stage_metadata", nil)
 	}
-	p := &PendingRestore{Dir: dir, Archive: m.Archive, Size: m.Size, Manifest: m.Manifest, Files: m.Files, Original: m.Original}
+	id := sha256.Sum256(raw)
+	p := &PendingRestore{Dir: dir, Archive: m.Archive, Size: m.Size, Manifest: m.Manifest, Files: m.Files, Original: m.Original, Report: m.Report, Identity: hex.EncodeToString(id[:])}
 	p.StagedAt, err = time.Parse(time.RFC3339, m.StagedAt)
 	if err != nil || m.Manifest.Schema != SchemaVersion || !validHash(m.Files[ManifestName]) || !validHash(m.Files[DBMember]) || len(m.Files) != len(m.Manifest.Files)+1 {
 		return nil, safetyError("stage_incomplete", nil)
@@ -48,27 +83,17 @@ func loadStaged(dir string) (*PendingRestore, error) {
 		if limit == 0 || !validHash(want) {
 			return nil, safetyError("stage_hashes", nil)
 		}
-		st, err := os.Lstat(filepath.Join(dir, name))
-		if err != nil || !st.Mode().IsRegular() || st.Size() > limit {
-			return nil, safetyError("stage_member", nil)
-		}
-		if name == KeyMember && st.Size() != 32 {
-			return nil, safetyError("stage_key", nil)
-		}
-		if fileHash(filepath.Join(dir, name)) != want {
-			return nil, safetyError("stage_checksum", nil)
-		}
 		if name != ManifestName && !validHash(m.Manifest.Files[name]) {
 			return nil, safetyError("manifest_incomplete", nil)
 		}
 	}
-	ents, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range ents {
-		if e.Name() != pendingMeta && m.Files[e.Name()] == "" {
-			return nil, safetyError("stage_extra", nil)
+	if p.Report != nil {
+		p.Report.Warnings = nil
+		if p.Files[KeyMember] == "" {
+			p.Report.Warnings = append(p.Report.Warnings, warning("restore_key_missing"))
+		}
+		if p.Files[ConfigMember] == "" {
+			p.Report.Warnings = append(p.Report.Warnings, warning("restore_config_missing"))
 		}
 	}
 	return p, nil
@@ -87,6 +112,16 @@ func (s *Service) Pending() (*PendingRestore, error) {
 // Approve atomically publishes a validated preview for offline apply. It never
 // replaces a different pending restore, and original-schema recovery stays CLI-only.
 func (s *Service) Approve(id string) (*PendingRestore, error) {
+	release, err := s.claimReview()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	return s.approve(id)
+}
+
+// approve is used by initial install while it already owns data exclusively.
+func (s *Service) approve(id string) (*PendingRestore, error) {
 	dir, err := s.previewDir(id)
 	if err != nil {
 		return nil, err
@@ -110,12 +145,23 @@ func (s *Service) Approve(id string) (*PendingRestore, error) {
 }
 
 func (s *Service) DiscardPreview(id string) error {
+	release, err := s.claimReview()
+	if err != nil {
+		return err
+	}
+	defer release()
 	dir, err := s.previewDir(id)
 	if err != nil {
 		return err
 	}
-	return os.RemoveAll(dir)
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return syncDir(s.Cfg.DataDir)
 }
+
+// DiscardPending is the offline recovery primitive. Interactive callers must
+// use CancelPending with the displayed metadata identity instead.
 func (s *Service) DiscardPending() error {
 	return os.RemoveAll(filepath.Join(s.Cfg.DataDir, pendingDirName))
 }
@@ -128,6 +174,11 @@ func (s *Service) ApplyOriginal(ctx context.Context, id string) (*RestoreReport,
 		return nil, err
 	}
 	defer lease.Close()
+	finishReview, err := s.claimReview()
+	if err != nil {
+		return nil, err
+	}
+	defer finishReview()
 	dir, err := s.previewDir(id)
 	if err != nil {
 		return nil, err
@@ -152,6 +203,11 @@ func (s *Service) ApplyStaged(ctx context.Context) (*RestoreReport, error) {
 }
 
 func (s *Service) applyStaged(ctx context.Context) (*RestoreReport, error) {
+	finishReview, err := s.claimReview()
+	if err != nil {
+		return nil, err
+	}
+	defer finishReview()
 	p, err := s.Pending()
 	if err != nil {
 		return nil, err
@@ -309,6 +365,11 @@ func (s *Service) recoverInterrupted() error {
 	} else if err != nil {
 		return err
 	}
+	finishReview, err := s.claimReview()
+	if err != nil {
+		return err
+	}
+	defer finishReview()
 	if err := s.recoverPair(); err != nil {
 		return err
 	}

@@ -235,6 +235,18 @@ matrix and relevant live TLS deployment evidence. Unavailable engines/devices re
 
 ## Operational forms and collections
 
+Backups uses four server-navigated sections: Archives, Verify & restore, Schedules
+and Delivery. Its archive collection has bounded cursor pages and explicit page-size
+selection. Verification is a read-only outcome with no restore confirmation;
+preparing a restore produces a resumable private report. Source inventory/provenance,
+enabled owner access, collapsed technical details and the target boot/TLS boundary
+precede the explicit approval. The pending state remains awaiting managed restart,
+and cancellation targets that exact request. Saved/incomplete reviews have bounded
+management and explicit discard. Report views suppress the initial import/selection
+forms to avoid duplicated actions. Shared workspace tabs, semantic badges/receipts,
+question-mark guidance and responsive cards retain native/no-JavaScript operation,
+fa/en parity, number preferences and isolated Latin technical values.
+
 Auth/setup use a focused access layout; public subscriptions have independent customer navigation
 and technical summaries. Error pages/fragments keep their HTTP status, query-selected public
 locale and layout boundary. Session expiry returns to a safe full page, including during polling.

@@ -31,6 +31,9 @@ func TestDataLeaseProcess(t *testing.T) {
 			if claim == "schedules" {
 				offset = scheduleLockOffset
 			}
+			if claim == "reviews" {
+				offset = reviewLockOffset
+			}
 			if err := leaseLock(lease.file, offset, true); err != nil {
 				os.Exit(24)
 			}

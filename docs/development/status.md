@@ -1,5 +1,15 @@
 # Product and verification status
 
+**Backup workbench follow-up (2026-10-05; current main, unreleased):**
+
+The [workbench follow-up](backup-workbench.md) adds non-destructive panel verification,
+resumable bounded review reports, enabled-source-owner preflight, conditional cancellation,
+cursor archive pages and separated native sections. Crypto/review/apply/purge claims and
+shared flash navigation have failure/concurrency coverage. Fresh local Go/web/vet/build,
+focused Linux race and Chromium/WebKit workbench matrices passed within the recorded
+scope; exact final main CI is a separate gate. No REST/OpenAPI contract, archive schema,
+new release or real-host acceptance is implied. Phase 20 remains required.
+
 **Phase 19 source (2026-10-05; unreleased):** fresh-target install from validated
 archive before managed listener start, source access/settings preservation and
 shared CLI/panel operation receipts are implemented. Focused portability/failure/

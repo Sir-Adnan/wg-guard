@@ -58,7 +58,7 @@ func TestArchiveStreamingPreservesCancellation(t *testing.T) {
 }
 
 func TestArchiveClaimExcludesAnotherProcess(t *testing.T) {
-	for claim, offset := range map[string]int64{"archive": archiveLockOffset, "schedules": scheduleLockOffset} {
+	for claim, offset := range map[string]int64{"archive": archiveLockOffset, "schedules": scheduleLockOffset, "reviews": reviewLockOffset} {
 		t.Run(claim, func(t *testing.T) { testWorkClaimExcludesAnotherProcess(t, claim, offset) })
 	}
 }

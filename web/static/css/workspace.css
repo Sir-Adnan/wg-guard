@@ -40,6 +40,32 @@
 .operation-receipt[data-tone=danger] { border-inline-start:3px solid var(--danger); }
 .operation-receipt[data-tone=success] { border-inline-start:3px solid var(--success); }
 
+.backup-workspace { max-inline-size:1120px; margin-inline:auto; gap:var(--sp-5); }
+.backup-workspace .workspace-tabs { margin:0; }
+.backup-restore-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-5); }
+.backup-restore-grid > .card { margin:0; min-inline-size:0; }
+.backup-pagination, .backup-preview-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--sp-3); }
+.backup-pagination .select { inline-size:85px; }
+.backup-preview-list { display:grid; gap:var(--sp-3); }
+.backup-preview-row { padding:var(--sp-3); border:1px solid var(--border); border-radius:var(--r-md); }
+.backup-preview-row > div:first-child { min-inline-size:0; flex:1 1 260px; }
+.backup-preview-row p { margin:var(--sp-1) 0 0; }
+.backup-fingerprint { display:block; overflow-wrap:anywhere; white-space:normal; font-size:var(--fs-xs); }
+.backup-review .detail-list dd { min-inline-size:0; overflow-wrap:anywhere; }
+.backup-review .callout p { margin-block:var(--sp-2) 0; }
+.backup-report-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-5); }
+.backup-report-grid h3 { margin-block-end:var(--sp-4); font-size:var(--fs-sm); color:var(--fg-muted); }
+.backup-report-counts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-2); margin-block-end:var(--sp-3); }
+.backup-report-counts > div { display:grid; gap:var(--sp-2); align-content:start; padding:var(--sp-3); background:var(--bg-subtle); border-radius:var(--r-md); }
+.backup-report-counts span { color:var(--fg-muted); font-size:var(--fs-xs); }
+.backup-report-counts strong { font-size:var(--fs-xl); font-weight:600; }
+.backup-create-card { max-inline-size:var(--form-max); }
+@media(max-width:720px) {
+  .backup-restore-grid { grid-template-columns:minmax(0,1fr); }
+  .backup-report-grid { grid-template-columns:minmax(0,1fr); }
+  .backup-restore-grid .backup-restore-workbench { grid-column:auto; }
+}
+
 .domains-workspace { max-inline-size: 1120px; margin-inline: auto; }
 .domains-sites-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--sp-4); }
 .domain-site { display: flex; flex-direction: column; min-inline-size: 0; overflow: hidden; }

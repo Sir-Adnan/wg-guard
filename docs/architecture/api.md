@@ -192,8 +192,13 @@ GB, speed Kbps or calendar dates.
 | Webhooks | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
 | Ops | `GET /healthz` (public liveness), `GET /readyz`, `GET /openapi.json`, `GET /docs`; `GET /metrics` (config-gated, served outside `/api/v1`) |
 
-**Backup/restore is deliberately not part of this API** (administrative panel + CLI only —
-[ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)).
+**Backup creation, archive verification and restore are deliberately not part of this API**
+(session-authenticated administrative panel + host CLI only —
+[ADR-0007](../decisions/ADR-0007-no-backup-rest-api.md)). The panel's saved review,
+conditional cancellation and pagination routes are browser forms, not token-authenticated
+integration endpoints. They do not change REST request/response schemas or add API scopes;
+OpenAPI remains unchanged for this workbench refactor. See the
+[backup contract](../operations/backup-restore.md#panel-workbench-current-unreleased-main).
 
 ## User form to API mapping
 

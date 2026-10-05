@@ -17,6 +17,7 @@ import (
 type Inventory struct {
 	Users, Devices, Templates, Interfaces uint64
 	Admins, APITokens, CustomerLinks      uint64
+	EnabledOwners                         uint64
 	Webhooks, Resellers                   uint64
 	KernelInterfaces, UserspaceInterfaces uint64
 	EncryptedValues                       uint64
@@ -87,6 +88,13 @@ func inspectArchiveData(ctx context.Context, path string, key []byte) (Inventory
 		if err := db.QueryRowContext(ctx, count.query).Scan(count.target); err != nil {
 			return inventory, verificationError(safetyError("data_inspection", err))
 		}
+	}
+	ownerQuery := `SELECT COUNT(*) FROM admins WHERE role='owner' AND enabled=1`
+	if version >= "0010_reseller_ownership.sql" {
+		ownerQuery += ` AND reseller_id IS NULL`
+	}
+	if err := db.QueryRowContext(ctx, ownerQuery).Scan(&inventory.EnabledOwners); err != nil {
+		return inventory, verificationError(safetyError("data_inspection", err))
 	}
 	if inventory.KernelInterfaces+inventory.UserspaceInterfaces != inventory.Interfaces {
 		return inventory, safetyError("data_inspection", nil)

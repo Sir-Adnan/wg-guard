@@ -8,6 +8,11 @@ The independent `backup verify` and safety corrections are published in v0.1.9.
 Use that preparation release to export/verify the existing server before any rebuild;
 new target publication still needs its own authorization and acceptance gate.
 
+Current unreleased main also offers a [panel verification workbench](backup-restore.md#panel-workbench-current-unreleased-main),
+saved restore reports and source-owner preflight. Verifying the copy retained on the
+server does not replace step 5's independent verification of the downloaded off-host
+copy. No new release is implied by these panel improvements.
+
 ## Capture a recoverable copy
 
 1. Record safe inventory: build/source identity, account/device counts, charged

@@ -1,0 +1,31 @@
+{{define "backup_report"}}
+<section class="card card--pad backup-review" aria-labelledby="restore-review-title">
+  <div class="section-head"><div><h2 id="restore-review-title">{{if .Data.Verification}}{{.T "backups.verify_success"}}{{else}}{{.T "backups.review_title"}}{{end}}</h2><p data-guidance>{{if .Data.Verification}}{{.T "backups.verify_scope"}}{{else}}{{.T "backups.review_saved_hint"}}{{end}}</p></div><span class="badge {{if .Data.Verification}}badge--ok{{else}}badge--warn{{end}}">{{if .Data.Verification}}{{.T "backups.verified"}}{{else}}{{.T "backups.review_only"}}{{end}}</span></div>
+  <p class="hint">{{.T "backups.review_verified_at"}} <bdi>{{.DateTime .Data.Review.VerifiedAt}} UTC</bdi></p>
+  <div class="backup-report-grid">
+    <div><h3>{{.T "backups.source_title"}}</h3><dl class="detail-list">
+      <dt>{{.T "backups.review_archive"}}</dt><dd><bdi>{{.Data.Review.Archive}}</bdi></dd>
+      <dt>{{.T "backups.review_created"}}</dt><dd>{{if not .Data.Review.CreatedAt.IsZero}}<bdi>{{.DateTime .Data.Review.CreatedAt}} UTC</bdi>{{else}}—{{end}}</dd>
+      <dt>{{.T "backups.review_source"}}</dt><dd><bdi>{{.Data.Review.Hostname}} · {{.Data.Review.AppVersion}}</bdi></dd>
+      <dt>{{.T "backups.review_node"}}</dt><dd><bdi>{{if .Data.Review.NodeID}}{{.Data.Review.NodeID}}{{else}}—{{end}}</bdi></dd>
+      <dt>{{.T "backups.review_endpoint"}}</dt><dd><bdi dir="ltr">{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</bdi></dd>
+    </dl></div>
+    <div><h3>{{.T "backups.review_inventory"}}</h3><div class="backup-report-counts">{{range .Data.ReportCounts}}<div><span>{{$.T .Label}}</span><strong>{{$.N (i64u .Value)}}</strong></div>{{end}}</div><p class="hint">{{.T "backups.active_owner"}}: {{.N (i64u .Data.Review.Inventory.EnabledOwners)}}</p></div>
+  </div>
+  <details class="technical-disclosure"><summary>{{.IconS "settings-2"}}{{.T "backups.technical_review"}}</summary><dl class="detail-list">
+    <dt>{{.T "backups.fingerprint"}}</dt><dd><code class="ltr-data backup-fingerprint">{{.Data.Review.ArchiveSHA256}}</code></dd>
+    <dt>{{.T "backups.review_secrets"}}</dt><dd>{{.N (i64u .Data.Review.Inventory.EncryptedValues)}}</dd>
+    <dt>{{.T "backups.review_backends"}}</dt><dd><bdi dir="ltr">{{.N (i64u .Data.Review.Inventory.KernelInterfaces)}} / {{.N (i64u .Data.Review.Inventory.UserspaceInterfaces)}}</bdi></dd>
+    {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd><bdi>{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</bdi></dd>{{end}}
+    {{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd><bdi>{{.Name}} :{{.Port}} {{.Subnet}}{{if .ExtraPools}}, {{.ExtraPools}}{{end}}</bdi></dd>{{end}}
+  </dl></details>
+  {{range .Data.Warnings}}<p class="callout callout--warn">{{.}}</p>{{end}}
+  {{if not .Data.Review.Inventory.EnabledOwners}}<p class="callout callout--warn">{{.T "backup.safety.restore_owner"}}</p>{{end}}
+  <div class="callout {{if .Data.Preview}}callout--warn{{end}}"><div><strong>{{.T "backups.review_effect"}}</strong><p>{{.T "backups.review_access"}}</p><p>{{.T "backups.target_kept"}} <bdi>{{.Data.TargetTLS}} · {{.Data.TargetListen}}</bdi></p></div></div>
+  <div class="inline-actions">
+    {{if .Data.Preview}}<form method="post" action="/backups/restore/confirm"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="preview" value="{{.Data.Preview.PreviewID}}"><button type="submit" class="btn btn--danger" {{if .Data.Pending}}disabled{{end}}>{{.T "backups.review_confirm"}}</button></form>
+    <form method="post" action="/backups/restore/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="preview" value="{{.Data.Preview.PreviewID}}"><button type="submit" class="btn">{{.T "common.cancel"}}</button></form>
+    {{else}}<a class="btn btn--outline" href="/backups?tab=restore&amp;restore={{urlquery .Data.Review.Archive}}">{{.T "backups.prepare_restore"}}</a>{{end}}
+  </div>
+</section>
+{{end}}

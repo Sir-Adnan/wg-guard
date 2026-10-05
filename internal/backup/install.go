@@ -2,7 +2,6 @@ package backup
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"io"
 	"os"
@@ -39,18 +38,7 @@ func PrepareInstall(ctx context.Context, archive, password string) (*PreparedIns
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(filepath.Join(p.Dir, DBMember))+"?mode=ro&immutable=1")
-	if err != nil {
-		return nil, verificationError(safetyError("data_inspection", err))
-	}
-	var owners int
-	db.SetMaxOpenConns(1)
-	err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE role='owner' AND enabled=1 AND reseller_id IS NULL`).Scan(&owners)
-	_ = db.Close()
-	if err != nil {
-		return nil, verificationError(safetyError("data_inspection", err))
-	}
-	if owners == 0 {
+	if report.Inventory.EnabledOwners == 0 {
 		return nil, safetyError("install_owner", nil)
 	}
 	keep = true
@@ -114,7 +102,7 @@ func (p *PreparedInstall) ApplyInitialData(ctx context.Context, cfg *config.Conf
 	if err := s.writeStagedMeta(&copy, verified.Size); err != nil {
 		return err
 	}
-	if _, err := s.Approve(copy.PreviewID()); err != nil {
+	if _, err := s.approve(copy.PreviewID()); err != nil {
 		return err
 	}
 	_, err = s.applyStaged(ctx)

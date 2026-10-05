@@ -1,47 +1,40 @@
 {{define "title"}}{{.T "backups.title"}}{{end}}
 {{define "content"}}
 <div class="backup-workspace">
+<header class="workspace-head"><div><span class="eyebrow">{{.T "backups.workspace"}}</span><h1>{{.T "backups.title"}}</h1><p>{{.T "backups.subtitle"}}</p></div>{{if .Data.Available}}<div class="inline-actions"><a class="btn btn--primary" href="/backups#new-backup">{{.IconS "plus"}}{{.T "backups.create_now"}}</a><a class="btn btn--outline" href="/backups?tab=restore">{{.IconS "upload"}}{{.T "backups.restore"}}</a></div>{{end}}</header>
 {{if .Data.Receipt.State}}{{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}{{end}}
-{{if eq .Data.Receipt.State "awaiting_restart"}}<div class="callout"><div><p>{{.T "operations.restart.cli"}}</p><code class="ltr-data">sudo wg-guard restart --yes</code></div></div>{{end}}
-
-<div class="page-head page-head--hero ops-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "database"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "backups.title"}}</h1><p>{{.T "backups.subtitle"}}</p></div></div>{{if .Data.Available}}<div class="actions"><a class="btn btn--primary" href="#new-backup">{{.IconS "plus"}}{{.T "backups.create_now"}}</a><a class="btn" href="#restore-workbench">{{.IconS "upload"}}{{.T "backups.restore"}}</a></div>{{end}}</div>
-{{if .Data.LifecycleBackup}}<section class="card card--pad"><div class="section-head"><div><span class="eyebrow">{{.T "nav.updates"}}</span><h2>{{.T "updates.recovery_backup"}}</h2><p>{{.T "updates.backup_recorded_hint"}}</p></div><a class="btn btn--outline" href="/updates/backup">{{.IconS "download"}}{{.T "updates.download_backup"}}</a></div><p class="ltr-data">{{.Data.LifecycleBackup.Name}}</p></section>{{end}}
 {{if .Data.Error}}<div class="alert alert--error" role="alert" tabindex="-1">{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
 {{if not .Data.Review}}{{range .Data.Warnings}}<p class="callout callout--warn">{{.}}</p>{{end}}{{end}}
 {{if not .Data.Available}}<div class="empty card"><span class="empty-icon">{{.Icon "database"}}</span><h2>{{.T "backups.unavailable"}}</h2><p>{{.T "backups.retry_hint"}}</p></div>{{else}}
-
-{{if .Data.Review}}
-<section class="card card--pad backup-review" aria-labelledby="restore-review-title">
-<div class="section-head"><div><h2 id="restore-review-title">{{.T "backups.review_title"}}</h2><p>{{.T "backups.review_note"}}</p></div><span class="badge badge--warn">{{.T "backups.review_only"}}</span></div>
-<dl class="detail-list">
-<dt>{{.T "backups.review_archive"}}</dt><dd><bdi>{{.Data.Review.Archive}}</bdi></dd>
-<dt>{{.T "backups.review_created"}}</dt><dd>{{if not .Data.Review.CreatedAt.IsZero}}<bdi>{{.DateTime .Data.Review.CreatedAt}} UTC</bdi>{{else}}—{{end}}</dd>
-<dt>{{.T "backups.review_source"}}</dt><dd><bdi>{{.Data.Review.Hostname}} · {{.Data.Review.AppVersion}}</bdi></dd>
-<dt>{{.T "backups.review_inventory"}}</dt><dd><bdi>{{.N (i64u .Data.Review.Inventory.Users)}} / {{.N (i64u .Data.Review.Inventory.Devices)}}</bdi></dd>
-<dt>{{.T "backups.review_secrets"}}</dt><dd>{{.N (i64u .Data.Review.Inventory.EncryptedValues)}}</dd>
-<dt>{{.T "backups.review_backends"}}</dt><dd><bdi>{{.N (i64u .Data.Review.Inventory.KernelInterfaces)}} / {{.N (i64u .Data.Review.Inventory.UserspaceInterfaces)}}</bdi></dd>
-<dt>{{.T "backups.review_node"}}</dt><dd><bdi>{{if .Data.Review.NodeID}}{{.Data.Review.NodeID}}{{else}}—{{end}}</bdi></dd>
-<dt>{{.T "backups.review_endpoint"}}</dt><dd><bdi>{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</bdi></dd>
-{{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd><bdi>{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</bdi></dd>{{end}}
-{{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd><bdi>{{.Name}} :{{.Port}} {{.Subnet}}{{if .ExtraPools}}, {{.ExtraPools}}{{end}}</bdi></dd>{{end}}
-</dl>
-{{range .Data.Warnings}}<p class="callout callout--warn">{{.}}</p>{{end}}
-<div class="inline-actions">
-<form method="post" action="/backups/restore/confirm"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="preview" value="{{.Data.Pending.PreviewID}}"><button type="submit" class="btn btn--danger">{{.T "backups.review_confirm"}}</button></form>
-<form method="post" action="/backups/restore/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="preview" value="{{.Data.Pending.PreviewID}}"><button type="submit" class="btn">{{.T "common.cancel"}}</button></form>
-</div></section>
-{{end}}
-{{if and .Data.Pending (not .Data.Review)}}
-<section class="callout callout--warn backup-pending">{{.Icon "alert-triangle"}}<div><h2>{{.T "backups.awaiting_restart"}}</h2><p>{{.T "backups.pending_banner_pre"}}<bdi>{{.Data.Pending.Archive}}</bdi>{{.T "backups.pending_banner_post"}}</p></div><form method="post" action="/backups/restore/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn">{{.T "backups.pending_discard"}}</button></form></section>
-{{end}}
+<nav class="workspace-tabs" aria-label="{{.T "backups.sections"}}">{{range $tab := list "archives" "restore" "schedules" "delivery"}}<a href="/backups?tab={{$tab}}" {{if eq $.Data.Tab $tab}}aria-current="page"{{end}}>{{$.IconS (index (dict "archives" "database" "restore" "shield-check" "schedules" "clock" "delivery" "upload") $tab)}}{{$.T (printf "backups.tab.%s" $tab)}}</a>{{end}}</nav>
 {{if not .Data.PendingKnown}}<p class="callout callout--warn">{{.T "backups.pending_unknown"}}</p>{{end}}
 {{if not .Data.SettingsKnown}}<p class="callout callout--warn">{{.T "backups.settings_unknown"}}</p>{{end}}
+{{if .Data.Pending}}{{template "backup_pending" .}}{{end}}
+{{if eq .Data.Tab "archives"}}{{template "backup_summary" .}}{{template "backup_archives" .}}{{template "backup_create" .}}{{end}}
+{{if eq .Data.Tab "restore"}}
+{{if .Data.Review}}{{template "backup_report" .}}{{end}}
+{{if not .Data.Review}}<div class="backup-restore-grid">{{template "backup_restore" .}}{{template "backup_import" .}}</div>{{end}}
+{{template "backup_previews" .}}
+<section class="card card--pad"><div class="section-head"><div><h2>{{.T "backups.migration_title"}}</h2><p data-guidance>{{.T "backups.migration_scope"}}</p></div>{{.Icon "shield-check"}}</div><ol class="guidance-list"><li>{{.T "backups.migration.copy"}}</li><li>{{.T "backups.migration.verify"}}</li><li>{{.T "backups.migration.restore"}}</li></ol></section>
+{{end}}
+{{if eq .Data.Tab "schedules"}}{{template "backup_schedules" .}}{{end}}
+{{if eq .Data.Tab "delivery"}}{{template "backup_summary" .}}{{template "backup_delivery" .}}{{end}}
+{{if .Data.LifecycleBackup}}<section class="card card--pad"><div class="section-head"><div><span class="eyebrow">{{.T "nav.updates"}}</span><h2>{{.T "updates.recovery_backup"}}</h2><p>{{.T "updates.backup_recorded_hint"}}</p></div><a class="btn btn--outline" href="/updates/backup">{{.IconS "download"}}{{.T "updates.download_backup"}}</a></div><p class="ltr-data">{{.Data.LifecycleBackup.Name}}</p></section>{{end}}
+<p class="hint">{{.T "backups.cli_hint"}}</p>
+{{end}}
+</div>
+{{end}}
+
+{{define "backup_summary"}}
 <div class="backup-summary">
 <section class="card"><span>{{.IconS "shield-check"}}{{.T "backups.protection"}}</span><strong>{{if not .Data.SettingsKnown}}{{.T "forms.unavailable"}}{{else if .Data.PasswordSet}}{{.T "backups.encrypted"}}{{else}}{{.T "backups.plain"}}{{end}}</strong><p>{{.T "backups.protection_hint"}}</p></section>
-<section class="card"><span>{{.IconS "database"}}{{.T "backups.retention_label"}}</span><strong>{{if .Data.SettingsKnown}}{{.Data.Retention}}{{else}}—{{end}}</strong><p>{{.T "backups.global_retention_hint"}}</p></section>
+<section class="card"><span>{{.IconS "database"}}{{.T "backups.retention_label"}}</span><strong>{{if .Data.SettingsKnown}}{{.N (i64u .Data.Retention)}}{{else}}—{{end}}</strong><p>{{.T "backups.global_retention_hint"}}</p></section>
 <section class="card" data-telegram-ready="{{.Data.TelegramReady}}"><span>{{.IconS "upload"}}{{.T "backups.telegram_title"}}</span><strong>{{if .Data.TelegramReady}}{{.T "backups.telegram_configured"}}{{else}}{{.T "backups.telegram_unset"}}{{end}}</strong><p>{{.T "backups.telegram_readiness"}}</p></section>
 </div>
 
+{{end}}
+
+{{define "backup_archives"}}
 <section class="collection backup-archives" aria-labelledby="archives-title">
 <div class="section-head"><div><h2 id="archives-title">{{.T "backups.archives_title"}}</h2><p>{{.T "backups.archive_hint"}}</p></div></div>
 {{if not .Data.ArchivesKnown}}<div class="empty card"><h3>{{.T "backups.archives_unknown"}}</h3><a href="/backups" class="btn">{{.T "common.retry"}}</a></div>
@@ -49,25 +42,40 @@
 {{else}}<div class="table-wrap"><table class="table table--cards entity-table"><thead><tr><th scope="col">{{.T "backups.col_archive"}}</th><th scope="col">{{.T "backups.col_size"}}</th><th scope="col">{{.T "backups.col_created"}}</th><th scope="col">{{.T "backups.protection"}}</th><th scope="col">{{.T "common.actions"}}</th></tr></thead><tbody>
 {{range .Data.Archives}}<tr>
 <td class="card-title" data-label="{{$.T "backups.col_archive"}}"><bdi class="archive-name">{{.Name}}</bdi></td>
-<td data-label="{{$.T "backups.col_size"}}"><bdi>{{.KiB}} KiB</bdi></td>
+<td data-label="{{$.T "backups.col_size"}}"><bdi>{{$.B .Size}}</bdi></td>
 <td data-label="{{$.T "backups.col_created"}}"><bdi>{{$.DateTime .ModTime}} UTC</bdi></td>
 <td data-label="{{$.T "backups.protection"}}"><span class="badge {{if .Encrypted}}badge--ok{{end}}">{{if .Encrypted}}{{$.IconS "shield-check"}}{{$.T "backups.encrypted"}}{{else}}{{$.T "backups.plain"}}{{end}}</span></td>
 <td data-label="{{$.T "common.actions"}}"><div class="row-actions">
 <a class="icon-btn" href="/backups/{{.Name}}/download" download aria-label="{{$.T "backups.download"}}">{{$.IconS "download"}}</a>
-<a class="btn btn--ghost btn--sm" href="/backups?restore={{urlquery .Name}}#restore-editor">{{$.T "backups.restore"}}</a>
+<a class="btn btn--ghost btn--sm" href="/backups?tab=restore&amp;restore={{urlquery .Name}}#restore-workbench">{{$.T "backups.verify_review"}}</a>
 <form method="post" action="/backups/delete" data-confirm data-confirm-title="{{$.T "backups.delete_title"}}" data-confirm-message="{{.Name}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="name" value="{{.Name}}"><button type="submit" class="icon-btn icon-btn--danger" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button></form>
 </div></td></tr>{{end}}
 </tbody></table></div>{{end}}</section>
 
-<div class="backup-tools">
-<section class="card card--pad backup-create-card" id="new-backup" aria-labelledby="backup-create-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "plus"}}</span><h2 id="backup-create-title">{{.T "backups.create_now"}}</h2><p class="hint">{{.T "backups.create_password_hint"}}</p></div></div><form method="post" action="/backups/create" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="b-password">{{.T "backups.create_password"}}</label><input class="input ltr-data" id="b-password" name="password" type="password" autocomplete="new-password" aria-describedby="b-password-help"><span class="hint" id="b-password-help">{{if .Data.PasswordSet}}{{.T "backups.create_stored_hint"}}{{else}}{{.T "backups.plain_hint"}}{{end}}</span></div><div class="form-actions"><button type="submit" class="btn btn--primary" {{if not .Data.SettingsKnown}}disabled{{end}}>{{.IconS "database"}}{{.T "backups.create_now"}}</button></div></form></section>
-<section class="card card--pad backup-import-card" aria-labelledby="backup-import-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "upload"}}</span><h2 id="backup-import-title">{{.T "backups.import_title"}}</h2><p class="hint">{{.T "backups.import_hint"}}</p></div></div><form method="post" action="/backups/import" enctype="multipart/form-data" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field backup-file-field"><label for="backup-archive-file">{{.T "backups.import_file"}}</label><input class="input ltr-data" id="backup-archive-file" name="archive" type="file" accept=".wgg,application/octet-stream" required aria-describedby="backup-import-help"><span class="hint" id="backup-import-help">{{.T "backups.import_file_hint"}}</span></div><div class="form-actions"><button type="submit" class="btn btn--primary">{{.IconS "upload"}}{{.T "backups.import_action"}}</button></div></form></section>
-<section class="card card--pad backup-restore-workbench" id="restore-workbench"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "upload"}}</span><h2>{{.T "backups.restore"}}</h2><p class="hint">{{.T "backups.restore_hint"}}</p></div></div><form method="post" action="/backups/restore" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="restore-archive">{{.T "backups.review_archive"}}</label><select class="select" id="restore-archive" name="name" {{if not .Data.Archives}}disabled{{end}}>{{range .Data.Archives}}<option value="{{.Name}}" {{if eq $.Data.RestoreName .Name}}selected{{end}}>{{.Name}}</option>{{end}}</select></div><div class="field"><label for="restore-password">{{.T "backups.restore_password"}}</label><input class="input ltr-data" id="restore-password" name="password" type="password" autocomplete="off" aria-describedby="restore-password-help"><span class="hint" id="restore-password-help">{{.T "backups.restore_password_hint"}}</span></div><div class="form-actions"><button type="submit" class="btn btn--primary" {{if not .Data.Archives}}disabled{{end}}>{{.IconS "shield-check"}}{{.T "backups.review_title"}}</button></div></form></section>
-</div>
+<nav class="backup-pagination" aria-label="{{.T "common.page"}}">
+<form method="get" action="/backups" class="inline-actions"><input type="hidden" name="tab" value="archives"><label for="backup-limit">{{.T "backups.per_page"}}</label><select class="select" id="backup-limit" name="limit">{{range $limit := list "25" "50" "100"}}<option value="{{$limit}}" {{if eq (printf "%d" $.Data.Limit) $limit}}selected{{end}}>{{$limit}}</option>{{end}}</select><button class="btn btn--outline btn--sm" type="submit">{{.T "common.apply"}}</button></form>
+<div class="inline-actions">{{if .Data.Cursor}}<a class="btn btn--outline" href="/backups?limit={{.Data.Limit}}">{{.T "backups.newest"}}</a>{{end}}{{if .Data.NextCursor}}<a class="btn btn--outline" href="/backups?limit={{.Data.Limit}}&amp;cursor={{urlquery .Data.NextCursor}}">{{.T "common.next"}}{{.IconS "chevron-right"}}</a>{{end}}</div></nav>
+{{end}}
 
+{{define "backup_create"}}
+<section class="card card--pad backup-create-card" id="new-backup" aria-labelledby="backup-create-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "plus"}}</span><h2 id="backup-create-title">{{.T "backups.create_now"}}</h2><p class="hint">{{.T "backups.create_password_hint"}}</p></div></div><form method="post" action="/backups/create" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="b-password">{{.T "backups.create_password"}}</label><input class="input ltr-data" id="b-password" name="password" type="password" autocomplete="new-password" aria-describedby="b-password-help"><span class="hint" id="b-password-help">{{if .Data.PasswordSet}}{{.T "backups.create_stored_hint"}}{{else}}{{.T "backups.plain_hint"}}{{end}}</span></div><div class="form-actions"><button type="submit" class="btn btn--primary" {{if not .Data.SettingsKnown}}disabled{{end}}>{{.IconS "database"}}{{.T "backups.create_now"}}</button></div></form></section>
+{{end}}
+
+{{define "backup_import"}}
+<section class="card card--pad backup-import-card" aria-labelledby="backup-import-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "upload"}}</span><h2 id="backup-import-title">{{.T "backups.import_title"}}</h2><p class="hint">{{.T "backups.import_hint"}}</p></div></div><form method="post" action="/backups/import" enctype="multipart/form-data" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field backup-file-field"><label for="backup-archive-file">{{.T "backups.import_file"}}</label><input class="input ltr-data" id="backup-archive-file" name="archive" type="file" accept=".wgg,application/octet-stream" required aria-describedby="backup-import-help"><span class="hint" id="backup-import-help">{{.T "backups.import_file_hint"}}</span></div><div class="form-actions"><button type="submit" class="btn btn--primary">{{.IconS "upload"}}{{.T "backups.import_action"}}</button></div></form></section>
+{{end}}
+
+{{define "backup_restore"}}
+<section class="card card--pad backup-restore-workbench" id="restore-workbench"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "upload"}}</span><h2>{{.T "backups.restore"}}</h2><p class="hint">{{.T "backups.restore_hint"}}</p></div></div><form method="post" action="/backups/restore" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="restore-archive">{{.T "backups.review_archive"}}</label><select class="select" id="restore-archive" name="name" {{if not .Data.ArchiveChoices}}disabled{{end}}>{{range .Data.ArchiveChoices}}<option value="{{.Name}}" {{if eq $.Data.RestoreName .Name}}selected{{end}}>{{.Name}}</option>{{end}}</select></div><div class="field"><label for="restore-password">{{.T "backups.restore_password"}}</label><input class="input ltr-data" id="restore-password" name="password" type="password" autocomplete="off" aria-describedby="restore-password-help"><a class="btn btn--ghost btn--sm" href="/backups">{{.T "backups.choose_older"}}</a><span class="hint" id="restore-password-help">{{.T "backups.restore_password_hint"}}</span></div><div class="form-actions"><button type="submit" formaction="/backups/verify" class="btn btn--primary" {{if not .Data.ArchiveChoices}}disabled{{end}}>{{.IconS "shield-check"}}{{.T "backups.verify_action"}}</button><button type="submit" class="btn btn--outline" {{if or (not .Data.ArchiveChoices) .Data.Pending}}disabled{{end}}>{{.T "backups.prepare_restore"}}</button></div></form></section>
+{{end}}
+
+{{define "backup_delivery"}}
 <section class="card card--pad backup-delivery backup-delivery-bar"><div><span class="section-icon" aria-hidden="true">{{.IconS "upload"}}</span><div><h2>{{.T "backups.telegram_title"}}</h2><p>{{.T "backups.telegram_hint"}}</p>{{if .Data.TelegramChat}}<p class="hint"><span>{{.T "backups.telegram_chat"}}</span> <bdi>{{.Data.TelegramChat}}</bdi></p>{{end}}</div></div><div class="inline-actions">{{if .Can "node.settings"}}<a class="btn" href="/settings#settings-backup">{{.IconS "settings-2"}}{{.T "settings.title"}}</a>{{end}}<form method="post" action="/backups/telegram-test" data-confirm data-confirm-title="{{.T "backups.telegram_test"}}" data-confirm-message="{{.T "backups.telegram_test_body"}}" data-confirm-label="{{.T "backups.telegram_send"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn" {{if not .Data.TelegramReady}}disabled{{end}}>{{.T "backups.telegram_test"}}</button></form></div></section>
 
-<section class="collection" aria-labelledby="schedules-title"><div class="section-head"><div><h2 id="schedules-title">{{.T "backups.schedules_title"}}</h2><p>{{.T "backups.schedule_hint"}}</p></div><a class="btn" href="/backups?schedule=new#schedule-editor">{{.IconS "plus"}}{{.T "backups.schedule_add"}}</a></div>
+{{end}}
+
+{{define "backup_schedules"}}
+<section class="collection" aria-labelledby="schedules-title"><div class="section-head"><div><h2 id="schedules-title">{{.T "backups.schedules_title"}}</h2><p>{{.T "backups.schedule_hint"}}</p></div><a class="btn" href="/backups?tab=schedules&amp;schedule=new#schedule-editor">{{.IconS "plus"}}{{.T "backups.schedule_add"}}</a></div>
 {{if not .Data.SchedulesKnown}}<div class="empty card"><h3>{{.T "backups.schedules_unknown"}}</h3><a class="btn" href="/backups">{{.T "common.retry"}}</a></div>
 {{else if not .Data.Schedules}}<div class="empty card"><span class="empty-icon">{{.Icon "clock"}}</span><h3>{{.T "backups.schedules_empty_title"}}</h3><p>{{.T "backups.schedules_empty_body"}}</p></div>
 {{else}}<div class="table-wrap"><table class="table table--cards entity-table"><thead><tr><th scope="col">{{.T "backups.col_name"}}</th><th scope="col">{{.T "backups.col_kind"}}</th><th scope="col">{{.T "backups.col_retention"}}</th><th scope="col">{{.T "backups.col_last_run"}}</th><th scope="col">{{.T "backups.col_next_run"}}</th><th scope="col">{{.T "common.actions"}}</th></tr></thead><tbody>
@@ -76,15 +84,11 @@
 <td data-label="{{$.T "backups.col_retention"}}">{{if .RetentionCount}}{{.RetentionCount}}{{else}}{{$.T "backups.retention_default"}}{{end}}</td>
 <td data-label="{{$.T "backups.col_last_run"}}">{{if .LastRunAt}}<bdi>{{$.DT .LastRunAt}} UTC</bdi><span class="badge {{if eq .LastStatus "failed"}}badge--danger{{else}}badge--ok{{end}}">{{if eq .LastStatus "failed"}}{{$.T "backups.failed"}}{{else}}{{$.T "backups.ok"}}{{end}}</span>{{else}}{{$.T "backups.never"}}{{end}}</td>
 <td data-label="{{$.T "backups.col_next_run"}}">{{if .Enabled}}<bdi>{{$.DateTime .NextRunAt}} UTC</bdi>{{else}}—{{end}}</td>
-<td data-label="{{$.T "common.actions"}}"><div class="row-actions"><a class="icon-btn" href="/backups?schedule={{urlquery .ID}}#schedule-editor" aria-label="{{$.T "common.edit"}}">{{$.IconS "pencil"}}</a><form method="post" action="/backups/schedules/{{.ID}}/toggle"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn" aria-label="{{if .Enabled}}{{$.T "backups.disable"}}{{else}}{{$.T "backups.enable"}}{{end}}">{{$.IconS "power"}}</button></form><form method="post" action="/backups/schedules/{{.ID}}/delete" data-confirm data-confirm-title="{{$.T "backups.schedule_delete_title"}}" data-confirm-message="{{.Name}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn icon-btn--danger" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button></form></div></td></tr>{{end}}
+<td data-label="{{$.T "common.actions"}}"><div class="row-actions"><a class="icon-btn" href="/backups?tab=schedules&amp;schedule={{urlquery .ID}}#schedule-editor" aria-label="{{$.T "common.edit"}}">{{$.IconS "pencil"}}</a><form method="post" action="/backups/schedules/{{.ID}}/toggle"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn" aria-label="{{if .Enabled}}{{$.T "backups.disable"}}{{else}}{{$.T "backups.enable"}}{{end}}">{{$.IconS "power"}}</button></form><form method="post" action="/backups/schedules/{{.ID}}/delete" data-confirm data-confirm-title="{{$.T "backups.schedule_delete_title"}}" data-confirm-message="{{.Name}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn icon-btn--danger" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button></form></div></td></tr>{{end}}
 </tbody></table></div>{{end}}</section>
 
 {{if .Data.ScheduleOpen}}{{template "backup_schedule_editor" .}}{{end}}
-<p class="hint">{{.T "backups.cli_hint"}}</p>
 {{end}}
-</div>
-{{end}}
-
 {{define "backup_schedule_editor"}}
 <section class="card card--pad backup-editor" id="schedule-editor"><div class="section-head"><div><h2>{{if .Data.SchedForm.ID}}{{.T "backups.schedule_edit"}}{{else}}{{.T "backups.schedule_add"}}{{end}}</h2><p>{{.T "backups.schedule_hint"}}</p></div></div>
 <form method="post" action="{{if .Data.SchedForm.ID}}/backups/schedules/{{.Data.SchedForm.ID}}/update{{else}}/backups/schedules{{end}}" data-sched-form novalidate>
@@ -94,6 +98,14 @@
 <div data-sched-panel="daily,weekly"><div class="field"><label for="sch-time">{{.T "backups.time_utc"}}</label><input class="input ltr-data" id="sch-time" name="time_of_day" value="{{.Data.Form.V "time_of_day"}}" placeholder="03:00" {{if .Data.Form.Invalid "time_of_day"}}aria-invalid="true"{{end}}></div><div class="field" data-sched-weekday-row><label for="sch-weekday">{{.T "backups.weekday"}}</label><select class="select" id="sch-weekday" name="weekday">{{range $day := list "0" "1" "2" "3" "4" "5" "6"}}<option value="{{$day}}" {{if eq ($.Data.Form.V "weekday") $day}}selected{{end}}>{{$.T (printf "weekday.%s" $day)}}</option>{{end}}</select></div></div>
 <div class="field" data-sched-panel="interval"><label for="sch-interval">{{.T "backups.interval_hours"}}</label><input class="input ltr-data" id="sch-interval" name="interval_hours" inputmode="numeric" value="{{.Data.Form.V "interval_hours"}}" aria-describedby="sch-interval-help" {{if .Data.Form.Invalid "interval_hours"}}aria-invalid="true"{{end}}><span class="hint" id="sch-interval-help">{{.T "backups.interval_hint"}}</span></div>
 <div class="field"><label for="sch-retention">{{.T "backups.col_retention"}}</label><input class="input ltr-data" id="sch-retention" name="retention" inputmode="numeric" value="{{.Data.Form.V "retention"}}" aria-describedby="sch-retention-help" {{if .Data.Form.Invalid "retention"}}aria-invalid="true"{{end}}><span class="hint" id="sch-retention-help">{{.T "backups.retention_hint"}}</span></div>
-<div class="form-actions"><a class="btn" href="/backups">{{.T "common.cancel"}}</a><button type="submit" class="btn btn--primary">{{.T "common.save"}}</button></div>
+<div class="form-actions"><a class="btn" href="/backups?tab=schedules">{{.T "common.cancel"}}</a><button type="submit" class="btn btn--primary">{{.T "common.save"}}</button></div>
 </form></section>
+{{end}}
+
+{{define "backup_pending"}}
+<section class="card card--pad backup-pending"><div class="section-head"><div><h2>{{.T "backups.awaiting_restart"}}</h2><p>{{.T "backups.pending_banner_pre"}}<bdi>{{.Data.Pending.Archive}}</bdi>{{.T "backups.pending_banner_post"}}</p></div><form method="post" action="/backups/restore/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="pending" value="{{.Data.Pending.Identity}}"><button type="submit" class="btn btn--outline">{{.T "backups.pending_discard"}}</button></form></div><div class="callout"><div><p>{{.T "operations.restart.cli"}}</p><code class="ltr-data">sudo wg-guard restart --yes</code></div></div></section>
+{{end}}
+
+{{define "backup_previews"}}
+{{if not .Data.PreviewsKnown}}<p class="callout callout--warn">{{.T "backups.previews_unknown"}}</p>{{else if .Data.Previews}}<section class="card card--pad"><div class="section-head"><div><h2>{{.T "backups.previews_title"}}</h2><p data-guidance>{{.T "backups.previews_hint"}}</p></div></div><div class="backup-preview-list">{{range .Data.Previews}}<div class="backup-preview-row"><div>{{if .Pending}}<strong class="archive-name"><bdi>{{.Pending.Archive}}</bdi></strong><p class="hint"><bdi>{{$.DateTime .Pending.StagedAt}} UTC</bdi></p>{{else}}<strong>{{$.T "backups.preview_incomplete"}}</strong><p class="hint"><bdi>{{.ID}}</bdi></p>{{end}}</div><div class="inline-actions">{{if .Pending}}<a class="btn btn--outline btn--sm" href="/backups?tab=restore&amp;preview={{urlquery .ID}}#restore-review-title">{{$.T "backups.resume_review"}}</a>{{end}}<form method="post" action="/backups/restore/cancel"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="preview" value="{{.ID}}"><button class="btn btn--ghost btn--sm" type="submit">{{$.T "common.cancel"}}</button></form></div></div>{{end}}</div></section>{{end}}
 {{end}}

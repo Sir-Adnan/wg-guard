@@ -247,7 +247,7 @@ func TestBackupCreateAndDownloadReturnsNewArchive(t *testing.T) {
 	if err != nil || len(archives) != 1 {
 		t.Fatalf("created archive registry = %d, %v", len(archives), err)
 	}
-	body := e.get("/backups", cookie).Body.String()
+	body := e.get("/backups?tab=restore", cookie).Body.String()
 	if !strings.Contains(body, `id="restore-workbench"`) || !strings.Contains(body, `<select class="select" id="restore-archive" name="name"`) {
 		t.Fatal("backup page must expose the restore workbench")
 	}
@@ -316,7 +316,11 @@ func TestBackupScheduleLifecycle(t *testing.T) {
 	if rec.Code != 303 {
 		t.Fatalf("create schedule: %d", rec.Code)
 	}
-	body := e.get("/backups", cookie).Body.String()
+	location, err := url.Parse(rec.Header().Get("Location"))
+	if err != nil || location.Query().Get("tab") != "schedules" || location.Query().Get("toast") != "backups.toast.schedule_created" {
+		t.Fatal("creation did not return to the schedule section with feedback")
+	}
+	body := e.get("/backups?tab=schedules", cookie).Body.String()
 	if !strings.Contains(body, "nightly") || !strings.Contains(body, "03:15") {
 		t.Fatal("schedule not listed")
 	}
@@ -327,7 +331,7 @@ func TestBackupScheduleLifecycle(t *testing.T) {
 	if rec := e.postForm("/backups/schedules/"+id+"/toggle", url.Values{}, cookie); rec.Code != 303 {
 		t.Fatalf("toggle: %d", rec.Code)
 	}
-	body = e.get("/backups", cookie).Body.String()
+	body = e.get("/backups?tab=schedules", cookie).Body.String()
 	if !strings.Contains(body, "Disabled") {
 		t.Fatal("toggle did not disable")
 	}
@@ -340,7 +344,7 @@ func TestBackupScheduleLifecycle(t *testing.T) {
 	if rec.Code != 303 {
 		t.Fatalf("update: %d", rec.Code)
 	}
-	body = e.get("/backups", cookie).Body.String()
+	body = e.get("/backups?tab=schedules", cookie).Body.String()
 	if !strings.Contains(body, "Every") {
 		t.Fatal("updated kind not shown")
 	}
@@ -349,7 +353,7 @@ func TestBackupScheduleLifecycle(t *testing.T) {
 	if rec := e.postForm("/backups/schedules/"+id+"/delete", url.Values{}, cookie); rec.Code != 303 {
 		t.Fatalf("delete schedule: %d", rec.Code)
 	}
-	if body := e.get("/backups", cookie).Body.String(); strings.Contains(body, "nightly") {
+	if body := e.get("/backups?tab=schedules", cookie).Body.String(); strings.Contains(body, "nightly") {
 		t.Fatal("schedule still listed")
 	}
 }
@@ -425,6 +429,11 @@ func TestBackupRestoreFlow(t *testing.T) {
 	name := archiveNameFrom(e.get("/backups", cookie).Body.String())
 
 	rec := e.postForm("/backups/restore", url.Values{"name": {name}}, cookie)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("restore staging must redirect to its saved review: %d", rec.Code)
+	}
+	location := rec.Header().Get("Location")
+	rec = e.get(location, cookie)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Review this restore") {
 		t.Fatalf("restore review: %d", rec.Code)
 	}
@@ -454,7 +463,11 @@ func TestBackupRestoreFlow(t *testing.T) {
 	}
 
 	// Cancel clears it.
-	if rec := e.postForm("/backups/restore/cancel", url.Values{}, cookie); rec.Code != 303 {
+	p, err := e.srv.Backup.PendingSummary()
+	if err != nil || p == nil {
+		t.Fatal("approved restore identity missing", err)
+	}
+	if rec := e.postForm("/backups/restore/cancel", url.Values{"pending": {p.Identity}}, cookie); rec.Code != 303 {
 		t.Fatalf("cancel: %d", rec.Code)
 	}
 	if p, _ := e.srv.Backup.Pending(); p != nil {

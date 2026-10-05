@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,19 +50,21 @@ type IfaceSummary struct {
 // archive contains vs what this host looks like, with explicit warnings for
 // anything an operator must confirm before apply.
 type RestoreReport struct {
-	Archive    string
-	CreatedAt  time.Time
-	AppVersion string
-	Hostname   string // source host
-	NodeID     string // staged node.id
-	Endpoint   string // staged node.endpoint
-	TLSMode    string // archived boot config ("" when absent)
-	Listen     string // archived http_listen
-	Interfaces []IfaceSummary
-	HasKey     bool // master key member present
-	Encrypted  bool
-	Warnings   []Message
-	Inventory  Inventory // complete offline DB/key and reference checks passed
+	Archive       string
+	ArchiveSHA256 string // exact input identity; not a secret or restore authorization
+	VerifiedAt    time.Time
+	CreatedAt     time.Time
+	AppVersion    string
+	Hostname      string // source host
+	NodeID        string // staged node.id
+	Endpoint      string // staged node.endpoint
+	TLSMode       string // archived boot config ("" when absent)
+	Listen        string // archived http_listen
+	Interfaces    []IfaceSummary
+	HasKey        bool // master key member present
+	Encrypted     bool
+	Warnings      []Message
+	Inventory     Inventory // complete offline DB/key and reference checks passed
 }
 
 // PendingRestore describes a private preview or explicitly approved payload.
@@ -74,7 +78,9 @@ type PendingRestore struct {
 	StagedAt time.Time
 	Manifest Manifest
 	Files    map[string]string
-	Original bool // no forward migrations; only for recorded lifecycle recovery
+	Original bool           // no forward migrations; only for recorded lifecycle recovery
+	Report   *RestoreReport // safe, bounded stage-time report; never includes a password
+	Identity string         // SHA-256 of private metadata, for conditional pending cancellation
 }
 
 const (
@@ -88,6 +94,11 @@ const (
 // Nothing on the live node is touched. A private preview cannot be boot-applied;
 // Approve must explicitly publish it before offline or next-boot application.
 func (s *Service) Stage(ctx context.Context, archivePath, password string) (*PendingRestore, *RestoreReport, error) {
+	release, err := s.claimInspection(ctx)
+	if err != nil {
+		return nil, nil, verificationError(err)
+	}
+	defer release()
 	preview, report, err := s.stage(ctx, archivePath, password, false)
 	return preview, report, verificationError(err)
 }
@@ -95,6 +106,11 @@ func (s *Service) Stage(ctx context.Context, archivePath, password string) (*Pen
 // StageOriginal preserves the exact archived schema and bytes for rollback.
 // It never opens active node data or invokes the forward migrator.
 func (s *Service) StageOriginal(ctx context.Context, archivePath, password string) (*PendingRestore, *RestoreReport, error) {
+	release, err := s.claimInspection(ctx)
+	if err != nil {
+		return nil, nil, verificationError(err)
+	}
+	defer release()
 	preview, report, err := s.stage(ctx, archivePath, password, true)
 	return preview, report, verificationError(err)
 }
@@ -130,9 +146,14 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 			_ = os.RemoveAll(pending)
 		}
 	}()
-	manifest, encrypted, err := extractArchive(ctx, f, password, pending)
+	digest := sha256.New()
+	manifest, encrypted, err := extractArchive(ctx, io.TeeReader(f, digest), password, pending)
 	if err != nil {
 		return nil, nil, err
+	}
+	// Include any bytes not consumed by the container reader in the identity.
+	if _, err := io.Copy(digest, restoreReader{ctx: ctx, r: f}); err != nil {
+		return nil, nil, verificationError(err)
 	}
 	if manifest.Schema > SchemaVersion {
 		return nil, nil, domain.E(domain.CodeInvalidRequest,
@@ -144,12 +165,13 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 	}
 
 	report := &RestoreReport{
-		Archive:    filepath.Base(archivePath),
-		Hostname:   manifest.Hostname,
-		AppVersion: manifest.AppVersion,
-		Encrypted:  encrypted,
-		HasKey:     manifest.Files[KeyMember] != "",
-		Warnings:   []Message{},
+		Archive:       filepath.Base(archivePath),
+		ArchiveSHA256: hex.EncodeToString(digest.Sum(nil)),
+		Hostname:      manifest.Hostname,
+		AppVersion:    manifest.AppVersion,
+		Encrypted:     encrypted,
+		HasKey:        manifest.Files[KeyMember] != "",
+		Warnings:      []Message{},
 	}
 	if t, err := time.Parse(time.RFC3339, manifest.CreatedAt); err == nil {
 		report.CreatedAt = t
@@ -181,7 +203,8 @@ func (s *Service) stage(ctx context.Context, archivePath, password string, origi
 	if original && !report.HasKey {
 		return nil, nil, safetyError("rollback_key", nil)
 	}
-	pr := &PendingRestore{Dir: pending, Archive: report.Archive, Manifest: *manifest, StagedAt: time.Now().UTC(), Original: original}
+	report.VerifiedAt = time.Now().UTC()
+	pr := &PendingRestore{Dir: pending, Archive: report.Archive, Manifest: *manifest, StagedAt: time.Now().UTC(), Original: original, Report: report}
 	if err := s.writeStagedMeta(pr, st.Size()); err != nil {
 		return nil, nil, err
 	}
@@ -205,6 +228,8 @@ type stagedMeta struct {
 	Manifest Manifest          `json:"manifest"`
 	Files    map[string]string `json:"files"`
 	Original bool              `json:"original"`
+	Report   *RestoreReport    `json:"report,omitempty"`
+	ReviewID string            `json:"review_id,omitempty"`
 }
 
 func (s *Service) writeStagedMeta(pr *PendingRestore, size int64) error {
@@ -227,15 +252,32 @@ func (s *Service) writeStagedMeta(pr *PendingRestore, size int64) error {
 	pr.Size = size
 	b, err := json.MarshalIndent(stagedMeta{
 		Archive: pr.Archive, StagedAt: pr.StagedAt.Format(time.RFC3339),
-		Size: size, Manifest: pr.Manifest, Files: files, Original: pr.Original,
+		Size: size, Manifest: pr.Manifest, Files: files, Original: pr.Original, Report: metadataReport(pr.Report),
+		ReviewID: filepath.Base(pr.Dir),
 	}, "", "  ")
 	if err != nil {
 		return err
 	}
+	if int64(len(b)) > maxMetadataBytes {
+		return safetyError("metadata_limit", nil)
+	}
+	id := sha256.Sum256(b)
+	pr.Identity = hex.EncodeToString(id[:])
 	if err := writeSynced(filepath.Join(pr.Dir, pendingMeta), b); err != nil {
 		return err
 	}
 	return syncDir(pr.Dir)
+}
+
+func metadataReport(report *RestoreReport) *RestoreReport {
+	if report == nil {
+		return nil
+	}
+	copy := *report
+	// Persist only the safe environment inventory. Warning catalog identities
+	// are reconstructed from the checked member set, never serialized causes.
+	copy.Warnings = nil
+	return &copy
 }
 
 // prepareStagedDB validates and reports the staged copy. Only ordinary restore
