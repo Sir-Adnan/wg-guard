@@ -411,6 +411,11 @@ func runStatus(args []string) error {
 	} else {
 		fmt.Printf("health:      ok (%s)\n", p.PanelURL())
 	}
+	if err := install.ProbeReadiness(ctx, p); err != nil {
+		fmt.Printf("readiness:   NOT READY (%v)\n", err)
+	} else {
+		fmt.Println("readiness:   ready")
+	}
 	fmt.Printf("access:      %s (%s)\n", p.Exposure, st.TLSReadiness)
 	return nil
 }

@@ -145,6 +145,39 @@ data. Older binaries without the lease protocol must be stopped separately.
 
 ## Interrupted operations
 
+Normal panel updates now require current node readiness before backup/journal/deployment
+mutation. A responding `/healthz` or Docker `healthy` status does not prove that tunnels
+are ready. Explicit rollback and recorded recovery remain available when the running
+candidate is unready. Once previous binary/Compose artifacts have been restored, a
+later start/readiness failure records that predecessor's installed identity with
+`recovery-required`, rather than relabelling it as the candidate. Journal snapshots
+remain unchanged and the pending record still blocks unrelated updates.
+
+### Missing module after a host kernel upgrade
+
+The host kernel changes independently of the Docker image. If `uname -r` reports a
+new kernel but `dkms status -m amneziawg` lists the reviewed module only for an older
+one, kernel interfaces cannot be recreated and `/readyz` can remain 503 through
+both candidate start and predecessor recovery. Repeating the panel update or
+reinstalling the same OS/kernel does not repair that dependency. Do not clear the
+journal, weaken readiness, remove users/keys or silently switch backends.
+
+Read the running-kernel headers/module build log before selecting a repair. On
+2026-10-05 the owner's Ubuntu 26.04.1 `7.0.0-38-generic` build failed with the exact
+`setup_udp_tunnel_sock` pointer mismatch recorded in
+[upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259).
+This is an observed failure of the reviewed source on that kernel, not a claim
+that a guessed patch or another kernel is certified. The owner retained the prior
+`7.0.0-30-generic` image/headers and installed DKMS module.
+
+An operator-coordinated one-time boot of a confirmed retained working kernel can
+restore the prerequisite, followed by `modprobe amneziawg`, recorded update recovery
+and read-only doctor/client checks. Verify the exact GRUB submenu/title and keep
+console access before reboot. This is a temporary recovery route, not approval to
+freeze security updates or support certification for later Ubuntu releases. A fresh
+install remains an alternative only after a verified off-host backup and an explicit
+host/OS choice; the historical supported target is Ubuntu 24.04 amd64.
+
 For interrupted updates, run `wg-guard update --recover` using a current contract-compatible
 manager. If the installed host command predates that command, use an acquired compatible
 candidate directly. Do not start old code manually

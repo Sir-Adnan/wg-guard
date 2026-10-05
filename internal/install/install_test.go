@@ -431,9 +431,9 @@ func TestUninstallPurgeData(t *testing.T) {
 	}
 }
 
-// TestUpdateDockerRollbackOnUnhealthy: a failing health check restores the
-// previous compose content.
-func TestUpdateDockerRollbackOnUnhealthy(t *testing.T) {
+// A node that is already unready must be rejected before deployment mutation,
+// rather than starting an update whose predecessor cannot pass recovery either.
+func TestUpdateRefusesCurrentlyUnreadyBeforeDeployment(t *testing.T) {
 	h := newMemHost()
 	// Install with a HEALTHY probe, then kill the health server for the
 	// update: any probe now fails → rollback.
@@ -463,22 +463,23 @@ func TestUpdateDockerRollbackOnUnhealthy(t *testing.T) {
 	}
 	oldCompose := string(h.files[ComposePth].data)
 	contractFixture(h)
+	h.commands = nil // Inspect only this update, not fixture installation.
 
 	err = Update(context.Background(), h, UpdateOptions{
 		Image: "image:new", BinaryPath: "/tmp/candidate", SkipBackup: true, Stdout: &strings.Builder{},
 	})
-	if err == nil || !strings.Contains(err.Error(), "rolled back") {
-		t.Fatalf("update: want rollback error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "current node runtime is not ready") {
+		t.Fatalf("update: want preflight refusal, got %v", err)
 	}
 	if got := string(h.files[ComposePth].data); got != oldCompose {
 		t.Error("compose not restored to the pre-update content")
 	}
-	for _, want := range [][]string{
+	for _, unwanted := range [][]string{
 		{"docker", "pull", "image:new"},
 		{"docker", "compose", "-f", ComposePth, "up", "-d"},
 	} {
-		if !h.ran(want...) {
-			t.Errorf("command not run: %v", want)
+		if h.ran(unwanted...) {
+			t.Errorf("unready update mutated deployment: %v", unwanted)
 		}
 	}
 	if st.Image != "sha256:"+strings.Repeat("a", 64) {

@@ -239,6 +239,57 @@ func TestInterruptedJournalRecovers(t *testing.T) {
 		t.Fatal("interrupted swap not recovered")
 	}
 }
+func TestFailedReadinessAfterRestoringPreviousKeepsItsInstalledIdentity(t *testing.T) {
+	m := installedFixture(t, ModeDocker)
+	contractFixture(m)
+	st, err := LoadState(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Version = "previous"
+	previous, err := retainCurrent(context.Background(), m, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := stageCandidate(context.Background(), m, st, UpdateOptions{Image: "image:new", BinaryPath: "/tmp/candidate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	after := *st
+	after.Version, after.Current, after.Image = "candidate", candidate, candidate.Image
+	if err := deployArtifact(m, st, candidate); err != nil {
+		t.Fatal(err)
+	}
+	badPort := healthServer(t, http.StatusServiceUnavailable)
+	cfg := string(m.files[ConfigPath].data)
+	p, err := recordedReadinessPlan(m, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.files[ConfigPath] = memFile{data: []byte(strings.Replace(cfg, fmt.Sprint(p.PanelPort), fmt.Sprint(badPort), 1)), perm: 0o600}
+	j := &Journal{Schema: JournalSchema, ID: strings.Repeat("d", 32), Operation: "update", Before: st, After: &after, Previous: previous, Candidate: candidate, DataMayHaveChanged: true}
+	if err := j.save(m, "started"); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverTransaction(m, j, io.Discard); err == nil {
+		t.Fatal("unready predecessor marked recovered")
+	}
+	got, err := LoadState(m)
+	if err != nil || got.Version != "previous" || got.Recovery != "recovery-required" || got.Image != st.Image {
+		t.Fatal("attempted candidate relabelled the restored predecessor")
+	}
+	if after.Recovery != "" || st.Recovery != "" {
+		t.Fatal("failure mutated recovery snapshots")
+	}
+	journal, err := LoadJournal(m)
+	if err != nil || journal.Stage != "recovery-required" {
+		t.Fatal("pending recovery was lost")
+	}
+	if string(m.files[BinPath].data) != "/src/wg-guard" {
+		t.Fatal("predecessor was not restored")
+	}
+}
+
 func TestInstallHonorsLifecycleLock(t *testing.T) {
 	h := newMemHost()
 	unlock, err := h.LockLifecycle()

@@ -37,6 +37,13 @@ version or the new deployment on the historical Ubuntu 24.04 support target.
 
 ## Open acceptance
 
+The owner's subsequent [incident/recovery report](runtime-recovery.md) adds a real
+source update, pre-update backup, failed readiness/preserved recovery on kernel
+`7.0.0-38`, one-time previous-kernel boot, module loading, completed recorded rollback
+and successful panel upgrade to `31de1d587b52537f3f6564af9563fc8e84917f5c` on
+`7.0.0-30`. It does not certify the failed kernel or the entire failure/resource/TLS
+matrix. Disk-backed acquisition also completed within this update journey.
+
 The exact release candidate and its downloaded artifacts still need their release
 gates. Physical reboot, upgrade/rollback, unavailable-container/offline recovery,
 interrupted operation, explicit userspace, real CA issuance/renewal/replacement,

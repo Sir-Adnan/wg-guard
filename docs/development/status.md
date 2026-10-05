@@ -1,5 +1,14 @@
 # Product and verification status
 
+**Runtime recovery correction (2026-10-05; unreleased):** the owner reports kernel
+`7.0.0-38` module build failure matching upstream issue 259, missing interfaces and
+readiness failures through recovery. Current source refuses a new panel update on
+an already-unready node, keeps restored artifact identity truthful during failed
+recovery and separates readiness in CLI status. The [record](runtime-recovery.md)
+distinguishes source checks from the owner's confirmed previous-kernel recovery and
+successful `31de1d5` panel update. Ubuntu 26.04
+compatibility is not certified by earlier restore success.
+
 **Acquisition staging correction (2026-10-05; unreleased):** an owner report exposes
 limited RAM-backed `/tmp` staging and a clipped compiler failure. Current source uses
 private cache staging, preserves the sanitized final cause and records pre-deployment

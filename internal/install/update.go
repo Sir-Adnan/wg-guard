@@ -50,6 +50,15 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if st == nil {
 		return terminalError("install.error.no_state")
 	}
+	if !o.Rollback {
+		p, err := recordedReadinessPlan(h, st)
+		if err != nil {
+			return err
+		}
+		if err := ProbeReadiness(ctx, p); err != nil {
+			return fmt.Errorf("update: current node runtime is not ready; repair its kernel/runtime prerequisites before updating: %w", err)
+		}
+	}
 	if err := migrateLegacyExposure(h, st); err != nil {
 		return err
 	}
@@ -510,10 +519,12 @@ func deployArtifact(h Host, st *State, a *Artifact) error {
 func recoverTransaction(h Host, j *Journal, out io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
+	recoveryState := j.After
 	fail := func(err error) error {
-		if j.After != nil {
-			j.After.Recovery = "recovery-required"
-			_ = saveState(h, j.After)
+		if recoveryState != nil {
+			state := *recoveryState
+			state.Recovery = "recovery-required"
+			_ = saveState(h, &state)
 		}
 		return errors.Join(err, j.save(h, "recovery-required"), terminalError("install.error.recovery_failed"))
 	}
@@ -555,6 +566,9 @@ func recoverTransaction(h Host, j *Journal, out io.Writer) error {
 	if err := deployArtifact(h, j.Before, j.Previous); err != nil {
 		return fail(err)
 	}
+	// The predecessor bytes/Compose have now been restored. Failed readiness
+	// must not relabel those installed artifacts as the attempted candidate.
+	recoveryState = j.Before
 	if err := startService(ctx, h, j.Before); err != nil {
 		return fail(err)
 	}
@@ -690,15 +704,23 @@ func backupIdentity(ctx context.Context, h Host, dir, raw string) (*BackupIdenti
 	return b, err
 }
 func waitHealthyRecorded(ctx context.Context, h Host, st *State, within time.Duration, out io.Writer) error {
-	cfg, err := ReadBootConfig(h, st.ConfigPath)
+	p, err := recordedReadinessPlan(h, st)
 	if err != nil {
 		return err
+	}
+	return waitHealthy(ctx, h, p, within)
+}
+
+func recordedReadinessPlan(h Host, st *State) (Plan, error) {
+	cfg, err := ReadBootConfig(h, st.ConfigPath)
+	if err != nil {
+		return Plan{}, err
 	}
 	p := Plan{DataDir: st.DataDir, TLSMode: cfg.TLS.Mode, Domain: cfg.TLS.Domain, PanelPort: portOf(cfg.HTTPListen), ACMEHTTPPort: cfg.TLS.ACMEHTTPPort}
 	if p.ACMEHTTPPort == 0 {
 		p.ACMEHTTPPort = 80
 	}
-	return waitHealthy(ctx, h, p, within)
+	return p, nil
 }
 func imageFromCompose(content string) string {
 	for _, line := range strings.Split(content, "\n") {
