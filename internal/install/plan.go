@@ -50,6 +50,8 @@ const DefaultImage = "wg-guard:verified"
 // Plan is one resolved installation. Fields with zero values are filled by
 // Resolve from flags + prompts before use.
 type Plan struct {
+	DomainPolicyFile   string
+	DomainChallengeDir string
 	// Exposure is the public topology; Certificate is its certificate owner.
 	// CloudflareToken is memory-only and must never enter rendered config/state.
 	Exposure            ExposureMode
@@ -103,15 +105,16 @@ type Plan struct {
 // loopback), panel 8080. Resolve upgrades dev→acme when a domain is set.
 func Defaults() Plan {
 	return Plan{
-		Exposure:     ExposureAuto,
-		Certificate:  CertificateAuto,
-		PublicPort:   443,
-		TLSMode:      config.TLSModeDev,
-		PanelPort:    8080,
-		ACMEHTTPPort: 80,
-		Image:        DefaultImage,
-		EtcDir:       EtcDir,
-		DataDir:      DataDir,
+		Exposure:           ExposureAuto,
+		Certificate:        CertificateAuto,
+		PublicPort:         443,
+		TLSMode:            config.TLSModeDev,
+		PanelPort:          8080,
+		ACMEHTTPPort:       80,
+		DomainChallengeDir: layout.DomainChallenges,
+		Image:              DefaultImage,
+		EtcDir:             EtcDir,
+		DataDir:            DataDir,
 	}
 }
 
@@ -164,10 +167,13 @@ func (p Plan) Resolve() (Plan, error) {
 			p.ACMEHTTPPort = 80
 		}
 	case config.TLSModeManual:
-		if p.CertFile == "" || p.KeyFile == "" {
+		if p.DomainPolicyFile == "" && (p.CertFile == "" || p.KeyFile == "") {
 			return p, terminalError("install.error.plan.7")
 		}
 		for _, file := range []string{p.CertFile, p.KeyFile} {
+			if file == "" && p.DomainPolicyFile != "" {
+				continue
+			}
 			if !path.IsAbs(file) || strings.ContainsAny(file, "\r\n\t :#\"'") {
 				return p, terminalError("install.error.manual_path")
 			}
@@ -192,6 +198,9 @@ func (p Plan) Resolve() (Plan, error) {
 	if strings.TrimSpace(p.Image) == "" {
 		p.Image = DefaultImage
 	}
+	if p.DomainPolicyFile != "" && p.DomainPolicyFile != layout.DomainPolicy || p.DomainChallengeDir != "" && p.DomainChallengeDir != layout.DomainChallenges {
+		return p, terminalError("install.error.state")
+	}
 	return p, nil
 }
 
@@ -212,6 +221,8 @@ func (p Plan) BootConfig() *config.Config {
 	cfg.HTTPListen = p.HTTPListen()
 	cfg.TLS.Mode = p.TLSMode
 	cfg.TLS.Domain = p.Domain
+	cfg.TLS.PolicyFile = p.DomainPolicyFile
+	cfg.TLS.ChallengeDir = p.DomainChallengeDir
 	switch p.TLSMode {
 	case config.TLSModeACME:
 		cfg.TLS.ACMEHTTPPort = p.ACMEHTTPPort

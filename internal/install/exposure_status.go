@@ -98,6 +98,24 @@ func DiagnoseExposure(ctx context.Context, h Host, st *State, now time.Time) (*E
 		report.add("certificate", readinessStatus(st.TLSReadiness), "built-in ACME; runtime owns issuance and renewal", "run wg-guard tls-check if readiness is not verified")
 		return report, nil
 	}
+	if p.Certificate == CertificateDomains {
+		i, err := DomainStatus(ctx, h)
+		if err != nil {
+			report.add("certificate", ExposureHealthFail, "active domain policy is unavailable", "run wg-guard domains status and review recovery")
+			return report, nil
+		}
+		report.Renewal = "per-domain policy"
+		for _, c := range i.Certificates {
+			status := ExposureHealthPass
+			if c.State == "unavailable" {
+				status = ExposureHealthFail
+			} else if c.State == "expiring" {
+				status = ExposureHealthWarn
+			}
+			report.add("certificate-"+string(c.Site.Role), status, string(c.Site.Method)+" · "+c.State, "review wg-guard domains status for expiry and renewal")
+		}
+		return report, nil
+	}
 
 	identity, err := certificateIdentity(st)
 	if err != nil {

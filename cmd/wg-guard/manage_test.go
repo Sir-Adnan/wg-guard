@@ -168,6 +168,20 @@ func TestManagerRootMenusFitNarrowEnglishTerminalsWithoutMutation(t *testing.T) 
 	}
 }
 
+func TestPendingDomainsDispatchesDedicatedRecovery(t *testing.T) {
+	var got []string
+	m := manager{view: managerRecovery, journalOperation: "domains", ui: terminal.New(strings.NewReader("y\n"), io.Discard, terminal.Options{Locale: i18n.En}), run: func(_ context.Context, args []string, _ io.Reader) error {
+		got = append([]string(nil), args...)
+		return nil
+	}}
+	if err := m.rootAction(context.Background(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []string{"domains", "recover"}) {
+		t.Fatal("domain recovery used wrong lifecycle service")
+	}
+}
+
 func TestInterruptedUninstallRecoveryOffersSafeRemovalOrFullReset(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

@@ -3,6 +3,8 @@ package install
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 )
 
 const (
@@ -40,8 +42,13 @@ func RenderCompose(p Plan) string {
 	b.WriteString("    volumes:\n")
 	fmt.Fprintf(&b, "      - %s:/etc/wg-guard/wg-guard.toml:ro\n", p.BootConfigPath())
 	fmt.Fprintf(&b, "      - %s:/var/lib/wg-guard\n", p.DataDir)
+	fmt.Fprintf(&b, "      - %s:%s:ro\n", layout.DomainDir, layout.DomainDir)
+	fmt.Fprintf(&b, "      - %s:%s:ro\n", layout.DomainChallenges, layout.DomainChallenges)
 	if p.TLSMode == "manual" {
 		for _, file := range []string{p.CertFile, p.KeyFile} {
+			if file == "" {
+				continue
+			}
 			fmt.Fprintf(&b, "      - %s:%s:ro\n", file, file)
 		}
 	}
@@ -89,6 +96,7 @@ var hostCommands = map[string]bool{
 	"doctor":                true,
 	"version":               true,
 	"image-import":          true,
+	"domains":               true,
 	"help":                  true,
 	"-h":                    true,
 	"--help":                true,

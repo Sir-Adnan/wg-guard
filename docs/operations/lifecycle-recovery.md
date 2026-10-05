@@ -262,3 +262,19 @@ added automated exposure/certificate failure coverage and a real Docker state-mi
 Nginx/webroot, public-IP renewal and restoration drill. Phase 11 native direct ACME issued a
 trusted domain certificate, reused its protected cache after restart and rejected an invalid
 manual-certificate change while preserving healthy HTTPS.
+
+
+## Independent domain recovery (current main, unreleased)
+
+A `domains` journal retains boot/Compose/approved policy and certificate-hook
+recovery together. Candidate validation does not stop the working listener;
+post-activation failures restore its prior snapshot with an independent timeout.
+For a pending domain journal run `sudo wg-guard domains recover`; the manager
+dispatches this operation explicitly. It must not invoke update recovery for it.
+Do not erase the journal or rerun issuance to bypass a pending operation.
+The host mailbox records interruption without automatically replaying the action.
+Owned pairs are pruned only after terminal recovery, preserving both references
+while recovery is pending. Active domain policy requires `domain_protocol: 1`
+in the selected runtime; rollback cannot silently remove SNI/HTTP isolation.
+External gateway TLS/routing remains operator-owned and is not certified locally.
+See [domain/TLS operations](domains-and-tls.md).

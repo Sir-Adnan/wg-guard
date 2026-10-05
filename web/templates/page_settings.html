@@ -6,7 +6,7 @@
   <nav class="settings-nav" aria-label="{{.T "settings.sections"}}">
     <p class="eyebrow">{{.T "settings.sections"}}</p>
     {{range .Data.Sections}}<a href="#settings-{{.ID}}">{{$.T .Title}}</a>{{end}}
-    <a href="/appearance">{{.T "appearance.title"}}</a>
+    <a href="/settings/domains">{{.T "domains.title"}}</a><a href="/appearance">{{.T "appearance.title"}}</a>
   </nav>
   <div class="settings-main form-stack">
     <section class="card card--pad" aria-labelledby="settings-appearance-title"><div class="section-head"><div><h2 id="settings-appearance-title">{{.T "appearance.title"}}</h2><p class="section-description" data-guidance>{{.T "appearance.digits.hint"}}</p></div><a class="btn btn--secondary" href="/appearance">{{.IconS "sparkles"}}<span>{{.T "appearance.digits.title"}}</span></a></div></section>
@@ -22,6 +22,7 @@
       <div class="settings-fields">
         {{range .Fields}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}
       </div>
+      {{if eq .ID "subscription"}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/settings/domains">{{$.IconS "globe"}}{{$.T "domains.title"}}</a>{{if $.Data.ManagedDomains}}<p class="hint" data-guidance>{{$.T "domains.settings.managed"}}</p>{{end}}</footer>{{end}}
       {{if .Advanced}}<details class="collapse settings-advanced" id="settings-{{.ID}}-advanced"{{if .AdvancedOpen}} open{{end}}><summary>{{$.T "settings.advanced"}}<span class="badge">{{$.N (i64u (len .Advanced))}}</span></summary><div class="settings-fields">{{range .Advanced}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}</div></details>{{end}}
       {{if and (eq .ID "backup") ($.Can "backup.manage")}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/backups">{{$.IconS "database"}}{{$.T "settings.open_backups"}}</a><p class="hint">{{$.T "settings.backup_destination"}}</p></footer>{{end}}
     </section>

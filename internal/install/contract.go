@@ -20,6 +20,7 @@ type Contract struct {
 	SecureExposure      bool   `json:"secure_exposure"`
 	MaintenanceProtocol int    `json:"maintenance_protocol,omitempty"`
 	DeploymentSchema    int    `json:"deployment_schema,omitempty"`
+	DomainProtocol      int    `json:"domain_protocol,omitempty"`
 }
 
 func CurrentContract() Contract {
@@ -29,9 +30,13 @@ func CurrentContract() Contract {
 		PersistentManager: true, SecureExposure: true,
 		MaintenanceProtocol: 2,
 		DeploymentSchema:    StateSchema,
+		DomainProtocol:      1,
 	}
 }
 func CheckContract(c Contract) error {
+	if c.DomainProtocol != 0 && c.DomainProtocol != 1 {
+		return terminalError("install.error.contract")
+	}
 	if c.MaintenanceProtocol != 0 && c.MaintenanceProtocol != 2 {
 		return terminalError("install.error.contract")
 	}

@@ -31,6 +31,10 @@ internal/
   runtimeapply/          bounded serialized desired/applied/pending runtime observations and
                          shared request application (no new worker, queue or durable table)
   database/              SQLite open (WAL, busy_timeout, FK, txlock=immediate), migrations runner, tx helpers
+  domaintls/             approved origins, hostname roles, TLS/SNI/session admission, chain/SAN
+                         validation, bounded active-pair cache and public route isolation
+  domainqueue/           closed owner intent, atomic mailbox/status and bounded private imports
+                         (host CA/lifecycle executor stays in install; no panel root shell)
   domain/                shared types: IDs (UUIDv7), statuses, disable reasons, machine error codes
   settings/              typed runtime settings registry (validators, categories, defaults)
   user/ device/ plan/    domain packages: model + service + repository

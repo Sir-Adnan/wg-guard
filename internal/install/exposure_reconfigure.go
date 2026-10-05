@@ -10,6 +10,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 )
 
 type ReconfigureOptions struct {
@@ -32,12 +34,14 @@ type exposureBackupManifest struct {
 
 var exposureBackupFiles = []struct{ path, name string }{
 	{ConfigPath, "boot-config"},
+	{layout.DomainPolicy, "domain-policy"},
 	{ComposePth, "compose"},
 	{NginxConfigPath, "nginx"},
 	{ManagedCertPath, "certificate"},
 	{ManagedKeyPath, "private-key"},
 	{CloudflareTokenPath, "cloudflare-credentials"},
 	{CertbotDeployHookPath, "deploy-hook"},
+	{DomainRenewalPreHookPath, "domain-pre-hook"},
 }
 
 func exposureBackupDir(id string) string { return ArtifactDir + "/" + id + "/exposure" }
@@ -46,6 +50,9 @@ func exposureBackupDir(id string) string { return ArtifactDir + "/" + id + "/exp
 func InstalledPlan(h Host, st *State) (Plan, error) { return installedPlan(h, st) }
 
 func resolveReconfigurePlan(ctx context.Context, h Host, current, requested Plan) (Plan, error) {
+	if current.DomainPolicyFile != "" {
+		return Plan{}, fmt.Errorf("installer: independent domains are active; use Settings → Domains and HTTPS or wg-guard domains configure to preserve hostname isolation")
+	}
 	requested.Image = current.Image
 	requested.EtcDir = EtcDir
 	requested.DataDir = DataDir

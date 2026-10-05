@@ -116,6 +116,12 @@ or at activation for a queued Next Plan.</p>
 max(now, current expiry) + duration; <code>exact</code> uses an RFC3339 date with timezone, such as
 <code>2026-10-30T12:00:00Z</code>. Localized calendar dates and Unix milliseconds are not date-time inputs.
 The webhook signature's <code>t</code> is Unix seconds; its JSON <code>timestamp</code> is RFC3339.</p>
+<p>HTTPS origins: <code>subscription.base_url</code> is a URL-generation fallback
+when no managed domain policy is active. It does not issue certificates or approve
+hostnames. Managed policy controls generated web links. REST subscription responses
+remain relative <code>/sub/{token}</code> capability paths; combine them with an approved
+panel origin or an operator-configured public origin. Certificate/host-file actions
+are owner-only panel/host operations and have no bot token API.</p>
 <p>Settings use their key's unit: <code>_gb</code> is decimal GB; <code>_months</code> is fixed 30-day
 periods; <code>_seconds</code>, <code>_hours</code> and <code>_days</code> are time units;
 retention/attempt counts are counts. <code>network.client_persistent_keepalive</code> is seconds in the

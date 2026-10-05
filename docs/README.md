@@ -16,7 +16,7 @@ Implementation and test evidence must support any claimed behavior.
 | Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
 | Refactor phases, scope and acceptance | [Refactor program, Phases 15–20](development/refactor-program.md); [architecture target](architecture/deployment-refactor.md) |
 | Prepare an off-host backup before the planned refactor | [Migration preparation drill](operations/migration-preparation.md) |
-| Different panel/subscription domains or certificate paths | [Domains and TLS](operations/domains-and-tls.md), separating current behavior from planned panel management |
+| Different panel/subscription domains or certificate paths | [Domains and TLS](operations/domains-and-tls.md), separating current main from the published preparation release |
 
 ## Reference index
 
@@ -29,6 +29,7 @@ Implementation and test evidence must support any claimed behavior.
 [Docker refactor target](architecture/deployment-refactor.md) ·
 [Docker-only cleanup](architecture/docker-only-cleanup.md) ·
 [Phase 17 implementation](development/phase17.md) ·
+[Phase 18 domains/HTTPS](development/phase18.md) ·
 [AmneziaWG pin and verification](integrations/amneziawg.md) ·
 [webhooks](integrations/webhooks.md) · [ADRs](decisions/).
 
@@ -42,7 +43,7 @@ Implementation and test evidence must support any claimed behavior.
 [security](operations/security.md).
 
 **Planned refactor:** [Phase 15–20 execution program](development/refactor-program.md) ·
-[integrated domain/TLS specification](operations/domains-and-tls.md).
+[implemented domain/TLS contract](operations/domains-and-tls.md).
 
 **Development and current claims:** [workflow](development/workflow.md) ·
 [testing](development/testing.md) · [status](development/status.md) ·

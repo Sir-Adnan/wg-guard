@@ -49,6 +49,11 @@ Commands:
                    [--component serve|http|scheduler|accounting|webhook|backup|awg|network]
   exposure    Show or change panel access and HTTPS after installation
               exposure status|configure|renew|private|recover
+  domains     Manage independent panel/subscription HTTPS and certificates
+              domains status|configure|remove|renew|recover|bridge-install
+              domains configure --role subscription --origin https://sub.example.com
+                [--method automatic|manual|external] [--challenge http|cloudflare]
+                [--cert-file CONTROLLED_PATH --key-file CONTROLLED_PATH]
   reconcile   Bring tunnels, peers, and firewall to DB state (boot bring-up)
   serve       Run the WG-Guard service (API + scheduler)
               -config PATH   boot config (default /etc/wg-guard/wg-guard.toml)
@@ -184,6 +189,11 @@ func main() {
 	case "update-request-run":
 		if err := runUpdateRequest(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "wg-guard: update-request-run: %v\n", err)
+			os.Exit(1)
+		}
+	case "domains":
+		if err := runDomains(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	case "uninstall":

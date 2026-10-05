@@ -28,6 +28,7 @@ const (
 	operationUpdate    operationAction = "update"
 	operationRollback  operationAction = "rollback"
 	operationUninstall operationAction = "uninstall"
+	operationDomains   operationAction = "domains"
 
 	operationStarted   operationOutcome = "started"
 	operationSucceeded operationOutcome = "succeeded"
@@ -154,7 +155,7 @@ func (j operationJournal) record(action operationAction, outcome operationOutcom
 
 func validOperationAction(action operationAction) bool {
 	switch action {
-	case operationInstall, operationUpdate, operationRollback, operationUninstall:
+	case operationInstall, operationUpdate, operationRollback, operationUninstall, operationDomains:
 		return true
 	default:
 		return false

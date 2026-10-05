@@ -102,6 +102,9 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 	if o.Rollback && !dataCompatible(previous, j.Candidate) {
 		return terminalError("install.error.rollback_restore")
 	}
+	if err := checkDomainRuntimeCompatibility(h, j.Candidate.Contract); err != nil {
+		return err
+	}
 	if incompatiblePoolDowngrade(previous, j.Candidate) {
 		return terminalError("install.error.rollback_restore")
 	}
@@ -167,6 +170,9 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 		return fail(err)
 	}
 	if err = EnsureUpdateBrokerForContract(ctx, h, j.Candidate.Contract); err != nil {
+		return fail(err)
+	}
+	if err = EnsureDomainBrokerForContract(ctx, h, j.Candidate.Contract); err != nil {
 		return fail(err)
 	}
 	if err = j.save(h, "complete"); err != nil {
@@ -352,6 +358,11 @@ func stageCandidate(ctx context.Context, h Host, st *State, o UpdateOptions) (re
 	a.Contract, err = inspectContract(ctx, h, []string{a.Binary})
 	if err != nil {
 		return nil, err
+	}
+	if a.Contract.DomainProtocol == 1 {
+		if err := ensureDomainDirectories(h); err != nil {
+			return nil, err
+		}
 	}
 
 	if o.Image == "" {
@@ -554,6 +565,9 @@ func recoverTransaction(h Host, j *Journal, out io.Writer) error {
 		return fail(err)
 	}
 	if err := EnsureUpdateBrokerForContract(ctx, h, j.Previous.Contract); err != nil {
+		return fail(err)
+	}
+	if err := EnsureDomainBrokerForContract(ctx, h, j.Previous.Contract); err != nil {
 		return fail(err)
 	}
 	return j.save(h, "rolled-back")

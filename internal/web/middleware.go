@@ -15,6 +15,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 )
 
 const (
@@ -275,6 +276,9 @@ func requestIsHTTPS(r *http.Request) bool {
 func bodyCap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := int64(256 << 10)
+		if r.Method == http.MethodPost && r.URL.Path == "/settings/domains" {
+			limit = 2*domaintls.MaxMaterialBytes + (64 << 10)
+		}
 		if r.Method == http.MethodPost && r.URL.Path == "/backups/import" {
 			// Multipart framing gets a small allowance above the compressed
 			// archive bound. MaxBytesReader still streams and terminates excess.

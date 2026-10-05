@@ -389,6 +389,8 @@ func (m *manager) rootAction(ctx context.Context, n int) error {
 				args = []string{"certificate-sync", "--lineage", m.recoveryLineage}
 			} else if m.journalOperation == "exposure" {
 				args = []string{"exposure", "recover"}
+			} else if m.journalOperation == "domains" {
+				args = []string{"domains", "recover"}
 			}
 			_, err := m.reviewedAction(ctx, "recover_review", args, nil)
 			return err

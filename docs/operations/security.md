@@ -178,22 +178,37 @@ reconciliation fails, rather than reviving old credentials.
   unowned daemon, and terminates owned children on shutdown; Linux parent-death signaling covers
   abrupt node exit. `/dev/net/tun` is mapped only as a device in Docker.
 - Docker runtime drops all capabilities and adds only `NET_ADMIN`/`NET_BIND_SERVICE`, uses
-  no-new-privileges and a read-only root with bounded temporary mounts. Only individual boot/TLS
-  files are read-only mounts; node data is writable. Host state/journal/manager are not mounted,
+  no-new-privileges and a read-only root with bounded temporary mounts. Individual boot/TLS files and the approved domain/challenge directories
+  are read-only mounts; node data is writable. Host state/journal/manager are not mounted,
   and neither a Docker socket nor privileged execution is granted. New-profile real-host
   networking/resource acceptance remains separate from source/fake-container checks.
 
-## Planned domain/certificate management boundary
+## Domain/certificate management on current main
 
-The [Phase 18 specification](domains-and-tls.md) adds an owner-authorized, bounded
-certificate operation model in the future. It grants no new filesystem or host
-rights today. Keep the existing update bridge identity-only; certificate imports
-need their own reviewed staging/ownership contract and closed requests, never
-arbitrary root paths, raw commands, Docker socket access or public private-key output.
-SNI certificate selection and HTTP hostname-role authorization are distinct checks;
-unknown/retired names must be denied even with cached certificates. A dedicated
-subscription hostname must not serve administrative/API routes or log customer
-capability URLs. See the [refactor acceptance program](../development/refactor-program.md).
+The [Phase 18 implementation](domains-and-tls.md) uses a separate owner-only
+certificate mailbox, not a general host executor or extension of the update
+request contract. An enabled non-reseller owner is reauthorized from the existing
+read-only DB under shared data ownership. CSRF and current authority precede
+queueing; host inputs are schema/size/path checked again. No bot certificate API,
+Docker socket, raw argv/config execution or arbitrary root-file browsing exists.
+
+Private PEM staging is 0600 in the node data volume, bounded to four imports and
+256 KiB per file. Active policy/pairs remain host-owned read-only directory mounts;
+only a short-lived challenge child is mounted from host state. Host journals,
+manager and state remain outside the container. Controlled paths permit fixed
+role import directories and recorded CA archives only; symlink escapes and
+non-private key files are rejected. Keys/credentials never enter audit, receipts
+or subprocess arguments. Candidate chain/SAN/key/validity checks precede listener
+replacement; one snapshot/journal recovers boot, Compose, policy and hooks.
+
+TLS admission checks every ClientHello including session resumption. Per-request
+role routing denies private/admin/API/login/traversal on a dedicated public name,
+including existing connections after retirement. Enrollment is not hostname
+approval. Replaced/removed owned CA lineages stop renewing; unreferenced immutable
+pairs are pruned only after terminal recovery. External gateway TLS is explicitly
+unverified and operator-owned. Source/local TLS/browser proof is distinct from
+Phase 20 physical CA/network/kernel/client acceptance; latest stable v0.1.9 does
+not ship these new rights. See [Phase 18 evidence](../development/phase18.md).
 
 ## Dependency discipline
 

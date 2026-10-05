@@ -65,7 +65,7 @@ func BuildRuntimeImage(ctx context.Context, h Host, build distribution.Build, b 
 	}
 	iid := filepath.Join(dir, "image-id")
 	c := CurrentContract()
-	labels := runtimeIdentityLabels(build, distribution.RuntimeManifest{RecipeSHA256: RuntimeRecipeSHA256(), NoticesSHA256: RuntimeNoticesSHA256(), DataContract: c.DataContract, DeploymentSchema: c.DeploymentSchema, MaintenanceProtocol: c.MaintenanceProtocol, ToolsCommit: b.ToolsCommit, UserspaceCommit: b.UserspaceCommit})
+	labels := runtimeIdentityLabels(build, distribution.RuntimeManifest{RecipeSHA256: RuntimeRecipeSHA256(), NoticesSHA256: RuntimeNoticesSHA256(), DataContract: c.DataContract, DeploymentSchema: c.DeploymentSchema, MaintenanceProtocol: c.MaintenanceProtocol, DomainProtocol: c.DomainProtocol, ToolsCommit: b.ToolsCommit, UserspaceCommit: b.UserspaceCommit})
 	labels["io.wg-guard.core.bundle"] = b.ID
 	keys := make([]string, 0, len(labels))
 	for key := range labels {

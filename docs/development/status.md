@@ -1,5 +1,15 @@
 # Product and verification status
 
+**Phase 18 source (2026-10-05; unreleased):** independent panel/public origins,
+SNI and resumed TLS admission, per-request role isolation, owner-authorized
+certificate staging/host mailbox, CA renewal/retirement and snapshot recovery are
+implemented on main. Focused source/local HTTPS tests and Chromium/WebKit fa/en
+responsive/native-fallback checks, the full ordinary Go suite, focused Linux race,
+vet/build and bootstrap/asset checks passed. Exact main CI is pending; delivery gates are recorded in
+[Phase 18](phase18.md); physical CA/forwarding/reboot/client acceptance remains
+Phase 20. Latest stable v0.1.9 and the no-further-release instruction are unchanged.
+
+
 This is the current capability matrix. A feature is not production-verified merely because it
 builds, passes a unit test, or ran in WSL/container emulation. Detailed phase evidence remains in
 the linked phase records; release blockers and audit findings live in

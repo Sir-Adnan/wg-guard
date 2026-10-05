@@ -248,6 +248,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := h.MkdirAll(layout.HostStateDir, 0700); err != nil {
 		return st, err
 	}
+	for _, dir := range []string{layout.DomainDir, layout.DomainChallenges} {
+		if err := h.MkdirAll(dir, 0700); err != nil {
+			return st, err
+		}
+	}
 	if err := h.MkdirAll(layout.DeploymentDir, 0700); err != nil {
 		return st, err
 	}
@@ -418,6 +423,9 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	if err := EnsureUpdateBrokerForContract(ctx, h, installedContract); err != nil {
 		return st, err
 	}
+	if err := EnsureDomainBrokerForContract(ctx, h, installedContract); err != nil {
+		return st, err
+	}
 
 	fmt.Fprintln(out)
 	step(out, "Health check")
@@ -438,6 +446,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 	if err := saveState(h, st); err != nil {
 		return st, fmt.Errorf("install: write state: %w", err)
+	}
+	if installedContract.DomainProtocol == 1 {
+		if err := PublishDomainInventory(ctx, h); err != nil {
+			return st, err
+		}
 	}
 	if st.TLSReadiness == "pending" {
 		if err := WaitCertificate(ctx, p, 90*time.Second); err != nil {

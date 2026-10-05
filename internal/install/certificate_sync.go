@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 )
 
 var proveExposureCertificate = WaitCertificate
@@ -98,6 +99,11 @@ func installedPlan(h Host, st *State) (Plan, error) {
 	p.ACMEHTTPPort = cfg.TLS.ACMEHTTPPort
 	p.CertFile = cfg.TLS.CertFile
 	p.KeyFile = cfg.TLS.KeyFile
+	p.DomainPolicyFile = cfg.TLS.PolicyFile
+	p.DomainChallengeDir = cfg.TLS.ChallengeDir
+	if p.DomainChallengeDir == "" && st.Current != nil && st.Current.Contract.DomainProtocol == 1 {
+		p.DomainChallengeDir = layout.DomainChallenges
+	}
 	p.Exposure = st.Exposure.Mode
 	p.Certificate = st.Exposure.Certificate
 	p.PublicPort = st.Exposure.PublicPort
@@ -151,6 +157,9 @@ func certificateIdentity(st *State) (string, error) {
 func SyncManagedCertificate(ctx context.Context, h Host, renewedLineage string) error {
 	if !h.IsRoot() {
 		return terminalError("manage.root")
+	}
+	if handled, err := SyncDomainRenewal(ctx, h, renewedLineage); handled || err != nil {
+		return err
 	}
 	st, err := LoadState(h)
 	if err != nil {

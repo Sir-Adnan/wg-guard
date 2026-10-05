@@ -34,3 +34,34 @@
 .pool-capacity-list { display: grid; gap: .5rem; }
 .pool-capacity-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; padding: .75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .pool-capacity-row > span { color: var(--fg-muted); font-size: .875rem; }
+
+.domains-workspace { max-inline-size: 1120px; margin-inline: auto; }
+.domains-sites-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--sp-4); }
+.domain-site { display: flex; flex-direction: column; min-inline-size: 0; overflow: hidden; }
+.domain-site > .section-head, .domain-site-body, .domain-site-footer { padding: var(--sp-5); }
+.domain-site > .section-head { align-items: flex-start; margin: 0; border-block-end: 1px solid var(--border); }
+.domain-site .page-title-cluster { min-inline-size: 0; }
+.domain-site-body { flex: 1; }
+.domain-origin { overflow-wrap: anywhere; font-size: var(--fs-md); font-weight: 600; margin-block: 0 var(--sp-5); }
+.domain-certificate-meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--sp-4); margin: 0 0 var(--sp-4); }
+.domain-certificate-meta dt { color: var(--fg-muted); font-size: var(--fs-sm); margin-block-end: var(--sp-2); }
+.domain-certificate-meta dd { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-sm); }
+.domain-site-footer { border-block-start: 1px solid var(--border); }
+.domain-site-footer:empty { display: none; }
+.domain-site-footer form { min-inline-size: 0; }
+.domain-site-footer .btn { white-space: normal; text-align: center; }
+.domain-fieldset { padding: 0; border: 0; min-inline-size: 0; margin: 0; }
+.domain-method-fields { padding: var(--sp-5); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--r-md); min-inline-size: 0; }
+.domain-method-fields h3 { margin: 0; font-size: var(--fs-md); }
+.domain-method-fields .field, .domain-configure .form-row > * { min-inline-size: 0; }
+.domain-configure input[type=file] { max-inline-size: 100%; font-size: var(--fs-sm); block-size: auto; padding: var(--sp-3); }
+.domain-configure [hidden] { display: none; }
+.domain-site code { display: block; overflow-wrap: anywhere; }
+.domain-operation .section-head { margin-block-end: var(--sp-3); }
+@media(max-width:800px) { .domains-sites-grid { grid-template-columns: minmax(0,1fr); } }
+@media(max-width:480px) {
+  .domain-site > .section-head, .domain-site-body, .domain-site-footer, .domain-method-fields { padding: var(--sp-4); }
+  .domain-site > .section-head { flex-wrap: wrap; }
+  .domain-configure .form-row { grid-template-columns: minmax(0,1fr); }
+  .domain-certificate-meta { grid-template-columns: minmax(0,1fr); gap: var(--sp-3); }
+}

@@ -521,3 +521,14 @@ The description uses OpenAPI 3.2.1 and JSON Schema null unions. Its `info.versio
 `1.0.0` for the V1 API contract; the `openapi` field versions the description format,
 not a WG-Guard release or a new endpoint set. Consumers parsing the description need tooling
 that understands OpenAPI 3.2; existing HTTP clients do not change.
+
+
+## HTTPS origin authority
+
+Current main's owner-only domain policy controls generated public subscription
+links when enabled. `subscription.base_url` remains a URL-generation fallback
+for deployments without that policy; it never issues TLS or approves a hostname.
+The REST subscription responses still return relative `/sub/{token}` paths.
+Combine them with an approved panel origin (which also serves public paths) or
+an operator-configured public subscription origin. No certificate/host-file REST
+route or token scope is introduced. See [domains and HTTPS](../operations/domains-and-tls.md).

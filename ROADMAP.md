@@ -253,3 +253,10 @@ has evidence.
 Phase 17 source now has one verified Docker runtime recipe, strict new deployment state and
 separated private host authority. Exact image/fake-container CI and the physical Phase 20
 acceptance/publication gates remain distinct. See [Phase 17](docs/development/phase17.md).
+
+
+Phase 18 implements independent panel/public subscription origins, SNI and resumed
+TLS admission, a dedicated owner-authorized certificate mailbox, versioned imports,
+CA renewal/retirement and snapshot recovery. Source and isolated browser/TLS checks
+remain distinct from physical Phase 20 acceptance. It is unreleased; latest stable
+remains v0.1.9. See [Phase 18](docs/development/phase18.md).

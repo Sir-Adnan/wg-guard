@@ -56,10 +56,12 @@ type MetricsConfig struct {
 }
 
 type TLSConfig struct {
-	Mode     TLSMode `toml:"mode"`
-	Domain   string  `toml:"domain"`    // required for acme
-	CertFile string  `toml:"cert_file"` // required for manual
-	KeyFile  string  `toml:"key_file"`  // required for manual
+	Mode         TLSMode `toml:"mode"`
+	Domain       string  `toml:"domain"`        // required for acme
+	CertFile     string  `toml:"cert_file"`     // required for manual
+	KeyFile      string  `toml:"key_file"`      // required for manual
+	PolicyFile   string  `toml:"policy_file"`   // approved role/certificate manifest
+	ChallengeDir string  `toml:"challenge_dir"` // root-owned HTTP-01 enrollment webroot
 
 	// ACMEHTTPPort is the dedicated plain-HTTP listener that serves the ACME
 	// HTTP-01 challenge and redirects visitors to the TLS listener (ADR-0011:
@@ -183,7 +185,7 @@ func (c *Config) Validate() error {
 			return domain.E(domain.CodeConfigInvalid, "tls.acme_http_port %d is out of range 1-65535", c.TLS.ACMEHTTPPort)
 		}
 	case TLSModeManual:
-		if c.TLS.CertFile == "" || c.TLS.KeyFile == "" {
+		if c.TLS.PolicyFile == "" && (c.TLS.CertFile == "" || c.TLS.KeyFile == "") {
 			return domain.E(domain.CodeConfigInvalid, "tls.cert_file and tls.key_file are required for tls.mode=manual")
 		}
 	case TLSModeDev:
@@ -191,6 +193,14 @@ func (c *Config) Validate() error {
 			return domain.E(domain.CodeConfigInvalid,
 				"tls.mode=dev only serves loopback plaintext; http_listen %q is not loopback (use acme/manual/proxy for real deployments)", c.HTTPListen)
 		}
+	}
+	for _, name := range []string{c.TLS.PolicyFile, c.TLS.ChallengeDir} {
+		if name != "" && !filepath.IsAbs(name) {
+			return domain.E(domain.CodeConfigInvalid, "managed TLS paths must be absolute")
+		}
+	}
+	if c.TLS.PolicyFile != "" && c.TLS.Mode != TLSModeManual && c.TLS.Mode != TLSModeProxy && c.TLS.Mode != TLSModeACME {
+		return domain.E(domain.CodeConfigInvalid, "approved domain policy requires manual HTTPS or explicit proxy transport")
 	}
 	switch strings.ToLower(c.Log.Level) {
 	case "debug", "info", "warn", "error":

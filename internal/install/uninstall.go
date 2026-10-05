@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
+	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/layout"
@@ -96,8 +97,18 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	if err != nil {
 		return nil, err
 	}
+	domainBroker, err := inspectDomainBroker(h)
+	if err != nil {
+		return nil, err
+	}
+	domainFiles, err := domainArtifacts(h)
+	if err != nil {
+		return nil, err
+	}
 	// What will be removed, computed up front (dry-run prints the same list).
 	var artifacts []string
+	artifacts = append(artifacts, domainBroker...)
+	artifacts = append(artifacts, domainFiles...)
 	if st.ComposePath != "" {
 		artifacts = append(artifacts, st.ComposePath)
 	}
@@ -164,11 +175,21 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	if err := stopUpdateBroker(ctx, h, broker); err != nil {
 		return rep, err
 	}
+	if _, err := StopDomainBroker(ctx, h); err != nil {
+		return rep, err
+	}
 	step(out, "Stopping the node")
 	if err := stopService(ctx, h, st); err != nil {
 		return rep, err
 	}
 	rep.Stopped = true
+	if policy, err := readDomainPolicy(h); err == nil {
+		if err := retireDomainLineages(ctx, h, policy, domaintls.Policy{}); err != nil {
+			return rep, err
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return rep, err
+	}
 	var purgeGuard *backup.PurgeGuard
 	if _, live := h.(realHost); live {
 		purgeGuard, err = backup.AcquirePurgeGuard(st.DataDir)
@@ -204,7 +225,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	}
 	// Only remove the empty deployment directory; unrelated contents survive.
 	_ = h.Remove(layout.DeploymentDir)
-	if broker.hasUnits() {
+	if broker.hasUnits() || len(domainBroker) > 0 {
 		if err := runQuiet(ctx, h, []string{"systemctl", "daemon-reload"}, 30*time.Second); err != nil {
 			return rep, err
 		}

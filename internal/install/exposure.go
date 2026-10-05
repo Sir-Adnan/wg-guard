@@ -49,12 +49,13 @@ const (
 	CertificateManual           CertificateSource = "manual"
 	CertificateCloudflareOrigin CertificateSource = "cloudflare-origin"
 	CertificateExternal         CertificateSource = "external"
+	CertificateDomains          CertificateSource = "domains"
 )
 
 func (s CertificateSource) Valid() bool {
 	switch s {
 	case CertificateBuiltin, CertificateWebroot, CertificateCloudflareDNS,
-		CertificateIP, CertificateManual, CertificateCloudflareOrigin, CertificateExternal:
+		CertificateIP, CertificateManual, CertificateCloudflareOrigin, CertificateExternal, CertificateDomains:
 		return true
 	}
 	return false

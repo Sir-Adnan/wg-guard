@@ -27,6 +27,8 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
+	"github.com/Sir-Adnan/wg-guard/internal/domainqueue"
+	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
@@ -80,6 +82,8 @@ type Deps struct {
 	// broker. UpdateCatalog supplies published stable versions on demand.
 	UpdateQueue   *updatequeue.Queue
 	UpdateCatalog ReleaseCatalog
+	DomainQueue   *domainqueue.Queue
+	DomainPolicy  domaintls.Snapshot
 
 	// Tokens and Webhooks are the same instances the REST API uses — one
 	// business layer, two surfaces.
@@ -271,6 +275,9 @@ func (s *Server) Handler() http.Handler {
 	// --- settings (node.settings: the registry is operator territory) ---
 	mux.HandleFunc("GET /settings", s.requirePermission(auth.ScopeNodeSettings, s.handleSettingsPage))
 	mux.HandleFunc("POST /settings", s.requirePermission(auth.ScopeNodeSettings, s.handleSettingsSave))
+	mux.HandleFunc("GET /settings/domains", s.requirePermission(auth.ScopeServerView, s.handleDomainsPage))
+	mux.HandleFunc("GET /settings/domains/status", s.requirePermission(auth.ScopeServerView, s.handleDomainsStatus))
+	mux.HandleFunc("POST /settings/domains", s.requireOwner(s.handleDomainsRequest))
 
 	// --- backups (backup.manage; ADR-0007: panel/CLI only) ---
 	mux.HandleFunc("GET /backups", s.requirePermission(auth.ScopeBackupManage, s.handleBackupsPage))

@@ -43,7 +43,7 @@ func CheckRuntimeManifest(build distribution.Build, m distribution.RuntimeManife
 	}
 	selected, err := SelectCore(b.ID)
 	if err != nil || selected != b || m.DataContract != CurrentContract().DataContract ||
-		m.DeploymentSchema != StateSchema || m.MaintenanceProtocol != CurrentContract().MaintenanceProtocol ||
+		m.DeploymentSchema != StateSchema || m.MaintenanceProtocol != CurrentContract().MaintenanceProtocol || m.DomainProtocol != CurrentContract().DomainProtocol ||
 		m.ToolsVersion != b.ToolsVersion || m.ToolsCommit != b.ToolsCommit || m.UserspaceVersion != b.UserspaceVersion || m.UserspaceCommit != b.UserspaceCommit {
 		return fmt.Errorf("runtime: release does not support the selected data, deployment or reviewed core contract")
 	}
@@ -106,6 +106,7 @@ func runtimeIdentityLabels(build distribution.Build, m distribution.RuntimeManif
 		"io.wg-guard.deployment.schema":     strconv.Itoa(m.DeploymentSchema),
 		"io.wg-guard.data.contract":         m.DataContract,
 		"io.wg-guard.maintenance.protocol":  strconv.Itoa(m.MaintenanceProtocol),
+		"io.wg-guard.domain.protocol":       strconv.Itoa(m.DomainProtocol),
 		"io.wg-guard.awg-tools.commit":      m.ToolsCommit,
 		"io.wg-guard.awg-userspace.commit":  m.UserspaceCommit,
 		"io.wg-guard.notices.sha256":        m.NoticesSHA256,

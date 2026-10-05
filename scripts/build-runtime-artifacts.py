@@ -43,6 +43,7 @@ def main():
         "io.wg-guard.data.contract": contract["data_contract"],
         "io.wg-guard.deployment.schema": str(contract["deployment_schema"]),
         "io.wg-guard.maintenance.protocol": str(contract["maintenance_protocol"]),
+        "io.wg-guard.domain.protocol": str(contract["domain_protocol"]),
         "io.wg-guard.awg-tools.commit": core["tools_commit"],
         "io.wg-guard.awg-userspace.commit": core["userspace_commit"],
     }
@@ -113,6 +114,7 @@ def main():
         "archive": archive.name, "archive_sha256": digest(archive), "archive_size": archive.stat().st_size,
         "data_contract": contract["data_contract"], "deployment_schema": contract["deployment_schema"],
         "maintenance_protocol": contract["maintenance_protocol"], "tools_version": core["tools_version"],
+        "domain_protocol": contract["domain_protocol"],
         "tools_commit": core["tools_commit"], "userspace_version": core["userspace_version"], "userspace_commit": core["userspace_commit"],
         "kernels": [{"id": b["id"], "version": b["kernel_version"], "commit": b["kernel_commit"]} for b in info["kernels"]],
         "sbom_sha256": digest(assets / "sbom.spdx.json"),

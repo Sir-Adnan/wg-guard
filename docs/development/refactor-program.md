@@ -36,7 +36,7 @@ stable. [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md) explains owners
 | 15 | Operational safety and migration preparation | Engineering complete; v0.1.9 public | Existing release contracts |
 | 16 | Application/runtime/host responsibility boundaries | Complete within documented source scope; no release | 15 safety gates |
 | 17 | Verified Docker distribution and complete native removal | Source/image/CI gates passed; physical acceptance in 20; unreleased | 16 boundaries; registry approval for publication |
-| 18 | Integrated panel/subscription domains and TLS | Planned | 16 host operation model; 17 deployment ownership |
+| 18 | Integrated panel/subscription domains and TLS | Source implemented; local/browser gates; physical acceptance in 20; unreleased | 16 host operation model; 17 deployment ownership |
 | 19 | Cohesive installer and operational panel UX | Planned | Implemented 15–18 services |
 | 20 | Real-host acceptance and migration/release readiness | Planned | 15–19 evidence |
 
@@ -222,29 +222,33 @@ or shared-image pruning is not automatic; current/previous file recovery identit
 
 Specification: [domains and certificates](../operations/domains-and-tls.md).
 
-- [ ] Model panel origin, public subscription origin and VPN endpoint independently.
+- [x] Model panel origin, public subscription origin and VPN endpoint independently.
   Manage one panel hostname and at most one distinct subscription hostname initially.
-- [ ] Offer panel/terminal automatic issuance and renewal, manual certificate/key
+- [x] Offer panel/terminal automatic issuance and renewal, manual certificate/key
   import or controlled file paths, and existing external proxy mode.
-- [ ] For same-host direct HTTPS, use one owned listener with SNI certificate
+- [x] For same-host direct HTTPS, use one owned listener with SNI certificate
   selection and hostname-role routing. Both domains may use port 443; separate
   daemons competing for the same address/port are not required.
-- [ ] Separate enrollment, certificate storage/activation, hostname authorization
+- [x] Separate enrollment, certificate storage/activation, hostname authorization
   and public/private route policy. Never enroll domains from an arbitrary request
   Host or from the subscription link setting alone; removing a name must also
   deny existing cached-certificate access.
-- [ ] Give certificate/path/import work a dedicated bounded owner-authorized host
+- [x] Give certificate/path/import work a dedicated bounded owner-authorized host
   operation contract. The existing update bridge remains identity-only; do not
   turn it into a raw command/config/key transport or root file browser.
-- [ ] Validate pairs, chain/SAN, validity and permissions before activation;
+- [x] Validate pairs, chain/SAN, validity and permissions before activation;
   atomically retain the working pair, activate with the minimum required restart/
   recreate/reload and roll back on failure. Manual import does not imply automatic renewal.
-- [ ] Show separate requested/issued/active/verified/expiring/failed states and safe
+- [x] Show separate requested/issued/active/verified/expiring/failed states and safe
   receipts. Changes to panel origin must not rotate customer links or device keys.
-- [ ] Deny admin/API/login and path traversal on a dedicated public subscription
+- [x] Deny admin/API/login and path traversal on a dedicated public subscription
   hostname; allow the required public page/config/QR/assets and GET preferences only.
-- [ ] Keep proxy/remote-host operation explicit. GUI fields cannot configure another
+- [x] Keep proxy/remote-host operation explicit. GUI fields cannot configure another
   server's DNS, forwarding or TLS merely by changing a local URL.
+
+Source implementation/evidence: [Phase 18](phase18.md). Checked items describe
+implemented source; actual CA issuance/renewal/reboot and remote forwarding remain
+Phase 20 physical acceptance. No release is authorized.
 
 Exit: TLS/ownership/failure tests, fa/en and keyboard/touch browser coverage, actual
 two-hostname HTTPS issuance/renewal/import/replacement and route-isolation proof.

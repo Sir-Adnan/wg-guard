@@ -34,7 +34,7 @@ No cycles; no `utils` packages. Package responsibilities:
 
 The reviewed [refactor target](deployment-refactor.md) and
 [Phases 15–20](../development/refactor-program.md) track implemented safety/responsibility/
-Docker source changes separately from future domain/TLS and physical acceptance. They prioritize fail-closed existing-data migration,
+Docker/domain/TLS source changes separately from physical acceptance. They prioritize fail-closed existing-data migration,
 readiness and bounded slow-work isolation before packaging/native retirement.
 Integrated panel/subscription certificate management is specified in
 [domains and TLS](../operations/domains-and-tls.md).

@@ -429,7 +429,7 @@
     },
     "/api/v1/settings": {
       "get": {
-        "tags": ["settings"], "summary": "List settings (secrets redacted — only `secret_set`)", "description": "The key determines units: *_gb is decimal GB; *_months is fixed 30-day periods; *_seconds, *_hours and *_days are time units; *_count and max_attempts are counts. network.client_persistent_keepalive is seconds in pinned 0/N/N-M string form. api.rate_limit_per_minute is requests per fixed 60-second window. Preset lists contain numeric strings. Values and zero semantics are validated per definition; see /docs.", "security": [{ "BearerAuth": ["node.read"] }],
+        "tags": ["settings"], "summary": "List settings (secrets redacted — only `secret_set`)", "description": "The key determines units: *_gb is decimal GB; *_months is fixed 30-day periods; *_seconds, *_hours and *_days are time units; *_count and max_attempts are counts. network.client_persistent_keepalive is seconds in pinned 0/N/N-M string form. api.rate_limit_per_minute is requests per fixed 60-second window. Preset lists contain numeric strings. Values and zero semantics are validated per definition; see /docs. subscription.base_url is URL-generation fallback only when no managed domain policy is active; it never enrolls a hostname or issues TLS. With managed policy, approved origins control web links. REST subscription responses remain relative capability paths, usable with an approved panel or public origin. Certificate and host-file operations are owner-only panel/host actions, not REST token authority.", "security": [{ "BearerAuth": ["node.read"] }],
         "responses": { "200": { "description": "Settings catalog" } }
       },
       "patch": {

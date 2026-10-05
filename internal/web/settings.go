@@ -17,6 +17,7 @@ type settingsData struct {
 	TLSMode, ToolsVer        string
 	LoadFailed               bool
 	Sections                 []settingsSection
+	ManagedDomains           bool
 }
 
 type settingsSection struct {
@@ -116,6 +117,10 @@ func (s *Server) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) loadSettingsData(r *http.Request) settingsData {
 	d := settingsData{TLSMode: string(s.TLSMode), ToolsVer: s.ToolsVersion}
+	if s.DomainPolicy != nil {
+		_, err := s.DomainPolicy()
+		d.ManagedDomains = err == nil
+	}
 	defs := map[string]settings.Definition{}
 	for _, def := range s.Settings.Definitions() {
 		defs[def.Key] = def
@@ -130,6 +135,9 @@ func (s *Server) loadSettingsData(r *http.Request) settingsData {
 	for _, group := range settingsGroups {
 		section := settingsSection{ID: group.id, Title: group.title, Description: "settings.intro." + group.id}
 		for _, p := range group.fields {
+			if d.ManagedDomains && p.name == "sub_base_url" {
+				continue
+			}
 			spec := specs[p.name]
 			def, found := defs[spec.key]
 			f := settingsControl{Name: p.name, Label: p.label, Hint: p.hint, Effect: p.effect, Numeric: spec.kind == "int", Secret: spec.kind == "secret", Default: settingsValue(def.Default)}

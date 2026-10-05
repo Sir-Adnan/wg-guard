@@ -69,6 +69,10 @@ func validateExposureState(s ExposureState) error {
 			if s.CertFile != "" || s.KeyFile != "" || s.DeployHook != "" || s.Lineage != "" || s.CredentialsFile != "" {
 				return terminalError("install.error.state")
 			}
+		case CertificateDomains:
+			if s.CertFile != "" || s.KeyFile != "" || s.DeployHook != "" || s.Lineage != "" || s.CredentialsFile != "" && s.CredentialsFile != CloudflareTokenPath {
+				return terminalError("install.error.state")
+			}
 		case CertificateManual:
 			if !managedPaths(false) || s.DeployHook != "" || s.Lineage != "" || s.CredentialsFile != "" {
 				return terminalError("install.error.state")

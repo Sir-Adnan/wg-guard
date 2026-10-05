@@ -36,6 +36,7 @@ type RuntimeManifest struct {
 	DataContract        string           `json:"data_contract"`
 	DeploymentSchema    int              `json:"deployment_schema"`
 	MaintenanceProtocol int              `json:"maintenance_protocol"`
+	DomainProtocol      int              `json:"domain_protocol,omitempty"`
 	ToolsVersion        string           `json:"tools_version"`
 	ToolsCommit         string           `json:"tools_commit"`
 	UserspaceVersion    string           `json:"userspace_version"`

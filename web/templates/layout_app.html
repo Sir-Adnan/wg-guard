@@ -82,6 +82,7 @@
 </div>
 {{template "feedback-host" .}}
 {{if eq .Path "/settings"}}<script type="module" src="{{.A "/js/settings.js"}}"></script>{{end}}
+{{if eq .Path "/settings/domains"}}<script type="module" src="{{.A "/js/domains.js"}}"></script>{{end}}
 {{if eq .Path "/updates"}}<script type="module" src="{{.A "/js/maintenance.js"}}"></script>{{end}}
 {{if .IsActive "/cleanup"}}<script type="module" src="{{.A "/js/cleanup.js"}}"></script>{{end}}
 {{if or (eq .Path "/interfaces/new") (and (.IsActive "/interfaces") (ne .Path "/interfaces"))}}<script type="module" src="{{.A "/js/pool-editor.js"}}"></script>{{end}}

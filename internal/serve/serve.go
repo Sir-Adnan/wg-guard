@@ -37,9 +37,12 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
+	"github.com/Sir-Adnan/wg-guard/internal/domainqueue"
+	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
+	"github.com/Sir-Adnan/wg-guard/internal/layout"
 	"github.com/Sir-Adnan/wg-guard/internal/logsafe"
 	"github.com/Sir-Adnan/wg-guard/internal/metrics"
 	"github.com/Sir-Adnan/wg-guard/internal/network"
@@ -382,6 +385,8 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Integration:   integrations,
 		Backup:        n.backup,
 		UpdateQueue:   updatequeue.New(cfg.DataDir),
+		DomainQueue:   domainqueue.New(cfg.DataDir),
+		DomainPolicy:  (&domaintls.Loader{PolicyFile: cfg.TLS.PolicyFile}).Snapshot,
 		UpdateCatalog: distribution.NewClient(nil, distribution.Options{}),
 		Tokens:        tokens,
 		Webhooks:      webhooksSvc,
@@ -417,8 +422,16 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	root.Handle("/docs", apiHandler)
 	root.Handle("/api/", apiHandler)
 	root.Handle("/", n.webServer.Handler())
+	var handler http.Handler = root
+	if cfg.TLS.PolicyFile != "" {
+		policy := &domaintls.Loader{PolicyFile: cfg.TLS.PolicyFile}
+		if _, err := policy.Snapshot(); err != nil {
+			return fail(fmt.Errorf("serve: approved domain policy unavailable"))
+		}
+		handler = domaintls.Router(policy.Snapshot, root)
+	}
 	n.httpServer = &http.Server{
-		Handler:           root,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second, // slowloris bound
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -486,6 +499,25 @@ func (n *Node) listen() (net.Listener, error) {
 	case config.TLSModeDev, config.TLSModeProxy:
 		return net.Listen("tcp", n.cfg.HTTPListen)
 	case config.TLSModeManual:
+		if n.cfg.TLS.PolicyFile != "" {
+			loader := &domaintls.Loader{PolicyFile: n.cfg.TLS.PolicyFile}
+			p, err := loader.Snapshot()
+			if err != nil {
+				return nil, err
+			}
+			if n.cfg.TLS.ChallengeDir != "" {
+				automatic := false
+				for _, site := range p.Sites {
+					automatic = automatic || site.Method == domaintls.Automatic && site.Challenge == "http"
+				}
+				if automatic {
+					if err := n.listenDomainChallenges(); err != nil {
+						return nil, err
+					}
+				}
+			}
+			return tls.Listen("tcp", n.cfg.HTTPListen, &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: loader.GetCertificate, GetConfigForClient: loader.GetConfigForClient})
+		}
 		cert, err := tls.LoadX509KeyPair(n.cfg.TLS.CertFile, n.cfg.TLS.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("serve: tls: %w", err)
@@ -500,14 +532,36 @@ func (n *Node) listen() (net.Listener, error) {
 			HostPolicy: autocert.HostWhitelist(n.cfg.TLS.Domain),
 			Cache:      autocert.DirCache(filepath.Join(n.cfg.DataDir, "acme")),
 		}
+		var getCertificate = manager.GetCertificate
+		var getConfigForClient func(*tls.ClientHelloInfo) (*tls.Config, error)
+		if n.cfg.TLS.PolicyFile != "" {
+			loader := &domaintls.Loader{PolicyFile: n.cfg.TLS.PolicyFile, BuiltinCertificate: manager.GetCertificate}
+			policy, err := loader.Snapshot()
+			if err != nil {
+				return nil, err
+			}
+			for _, site := range policy.Sites {
+				if site.Method == domaintls.Builtin {
+					origin, _ := domaintls.ParseOrigin(site.Origin)
+					loader.BuiltinHosts = append(loader.BuiltinHosts, origin.Host)
+				}
+			}
+			manager.HostPolicy = autocert.HostWhitelist(loader.BuiltinHosts...)
+			getCertificate = loader.GetCertificate
+			getConfigForClient = loader.GetConfigForClient
+		}
 		challengeLn, err := net.Listen("tcp", fmt.Sprintf(":%d", n.cfg.TLS.ACMEHTTPPort))
 		if err != nil {
 			return nil, fmt.Errorf("serve: acme challenge listener :%d (keep it reachable for issuance/renewal): %w",
 				n.cfg.TLS.ACMEHTTPPort, err)
 		}
 		n.acmeListener = challengeLn
+		challengeDir := n.cfg.TLS.ChallengeDir
+		if challengeDir == "" && n.cfg.DataDir == layout.DataDir {
+			challengeDir = layout.DomainChallenges
+		}
 		n.acmeServer = &http.Server{
-			Handler:           manager.HTTPHandler(n.acmeRedirectFallback()),
+			Handler:           domaintls.Challenge(challengeDir, nil, manager.HTTPHandler(n.acmeRedirectFallback())),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
@@ -523,12 +577,28 @@ func (n *Node) listen() (net.Listener, error) {
 		// http.Server.Serve, which does not register an HTTP/2 handler —
 		// advertising h2 would break browsers that negotiate it.
 		return tls.Listen("tcp", n.cfg.HTTPListen, &tls.Config{
-			MinVersion:     tls.VersionTLS12,
-			NextProtos:     []string{"http/1.1"},
-			GetCertificate: manager.GetCertificate,
+			MinVersion:         tls.VersionTLS12,
+			NextProtos:         []string{"http/1.1"},
+			GetCertificate:     getCertificate,
+			GetConfigForClient: getConfigForClient,
 		})
 	}
 	return nil, domain.E(domain.CodeConfigInvalid, "unknown tls mode %q", n.cfg.TLS.Mode)
+}
+
+func (n *Node) listenDomainChallenges() error {
+	port := n.cfg.TLS.ACMEHTTPPort
+	if port == 0 {
+		port = 80
+	}
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return fmt.Errorf("serve: managed HTTP-01 port is unavailable")
+	}
+	n.acmeListener = ln
+	n.acmeServer = &http.Server{Handler: domaintls.Challenge(n.cfg.TLS.ChallengeDir, nil, http.NotFoundHandler()), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: slog.NewLogLogger(n.logs.http.Handler(), slog.LevelWarn)}
+	go func() { _ = n.acmeServer.Serve(ln) }()
+	return nil
 }
 
 // acmeRedirectFallback redirects plain-HTTP visitors to the real TLS

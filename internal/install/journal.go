@@ -94,7 +94,7 @@ func LoadJournal(h Host) (*Journal, error) {
 		return nil, terminalError("install.error.journal")
 	}
 	switch j.Operation {
-	case "install", "update", "rollback", "uninstall", "core", "restart", "restore", "certificate", "exposure":
+	case "install", "update", "rollback", "uninstall", "core", "restart", "restore", "certificate", "exposure", "domains":
 	default:
 		return nil, terminalError("install.error.journal")
 	}

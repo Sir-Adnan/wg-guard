@@ -21,6 +21,11 @@ import (
 // subscription.base_url setting when set, else this panel's own origin
 // (scheme from TLS/proxy headers, host from the request).
 func (s *Server) subBaseURL(r *http.Request) string {
+	if s.DomainPolicy != nil {
+		if policy, err := s.DomainPolicy(); err == nil {
+			return policy.SubscriptionOrigin()
+		}
+	}
 	if base, err := s.Settings.GetString(r.Context(), "subscription.base_url"); err == nil && base != "" {
 		return strings.TrimRight(base, "/")
 	}

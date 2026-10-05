@@ -242,3 +242,21 @@ advisories describe that compiler, not the candidate built with Go 1.27.1. The s
 ten-minute steady-state window; it does not stand in for kernel traffic. The integration-tag
 1000-client-IP tc/IFB test exercises real kernel shaping in both directions, while the dedicated
 Ubuntu VPS supplies separate deployment, actual peer/traffic, recovery and TLS evidence.
+
+
+### Independent domains and HTTPS
+
+`go test ./internal/domaintls ./internal/domainqueue ./internal/install ./internal/web
+./internal/serve ./cmd/wg-guard` covers the domain-origin/TLS/host adapter boundary.
+The real local HTTPS fixture establishes a resumable session, then retires its
+name and checks existing requests and session-ticket handshake denial. Host CA
+seams are synthetic, not a real issuance/renewal claim. Root lifecycle failure,
+owner/lease, controlled source and queue publication checks belong to this boundary.
+
+`go test ./internal/web -run '^TestBrowserDomains$' -count=1 -v` uses the existing
+opt-in `WG_TEST_BROWSER_NODE`/`WG_TEST_PLAYWRIGHT` setup. Select `chromium` or
+`webkit` with `WG_TEST_BROWSER_ENGINE`. It checks 16 fa/en Light/Dark responsive
+cells, method/source selection, keyboard and two no-JavaScript fallbacks. Optional
+`WG_TEST_AXE` adds a scan when a development installation is available; optional
+`WG_TEST_DOMAIN_SCREENSHOTS` writes isolated artifacts. There is no production
+browser runtime. See [Phase 18 evidence](phase18.md) and the Phase 20 physical gate.

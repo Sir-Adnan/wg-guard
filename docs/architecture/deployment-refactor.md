@@ -2,7 +2,7 @@
 
 Owner-selected product scope, revised after critical review on 2026-10-04.
 Phase 17 implements the source deployment boundary; shipped v0.1.9 retains the preparation
-contract. Domain/TLS and real-host acceptance remain later gates. Phase
+contract. Phase 18 adds source domain/TLS management; real-host acceptance remains a later gate. Phase
 order, milestones and exit gates are in the [Phases 15–20 program](../development/refactor-program.md).
 The owner operates one server
 and will export a verified backup, rebuild it, install the new distribution and
