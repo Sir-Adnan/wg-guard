@@ -31,7 +31,7 @@ func TestInitialArchiveAppliesBeforeListenerWithoutDefaultSeeding(t *testing.T) 
 			applied := false
 			initial := initialDataFixture{report: backup.RestoreReport{Archive: "synthetic.wgg", Endpoint: "vpn.source.example.test"}, apply: func(ctx context.Context, cfg *config.Config, path string) error {
 				applied = true
-				if path != ConfigPath || cfg.DataDir != DataDir {
+				if path != ConfigPath || cfg.DataDir != DataDir || cfg.DatabasePath != DataDir+"/wg-guard.db" || cfg.MasterKeyFile != DataDir+"/master.key" {
 					t.Fatal("target paths not passed to archive engine")
 				}
 				for _, cmd := range h.commands {

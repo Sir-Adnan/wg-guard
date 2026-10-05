@@ -218,6 +218,7 @@ func (p Plan) HTTPListen() string {
 func (p Plan) BootConfig() *config.Config {
 	cfg := config.Defaults()
 	cfg.DataDir = p.DataDir
+	cfg.Complete()
 	cfg.HTTPListen = p.HTTPListen()
 	cfg.TLS.Mode = p.TLSMode
 	cfg.TLS.Domain = p.Domain

@@ -63,6 +63,15 @@ build unrelated DKMS modules or claim compatibility with failed future headers.
 Focused tests cover the additional boot target, unavailable headers/build failure
 and inventory bounds. Real corrected reinstall/reboot must pass before publication.
 
+The fresh archive install also exposed omitted derived DB/key paths in
+`Plan.BootConfig`: runtime config loading completed them, while initial offline
+archive application received the incomplete value and refused the paired rename.
+The plan now completes dependent paths before passing it to the archive engine;
+the initial-data ordering test asserts those exact targets. The failed target
+never opened a managed listener, and the independently verified off-host archive
+was retained throughout retry/recovery. Corrected fresh-target acceptance remains
+required before closing the phase.
+
 ## Owner report
 
 The owner reports a successful fresh installation of current main followed by
