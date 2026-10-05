@@ -6,10 +6,24 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
 )
+
+func TestWrongManagerBytesAreNotExecutedForContractProbe(t *testing.T) {
+	h := newMemHost()
+	b := distribution.Build{Channel: "commit", Ref: strings.Repeat("a", 40), Commit: strings.Repeat("a", 40), Version: "candidate", BinaryPath: "/src/wg-guard", SHA256: strings.Repeat("b", 64)}
+	if VerifyManagerBuild(context.Background(), h, b) == nil {
+		t.Fatal("wrong manager admitted")
+	}
+	for _, command := range h.ranCommands() {
+		if command[len(command)-1] == "installer-contract" {
+			t.Fatal("unverified manager was executed")
+		}
+	}
+}
 
 func TestUpdateManagerCachesVerifiedBuildWithoutReplacingServiceBinary(t *testing.T) {
 	h := newMemHost()

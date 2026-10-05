@@ -52,6 +52,9 @@ func runImageImport(args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := install.VerifyManagerBuild(ctx, h, b); err != nil {
+		return err
+	}
 	bundle, err := install.SelectCore(*core)
 	if err != nil {
 		return err

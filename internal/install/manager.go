@@ -29,15 +29,8 @@ func UpdateManager(ctx context.Context, h Host, o ManagerUpdateOptions) error {
 	if !h.IsRoot() {
 		return terminalError("install.error.root")
 	}
-	if err := validateManagerBuild(o.Build, false); err != nil {
+	if err := VerifyManagerBuild(ctx, h, o.Build); err != nil {
 		return err
-	}
-	if _, err := inspectContract(ctx, h, []string{o.Build.BinaryPath}); err != nil {
-		return err
-	}
-	digest, _, err := fileDigest(ctx, h, o.Build.BinaryPath, 256<<20)
-	if err != nil || digest != o.Build.SHA256 {
-		return terminalError("install.error.image.5")
 	}
 	unlock, err := h.LockLifecycle()
 	if err != nil {
@@ -67,6 +60,20 @@ func UpdateManager(ctx context.Context, h Host, o ManagerUpdateOptions) error {
 		fmt.Fprintf(o.Stdout, "Manager updated: %s (%s)\n", receipt.Version, receipt.Commit[:12])
 	}
 	return nil
+}
+
+// VerifyManagerBuild hashes before executing any candidate probe. A private
+// receipt is an expected identity; changed bytes are never run to inspect it.
+func VerifyManagerBuild(ctx context.Context, h Host, b distribution.Build) error {
+	if err := validateManagerBuild(b, false); err != nil {
+		return err
+	}
+	digest, _, err := fileDigest(ctx, h, b.BinaryPath, 256<<20)
+	if err != nil || digest != b.SHA256 {
+		return terminalError("install.error.image.5")
+	}
+	_, err = inspectContract(ctx, h, []string{b.BinaryPath})
+	return err
 }
 
 // LoadManagerBuild verifies the receipt, root-owned cache, digest and current

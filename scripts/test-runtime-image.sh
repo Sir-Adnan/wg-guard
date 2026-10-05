@@ -10,10 +10,14 @@ archive=${1%/*}/runtime_linux_amd64.tar.gz
 docker image rm "$image" >/dev/null
 docker load --input "$archive" >/dev/null
 [[ $(docker image inspect --format '{{.Id}}' "$image") == "$image" ]] || exit 1
-data=$(mktemp -d -t wg-guard-image-smoke.XXXXXXXX)
+data=$(mktemp -d /tmp/wg-guard-image-smoke.XXXXXXXX)
+[[ $data =~ ^/tmp/wg-guard-image-smoke\.[A-Za-z0-9]{8}$ ]] || exit 2
 name=wg-guard-image-smoke-$$
-cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; rm -rf -- "$data"; }
+cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; sudo rm -rf -- "$data"; }
 trap cleanup EXIT
+# Match production ownership; root without DAC_OVERRIDE cannot bypass another
+# user's 0700 directory. Never weaken permissions to make the fixture pass.
+sudo chown 0:0 "$data"
 docker run -d --name "$name" --network none --cap-drop ALL \
   --cap-add NET_ADMIN --cap-add NET_BIND_SERVICE --security-opt no-new-privileges \
   --read-only --tmpfs /run:rw,nosuid,nodev,size=32m --tmpfs /tmp:rw,nosuid,nodev,size=64m \
@@ -24,6 +28,8 @@ ready() {
     sleep .5
   done
   printf 'Runtime did not become ready\n' >&2
+  docker inspect --format 'status={{.State.Status}}, exit={{.State.ExitCode}}, oom={{.State.OOMKilled}}' "$name" >&2
+  docker logs --tail 20 "$name" >&2
   return 1
 }
 ready

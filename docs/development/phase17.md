@@ -73,6 +73,13 @@ must additionally test the new committed artifact.
 
 ## Remaining acceptance
 
+First exact CI candidate `5ba43fe9641e23a2ac9f3eb6d4d6e9b8719fcfa8` built and verified the
+image/archive but its fake readiness fixture failed. The 0700 runner-owned bind directory did
+not match production's root-owned volume under dropped DAC_OVERRIDE. The fixture now uses the
+correct owner, with bounded safe diagnostics; a fresh exact gate must confirm the correction.
+Offline import and manager promotion additionally hash the actual manager before contract
+execution; a wrong-byte regression ensures the candidate is never probed.
+
 Phase 17 source removal/distribution is implemented; the entire production acceptance program
 is not complete merely because source/image/fake tests pass. Physical Ubuntu Docker kernel and
 explicit userspace traffic, reboot, restored archives, update/failure/offline-manager recovery,
