@@ -36,6 +36,7 @@ type manager struct {
 	recoveryLineage    string
 	installCleanupSafe bool
 	stop               bool
+	domainStatus       func(context.Context) (install.DomainInventory, error)
 }
 
 type managerView uint8
@@ -122,6 +123,7 @@ func runManage(args []string) error {
 		ui: u, catalog: distribution.NewClient(nil, distribution.Options{}),
 		bootstrapMetadata: *metadata,
 		lifecycleReady:    func() error { return install.CheckLifecycleReady(h) },
+		domainStatus:      func(ctx context.Context) (install.DomainInventory, error) { return install.DomainStatus(ctx, h) },
 	}
 	m.run = func(ctx context.Context, args []string, in io.Reader) error {
 		if args[0] == "backup" || args[0] == "restore" {

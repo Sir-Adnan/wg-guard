@@ -26,6 +26,8 @@ retain their existing ownership boundaries. Renewal remains due-based rather tha
 forcing unnecessary issuance; owned automatic lineages also have scheduled checks.
 The supported direct arrangement is one panel origin and one optional distinct
 public origin, not an unbounded collection of certificates.
+Interactive status shows certificate ownership, expiry and renewal guidance;
+the explicit `wg-guard domains status` command retains its bounded JSON interface.
 
 Opening the manager reads installation, health, TLS/core readiness and lifecycle state without
 changing the deployment. The [GitHub installer](github-install.md) opens this same local manager

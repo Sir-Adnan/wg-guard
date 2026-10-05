@@ -33,6 +33,26 @@ The owner's additional installer request adds an explicit domain/SSL menu shortc
 guided first HTTPS setup, separate panel/subscription acquisition/replacement and
 due renewal actions; source/terminal/bootstrap checks remain separate from CA evidence.
 
+On exact `5f20efc81697b03ec624c3ac3e960bb44343fcfd`, the updated real Doctor accepts
+all primary/overflow forwarding scopes. Encrypted create/verify/coordinated restore
+passed; a separately staged original archive matched 18 logical table inventories,
+master key, canonical config bytes, owner/reseller login and API credentials. The
+comparison excludes live accounting observation baselines/timestamps and sessions,
+not charged usage, quotas, expiry, key material, identities or access ownership.
+Actual scoped Certbot renewal issued a new subscription leaf and its deploy hook
+admitted the replacement. Changing the panel hostname preserved the separate public
+origin, denied the old private origin and retained config/customer access. The public
+origin denied login/dashboard/API/readiness and SNI/Host mismatch while matching
+canonical config bytes under system-trusted HTTPS.
+
+The switched managed-certificate policy exposed another Doctor defect: the legacy
+manual check expected a single `tls.cert_file` after the SNI policy had become the
+certificate authority. Current source validates the approved bounded policy/pairs,
+keeps delegated built-in/external checks separate and fails missing/invalid material.
+Interactive SSL status now shows readable address, ownership, expiry and renewal
+guidance instead of policy JSON and zero dates. Real corrected-target checks and
+final delivery are still pending.
+
 ## Owner report
 
 The owner reports a successful fresh installation of current main followed by

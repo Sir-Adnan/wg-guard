@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
+	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
 )
 
@@ -20,6 +21,15 @@ func (m *manager) domainsMenu(ctx context.Context) error {
 		var args []string
 		switch n {
 		case 1:
+			if m.domainStatus != nil {
+				inventory, e := m.domainStatus(ctx)
+				if e != nil {
+					m.ui.Result(e)
+				} else {
+					m.showDomainStatus(inventory)
+				}
+				continue
+			}
 			args = []string{"domains", "status"}
 		case 2, 3:
 			role := "subscription"
@@ -52,6 +62,26 @@ func (m *manager) domainsMenu(ctx context.Context) error {
 		m.ui.Result(err)
 		if ctx.Err() != nil {
 			return terminal.ErrCanceled
+		}
+	}
+}
+
+func (m *manager) showDomainStatus(inventory install.DomainInventory) {
+	m.ui.Section("Domain and SSL status")
+	m.ui.Field("Panel address", inventory.PanelOrigin)
+	m.ui.Field("Subscription address", inventory.SubscriptionOrigin)
+	m.ui.Field("Access", string(inventory.Exposure))
+	for _, certificate := range inventory.Certificates {
+		m.ui.Section(string(certificate.Site.Role) + " SSL certificate")
+		m.ui.Field("Status", certificate.State)
+		m.ui.Field("Ownership", string(certificate.Site.Method))
+		if !certificate.Info.NotAfter.IsZero() {
+			m.ui.Field("Expires (UTC)", certificate.Info.NotAfter.UTC().Format("2006-01-02 15:04"))
+		}
+		if certificate.Info.Automatic {
+			m.ui.Field("Renewal", "Scheduled due checks; manual check available")
+		} else if certificate.Site.Method == domaintls.Builtin {
+			m.ui.Field("Renewal", "Managed automatically by the running panel")
 		}
 	}
 }

@@ -8,6 +8,7 @@ package doctor
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -24,6 +25,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/boot"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -611,6 +613,39 @@ func loadCertificateNotAfter(path string) (time.Time, error) {
 }
 
 func (d *doctor) checkTLSCert() {
+	if d.d.Cfg.TLS.PolicyFile != "" {
+		loader := &domaintls.Loader{PolicyFile: d.d.Cfg.TLS.PolicyFile}
+		policy, err := loader.Snapshot()
+		if err != nil {
+			d.add("tls-cert", StatusFail, "managed domain policy is invalid or unavailable", "recover the recorded domain operation or repair the approved policy")
+			return
+		}
+		checked := 0
+		var earliest time.Time
+		for _, site := range policy.Sites {
+			if site.Method == domaintls.Builtin || site.Method == domaintls.External {
+				continue // runtime/proxy renewal has its own access diagnostics
+			}
+			origin, _ := domaintls.ParseOrigin(site.Origin)
+			pair, err := loader.GetCertificate(&tls.ClientHelloInfo{ServerName: origin.Host})
+			if err != nil {
+				d.add("tls-cert", StatusFail, "managed certificate is missing, invalid or expired", "repair the approved domain certificate or run its managed renewal")
+				return
+			}
+			checked++
+			if earliest.IsZero() || pair.Leaf.NotAfter.Before(earliest) {
+				earliest = pair.Leaf.NotAfter
+			}
+		}
+		if checked == 0 {
+			d.add("tls-cert", StatusSkip, "domain policy delegates certificates to the running panel or external proxy", "")
+		} else if time.Until(earliest) < 30*24*time.Hour {
+			d.add("tls-cert", StatusWarn, fmt.Sprintf("managed certificate expires in %.0f days", time.Until(earliest).Hours()/24), "run the managed renewal check")
+		} else {
+			d.add("tls-cert", StatusPass, fmt.Sprintf("%d managed certificate slot(s) validated", checked), "")
+		}
+		return
+	}
 	if d.d.Cfg.TLS.Mode != config.TLSModeManual {
 		d.add("tls-cert", StatusSkip, "tls.mode="+string(d.d.Cfg.TLS.Mode), "")
 		return

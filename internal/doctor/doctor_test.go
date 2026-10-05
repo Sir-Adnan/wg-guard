@@ -3,6 +3,7 @@ package doctor
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -316,6 +317,32 @@ func TestDoctorRecognizesCompleteForwardingAcrossOverflowPools(t *testing.T) {
 	doc.checkFirewall(t.Context())
 	if got := statusOf(&doc.report, "forwarding"); got.Status != StatusFail {
 		t.Fatal("missing overflow forwarding was accepted")
+	}
+}
+
+func TestDoctorUsesManagedTLSPolicyInsteadOfLegacyCertFile(t *testing.T) {
+	for _, tc := range []struct {
+		name, policy string
+		want         Status
+	}{
+		{"builtin", `{"schema":1,"revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","sites":[{"role":"panel","origin":"https://panel.example.test","method":"builtin"}]}`, StatusSkip},
+		{"missing-pair", `{"schema":1,"revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","sites":[{"role":"panel","origin":"https://panel.example.test","method":"automatic","certificate_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","challenge":"http"}]}`, StatusFail},
+		{"malformed-policy", `{"schema":1}`, StatusFail},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			deps, _ := newDoctorEnv(t)
+			deps.Cfg.TLS.Mode = config.TLSModeManual
+			deps.Cfg.TLS.CertFile = ""
+			deps.Cfg.TLS.PolicyFile = filepath.Join(t.TempDir(), "active.json")
+			if err := os.WriteFile(deps.Cfg.TLS.PolicyFile, []byte(tc.policy), 0600); err != nil {
+				t.Fatal(err)
+			}
+			doc := &doctor{d: deps}
+			doc.checkTLSCert()
+			if got := statusOf(&doc.report, "tls-cert"); got.Status != tc.want || strings.Contains(got.Detail, "cert file:") {
+				t.Fatalf("managed TLS result: %+v", got)
+			}
+		})
 	}
 }
 

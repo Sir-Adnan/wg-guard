@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"github.com/Sir-Adnan/wg-guard/internal/distribution"
+	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/install"
 	"github.com/Sir-Adnan/wg-guard/internal/terminal"
@@ -12,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 )
 
@@ -127,6 +129,26 @@ func TestHTTPSDomainCancellationAndInvalidOriginsDoNotRun(t *testing.T) {
 		if calls != 0 {
 			t.Fatal("invalid or canceled HTTPS operation executed")
 		}
+	}
+}
+
+func TestInteractiveHTTPSStatusUsesReadableDatesAndBuiltinRenewal(t *testing.T) {
+	var output bytes.Buffer
+	m := manager{view: managerInstalled, ui: terminal.New(strings.NewReader("1\n0\n"), &output, terminal.Options{}),
+		domainStatus: func(context.Context) (install.DomainInventory, error) {
+			return install.DomainInventory{PanelOrigin: "https://panel.example.com", SubscriptionOrigin: "https://sub.example.com", Exposure: install.ExposureDirect,
+				Certificates: []install.DomainCertificate{
+					{Site: domaintls.Site{Role: domaintls.Panel, Method: domaintls.Builtin}, State: "automatic"},
+					{Site: domaintls.Site{Role: domaintls.Subscription, Method: domaintls.Automatic}, State: "active", Info: domaintls.CertificateInfo{Automatic: true, NotAfter: time.Date(2027, 1, 3, 19, 0, 0, 0, time.UTC)}},
+				}}, nil
+		},
+		run: func(context.Context, []string, io.Reader) error { t.Fatal("status performed a mutation"); return nil }}
+	if err := m.httpsEntry(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	if !strings.Contains(text, "2027-01-03 19:00") || !strings.Contains(text, "Managed automatically by the running panel") || strings.Contains(text, "0001-") || strings.Contains(text, `"revision":`) {
+		t.Fatal("HTTPS status exposed raw policy/zero dates or omitted renewal guidance")
 	}
 }
 
