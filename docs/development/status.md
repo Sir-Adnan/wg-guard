@@ -5,7 +5,11 @@ SNI and resumed TLS admission, per-request role isolation, owner-authorized
 certificate staging/host mailbox, CA renewal/retirement and snapshot recovery are
 implemented on main. Focused source/local HTTPS tests and Chromium/WebKit fa/en
 responsive/native-fallback checks, the full ordinary Go suite, focused Linux race,
-vet/build and bootstrap/asset checks passed. Exact main CI is pending; delivery gates are recorded in
+vet/build and bootstrap/asset checks passed. Exact implementation
+`c5da79abcda3839b7e01f7ef5b397e8f1d1bc429` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37258161422), including
+both full Linux race/load jobs, build, vulnerability and fake runtime-image checks.
+The unpublished image and independently checked artifact are recorded in
 [Phase 18](phase18.md); physical CA/forwarding/reboot/client acceptance remains
 Phase 20. Latest stable v0.1.9 and the no-further-release instruction are unchanged.
 
@@ -24,9 +28,10 @@ another release. Owner-server update/export is a post-publication checkpoint bef
 Phase 16 is complete within its documented source scope with exact CI passed.
 [Phase 17](phase17.md) implements Docker-only source, schema-4 private host state, one runtime
 recipe and verified offline image distribution. Its exact image/CI gate passed; real-host
-acceptance remains separate. Phases 18–20 remain planned. Integrated domain/certificate
-management is not a current feature. The [domain/TLS guide](../operations/domains-and-tls.md)
-separates current workarounds from the Phase 18 target.
+acceptance remains separate. [Phase 18](phase18.md) now implements independent
+domain/certificate management on main; Phases 19–20 remain planned. The
+[domain/TLS guide](../operations/domains-and-tls.md) separates unreleased main
+implementation from published v0.1.9 and physical acceptance.
 
 The owner explicitly selected complete native production removal in Phase 17.
 The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle,

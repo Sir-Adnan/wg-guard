@@ -75,8 +75,7 @@ package, vet/build and both browser matrices passed after those additions.
 Bootstrap fixtures and asset measurements passed (JS 43,350 B gzip; CSS 37,877 B
 gzip); measurements are observations, not product ceilings. Unchanged packages
 in the full ordinary suite reuse applicable Go test cache. No earlier passing
-result is relabelled as an exact later source/CI/image result. Exact main CI is
-pending at this source delivery and will be recorded separately. Earlier Phase 17
+result is relabelled as an exact later source/CI/image result. Exact main CI for the implementation SHA passed, as recorded below. Earlier Phase 17
 image/resource evidence is not relabelled as new domain runtime acceptance.
 Physical two-hostname CA issuance/renewal/import/replacement, reboot, remote
 forwarding and unchanged client access remain Phase 20 gates. Publication and
@@ -85,3 +84,27 @@ the owner's verified off-host backup/rebuild checkpoint remain separate.
 Contracts: [domains and TLS](../operations/domains-and-tls.md),
 [security](../operations/security.md), [recovery](../operations/lifecycle-recovery.md),
 [execution program](refactor-program.md).
+
+
+## Exact candidate image and source
+
+Implementation SHA `c5da79abcda3839b7e01f7ef5b397e8f1d1bc429` was pushed to main.
+Its [CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37258161422) completed
+successfully: both Go 1.25.x/stable full race jobs and isolated encrypted-archive
+load checks, build, vulnerability and runtime image jobs passed. These are fresh
+exact-source results, not inferred from local or previous-phase passes. The runtime job checks
+the offline image import, immutable binary/engine identity, fake readiness,
+restart/persistent DB/key and read-only root. It does not exercise public CA or
+a real kernel/client.
+
+The unpublished seven-day Actions artifact `11323990660` (67,467,769 B) was
+independently downloaded. ZIP SHA-256
+`c23041c5912ca712d7adb43eb253b677e0e029342aa3ed81a1e0baa5f12fa0d1`
+matched GitHub's digest; all six contained checksums matched. Binary version
+and installer contract ran in WSL and matched the exact source and domain
+protocol 1. Docker archive configuration digest, source/binary labels and domain
+protocol label were independently read and matched its metadata. Image config ID:
+`sha256:3a7f31a54f7bbf781ae83e6f89aee6435f2c62b73061c45b3a5f7dbc0feeba9f`.
+Runtime metadata SHA-256:
+`4bfb793fa6b6bcc48df5d311c703958c49012f5e218c1419cd83e977312fd633`.
+This is a temporary candidate artifact, not a public release or registry image.
