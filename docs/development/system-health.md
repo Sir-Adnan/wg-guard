@@ -59,3 +59,8 @@ The discovered narrow-screen recovery-action overflow was corrected with wrappin
 and minimum-width rules. Rendered mobile/desktop artifacts were inspected locally.
 No fresh axe scan, physical browser, VPS networking/SSL/client, real host command or
 post-restore restart is claimed by this fixture. Those remain Phase 20 gates.
+
+Exact source `a58fc5b5a0cdb4c7f1d9c77ec6f2a183fc2c972a` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37323212880):
+both full Linux race/encrypted-load jobs, build, reachable-vulnerability scan and
+runtime-image checks. This follow-up records source/CI evidence; its generated
+candidate was not independently downloaded here and no publication was performed.

@@ -5,7 +5,9 @@ authenticated `node.read` API expose shared safe readiness/runtime/accounting/te
 observations. Scope/cache/null semantics, pending/failed/freshness, real fake-node
 wiring and future sample handling have focused tests; local full Go, focused Linux
 race/vet/build and Chromium/WebKit matrices passed within the
-[recorded scope](system-health.md). Exact final main CI is a separate gate. The owner
+[recorded scope](system-health.md). Exact `a58fc5b5a0cdb4c7f1d9c77ec6f2a183fc2c972a`
+passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37323212880), including both full Linux
+race/load jobs and build/vulnerability/runtime checks. The owner
 has not yet taken the off-host export; physical Phase 20 and release remain open.
 
 **Backup workbench follow-up (2026-10-05; current main, unreleased):**
