@@ -1,7 +1,8 @@
-{{define "preset_chips"}}
+{{define "preset_picker"}}
 {{$v := .v}}
-<div class="chips chips-row quick-presets" role="group" aria-label="{{$v.T "users.form.presets"}}">
-  {{range .quota}}<button type="button" class="chip-btn" data-fill-value="{{.}}" data-fill-unit="gb"><bdi class="ltr-data">{{.}} GB</bdi></button>{{end}}
-  {{range .months}}<button type="button" class="chip-btn" data-fill-value="{{.}}" data-fill-unit="months"><bdi class="ltr-data">{{.}}</bdi> {{$v.T "duration.months_short"}}</button>{{end}}
-</div>
+<select class="select preset-picker" data-fill-preset aria-label="{{$v.T "users.form.presets"}} · {{if .quota}}{{$v.T "users.form.traffic_limit"}}{{else}}{{$v.T "users.form.duration"}}{{end}}">
+  <option value="" disabled>{{$v.T "users.form.presets"}}</option>
+  {{range .quota}}<option value="gb:{{.}}" data-fill-value="{{.}}" data-fill-unit="gb" dir="ltr">{{.}} GB</option>{{end}}
+  {{range .months}}<option value="months:{{.}}" data-fill-value="{{.}}" data-fill-unit="months">{{.}} {{$v.T "duration.months_short"}}</option>{{end}}
+</select>
 {{end}}

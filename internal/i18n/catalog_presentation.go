@@ -2,6 +2,12 @@ package i18n
 
 func init() {
 	rows := [][3]string{
+		{"appearance.sections", "Appearance sections", "بخش‌های ظاهر"}, {"appearance.style_tab", "Visual style", "سبک بصری"},
+		{"appearance.numbers_tab", "Numerals", "اعداد"}, {"appearance.reset_tab", "Reset", "بازنشانی"},
+		{"appearance.live_preview", "Live preview", "پیش‌نمایش زنده"},
+		{"appearance.account_scope", "My account", "حساب من"}, {"appearance.panel_scope", "Panel default", "پیش‌فرض پنل"},
+		{"appearance.preview_only", "Preview locally, then apply to save your choice.", "ابتدا پیش‌نمایش را ببینید؛ برای ذخیره، اعمال را بزنید."},
+		{"nav.group.preferences", "Preferences", "تنظیمات"},
 		{"users.form.creation_mode", "User creation method", "روش ساخت کاربر"},
 		{"users.form.mode_custom", "Standard", "معمولی"}, {"users.form.mode_template", "From template", "از روی قالب"},
 		{"users.form.choose_template", "Choose a template", "انتخاب قالب"},

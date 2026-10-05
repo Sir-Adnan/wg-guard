@@ -5,6 +5,9 @@ shadcn's [Field](https://ui.shadcn.com/docs/components/base/field),
 [Tabs](https://ui.shadcn.com/docs/components/base/tabs) and
 [Popover](https://ui.shadcn.com/docs/components/base/popover) composition and interaction
 patterns without introducing React or a production package runner.
+Compact preset pickers follow [Select](https://ui.shadcn.com/docs/components/base/select);
+desktop navigation follows the [inset sidebar](https://ui.shadcn.com/blocks/sidebar#sidebar-08)
+composition while preserving the existing permissions and native/mobile navigation.
 
 ## Numerals
 
@@ -65,6 +68,33 @@ and From template tabs in both the full page and drawer. Switching preserves ent
 values, disables inactive entitlement inputs and keeps notes/tags common. Template mode
 requires a selected template on submission; its server-owned terms cannot be overridden
 by hidden manual values. Native forms keep all sections reachable without JavaScript.
+
+Volume and duration presets use compact dropdowns inside the value/unit group, with
+a shadcn Select-inspired trigger, scrollable list and selected checkmark. A native
+select owns the preset value and a bounded, idempotent enhancement supplies the
+combobox/listbox presentation. Only one list opens at a time; it uses the top layer
+when available and a positioned fallback inside the drawer otherwise. Arrow keys,
+Home/End, typeahead, Escape/focus return, outside dismissal and touch are supported.
+Technical volume labels retain LTR isolation in either language.
+Desktop keeps the three controls on one line; phones stack only the preset dropdown.
+Selecting a preset fills canonical value/unit fields without adding a submitted field;
+manual editing updates or clears the selected preset. Without JavaScript the inert
+quick-fill picker is hidden and the ordinary fields remain available. No scrolling
+chip strip or multi-row button matrix consumes the card's unused half.
+
+The inset desktop shell is composed from the existing sidebar/drawer primitives,
+with disclosure groups, a topbar rail trigger and current-location state. Rail mode
+temporarily expands all groups and restores their prior disclosure choices when
+expanded again. The System group starts collapsed off its active routes; native
+navigation remains expanded without JavaScript. Domains/HTTPS has its own `server.view`
+navigation item; Settings is current only at its own root. Neither link exposure nor
+group presentation grants permissions or exposes domains to reseller navigation.
+
+Appearance uses separate Visual style, Numerals and Reset panels with keyboard tabs
+and section-address preservation. The gallery and a live sample/application column
+compose one form; the owner's shared-default controls use a disclosure and explicit
+confirmation, separate from personal application. Preset, mode, digits, language and
+direction semantics stay independent. Numeral submissions return to their own panel.
 
 Dashboard charts use the existing bounded server-rendered SVGs with chronological
 lines and subtle area segments; missing samples stay gaps in both. Latest CPU, memory

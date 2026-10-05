@@ -431,6 +431,7 @@ let stage = 'launch';
       stage = 'panel default confirmation and public surface';
       await goto('/appearance');
       await page.locator('.visual-preset-choice[data-choice="enterprise-blue"]').click();
+      await page.locator('.appearance-default-disclosure > summary').click();
       await page.locator('#appearance-panel-mode').selectOption('light');
       await page.locator('.appearance-panel-action input[name="confirm"]').check();
       await Promise.all([page.waitForNavigation(), page.locator('[data-panel-default-submit]').click()]);

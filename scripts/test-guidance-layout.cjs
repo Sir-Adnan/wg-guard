@@ -65,7 +65,7 @@ async function helpInteractions(page, selector, cell) {
       const page = await context.newPage(); let runtimeErrors = 0;
       page.on('pageerror', () => runtimeErrors++);
       const cell = `${engine}/${lang}/${theme}/${width}`;
-      for (const route of ['/users/new','/templates/new',`/interfaces/${seed.iface}/edit`,'/backups','/updates','/dashboard']) {
+      for (const route of ['/users/new','/templates/new',`/interfaces/${seed.iface}/edit`,'/backups','/updates','/dashboard','/appearance','/settings/domains']) {
         await page.goto(seed.url+route);
         await page.waitForFunction(() => document.documentElement.dataset.ui === 'ready');
         await page.evaluate(() => document.fonts.ready);
@@ -86,8 +86,30 @@ async function helpInteractions(page, selector, cell) {
           assert(width >= 1440 ? layout.sideBySide : layout.formTop >= layout.headerBottom, `backup composition ${cell}`);
           if (width >= 1440) assert((await page.locator('#new-backup').boundingBox()).height < 180,`backup wastes vertical space ${cell}`);
         }
-        if (route === '/users/new') await creationModes(page,'main',cell);
+        if (route === '/users/new') { await creationModes(page,'main',cell); await presetLayout(page,'main',cell); }
         if (route === '/dashboard') await chartInspection(page,cell);
+        if (route === '/appearance') {
+          assert(await page.locator('#appearance-style').isVisible(),'appearance style tab absent '+cell);
+          await page.locator('.visual-preset-choice[data-choice="claude-plus"]').click();
+          assert.equal(await page.locator('[data-appearance-name]').textContent(),'Claude +','live appearance title '+cell);
+          await page.locator('.appearance-default-disclosure > summary').click();
+          assert(await page.locator('#appearance-panel-mode').isVisible(),'panel defaults not reachable '+cell);
+          await page.locator('#appearance-numbers-tab').click();
+          assert(await page.locator('#personal-digits').isVisible() && !await page.locator('#appearance-style').isVisible(),'numeral tab isolation '+cell);
+          await page.locator('#appearance-style-tab').click();
+          if (process.env.WG_UI_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.WG_UI_SCREENSHOT_DIR,`appearance-redesign-${cell.replaceAll('/','-')}.png`),fullPage:true});
+        }
+        if (route === '/settings/domains') {
+          assert.equal(await page.locator('.nav a[aria-current="page"]').count(),1,'domains current navigation duplicated '+cell);
+          assert.equal(await page.locator('.nav a[aria-current="page"]').getAttribute('href'),'/settings/domains','domains navigation missing '+cell);
+          if (width >= 1440) {
+            const group=page.locator('.nav-group').first(); await group.locator('summary').click();
+            await page.locator('[data-toggle-rail]').click();
+            assert(await page.locator('.nav a[href="/users"]').isVisible(),'collapsed group hides rail destinations '+cell);
+            await page.locator('[data-toggle-rail]').click();
+            assert(!await group.evaluate(el=>el.open),'expanded rail lost disclosure choice '+cell);
+          }
+        }
       }
       await page.goto(seed.url+'/interfaces');
       await page.evaluate(() => document.fonts.ready);
@@ -106,6 +128,7 @@ async function helpInteractions(page, selector, cell) {
       await page.locator('[data-open-modal="create-drawer"]').click();
       await page.locator('#create-drawer[open]').waitFor();
       await creationModes(page,'#create-drawer',`drawer/${cell}`);
+      await presetLayout(page,'#create-drawer',`drawer/${cell}`);
       await guidanceGeometry(page,'#create-drawer',`drawer/${cell}`);
       const accountHelp = page.locator('#create-drawer #user-account .form-section-head .field-help-trigger');
       await accountHelp.click();
@@ -131,6 +154,9 @@ async function helpInteractions(page, selector, cell) {
       const context = await browser.newContext({viewport:{width,height:900},javaScriptEnabled:false});
       await context.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);
       const page = await context.newPage();
+      await page.goto(seed.url+'/users/new?lang='+lang);
+      assert(await page.locator('[data-fill-preset]').first().isHidden(),'inert native quick-fill shown');
+      assert(await page.locator('#u-traffic').isVisible(),'native manual quota inaccessible');
       await page.goto(seed.url+'/templates/new?lang='+lang);
       assert(await page.locator('form .section-description').first().isVisible(),'native instructions absent');
       await page.goto(seed.url+'/backups?lang='+lang);
@@ -138,7 +164,7 @@ async function helpInteractions(page, selector, cell) {
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1),'native backup overflow');
       await context.close();
     }
-    // A browser lacking Popover still gets positioned, touch-operable help.
+    // A browser lacking Popover still gets positioned, touch-operable controls.
     const touch = await browser.newContext({viewport:{width:390,height:800},hasTouch:true});
     await touch.addInitScript(() => Object.defineProperty(HTMLElement.prototype,'showPopover',{value:undefined,configurable:true}));
     await touch.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);
@@ -150,6 +176,17 @@ async function helpInteractions(page, selector, cell) {
     assert(rect.x >= 0 && rect.y >= 0 && rect.x+rect.width <= 391 && rect.y+rect.height <= 801,'touch fallback outside viewport');
     await page.locator('legend .field-help-trigger').first().tap();
     assert.equal(await page.locator('.field-help-content:not([hidden])').count(),0,'touch fallback did not close');
+    await page.goto(seed.url+'/users?lang=fa');
+    await page.locator('[data-open-modal="create-drawer"]').tap();
+    const quick=page.locator('#create-drawer #user-limits .select-trigger');
+    await quick.tap();
+    const options=page.locator('#'+await quick.getAttribute('aria-controls'));
+    assert(await options.isVisible(),'touch select fallback did not open');
+    const optionBox=await options.boundingBox();
+    assert(optionBox.x>=0&&optionBox.y>=0&&optionBox.x+optionBox.width<=391&&optionBox.y+optionBox.height<=801,'touch select fallback outside viewport '+JSON.stringify(optionBox));
+    await options.getByRole('option',{name:'100 GB',exact:true}).tap();
+    assert.equal(await page.locator('#create-drawer #u-traffic').inputValue(),'100','touch select did not fill quota');
+    assert(await page.locator('#create-drawer').evaluate(el=>el.open),'touch select closed drawer');
     await page.goto(seed.url+'/dashboard?lang=fa');
     const chart = page.locator('.resource-card .sparkline').first(); await chart.scrollIntoViewIfNeeded();
     const chartBox = await chart.boundingBox();
@@ -171,13 +208,59 @@ async function creationModes(page, scope, cell) {
   assert(!await root.locator('#user-limits').isVisible(),'manual limits remain in template mode '+cell);
   await root.locator('[data-user-template]').selectOption(seed.template);
   assert(await quota.isDisabled(),'hidden manual limits submitted '+cell);
+  assert(await root.locator('#user-limits .select-trigger').isDisabled(),'inactive preset trigger remains enabled '+cell);
   assert(await root.locator('[data-user-template-preview]').isVisible(),'template preview absent '+cell);
   if (process.env.WG_UI_SCREENSHOT_DIR && cell.includes('/fa/dark/1440')) await root.screenshot({path:path.join(process.env.WG_UI_SCREENSHOT_DIR,`user-template-${cell.replaceAll('/','-')}.png`)});
   await root.locator('[data-user-create-tab="template"]').focus(); await page.keyboard.press('Home');
   assert(await root.locator('#user-limits').isVisible(),'keyboard did not select Standard '+cell);
   assert.equal(await quota.inputValue(),'70','manual quota lost while switching '+cell);
+  assert(await root.locator('#user-limits .select-trigger').isEnabled(),'manual preset remains disabled '+cell);
   assert.equal(await root.locator('[name="username"]').inputValue(),'retained','shared account lost '+cell);
   assert(await root.locator('[data-user-template]').isDisabled(),'hidden template overrides Standard '+cell);
+}
+
+async function presetLayout(page,scope,cell) {
+  const root=page.locator(scope), groups=root.locator('.unit-group .select-trigger');
+  assert.equal(await groups.count(),2,'duplicate or missing preset enhancement '+cell);
+  const geometry=await groups.evaluateAll(nodes=>nodes.map(group=>{
+    const outer=group.getBoundingClientRect(); return {overflow:group.scrollWidth>group.clientWidth+1,inside:outer.width>=44&&outer.height>=44};
+  }));
+  assert(geometry.every(g=>!g.overflow&&g.inside),'preset clipping or undersized targets '+cell);
+  const quota=root.locator('#u-traffic');
+  const trigger=root.locator('#user-limits .select-trigger');
+  const list=page.locator('#'+await trigger.getAttribute('aria-controls'));
+  await trigger.click();
+  const box=await list.boundingBox(), viewport=page.viewportSize();
+  assert(box.x>=0&&box.y>=0&&box.x+box.width<=viewport.width+1&&box.y+box.height<=viewport.height+1,'select list outside viewport '+cell);
+  if (process.env.WG_UI_SCREENSHOT_DIR && cell.includes('/fa/dark/')) await page.screenshot({path:path.join(process.env.WG_UI_SCREENSHOT_DIR,`compact-select-${cell.replaceAll('/','-')}.png`)});
+  await list.getByRole('option',{name:'100 GB',exact:true}).click();
+  assert.equal(await quota.inputValue(),'100','quota preset value '+cell);
+  assert.equal(await root.locator('#user-limits [data-fill-preset]').inputValue(),'gb:100','quota selected state '+cell);
+  assert.equal(await trigger.locator('.select-value').textContent(),'100 GB','trigger does not reflect quota '+cell);
+  assert.equal(await trigger.getAttribute('aria-expanded'),'false','selection did not dismiss '+cell);
+  await trigger.press('Enter'); await page.keyboard.press('Escape');
+  assert(await trigger.evaluate(el=>document.activeElement===el),'select Escape focus return '+cell+' '+JSON.stringify(await trigger.evaluate(el=>({open:el.closest('dialog')?.open,expanded:el.getAttribute('aria-expanded'),focus:document.activeElement?.id,tag:document.activeElement?.tagName,classes:document.activeElement?.className,controls:document.activeElement?.getAttribute('aria-controls')}))));
+  if (scope==='#create-drawer') assert(await root.evaluate(el=>el.open),'select Escape closed drawer '+cell);
+  await trigger.press('Home'); await page.keyboard.press('Enter');
+  assert.equal(await quota.inputValue(),'20','select Home did not skip placeholder '+cell);
+  await trigger.press('1'); await page.keyboard.press('0'); await page.keyboard.press('0'); await page.keyboard.press('Enter');
+  assert.equal(await quota.inputValue(),'100','select typeahead '+cell);
+  await trigger.press('End');
+  assert(await list.isVisible(),'End lost scrollable select '+cell);
+  const highlighted=list.locator('[data-highlighted]');
+  const bottom=await highlighted.boundingBox(), scroller=await list.boundingBox();
+  assert(bottom.y>=scroller.y&&bottom.y+bottom.height<=scroller.y+scroller.height+1,'last preset cannot be reached '+cell);
+  await page.keyboard.press('Escape');
+  await quota.fill('101');
+  assert.equal(await root.locator('#user-limits [data-fill-preset]').inputValue(),'','manual input left stale preset '+cell);
+  await trigger.click(); await quota.click();
+  assert.equal(await trigger.getAttribute('aria-expanded'),'false','select outside dismissal '+cell);
+  const durationTrigger=root.locator('#user-timing .select-trigger');
+  await durationTrigger.click();
+  const duration=page.locator('#'+await durationTrigger.getAttribute('aria-controls'));
+  await duration.getByRole('option').filter({hasText:/^3 /}).click();
+  assert.equal(await root.locator('[name="duration_unit"]').inputValue(),'months','duration preset unit '+cell);
+  assert.equal(await root.locator('[name="duration_value"]').inputValue(),'3','duration preset value '+cell);
 }
 
 async function chartInspection(page, cell) {

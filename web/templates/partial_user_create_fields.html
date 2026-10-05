@@ -49,10 +49,10 @@
           <option value="gb" {{if eq ($f.V "traffic_limit_unit") "gb"}}selected{{end}}>GB</option>
           <option value="mb" {{if eq ($f.V "traffic_limit_unit") "mb"}}selected{{end}}>MB</option>
         </select>
+        {{template "preset_picker" dict "v" $v "quota" $d.QuotaPresets}}
       </div>
       <span class="hint" id="u-traffic-hint">{{$v.T "users.form.traffic_limit_hint"}}</span>
       {{if $f.Invalid "traffic_limit_value"}}<span class="field-error">{{$v.T "forms.error.quota"}}</span>{{end}}
-      {{template "preset_chips" dict "v" $v "quota" $d.QuotaPresets}}
     </div>
     {{template "user_field" dict "v" $v "f" $f "key" "device_limit" "label" "users.form.device_limit" "hint" "plans.form.devices_hint" "numeric" true}}
   </div>
@@ -68,10 +68,10 @@
         <select class="select" name="duration_unit" aria-label="{{$v.T "forms.unit"}}">
           {{range $unit := list "days" "hours" "months"}}<option value="{{$unit}}" {{if eq ($f.V "duration_unit") $unit}}selected{{end}}>{{$v.T (printf "duration.%s" $unit)}}</option>{{end}}
         </select>
+        {{template "preset_picker" dict "v" $v "months" $d.DurationPresets}}
       </div>
       <span class="hint" id="u-duration-hint">{{$v.T "users.form.duration_hint"}}</span>
       {{if $f.Invalid "duration_value"}}<span class="field-error">{{$v.T "forms.error.duration"}}</span>{{end}}
-      {{template "preset_chips" dict "v" $v "months" $d.DurationPresets}}
     </div>
     {{if not .edit}}
     <div class="field">

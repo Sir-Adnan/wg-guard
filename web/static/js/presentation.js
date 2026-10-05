@@ -110,7 +110,10 @@ export function enhanceSectionTabs(root = document) {
       }
       if (focus) tab.focus();
     };
-    for (const tab of tabs) tab.addEventListener('click', () => activate(tab));
+    for (const tab of tabs) tab.addEventListener('click', () => {
+      activate(tab);
+      if (group.hasAttribute('data-tab-address')) history.replaceState(null,'','#'+tab.dataset.tabTarget);
+    });
     list.addEventListener('keydown', event => {
       const current = tabs.indexOf(event.target); if (current < 0) return;
       const rtl = getComputedStyle(group).direction === 'rtl';
@@ -121,9 +124,11 @@ export function enhanceSectionTabs(root = document) {
       else if (event.key === 'ArrowLeft') next = (current + (rtl ? 1 : -1) + tabs.length) % tabs.length;
       else return;
       event.preventDefault(); activate(tabs[next], true);
+      if (group.hasAttribute('data-tab-address')) history.replaceState(null,'','#'+tabs[next].dataset.tabTarget);
     });
     const invalid = group.querySelector('[aria-invalid="true"]');
-    activate(tabs.find(tab => group.querySelector('#' + tab.dataset.tabTarget)?.contains(invalid)) || tabs[0]);
+    activate(tabs.find(tab => group.querySelector('#' + tab.dataset.tabTarget)?.contains(invalid)) ||
+      (group.hasAttribute('data-tab-address') && tabs.find(tab => '#'+tab.dataset.tabTarget === location.hash)) || tabs[0]);
   });
 }
 
@@ -175,6 +180,8 @@ export function enhanceChoiceMenus(root = document) {
     });
   });
 }
+export function closePresentationOverlays() { closeHelp(); closeChoiceMenu(); }
+
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && activeChoiceMenu) { closeChoiceMenu(true); event.preventDefault(); event.stopPropagation(); return; }
   if (event.key === 'Escape' && activeHelp) { const trigger = activeHelp.trigger; closeHelp(); event.preventDefault(); event.stopPropagation(); suppressedHelpFocus = trigger; trigger.focus(); queueMicrotask(() => { suppressedHelpFocus = null; }); }

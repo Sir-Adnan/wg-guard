@@ -9,6 +9,8 @@ form?.addEventListener('change', event => {
   const id = event.target.value;
   if (id === 'wg-guard-neutral') delete root.dataset.visualPreset;
   else root.dataset.visualPreset = id;
+  const name = event.target.closest('.visual-preset-choice')?.querySelector('.visual-preset-name strong')?.textContent;
+  if (name) form.querySelector('[data-appearance-name] bdi').textContent = name;
 });
 
 form?.addEventListener('submit', event => {

@@ -4,3 +4,6 @@
   [dir="rtl"] .sidebar { translate: 0; }
   .drawer-toggle, .sidebar .nav-close { display: none; }
 }
+/* Quick-fill requires enhancement; manual numeric/unit inputs remain usable. */
+.preset-picker { display:none; }
+.unit-group:has(.preset-picker) { display:flex; }

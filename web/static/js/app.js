@@ -398,26 +398,26 @@
   }
   }
 
-  /* ---------- preset chips (quota / duration quick fill) ---------- */
+  /* ---------- compact preset pickers (manual input remains authoritative) ---------- */
 
-  document.addEventListener("click", (e) => {
-    const chip = e.target.closest("[data-fill-value]");
-    if (!chip) return;
-    e.preventDefault();
-    const field = chip.closest(".field");
-    const input = field?.querySelector(".unit-group .input");
-    const unit = field?.querySelector(".unit-group .select");
-    if (input) {
-      input.value = chip.dataset.fillValue;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+  const syncQuickPresets = field => {
+    if (!field) return;
+    const input = $('.unit-group .input', field), unit = $('.unit-group .select', field);
+    if (!input || !unit) return;
+    const picker = $('[data-fill-preset]',field);
+    if (!picker) return;
+    const selected = [...picker.options].find(option => input.value.trim() !== '' && Number(input.value) === Number(option.dataset.fillValue) && unit.value === option.dataset.fillUnit)?.value || '';
+    if (picker.value !== selected) { picker.value = selected; picker.dispatchEvent(new Event('ui:select-sync')); }
+  };
+  $$('[data-fill-preset]').forEach(picker => syncQuickPresets(picker.closest('.field')));
+  ['input','change'].forEach(type => document.addEventListener(type,event => {
+    const field = event.target.closest?.('.field');
+    if (event.target.matches?.('[data-fill-preset]')) {
+      const option = event.target.selectedOptions[0], input = $('.unit-group .input',field), unit = $('.unit-group .select',field);
+      if (option?.dataset.fillValue && input && unit) { input.value = option.dataset.fillValue; unit.value = option.dataset.fillUnit; }
     }
-    if (unit && chip.dataset.fillUnit) unit.value = chip.dataset.fillUnit;
-    const group = chip.closest(".chips");
-    if (group) {
-      $$("[data-fill-value]", group).forEach((c) =>
-        c.classList.toggle("is-active", c === chip));
-    }
-  });
+    syncQuickPresets(field);
+  }));
 
   /* ---------- username generator ---------- */
 

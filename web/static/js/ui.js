@@ -6,11 +6,11 @@ const focusable = root => $$('a[href],button,input,select,textarea,[tabindex]', 
   .filter(el => !el.disabled && el.tabIndex >= 0 && !el.closest('[inert]') && el.getClientRects().length);
 const restoreFocus = el => { if (el?.isConnected && !el.closest('[inert]')) el.focus({ preventScroll: true }); };
 const presentation = await import(document.querySelector('meta[name="ui-presentation-module"]').content);
+const selects = await import(document.querySelector('meta[name="ui-select-module"]').content);
 export const displayDigits = presentation.displayDigits;
-const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); };
+const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); selects.enhanceSelects(root,presentation.closePresentationOverlays); };
 enhancePresentation(document);
 document.body.addEventListener('htmx:afterSwap', event => enhancePresentation(event.detail?.target || document));
-document.documentElement.dataset.ui = 'ready';
 document.documentElement.dataset.inputModality = 'pointer';
 document.addEventListener('pointerdown', () => { document.documentElement.dataset.inputModality = 'pointer'; }, true);
 document.addEventListener('keydown', event => {
@@ -193,10 +193,16 @@ mobile.addEventListener('change', () => setDrawer(false));
 setDrawer(false, false);
 
 const shell = $('#shell');
+$$('.nav-group',shell || document).forEach(group => {
+  if (group.matches('[data-nav-system]')) group.open = Boolean(group.querySelector('[aria-current="page"]'));
+});
 function setCollapsed(collapsed) {
   if (!shell) return;
+  if (collapsed) $$('.nav-group',shell).forEach(group => { group.dataset.wasOpen = String(group.open); group.open = true; });
+  else $$('.nav-group',shell).forEach(group => { if (group.dataset.wasOpen) { group.open = group.dataset.wasOpen === 'true'; delete group.dataset.wasOpen; } });
   shell.toggleAttribute('data-collapsed', collapsed);
   $('#btn-collapse')?.setAttribute('aria-expanded', String(!collapsed));
+  $('[data-toggle-rail]')?.setAttribute('aria-expanded', String(!collapsed));
   try { localStorage.setItem('wg_sidebar', collapsed ? '1' : '0'); } catch { /* optional preference */ }
 }
 try { if (localStorage.getItem('wg_sidebar') === '1') setCollapsed(true); } catch { /* optional preference */ }
@@ -228,7 +234,7 @@ document.addEventListener('click', event => {
   }
   if (target.closest('#btn-drawer')) setDrawer(true);
   if (target.closest('#scrim,[data-close-nav]') || (drawerOpen && target.closest('.nav a'))) setDrawer(false);
-  if (target.closest('#btn-collapse')) setCollapsed(!shell.hasAttribute('data-collapsed'));
+  if (target.closest('#btn-collapse,[data-toggle-rail]')) setCollapsed(!shell.hasAttribute('data-collapsed'));
   const opener = target.closest('[data-open-modal]');
   if (opener) { event.preventDefault(); openModal(opener.dataset.openModal, opener); }
   if (target.closest('[data-close-modal]')) target.closest('dialog')?.close();
@@ -388,3 +394,4 @@ document.addEventListener('click', event => {
   toggle.setAttribute('aria-pressed', String(show));
 });
 document.querySelector('[data-initial-focus]')?.focus();
+document.documentElement.dataset.ui = 'ready';

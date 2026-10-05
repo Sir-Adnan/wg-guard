@@ -13,6 +13,7 @@ let stage = 'launch';
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
     await context.addCookies([{ name: 'wg_session', value: seed.session, url: seed.url }]);
     const page = await context.newPage();
+    const goto = async url => { await page.goto(url); await page.waitForFunction(() => document.documentElement.dataset.ui === 'ready'); };
     const runtimeErrors = [];
     page.on('pageerror', error => runtimeErrors.push(error.name + ': ' + error.message.replaceAll(seed.session, '[session]').replaceAll(seed.sub, '[subscription]')));
     const assertOpenMenuAligned = async (anchor, message) => {
@@ -43,7 +44,7 @@ let stage = 'launch';
       assert(edgeGap <= 1, message + ' must align to its trigger (' + JSON.stringify(geometry) + ')');
     };
     stage = 'mobile drawer focus';
-    await page.goto(seed.url + '/users');
+    await goto(seed.url + '/users');
     await page.locator('#btn-drawer').click();
     assert(await page.evaluate(() => document.querySelector('#sidebar').contains(document.activeElement)), 'drawer must receive focus');
     assert(await page.locator('.main').evaluate(el => el.inert), 'modal drawer background must be inert');
@@ -78,9 +79,9 @@ let stage = 'launch';
     assert(!await page.locator('#test-dialog').evaluate(el => el.open), 'dialogs inserted after load close through delegation');
     assert(await page.locator('#test-open').evaluate(el => el === document.activeElement), 'dialog restores invoker focus');
     stage = 'menu dialog focus return';
-    await page.goto(seed.url + '/users');
+    await goto(seed.url + '/users');
     const detailHref = await page.locator('.row-link[href^="/users/"]').first().getAttribute('href');
-    await page.goto(seed.url + detailHref);
+    await goto(seed.url + detailHref);
     const actionsTrigger = page.locator('.page-head .menu-anchor > button');
     stage = 'menu dialog focus return: open renew';
     await actionsTrigger.focus();
@@ -152,7 +153,7 @@ let stage = 'launch';
         for (const width of [390, 1440]) {
           await page.setViewportSize({ width, height: 900 });
           for (const path of ['/users', '/users/new']) {
-            await page.goto(seed.url + path);
+            await goto(seed.url + path);
             assert(await page.locator('html').getAttribute('dir') === (locale === 'fa' ? 'rtl' : 'ltr'), 'locale direction');
             assert(await page.locator('html').getAttribute('data-theme') === mode, 'theme persists across layouts');
             assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'representative surface has viewport overflow');
@@ -202,7 +203,7 @@ let stage = 'launch';
     await anonymous.close();
     stage = '320px shell and reduced motion';
     await page.setViewportSize({ width: 320, height: 568 });
-    await page.goto(seed.url + '/users');
+    await goto(seed.url + '/users');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), '320px shell overflows');
     assert(await page.locator('.shell').evaluate(el => getComputedStyle(el).transitionDuration.split(',').every(v => parseFloat(v) <= 0.01)), 'reduced motion disables shell transition');
     assert(runtimeErrors.length === 0, 'shared UI raised a runtime error: ' + runtimeErrors.join('; '));
@@ -211,11 +212,11 @@ let stage = 'launch';
       const fs = require('node:fs'), path = require('node:path');
       fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
       for (const [width, theme, locale] of [[1440, 'light', 'en'], [390, 'dark', 'fa']]) {
-        await page.goto(seed.url + '/users');
+        await goto(seed.url + '/users');
         await page.request.post(seed.url + '/prefs/locale', { form: { locale, _csrf: await page.locator('meta[name="csrf-token"]').getAttribute('content') } });
         await context.addCookies([{ name: 'wg_theme', value: theme, url: seed.url }]);
         await page.setViewportSize({ width, height: 900 });
-        await page.goto(seed.url + '/users');
+        await goto(seed.url + '/users');
         await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'shell-' + width + '-' + locale + '-' + theme + '.png') });
       }
     }

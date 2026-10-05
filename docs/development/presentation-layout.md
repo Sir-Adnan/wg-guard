@@ -48,6 +48,40 @@ native interface fallback also passed within their applicable scope. A focused
 Claude + fa/dark desktop run plus native/touch fallback checked preset compatibility.
 Rendered desktop/phone and inspector images were visually inspected.
 
+## Workspace and compact-selection follow-up
+
+The subsequent owner review requested a smaller volume/duration picker, an inset
+sidebar with direct Domains/HTTPS navigation, and an Appearance redesign. The same
+change now implements shadcn Select-inspired combobox/listbox presentation over
+native preset values, a scrollable selected list and canonical editable value/unit
+fields. Desktop places the picker alongside those fields; narrow phones give it one
+full-width row. HTMX enhancement is idempotent, inactive creation modes disable the
+proxy as well as the native select, and Escape returns focus without closing the
+create drawer. Popover-unavailable browsers temporarily place the list directly in
+the native dialog so card clipping and blur do not hide it.
+
+The sidebar adds disclosure groups, an inset desktop frame and a topbar rail toggle.
+Domains/HTTPS remains gated by `server.view` and absent from reseller navigation.
+Appearance separates style, numerals and reset, presents the gallery beside live
+preview/application controls on desktop, and keeps personal and owner-default
+actions distinct. Numeral submissions return to their own tab. See the updated
+[presentation contract](../product/presentation-system.md) for these behaviors.
+
+Fresh Chromium and WebKit focused runs cover the real create page/drawer, manual
+editing, preset selection/typeahead/keyboard scrolling, disabled-mode transitions,
+Escape/outside dismissal, phone touch and the positioned fallback. The five
+representative cells, two no-JavaScript cells, sidebar state/current location and
+Appearance tab/preview checks passed in both engines. Their 16-cell presentation
+and shared foundation checks also passed. Foundation navigation now explicitly
+awaits completed asynchronous UI initialization before sending keyboard input.
+Rendered desktop/phone dropdown and Appearance images were visually inspected.
+Fresh Appearance checks also passed 80 preset/locale/mode/viewport cells in each
+engine, including personal/default persistence and the mobile public QR surface.
+These emulated viewports are not a physical mobile check. Fresh focused Linux race,
+vet and Linux/amd64 build cover the
+resulting web/i18n/source assets. Asset measurement remains an engineering
+observation; no new production package was added.
+
 An initially reproduced chart hover failure was corrected: the positioned tooltip
 could cover the pointer and intercept continued movement. The successful corrected
 runs use viewport-clamped top-layer positioning beside the pointer; the earlier

@@ -103,7 +103,7 @@ func (s *Server) handleAppearanceDigits(w http.ResponseWriter, r *http.Request) 
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.redirectToast(w, r, "/appearance", "appearance.saved")
+	s.redirectToast(w, r, "/appearance#appearance-numbers", "appearance.saved")
 }
 
 func (s *Server) handleAppearanceDefaultDigits(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +120,7 @@ func (s *Server) handleAppearanceDefaultDigits(w http.ResponseWriter, r *http.Re
 		return
 	}
 	s.audit(r, "appearance.digits_changed", "panel", map[string]any{"digits": digits})
-	s.redirectToast(w, r, "/appearance", "appearance.default_saved")
+	s.redirectToast(w, r, "/appearance#appearance-numbers", "appearance.default_saved")
 }
 
 func (s *Server) handleAppearancePage(w http.ResponseWriter, r *http.Request) {
