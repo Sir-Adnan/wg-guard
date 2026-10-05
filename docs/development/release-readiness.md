@@ -64,7 +64,7 @@ further release authorization.
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 | 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
 | 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
-| 17 — Docker-only/native cleanup | source implemented; exact image/CI gate pending; unreleased | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
+| 17 — Docker-only/native cleanup | source/image/CI gates passed; unreleased; physical acceptance in 20 | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | planned | Actual two-hostname certificate lifecycle and public/private route isolation |
 | 19 — Operational UX | planned | Same services through panel/CLI; accessible complete workflows |
 | 20 — Refactor certification | planned | Exact-source/artifact, real-host migration/resource/failure gates and publication approval |
@@ -302,3 +302,11 @@ disk delivery have focused checks. A new CI job must verify the exact manager/im
 container before source delivery is called verified. New physical Ubuntu kernel/userspace,
 reboot/TLS/restore/failure and resource acceptance remain Phase 20; historical evidence is not
 relabelled. No release, registry or live-host mutation is authorized here.
+
+
+Phase 17 exact implementation `5952d97bb07b656db4d931230a4f4c671be9d3e4` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37247158064) on 2026-10-05:
+both Linux race matrices and encrypted-archive load, vet/build, vulnerability/bootstrap,
+canonical image/binary/core identity and offline-load/fake-node persistence/hardening checks.
+The unpublished seven-day Actions artifact was independently downloaded: ZIP digest and all
+six file checksums passed; binary/runtime metadata identify that SHA. No new real-host/client,
+public release or registry result is implied. Latest stable remains v0.1.9.

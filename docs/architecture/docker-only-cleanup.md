@@ -109,7 +109,7 @@ Phase 15 backup/readiness/slow-work gates or Phase 20 final certification.
 - [x] New production parsing/wizards/recipes/state contain no native selection or
   executable native lifecycle; no `ModeNative`, `installNative` or panel `RenderUnit`
   remains in current production implementation.
-- [ ] The image is actually the supported server runtime; direct fake-backend
+- [x] The image is actually the supported server runtime; direct fake-backend
   development remains explicitly separate and does not certify host networking.
 - [x] Source search results for `native`, `ModeDocker`, `systemd`, `UnitPath` and
   artifact/unit fields are reviewed semantically. Legitimate host tasks, native
@@ -120,7 +120,7 @@ Phase 15 backup/readiness/slow-work gates or Phase 20 final certification.
   unowned paths fail before active mutation. No implicit pull/build/serve fallback exists.
 - [x] Shared leases, encryption, idempotency, backup/restore, key/config/token/IP/
   quota preservation and network ownership retain equivalent or stronger coverage.
-- [ ] Host manager works offline and with a stopped container; broker/renewal/owned
+- [x] Host manager works offline and with a stopped container; broker/renewal/owned
   retention survives restart/rollback and is cleaned up without touching foreign resources.
 - [ ] Supported Docker kernel and explicit userspace client traffic, reboot, update,
   restored backup and scoped removal pass real-host acceptance; other cells stay unverified.
@@ -131,3 +131,8 @@ Phase 15 backup/readiness/slow-work gates or Phase 20 final certification.
 This plan authorizes repository refactor scope; it does not authorize a new public
 release, registry publication or destructive operation on the owner's live server.
 Dependencies and delivery gates: [Phases 15–20](../development/refactor-program.md).
+
+
+Completed checkboxes record current source, host-seam and exact image/fake-container CI evidence,
+not physical networking certification. That real-host checkbox remains open; the implementation,
+initial fixture failure/correction and downloaded candidate identity are in [Phase 17](../development/phase17.md).

@@ -60,8 +60,7 @@ checksums and an isolated fake-node readiness/DB/key/restart/read-only-root smok
 unpublished candidate assets for seven days; it does not publish a release or registry image.
 
 Local Windows Go checks cannot supply Linux race evidence. WSL has no enabled Docker engine;
-actual image/fake-container evidence must come from the new exact CI job. Final source/results
-are recorded after that gate, not inferred here while it is pending.
+actual image/fake-container evidence must come from the new exact CI job. The gate has now passed at the exact source recorded below; no local Docker result is inferred.
 
 Fresh ordinary Linux encrypted-archive load after disk-spool changes: 512 fake devices,
 GOMAXPROCS=1, quota lag/expiry cycle 3/3 ms against a 15 s cadence; RSS baseline/peak
@@ -92,3 +91,26 @@ automatic deletion is claimed.
 The owner still needs the independently verified off-host v0.1.9 backup before any rebuild.
 Next source work is integrated domain/TLS ownership (Phase 18), then operational UX (19).
 No later release is authorized by this record. Design rationale: [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md).
+
+
+## Exact delivery result
+
+`5952d97bb07b656db4d931230a4f4c671be9d3e4` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37247158064) on 2026-10-05.
+Both Go race matrices (1.25.x/stable), selected encrypted-archive load, vet/build, bootstrap/
+synthetic fixtures and vulnerability scan passed. The runtime job built the canonical image,
+checked actual binary equality and tools/daemon VCS identity, verified all artifact checksums,
+removed/re-imported the compressed image without registry/source access, then passed fake-node
+readiness, persistent DB/key, restart and read-only-root checks. Correct root ownership confirmed
+the earlier fixture diagnosis; the first failure is retained above rather than hidden.
+
+Unpublished Actions artifact `11319178954` (67,176,808 bytes), ZIP SHA-256
+`f16abb5e351449909930245dca8f7cf79ed114a36e785f83598cbbb6500dac66`, was independently downloaded.
+All six checksum entries passed and metadata/binary identify this exact source; the downloaded
+Linux binary also ran its version probe in WSL. Runtime image config ID:
+`sha256:10a25f257cc114eea9b004b9ae9c27c1fa0703e5938244d211b13ff79771b4cf`.
+Runtime metadata SHA-256: `fe218455b186b86ce103db47f5e9d3598f365ba0efe745522d3569f9d2eaf972`.
+This is a checked unpublished candidate, not a public release/registry or physical-host claim.
+
+Phase 17 source/distribution/removal gates are complete within this evidence scope. The physical
+milestone 17.5/client/resource portions remain open under Phase 20. Current published v0.1.9,
+the owner's off-host backup checkpoint and the no-further-release instruction remain unchanged.

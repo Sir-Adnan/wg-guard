@@ -13,7 +13,7 @@ The owner authorized preparation publication followed by full Phase 16 source wo
 another release. Owner-server update/export is a post-publication checkpoint before rebuild.
 Phase 16 is complete within its documented source scope with exact CI passed.
 [Phase 17](phase17.md) implements Docker-only source, schema-4 private host state, one runtime
-recipe and verified offline image distribution. Its exact image/CI gate is pending; real-host
+recipe and verified offline image distribution. Its exact image/CI gate passed; real-host
 acceptance remains separate. Phases 18–20 remain planned. Integrated domain/certificate
 management is not a current feature. The [domain/TLS guide](../operations/domains-and-tls.md)
 separates current workarounds from the Phase 18 target.
@@ -324,3 +324,11 @@ Non-Ubuntu hosts and non-amd64 architectures are outside scope. WSL and containe
 results never upgrade a real-host cell. Phase 11's scoped gate, risks and resource evidence
 are in [phase11.md](phase11.md); exact published-artifact evidence is in
 [phase12.md](phase12.md).
+
+
+Phase 17 exact implementation `5952d97bb07b656db4d931230a4f4c671be9d3e4` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37247158064) on 2026-10-05:
+both Linux race matrices and encrypted-archive load, vet/build, vulnerability/bootstrap,
+canonical image/binary/core identity and offline-load/fake-node persistence/hardening checks.
+The unpublished seven-day Actions artifact was independently downloaded: ZIP digest and all
+six file checksums passed; binary/runtime metadata identify that SHA. No new real-host/client,
+public release or registry result is implied. Latest stable remains v0.1.9.

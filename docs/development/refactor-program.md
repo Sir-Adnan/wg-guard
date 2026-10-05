@@ -35,7 +35,7 @@ stable. [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md) explains owners
 |---|---|---|---|
 | 15 | Operational safety and migration preparation | Engineering complete; v0.1.9 public | Existing release contracts |
 | 16 | Application/runtime/host responsibility boundaries | Complete within documented source scope; no release | 15 safety gates |
-| 17 | Verified Docker distribution and complete native removal | Source implemented; exact image/CI gate pending; real-host acceptance in 20 | 16 boundaries; registry approval for publication |
+| 17 | Verified Docker distribution and complete native removal | Source/image/CI gates passed; physical acceptance in 20; unreleased | 16 boundaries; registry approval for publication |
 | 18 | Integrated panel/subscription domains and TLS | Planned | 16 host operation model; 17 deployment ownership |
 | 19 | Cohesive installer and operational panel UX | Planned | Implemented 15–18 services |
 | 20 | Real-host acceptance and migration/release readiness | Planned | 15–19 evidence |
@@ -214,7 +214,7 @@ cleanup checklist must pass; merely removing its menu option is incomplete.
 
 Source scope and fresh/reused/unrun checks are in [Phase 17](phase17.md). A checkbox above
 records source implementation/review, not physical host certification. Exact Docker image/CI
-evidence is pending; registry/release publication is not authorized. The required physical
+evidence passed; registry/release publication is not authorized. The required physical
 client/reboot/restore/failure/resource matrix remains open under Phase 20. Global Docker cache
 or shared-image pruning is not automatic; current/previous file recovery identities are bounded.
 
@@ -304,3 +304,11 @@ Each phase maintains a short implementation report: problem, final behavior,
 changed boundaries, tested source/environment, failures, remaining risks and exit
 evidence. A new dependency needs a resource/maintenance justification. A plan checkbox
 becomes complete only with implementation and the evidence its acceptance claim requires.
+
+
+Phase 17 exact implementation `5952d97bb07b656db4d931230a4f4c671be9d3e4` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37247158064) on 2026-10-05:
+both Linux race matrices and encrypted-archive load, vet/build, vulnerability/bootstrap,
+canonical image/binary/core identity and offline-load/fake-node persistence/hardening checks.
+The unpublished seven-day Actions artifact was independently downloaded: ZIP digest and all
+six file checksums passed; binary/runtime metadata identify that SHA. No new real-host/client,
+public release or registry result is implied. Latest stable remains v0.1.9.
