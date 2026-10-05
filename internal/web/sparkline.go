@@ -106,6 +106,19 @@ func timedSparklineSVG(series []sparkSeries, ariaLabel string, fixedMax float64,
 		if path == "" {
 			continue
 		}
+		if item.Class == "spark-primary" {
+			// Close each available segment independently; an area must never
+			// paint across a missing sample or imply interpolation through it.
+			for _, segment := range strings.Split(path, "M")[1:] {
+				last := strings.LastIndex(segment, "L")
+				if last < 0 {
+					continue
+				}
+				firstXY := strings.Fields(strings.SplitN(segment, "L", 2)[0])
+				lastXY := strings.Fields(segment[last+1:])
+				b.WriteString(`<path class="spark-area" d="M` + segment + `L` + lastXY[0] + ` 94L` + firstXY[0] + ` 94Z"/>`)
+			}
+		}
 		b.WriteString(`<path class="spark-line `)
 		b.WriteString(item.Class)
 		b.WriteString(`" d="`)
@@ -150,7 +163,8 @@ func sparkInspectorPoints(series []sparkSeries, maxLen int, maxValue float64, ti
 		point := chartInspectorPoint{X: x, Y: make([]*float64, len(series))}
 		parts := make([]string, 0, len(series)+1)
 		if len(times) == maxLen {
-			parts = append(parts, times[index].UTC().Format("15:04:05 UTC"))
+			point.Label = times[index].UTC().Format("15:04:05 UTC")
+			parts = append(parts, point.Label)
 		}
 		for seriesIndex, item := range series {
 			values := newestSparkValues(item.Values, maxLen)
@@ -174,6 +188,7 @@ func sparkInspectorPoints(series []sparkSeries, maxLen int, maxValue float64, ti
 				label = "Value"
 			}
 			parts = append(parts, label+": "+display)
+			point.Series = append(point.Series, chartInspectorValue{Name: label, Value: display, Index: seriesIndex})
 		}
 		if len(parts) > 0 {
 			point.Title = strings.Join(parts, " · ")
@@ -181,6 +196,15 @@ func sparkInspectorPoints(series []sparkSeries, maxLen int, maxValue float64, ti
 		}
 	}
 	return points
+}
+
+// Latest percentage complements the chronological plot; unavailable metrics
+// have no gauge, and historical gaps still belong to the line renderer.
+func percentGaugeSVG(value telemetry.Metric) template.HTML {
+	if !validSparkMetric(value) {
+		return ""
+	}
+	return template.HTML(`<svg class="resource-gauge" viewBox="0 0 48 48" aria-hidden="true"><circle class="gauge-track" cx="24" cy="24" r="20"/><circle class="gauge-value" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="` + f1(math.Min(100, value.Value)) + ` 100"/></svg>`)
 }
 
 func newestSparkValues(values []telemetry.Metric, limit int) []telemetry.Metric {

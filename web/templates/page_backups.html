@@ -58,7 +58,14 @@
 {{end}}
 
 {{define "backup_create"}}
-<section class="card card--pad backup-create-card" id="new-backup" aria-labelledby="backup-create-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "plus"}}</span><h2 id="backup-create-title">{{.T "backups.create_now"}}</h2><p class="hint">{{.T "backups.create_password_hint"}}</p></div></div><form method="post" action="/backups/create" class="form-stack"><input type="hidden" name="_csrf" value="{{.CSRF}}"><div class="field"><label for="b-password">{{.T "backups.create_password"}}</label><input class="input ltr-data" id="b-password" name="password" type="password" autocomplete="new-password" aria-describedby="b-password-help"><span class="hint" id="b-password-help">{{if .Data.PasswordSet}}{{.T "backups.create_stored_hint"}}{{else}}{{.T "backups.plain_hint"}}{{end}}</span></div><div class="form-actions"><button type="submit" class="btn btn--primary" {{if not .Data.SettingsKnown}}disabled{{end}}>{{.IconS "database"}}{{.T "backups.create_now"}}</button></div></form></section>
+<section class="card card--pad backup-create-card" id="new-backup" aria-labelledby="backup-create-title">
+  <div class="section-head"><div class="page-title-cluster"><span class="section-icon" aria-hidden="true">{{.IconS "plus"}}</span><div><h2 id="backup-create-title">{{.T "backups.create_now"}}</h2><p class="hint">{{.T "backups.create_password_hint"}}</p></div></div></div>
+  <form method="post" action="/backups/create" class="form-stack">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="field"><label for="b-password">{{.T "backups.create_password"}}</label><input class="input ltr-data" id="b-password" name="password" type="password" autocomplete="new-password" aria-describedby="b-password-help"><span class="hint" id="b-password-help">{{if .Data.PasswordSet}}{{.T "backups.create_stored_hint"}}{{else}}{{.T "backups.plain_hint"}}{{end}}</span></div>
+    <div class="form-actions"><button type="submit" class="btn btn--primary" {{if not .Data.SettingsKnown}}disabled{{end}}>{{.IconS "database"}}{{.T "backups.create_now"}}</button></div>
+  </form>
+</section>
 {{end}}
 
 {{define "backup_import"}}

@@ -34,17 +34,45 @@
     const cards = $$('[data-user-template-card]', form);
     const manual = $$('[data-user-manual], [data-template-owned]', form);
     const nav = $$('[data-user-manual-nav]', form);
+    const modes = $('[data-user-create-modes]', form);
+    const tabs = modes ? $$('[data-user-create-tab]', modes) : [];
+    const panels = modes ? $$('[data-user-create-panel]', modes) : [];
+    let mode = modes?.dataset.initialMode || 'custom';
     const sync = () => {
       const active = cards.find(card => card.dataset.userTemplateCard === select.value);
-      const fromTemplate = Boolean(active);
+      const fromTemplate = modes ? mode === 'template' : Boolean(active);
+      if (modes) {
+        $('[data-user-create-mode]', modes).value = mode;
+        select.disabled = !fromTemplate;
+        select.required = fromTemplate;
+        tabs.forEach(tab => { const selected = tab.dataset.userCreateTab === mode; tab.setAttribute('aria-selected', selected); tab.tabIndex = selected ? 0 : -1; });
+        panels.forEach(panel => { panel.hidden = panel.dataset.userCreatePanel !== mode; });
+      }
       manual.forEach(section => {
         section.hidden = fromTemplate;
         $$('input, select, textarea', section).forEach(control => { control.disabled = fromTemplate; });
       });
       nav.forEach(link => { link.hidden = fromTemplate; });
       cards.forEach(card => { card.hidden = card !== active; });
-      if (preview) preview.hidden = !fromTemplate;
+      if (preview) preview.hidden = !fromTemplate || !active;
     };
+    if (modes) {
+      const list = $('[data-user-create-tablist]', modes); list.hidden = false; list.setAttribute('role', 'tablist');
+      tabs.forEach(tab => {
+        tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'user-mode-' + tab.dataset.userCreateTab);
+        tab.addEventListener('click', () => { mode = tab.dataset.userCreateTab; sync(); });
+      });
+      panels.forEach(panel => { panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', 'user-mode-' + panel.dataset.userCreatePanel + '-tab'); });
+      list.addEventListener('keydown', event => {
+        const current = tabs.indexOf(event.target); if (current < 0) return;
+        let next;
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else if (['ArrowLeft','ArrowRight'].includes(event.key)) next = 1-current;
+        else return;
+        event.preventDefault(); mode = tabs[next].dataset.userCreateTab; sync(); tabs[next].focus();
+      });
+    }
     select.addEventListener('change', sync);
     sync();
   });

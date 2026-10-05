@@ -216,8 +216,15 @@ dialogs, and current token/reseller permission shortcuts without running the ful
 `WG_TEST_UI_GROUP=calendar` exercises month navigation, day selection and clearing on the create-user
 page and modal drawer in fa/en at 320/390/1440px; it also checks that the popover stays in bounds.
 `WG_TEST_UI_GROUP=user-template` checks the same create-user page/drawer widths and languages:
-selecting a technical template reveals its terms and disables hidden manual fields, while Custom
+selecting From template reveals its terms and disables hidden manual fields, while Standard
 restores editable fields without overflowing a narrow viewport.
+
+`TestBrowserGuidanceLayout` is an opt-in focused regression for help anchoring,
+paired inputs, legends/drawers, Standard/From template value retention, interface
+CIDR/capacity separation, compact backup creation and structured chart hover/keyboard
+inspection. It checks representative fa/en, light/dark phone/tablet/desktop cells,
+native descriptions and touch fallback without Popover. It reuses the real disposable
+application fixtures; it is not a complete panel or physical-device certification.
 The final driver adds real-route state cases from temporary databases, interactive states, touch,
 system-theme and equivalent-zoom checks. Synthetic healthy telemetry stays fresh; stale data has
 its own case. Virtual subscriber identities prevent matrix traffic from consuming one rate bucket;

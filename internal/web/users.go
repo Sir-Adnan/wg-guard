@@ -351,6 +351,7 @@ func userOperationalForm(u *user.User) operationalForm {
 		values["device_limit"], values["speed_down"], values["speed_up"] = rawFormInt(u.DeviceLimit), speedMBpsValue(u.SpeedLimitDownKbps), speedMBpsValue(u.SpeedLimitUpKbps)
 		values["interface"], values["template_id"], values["start_policy"] = deref(u.InterfaceID), deref(u.TemplateID), string(u.StartPolicy)
 	}
+	values["creation_mode"] = "custom"
 	return operationalForm{Values: values, Fields: map[string]string{}}
 }
 
@@ -393,6 +394,9 @@ func (s *Server) userFormError(w http.ResponseWriter, r *http.Request, u *user.U
 	}
 	if domain.CodeOf(err) == domain.CodePlanNotFound {
 		d.Form.Fields["template_id"] = "users.form.selection_unavailable"
+	}
+	if u == nil && r.PostFormValue("creation_mode") == "template" && r.PostFormValue("template_id") == "" {
+		d.Form.Fields["template_id"] = "users.form.template_required"
 	}
 	if domain.CodeOf(err) == domain.CodeUsernameExists {
 		d.Form.Fields["username"] = "users.error.username_taken"
@@ -557,6 +561,9 @@ func durationFromForm(r *http.Request) (*int64, error) {
 // (tri-state PATCH semantics, api.md).
 func (s *Server) userInputFromForm(r *http.Request, isEdit bool) (user.Input, error) {
 	in := user.Input{}
+	if !isEdit && r.PostFormValue("creation_mode") == "template" && r.PostFormValue("template_id") == "" {
+		return in, errInvalid
+	}
 	if _, submitted := r.PostForm["display_name"]; submitted {
 		in.DisplayName = strPtr(r.PostFormValue("display_name"))
 	}

@@ -24,8 +24,19 @@
     <span class="hint" id="username-hint">{{$v.T "onboard.username_hint"}}{{if $f.Invalid "username"}} <span class="field-error">{{$v.T (index $f.Fields "username")}}</span>{{end}}</span>
   </div>
   {{end}}
+  {{if and (not .edit) (not .bulk) ($v.Can "devices.write")}}
+  <label class="check-row user-config-choice"><input class="checkbox" type="checkbox" name="auto_devices" value="1" {{if eq ($f.V "auto_devices") "1"}}checked{{end}}><span><strong>{{$v.T "users.form.auto_devices"}}</strong><small>{{$v.T "users.form.configs_hint"}}</small></span></label>
+  {{end}}
 </section>
-{{if not .edit}}{{template "user_plan_choice" dict "v" $v "d" $d "bulk" .bulk}}{{end}}
+{{if not .edit}}
+<div class="form-stack user-creation-modes" data-user-create-modes data-initial-mode="{{if or ($f.V "template_id") (eq ($f.V "creation_mode") "template")}}template{{else}}custom{{end}}">
+  <input type="hidden" name="creation_mode" value="{{$f.V "creation_mode"}}" data-user-create-mode>
+  <div class="section-tab-list" data-user-create-tablist aria-label="{{$v.T "users.form.creation_mode"}}" hidden>
+    <button type="button" id="user-mode-custom-tab" data-user-create-tab="custom">{{$v.IconS "settings-2"}}{{$v.T "users.form.mode_custom"}}</button>
+    <button type="button" id="user-mode-template-tab" data-user-create-tab="template">{{$v.IconS "layers"}}{{$v.T "users.form.mode_template"}}</button>
+  </div>
+  <div class="form-stack" id="user-mode-custom" data-user-create-panel="custom">
+{{end}}
 <section class="form-section card card--pad premium-form-section" id="user-limits" data-section-tone="violet" aria-labelledby="user-limits-title" {{if not .edit}}data-user-manual {{if $f.V "template_id"}}hidden{{end}}{{end}}>
   <div class="form-section-head"><span class="section-icon" aria-hidden="true">{{$v.IconS "gauge"}}</span><h2 id="user-limits-title">{{$v.T "users.form.section_limits"}}</h2></div>
   <p class="section-description">{{$v.T "users.form.allowance_hint"}}</p>
@@ -83,6 +94,11 @@
   </div>
   {{end}}
 </section>
+{{if not .edit}}
+  </div>
+  <div class="form-stack" id="user-mode-template" data-user-create-panel="template">{{template "user_plan_choice" dict "v" $v "d" $d "bulk" .bulk}}</div>
+</div>
+{{end}}
 <details class="collapse form-panel premium-disclosure" id="user-advanced" {{if or $f.Error .edit}}open{{end}}>
   <summary>{{$v.IconS "settings-2"}}<span>{{$v.T "users.form.advanced"}}</span></summary>
   <div class="collapse-body">
@@ -129,11 +145,11 @@
   <div class="field">
     <label for="u-template">{{$v.T "users.plan"}}</label>
     <select class="select" id="u-template" name="template_id" data-user-template aria-describedby="u-template-help" {{if $f.Invalid "template_id"}}aria-invalid="true"{{end}}>
-      <option value="">{{$v.T "users.form.custom"}}</option>
+      <option value="">{{$v.T "users.form.choose_template"}}</option>
       {{$planFound := false}}{{range $d.Plans}}{{if .Enabled}}<option value="{{.ID}}" {{if eq ($f.V "template_id") .ID}}{{$planFound = true}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
       {{if and ($f.V "template_id") (not $planFound)}}<option value="{{$f.V "template_id"}}" selected>{{$v.T "users.form.selection_unavailable"}}</option>{{end}}
     </select>
-    <span class="hint" id="u-template-help">{{if not $d.PlansKnown}}{{$v.T "users.form.options_unavailable"}}{{else}}{{$v.T "users.form.template_help"}}{{end}}{{if $f.Invalid "template_id"}} <span class="field-error">{{$v.T "users.form.selection_unavailable"}}</span>{{end}}</span>
+    <span class="hint" id="u-template-help">{{if not $d.PlansKnown}}{{$v.T "users.form.options_unavailable"}}{{else}}{{$v.T "users.form.template_help"}}{{end}}{{if $f.Invalid "template_id"}} <span class="field-error">{{$v.T (index $f.Fields "template_id")}}</span>{{end}}</span>
   </div>
   <div class="user-template-preview" data-user-template-preview {{if not $planFound}}hidden{{end}}>
     {{range $d.Plans}}{{if .Enabled}}
@@ -153,9 +169,6 @@
     </article>
     {{end}}{{end}}
   </div>
-  {{if and (not .bulk) ($v.Can "devices.write")}}
-  <label class="feature-toggle"><input class="checkbox" type="checkbox" name="auto_devices" value="1" {{if eq ($f.V "auto_devices") "1"}}checked{{end}}><span class="feature-toggle-icon" aria-hidden="true">{{$v.IconS "qr-code"}}</span><span><strong>{{$v.T "users.form.auto_devices"}}</strong><small>{{$v.T "users.form.configs_hint"}}</small></span></label>
-  {{end}}
 </section>
 {{end}}
 

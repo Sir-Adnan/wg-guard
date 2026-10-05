@@ -48,6 +48,7 @@ type telemetryView struct {
 	HostTXRate  string
 	HostChart   template.HTML
 	DiskValue   string
+	DiskGauge   template.HTML
 	Charts      []liveChartCard
 }
 
@@ -55,6 +56,7 @@ type liveChartCard struct {
 	TitleKey, Value, Second, Meta string
 	SVG                           template.HTML
 	Percent                       bool
+	Gauge                         template.HTML
 }
 
 // The detailed snapshot is generated only on demand and stays outside the
@@ -146,6 +148,7 @@ func newTelemetryView(loc i18n.Locale, history telemetry.History) telemetryView 
 	if point.DiskPercent.Available {
 		view.DiskValue = fmt.Sprintf("%.0f%%", point.DiskPercent.Value)
 	}
+	view.DiskGauge = percentGaugeSVG(point.DiskPercent)
 	if point.UptimeSeconds.Available && point.UptimeSeconds.Value <= math.MaxInt64 {
 		view.Uptime = i18n.FormatDuration(loc, int64(point.UptimeSeconds.Value))
 	}
@@ -187,8 +190,8 @@ func newTelemetryView(loc i18n.Locale, history telemetry.History) telemetryView 
 		{Class: "spark-secondary", Label: i18n.T(loc, "dash.active_peers"), Values: peers, Display: countMetricText(peers)},
 	}, i18n.T(loc, "dash.activity_history"), 0, times, history.Cadence)
 	view.Charts = []liveChartCard{
-		{TitleKey: "dash.cpu", Value: view.CPUValue, SVG: view.CPUChart, Percent: true},
-		{TitleKey: "dash.memory", Value: view.MemoryValue, Meta: view.MemoryMeta, SVG: view.MemoryChart, Percent: true},
+		{TitleKey: "dash.cpu", Value: view.CPUValue, SVG: view.CPUChart, Percent: true, Gauge: percentGaugeSVG(point.CPUPercent)},
+		{TitleKey: "dash.memory", Value: view.MemoryValue, Meta: view.MemoryMeta, SVG: view.MemoryChart, Percent: true, Gauge: percentGaugeSVG(point.MemoryPercent)},
 		{TitleKey: "dash.host_network", Value: view.HostRXRate, Second: view.HostTXRate, SVG: view.HostChart},
 		{TitleKey: "dash.vpn_live", Value: view.VPNRXRate, Second: view.VPNTXRate, SVG: view.VPNChart},
 		{TitleKey: "dash.activity", Value: view.OnlineUsers, Second: view.ActivePeers, SVG: view.ActivityChart},

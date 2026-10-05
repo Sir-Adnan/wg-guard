@@ -25,13 +25,18 @@ choice are independent: Persian language uses Jalali and English uses Gregorian.
 
 ## Guidance and structure
 
-`presentation.js` enhances field hints and explicitly marked guidance into details
-controls beside their labels. Original content/description IDs remain available to
+`presentation.js` enhances field hints and explicitly marked guidance into help
+buttons beside their labels or section headings, including fieldset legends. A
+checkbox card is not a section heading. Original content/description IDs remain available to
 assistive technology. Hover/focus opens help, click/touch pins it, and Escape/outside
 interaction closes it. Native popovers provide top-layer placement and viewport
-clamping; details retains an inline fallback. Validation errors, status information and
-operational warnings stay visible. HTMX swaps receive the same enhancement; there is
-no untrusted HTML injection or idle polling.
+clamping; browsers without Popover receive a positioned disclosure. Without JavaScript
+the original descriptions stay inline. The button exposes expanded/controlled state;
+Escape returns focus and does not close the containing form dialog. Help never creates
+a separate empty row, and paired field labels reserve the same touch-target height so
+their inputs align. Validation errors, including errors nested inside hints, status
+information and operational warnings stay visible. HTMX swaps receive the same
+idempotent enhancement; there is no untrusted HTML injection or idle polling.
 
 Cleanup uses searchable dropdowns for data kinds, eligible status unions and owners,
 with Select all, partial-selection states and collapsed selected summaries. Its date
@@ -48,6 +53,29 @@ layout so nested fieldsets retain card padding, heading alignment and spacing at
 viewport, including the all-sections fallback without JavaScript. Shared CSS uses
 existing semantic tokens for restrained headers, type, borders, controls and focus
 states across presets.
+
+Interface collections group name, state and MTU as an identity stack. CIDRs are
+individually LTR-isolated on separate lines; the human capacity summary sits below
+them rather than joining a technical address. This composition also survives the
+existing table-to-card mobile transition. The backup-create card spans its workspace,
+with a compact heading/input/action row on desktop and stacked controls on small screens.
+
+User creation shares account identity and ready-device provisioning between Standard
+and From template tabs in both the full page and drawer. Switching preserves entered
+values, disables inactive entitlement inputs and keeps notes/tags common. Template mode
+requires a selected template on submission; its server-owned terms cannot be overridden
+by hidden manual values. Native forms keep all sections reachable without JavaScript.
+
+Dashboard charts use the existing bounded server-rendered SVGs with chronological
+lines and subtle area segments; missing samples stay gaps in both. Latest CPU, memory
+and disk percentages have radial gauges separate from their history. Structured
+inspection shows a timestamp and localized series/value rows, uses semantic preset
+colors and fixed-size circular markers, and clamps in the viewport using a top-layer
+popover beside the pointer. Hover is
+hoverable/dismissible; click/touch pins the selected sample, keyboard arrows/Home/End
+inspect chronological points, and Escape/outside interaction or a swap closes it.
+Exact native data tables and no-JavaScript plots remain available. These are local
+SVG compositions inspired by the shadcn examples, not an embedded Recharts runtime.
 
 ## Pool editor
 

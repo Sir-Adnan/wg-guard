@@ -12,16 +12,26 @@ import (
 
 // chartBucket is one aggregated traffic period.
 type chartBucket struct {
-	Label string // short x-axis label (Latin digits, locale-independent)
-	Title string // full tooltip text, already localized
-	RX    int64  // bytes received
-	TX    int64  // bytes sent
+	Label  string // short x-axis label (Latin digits, locale-independent)
+	Title  string // full tooltip text, already localized
+	RX     int64  // bytes received
+	TX     int64  // bytes sent
+	Time   string
+	Series []chartInspectorValue
+}
+
+type chartInspectorValue struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	Index int    `json:"index"`
 }
 
 type chartInspectorPoint struct {
-	X     float64    `json:"x"`
-	Y     []*float64 `json:"y"`
-	Title string     `json:"title"`
+	X      float64               `json:"x"`
+	Y      []*float64            `json:"y"`
+	Title  string                `json:"title"`
+	Label  string                `json:"label,omitempty"`
+	Series []chartInspectorValue `json:"series,omitempty"`
 }
 
 // Only plot geometry scales. HTML axes outside the SVG retain their CSS font
@@ -62,7 +72,7 @@ func trafficChartSVG(buckets []chartBucket, ariaLabel string) template.HTML {
 		}
 		rxY := plotH * (1 - float64(bucket.RX)/float64(scale))
 		txY := plotH * (1 - float64(bucket.TX)/float64(scale))
-		points = append(points, chartInspectorPoint{X: x, Y: []*float64{&rxY, &txY}, Title: bucket.Title})
+		points = append(points, chartInspectorPoint{X: x, Y: []*float64{&rxY, &txY}, Title: bucket.Title, Label: bucket.Time, Series: bucket.Series})
 	}
 	encodedPoints, err := json.Marshal(points)
 	if err != nil {

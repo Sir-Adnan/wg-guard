@@ -2,6 +2,10 @@ package i18n
 
 func init() {
 	rows := [][3]string{
+		{"users.form.creation_mode", "User creation method", "روش ساخت کاربر"},
+		{"users.form.mode_custom", "Standard", "معمولی"}, {"users.form.mode_template", "From template", "از روی قالب"},
+		{"users.form.choose_template", "Choose a template", "انتخاب قالب"},
+		{"users.form.template_required", "Choose a template or switch to Standard.", "یک قالب انتخاب کنید یا به حالت معمولی بروید."},
 		{"ifaces.editor.parameters", "Inspect and edit packet parameters", "بررسی و ویرایش پارامترهای بسته"},
 		{"ifaces.editor.sections", "Interface sections", "بخش‌های اینترفیس"}, {"ifaces.editor.general", "General", "عمومی"}, {"ifaces.editor.addresses", "Address pools", "بازه‌های آدرس"},
 		{"ifaces.editor.title", "IPv4 address pools", "بازه‌های آدرس IPv4"}, {"ifaces.editor.mode", "Primary pool mode", "حالت بازهٔ اصلی"}, {"ifaces.editor.automatic", "Automatic", "خودکار"}, {"ifaces.editor.custom", "Choose or enter a pool", "انتخاب یا واردکردن بازه"},

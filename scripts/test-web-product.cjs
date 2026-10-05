@@ -103,6 +103,7 @@ let stage = 'launch';
             stage = 'template selection ' + lang + ' ' + width + ' ' + surface;
             await goto(surface === 'page' ? '/users/new' : '/users');
             if (surface === 'drawer') await page.locator('[data-open-modal="create-drawer"]').first().click();
+            await page.locator('[data-user-create-tab="template"]').first().click();
             const select = page.locator('[data-user-template]').first();
             assert(await select.count() === 1, 'template choice is visible in creation flow');
             await select.selectOption(seed.plan);
@@ -122,7 +123,7 @@ let stage = 'launch';
               await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR,
                 'user-template-fa-320-' + surface + '.png') });
             }
-            await select.selectOption('');
+            await page.locator('[data-user-create-tab="custom"]').first().click();
             assert(await page.locator('#user-limits').first().isVisible() &&
               await page.locator('#user-timing').first().isVisible(), 'custom terms return');
             assert(!await page.locator('[name="traffic_limit_value"]').first().isDisabled(),

@@ -15,7 +15,7 @@
   <form method="post" action="{{if .Data.IsBulk}}/users/bulk{{else if .Data.IsEdit}}/users/{{.Data.User.ID}}/edit{{else}}/users{{end}}" class="form-stack operational-form" novalidate>
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     {{template "form_feedback" .}}
-    <nav class="form-progress" aria-label="{{.T "users.form.sections"}}"><a href="#user-account"><i>1</i>{{.T "users.form.section_account"}}</a>{{if not .Data.IsEdit}}<a href="#user-template-choice"><i>2</i>{{.T "users.form.template_choice"}}</a>{{end}}<a href="#user-limits" {{if not .Data.IsEdit}}data-user-manual-nav{{end}}><i>{{if .Data.IsEdit}}2{{else}}3{{end}}</i>{{.T "users.form.section_limits"}}</a><a href="#user-timing" {{if not .Data.IsEdit}}data-user-manual-nav{{end}}><i>{{if .Data.IsEdit}}3{{else}}4{{end}}</i>{{.T "users.form.section_timing"}}</a></nav>
+    {{if .Data.IsEdit}}<nav class="form-progress" aria-label="{{.T "users.form.sections"}}"><a href="#user-account"><i>1</i>{{.T "users.form.section_account"}}</a><a href="#user-limits"><i>2</i>{{.T "users.form.section_limits"}}</a><a href="#user-timing"><i>3</i>{{.T "users.form.section_timing"}}</a></nav>{{end}}
     {{template "user_create_fields" dict "v" . "d" .Data "edit" .Data.IsEdit "bulk" .Data.IsBulk}}
     <div class="form-actions form-actions--sticky">
       <a class="btn btn--ghost" href="{{if .Can "users.read"}}/users{{else}}/{{end}}">{{.T "common.cancel"}}</a>

@@ -29,16 +29,16 @@
         {{if or (eq .TitleKey "dash.host_network") (eq .TitleKey "dash.vpn_live") (eq .TitleKey "dash.activity")}}
         <div class="resource-pair">
           <div><span class="legend-item"><span class="swatch"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.users_online"}}{{else}}{{$.T "dash.rx"}}{{end}}</span><strong class="ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong></div>
-          <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.active_peers"}}{{else}}{{$.T "dash.tx"}}{{end}}</span><strong class="ltr-data">{{if .Second}}{{.Second}}{{else}}—{{end}}</strong></div>
+          <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.active_peers"}}{{else}}{{$.T "dash.tx"}}{{end}}</span><strong class="ltr-data">{{if .Second}}{{$.Human .Second}}{{else}}—{{end}}</strong></div>
         </div>
-        {{else}}<strong class="resource-value ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong>{{end}}
+        {{else}}<div class="resource-value-row"><strong class="resource-value ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong>{{.Gauge}}</div>{{end}}
         <p class="resource-meta">{{if .Meta}}<bdi>{{.Meta}}</bdi>{{else if .Percent}}{{$.T "dash.percent_scale"}}{{else}}{{$.T "dash.live_window"}}{{end}}</p>
     {{if .SVG}}<div class="spark-wrap interactive-chart">{{.SVG}}</div>{{else}}<div class="spark-empty">{{$.T "dash.metric_unavailable"}}</div>{{end}}
         <p class="chart-period ltr-data">{{$t.Window}}</p>
       </section>
       {{end}}
       <section class="card resource-card resource-disk">
-    <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{.IconS "hard-drive"}}</span><h3>{{.T "dash.disk"}}</h3></div><strong class="resource-value ltr-data">{{if $t.DiskValue}}{{$t.DiskValue}}{{else}}—{{end}}</strong>
+    <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{.IconS "hard-drive"}}</span><h3>{{.T "dash.disk"}}</h3></div><div class="resource-value-row"><strong class="resource-value ltr-data">{{if $t.DiskValue}}{{.Human $t.DiskValue}}{{else}}—{{end}}</strong>{{$t.DiskGauge}}</div>
         {{if $t.DiskFree}}<p class="resource-meta"><bdi>{{.T "dash.disk_free" $t.DiskFree}}</bdi></p><div class="meter {{$t.DiskClass}}" aria-hidden="true"><span class="bar"><span></span></span></div>{{else}}<p class="resource-meta">{{.T "dash.metric_unavailable"}}</p>{{end}}
         <dl class="resource-facts">
           <dt>{{.T "dash.uptime"}}</dt><dd><bdi>{{if $t.Uptime}}{{$t.Uptime}}{{else}}—{{end}}</bdi></dd>

@@ -2561,8 +2561,8 @@ body {
 .chart-inspector line { stroke: color-mix(in srgb, var(--fg) 42%, transparent); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 .chart-inspector circle { fill: var(--chart-first); stroke: var(--bg-elev); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .chart-inspector circle:nth-of-type(2), .chart-marker-tx { fill: var(--chart-second); }
-.chart-tooltip { position: absolute; z-index: 6; max-width: min(280px, calc(100% - 16px)); padding: 8px 11px; color: #fff; background: rgba(9,14,25,.92); border: 1px solid rgba(255,255,255,.13); border-radius: 10px; box-shadow: 0 14px 32px -12px rgba(0,0,0,.65); backdrop-filter: blur(10px); font-size: 12px; line-height: 1.55; font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; transform: translate(-50%, calc(-100% - 12px)) scale(.97); transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
-.chart-tooltip.is-visible { opacity: 1; transform: translate(-50%, calc(-100% - 12px)) scale(1); }
+.chart-tooltip { position:fixed; inset:auto; margin:0; z-index:var(--z-menu); inline-size:max-content; max-inline-size:min(24rem,calc(100vw - 16px)); max-block-size:calc(100dvh - 16px); overflow:auto; padding:var(--sp-3); color:var(--popover-fg,var(--fg)); background:var(--popover-bg,var(--bg-elev)); border:1px solid var(--border-strong); border-radius:var(--r-md); box-shadow:var(--shadow-2); font-size:var(--fs-xs); line-height:var(--lh-normal); font-variant-numeric:tabular-nums; pointer-events:none; opacity:0; transition:opacity var(--t-fast) var(--ease); }
+.chart-tooltip.is-visible { opacity:1; pointer-events:auto; }
 .spark-wrap { overflow: visible; }
 
 /* Public subscription as a compact connection pass. */

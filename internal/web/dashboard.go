@@ -327,6 +327,11 @@ func (s *Server) loadChart(r *http.Request, rangeKey string) dashChartData {
 			Title: s.bucketTitle(r, def.gran, t, v[0], v[1]),
 			RX:    v[0],
 			TX:    v[1],
+			Time:  s.bucketTime(r, def.gran, t) + " UTC",
+			Series: []chartInspectorValue{
+				{Name: s.t(r, "dash.rx"), Value: i18n.FormatBytes(s.localeFor(r), v[0]), Index: 0},
+				{Name: s.t(r, "dash.tx"), Value: i18n.FormatBytes(s.localeFor(r), v[1]), Index: 1},
+			},
 		}
 		out.RX += v[0]
 		out.TX += v[1]
@@ -350,15 +355,20 @@ func bucketLabel(loc i18n.Locale, gran string, t time.Time) string {
 // bucketTitle is the native tooltip over each bar group.
 func (s *Server) bucketTitle(r *http.Request, gran string, t time.Time, rx, tx int64) string {
 	loc := s.localeFor(r)
+	return fmt.Sprintf("%s · %s %s · %s %s", s.bucketTime(r, gran, t),
+		s.t(r, "dash.rx"), i18n.FormatBytes(loc, rx),
+		s.t(r, "dash.tx"), i18n.FormatBytes(loc, tx))
+}
+
+func (s *Server) bucketTime(r *http.Request, gran string, t time.Time) string {
+	loc := s.localeFor(r)
 	var when string
 	if gran == "hourly" {
 		when = i18n.FormatDateTime(loc, t, nil)
 	} else {
 		when = i18n.FormatDateLong(loc, t, nil)
 	}
-	return fmt.Sprintf("%s · %s %s · %s %s", when,
-		s.t(r, "dash.rx"), i18n.FormatBytes(loc, rx),
-		s.t(r, "dash.tx"), i18n.FormatBytes(loc, tx))
+	return when
 }
 
 func monthDayLabel(loc i18n.Locale, t time.Time) string {

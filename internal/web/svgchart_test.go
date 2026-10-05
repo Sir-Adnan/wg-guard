@@ -1,13 +1,49 @@
 package web
 
 import (
+	"encoding/json"
+	"html"
 	"html/template"
 	"math"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/telemetry"
 )
+
+func TestChartInspectorKeepsLocalizedRowsAndUnavailableGaps(t *testing.T) {
+	metric := func(value float64) telemetry.Metric { return telemetry.Metric{Available: true, Value: value} }
+	body := timedSparklineSVG([]sparkSeries{
+		{Class: "spark-primary", Label: "دریافتی <unsafe>", Values: []telemetry.Metric{metric(12), {}}, Display: []string{"12 MB/s", ""}},
+		{Class: "spark-secondary", Label: "Sent", Values: []telemetry.Metric{metric(5), metric(0)}, Display: []string{"5 MB/s", "0 MB/s"}},
+	}, "Network", 0, nil, 0)
+	match := regexp.MustCompile(`data-chart-points="([^"]+)"`).FindStringSubmatch(string(body))
+	if len(match) != 2 {
+		t.Fatal("inspector missing")
+	}
+	var points []chartInspectorPoint
+	if err := json.Unmarshal([]byte(html.UnescapeString(match[1])), &points); err != nil {
+		t.Fatal(err)
+	}
+	if len(points) != 2 || len(points[0].Series) != 2 || points[0].Series[0].Name != "دریافتی <unsafe>" || points[0].Series[0].Value != "12 MB/s" {
+		t.Fatal("exact localized series lost in structured inspector")
+	}
+	if points[1].Y[0] != nil || len(points[1].Series) != 1 || points[1].Series[0].Index != 1 || points[1].Series[0].Value != "0 MB/s" {
+		t.Fatal("unavailable first series must remain a gap, distinct from a valid zero")
+	}
+	if strings.Contains(string(body), "<unsafe>") {
+		t.Fatal("unsafe series text entered SVG markup")
+	}
+	for _, value := range []telemetry.Metric{{}, metric(math.NaN()), metric(math.Inf(1)), metric(-1)} {
+		if percentGaugeSVG(value) != "" {
+			t.Fatal("invalid metric produced a radial gauge")
+		}
+	}
+	if !strings.Contains(string(percentGaugeSVG(metric(150))), `stroke-dasharray="100.0 100"`) {
+		t.Fatal("radial gauge must clamp percentage geometry")
+	}
+}
 
 func TestTrafficChartSVG(t *testing.T) {
 	buckets := []chartBucket{

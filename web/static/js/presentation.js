@@ -13,10 +13,11 @@ let suppressedHelpFocus = null;
 function closeHelp() {
   clearTimeout(helpTimer);
   if (!activeHelp) return;
-  const { details, content } = activeHelp;
+  const { help, trigger, content } = activeHelp;
   if (typeof content.hidePopover === 'function' && content.matches(':popover-open')) content.hidePopover();
-  details.open = false;
-  delete details.dataset.helpPinned;
+  content.hidden = true;
+  trigger.setAttribute('aria-expanded', 'false');
+  delete help.dataset.helpPinned;
   activeHelp = null;
 }
 function positionHelp(content, trigger) {
@@ -26,43 +27,69 @@ function positionHelp(content, trigger) {
   const below = rect.bottom + 8;
   content.style.top = Math.max(8, below + box.height <= innerHeight - 8 ? below : rect.top - box.height - 8) + 'px';
 }
-function showHelp(details) {
-  if (activeHelp?.details === details) return;
+function showHelp(help) {
+  if (activeHelp?.help === help) return;
   closeHelp();
-  const content = details.querySelector('.field-help-content');
-  activeHelp = { details, content };
-  details.open = true;
+  const trigger = help.querySelector('.field-help-trigger');
+  const content = document.getElementById(trigger.getAttribute('aria-controls'));
+  activeHelp = { help, trigger, content };
+  content.hidden = false;
+  trigger.setAttribute('aria-expanded', 'true');
   if (typeof content.showPopover === 'function') {
     content.showPopover();
-    positionHelp(content, details.querySelector('summary'));
   }
+  positionHelp(content, trigger);
+}
+let guidanceSequence = 0;
+function guidanceHeading(host) {
+  return host.querySelector(':scope > .form-section-head > h2, :scope > .settings-section-head > h2') ||
+    host.querySelector(':scope > label[for]:not(.check-row):not(.switch-card), :scope > legend, :scope > h2, :scope > h3');
 }
 export function enhanceGuidance(root = document) {
   const selectors = '.field > .hint, .form-section > p.hint, .form-section > span.hint, form .section-description, .section-head .hint, [data-guidance]';
   root.querySelectorAll(selectors).forEach(copy => {
-    if (copy.closest('.field-help') || !copy.textContent.trim()) return;
+    if (copy.closest('.field-help,.field-help-content') || !copy.textContent.trim()) return;
     const host = copy.closest('.field') || copy.parentElement;
-    const label = host.querySelector('label,legend,h2,h3')?.textContent.trim() || '';
-    const help = document.createElement('details'); help.className = 'field-help';
-    const trigger = document.createElement('summary'); trigger.className = 'field-help-trigger';
+    const title = guidanceHeading(host);
+    // Essential descriptions and validation remain inline without a semantic
+    // anchor. Never create a free-standing question mark or move field errors.
+    if (!title || copy.matches('.field-error,.error,[role="alert"]') || copy.querySelector('.field-error,.error,[role="alert"]')) return;
+    const label = title.textContent.trim();
+    const help = document.createElement('span'); help.className = 'field-help';
+    const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'field-help-trigger';
     trigger.setAttribute('aria-label', (document.querySelector('meta[name="ui-field-help"]')?.content || 'Help for %s').replace('%s', label));
+    trigger.setAttribute('aria-expanded', 'false');
     const glyph = document.createElement('span'); glyph.textContent = '?'; glyph.setAttribute('aria-hidden', 'true'); trigger.append(glyph);
     const content = document.createElement('div'); content.className = 'field-help-content';
+    content.id = 'field-guidance-' + (++guidanceSequence); content.hidden = true;
+    trigger.setAttribute('aria-controls', content.id);
     if (typeof content.showPopover === 'function') content.setAttribute('popover', 'manual');
-    help.append(trigger, content);
-    const title = host.querySelector(':scope > label, :scope > legend, :scope > h2, :scope > h3');
-    if (title && title.tagName !== 'LEGEND') { const row = document.createElement('div'); row.className = 'field-label-row'; title.before(row); row.append(title, help); }
-    else copy.before(help);
+    help.append(trigger);
+    // Legend must stay the fieldset's first child and contain only phrasing
+    // content. Its help button is valid; the popover belongs outside the legend.
+    if (title.tagName === 'LEGEND') {
+      title.append(help); host.append(content);
+    } else if (title.parentElement.classList.contains('form-section-head')) {
+      title.parentElement.append(help, content);
+    } else {
+      let row = title.closest('.field-label-row');
+      if (!row) { row = document.createElement('div'); row.className = 'field-label-row'; title.before(row); row.append(title); }
+      row.append(help, content);
+    }
     content.append(copy);
     trigger.addEventListener('click', event => {
       event.preventDefault();
-      if (help.dataset.helpPinned && help.open) closeHelp(); else { showHelp(help); help.dataset.helpPinned = 'true'; }
+      if (help.dataset.helpPinned && trigger.getAttribute('aria-expanded') === 'true') closeHelp(); else { showHelp(help); help.dataset.helpPinned = 'true'; }
     });
     help.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') { clearTimeout(helpTimer); showHelp(help); } });
-    help.addEventListener('pointerleave', () => { if (!help.dataset.helpPinned) helpTimer = setTimeout(() => { if (!help.contains(document.activeElement)) closeHelp(); }, 250); });
+    const scheduleClose = () => { if (!help.dataset.helpPinned) helpTimer = setTimeout(() => { if (!help.contains(document.activeElement) && !content.contains(document.activeElement)) closeHelp(); }, 250); };
+    help.addEventListener('pointerleave', scheduleClose);
     content.addEventListener('pointerenter', () => clearTimeout(helpTimer));
+    content.addEventListener('pointerleave', scheduleClose);
     trigger.addEventListener('focus', () => { if (suppressedHelpFocus !== trigger) showHelp(help); });
-    help.addEventListener('focusout', event => { if (!help.contains(event.relatedTarget)) closeHelp(); });
+    const onFocusOut = event => { if (!help.contains(event.relatedTarget) && !content.contains(event.relatedTarget)) closeHelp(); };
+    help.addEventListener('focusout', onFocusOut);
+    content.addEventListener('focusout', onFocusOut);
   });
 }
 export function enhanceSectionTabs(root = document) {
@@ -150,8 +177,8 @@ export function enhanceChoiceMenus(root = document) {
 }
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && activeChoiceMenu) { closeChoiceMenu(true); event.preventDefault(); event.stopPropagation(); return; }
-  if (event.key === 'Escape' && activeHelp) { const trigger = activeHelp.details.querySelector('summary'); closeHelp(); event.preventDefault(); event.stopPropagation(); suppressedHelpFocus = trigger; trigger.focus(); queueMicrotask(() => { suppressedHelpFocus = null; }); }
+  if (event.key === 'Escape' && activeHelp) { const trigger = activeHelp.trigger; closeHelp(); event.preventDefault(); event.stopPropagation(); suppressedHelpFocus = trigger; trigger.focus(); queueMicrotask(() => { suppressedHelpFocus = null; }); }
 }, true);
-document.addEventListener('pointerdown', event => { if (activeHelp && !activeHelp.details.contains(event.target)) closeHelp(); if (activeChoiceMenu && !activeChoiceMenu.contains(event.target)) closeChoiceMenu(); }, true);
+document.addEventListener('pointerdown', event => { if (activeHelp && !activeHelp.help.contains(event.target) && !activeHelp.content.contains(event.target)) closeHelp(); if (activeChoiceMenu && !activeChoiceMenu.contains(event.target)) closeChoiceMenu(); }, true);
 window.addEventListener('resize', () => { closeHelp(); closeChoiceMenu(); });
 document.body.addEventListener('htmx:beforeSwap', () => { closeHelp(); closeChoiceMenu(); });

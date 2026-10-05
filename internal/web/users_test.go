@@ -15,6 +15,25 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 )
 
+func TestTemplateCreationModeRequiresSelection(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	form := url.Values{"username": {"template-missing"}, "creation_mode": {"template"}, "auto_devices": {""}}
+	response := e.post("/users", form, cookie, deriveCSRF(cookie.Value))
+	if response.Code < 400 || !strings.Contains(response.Body.String(), "Choose a template or switch to Standard.") {
+		t.Fatal("empty template mode must retain a visible selection error")
+	}
+	var count int
+	if err := e.db.QueryRow(`SELECT COUNT(*) FROM users WHERE username = 'template-missing'`).Scan(&count); err != nil || count != 0 {
+		t.Fatal("empty template mode silently created an unlimited user")
+	}
+	form.Set("creation_mode", "custom")
+	if rec := e.post("/users", form, cookie, deriveCSRF(cookie.Value)); rec.Code != http.StatusSeeOther {
+		t.Fatal("Standard mode must still allow manually unlimited terms")
+	}
+}
+
 // create a user through the real form flow, return its id.
 func createUserViaForm(t *testing.T, e *env, cookie *http.Cookie, username string) string {
 	t.Helper()
@@ -143,9 +162,10 @@ func TestSelectedTemplateControlsCreatedUserAndBulkTerms(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := e.get("/users/new", owner).Body.String()
-	if strings.Index(page, `id="user-template-choice"`) < 0 ||
-		strings.Index(page, `id="user-template-choice"`) > strings.Index(page, `id="user-limits"`) {
-		t.Fatal("template selection must precede manual limits")
+	for _, mode := range []string{`data-user-create-tab="custom"`, `data-user-create-tab="template"`, `id="user-template-choice"`} {
+		if !strings.Contains(page, mode) {
+			t.Fatal("creation mode control missing")
+		}
 	}
 	form := url.Values{
 		"username": {"template-user"}, "template_id": {p.ID}, "auto_devices": {"1"},

@@ -17,7 +17,7 @@
 </div>
 
 {{if .Data.Rows}}
-<div class="collection-head"><div><span class="eyebrow">{{.T "ifaces.list_hint"}}</span><h2>{{$.N (i64u (len .Data.Rows))}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.Data.Enabled}} {{.T "forms.enabled"}}</span></div>
+<div class="collection-head"><div><span class="eyebrow">{{.T "ifaces.list_hint"}}</span><h2>{{$.N (i64u (len .Data.Rows))}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.N (i64u .Data.Enabled)}} {{.T "forms.enabled"}}</span></div>
 <div class="table-wrap collection entity-collection">
   <table class="table table--cards entity-table ifaces-table">
     <thead>
@@ -51,12 +51,16 @@
 {{$row := .row}}{{$i := $row.I}}{{$v := .v}}
 <tr>
   <td class="card-title" data-label="{{$v.T "ifaces.name"}}">
+    <div class="iface-identity">
     {{if $v.Can "interfaces.write"}}<a class="entity-link ltr-data" href="/interfaces/{{$i.ID}}/edit">{{$v.IconS "network"}}<span>{{$i.Name}}</span></a>{{else}}<span class="entity-link">{{$v.IconS "network"}}<span>{{$i.Name}}</span></span>{{end}}
+    <div class="iface-metadata">
     {{if $i.Enabled}}<span class="badge badge--ok">{{$v.T "ifaces.status_enabled"}}</span>{{else}}<span class="badge">{{$v.T "ifaces.status_disabled"}}</span>{{end}}
-    <span class="cell-sub ltr-data">MTU {{$i.MTU}}</span>
+    <bdi class="cell-sub ltr-data" dir="ltr">MTU {{$i.MTU}}</bdi>
+    </div>
+    </div>
   </td>
   <td data-label="{{$v.T "ifaces.port"}}" ><bdi class="ltr-data">{{$i.ListenPort}} <span class="text-subtle">UDP</span></bdi></td>
-  <td data-label="{{$v.T "ifaces.subnet"}}" >{{range $i.Pools}}<span class="cell-sub"><bdi class="ltr-data">{{.}}</bdi></span>{{end}}{{if $row.Pools}}<span class="cell-sub">{{$v.T "ifaces.pools.capacity" $row.Free $row.Capacity}}</span>{{if not $row.Free}}<span class="badge badge--danger">{{$v.T "ifaces.pools.full"}}</span>{{end}}{{end}}</td>
+  <td data-label="{{$v.T "ifaces.subnet"}}"><div class="iface-network"><div class="iface-pools">{{range $i.Pools}}<bdi class="ltr-data" dir="ltr">{{.}}</bdi>{{end}}</div>{{if $row.Pools}}<span class="cell-sub">{{$v.T "ifaces.pools.capacity" $row.Free $row.Capacity}}</span>{{if not $row.Free}}<span class="badge badge--danger">{{$v.T "ifaces.pools.full"}}</span>{{end}}{{end}}</div></td>
   <td data-label="{{$v.T "ifaces.obfuscation"}}">
     {{if $i.Obfuscation.Enabled}}
     <span class="badge badge--info">{{$v.IconS "shield"}}{{if $i.Preset}}{{$v.T (printf "ifaces.profile.%s" $i.Preset)}}{{else}}{{$v.T "ifaces.obfuscation_on"}}{{end}}</span>
