@@ -268,7 +268,7 @@ isolation is local, and host resource/kernel/client acceptance moved to Phase 20
 
 Behavior-preserving refactor: shared node-data sessions, one runtime-apply coordinator with
 desired/applied observations, sealed device-key provisioning, centralized managed paths and
-separate deployment/diagnostic adapters. Completed 2026-10-04 within its source scope with exact
+separate deployment/diagnostic adapters. Completed 2026-10-05 within its source scope with exact
 CI; shipped in v0.1.10. Detailed record: [docs/development/phase16.md](docs/development/phase16.md).
 
 ### Phase 17 — Docker-only distribution and native cleanup
@@ -321,8 +321,8 @@ none is implied by the v0.1.10 support claim.
   active firewalld, physical mobile apps and Firefox for later UI phases, 1000 simultaneous
   handshakes, multi-day soak and an observed long-interval CA renewal.
 - **Doctor peer-count warning:** the runtime-peer versus enabled-device comparison is
-  eligibility-blind (expired/over-quota devices are counted); authoritative reconciliation is
-  unaffected, but the heuristic can warn falsely.
+  expiry-aware but otherwise eligibility-blind; authoritative reconciliation and readiness are
+  unaffected, but the heuristic can warn about intentionally absent peers.
 - **Distribution:** no official registry image is published; releases ship verified offline
   image assets.
 - **Deferred products:** remote AmneziaWG nodes, native WireGuard, Xray/sing-box/OpenVPN and
