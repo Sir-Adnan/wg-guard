@@ -2,7 +2,7 @@
 
 One Go binary (`wg-guard`), one process: HTTP server (panel + REST API), authentication,
 scheduler, quota manager, accounting, webhook dispatcher, and AWG management. SQLite for
-persistence. AmneziaWG is driven through its pinned CLI as a subprocess. Current main uses Docker-only production deployment; the historical v0.1.9 preparation release
+persistence. AmneziaWG is driven through its pinned CLI as a subprocess. Since v0.1.10, production deployment is Docker-only; the historical v0.1.9 preparation release
 retains its earlier deployment contract. Decisions and their rationale live in
 [../decisions/](../decisions/); this document describes the shape.
 

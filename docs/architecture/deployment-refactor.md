@@ -1,8 +1,8 @@
 # Docker deployment refactor target
 
 Owner-selected product scope, revised after critical review on 2026-10-04.
-Phase 17 implements the source deployment boundary; shipped v0.1.9 retains the preparation
-contract. Phase 18 adds source domain/TLS management; real-host acceptance remains a later gate. Phase
+Phases 17–20 implemented, host-accepted and published this target in v0.1.10; v0.1.9 retains
+the preparation contract. The host matrix is in [Phase 20](../development/phase20.md). Phase
 order, milestones and exit gates are in the [Phases 15–20 program](../development/refactor-program.md).
 The owner operates one server
 and will export a verified backup, rebuild it, install the new distribution and
@@ -173,8 +173,8 @@ leases or explicitly document weaker semantics; unavailable statistics are not z
 The sequence above is subordinate to the detailed [phase gates](../development/refactor-program.md):
 Phase 15 reliability/migration, 16 internal boundaries, 17 distribution/deployment,
 18 integrated domains/TLS, 19 operational UX and 20 real-host acceptance/publication.
-Certificate management in the web panel is a planned feature, with the current
-limits and target behavior in [domains and TLS](../operations/domains-and-tls.md).
+Certificate management in the web panel shipped in v0.1.10; its limits and behavior
+are in [domains and TLS](../operations/domains-and-tls.md).
 
 References: [deployment](../operations/deployment.md),
 [recovery](../operations/lifecycle-recovery.md), [backup](../operations/backup-restore.md),

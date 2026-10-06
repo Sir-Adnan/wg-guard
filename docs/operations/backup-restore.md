@@ -90,8 +90,7 @@ rows are included. Temporary files are removed on success or ordinary failure.
 
 Success covers portable data, not the target kernel/TLS/network or client traffic.
 Certificates, DKMS and Docker images are not archive members. The
-[refactor target](../architecture/deployment-refactor.md) describes planned packaging;
-current installation paths have not changed in this preparation update.
+[deployment target](../architecture/deployment-refactor.md) describes the v0.1.10 packaging.
 
 - **Manual** — Dashboard can create and download a fresh archive in one action; the Backups page
   also creates local archives. CLI equivalent: `wg-guard backup create [--password] [--output …]`.
@@ -417,9 +416,9 @@ deliberate cleanup; they may contain unencrypted keys and WAL data.
 
 ## Server migration & disaster recovery
 
-For the planned Docker refactor, follow the [owner preparation drill](migration-preparation.md)
+To move a pre-v0.1.10 node to the Docker-only layout, follow the [owner preparation drill](migration-preparation.md)
 before any rebuild. A downloaded archive, saved off-host password and independent verification
-are prerequisites; current main preparation is not a new public target release.
+are prerequisites.
 
 Migrating = fresh install on the new server + restore + environment review. Because client
 configs are generated on demand from current settings, confirming the public endpoint during
@@ -452,4 +451,5 @@ skipped. Target boot/TLS stays active; archived config becomes `.restored` for
 review. Private staging keeps no password and is removed on ordinary completion/
 failure; interrupted staging remains private for operator inspection. No archive
 schema or public REST endpoint changes. Tests cover preserved device/customer/
-usage/access data; actual target-host/client acceptance remains Phase 20.
+usage/access data; the corrected Ubuntu 24.04 target-host/client acceptance is in
+[Phase 20](../development/phase20.md).

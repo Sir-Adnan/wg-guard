@@ -183,7 +183,7 @@ reconciliation fails, rather than reviving old credentials.
   and neither a Docker socket nor privileged execution is granted. New-profile real-host
   networking/resource acceptance remains separate from source/fake-container checks.
 
-## Domain/certificate management on current main
+## Domain/certificate management (v0.1.10+)
 
 The [Phase 18 implementation](domains-and-tls.md) uses a separate owner-only
 certificate mailbox, not a general host executor or extension of the update
@@ -206,9 +206,9 @@ role routing denies private/admin/API/login/traversal on a dedicated public name
 including existing connections after retirement. Enrollment is not hostname
 approval. Replaced/removed owned CA lineages stop renewing; unreferenced immutable
 pairs are pruned only after terminal recovery. External gateway TLS is explicitly
-unverified and operator-owned. Source/local TLS/browser proof is distinct from
-Phase 20 physical CA/network/kernel/client acceptance; latest stable v0.1.9 does
-not ship these new rights. See [Phase 18 evidence](../development/phase18.md).
+unverified and operator-owned. These rights ship in v0.1.10 (not v0.1.9). Source/browser
+proof is in [Phase 18](../development/phase18.md); real HTTP-01 CA, SNI/route isolation,
+renewal/replacement and reboot acceptance are in [Phase 20](../development/phase20.md).
 
 ## Dependency discipline
 
@@ -216,7 +216,7 @@ Every dependency justified (binary size, transitive deps, maintenance, security 
 pinned versions; `govulncheck` in CI; no vendoring of GPL components (executed, not linked).
 
 
-Fresh-target archive installation on current main verifies private offline staging
+Fresh-target archive installation (v0.1.10+) verifies private offline staging
 before host mutation, requires an enabled source owner and applies only to an
 empty DB/key target under exclusive ownership. Archived boot config is inactive;
 no password/token/default owner is invented and no stored data is reseeded.

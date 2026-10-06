@@ -1,7 +1,7 @@
 # Release-readiness program
 
-Living tracker for completed releases through Phase 14 and the planned
-[Phases 15–20 refactor](refactor-program.md). `ROADMAP.md` owns phase order and gates;
+Living tracker for completed releases through Phase 14 and the completed
+[Phases 15–20 refactor](refactor-program.md) (v0.1.10). `ROADMAP.md` owns phase order and gates;
 this document owns cross-phase requirement coverage, release blockers, audit findings, and
 verification state. Phase execution details live in the corresponding phase document.
 
@@ -69,7 +69,7 @@ further release authorization.
 | 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
-| 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
+| 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; host resource/kernel/client acceptance completed in Phase 20 |
 | 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
 | 17 — Docker-only/native cleanup | source/image/CI and Phase 20 host gates passed; v0.1.10 public | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | listed Phase 20 HTTP-01/SNI/renewal/replacement host gates passed; v0.1.10 public | Unobserved external/DNS-01/long-interval renewal cells excluded |

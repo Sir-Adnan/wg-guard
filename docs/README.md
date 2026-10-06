@@ -15,8 +15,8 @@ Implementation and test evidence must support any claimed behavior.
 | Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
 | Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
 | Refactor phases, scope and acceptance | [Refactor program, Phases 15–20](development/refactor-program.md); [architecture target](architecture/deployment-refactor.md) |
-| Prepare an off-host backup before the planned refactor | [Migration preparation drill](operations/migration-preparation.md) |
-| Different panel/subscription domains or certificate paths | [Domains and TLS](operations/domains-and-tls.md), separating current main from the published preparation release |
+| Move a pre-v0.1.10 node through an off-host backup | [Migration preparation drill](operations/migration-preparation.md) |
+| Different panel/subscription domains or certificate paths | [Domains and TLS](operations/domains-and-tls.md) (v0.1.10+; v0.1.9 keeps its single-domain flow) |
 
 ## Reference index
 
@@ -45,8 +45,8 @@ Implementation and test evidence must support any claimed behavior.
 [migration preparation](operations/migration-preparation.md) ·
 [security](operations/security.md).
 
-**Planned refactor:** [Phase 15–20 execution program](development/refactor-program.md) ·
-[implemented domain/TLS contract](operations/domains-and-tls.md).
+**Completed refactor (v0.1.10):** [Phase 15–20 execution program](development/refactor-program.md) ·
+[acceptance record](development/phase20.md) · [domain/TLS contract](operations/domains-and-tls.md).
 
 **Development and current claims:** [workflow](development/workflow.md) ·
 [testing](development/testing.md) · [status](development/status.md) ·

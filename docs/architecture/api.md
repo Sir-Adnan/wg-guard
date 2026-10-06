@@ -557,7 +557,7 @@ that understands OpenAPI 3.2; existing HTTP clients do not change.
 
 ## HTTPS origin authority
 
-Current main's owner-only domain policy controls generated public subscription
+Since v0.1.10, the owner-only domain policy controls generated public subscription
 links when enabled. `subscription.base_url` remains a URL-generation fallback
 for deployments without that policy; it never issues TLS or approves a hostname.
 The REST subscription responses still return relative `/sub/{token}` paths.

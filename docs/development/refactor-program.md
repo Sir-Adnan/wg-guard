@@ -1,8 +1,9 @@
 # WG-Guard refactor program — Phases 15–20
 
 Planning baseline: 2026-10-04. This program follows completed Phases 0–14 and the
-critical architecture review. It is an execution plan, not evidence that its target
-features are implemented. Current support remains in [status](status.md).
+critical architecture review. All six phases are complete within their recorded
+evidence and shipped in v0.1.10; current support remains in [status](status.md) and
+the host matrix in [Phase 20](phase20.md).
 
 ## Scope and decisions
 
@@ -88,7 +89,7 @@ No dates, performance promises, release numbers or completion percentages are in
   delayed webhook/Telegram receivers and 512 fake-backend devices at GOMAXPROCS=1.
   Quota enforcement and expiry stay within the 15 s cadence; peak RSS includes KDF
   memory. Stale/future accounting observations are unavailable rather than healthy.
-  Actual VPS/kernel/client lag and peak-resource certification remain Phase 20 gates.
+  Actual VPS/kernel/client lag and peak resources were measured in [Phase 20](phase20.md).
 - [x] Consolidate encrypted-storage definitions for startup, archive inspection and
   bounded node rotation, with secret-settings parity. Rotation now covers customer
   links/webhooks and safely completes an interrupted window without replacing its
@@ -271,8 +272,8 @@ No public backup/bot certificate API is added by this plan.
 - [x] Keep acquisition, broker recovery and logs usable without a healthy web panel.
 
 Implementation and fresh/reused/unrun evidence: [Phase 19](phase19.md). These
-checks cover source/isolated terminal/browser behavior; actual owner migration
-and physical host/network/client acceptance remain Phase 20.
+checks cover source/isolated terminal/browser behavior; physical host/network/client
+acceptance is recorded in [Phase 20](phase20.md).
 
 Exit: actual terminal cancellation/redirect/secret/failure fixtures, affected browser
 matrix and no-JS fallback, and a documented operator journey with no hidden steps.

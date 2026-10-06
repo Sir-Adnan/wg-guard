@@ -1,4 +1,4 @@
-> Current source is Docker-only; v0.1.9 retains its preparation-era layout. Existing
+> v0.1.10 and later are Docker-only; v0.1.9 retains its preparation-era layout. Existing
 > state/layout is not converted in-place; export and verify off-host with the original
 > manager before a fresh install/restore. Phase 20 records the new host acceptance.
 

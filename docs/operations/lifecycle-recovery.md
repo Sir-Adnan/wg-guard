@@ -124,7 +124,7 @@ contains command errors; **Lifecycle outcomes** intentionally contains only safe
 Source acquisition precedes the update journal's deployment stages. A compiler/download
 failure at that point does not mean the panel was stopped or data were replaced; inspect
 the installed version and current health rather than invoking rollback on an old journal.
-Current main records bounded redacted acquisition errors in the installer log and stages
+v0.1.10 records bounded redacted acquisition errors in the installer log and stages
 in `/var/cache/wg-guard/staging`. Managers before this correction can have only unrelated
 older host-command output in that log. A small or quota-limited RAM-backed `/tmp` is
 independent of free root-disk space; see the [acquisition guide](github-install.md).

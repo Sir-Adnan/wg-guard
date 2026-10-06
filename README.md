@@ -27,7 +27,7 @@ recovery without turning the server into a large application stack.
 | 🧹 | **Reviewed maintenance** — combined account/history cleanup with status, owner and date filters, impact previews, and database space maintenance |
 | 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, ten optional visual presets, desktop and mobile |
 
-> Current `main` uses Docker-only deployment and the new private host layout.
+> Since v0.1.10, WG-Guard uses Docker-only deployment and the new private host layout.
 > Existing schema-1–3/native deployments must export and verify an off-host backup with
 > their original manager, then use fresh installation/restore. The Ubuntu 24.04
 > kernel/userspace and recovery matrix is recorded in [Phase 20](docs/development/phase20.md).

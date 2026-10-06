@@ -26,21 +26,21 @@ unverified work. Detailed release-readiness tracking lives in
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
 | **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
 | **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; security in v0.1.2, integration in v0.1.3, template/direct-entitlement follow-up in v0.1.4 after exact-source CI and release gates |
-| **15 — Operational safety and migration preparation** | Complete portable backup checks, pre-migration ordering, readiness and slow-job isolation | Active; archive preparation on main, remaining gates open |
-| **16 — Modular responsibility boundaries** | Shared application operations, desired/applied state, host/runtime/lifecycle separation and centralized paths | Planned |
-| **17 — Docker-only distribution and native cleanup** | One image recipe, exact provenance, complete native lifecycle/flags/state/tests cleanup and independent host recovery | Planned; native removal explicitly confirmed |
-| **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | Planned |
-| **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | Planned |
-| **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | Planned |
+| **15 — Operational safety and migration preparation** | Complete portable backup checks, pre-migration ordering, readiness and slow-job isolation | ✅ Complete; preparation release v0.1.9 published |
+| **16 — Modular responsibility boundaries** | Shared application operations, desired/applied state, host/runtime/lifecycle separation and centralized paths | ✅ Complete; shipped in v0.1.10 |
+| **17 — Docker-only distribution and native cleanup** | One image recipe, exact provenance, complete native lifecycle/flags/state/tests cleanup and independent host recovery | ✅ Complete; native removed; shipped in v0.1.10 |
+| **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | ✅ Complete; HTTP-01 host-verified; shipped in v0.1.10 |
+| **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | ✅ Complete; shipped in v0.1.10 |
+| **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | ✅ Complete for Ubuntu 24.04 amd64 Docker scope; v0.1.10 published |
 
 The [refactor program](docs/development/refactor-program.md) defines Phase 15–20
 milestones, dependencies and exit evidence. Historical Phases 0–14 remain complete
-within their recorded scopes; planned refactor features are not current support.
+within their recorded scopes. Phases 15–20 are complete within the matrix recorded in
+[Phase 20](docs/development/phase20.md) and ship in v0.1.10; excluded cells are not support claims.
 The [revised architecture target](docs/architecture/deployment-refactor.md) and
 [domain/TLS specification](docs/operations/domains-and-tls.md) govern that work.
-Native production removal is implemented in unreleased Phase 17 source, with
-image/source checks distinct from physical acceptance. No new release, registry upload or live-server
-rebuild is implied. Detailed inventory: [Docker-only cleanup](docs/architecture/docker-only-cleanup.md).
+Native production removal shipped in v0.1.10; no official registry image is published.
+Detailed inventory: [Docker-only cleanup](docs/architecture/docker-only-cleanup.md).
 
 ## Phase gates
 

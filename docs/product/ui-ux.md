@@ -12,8 +12,8 @@ system. Its Phase 18–19 domain/TLS workspace ships in v0.1.10: independent pan
 subscription cards, automatic/manual/external choices, certificate metadata and
 safe operation/recovery status, with advanced controlled cert/key paths when useful.
 Do not display private material or make operators edit Nginx/Compose for the
-standard same-host workflow. These controls are absent from published preparation v0.1.9;
-physical CA/host acceptance remains Phase 20.
+standard same-host workflow. These controls are absent from preparation v0.1.9;
+physical CA/host acceptance is recorded in [Phase 20](../development/phase20.md).
 The [domain/TLS contract](../operations/domains-and-tls.md) defines role/ownership
 and verification boundaries for implementation.
 

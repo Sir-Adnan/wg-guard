@@ -159,12 +159,12 @@ in the web panel.
 
 ## Panel access & HTTPS
 
-Current main adds [independent domains and HTTPS](domains-and-tls.md) through
+v0.1.10 adds [independent domains and HTTPS](domains-and-tls.md) through
 `wg-guard domains status|configure|renew|remove|recover` and the owner page. The
 initial access wizard still establishes the HTTPS topology. Once a domain policy
 is active, that wizard refuses to discard it; use the domain service instead.
 The recovery manager dispatches a pending domain journal to `domains recover`.
-Latest stable v0.1.9 retains its original single-domain management flow.
+v0.1.9 and earlier retain the original single-domain management flow.
 
 The recommended post-install wizard presents product choices rather than raw TLS modes:
 
