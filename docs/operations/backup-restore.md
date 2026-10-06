@@ -265,7 +265,7 @@ are excluded from public text and structured warning logs.
 
 ## Restore (panel wizard and CLI share one engine)
 
-### Panel workbench (current unreleased main)
+### Panel workbench (v0.1.10+)
 
 The panel separates **Archives**, **Verify & restore**, **Schedules** and **Delivery**
 with native server navigation; all journeys work without JavaScript. Archives use
@@ -316,7 +316,8 @@ archive during exclusive rotation; active replacement still requires exclusive d
 ownership. Private approval/cancellation, offline apply and interrupted recovery share
 an additional work-byte claim. Purge excludes both inspection and review work and
 post-admission tombstones are checked; no lock inode is replaced or removed.
-These are source/local-test guarantees; fresh-host/client acceptance remains Phase 20.
+These are source/local-test guarantees; the corrected fresh-target and coordinated
+restore host scope is recorded in [Phase 20](../development/phase20.md).
 
 The panel accepts a downloaded `.wgg` file from another node. The authenticated `backup.manage`
 form validates CSRF before reading the file, streams it into the private local sink under a fresh
@@ -443,7 +444,7 @@ normally run with the host manager, so large archive expansion uses private disk
 
 ## Fresh-target installation from archive
 
-Current unreleased main offers the [terminal install-from-backup journey](terminal-management.md#install-from-a-verified-backup-current-main-unreleased).
+v0.1.10 and later offer the [terminal install-from-backup journey](terminal-management.md#install-from-a-verified-backup-v0110).
 It prepares an offline validated archive before host installation, requires an
 enabled source owner, refuses existing target data and applies the DB/key under
 exclusive ownership before managed listener start. Defaults/owner seeding are

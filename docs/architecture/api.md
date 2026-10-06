@@ -198,9 +198,9 @@ GB, speed Kbps or calendar dates.
 conditional cancellation and pagination routes are browser forms, not token-authenticated
 integration endpoints. They do not change REST request/response schemas or add API scopes;
 OpenAPI remains unchanged for this workbench refactor. See the
-[backup contract](../operations/backup-restore.md#panel-workbench-current-unreleased-main).
+[backup contract](../operations/backup-restore.md#panel-workbench-v0110).
 
-## Operational status (current unreleased main)
+## Operational status (v0.1.10+)
 
 `GET /api/v1/node/status` requires `node.read`, is node-wide (reseller-bound tokens
 are denied), and sends `Cache-Control: no-store`. HTTP 200 means a snapshot was

@@ -1,17 +1,18 @@
 # Refactor migration preparation
 
 This is the owner's preparation drill for one existing node, not authorization to
-rebuild a host. The Docker-only source is implemented but unreleased and not yet real-host certified. Use the current
+rebuild a host. The Docker-only layout is published in v0.1.10 with the Ubuntu 24.04 host scope
+recorded in [Phase 20](../development/phase20.md). Use the current
 [status](../development/status.md) and [refactor gates](../development/refactor-program.md);
 do not rebuild until the target release, data verification and acceptance are ready.
 The independent `backup verify` and safety corrections are published in v0.1.9.
 Use that preparation release to export/verify the existing server before any rebuild;
 new target publication still needs its own authorization and acceptance gate.
 
-Current unreleased main also offers a [panel verification workbench](backup-restore.md#panel-workbench-current-unreleased-main),
+v0.1.10 also offers a [panel verification workbench](backup-restore.md#panel-workbench-v0110),
 saved restore reports and source-owner preflight. Verifying the copy retained on the
 server does not replace step 5's independent verification of the downloaded off-host
-copy. No new release is implied by these panel improvements.
+copy.
 
 ## Capture a recoverable copy
 
@@ -66,7 +67,7 @@ Docker images, OS routes/firewall configuration or host lifecycle state. Preserv
 manual certificate files privately or plan fresh issuance; preserve DNS/proxy/tunnel
 requirements separately. Keep endpoint routing and subscription/admin hostname
 roles explicit. The [domain/TLS guide](domains-and-tls.md) describes current limits
-and current unreleased management workflow.
+and the v0.1.10 management workflow.
 
 Review the target release's supported OS/core/backend requirements, installation
 paths, restore contract and certificate/network setup. Independent data verification
@@ -74,7 +75,7 @@ does not establish that those target requirements are installed. Stock WireGuard
 remote nodes and other VPN engines are outside this refactor's current scope.
 
 Once the preparation/target gates pass and the owner separately authorizes the
-rebuild, install the approved target on the fresh host. Current unreleased main can use `install --from-backup ARCHIVE` before
+rebuild, install the approved target on the fresh host. v0.1.10 can use `install --from-backup ARCHIVE` before
 listener start, preserving source owners/settings while reviewing target HTTPS
 separately. Otherwise use the supported restore
 workflow from [backup/restore](backup-restore.md) and

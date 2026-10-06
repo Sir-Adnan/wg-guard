@@ -1,10 +1,21 @@
 # Phase 20 — Refactor acceptance evidence
 
-Status on 2026-10-06: **corrected isolated Ubuntu 24.04 Docker/kernel/userspace host
-acceptance passed within the matrix below; final source/publication gates pending**.
+Status on 2026-10-06: **complete within the matrix below; published as v0.1.10**.
 The [execution program](refactor-program.md#phase-20--certification-migration-and-publication)
-still owns the remaining acceptance requirements. Phases 15–19 source/CI evidence
-remains in its existing records and is not replayed or relabelled here.
+owns the acceptance requirements; excluded cells below remain unverified.
+Phases 15–19 source/CI evidence remains in its existing records and is not
+replayed or relabelled here.
+
+## Publication
+
+Exact released source `4f78adcc4add323035e43f5404f75392938207ee` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37460729245) and the
+[manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37461855976). All seven public
+assets were independently downloaded: tag→commit, six checksums, release/runtime metadata,
+SBOM root and runtime image config identity matched; binary SHA-256
+`53675169480beb3ff41b7b8d43f5a76be1c9553643834e263a06e59dcf845e9b`, image
+`sha256:d3645ff85c36d62efd0d99fddf4c908f4b54894798664e517b399a586476bff6`.
+v0.1.10 is Latest stable (published 2026-10-06). No registry image was published.
 
 ## Completed host scope
 
@@ -48,8 +59,8 @@ and pinned kernel/userspace builds. Native deployment, Ubuntu 26.04/`7.0.0-38`,
 IPv6, DNS-01, external proxy/firewall coexistence, physical mobile apps, simultaneous
 1000-client handshakes, multi-day soak and an observed long-interval CA renewal
 remain excluded/unverified. The isolated target was explicitly owner-authorized;
-no original customer server was rebuilt. Exact final main/release workflow and
-independent public version/tag/asset verification still gate publication.
+no original customer server was rebuilt. Exact main/release workflow and independent
+public version/tag/asset verification passed (see Publication).
 
 ## Post-acceptance source change
 

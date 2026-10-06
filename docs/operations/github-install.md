@@ -77,8 +77,8 @@ The `--` separates bootstrap selection from installer flags. Supplying setup fla
 directly; with no forwarded flags, the manager menu offers the same choice. `--release latest` is
 implicit in the guided installation command. New-format releases supply a verified offline image asset; explicit commit builds use the one
 embedded recipe. There is no official registry image to pull. The removed `--mode` flag fails
-before acquisition. Latest stable v0.1.9 retains its preparation-era manager; use its tagged
-guide on an existing node, not the unreleased new manager.
+before acquisition. v0.1.9 and earlier retain the preparation-era manager; on such a node use
+its tagged guide to export/verify, not the v0.1.10 manager, then fresh-install/restore.
 
 For an **exact release**, pin both the entry script and the selected asset to the tag:
 

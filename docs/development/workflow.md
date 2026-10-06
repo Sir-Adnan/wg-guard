@@ -116,6 +116,15 @@ On 2026-10-05 the owner conditionally requested v0.1.10 after remaining work and
 acceptance gates are complete. This overrides the earlier no-further-release scope
 for v0.1.10 only. Their subsequent fresh-install/restore/client report and the
 remaining physical boundaries are recorded in [Phase 20](phase20.md).
+Exact released source `4f78adcc4add323035e43f5404f75392938207ee` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37460729245) and the
+[manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37461855976). All seven public
+assets were independently downloaded: tag→commit, six checksums, release/runtime metadata,
+SBOM root and runtime image config identity matched; binary SHA-256
+`53675169480beb3ff41b7b8d43f5a76be1c9553643834e263a06e59dcf845e9b`, image
+`sha256:d3645ff85c36d62efd0d99fddf4c908f4b54894798664e517b399a586476bff6`.
+v0.1.10 is Latest stable (published 2026-10-06). No registry image was published.
+This authorization covers v0.1.10 only; later versions and registry images need their own scope.
 
 Keep commits coherent and imperative (`feat(user): …`, `fix(api): …`, `docs: …`, `build: …`). Do not
 knowingly deliver broken code, but an extra full local build/test cycle is not required for every

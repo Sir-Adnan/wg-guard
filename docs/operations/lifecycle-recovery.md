@@ -309,7 +309,7 @@ trusted domain certificate, reused its protected cache after restart and rejecte
 manual-certificate change while preserving healthy HTTPS.
 
 
-## Independent domain recovery (current main, unreleased)
+## Independent domain recovery (v0.1.10+)
 
 A `domains` journal retains boot/Compose/approved policy and certificate-hook
 recovery together. Candidate validation does not stop the working listener;

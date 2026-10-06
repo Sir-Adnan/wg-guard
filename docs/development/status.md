@@ -1,13 +1,14 @@
 # Product and verification status
 
-**v0.1.10 candidate (2026-10-06):** Phase 20's explicitly authorized isolated
+**v0.1.10 published (2026-10-06):** Phase 20's explicitly authorized isolated
 Ubuntu 24.04.4 amd64 Docker/kernel/userspace drill has completed its recorded host
 scope after correcting overflow/SNI diagnostics, initial-archive pair paths and
 boot-kernel DKMS coverage. Fresh archive installation and corrected `6.8.0-146`
 reboot pass readiness/client traffic. The [Phase 20 record](phase20.md) owns measured
 resources, crypto/enforcement, CA/domain, data/access equivalence and failure/offline
-evidence. Earlier "unreleased" records below are historical source scopes; final
-exact-source/artifact/publication gates remain pending. The new host matrix excludes
+evidence. Earlier "unreleased" records below are historical source scopes, now
+shipped in v0.1.10 at exact `4f78adc`; main CI, the release workflow and independent
+public-asset verification passed. v0.1.10 is Latest stable; no registry image exists. The new host matrix excludes
 Ubuntu 26.04/`7.0.0-38`, native deployment and unobserved client/firewall/proxy/DNS-01
 cells. The owner authorized v0.1.10 only.
 

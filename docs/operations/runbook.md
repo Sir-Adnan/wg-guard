@@ -130,7 +130,7 @@ Settings → Backups for the credentials. The REST API intentionally has no back
 
 ## Doctor
 
-Current unreleased main adds **System health** at `/system` (`node.read`). It shows
+v0.1.10 adds **System health** at `/system` (`node.read`). It shows
 the existing readiness gate and recorded runtime/accounting/telemetry evidence without
 running repairs, host commands or a new collector. Refresh does not apply settings.
 The authenticated `GET /api/v1/node/status` carries the same safe snapshot for owner

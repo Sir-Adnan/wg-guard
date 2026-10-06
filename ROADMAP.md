@@ -258,8 +258,7 @@ acceptance/publication gates remain distinct. See [Phase 17](docs/development/ph
 Phase 18 implements independent panel/public subscription origins, SNI and resumed
 TLS admission, a dedicated owner-authorized certificate mailbox, versioned imports,
 CA renewal/retirement and snapshot recovery. Source and isolated browser/TLS checks
-remain distinct from physical Phase 20 acceptance. It is unreleased; latest stable
-remains v0.1.9. See [Phase 18](docs/development/phase18.md).
+remain distinct from physical Phase 20 acceptance. See [Phase 18](docs/development/phase18.md).
 
 
 Phase 19 implements archive initialization before managed listener start and
@@ -267,3 +266,9 @@ shared safe CLI/panel operation states with explicit review/restart/recovery act
 Source owners/settings/keys/usage survive the verified archive path; target HTTPS
 is reviewed separately. Source/browser/race evidence stays distinct from physical
 Phase 20 migration and publication. See [Phase 19](docs/development/phase19.md).
+
+
+Phase 20 completed the explicitly authorized isolated Ubuntu 24.04.4 amd64
+Docker/kernel/userspace host matrix and published Phases 17–20 as **v0.1.10**
+(Latest stable) from exact `4f78adc`, with independently verified public assets.
+Excluded host/client cells and the next scope are in [Phase 20](docs/development/phase20.md).

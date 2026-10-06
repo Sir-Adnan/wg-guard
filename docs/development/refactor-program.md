@@ -35,10 +35,10 @@ stable. [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md) explains owners
 |---|---|---|---|
 | 15 | Operational safety and migration preparation | Engineering complete; v0.1.9 public | Existing release contracts |
 | 16 | Application/runtime/host responsibility boundaries | Complete within documented source scope; no release | 15 safety gates |
-| 17 | Verified Docker distribution and complete native removal | Source/image/CI gates passed; physical acceptance in 20; unreleased | 16 boundaries; registry approval for publication |
-| 18 | Integrated panel/subscription domains and TLS | Source implemented; local/browser gates; physical acceptance in 20; unreleased | 16 host operation model; 17 deployment ownership |
-| 19 | Cohesive installer and operational panel UX | Source implemented; focused/browser/race gates; unreleased | Implemented 15–18 services |
-| 20 | Real-host acceptance and migration/release readiness | Partial owner-host observation; certification incomplete | 15–19 evidence |
+| 17 | Verified Docker distribution and complete native removal | Source/image/CI and Phase 20 host gates passed; v0.1.10 public | 16 boundaries; registry approval for publication |
+| 18 | Integrated panel/subscription domains and TLS | Local/browser and Phase 20 host gates passed; v0.1.10 public | 16 host operation model; 17 deployment ownership |
+| 19 | Cohesive installer and operational panel UX | Focused/browser/race and Phase 20 host gates passed; v0.1.10 public | Implemented 15–18 services |
+| 20 | Real-host acceptance and migration/release readiness | Complete within recorded matrix; v0.1.10 public | 15–19 evidence |
 
 Design work may clarify a later phase; unrelated implementation does not silently
 cross the active phase. Every phase records exact source/environment, fresh/reused
@@ -283,9 +283,9 @@ Current [acceptance record](phase20.md) captures the owner's successful fresh ma
 installation/old-archive restore on Ubuntu 26.04 and working Kernel clients. The
 owner has no retained old deployments requiring in-place conversion. Their later
 explicit isolated-host authorization completed the corrected Ubuntu 24.04 matrix;
-v0.1.10 still requires final exact-source/artifact/publication gates below.
+v0.1.10 passed its exact-source/artifact/publication gates and is public.
 
-- [ ] Freeze an exact source/artifact candidate; run applicable source/security/race gates.
+- [x] Freeze an exact source/artifact candidate; run applicable source/security/race gates.
 - [x] Use an explicitly authorized isolated Ubuntu 24.04 amd64 host or an owner-coordinated
   maintenance drill. Do not rebuild the user's only host merely to gain evidence.
 - [x] Test new install, restore, kernel and explicit userspace, reboot, upgrade,
@@ -295,9 +295,9 @@ v0.1.10 still requires final exact-source/artifact/publication gates below.
   Validate actual client DNS/HTTPS traffic, shaping and old/public hostname behavior.
 - [x] Measure idle/load/backup memory, CPU, writer contention and enforcement lag.
   Resource/compatibility claims use measured evidence, not universal assumed optima.
-- [ ] Refresh deployment, security, networking, backup, terminal, UI, API when affected,
+- [x] Refresh deployment, security, networking, backup, terminal, UI, API when affected,
   status/readiness and release notes together. Keep historical fixtures/results unchanged.
-- [ ] Obtain scope-specific release/registry approval, pass publication gates and
+- [x] Obtain scope-specific release/registry approval, pass publication gates and
   independently download/verify public artifacts before reporting publication.
 
 Exit: explicit supported matrix and honest unverified cells; owner backup and

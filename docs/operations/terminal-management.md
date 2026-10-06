@@ -282,7 +282,7 @@ restore stays on the host so it can safely stop and restart either deployment mo
 [backup and restore](backup-restore.md) for encryption, Telegram delivery and schedule details.
 
 
-## Install from a verified backup (current main, unreleased)
+## Install from a verified backup (v0.1.10+)
 
 On a fresh target, choose **Install from verified backup**. Enter the archive path,
 use the verified cached manager or select a source, then enter the hidden archive

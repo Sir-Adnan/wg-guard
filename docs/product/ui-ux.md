@@ -8,7 +8,7 @@ The post-v0.1.0 appearance extension below adds visual presets without reopening
 ## Architecture and visual direction
 
 The [refactor program](../development/refactor-program.md) preserves this design
-system. Its Phase 18–19 domain/TLS workspace is implemented on unreleased main: independent panel and
+system. Its Phase 18–19 domain/TLS workspace ships in v0.1.10: independent panel and
 subscription cards, automatic/manual/external choices, certificate metadata and
 safe operation/recovery status, with advanced controlled cert/key paths when useful.
 Do not display private material or make operators edit Nginx/Compose for the

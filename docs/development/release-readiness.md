@@ -9,8 +9,8 @@ Current owner scope: [Phase 20](phase20.md) records the earlier Ubuntu 26.04 rep
 and subsequent explicit authorization of a dedicated raw Ubuntu 24.04 VPS for
 installation, recovery, networking, TLS and resource testing. Corrected host
 acceptance is complete within its listed Docker/kernel/userspace matrix. v0.1.10
-publication is authorized after final exact-source/artifact gates; registry and
-unobserved host/client cells are not authorized/certified.
+is published from exact `4f78adc` with independently verified public assets; registry
+publication and unobserved host/client cells are not authorized/certified.
 
 Last updated: 2026-10-06. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
@@ -71,10 +71,10 @@ further release authorization.
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 | 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; actual host resource/kernel/client acceptance remains Phase 20 |
 | 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
-| 17 — Docker-only/native cleanup | source/image/CI gates passed; unreleased; physical acceptance in 20 | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
-| 18 — Domains/TLS | source and listed Phase 20 HTTP-01/SNI/renewal/replacement host gates passed | Final publication; unobserved external/DNS-01 cells excluded |
-| 19 — Operational UX | source and corrected fresh archive host acceptance passed | Final publication and documented supported matrix |
-| 20 — Refactor certification | corrected listed Ubuntu 24.04 host matrix passed; publication gates pending | Final exact main/release CI and independently checked public assets; unsupported cells excluded |
+| 17 — Docker-only/native cleanup | source/image/CI and Phase 20 host gates passed; v0.1.10 public | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
+| 18 — Domains/TLS | listed Phase 20 HTTP-01/SNI/renewal/replacement host gates passed; v0.1.10 public | Unobserved external/DNS-01/long-interval renewal cells excluded |
+| 19 — Operational UX | corrected fresh archive host acceptance passed; v0.1.10 public | Documented supported matrix |
+| 20 — Refactor certification | complete; v0.1.10 public | Exact main/release CI and independently checked public assets passed; unsupported cells excluded |
 
 ### Refactor entry findings
 

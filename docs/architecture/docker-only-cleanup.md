@@ -3,9 +3,9 @@
 Decision confirmed by the owner on 2026-10-04. Native production deployment will
 be removed as an explicit Phase 17 deliverable. Correctness/artifact gates determine
 when the change is deliverable, not whether native is retained as a second profile.
-This specification is implemented in current unreleased source. Published v0.1.9 remains the
+This specification is implemented and published in v0.1.10. v0.1.9 remains the
 preparation build with its previous deployment contract; [Phase 17](../development/phase17.md)
-records source/image and remaining physical-host acceptance separately.
+records source/image gates and [Phase 20](../development/phase20.md) the host acceptance.
 
 ## Meaning of native
 

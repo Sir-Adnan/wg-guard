@@ -1,7 +1,7 @@
 # ADR-0015 — Docker-only runtime and explicit artifact/host ownership
 
-Status: implemented in unreleased Phase 17 source; image/source gates and real-host
-acceptance are distinct. Supersedes the production-mode choice in ADR-0006.
+Status: implemented in Phase 17 and published in v0.1.10; image/source gates (Phase 17)
+and real-host acceptance (Phase 20) are distinct. Supersedes the production-mode choice in ADR-0006.
 
 ## Decision
 

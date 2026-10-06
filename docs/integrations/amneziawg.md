@@ -7,7 +7,7 @@ document is assumed from memory; every runtime claim is backed by a check record
 captured in [`fixtures/phase8-upstream-contract.txt`](fixtures/phase8-upstream-contract.txt). If a
 behavior is not listed here as verified, WG-Guard code must treat it as unverified and gate it.
 
-The unreleased address-pool extension changes WG-Guard's IPv4 link addressing and forwarding
+The address-pool extension (v0.1.10) changes WG-Guard's IPv4 link addressing and forwarding
 footprints; it adds no AWG flags and does not change these upstream pins. Mocked route/address,
 allocation and reconciliation checks cover multiple gateway CIDRs and preservation of existing
 peers. This is not a new real-host multi-pool/client acceptance claim. See
