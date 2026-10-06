@@ -6,10 +6,27 @@ umask 077
 image=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["image_id"])' "$1")
 [[ $image =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
 archive=${1%/*}/runtime_linux_amd64.tar.gz
+# The OCI manifest digest inside the export (absent from a legacy export).
+manifest=$(python3 -I -c 'import json,sys,tarfile
+with tarfile.open(sys.argv[1], "r:gz") as t:
+    try:
+        index = json.loads(t.extractfile("index.json").read(65536))
+    except KeyError:
+        raise SystemExit(0)
+assert index["schemaVersion"] == 2 and len(index["manifests"]) == 1
+print(index["manifests"][0]["digest"])' "$archive")
+[[ -z $manifest || $manifest =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
 # Re-import the just-built untagged candidate, without registry/source access.
-docker image rm "$image" >/dev/null
+# The classic image store names it by config digest, containerd by manifest digest.
+local_id=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || docker image inspect --format '{{.Id}}' "$manifest")
+docker image rm "$local_id" >/dev/null
 docker load --input "$archive" >/dev/null
-[[ $(docker image inspect --format '{{.Id}}' "$image") == "$image" ]] || exit 1
+if ! local_id=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null); then
+  [[ -n $manifest ]] || exit 1
+  local_id=$(docker image inspect --format '{{.Id}}' "$manifest")
+fi
+[[ $local_id == "$image" || $local_id == "$manifest" ]] || exit 1
+image=$local_id
 data=$(mktemp -d /tmp/wg-guard-image-smoke.XXXXXXXX)
 [[ $data =~ ^/tmp/wg-guard-image-smoke\.[A-Za-z0-9]{8}$ ]] || exit 2
 name=wg-guard-image-smoke-$$

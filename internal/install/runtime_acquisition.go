@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 // PrepareRuntimeImage loads a verified release image or builds an explicitly
 // selected source candidate. An admitted cached image needs no registry/network.
+// It returns the image ID the local Docker image store uses.
 func PrepareRuntimeImage(ctx context.Context, h Host, build *distribution.Build, b CoreBundle, parent string) (string, error) {
 	if build.Channel != "release" {
 		return BuildRuntimeImage(ctx, h, *build, b, parent)
@@ -21,8 +23,10 @@ func PrepareRuntimeImage(ctx context.Context, h Host, build *distribution.Build,
 		if err := CheckRuntimeManifest(*build, *build.Runtime, b); err != nil {
 			return "", err
 		}
-		if err := inspectRuntimeImage(ctx, h, *build, *build.Runtime); err == nil {
-			return build.Runtime.ImageID, nil
+		// Only the classic store's config-digest ID is knowable without the
+		// archive; a containerd-store host re-acquires the verified archive.
+		if id, err := admitRuntimeImage(ctx, h, *build, *build.Runtime, ""); err == nil {
+			return id, nil
 		}
 	}
 	m, archive, cleanup, err := distribution.NewClient(nil, distribution.Options{}).AcquireRuntime(ctx, *build, parent)
@@ -30,11 +34,12 @@ func PrepareRuntimeImage(ctx context.Context, h Host, build *distribution.Build,
 	if err != nil {
 		return "", err
 	}
-	if err := LoadRuntimeImage(ctx, h, *build, m, b, archive); err != nil {
+	id, err := LoadRuntimeImage(ctx, h, *build, m, b, archive)
+	if err != nil {
 		return "", err
 	}
 	build.Runtime = &m
-	return m.ImageID, nil
+	return id, nil
 }
 
 func CheckRuntimeManifest(build distribution.Build, m distribution.RuntimeManifest, b CoreBundle) error {
@@ -57,45 +62,87 @@ func CheckRuntimeManifest(build distribution.Build, m distribution.RuntimeManife
 
 // LoadRuntimeImage also serves explicit offline imports. Its metadata must be
 // obtained with the independently verified manager/release checksums first.
-// Hashing precedes docker load; labels and platform are rechecked afterwards.
-func LoadRuntimeImage(ctx context.Context, h Host, build distribution.Build, m distribution.RuntimeManifest, b CoreBundle, archive string) error {
+// Hashing and identity parsing precede docker load in one pass over the same
+// bytes; platform, identity and labels are rechecked afterwards. It returns the
+// image ID the local Docker image store assigned.
+func LoadRuntimeImage(ctx context.Context, h Host, build distribution.Build, m distribution.RuntimeManifest, b CoreBundle, archive string) (string, error) {
 	if err := CheckRuntimeManifest(build, m, b); err != nil {
-		return err
+		return "", err
 	}
 	info, err := h.Stat(archive)
 	if err != nil || !info.Mode().IsRegular() || info.Size() != m.ArchiveSize {
-		return fmt.Errorf("runtime: image archive size or type is invalid")
+		return "", fmt.Errorf("runtime: image archive size or type is invalid")
 	}
-	digest, _, err := fileDigest(ctx, h, archive, distribution.RuntimeArchiveLimit)
-	if err != nil || digest != m.ArchiveSHA256 {
-		return fmt.Errorf("runtime: image archive checksum failed")
+	identity, err := inspectRuntimeArchive(ctx, h, archive)
+	if err != nil || identity.ArchiveSHA256 != m.ArchiveSHA256 {
+		return "", fmt.Errorf("runtime: image archive checksum failed")
+	}
+	if identity.ConfigDigest != m.ImageID {
+		return "", fmt.Errorf("runtime: image archive identity mismatch")
 	}
 	if err := runQuiet(ctx, h, []string{"docker", "load", "--input", archive}, longTimeout); err != nil {
-		return err
+		return "", err
 	}
-	return inspectRuntimeImage(ctx, h, build, m)
+	return admitRuntimeImage(ctx, h, build, m, identity.ManifestDigest)
 }
 
-func inspectRuntimeImage(ctx context.Context, h Host, build distribution.Build, m distribution.RuntimeManifest) error {
-	raw, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}} {{.Id}} {{json .Config.Labels}}", m.ImageID}, 30*time.Second)
-	if err != nil || len(raw) > 16<<10 {
-		return fmt.Errorf("runtime: image inspection failed")
-	}
-	parts := strings.SplitN(strings.TrimSpace(raw), " ", 3)
-	if len(parts) != 3 || parts[0] != "linux/amd64" || parts[1] != m.ImageID {
-		return fmt.Errorf("runtime: loaded image platform or identity mismatch")
-	}
-	var labels map[string]string
-	if json.Unmarshal([]byte(parts[2]), &labels) != nil {
-		return fmt.Errorf("runtime: malformed image provenance")
-	}
-	expected := runtimeIdentityLabels(build, m)
-	for name, value := range expected {
-		if labels[name] != value {
-			return fmt.Errorf("runtime: image provenance mismatch")
+func inspectRuntimeArchive(ctx context.Context, h Host, archive string) (distribution.RuntimeArchiveIdentity, error) {
+	if _, ok := h.(realHost); ok {
+		if err := safeHostPath(archive); err != nil {
+			return distribution.RuntimeArchiveIdentity{}, err
 		}
 	}
-	return nil
+	f, err := h.Open(archive)
+	if err != nil {
+		return distribution.RuntimeArchiveIdentity{}, err
+	}
+	defer f.Close()
+	return distribution.InspectRuntimeArchive(contextReader{ctx: ctx, r: f}, distribution.RuntimeArchiveLimit)
+}
+
+// admitRuntimeImage finds the loaded image under either Docker identity: the
+// classic store uses the config digest, the containerd store the OCI manifest
+// digest. Platform and provenance labels must match whichever store answers.
+func admitRuntimeImage(ctx context.Context, h Host, build distribution.Build, m distribution.RuntimeManifest, manifestDigest string) (string, error) {
+	accepted := map[string]bool{m.ImageID: true}
+	refs := []string{m.ImageID}
+	if manifestDigest != "" && manifestDigest != m.ImageID {
+		accepted[manifestDigest] = true
+		refs = append(refs, manifestDigest)
+	}
+	for _, ref := range refs {
+		raw, err := h.Output(ctx, []string{"docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}} {{.Id}} {{json .Config.Labels}}", ref}, 30*time.Second)
+		if err != nil || len(raw) > 16<<10 {
+			continue
+		}
+		parts := strings.SplitN(strings.TrimSpace(raw), " ", 3)
+		if len(parts) != 3 || parts[0] != "linux/amd64" || !accepted[parts[1]] {
+			return "", fmt.Errorf("runtime: loaded image platform or identity mismatch")
+		}
+		var labels map[string]string
+		if json.Unmarshal([]byte(parts[2]), &labels) != nil {
+			return "", fmt.Errorf("runtime: malformed image provenance")
+		}
+		for name, value := range runtimeIdentityLabels(build, m) {
+			if labels[name] != value {
+				return "", fmt.Errorf("runtime: image provenance mismatch")
+			}
+		}
+		return parts[1], nil
+	}
+	return "", fmt.Errorf("runtime: image inspection failed")
+}
+
+type contextReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (c contextReader) Read(p []byte) (int, error) {
+	if err := c.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return c.r.Read(p)
 }
 
 func runtimeIdentityLabels(build distribution.Build, m distribution.RuntimeManifest) map[string]string {

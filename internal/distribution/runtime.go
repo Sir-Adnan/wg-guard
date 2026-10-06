@@ -22,6 +22,10 @@ type KernelIdentity struct {
 
 // ImageID is Docker's immutable config digest, not a registry manifest digest.
 // The archive and publisher channel are verified separately from that identity.
+// Docker's containerd image store names the loaded image by the archive's OCI
+// manifest digest instead; InspectRuntimeArchive derives it from the verified
+// archive. Metadata gains no field for it: existing managers decode this
+// schema strictly and would refuse unknown keys.
 type RuntimeManifest struct {
 	Schema              int              `json:"schema"`
 	Version             string           `json:"version"`
@@ -49,7 +53,7 @@ type RuntimeManifest struct {
 func (m RuntimeManifest) Validate(b Build) error {
 	if m.Schema != 1 || !safeRef.MatchString(m.Version) || !commitSHA.MatchString(b.Commit) || !digestSHA.MatchString(b.SHA256) || m.Version != b.Version || m.Commit != b.Commit || m.BinarySHA256 != b.SHA256 ||
 		m.Platform != "linux/amd64" || m.Archive != RuntimeArchiveName || m.ArchiveSize <= 0 || m.ArchiveSize > RuntimeArchiveLimit ||
-		len(m.ImageID) != 71 || m.ImageID[:7] != "sha256:" || !digestSHA.MatchString(m.ImageID[7:]) ||
+		!imageDigest(m.ImageID) ||
 		!digestSHA.MatchString(m.ArchiveSHA256) || !digestSHA.MatchString(m.RecipeSHA256) ||
 		!digestSHA.MatchString(m.SBOMSHA256) || !digestSHA.MatchString(m.NoticesSHA256) ||
 		!commitSHA.MatchString(m.ToolsCommit) || !commitSHA.MatchString(m.UserspaceCommit) || len(m.Kernels) < 1 || len(m.Kernels) > 8 {

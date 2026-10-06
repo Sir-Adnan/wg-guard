@@ -15,6 +15,8 @@ Release assets carry the precompiled manager plus a compressed Docker save archi
 recipe builds tools/userspace from reviewed commits and consumes that exact manager. Metadata
 binds image config digest (not a registry manifest digest), archive checksum, binary/commit,
 reviewed core identities, deployment/data/maintenance contracts, legal inventory and Go SBOM.
+The containerd image store's manifest-digest image ID is derived from the verified archive,
+never added to metadata that older managers decode strictly.
 Production acquisition never falls back to source compilation when an image is missing.
 Explicit development builds retain the same recipe. HTTPS repository/tag and release-checksum
 trust are separate from content hashes; release attestations remain a publication gate. No

@@ -16,6 +16,13 @@ approved fresh-install/restore route. This is not an in-place layout converter.
   archive bytes, binary hash/commit, reviewed tools/userspace/kernel inventory, deployment/data/
   maintenance contracts, notices and Go-module SBOM. Missing or inconsistent image assets fail
   closed. Explicit development commits use the same recipe in a private build context.
+- Docker's classic image store names a loaded release image by that config digest; the
+  containerd image store (the default on newer Docker Engine installs) names it by the
+  archive's OCI manifest digest. The manager reads that manifest from the checksum-verified
+  archive, confirms it references the config digest, and admits either local ID only with
+  matching platform and provenance labels. Without the archive only the config digest is
+  knowable, so a containerd-store host re-acquires the verified archive instead of reusing
+  an image found by labels.
 - The image uses host networking and only `NET_ADMIN`/`NET_BIND_SERVICE` after dropping other
   capabilities. Root is read-only, with temporary `/run` (32 MiB) and `/tmp` (64 MiB). Boot config
   and approved TLS material are individual read-only mounts; node data is the one writable host

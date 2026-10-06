@@ -5,6 +5,10 @@
 - Make Doctor compare backend peer keys with reconciliation's eligibility rule; expired,
   traffic-exceeded, disabled and deleted accounts no longer raise a false peer warning, and
   the warning now names missing eligible and unexpected backend peers separately.
+- Admit verified release images on Docker's containerd image store. v0.1.10 managers looked
+  the loaded image up only by config digest and failed updates with `runtime: image
+  inspection failed`; the manager now derives the OCI manifest digest from the verified
+  archive in the same hashing pass and accepts either local identity with matching labels.
 
 ## [v0.1.10] — 2026-10-06
 

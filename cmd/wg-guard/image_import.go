@@ -59,9 +59,10 @@ func runImageImport(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := install.LoadRuntimeImage(ctx, h, b, manifest, bundle, *archive); err != nil {
+	id, err := install.LoadRuntimeImage(ctx, h, b, manifest, bundle, *archive)
+	if err != nil {
 		return err
 	}
-	fmt.Println(manifest.ImageID)
+	fmt.Println(id)
 	return nil
 }
