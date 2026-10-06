@@ -28,6 +28,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/ipam"
+	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/shaper"
@@ -368,9 +369,8 @@ func (d *doctor) checkInterfaces(ctx context.Context, toolsReady bool) {
 		if state.BackendMode != "" && state.BackendMode != w.mode {
 			drift = append(drift, fmt.Sprintf("%s (backend %s != %s)", w.name, state.BackendMode, w.mode))
 		}
-		if n := countEnabledDevices(ctx, d.d.DB, w.name); n >= 0 && n != len(state.Peers) {
-			peerMismatch = append(peerMismatch,
-				fmt.Sprintf("%s (%d peers in backend, %d enabled devices)", w.name, len(state.Peers), n))
+		if mismatch := peerSetMismatch(ctx, d.d.DB, w.name, state.Peers); mismatch != "" {
+			peerMismatch = append(peerMismatch, mismatch)
 		}
 	}
 	if len(unreadable) > 0 {
@@ -398,18 +398,32 @@ func (d *doctor) checkInterfaces(ctx context.Context, toolsReady bool) {
 		fmt.Sprintf("%d enabled interface(s) match the backend", len(want)), "")
 }
 
-// countEnabledDevices counts devices that should hold peers on the named
-// interface (enabled device of an enabled account). It is a heuristic for
-// the doctor warn — the reconciler stays the authority.
-func countEnabledDevices(ctx context.Context, db *database.DB, ifaceName string) int {
-	var n int
-	err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM devices
-		WHERE enabled = 1 AND interface_id = (SELECT id FROM tunnel_interfaces WHERE name = ?)
-		AND user_id IN (SELECT id FROM users WHERE enabled = 1)`, ifaceName).Scan(&n)
+// peerSetMismatch compares backend peers with the keys reconciliation keeps,
+// using its eligibility rule so expired or quota-exhausted accounts are not
+// reported as missing. It returns "" when the sets match or the query fails.
+func peerSetMismatch(ctx context.Context, db *database.DB, ifaceName string, peers []tunnel.PeerState) string {
+	desired, err := reconcile.DesiredPeerKeys(ctx, db, ifaceName)
 	if err != nil {
-		return -1
+		return ""
 	}
-	return n
+	observed := make(map[string]bool, len(peers))
+	unexpected := 0
+	for _, p := range peers {
+		observed[p.PublicKey] = true
+		if !desired[p.PublicKey] {
+			unexpected++
+		}
+	}
+	missing := 0
+	for key := range desired {
+		if !observed[key] {
+			missing++
+		}
+	}
+	if missing == 0 && unexpected == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s (%d eligible peers missing, %d unexpected peers in backend)", ifaceName, missing, unexpected)
 }
 
 func (d *doctor) checkFirewall(ctx context.Context) {

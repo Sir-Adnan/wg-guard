@@ -141,7 +141,7 @@ retrying a mutation. Host-level inspection remains the command below.
 
 `wg-guard doctor` (implemented) checks: platform, privileges, data-dir/master-key permissions,
 AWG tool version, kernel-module presence, DB integrity (`PRAGMA integrity_check`), interface
-state vs DB (missing links, port drift, peer-count mismatch), nftables table presence, effective
+state vs DB (missing links, port drift, eligible-peer key mismatch), nftables table presence, effective
 Docker/legacy `FORWARD` policy coverage, the `ip_forward` sysctl, tc state when speed limits exist, disk free space, endpoint DNS
 resolution, TLS certificate expiry (manual mode), NTP synchronization (timedatectl), and the
 backups posture (no schedules + no archives is a warning; stale newest archive too). Checks

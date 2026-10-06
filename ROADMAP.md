@@ -320,9 +320,9 @@ none is implied by the v0.1.10 support claim.
 - **Unverified cells:** IPv6, DNS-01 real issuance, external proxy/firewall-manager coexistence,
   active firewalld, physical mobile apps and Firefox for later UI phases, 1000 simultaneous
   handshakes, multi-day soak and an observed long-interval CA renewal.
-- **Doctor peer-count warning:** the runtime-peer versus enabled-device comparison is
-  expiry-aware but otherwise eligibility-blind; authoritative reconciliation and readiness are
-  unaffected, but the heuristic can warn about intentionally absent peers.
+- **Doctor peer warning (fixed on main, unreleased):** Doctor now compares backend peer keys
+  with reconciliation's own eligibility rule, so expired, quota-exhausted, disabled and deleted
+  accounts no longer produce a false warning.
 - **Distribution:** no official registry image is published; releases ship verified offline
   image assets.
 - **Deferred products:** remote AmneziaWG nodes, native WireGuard, Xray/sing-box/OpenVPN and

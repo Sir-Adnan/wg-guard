@@ -18,6 +18,7 @@ updated-panel readiness in about two seconds before reporting `Update complete`.
 No post-update physical client traffic or the corrective source below is certified
 by that report. The predecessor doctor warning of 133 runtime peers versus 137
 enabled devices is an eligibility-blind heuristic, not proof of lost subscriber data.
+Current main replaces that count with reconciliation's eligibility rule and a key comparison.
 Rebuilding the same OS/kernel would reproduce the prerequisite problem. Rebuild
 choices require a verified off-host archive. A one-time boot does not change the
 permanent default for a later reboot.

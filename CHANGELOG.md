@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Make Doctor compare backend peer keys with reconciliation's eligibility rule; expired,
+  traffic-exceeded, disabled and deleted accounts no longer raise a false peer warning, and
+  the warning now names missing eligible and unexpected backend peers separately.
+
 ## [v0.1.10] — 2026-10-06
 
 - Deliver Docker-only deployment and schema-4 private host authority, one reviewed

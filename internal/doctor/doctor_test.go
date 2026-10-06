@@ -167,6 +167,69 @@ func TestDoctorReportsConfirmedMissingInterface(t *testing.T) {
 	}
 }
 
+type peerInspector struct {
+	tunnel.Backend
+	peers []tunnel.PeerState
+}
+
+func (b *peerInspector) ToolsVersion(context.Context) (string, error) {
+	return "v3.1.20260812", nil
+}
+
+func (b *peerInspector) Dump(_ context.Context, name string) (tunnel.InterfaceState, error) {
+	return tunnel.InterfaceState{Name: name, ListenPort: 39001, Peers: b.peers}, nil
+}
+
+func TestDoctorPeerCheckUsesReconcileEligibility(t *testing.T) {
+	const live, expired, exhausted, stray = "live-key", "expired-key", "quota-key", "stray-key"
+	for _, tc := range []struct {
+		name    string
+		backend []string
+		status  Status
+		detail  string
+	}{
+		{"ineligible accounts are intentionally absent", []string{live}, StatusPass, ""},
+		{"eligible peer missing", nil, StatusWarn, "1 eligible peers missing, 0 unexpected"},
+		{"ineligible peer still present", []string{live, expired}, StatusWarn, "0 eligible peers missing, 1 unexpected"},
+		{"unknown peer present", []string{live, stray}, StatusWarn, "0 eligible peers missing, 1 unexpected"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			deps, db := newDoctorEnv(t)
+			addEnabledInterface(t, db, "awg0", 39001)
+			now := time.Now().UTC().Format(time.RFC3339Nano)
+			for i, account := range []struct{ status, key string }{
+				{"active", live}, {"expired", expired}, {"traffic_exceeded", exhausted},
+			} {
+				id := account.status
+				if _, err := db.Exec(`INSERT INTO users (id, username, status, start_policy, enabled, created_at, updated_at)
+					VALUES (?, ?, ?, 'immediate', 1, ?, ?)`, id, id, account.status, now, now); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := db.Exec(`INSERT INTO devices (id, user_id, interface_id, name, ipv4_address, public_key,
+					private_key_encrypted, enabled, created_at, updated_at)
+					VALUES (?, ?, 'iface-awg0', 'phone', ?, ?, x'00', 1, ?, ?)`,
+					"d-"+id, id, "10.8.0."+string(rune('2'+i))+"/32", account.key, now, now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var peers []tunnel.PeerState
+			for _, key := range tc.backend {
+				peers = append(peers, tunnel.PeerState{PublicKey: key})
+			}
+			deps.Backend = &peerInspector{Backend: fake.New(), peers: peers}
+
+			report, err := Run(context.Background(), deps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := statusOf(report, "interfaces")
+			if got.Status != tc.status || !strings.Contains(got.Detail, tc.detail) {
+				t.Fatalf("interfaces = %+v", got)
+			}
+		})
+	}
+}
+
 func TestDoctorReportOverTempNode(t *testing.T) {
 	deps, _ := newDoctorEnv(t)
 	report, err := Run(context.Background(), deps)

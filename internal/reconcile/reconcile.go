@@ -518,15 +518,46 @@ func (e *Engine) loadInterfaces(ctx context.Context) ([]*dbInterface, error) {
 	return out, nil
 }
 
-// loadDesiredPeers returns, per interface ID, the peers that should exist:
-// enabled devices of enabled, live users whose status wants peers. It also
-// returns current public keys plus former keys pending verified removal.
+// desiredPeerWhere selects devices that must have a runtime peer: enabled
+// devices of enabled, live users whose status wants peers. Reconciliation and
+// diagnostics share it so they never disagree about eligibility.
+const desiredPeerWhere = `u.deleted_at IS NULL AND u.enabled = 1 AND d.enabled = 1
+	  AND u.status IN ('active', 'waiting_first_connection')`
+
+// DesiredPeerKeys returns the public keys reconciliation keeps on the named
+// interface. Expired, quota-exhausted, disabled and deleted accounts are
+// intentionally absent.
+func DesiredPeerKeys(ctx context.Context, db *database.DB, ifaceName string) (map[string]bool, error) {
+	rows, err := db.QueryContext(ctx, `SELECT d.public_key
+		FROM devices d JOIN users u ON u.id = d.user_id
+		JOIN tunnel_interfaces t ON t.id = d.interface_id
+		WHERE t.name = ? AND `+desiredPeerWhere, ifaceName)
+	if err != nil {
+		return nil, fmt.Errorf("reconcile: load desired peers: %w", err)
+	}
+	defer rows.Close()
+	keys := map[string]bool{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("reconcile: scan desired peer: %w", err)
+		}
+		keys[key] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reconcile: load desired peers: %w", err)
+	}
+	return keys, nil
+}
+
+// loadDesiredPeers returns, per interface ID, the peers that should exist
+// (see desiredPeerWhere). It also returns current public keys plus former
+// keys pending verified removal.
 func (e *Engine) loadDesiredPeers(ctx context.Context) (map[string][]peerDesire, map[string]bool, map[string]map[string]bool, error) {
 	rows, err := e.DB.QueryContext(ctx, `SELECT d.id, d.interface_id, d.name, d.ipv4_address,
 		d.public_key, d.preshared_key_encrypted
 		FROM devices d JOIN users u ON u.id = d.user_id
-		WHERE u.deleted_at IS NULL AND u.enabled = 1 AND d.enabled = 1
-		  AND u.status IN ('active', 'waiting_first_connection')`)
+		WHERE `+desiredPeerWhere)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reconcile: load devices: %w", err)
 	}
