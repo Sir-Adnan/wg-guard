@@ -1,11 +1,70 @@
 # Phase 20 — Refactor acceptance evidence
 
-Status on 2026-10-05: **partially observed on an owner-operated host; not certified**.
+Status on 2026-10-06: **corrected isolated Ubuntu 24.04 Docker/kernel/userspace host
+acceptance passed within the matrix below; final source/publication gates pending**.
 The [execution program](refactor-program.md#phase-20--certification-migration-and-publication)
 still owns the remaining acceptance requirements. Phases 15–19 source/CI evidence
 remains in its existing records and is not replayed or relabelled here.
 
-## Authorized isolated drill in progress
+## Completed host scope
+
+Final real-host candidate `707b92828b1ac745359617b973e9450d90ad959d` includes
+the corrected DB/key target derivation and canonical installed-kernel inventory.
+After deliberate removal of the prior-kernel DKMS build, the installer restored
+its reviewed `6.8.0-138` build while running `6.8.0-146`. Fresh install from the
+independently verified encrypted archive passed before listener start; all 18
+logical table inventories, source key/configs, owner/reseller login and API access
+matched the staged original. A subsequent real `6.8.0-146` reboot automatically
+returned readiness and all three real kernel/userspace DNS/HTTPS/NAT client paths.
+
+| Gate | Observed scope/result |
+|---|---|
+| Empty-host source install | Ubuntu 24.04.4 amd64, reviewed tools/module, Docker image/readiness passed |
+| Kernel / explicit userspace | Recommended and randomized kernel plus recommended userspace; gateway, bidirectional counters, DNS/HTTPS/NAT passed |
+| Config / QR / access | Three API/panel byte comparisons and independent QR decodes; source owner, reseller permissions/template assignments, scoped purchase and foreign-owner denial passed |
+| Crypto / restore | Encrypted create/verify/apply, staged-original logical comparison, separately downloaded off-host verification and fresh-target initialization passed |
+| Domains / CA | Actual HTTP-01 panel/public issuance, one scoped live renewal and admitted replacement, panel hostname change, old private-origin denial and SNI/Host/public-route isolation passed |
+| Lifecycle failures | Actual source update with pre-backup, SIGKILL at journal `started`, retained artifacts and completed rollback/recovery passed |
+| Offline / image availability | Owned container removed; cached image restart with unavailable download proxies returned readiness without registry/GitHub access |
+| Corrected boot | Installed/header-ready older kernel covered; reboot on `6.8.0-146`, readiness and all client profiles passed |
+| Admission failures | Wrong encrypted-archive password rejected; no restore approval/apply was requested |
+
+Measured two-vCPU/about-3.8-GiB host windows: the initial small fixture averaged
+64,201,933 B RSS, peaked at 64,339,968 B and used 0.183% of one CPU over 60 s.
+With 1000 synthetic idle devices/ten synthetic accounts, a 60 s window averaged
+94,265,822 B RSS, peaked at 95,563,776 B and used 0.167%, with nine peak threads.
+This is control-plane load, not 1000 active clients. Real 524,288-byte transfers
+at 1000 Kbps took 4.192 s down and 4.520 s up. During actual encrypted panel
+backup, process RSS peaked at 372,908,032 B; eight concurrent write probes peaked
+at 0.0136 s. Quota removal was observed at 22.310 s after the reviewed setup and
+expiry at 22.849 s since the workload start; both ineligible peers were absent.
+Those are fixture measurements including request/scheduling timing, not universal
+one-cadence latency promises. The expiry-aware eligibility-blind Doctor peer-count
+warning remains a documented heuristic; authoritative reconciliation/readiness and
+traffic gates were checked separately.
+
+The support claim here is Ubuntu 24.04 amd64 Docker on the listed generic kernels
+and pinned kernel/userspace builds. Native deployment, Ubuntu 26.04/`7.0.0-38`,
+IPv6, DNS-01, external proxy/firewall coexistence, physical mobile apps, simultaneous
+1000-client handshakes, multi-day soak and an observed long-interval CA renewal
+remain excluded/unverified. The isolated target was explicitly owner-authorized;
+no original customer server was rebuilt. Exact final main/release workflow and
+independent public version/tag/asset verification still gate publication.
+
+## Post-acceptance source change
+
+After the final host candidate, the interactive terminal renewal entries were
+routed by the recorded certificate owner: an owned automatic lineage runs the due
+renewal, the built-in issuer runs a live certificate check, and manual/external
+certificates name their owner instead of attempting issuance. A legacy panel
+policy keeps `exposure renew`. This is a terminal-menu selection change covered by
+focused unit tests and the release source gates; it does not alter the CA/renewal
+engines exercised on the host and was not separately replayed there.
+
+## Correction sequence
+
+This section preserves the drill order and the defects it exposed; each correction
+is closed by the final candidate in [Completed host scope](#completed-host-scope).
 
 The owner subsequently provided a raw dedicated VPS and explicitly authorized
 Phase 20 installation/testing, documentation updates and v0.1.10 publication after
@@ -22,13 +81,13 @@ one explicit userspace profile passed gateway/bidirectional and public DNS/HTTPS
 traffic on real host network-namespace clients. These are Linux client drills,
 not physical mobile-app verification. Initial HTTP-01 HTTPS and an independent
 subscription certificate were issued and admitted. Further recovery/resource/TLS
-and exact delivery gates remain in progress; this section is not phase completion.
+and exact delivery gates followed on the corrected candidates below.
 
 The multiple-pool drill exposed a diagnostic defect: Doctor loaded only primary
 CIDRs and rejected the complete Docker allow chain containing overflow CIDRs.
 Current source decodes the same ordered pool inventory used by reconciliation.
 Focused regression checks accept complete primary/overflow paths and still reject
-missing overflow paths. The correction must also pass on the real updated target.
+missing overflow paths. The real updated target then passed (below).
 The owner's additional installer request adds an explicit domain/SSL menu shortcut,
 guided first HTTPS setup, separate panel/subscription acquisition/replacement and
 due renewal actions; source/terminal/bootstrap checks remain separate from CA evidence.
@@ -50,8 +109,8 @@ manual check expected a single `tls.cert_file` after the SNI policy had become t
 certificate authority. Current source validates the approved bounded policy/pairs,
 keeps delegated built-in/external checks separate and fails missing/invalid material.
 Interactive SSL status now shows readable address, ownership, expiry and renewal
-guidance instead of policy JSON and zero dates. Real corrected-target checks and
-final delivery are still pending.
+guidance instead of policy JSON and zero dates. The corrected target passed Doctor
+with the managed SNI policy.
 
 The real reboot moved from `6.8.0-138-generic` to the already installed
 `6.8.0-146-generic`. The initial header-meta package transaction preceded reviewed
@@ -61,7 +120,7 @@ Current source builds the selected reviewed module for the running kernel and a
 bounded inventory of already bootable, header-ready installed kernels. It does not
 build unrelated DKMS modules or claim compatibility with failed future headers.
 Focused tests cover the additional boot target, unavailable headers/build failure
-and inventory bounds. Real corrected reinstall/reboot must pass before publication.
+and inventory bounds. The corrected reinstall/reboot passed at the final candidate.
 
 The fresh archive install also exposed omitted derived DB/key paths in
 `Plan.BootConfig`: runtime config loading completed them, while initial offline
@@ -69,8 +128,7 @@ archive application received the incomplete value and refused the paired rename.
 The plan now completes dependent paths before passing it to the archive engine;
 the initial-data ordering test asserts those exact targets. The failed target
 never opened a managed listener, and the independently verified off-host archive
-was retained throughout retry/recovery. Corrected fresh-target acceptance remains
-required before closing the phase.
+was retained throughout retry/recovery. Corrected fresh-target acceptance then passed.
 
 ## Owner report
 
@@ -102,7 +160,7 @@ No credentials, customer capability URLs, hostnames or raw configurations are re
 in this record. Ubuntu 26.04 success in this scope does not certify either that host
 version or the new deployment on the historical Ubuntu 24.04 support target.
 
-## Open acceptance
+## Earlier owner recovery report
 
 The owner's subsequent [incident/recovery report](runtime-recovery.md) adds a real
 source update, pre-update backup, failed readiness/preserved recovery on kernel
@@ -120,6 +178,5 @@ but does not substitute for the complete restore inventory/access comparison.
 
 The owner conditionally requested **v0.1.10 after the remaining phases and work are
 complete**. This supersedes the earlier no-further-release instruction for that version
-only, subject to these gates. No registry publication or agent-run live-host mutation
-is authorized by that request. Latest public stable remains v0.1.9 until publication
-actually completes.
+only, subject to these gates. The later live-host authorization covers only the
+dedicated isolated VPS above; registry publication remains unauthorized.

@@ -281,18 +281,19 @@ matrix and no-JS fallback, and a documented operator journey with no hidden step
 
 Current [acceptance record](phase20.md) captures the owner's successful fresh main
 installation/old-archive restore on Ubuntu 26.04 and working Kernel clients. The
-owner has no retained old deployments requiring in-place conversion. Their v0.1.10
-request is conditional on completion and gates; it does not waive the checks below.
+owner has no retained old deployments requiring in-place conversion. Their later
+explicit isolated-host authorization completed the corrected Ubuntu 24.04 matrix;
+v0.1.10 still requires final exact-source/artifact/publication gates below.
 
 - [ ] Freeze an exact source/artifact candidate; run applicable source/security/race gates.
-- [ ] Use an explicitly authorized isolated Ubuntu 24.04 amd64 host or an owner-coordinated
+- [x] Use an explicitly authorized isolated Ubuntu 24.04 amd64 host or an owner-coordinated
   maintenance drill. Do not rebuild the user's only host merely to gain evidence.
-- [ ] Test new install, restore, kernel and explicit userspace, reboot, upgrade,
+- [x] Test new install, restore, kernel and explicit userspace, reboot, upgrade,
   certificate renewal/replacement, service/image/registry failure and interrupted recovery.
-- [ ] Compare all relevant IDs, keys/config bytes, customer access, IPs, quotas,
+- [x] Compare all relevant IDs, keys/config bytes, customer access, IPs, quotas,
   expiry, usage, templates/reseller ownership and API credentials against the backup.
   Validate actual client DNS/HTTPS traffic, shaping and old/public hostname behavior.
-- [ ] Measure idle/load/backup memory, CPU, writer contention and enforcement lag.
+- [x] Measure idle/load/backup memory, CPU, writer contention and enforcement lag.
   Resource/compatibility claims use measured evidence, not universal assumed optima.
 - [ ] Refresh deployment, security, networking, backup, terminal, UI, API when affected,
   status/readiness and release notes together. Keep historical fixtures/results unchanged.

@@ -8,6 +8,14 @@ phase are historical, not instructions to rerun it now. Current claims and limit
 
 ## Current test selection
 
+Phase 20's root-only isolated-VPS fixture is
+[`verify-phase20-vps.py`](../integrations/fixtures/verify-phase20-vps.py), with the
+separate archive inspector [`phase20-stage.go`](../integrations/fixtures/phase20-stage.go).
+They require explicit owner authorization, private work/password/token files and
+an ordinary managed installation. Secrets/configs remain private; reports expose
+only counts, equality results and measured resources. The recorded correction/drill
+sequence, exact revisions and excluded physical cells are in [Phase 20](phase20.md).
+
 For Phase 15–20 changes, the [refactor program](refactor-program.md) supplies the
 specific exit evidence: migration refusal and readiness, slow-worker isolation,
 data/runtime state equivalence, artifact/host ownership, two-domain TLS and route

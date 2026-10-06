@@ -1,8 +1,8 @@
 # Deployment
 
-Current `main` implements the Docker-only deployment contract. **Latest stable v0.1.9 is the
-preparation release and still uses the previous deployment/layout.** The new source is unreleased;
-the Phase 17 source/image checks and Phase 20 real-host gates are separate. Existing installations
+Current source implements the Docker-only deployment contract; v0.1.9 and earlier
+retain their previous deployment/layout. The [Phase 20](../development/phase20.md)
+record separates corrected Ubuntu 24.04 host acceptance from exact publication gates. Existing installations
 must export and independently verify their backup using the original manager, then use the
 approved fresh-install/restore route. This is not an in-place layout converter.
 
@@ -25,8 +25,9 @@ approved fresh-install/restore route. This is not an in-place layout converter.
   `backup-delivery/` directory there and retain the existing upload limit; they do not compete
   with AWG's small `/tmp`. Independent `backup verify` is normally a host command with private
   disk staging; an explicit container invocation must provide adequate temporary disk space.
-- No arbitrary CPU/memory limit is guessed. Exact host resource budgets and kernel/userspace
-  traffic under the new hardening profile remain Phase 20 acceptance gates.
+- No arbitrary CPU/memory limit is guessed. The listed two-vCPU/about-3.8-GiB
+  Ubuntu 24.04 resource, crypto and kernel/userspace traffic measurements are in Phase 20;
+  they are not universal workload budgets.
 - The host owns kernel/DKMS, headers, module load/persistence, diagnostic/network utilities,
   certificate/proxy tasks, the narrow update broker, acquisition and recovery. AWG tools and
   the explicit userspace daemon live in the image; native WG-Guard server execution is removed.

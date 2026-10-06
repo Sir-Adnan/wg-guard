@@ -5,7 +5,7 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker runtime · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Release v0.1.9" src="https://img.shields.io/badge/release-v0.1.9-2563eb">
+    <img alt="Latest published release" src="https://img.shields.io/github/v/release/Sir-Adnan/wg-guard">
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
     <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
@@ -27,14 +27,17 @@ recovery without turning the server into a large application stack.
 | 🧹 | **Reviewed maintenance** — combined account/history cleanup with status, owner and date filters, impact previews, and database space maintenance |
 | 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, ten optional visual presets, desktop and mobile |
 
-> Current `main` implements an unreleased Docker-only refactor. Latest stable **v0.1.9** is the
-> preparation release; keep its original manager for existing-node export. New-layout deployment
-> and real-host acceptance are tracked in [Phase 17](docs/development/phase17.md).
+> Current `main` uses Docker-only deployment and the new private host layout.
+> Existing schema-1–3/native deployments must export and verify an off-host backup with
+> their original manager, then use fresh installation/restore. The Ubuntu 24.04
+> kernel/userspace and recovery matrix is recorded in [Phase 20](docs/development/phase20.md).
+> See [Releases](https://github.com/Sir-Adnan/wg-guard/releases) for published versions.
 
 ### Install
 
 **Production-verified target:** Ubuntu 24.04 LTS on amd64, with root or sudo access and a
-reachable VPN endpoint. Historical releases are certified on this target; the new Docker-only source needs its own host acceptance.
+reachable VPN endpoint. The Docker/kernel/userspace host scope is verified on the
+listed Ubuntu 24.04 generic kernels; later Ubuntu kernels are not inferred as supported.
 The installer checks and can provision its catalogued prerequisites. Keep access to the
 server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 

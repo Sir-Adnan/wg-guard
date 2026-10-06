@@ -8,6 +8,7 @@ this file is the "type this, expect that" reference.
 ```bash
 bash -o pipefail -c 'curl --proto "=https" --proto-redir "=https" -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 sudo wg-guard                              # reopen local management; no download
+sudo wg-guard manage --https              # domains, SSL and renewal ownership
 ```
 
 The terminal is English-only. The recommended wizard asks for an optional domain and whether to

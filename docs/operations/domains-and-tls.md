@@ -1,9 +1,10 @@
 # Panel, subscription domains and certificates
 
-Implemented on current **main**, still unreleased. Latest stable v0.1.9 retains
-its original single-domain management flow. Source/browser/local TLS checks are
-recorded in [Phase 18](../development/phase18.md); physical issuance, renewal,
-reboot and remote forwarding acceptance remains in Phase 20.
+Current source implements independent domains; v0.1.9 retains its original
+single-domain flow. [Phase 18](../development/phase18.md) records source/browser
+checks; [Phase 20](../development/phase20.md) records real HTTP-01 issuance,
+scoped live renewal/replacement, SNI/role isolation, reboot and client forwarding.
+Unobserved DNS-01/external-proxy and long-interval renewal cells remain distinct.
 
 ## Independent addresses
 

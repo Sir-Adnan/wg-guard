@@ -1,5 +1,6 @@
-> Current main is Docker-only and unreleased. v0.1.9 is the preparation release. Existing
-> state/layout is not converted in-place; export with the original manager before rebuilding.
+> Current source is Docker-only; v0.1.9 retains its preparation-era layout. Existing
+> state/layout is not converted in-place; export and verify off-host with the original
+> manager before a fresh install/restore. Phase 20 records the new host acceptance.
 
 # GitHub installation and verified builds
 

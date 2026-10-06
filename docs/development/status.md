@@ -1,5 +1,16 @@
 # Product and verification status
 
+**v0.1.10 candidate (2026-10-06):** Phase 20's explicitly authorized isolated
+Ubuntu 24.04.4 amd64 Docker/kernel/userspace drill has completed its recorded host
+scope after correcting overflow/SNI diagnostics, initial-archive pair paths and
+boot-kernel DKMS coverage. Fresh archive installation and corrected `6.8.0-146`
+reboot pass readiness/client traffic. The [Phase 20 record](phase20.md) owns measured
+resources, crypto/enforcement, CA/domain, data/access equivalence and failure/offline
+evidence. Earlier "unreleased" records below are historical source scopes; final
+exact-source/artifact/publication gates remain pending. The new host matrix excludes
+Ubuntu 26.04/`7.0.0-38`, native deployment and unobserved client/firewall/proxy/DNS-01
+cells. The owner authorized v0.1.10 only.
+
 **Runtime recovery correction (2026-10-05; unreleased):** the owner reports kernel
 `7.0.0-38` module build failure matching upstream issue 259, missing interfaces and
 readiness failures through recovery. Current source refuses a new panel update on
@@ -94,19 +105,21 @@ another release. Owner-server update/export is a post-publication checkpoint bef
 Phase 16 is complete within its documented source scope with exact CI passed.
 [Phase 17](phase17.md) implements Docker-only source, schema-4 private host state, one runtime
 recipe and verified offline image distribution. Its exact image/CI gate passed; real-host
-acceptance remains separate. [Phase 18](phase18.md) now implements independent
-domain/certificate management on main; physical acceptance remains Phase 20. The
-[domain/TLS guide](../operations/domains-and-tls.md) separates unreleased main
-implementation from published v0.1.9 and physical acceptance.
+acceptance is recorded in Phase 20. [Phase 18](phase18.md) implements independent
+domains/certificates with corrected physical HTTP-01/SNI acceptance in Phase 20.
+The [domain/TLS guide](../operations/domains-and-tls.md) separates that contract
+from v0.1.9's historical single-domain flow.
 [Phase 19](phase19.md) adds the installer/operator source journey;
-[Phase 20](phase20.md) has partial owner-host observations and remains incomplete.
+[Phase 20](phase20.md) has completed its corrected isolated host matrix; final
+source/artifact/publication gates remain pending.
 
 The owner explicitly selected complete native production removal in Phase 17.
 The [cleanup inventory](../architecture/docker-only-cleanup.md) covers lifecycle,
 state/artifacts, flags, renderers, logs, tests and current docs. Host CLI, kernel/
 DKMS, required systemd broker/renewal/retention and fake development remain.
 Current main removes Native production execution; the published v0.1.9 preparation release
-retains the prior deployment contract. No later release or registry publication is authorized.
+retains the prior deployment contract. v0.1.10 is explicitly authorized after gates;
+registry publication and other versions need their own scope.
 The [Phase 16 record](phase16.md) describes the completed source refactor: shared node-data
 sessions, bounded runtime application with desired/applied observations, sealed device-key
 provisioning, centralized managed paths and separate deployment/diagnostic adapters. Full local

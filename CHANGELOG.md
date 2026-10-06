@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+## [v0.1.10] — 2026-10-06
+
+- Deliver Docker-only deployment and schema-4 private host authority, one reviewed
+  runtime recipe, commit/binary/core-bound offline image assets and independent manager caching.
+- Add separate panel/subscription HTTPS origins, certificate issuance, renewal/replacement,
+  SNI/route isolation, journaled recovery and `install.sh --https` / `wg-guard manage --https`.
+- Restore source accounts/settings/keys before the first managed listener on a fresh
+  install from backup; complete target DB/key paths before offline archive application.
+- Improve bounded archive review/verification, shared operation receipts and safe node
+  readiness/health observations without granting panel users general host execution.
+- Use private disk acquisition staging and useful sanitized final compiler causes;
+  gate updates on predecessor readiness and preserve truthful interrupted-recovery identity.
+- Build the reviewed DKMS module for installed bootable/header-ready kernels before
+  later reboot; inspect all forwarding pools and managed SNI certificates in Doctor.
+- Streamline user creation modes and compact preset Selects, inset/disclosure navigation,
+  Domains access, tabbed Appearance, aligned guidance, backup creation and SVG chart inspection.
+
+The dedicated Ubuntu 24.04.4 amd64 Docker/kernel/userspace record covers fresh install,
+encrypted/off-host verification and coordinated/fresh-target restore, public client
+DNS/HTTPS and shaping, real HTTP-01 issuance/renewal/replacement, origin isolation,
+update/interrupted recovery, corrected reboot and offline container recovery.
+The 1000-device record is a control-plane workload, not 1000 concurrent handshakes.
+Long-interval CA renewal, physical mobile apps, IPv6, later Ubuntu releases, DNS-01,
+external proxies and additional firewall-manager coexistence are not newly certified.
+Exact source/release workflow and downloaded public assets remain separate delivery gates.
+
+Upgrade note: native server deployment and old schema-1–3 installation layouts are removed.
+Export/verify an off-host archive with the original release manager, then use a reviewed
+fresh Docker install/restore; editing state JSON is not migration. Current schema-4
+development nodes use guarded updates. Ubuntu 26.04 kernel `7.0.0-38` has an observed
+pinned-module build failure and remains outside this release's verified host matrix.
+No official registry publication is implied.
+
 ## [v0.1.9] — 2026-10-04
 
 - Add independent `backup verify` and shared full DB/key, reference and stored-domain validation
