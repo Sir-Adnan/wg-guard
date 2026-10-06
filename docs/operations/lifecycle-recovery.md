@@ -168,7 +168,11 @@ Read the running-kernel headers/module build log before selecting a repair. On
 [upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259).
 This is an observed failure of the reviewed source on that kernel, not a claim
 that a guessed patch or another kernel is certified. The owner retained the prior
-`7.0.0-30-generic` image/headers and installed DKMS module.
+`7.0.0-30-generic` image/headers and installed DKMS module. The later `awg-2026-10`
+bundle carries a reviewed, hash-pinned signature correction that compiles on `7.0.0-38`
+(see the [upstream contract](../integrations/amneziawg.md)); switch the core to it while
+running a working kernel, then reboot into `7.0.0-38`. Real-host load and traffic on that
+kernel remain unverified until observed.
 
 An operator-coordinated one-time boot of a confirmed retained working kernel can
 restore the prerequisite, followed by `modprobe amneziawg`, recorded update recovery
@@ -279,8 +283,8 @@ not certify the dedicated-VPS/M6 lifecycle drills.
 ## Catalogued core maintenance
 
 `wg-guard core switch recommended --confirm-impact` uses the same lock and journal. The current
-recommended bundle is source-backed `awg-2026-09`; recommended and latest-compatible resolve to
-it. Exact upstream tags/commits, the versioned DKMS identity and cached source ownership are
+recommended bundle is source-backed `awg-2026-10`; recommended and latest-compatible resolve to
+it. `awg-2026-09` remains a catalogued source bundle without the `7.0.0-38` correction. Exact upstream tags/commits, the versioned DKMS identity and cached source ownership are
 verified before readiness. Package-backed `awg-2026-08` remains recognizable for legacy
 new-layout transition compatibility. Owned catalogued source can be repaired or moved to the
 recommended entry; no arbitrary upstream branch or unreviewed version is accepted. An unknown or

@@ -9,7 +9,7 @@ Docker image builds and carries the pinned tools and userspace daemon as separat
 |---|---|---|
 | [amneziawg-tools](https://github.com/amnezia-vpn/amneziawg-tools/tree/ee0f0a9aa34ff0a0da4b3433b9512781cfe02843) | GPL-2.0; [COPYING](third_party/licenses/AmneziaWG-tools-COPYING) | Built from this exact commit for the runtime image; invoked as a subprocess |
 | [amneziawg-go](https://github.com/amnezia-vpn/amneziawg-go/tree/b5928efb6ca19f0153958460c3d141f04abc5c2e) | MIT; [LICENSE](third_party/licenses/AmneziaWG-go-LICENSE) | Exact-source userspace daemon in the runtime image  |
-| [amneziawg-linux-kernel-module](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module) | GPL-2.0 | Exact-source host DKMS build; not embedded in the WG-Guard binary or image |
+| [amneziawg-linux-kernel-module](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module) | GPL-2.0 | Exact-source host DKMS build; not embedded in the WG-Guard binary or image. The `awg-2026-10` bundle applies a reviewed GPL-2.0 `compat/compat.h` correction (source text in `internal/install/core_patch.go`) to the host DKMS copy; the unmodified pinned file is a test fixture at `internal/install/testdata/amneziawg-compat-4569c4c.h` |
 | [htmx 2.0.4](https://github.com/bigskysoftware/htmx/tree/v2.0.4) | 0BSD; [LICENSE](third_party/licenses/htmx-2.0.4-LICENSE) | Embedded prebuilt `web/static/js/htmx.min.js` |
 | [Lucide](https://github.com/lucide-icons/lucide) subset | ISC; some Feather-derived icons retain MIT notices in the [upstream license](third_party/licenses/Lucide-LICENSE) | Embedded `web/static/img/icons.svg` sprite |
 | [Vazirmatn](https://github.com/rastikerdar/vazirmatn) | SIL OFL 1.1; [license](third_party/licenses/Vazirmatn-OFL.txt) | Embedded Regular/SemiBold WOFF2 files |

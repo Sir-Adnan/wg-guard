@@ -37,7 +37,7 @@ func init() {
 	catalogEN["install.error.manual_pair"] = "install: manual certificate and private key are not a valid matching pair"
 	catalogFA["install.error.manual_pair"] = "نصب: گواهی دستی و کلید خصوصی یک جفت معتبر و مطابق نیستند"
 	for key, value := range map[string]string{
-		"install.error.core.1":     "install: unknown compatible core bundle; use recommended, latest-compatible, awg-2026-09 or awg-2026-08",
+		"install.error.core.1":     "install: unknown compatible core bundle; use recommended, latest-compatible, awg-2026-10, awg-2026-09 or awg-2026-08",
 		"install.error.core.2":     "install: prerequisite policy must be auto or check",
 		"install.error.core.3":     "install: core must match a catalogued bundle",
 		"install.error.core.4":     "install: installed %s differs from selected bundle; preserve it and resolve compatibility manually",
@@ -101,7 +101,7 @@ func init() {
 		catalogEN[key] = value
 	}
 	for key, value := range map[string]string{
-		"install.error.core.1":     "نصب: بستهٔ سازگار ناشناخته است؛ از recommended، latest-compatible، awg-2026-09 یا awg-2026-08 استفاده کنید",
+		"install.error.core.1":     "نصب: بستهٔ سازگار ناشناخته است؛ از recommended، latest-compatible، awg-2026-10، awg-2026-09 یا awg-2026-08 استفاده کنید",
 		"install.error.core.2":     "نصب: روش پیش‌نیازها باید auto یا check باشد",
 		"install.error.core.3":     "نصب: هسته باید با یکی از بسته‌های فهرست سازگار مطابقت داشته باشد",
 		"install.error.core.4":     "نصب: نسخهٔ نصب‌شدهٔ %s با بستهٔ انتخابی متفاوت است؛ آن را حفظ و سازگاری را دستی بررسی کنید",

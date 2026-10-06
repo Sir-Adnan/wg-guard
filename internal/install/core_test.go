@@ -103,19 +103,19 @@ func (h *packageHost) Run(ctx context.Context, a []string, d time.Duration) erro
 
 func TestCoreCatalogRejectsUncataloguedVersions(t *testing.T) {
 	catalog := ReviewedCoreBundles()
-	if len(catalog) != 2 || catalog[0].ID != "awg-2026-09" || catalog[1].ID != "awg-2026-08" {
+	if len(catalog) != 3 || catalog[0].ID != "awg-2026-10" || catalog[1].ID != "awg-2026-09" || catalog[2].ID != "awg-2026-08" {
 		t.Fatalf("reviewed core catalog order = %#v", catalog)
 	}
 	catalog[0].ID = "mutated"
-	if recommended, err := SelectCore("recommended"); err != nil || recommended.ID != "awg-2026-09" {
+	if recommended, err := SelectCore("recommended"); err != nil || recommended.ID != "awg-2026-10" {
 		t.Fatal("caller mutated the reviewed core catalog")
 	}
-	for _, selector := range []string{"recommended", "latest-compatible", "awg-2026-09"} {
+	for selector, dkms := range map[string]string{"recommended": "1.0.0-wgguard.20260906.1", "latest-compatible": "1.0.0-wgguard.20260906.1", "awg-2026-10": "1.0.0-wgguard.20260906.1", "awg-2026-09": "1.0.0-wgguard.20260906"} {
 		b, err := SelectCore(selector)
-		if err != nil || b.ID != "awg-2026-09" || b.ToolsCommit != "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843" || b.KernelCommit != "4569c4c67f3a57414969260cafbbd04694fbaae0" {
+		if err != nil || b.ToolsCommit != "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843" || b.KernelCommit != "4569c4c67f3a57414969260cafbbd04694fbaae0" {
 			t.Fatalf("catalog selection failed: %+v %v", b, err)
 		}
-		if b.ToolsRepository != "https://github.com/amnezia-vpn/amneziawg-tools.git" || b.KernelRepository != "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" || b.KernelDKMSVersion != "1.0.0-wgguard.20260906" {
+		if b.ToolsRepository != "https://github.com/amnezia-vpn/amneziawg-tools.git" || b.KernelRepository != "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" || b.KernelDKMSVersion != dkms {
 			t.Fatalf("catalog source provenance incomplete: %+v", b)
 		}
 	}
@@ -162,7 +162,7 @@ func (h *sourceCoreHost) Output(ctx context.Context, a []string, d time.Duration
 	if len(a) > 1 && a[0] == "dkms" && a[1] == "status" {
 		h.commands = append(h.commands, memCmd{argv: a})
 		if h.dkmsInstalled {
-			return "amneziawg/1.0.0-wgguard.20260906, 6.8.0-138-generic, x86_64: installed", nil
+			return "amneziawg/" + argumentAfter(a, "-v") + ", 6.8.0-138-generic, x86_64: installed", nil
 		}
 		return "", fmt.Errorf("not installed")
 	}

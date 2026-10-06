@@ -50,7 +50,7 @@ func TestUpdateCenterShowsVersionsAndQueuesCataloguedRelease(t *testing.T) {
 	if page.Code != http.StatusOK {
 		t.Fatalf("updates page = %d", page.Code)
 	}
-	for _, want := range []string{"v1.2.3", "awg-2026-09"} {
+	for _, want := range []string{"v1.2.3", "awg-2026-10"} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("updates page missing %q", want)
 		}

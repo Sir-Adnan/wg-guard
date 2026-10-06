@@ -14,8 +14,9 @@ func TestCoreCommandCatalogAndInvalidSelection(t *testing.T) {
 		args []string
 		id   string
 	}{
-		{[]string{"recommended"}, "awg-2026-09"},
-		{[]string{"latest-compatible"}, "awg-2026-09"},
+		{[]string{"recommended"}, "awg-2026-10"},
+		{[]string{"latest-compatible"}, "awg-2026-10"},
+		{[]string{"exact", "awg-2026-09"}, "awg-2026-09"},
 		{[]string{"exact", "awg-2026-08"}, "awg-2026-08"},
 	} {
 		var out bytes.Buffer

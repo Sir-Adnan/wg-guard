@@ -18,16 +18,37 @@ peers. This is not a new real-host multi-pool/client acceptance claim. See
 | Component | Pinned version | Source |
 |---|---|---|
 | amneziawg-tools (`awg`) | **v3.1.20260812**, commit `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843` | exact tag/commit from `amnezia-vpn/amneziawg-tools`; built into the host/native path and Docker runtime as required |
-| amneziawg kernel module source | **v3.1.20260906**, commit `4569c4c67f3a57414969260cafbbd04694fbaae0`; managed DKMS identity `1.0.0-wgguard.20260906` | exact tag/commit from `amnezia-vpn/amneziawg-linux-kernel-module` |
+| amneziawg kernel module source | **v3.1.20260906**, commit `4569c4c67f3a57414969260cafbbd04694fbaae0`; managed DKMS identity `1.0.0-wgguard.20260906.1` (`awg-2026-10`, reviewed correction below) or `1.0.0-wgguard.20260906` (`awg-2026-09`) | exact tag/commit from `amnezia-vpn/amneziawg-linux-kernel-module` |
 | amneziawg-go (userspace daemon, fallback backend) | **v3.1.20260828**, commit `b5928efb6ca19f0153958460c3d141f04abc5c2e`; binary `amneziawg-go` | built from github.com/amnezia-vpn/amneziawg-go |
 | Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
 | Verification environment (kernel/installer) | dedicated VPS, Ubuntu **24.04.4 LTS** (noble), KVM, kernel `6.8.0-138-generic`, x86_64; exact GitHub source + DKMS | 2026-09-09 |
 
 Core policy: the installer accepts Ubuntu 24.04 or newer with systemd on amd64/x86_64 only.
-`recommended` and `latest-compatible` resolve to source-backed `awg-2026-09`. Git clones use
+`recommended` and `latest-compatible` resolve to source-backed `awg-2026-10`. Git clones use
 only the catalogued official repository/tag, then require the exact full commit and a clean tree
-before compilation. The host module is registered as `amneziawg/1.0.0-wgguard.20260906`; DKMS
-builds require `build-essential` and headers matching the running kernel. No mutable branch,
+before compilation. The host module is registered as `amneziawg/1.0.0-wgguard.20260906.1`; DKMS
+builds require `build-essential` and headers matching the running kernel.
+
+**Reviewed kernel-source correction (`awg-2026-10`).** Ubuntu `7.0.0-38` (26.04 GA and the
+24.04 HWE kernel) backports the Linux 7.1.5 `struct sock *` signature of
+`setup_udp_tunnel_sock()` without changing `LINUX_VERSION_CODE`, so the pinned source's
+`< 7.1.5` gate passes `struct socket *` and the build fails
+([upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259);
+no fixed upstream tag exists yet). `awg-2026-10` keeps the same upstream tag/commit and the
+gate, and selects each argument from the declared signature, as open upstream PR 265 proposes.
+The correction touches only `compat/compat.h` in the DKMS source copy; the pinned checkout stays
+clean, and the original and corrected file are pinned by SHA-256 (`b143460…` → `b1331ce…`), so a
+changed upstream file fails closed. It changes no AWG parameter, protocol or UAPI behavior.
+Container compile evidence (2026-10-06) against Ubuntu headers: unpatched fails exactly as issue
+259 on `7.0.0-38` (26.04 and 24.04 HWE) and builds on `6.8.0-146`, `7.0.0-30` and `7.0.0-34`;
+the corrected source builds on all five. DKMS 3.2.2 installed it for `7.0.0-30` and `7.0.0-38`
+and retired the superseded `awg-2026-09` registration. Compile/DKMS evidence is not a
+real-host module load, handshake or traffic claim on those kernels.
+
+Switching to `awg-2026-10` installs the corrected module for the running and already bootable
+header-ready kernels, then removes the superseded catalogued WG-Guard source registration
+(`awg-2026-09`) so kernel package hooks never rebuild an uncorrected source. Package-owned or
+foreign DKMS modules are not touched. `awg-2026-09` remains selectable and recognizable. No mutable branch,
 uncatalogued upstream version or PPA package retention is trusted by the recommended path.
 
 Package-backed `awg-2026-08` (tools commit `ee0f0a9…`, kernel commit `3c38e168…`) remains in the

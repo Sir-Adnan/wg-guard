@@ -141,7 +141,7 @@ Fresh interactive setup then starts with only two decisions:
 2. Whether to customize advanced settings. Press Enter for the recommended setup.
 
 The recommended path uses Docker, detects the public VPN address, selects the source-backed pinned
-`awg-2026-09` bundle, allocates per-interface UDP ports from 30000–50000 and uses the documented
+`awg-2026-10` bundle, allocates per-interface UDP ports from 30000–50000 and uses the documented
 network defaults. A domain enables ACME HTTPS; external TCP ports 80 and 443 must reach the VPS.
 Without a domain the panel TCP listener remains private. The VPN UDP port is separate from the
 panel/HTTPS TCP ports.

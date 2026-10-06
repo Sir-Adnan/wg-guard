@@ -285,7 +285,7 @@ amd64 node. Later Ubuntu releases still need their own host certification:
 wg-guard core installed
 wg-guard core recommended
 wg-guard core latest-compatible
-wg-guard core exact awg-2026-09
+wg-guard core exact awg-2026-10
 wg-guard install --yes --public-ip PUBLIC_IP --prerequisites auto --core recommended
 ```
 
@@ -309,8 +309,10 @@ attached by one tagged jump at Docker's documented `DOCKER-USER` extension point
 interface mutations refresh both layers before readiness is healthy; `doctor` reports a missing
 or partial path. Uninstall removes only the owned table, jump and child chain.
 
-The recommended `awg-2026-09` bundle does not depend on PPA retention. It clones only the exact
-catalogued official kernel tag, verifies its full commit and clean tree, and registers `amneziawg/1.0.0-wgguard.20260906` with DKMS.
+The recommended `awg-2026-10` bundle does not depend on PPA retention. It clones only the exact
+catalogued official kernel tag, verifies its full commit and clean tree, applies the reviewed
+[Ubuntu `7.0.0-38` signature correction](../integrations/amneziawg.md) to the DKMS source copy, and
+registers `amneziawg/1.0.0-wgguard.20260906.1` with DKMS, retiring a superseded `awg-2026-09` registration.
 Versioned source and a bounded installer-owned cache make retry deterministic. The package-backed
 `awg-2026-08` identity remains for legacy installed-state/update compatibility and fails closed if
 its historical exact packages are unavailable; it is not the recommended fresh-install path.

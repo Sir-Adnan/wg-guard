@@ -48,7 +48,7 @@ func TestUpdateAllCachesManagerThenUpdatesPanelAndCompatibleCore(t *testing.T) {
 		t.Fatal("full update did not synchronize manager and panel binaries")
 	}
 	st, err := LoadState(h)
-	if err != nil || st.Version != b.Version || st.Core.Requested.ID != "awg-2026-09" {
+	if err != nil || st.Version != b.Version || st.Core.Requested.ID != "awg-2026-10" {
 		t.Fatalf("full update state = %+v, err %v", st, err)
 	}
 	j, err := LoadJournal(h)

@@ -115,11 +115,29 @@ func (m *memHost) Run(_ context.Context, argv []string, _ time.Duration) error {
 			m.files[built] = memFile{data: []byte("reviewed awg binary"), perm: 0o755}
 		}
 	}
+	if len(argv) > 1 && argv[0] == "make" && argv[len(argv)-1] == "dkms-install" {
+		// Install the exact pinned upstream compat.h, the file reviewed
+		// corrections must match before DKMS registration.
+		raw, err := os.ReadFile("testdata/amneziawg-compat-4569c4c.h")
+		if err != nil {
+			return err
+		}
+		m.files[strings.TrimPrefix(argumentWithPrefix(argv, "DKMSDIR="), "DKMSDIR=")+"/compat/compat.h"] = memFile{data: raw, perm: 0o644}
+	}
 	if len(argv) > 1 && argv[0] == "dkms" && argv[1] == "install" {
 		version, kernel := argumentAfter(argv, "-v"), argumentAfter(argv, "-k")
 		m.dkms[version+"|"+kernel] = true
 	}
 	return nil
+}
+
+func argumentWithPrefix(argv []string, prefix string) string {
+	for _, arg := range argv {
+		if strings.HasPrefix(arg, prefix) {
+			return arg
+		}
+	}
+	return ""
 }
 
 // RunWithInput records the argv and the stdin payload separately, so tests

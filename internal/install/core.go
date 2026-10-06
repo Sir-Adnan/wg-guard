@@ -52,6 +52,14 @@ type CoreReport struct {
 
 var reviewedCoreBundles = []CoreBundle{
 	{
+		// awg-2026-09 sources plus the reviewed udp_tunnel signature correction
+		// (core_patch.go) for Ubuntu 7.0.0-38 kernels; a distinct DKMS version.
+		ID: "awg-2026-10", Source: coreSourceGitHub,
+		ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git",
+		KernelVersion: "v3.1.20260906", KernelCommit: "4569c4c67f3a57414969260cafbbd04694fbaae0", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelDKMSVersion: "1.0.0-wgguard.20260906.1",
+		UserspaceVersion: "v3.1.20260828", UserspaceCommit: "b5928efb6ca19f0153958460c3d141f04abc5c2e",
+	},
+	{
 		ID: "awg-2026-09", Source: coreSourceGitHub,
 		ToolsVersion: "v3.1.20260812", ToolsCommit: "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843", ToolsRepository: "https://github.com/amnezia-vpn/amneziawg-tools.git",
 		KernelVersion: "v3.1.20260906", KernelCommit: "4569c4c67f3a57414969260cafbbd04694fbaae0", KernelRepository: "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", KernelDKMSVersion: "1.0.0-wgguard.20260906",

@@ -82,7 +82,10 @@ func ensurePinnedCheckout(ctx context.Context, h Host, b CoreBundle, component, 
 
 func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle) error {
 	if sourceInstalled(h, kernelInstalledMarker(b), b.KernelCommit) && dkmsInstalled(ctx, h, kernel, b.KernelDKMSVersion) {
-		return ensureInstalledKernelBuilds(ctx, h, kernel, b)
+		if err := ensureInstalledKernelBuilds(ctx, h, kernel, b); err != nil {
+			return err
+		}
+		return retireSupersededSourceModules(ctx, h, b)
 	}
 	if raw, err := h.Output(ctx, []string{"dkms", "status", "-m", "amneziawg", "-v", b.KernelDKMSVersion}, 15*time.Second); err == nil && strings.TrimSpace(raw) != "" {
 		if err := runQuiet(ctx, h, []string{"dkms", "remove", "-m", "amneziawg", "-v", b.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
@@ -102,6 +105,9 @@ func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle
 	if err := runQuiet(ctx, h, makeArgs, longTimeout); err != nil {
 		return fmt.Errorf("install: prepare reviewed AWG DKMS source: %w", err)
 	}
+	if err := applyKernelSourcePatches(h, b, dkmsSource); err != nil {
+		return err
+	}
 	dkmsConfig := fmt.Sprintf("PACKAGE_NAME=\"amneziawg\"\nPACKAGE_VERSION=\"%s\"\nAUTOINSTALL=yes\n\nBUILT_MODULE_NAME=\"amneziawg\"\nDEST_MODULE_LOCATION=\"/kernel/net\"\n", b.KernelDKMSVersion)
 	if err := h.WriteFile(path.Join(dkmsSource, "dkms.conf"), []byte(dkmsConfig), 0o644); err != nil {
 		return err
@@ -118,7 +124,35 @@ func ensurePinnedKernel(ctx context.Context, h Host, kernel string, b CoreBundle
 	if err := ensureInstalledKernelBuilds(ctx, h, kernel, b); err != nil {
 		return err
 	}
-	return h.WriteFile(kernelInstalledMarker(b), []byte(b.KernelCommit+"\n"), 0o600)
+	if err := h.WriteFile(kernelInstalledMarker(b), []byte(b.KernelCommit+"\n"), 0o600); err != nil {
+		return err
+	}
+	return retireSupersededSourceModules(ctx, h, b)
+}
+
+// retireSupersededSourceModules removes other catalogued WG-Guard source
+// registrations once b is installed for every target kernel. A superseded
+// AUTOINSTALL entry would otherwise be rebuilt by each kernel package hook and
+// can fail there (an uncorrected source on Ubuntu 7.0.0-38). Foreign or
+// package-owned DKMS modules are never touched.
+func retireSupersededSourceModules(ctx context.Context, h Host, b CoreBundle) error {
+	for _, other := range reviewedCoreBundles {
+		if other.Source != coreSourceGitHub || other.KernelDKMSVersion == b.KernelDKMSVersion {
+			continue
+		}
+		if raw, err := h.Output(ctx, []string{"dkms", "status", "-m", "amneziawg", "-v", other.KernelDKMSVersion}, 15*time.Second); err == nil && strings.TrimSpace(raw) != "" {
+			if err := runQuiet(ctx, h, []string{"dkms", "remove", "-m", "amneziawg", "-v", other.KernelDKMSVersion, "--all"}, longTimeout); err != nil {
+				return fmt.Errorf("install: retire superseded AWG module %s: %w", other.KernelDKMSVersion, err)
+			}
+		}
+		if err := h.RemoveAll(path.Join("/usr/src", "amneziawg-"+other.KernelDKMSVersion)); err != nil {
+			return err
+		}
+		if err := h.RemoveAll(path.Join(CoreCacheDir, other.ID)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var installedKernelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$`)

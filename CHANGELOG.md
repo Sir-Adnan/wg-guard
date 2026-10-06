@@ -9,6 +9,10 @@
   the loaded image up only by config digest and failed updates with `runtime: image
   inspection failed`; the manager now derives the OCI manifest digest from the verified
   archive in the same hashing pass and accepts either local identity with matching labels.
+- Add recommended core bundle `awg-2026-10`: the pinned kernel source with a reviewed, hash-pinned
+  `setup_udp_tunnel_sock` signature correction for Ubuntu `7.0.0-38` (26.04 and 24.04 HWE;
+  upstream issue 259). Superseded WG-Guard source DKMS registrations are retired after the
+  corrected module installs. Container compile/DKMS evidence only; real-host load is unverified.
 
 ## [v0.1.10] — 2026-10-06
 
