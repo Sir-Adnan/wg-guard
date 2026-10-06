@@ -152,6 +152,26 @@ func TestInteractiveHTTPSStatusUsesReadableDatesAndBuiltinRenewal(t *testing.T) 
 	}
 }
 
+func TestHTTPSRenewalUsesCertificateOwner(t *testing.T) {
+	for _, tc := range []struct {
+		method domaintls.Method
+		want   []string
+	}{
+		{domaintls.Automatic, []string{"domains", "renew", "panel"}},
+		{domaintls.Builtin, []string{"tls-check"}},
+		{domaintls.Manual, nil},
+		{domaintls.External, nil},
+	} {
+		m := manager{ui: terminal.New(strings.NewReader(""), io.Discard, terminal.Options{}), domainStatus: func(context.Context) (install.DomainInventory, error) {
+			return install.DomainInventory{Certificates: []install.DomainCertificate{{Site: domaintls.Site{Role: domaintls.Panel, Method: tc.method}}}}, nil
+		}}
+		got, err := m.domainRenewalAction(context.Background(), domaintls.Panel)
+		if err != nil || !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("renewal owner=%s args=%v err=%v", tc.method, got, err)
+		}
+	}
+}
+
 func TestInterruptedUninstallGetsDedicatedRecoveryView(t *testing.T) {
 	st := &install.State{Schema: install.StateSchema, Mode: install.ModeDocker, ConfigPath: install.ConfigPath, DataDir: install.DataDir, ComposePath: install.ComposePth, BinPath: install.BinPath}
 	j := &install.Journal{Schema: install.JournalSchema, Operation: "uninstall", Stage: "recovery-required", Before: st}

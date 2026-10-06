@@ -26,7 +26,10 @@ retain their existing ownership boundaries. Renewal remains due-based rather tha
 forcing unnecessary issuance; owned automatic lineages also have scheduled checks.
 The supported direct arrangement is one panel origin and one optional distinct
 public origin, not an unbounded collection of certificates.
-Interactive status shows certificate ownership, expiry and renewal guidance;
+Interactive status shows certificate ownership, expiry and renewal guidance.
+Its renewal entries follow that owner: an owned automatic lineage runs the due
+renewal, the built-in issuer runs a live certificate check, and manual/external
+certificates name their owner instead of attempting issuance;
 the explicit `wg-guard domains status` command retains its bounded JSON interface.
 
 Opening the manager reads installation, health, TLS/core readiness and lifecycle state without

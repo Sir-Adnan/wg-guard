@@ -41,9 +41,9 @@ func (m *manager) domainsMenu(ctx context.Context) error {
 				return err
 			}
 		case 4:
-			args = []string{"domains", "renew", "subscription"}
+			args, err = m.domainRenewalAction(ctx, domaintls.Subscription)
 		case 5:
-			args = []string{"domains", "renew", "panel"}
+			args, err = m.domainRenewalAction(ctx, domaintls.Panel)
 		case 6:
 			ok, e := m.ui.Confirm("Remove the separate public address and generate links on the panel origin?")
 			if e != nil {
@@ -58,12 +58,51 @@ func (m *manager) domainsMenu(ctx context.Context) error {
 		case 8:
 			args = []string{"exposure", "configure"}
 		}
+		if err != nil {
+			m.ui.Result(err)
+			continue
+		}
+		if len(args) == 0 {
+			continue
+		}
 		err = m.run(ctx, args, nil)
 		m.ui.Result(err)
 		if ctx.Err() != nil {
 			return terminal.ErrCanceled
 		}
 	}
+}
+
+func (m *manager) domainRenewalAction(ctx context.Context, role domaintls.Role) ([]string, error) {
+	if m.domainStatus == nil {
+		return []string{"domains", "renew", string(role)}, nil
+	}
+	inventory, err := m.domainStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, certificate := range inventory.Certificates {
+		if certificate.Site.Role != role {
+			continue
+		}
+		switch certificate.Site.Method {
+		case domaintls.Automatic:
+			return []string{"domains", "renew", string(role)}, nil
+		case domaintls.Builtin:
+			m.ui.Text("The running panel renews this SSL certificate automatically. Checking the live certificate.")
+			return []string{"tls-check"}, nil
+		case domaintls.Manual:
+			m.ui.Text("This SSL certificate is operator-owned. Use domain configuration to import a reviewed replacement.")
+		default:
+			m.ui.Text("The external gateway owns renewal. Check its certificate manager.")
+		}
+		return nil, nil
+	}
+	if role == domaintls.Panel && inventory.Revision == "legacy" {
+		return []string{"exposure", "renew"}, nil
+	}
+	m.ui.Text("No separate SSL certificate is configured for this address.")
+	return nil, nil
 }
 
 func (m *manager) showDomainStatus(inventory install.DomainInventory) {
