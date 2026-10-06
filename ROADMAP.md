@@ -24,7 +24,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ✅ Complete |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
-| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
+| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | ✅ Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
 | **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; security in v0.1.2, integration in v0.1.3, template/direct-entitlement follow-up in v0.1.4 after exact-source CI and release gates |
 | **15 — Operational safety and migration preparation** | Complete portable backup checks, pre-migration ordering, readiness and slow-job isolation | ✅ Complete; preparation release v0.1.9 published |
 | **16 — Modular responsibility boundaries** | Shared application operations, desired/applied state, host/runtime/lifecycle separation and centralized paths | ✅ Complete; shipped in v0.1.10 |
@@ -242,33 +242,96 @@ private configs and capability links must not enter logs, audit metadata or oper
 listed source/artifact checks; no new physical-device or VPS cell is inferred from them.
 Future public releases still require owner approval.
 
+### Maintenance releases v0.1.5–v0.1.8
+
+Separately authorized post-Phase-14 maintenance releases, each published after exact-source main
+CI and the release workflow; none adds a new real-host certification cell:
+[v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) (staged install/update
+progress, separated logs, batch purchases),
+[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) (stored-webhook key validation
+and blocked-upgrade backup correction),
+[v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) (Update Center redesign and
+maintenance permission separation) and
+[v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) (numeral presentation, shared
+guidance/forms, interface editor and combined cleanup). Details are in [CHANGELOG.md](CHANGELOG.md).
+
+### Phase 15 — Operational safety and migration preparation
+
+Reliable portable archives, fail-closed automatic migration, lifecycle readiness, bounded
+slow-work isolation, resumable secret rotation and an owner export/verify drill. Completed
+2026-10-04 and published as the preparation release
+[v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9); measured crypto/slow-delivery
+isolation is local, and host resource/kernel/client acceptance moved to Phase 20. Detailed gate:
+[docs/development/phase15.md](docs/development/phase15.md).
+
+### Phase 16 — Modular responsibility boundaries
+
+Behavior-preserving refactor: shared node-data sessions, one runtime-apply coordinator with
+desired/applied observations, sealed device-key provisioning, centralized managed paths and
+separate deployment/diagnostic adapters. Completed 2026-10-04 within its source scope with exact
+CI; shipped in v0.1.10. Detailed record: [docs/development/phase16.md](docs/development/phase16.md).
+
+### Phase 17 — Docker-only distribution and native cleanup
+
+One verified Docker runtime recipe, strict schema-4 deployment state, separated private host
+authority, exact image/binary/core provenance and offline image assets; native production
+deployment is removed. Exact image/fake-container CI passed on 2026-10-05; host acceptance passed
+in Phase 20 and the result shipped in v0.1.10. Existing older layouts move only by verified
+off-host backup and fresh install/restore. Detailed record:
+[docs/development/phase17.md](docs/development/phase17.md).
+
+### Phase 18 — Integrated domains and HTTPS
+
+Independent panel/public subscription origins, SNI and resumed TLS admission, an owner-authorized
+certificate mailbox, versioned imports, CA renewal/retirement and snapshot recovery, managed from
+the panel and the terminal. Real HTTP-01 issuance, scoped renewal/replacement, origin isolation
+and reboot passed in Phase 20; shipped in v0.1.10. DNS-01, external proxies and an observed
+long-interval renewal are not certified. Detailed record:
+[docs/development/phase18.md](docs/development/phase18.md).
+
+### Phase 19 — Installer and operational UX
+
+Archive initialization before managed listener start, shared safe CLI/panel operation states with
+explicit review/restart/recovery actions, the domain/TLS workspace, system health and the backup
+workbench. Source owners/settings/keys/usage survive the verified archive path; the corrected
+fresh-target install passed in Phase 20 and shipped in v0.1.10. Detailed record:
+[docs/development/phase19.md](docs/development/phase19.md).
+
+### Phase 20 — Refactor certification and publication
+
+Completed 2026-10-06 on an explicitly authorized isolated Ubuntu 24.04.4 amd64 VPS: fresh and
+archive install, kernel and explicit userspace client DNS/HTTPS/NAT and shaping, restore
+equivalence, CA issuance/renewal/replacement, update/interrupted recovery, offline image restart,
+corrected reboot and measured resources. Phases 16–20 were published as
+[v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) from exact `4f78adc` after
+main CI, the release workflow and independent public-asset verification. Detailed gate:
+[docs/development/phase20.md](docs/development/phase20.md).
+
+## Next scope and open items
+
+No further phase is scheduled. Each item below needs its own owner decision, scope and evidence;
+none is implied by the v0.1.10 support claim.
+
+- **Ubuntu 26.04 / kernel `7.0.0-38`:** the pinned kernel module fails to build there
+  ([upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259));
+  WG-Guard refuses unready updates and recovery boots the previous kernel. Support needs a
+  reviewed upstream fix or pin and its own host acceptance. See
+  [runtime recovery](docs/development/runtime-recovery.md).
+- **Unverified cells:** IPv6, DNS-01 real issuance, external proxy/firewall-manager coexistence,
+  active firewalld, physical mobile apps and Firefox for later UI phases, 1000 simultaneous
+  handshakes, multi-day soak and an observed long-interval CA renewal.
+- **Doctor peer-count warning:** the runtime-peer versus enabled-device comparison is
+  eligibility-blind (expired/over-quota devices are counted); authoritative reconciliation is
+  unaffected, but the heuristic can warn falsely.
+- **Distribution:** no official registry image is published; releases ship verified offline
+  image assets.
+- **Deferred products:** remote AmneziaWG nodes, native WireGuard, Xray/sing-box/OpenVPN and
+  immediate plan replacement after activation, as described in the
+  [refactor program](docs/development/refactor-program.md#deferred-work).
+
 ## Verification policy
 
 Nothing is done unless [docs/development/status.md](docs/development/status.md) records how it was
 verified. WSL2 and containers do not count as real kernel/architecture verification. A planned or
 implemented item is not described as production verified until its relevant real-host matrix cell
 has evidence.
-
-
-Phase 17 source now has one verified Docker runtime recipe, strict new deployment state and
-separated private host authority. Exact image/fake-container CI and the physical Phase 20
-acceptance/publication gates remain distinct. See [Phase 17](docs/development/phase17.md).
-
-
-Phase 18 implements independent panel/public subscription origins, SNI and resumed
-TLS admission, a dedicated owner-authorized certificate mailbox, versioned imports,
-CA renewal/retirement and snapshot recovery. Source and isolated browser/TLS checks
-remain distinct from physical Phase 20 acceptance. See [Phase 18](docs/development/phase18.md).
-
-
-Phase 19 implements archive initialization before managed listener start and
-shared safe CLI/panel operation states with explicit review/restart/recovery actions.
-Source owners/settings/keys/usage survive the verified archive path; target HTTPS
-is reviewed separately. Source/browser/race evidence stays distinct from physical
-Phase 20 migration and publication. See [Phase 19](docs/development/phase19.md).
-
-
-Phase 20 completed the explicitly authorized isolated Ubuntu 24.04.4 amd64
-Docker/kernel/userspace host matrix and published Phases 17–20 as **v0.1.10**
-(Latest stable) from exact `4f78adc`, with independently verified public assets.
-Excluded host/client cells and the next scope are in [Phase 20](docs/development/phase20.md).
