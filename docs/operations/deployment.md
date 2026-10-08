@@ -302,6 +302,17 @@ Ubuntu's `docker.io`; a missing plugin uses `docker-compose-v2` with recommendat
 disabled, preserving an existing Docker CE engine. An inactive supported systemd daemon/socket is
 reloaded and started before readiness is retried. Existing dependencies are not blanket-upgraded.
 
+Only an explicitly selected development source builds the runtime image on the host. Before
+that build, a fresh install provisions Ubuntu's `docker-buildx` (BuildKit) beside an Ubuntu
+`docker.io` engine. It uses the same no-recommends/no-removal rules and is recorded as
+installer-owned for managed package removal. Docker deprecated the legacy builder, which also
+runs the recipe's independent stages one after another. A host that already has BuildKit, runs
+another vendor's engine, uses `check` prerequisites or cannot obtain the package keeps the
+legacy builder, with a warning; the recipe and image identity are unchanged. Release installs
+load the published image and need no builder. Under BuildKit with the containerd image store,
+the local image ID is an OCI index digest, and the manager records whichever ID Docker reports
+through `--iidfile`.
+
 Docker's iptables backend may keep the host-wide `FORWARD` policy at `DROP`. WG-Guard deliberately
 does not relax it. For each enabled tunnel it renders NAT in `table inet wgguard` and a narrow
 source/interface plus established-return allow path in its own `WGGUARD-FORWARD` child chain,

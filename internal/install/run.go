@@ -396,6 +396,7 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 		if o.Build.Channel == "release" {
 			progress(out, "runtime_load")
 		} else {
+			EnsureRuntimeBuilder(ctx, journalHost{Host: h, j: j}, platform, o.Prerequisites, st, out)
 			progress(out, "runtime_build")
 		}
 		p.Image, err = PrepareRuntimeImage(ctx, h, &o.Build, bundle, o.StageParent)

@@ -17,6 +17,11 @@
   `setup_udp_tunnel_sock` signature correction for Ubuntu `7.0.0-38` (26.04 and 24.04 HWE;
   upstream issue 259). Superseded WG-Guard source DKMS registrations are retired after the
   corrected module installs. Container compile/DKMS evidence only; real-host load is unverified.
+- Provision Ubuntu's `docker-buildx` (BuildKit) before a development-source runtime build beside
+  an Ubuntu `docker.io` engine, recorded as installer-owned. Docker deprecated the legacy builder,
+  which also builds the recipe's independent stages one after another. Release installs load the
+  published image and add no package; hosts without the plugin keep the legacy builder with a
+  warning.
 
 ## [v0.1.10] — 2026-10-06
 

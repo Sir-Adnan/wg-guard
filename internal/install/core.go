@@ -175,6 +175,19 @@ func dockerComposeAvailable(ctx context.Context, h Host) bool {
 	return err == nil
 }
 
+// managedUbuntuHost is the explicit Ubuntu adapter's platform scope.
+func managedUbuntuHost(platform PlatformReport) bool {
+	return platform.OS == "ubuntu" && supportedUbuntuVersion(platform.Version) && platform.Arch == "amd64"
+}
+
+// automaticPackages reports whether the installer may provision Ubuntu packages.
+func automaticPackages(platform PlatformReport, policy PrerequisitePolicy) bool {
+	if policy == "" {
+		policy = PrerequisitesAuto
+	}
+	return policy == PrerequisitesAuto && platform.AutomaticPackages && managedUbuntuHost(platform) && platform.Init == "systemd"
+}
+
 // EnsurePrerequisites never upgrades/downgrades an installed AWG package or
 // unloads a module. external explicitly leaves host module lifecycle to the
 // operator; Docker and the host's diagnostic/network tools remain mandatory.
@@ -191,8 +204,8 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 	if err != nil || selected != b {
 		return r, terminalError("install.error.core.3")
 	}
-	managedUbuntu := platform.OS == "ubuntu" && supportedUbuntuVersion(platform.Version) && platform.Arch == "amd64"
-	automatic := policy == PrerequisitesAuto && platform.AutomaticPackages && managedUbuntu && platform.Init == "systemd"
+	managedUbuntu := managedUbuntuHost(platform)
+	automatic := automaticPackages(platform, policy)
 	type dependency struct{ name, version string }
 	var pending []dependency
 	require := func(name, version string) error {

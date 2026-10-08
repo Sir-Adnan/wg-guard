@@ -25,7 +25,7 @@ func progress(out io.Writer, key string, args ...any) {
 	switch key {
 	case "healthy", "started", "port_free", "dns", "certificate", "nginx_challenge", "nginx", "core_ready", "update_complete":
 		u.Success(message)
-	case "persistence", "dns_pending":
+	case "persistence", "dns_pending", "runtime_legacy_builder":
 		u.Warning(message)
 	default:
 		u.Info(message)

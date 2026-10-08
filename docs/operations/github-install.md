@@ -208,7 +208,14 @@ are preserved for executable lookup and transport. Module/cache directories are 
 writable for reliable cleanup. No repository hooks or `go generate` run.
 
 Source builds can take several minutes and require substantially more RAM/disk than the running
-panel, especially pure-Go SQLite compilation. Allow roughly 2 GiB of free temporary space and
+panel, especially pure-Go SQLite compilation. On the owner's 2-vCPU/4 GiB Ubuntu 24.04 host,
+`--commit main` took about six and a half minutes on 2026-10-08. Compiling the manager took
+1m35s and building the runtime image with Docker's legacy builder took 2m46s; packages and
+two DKMS kernels took about 1m30s more. A published release skips both builds: it downloads
+the verified manager and loads the published runtime image. A development install now
+provisions BuildKit for that image build (see [deployment](deployment.md)). On one local
+machine with the same pre-pulled base images and no cache, the BuildKit build took 58s
+against 133s for the legacy builder. Host timings vary and are not a guarantee. Allow roughly 2 GiB of free temporary space and
 adequate build memory; constrained nodes should use verified release binaries. Managed Go
 acquisition and runtime assembly use fresh private directories below
 `/var/cache/wg-guard/staging`, rather than inheriting `/tmp` or `TMPDIR`. Each build
