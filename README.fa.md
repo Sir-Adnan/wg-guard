@@ -41,9 +41,9 @@
 نصب‌کننده پیش‌نیازهای ثبت‌شده را بررسی و در صورت انتخاب شما آماده می‌کند.
 دسترسی کنسول یا SSH را هنگام نصب حفظ کنید و برای HTTPS دامنه‌ای آماده داشته باشید.
 
-> **مشکل شناخته‌شدهٔ v0.1.10:** بستهٔ فعلی `docker.io` 29.x در اوبونتو ۲۴٫۰۴ از containerd
-> image store استفاده می‌کند. در این حالت نصب تازه با خطای `runtime: image inspection failed`
-> متوقف می‌شود. اصلاح آن در `main` هست و هنوز منتشر نشده.
+> **نسخهٔ v0.1.11** نصب تازه روی بستهٔ فعلی `docker.io` 29.x در اوبونتو ۲۴٫۰۴ (containerd
+> image store) را درست می‌کند. در این حالت نسخهٔ v0.1.10 با خطای
+> `runtime: image inspection failed` متوقف می‌شد. برای تکمیل نصب نیمه‌کارهٔ v0.1.10،
 > [راهنمای بازیابی](docs/operations/lifecycle-recovery.md#runtime-image-inspection-failed-on-the-containerd-image-store)
 > را ببینید.
 

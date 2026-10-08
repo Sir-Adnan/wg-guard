@@ -1,5 +1,20 @@
 # Product and verification status
 
+**v0.1.11 published (2026-10-08):** the owner authorized v0.1.11 for the containerd image
+store admission correction, bundle `awg-2026-10`, Doctor peer eligibility, installer progress
+clarity and development-build BuildKit provisioning. Exact source
+`228e2a5e012963f9b096e76f9f28b1ea0bd5379c` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37776439694) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37777778448). All seven
+public assets were downloaded independently: the six checksums matched, the tag resolves to that
+commit, and the manager and runtime archive attestations verify against it and `release.yml`.
+The binary SHA-256 is `0c4af64d3bb20c864f1b7e60f2b3748d77c35472664dc9f3920dcd9d564efde9`;
+image config `sha256:bec796cc…`, manifest `sha256:61d408bd…`. Metadata lists `awg-2026-10`,
+`-09` and `-08`. Loaded into a local Docker 29.6.2 containerd store, the archive's ID was the
+manifest digest, every provenance label matched metadata and the embedded binary reported
+v0.1.11 with the published digest. A real-host fresh release install on the containerd store
+and client traffic remain to be reported. v0.1.11 is Latest stable; no registry image exists.
+
 **Containerd image store correction (2026-10-08; main source, unreleased):** a fresh
 v0.1.10 install on the owner's Ubuntu 24.04.4 amd64 host (`6.8.0-138-generic`,
 `docker.io` 29.1.3 from `noble-updates`, containerd snapshotter) stopped with

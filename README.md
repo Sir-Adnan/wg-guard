@@ -41,9 +41,9 @@ listed Ubuntu 24.04 generic kernels; later Ubuntu kernels are not inferred as su
 The installer checks and can provision its catalogued prerequisites. Keep access to the
 server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 
-> **Known v0.1.10 issue:** Ubuntu 24.04's current `docker.io` 29.x uses the containerd image
-> store, where a fresh install stops with `runtime: image inspection failed`. The correction
-> is on `main` and not yet released; see the
+> **v0.1.11** fixes fresh installs on Ubuntu 24.04's current `docker.io` 29.x (containerd image
+> store), where v0.1.10 stopped with `runtime: image inspection failed`. To finish an
+> interrupted v0.1.10 setup, see the
 > [recovery guide](docs/operations/lifecycle-recovery.md#runtime-image-inspection-failed-on-the-containerd-image-store).
 
 **Latest published stable release:**

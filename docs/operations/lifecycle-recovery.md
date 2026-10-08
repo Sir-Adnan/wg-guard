@@ -235,8 +235,8 @@ data-directory creation and service start, so no node data exists yet.
 A current manager reads the manifest digest from the checksum-verified archive and admits
 either identity only with matching platform and provenance labels. To recover, choose
 **Reset incomplete setup** in `sudo wg-guard`, then run the bootstrap with a build that
-contains the correction: a later published release, or an explicitly selected
-development commit (`--commit main`). Do not retag images, switch Docker's storage
+contains the correction: v0.1.11 or later (the default latest release), or an explicitly
+selected development commit (`--commit main`). Do not retag images, switch Docker's storage
 backend or edit install state to bypass the identity check.
 
 Certificate readiness is separate from process health. A healthy installation with pending

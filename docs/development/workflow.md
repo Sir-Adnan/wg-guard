@@ -125,6 +125,14 @@ SBOM root and runtime image config identity matched; binary SHA-256
 `sha256:d3645ff85c36d62efd0d99fddf4c908f4b54894798664e517b399a586476bff6`.
 v0.1.10 is Latest stable (published 2026-10-06). No registry image was published.
 This authorization covers v0.1.10 only; later versions and registry images need their own scope.
+On 2026-10-08 the owner explicitly requested v0.1.11 after the Ubuntu 24.04 containerd-store
+install failure and its correction. Exact released source
+`228e2a5e012963f9b096e76f9f28b1ea0bd5379c` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37776439694) and the
+[manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37777778448). All seven
+public assets were independently downloaded and their checksums, tag→commit and attestations
+verified; see [status](status.md). v0.1.11 is Latest stable. This authorization covers v0.1.11 only;
+later versions and registry images need their own scope.
 
 Keep commits coherent and imperative (`feat(user): …`, `fix(api): …`, `docs: …`, `build: …`). Do not
 knowingly deliver broken code, but an extra full local build/test cycle is not required for every

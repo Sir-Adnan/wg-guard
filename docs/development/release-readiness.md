@@ -11,6 +11,10 @@ installation, recovery, networking, TLS and resource testing. Corrected host
 acceptance is complete within its listed Docker/kernel/userspace matrix. v0.1.10
 is published from exact `4f78adc` with independently verified public assets; registry
 publication and unobserved host/client cells are not authorized/certified.
+v0.1.11 (2026-10-08, exact `228e2a5`) corrects release-image admission on Docker's containerd
+image store and ships bundle `awg-2026-10`. Main CI, the release workflow and independent
+asset/attestation checks passed; its real-host fresh release install is recorded in
+[status](status.md) when observed.
 
 Last updated: 2026-10-06. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and

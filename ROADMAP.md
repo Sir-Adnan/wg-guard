@@ -310,9 +310,9 @@ main CI, the release workflow and independent public-asset verification. Detaile
 ## Next scope and open items
 
 No further phase is scheduled. Each item below needs its own owner decision, scope and evidence;
-none is implied by the v0.1.10 support claim.
+none is implied by the v0.1.10/v0.1.11 support claims.
 
-- **Ubuntu 26.04 / kernel `7.0.0-38` (compile fix on main, unreleased; bundle `awg-2026-10`):** the pinned kernel module fails to build there
+- **Ubuntu 26.04 / kernel `7.0.0-38` (compile fix shipped in v0.1.11 as bundle `awg-2026-10`; real-host load unverified):** the pinned kernel module fails to build there
   ([upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259));
   WG-Guard refuses unready updates and recovery boots the previous kernel. Support needs a
   reviewed upstream fix or pin and its own host acceptance. See
