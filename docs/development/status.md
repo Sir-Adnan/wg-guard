@@ -10,8 +10,13 @@ store reproduced it with the published archive: the config-digest lookup fails, 
 manifest-digest lookup returns linux/amd64 with every provenance label matching runtime
 metadata. Running by that ID, the binary checksum and Compose `image:` start also passed.
 `InspectRuntimeArchive` from `d035033` derives exactly that identity from the real archive. Focused
-`internal/install`, `internal/distribution` and `cmd/wg-guard` Go tests pass. The fresh-host
-install path is unverified on a real host until the owner reruns it. v0.1.10 fresh installs on
+`internal/install`, `internal/distribution` and `cmd/wg-guard` Go tests pass. After
+**Reset incomplete setup**, the owner reinstalled the same host from development source
+`3adeb01` (`--commit main`). The install completed with a locally built runtime image on the
+containerd store, DKMS bundle `awg-2026-10` built for `6.8.0-138` and `6.8.0-146`, a healthy
+panel and verified HTTP-01 TLS. That path names the image by `--iidfile`, so the
+release-archive admission itself still awaits a real-host install of the next release. Client
+traffic was not reported. v0.1.10 fresh installs on
 current Ubuntu 24.04 Docker packages are affected; see
 [lifecycle recovery](../operations/lifecycle-recovery.md). The same log exposed a misleading
 `[FAIL] Checking Docker Compose` probe before provisioning; it is now silent.

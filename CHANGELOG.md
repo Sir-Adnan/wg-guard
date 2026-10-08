@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.1.11] — 2026-10-08
+
 - Make Doctor compare backend peer keys with reconciliation's eligibility rule; expired,
   traffic-exceeded, disabled and deleted accounts no longer raise a false peer warning, and
   the warning now names missing eligible and unexpected backend peers separately.
@@ -16,12 +18,25 @@
 - Add recommended core bundle `awg-2026-10`: the pinned kernel source with a reviewed, hash-pinned
   `setup_udp_tunnel_sock` signature correction for Ubuntu `7.0.0-38` (26.04 and 24.04 HWE;
   upstream issue 259). Superseded WG-Guard source DKMS registrations are retired after the
-  corrected module installs. Container compile/DKMS evidence only; real-host load is unverified.
+  corrected module installs. Container compile/DKMS evidence covers `7.0.0-38`; real-host load
+  on that kernel is unverified.
 - Provision Ubuntu's `docker-buildx` (BuildKit) before a development-source runtime build beside
   an Ubuntu `docker.io` engine, recorded as installer-owned. Docker deprecated the legacy builder,
   which also builds the recipe's independent stages one after another. Release installs load the
   published image and add no package; hosts without the plugin keep the legacy builder with a
   warning.
+
+The owner's fresh Ubuntu 24.04.4 amd64 host (`6.8.0-138`, `docker.io` 29.1.3 on the containerd
+store) reproduced the v0.1.10 image-admission failure. The published v0.1.10 archive reproduced
+it locally and the corrected admission accepted it there. The same host then completed a
+development-source install with bundle `awg-2026-10` built for `6.8.0-138` and `6.8.0-146`, a
+healthy panel and verified HTTP-01 TLS. Release-archive admission on a real containerd-store host
+is exercised first by installing this release; client traffic on it is not yet reported. Ubuntu
+26.04, kernel `7.0.0-38` load and the remaining Phase 20 exclusions are not newly certified.
+
+Upgrade note: completed v0.1.10 nodes use the classic image store and update normally. A v0.1.10 install that
+stopped with `runtime: image inspection failed` needs **Reset incomplete setup** in
+`sudo wg-guard`, then a fresh run of the bootstrap command.
 
 ## [v0.1.10] — 2026-10-06
 
