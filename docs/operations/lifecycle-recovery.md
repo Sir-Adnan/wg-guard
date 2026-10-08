@@ -220,6 +220,25 @@ install, no completed prerequisites and no possible data change can be closed wi
 any record that might have started a service or changed node data. Ubuntu package operations wait
 for the dpkg lock, and detailed failure output is in `/var/log/wg-guard/installer.log`.
 
+### `runtime: image inspection failed` on the containerd image store
+
+Ubuntu 24.04 `noble-updates` now provides `docker.io` 29.x, whose fresh engines use the
+containerd image store (`docker info` reports `Storage Driver: overlayfs` with
+`driver-type: io.containerd.snapshotter.v1`). That store names a loaded release image by
+its OCI manifest digest. The v0.1.10 manager looks the image up only by its config digest,
+so a fresh install or update stops right after a successful `docker load` with
+`runtime: image inspection failed` and `recovery-required`. The installer log ends with
+`Loaded image ID: sha256:…` and no later command. On 2026-10-08 the owner's fresh
+Ubuntu 24.04.4 host (`docker.io` 29.1.3) failed exactly this way. The failure precedes
+data-directory creation and service start, so no node data exists yet.
+
+A current manager reads the manifest digest from the checksum-verified archive and admits
+either identity only with matching platform and provenance labels. To recover, choose
+**Reset incomplete setup** in `sudo wg-guard`, then run the bootstrap with a build that
+contains the correction: a later published release, or an explicitly selected
+development commit (`--commit main`). Do not retag images, switch Docker's storage
+backend or edit install state to bypass the identity check.
+
 Certificate readiness is separate from process health. A healthy installation with pending
 TLS can keep serving the ACME challenge while `wg-guard tls-check` retries certificate proof.
 

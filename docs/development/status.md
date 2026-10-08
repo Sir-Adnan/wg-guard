@@ -1,5 +1,21 @@
 # Product and verification status
 
+**Containerd image store correction (2026-10-08; main source, unreleased):** a fresh
+v0.1.10 install on the owner's Ubuntu 24.04.4 amd64 host (`6.8.0-138-generic`,
+`docker.io` 29.1.3 from `noble-updates`, containerd snapshotter) stopped with
+`runtime: image inspection failed` after `docker load` reported ID
+`sha256:1ce2ca0b…`. That ID is the OCI manifest digest in the published archive, not
+metadata `image_id` `sha256:d3645ff8…`. Local Docker Engine 29.6.2 with the containerd
+store reproduced it with the published archive: the config-digest lookup fails, while the
+manifest-digest lookup returns linux/amd64 with every provenance label matching runtime
+metadata. Running by that ID, the binary checksum and Compose `image:` start also passed.
+`InspectRuntimeArchive` from `d035033` derives exactly that identity from the real archive. Focused
+`internal/install`, `internal/distribution` and `cmd/wg-guard` Go tests pass. The fresh-host
+install path is unverified on a real host until the owner reruns it. v0.1.10 fresh installs on
+current Ubuntu 24.04 Docker packages are affected; see
+[lifecycle recovery](../operations/lifecycle-recovery.md). The same log exposed a misleading
+`[FAIL] Checking Docker Compose` probe before provisioning; it is now silent.
+
 **v0.1.10 published (2026-10-06):** Phase 20's explicitly authorized isolated
 Ubuntu 24.04.4 amd64 Docker/kernel/userspace drill has completed its recorded host
 scope after correcting overflow/SNI diagnostics, initial-archive pair paths and
