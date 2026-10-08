@@ -413,6 +413,12 @@ func (h *missingDockerHost) Run(ctx context.Context, a []string, d time.Duration
 	}
 	return h.packageHost.Run(ctx, a, d)
 }
+func (h *missingDockerHost) Output(ctx context.Context, a []string, d time.Duration) (string, error) {
+	if a[0] == "docker" && h.installed["docker.io"] == "" {
+		return "", fmt.Errorf("missing docker")
+	}
+	return h.packageHost.Output(ctx, a, d)
+}
 func TestDockerMissingDependenciesUseUbuntuAdapter(t *testing.T) {
 	h := &missingDockerHost{newPackageHost()}
 	h.available["docker.io"] = "system"
@@ -481,6 +487,13 @@ func TestUbuntuPackageSetupUsesQuietInstallerRunner(t *testing.T) {
 			t.Fatalf("apt-get %s bypassed quiet runner: %v", subcommand, h.quiet)
 		}
 	}
+	// Availability probes are silent: a fresh host must not report a failed
+	// Compose task before provisioning installs it.
+	for _, argv := range h.quiet {
+		if len(argv) > 1 && argv[0] == "docker" && argv[1] == "compose" {
+			t.Fatalf("Compose probe surfaced as an installation task: %v", h.quiet)
+		}
+	}
 }
 
 type composeMissingHost struct{ *packageHost }
@@ -490,6 +503,12 @@ func (h *composeMissingHost) Run(ctx context.Context, a []string, d time.Duratio
 		return fmt.Errorf("missing compose")
 	}
 	return h.packageHost.Run(ctx, a, d)
+}
+func (h *composeMissingHost) Output(ctx context.Context, a []string, d time.Duration) (string, error) {
+	if len(a) > 2 && a[0] == "docker" && a[1] == "compose" && h.installed["docker-compose-v2"] == "" {
+		return "", fmt.Errorf("missing compose")
+	}
+	return h.packageHost.Output(ctx, a, d)
 }
 func TestExistingDockerGetsOnlyMissingComposeWithNoRemoval(t *testing.T) {
 	h := &composeMissingHost{newPackageHost()}

@@ -174,6 +174,8 @@ func quietCommandLabel(argv []string) string {
 			return "Building verified Docker runtime"
 		case "pull":
 			return "Downloading Docker runtime"
+		case "load":
+			return "Loading verified Docker runtime"
 		case "compose":
 			for _, action := range argv[2:] {
 				switch action {
@@ -199,6 +201,13 @@ func quietCommandLabel(argv []string) string {
 	case "dkms":
 		switch arg(1) {
 		case "install":
+			// One build runs per target kernel; the validated kernel release is
+			// public host identity and tells consecutive builds apart.
+			for i := 2; i+1 < len(argv); i++ {
+				if argv[i] == "-k" && installedKernelName.MatchString(argv[i+1]) {
+					return "Building AmneziaWG kernel module · " + argv[i+1]
+				}
+			}
 			return "Building AmneziaWG kernel module"
 		case "remove":
 			return "Removing incomplete kernel module"

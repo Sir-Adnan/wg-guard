@@ -393,7 +393,11 @@ func Install(ctx context.Context, h Host, o InstallOptions) (result *State, resu
 	}
 	if o.StageParent != "" && p.Image == DefaultImage {
 		step(out, "Runtime image")
-		progress(out, "runtime_build")
+		if o.Build.Channel == "release" {
+			progress(out, "runtime_load")
+		} else {
+			progress(out, "runtime_build")
+		}
 		p.Image, err = PrepareRuntimeImage(ctx, h, &o.Build, bundle, o.StageParent)
 		if err != nil {
 			return st, err

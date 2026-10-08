@@ -168,6 +168,13 @@ func packageAvailable(ctx context.Context, h Host, name, version string) bool {
 	return false
 }
 
+// dockerComposeAvailable is a silent probe: a missing plugin on a fresh host is
+// an expected state that provisioning resolves, not a failed installation task.
+func dockerComposeAvailable(ctx context.Context, h Host) bool {
+	_, err := h.Output(ctx, []string{"docker", "compose", "version"}, 30*time.Second)
+	return err == nil
+}
+
 // EnsurePrerequisites never upgrades/downgrades an installed AWG package or
 // unloads a module. external explicitly leaves host module lifecycle to the
 // operator; Docker and the host's diagnostic/network tools remain mandatory.
@@ -212,12 +219,13 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 	}
 
-	if _, err := h.LookPath("docker"); err != nil {
+	_, dockerErr := h.LookPath("docker")
+	if dockerErr != nil {
 		if err := require("docker.io", ""); err != nil {
 			return r, err
 		}
 	}
-	if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+	if dockerErr != nil || !dockerComposeAvailable(ctx, h) {
 		// Ubuntu's plugin recommends (does not require) docker.io. Disable
 		// recommends and removals so an existing Docker CE engine is preserved.
 		if !automatic {
@@ -322,7 +330,7 @@ func EnsurePrerequisites(ctx context.Context, h Host, p Plan, platform PlatformR
 		}
 	}
 
-	if err := runQuiet(ctx, h, []string{"docker", "compose", "version"}, 30*time.Second); err != nil {
+	if !dockerComposeAvailable(ctx, h) {
 		return r, terminalError("install.error.core.12")
 	}
 	if err := runQuiet(ctx, h, []string{"docker", "info"}, 30*time.Second); err != nil {

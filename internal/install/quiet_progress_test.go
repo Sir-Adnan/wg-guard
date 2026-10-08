@@ -13,7 +13,10 @@ func TestQuietCommandLabelsDescribeWorkWithoutLeakingArguments(t *testing.T) {
 		{[]string{"apt-get", "update"}, "Refreshing Ubuntu package index"},
 		{[]string{"apt-get", "-o", "DPkg::Lock::Timeout=300", "install", "secret-package"}, "Installing required Ubuntu packages"},
 		{[]string{"docker", "build", "--label", "token=secret"}, "Building verified Docker runtime"},
+		{[]string{"docker", "load", "--input", "/secret/runtime.tar.gz"}, "Loading verified Docker runtime"},
 		{[]string{"dkms", "install", "-v", "secret-version"}, "Building AmneziaWG kernel module"},
+		{[]string{"dkms", "install", "-m", "amneziawg", "-v", "secret-version", "-k", "6.8.0-146-generic"}, "Building AmneziaWG kernel module · 6.8.0-146-generic"},
+		{[]string{"dkms", "install", "-v", "secret-version", "-k", "../bad kernel"}, "Building AmneziaWG kernel module"},
 		{[]string{"nginx", "-t"}, "Checking Nginx configuration"},
 		{[]string{"/usr/local/bin/wg-guard", "settings", "set", "token", "secret"}, "Applying initial panel settings"},
 	} {

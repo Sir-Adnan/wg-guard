@@ -9,6 +9,9 @@
   the loaded image up only by config digest and failed updates with `runtime: image
   inspection failed`; the manager now derives the OCI manifest digest from the verified
   archive in the same hashing pass and accepts either local identity with matching labels.
+- Probe Docker Compose silently, so a fresh host no longer shows a failed Compose task before
+  provisioning installs it. Name the target kernel in each DKMS build line, and say "loading"
+  rather than "building" for a release runtime image.
 - Add recommended core bundle `awg-2026-10`: the pinned kernel source with a reviewed, hash-pinned
   `setup_udp_tunnel_sock` signature correction for Ubuntu `7.0.0-38` (26.04 and 24.04 HWE;
   upstream issue 259). Superseded WG-Guard source DKMS registrations are retired after the
