@@ -1,34 +1,82 @@
 {{define "ops_scope_picker"}}
 {{$v := .v}}{{$selected := .selected}}{{$name := .name}}
-<fieldset class="ops-permissions" {{if .invalid}}aria-invalid="true" aria-describedby="scope-error"{{end}}>
-  <legend>{{$v.T "tokens.col_scopes"}}</legend><p class="hint">{{$v.T "ops.scope_hint"}}</p>
+<fieldset class="scope-picker" {{if .invalid}}aria-invalid="true" aria-describedby="scope-error"{{end}}>
+  <legend class="field-label">{{$v.T "tokens.col_scopes"}}</legend>
+  <p class="field-description">{{$v.T "ops.scope_hint"}}</p>
   {{template "ops_scope_preset_buttons" (dict "v" $v)}}
-  {{if .invalid}}<p class="field-error" id="scope-error">{{$v.T "ops.scope_error"}}</p>{{end}}
-  {{range $v.UnknownChoices $selected}}<label class="check-label"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" checked><span class="ltr-data">{{.}}</span><span class="field-error">{{$v.T "ops.scope_error"}}</span></label>{{end}}
-  <div class="ops-scope-grid">{{range .groups}}
-    <details class="ops-scope-group" {{range .Scopes}}{{if $v.HasChoice $selected .}}open{{break}}{{end}}{{end}}><summary>{{$v.OpsLabel "family" .Family}}</summary>
-      {{range .Scopes}}<label class="ops-choice"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" data-scope-tier="{{$v.ScopePresetTier .}}" {{if $v.HasChoice $selected .}}checked{{end}}><span><strong>{{$v.ScopeLabel .}}</strong><small>{{$v.ScopeDescription .}}</small></span></label>{{end}}
+  {{if .invalid}}<p class="field-error" id="scope-error">{{$v.IconS "alert-circle"}}{{$v.T "ops.scope_error"}}</p>{{end}}
+  {{range $v.UnknownChoices $selected}}<label class="choice scope-option scope-option--invalid"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" checked><span class="choice-text"><span class="tech">{{.}}</span><span class="field-error">{{$v.T "ops.scope_error"}}</span></span></label>{{end}}
+  <div class="accordion scope-groups">{{range .groups}}
+    <details class="ops-scope-group" {{range .Scopes}}{{if $v.HasChoice $selected .}}open{{break}}{{end}}{{end}}>
+      <summary><span class="summary-text"><span>{{$v.OpsLabel "family" .Family}}</span></span><span class="tab-count">{{$v.N (i64u (len .Scopes))}}</span></summary>
+      <div class="accordion-content scope-list">
+        {{range .Scopes}}<label class="choice scope-option"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}" data-scope-tier="{{$v.ScopePresetTier .}}" {{if $v.HasChoice $selected .}}checked{{end}}><span class="choice-text"><span class="scope-option-title">{{$v.ScopeLabel .}}<span class="tech scope-id">{{.}}</span></span><span class="choice-description">{{$v.ScopeDescription .}}</span></span></label>{{end}}
+      </div>
     </details>{{end}}
   </div>
 </fieldset>
 {{end}}
+
+{{define "ops_scope_list"}}
+{{$v := .v}}{{$selected := .selected}}{{$name := .name}}
+<div class="scope-list scope-list--flat">
+  {{range .scopes}}<label class="choice scope-option"><input class="checkbox" type="checkbox" name="{{$name}}" value="{{.}}"{{if $.tiers}} data-scope-tier="{{$v.ScopePresetTier .}}"{{end}} {{if $v.HasChoice $selected .}}checked{{end}}><span class="choice-text"><span class="scope-option-title">{{$v.ScopeLabel .}}<span class="tech scope-id">{{.}}</span></span><span class="choice-description">{{$v.ScopeDescription .}}</span></span></label>{{end}}
+</div>
+{{end}}
+
 {{define "ops_scope_preset_buttons"}}
 {{$v := .v}}
-<div class="choice-presets" role="group" aria-label="{{$v.T "ops.presets"}}">
-  <button class="btn btn--sm btn--soft" type="button" data-scope-preset="observer">{{$v.T "ops.preset.observer"}}</button>
-  <button class="btn btn--sm" type="button" data-scope-preset="operator">{{$v.T "ops.preset.operator"}}</button>
-  <button class="btn btn--sm" type="button" data-scope-preset="all">{{$v.T "ops.preset.all"}}</button>
-  <button class="btn btn--sm btn--ghost" type="button" data-scope-preset="none">{{$v.T "ops.preset.none"}}</button>
+<div class="scope-presets">
+  <div class="btn-group" role="group" aria-label="{{$v.T "ops.presets"}}">
+    <button class="btn btn--sm" type="button" data-scope-preset="observer">{{$v.T "ops.preset.observer"}}</button>
+    <button class="btn btn--sm" type="button" data-scope-preset="operator">{{$v.T "ops.preset.operator"}}</button>
+    <button class="btn btn--sm" type="button" data-scope-preset="all">{{$v.T "ops.preset.all"}}</button>
+  </div>
+  <button class="btn btn--sm btn--ghost" type="button" data-scope-preset="none">{{$v.IconS "x"}}{{$v.T "ops.preset.none"}}</button>
 </div>
-<p class="hint">{{$v.T "ops.preset_hint"}}</p>
+<p class="field-description">{{$v.T "ops.preset_hint"}}</p>
 {{end}}
+
 {{define "ops_field"}}
 {{$v := .v}}{{$f := .f}}{{$name := .name}}
-<div class="field"><label for="ops-{{$name}}">{{$v.T .label}}</label>
-  <input class="input {{if .technical}}ltr-data{{end}}" id="ops-{{$name}}" name="{{$name}}" {{if .password}}type="password" autocomplete="new-password"{{else}}value="{{$f.V $name}}"{{end}} {{if .numeric}}inputmode="numeric"{{end}} aria-describedby="ops-{{$name}}-help" {{if $f.Invalid $name}}aria-invalid="true"{{end}}>
-  <span class="hint" id="ops-{{$name}}-help">{{if .hint}}{{$v.T .hint}}{{end}}{{if $f.Invalid $name}} <span class="field-error">{{$v.T (index $f.Fields $name)}}</span>{{end}}</span>
+<div class="field">
+  <label class="field-label" for="ops-{{$name}}">{{$v.T .label}}</label>
+  <input class="input{{if .technical}} input--tech{{end}}" id="ops-{{$name}}" name="{{$name}}" {{if .password}}type="password" autocomplete="new-password"{{else}}value="{{$f.V $name}}"{{end}} {{if .numeric}}inputmode="numeric"{{end}} aria-describedby="ops-{{$name}}-help{{if $f.Invalid $name}} ops-{{$name}}-error{{end}}" {{if $f.Invalid $name}}aria-invalid="true"{{end}}>
+  {{if .hint}}<p class="field-description" id="ops-{{$name}}-help">{{$v.T .hint}}</p>{{else}}<span hidden id="ops-{{$name}}-help"></span>{{end}}
+  {{if $f.Invalid $name}}<p class="field-error" id="ops-{{$name}}-error">{{$v.IconS "alert-circle"}}{{$v.T (index $f.Fields $name)}}</p>{{end}}
 </div>
 {{end}}
+
 {{define "ops_unavailable"}}
-<div class="empty"><h2>{{.T "forms.unavailable"}}</h2><p>{{.T "ops.load_failed"}}</p><a class="btn" href="{{.Path}}">{{.T "common.retry"}}</a></div>
+<div class="empty empty--bordered empty--compact" role="status"><span class="empty-icon">{{.Icon "alert-triangle"}}</span><h2 class="empty-title">{{.T "forms.unavailable"}}</h2><p class="empty-description">{{.T "ops.load_failed"}}</p><div class="empty-actions"><a class="btn btn--sm" href="{{.Path}}">{{.IconS "refresh-cw"}}{{.T "common.retry"}}</a></div></div>
+{{end}}
+
+{{define "ops_secret_reveal"}}
+{{$v := .v}}
+<section class="alert alert--success secret-reveal" aria-labelledby="{{.id}}-title" role="status">
+  {{$v.Icon "shield-check"}}
+  <h2 class="alert-title" id="{{.id}}-title">{{$v.T .title}}{{if .for}} · <bdi>{{.for}}</bdi>{{end}}</h2>
+  <div class="alert-description stack-sm">
+    <p>{{$v.T .warning}}</p>
+    <label class="sr-only" for="{{.id}}">{{$v.T .title}}</label>
+    <div class="copy-field"><input class="tech" id="{{.id}}" value="{{.secret}}" readonly data-token-once spellcheck="false" autocomplete="off"><button class="btn btn--sm btn--ghost" type="button" data-copy="#{{.id}}" data-copied-msg="{{$v.T "common.copied"}}">{{$v.IconS "copy"}}{{$v.T "common.copy"}}</button></div>
+    <div class="row-between secret-reveal-foot"><p class="text-xs">{{$v.T .hint}}</p><a class="btn btn--sm" href="{{.done}}">{{$v.IconS "check"}}{{$v.T "ops.secret_done"}}</a></div>
+  </div>
+</section>
+{{end}}
+
+{{define "ops_token_table"}}
+{{$v := .v}}{{$base := .base}}{{$lastUsed := .lastUsed}}
+<div class="table-frame"><div class="table-wrap">
+  <table class="table table--cards token-table">
+    <thead><tr><th scope="col">{{$v.T "tokens.col_name"}}</th><th scope="col">{{$v.T "tokens.col_scopes"}}</th><th scope="col">{{$v.T "tokens.col_expiry"}}</th>{{if $lastUsed}}<th scope="col">{{$v.T "tokens.col_last_used"}}</th>{{end}}<th scope="col" class="col-actions"><span class="sr-only">{{$v.T "common.actions"}}</span></th></tr></thead>
+    <tbody>{{range .tokens}}<tr>
+      <td class="cell-primary"><div class="cell-identity"><span class="item-media" aria-hidden="true">{{$v.IconS "key"}}</span><div><span class="cell-main"><bdi>{{.Name}}</bdi></span><span class="cell-sub cluster"><span class="tech">{{.Prefix}}…</span>{{if not .Enabled}}<span class="badge badge--muted"><span class="dot"></span>{{$v.T "tokens.revoked"}}</span>{{else if $v.TokenExpired .ExpiresAt}}<span class="badge badge--warning"><span class="dot"></span>{{$v.T "status.expired"}}</span>{{else}}<span class="badge badge--success"><span class="dot"></span>{{$v.T "tokens.active"}}</span>{{end}}</span></div></div></td>
+      <td data-label="{{$v.T "tokens.col_scopes"}}" class="cell-wide"><details class="collapsible collapsible--plain token-scopes"><summary>{{$v.T "ops.permission_count" (len .Scopes)}}</summary><div class="collapsible-content"><ul class="stack-xs">{{range .Scopes}}<li class="text-sm">{{$v.ScopeLabel .}} <span class="tech text-xs text-muted">{{.}}</span></li>{{end}}</ul>{{if .CIDR}}<div class="stack-xs"><span class="text-xs text-muted">{{$v.T "tokens.cidr"}}</span>{{range .CIDR}}<span class="tech text-sm">{{.}}</span>{{end}}</div>{{end}}</div></details></td>
+      <td data-label="{{$v.T "tokens.col_expiry"}}">{{if .ExpiresAt}}<span class="tech text-sm nowrap">{{$v.OpsTimestamp .ExpiresAt}}</span>{{else}}<span class="text-sm text-muted">{{$v.T "common.never"}}</span>{{end}}</td>
+      {{if $lastUsed}}<td data-label="{{$v.T "tokens.col_last_used"}}">{{if .LastUsed}}<span class="tech text-sm nowrap">{{$v.OpsTimestamp .LastUsed}}</span>{{else}}<span class="text-sm text-muted">{{$v.T "common.never"}}</span>{{end}}</td>{{end}}
+      <td class="col-actions">{{if .Enabled}}<form method="post" action="{{$base}}/{{.ID}}/revoke" data-confirm data-confirm-title="{{$v.T "tokens.revoke_title"}}" data-confirm-message="{{$v.T "ops.token_revoke" .Name}}" data-confirm-label="{{$v.T "tokens.revoke"}}"><input type="hidden" name="_csrf" value="{{$v.CSRF}}"><button class="btn btn--sm btn--danger-ghost" type="submit">{{$v.IconS "unlink"}}{{$v.T "tokens.revoke"}}</button></form>{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table>
+</div></div>
 {{end}}

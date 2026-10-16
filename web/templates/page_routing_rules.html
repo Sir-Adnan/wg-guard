@@ -1,53 +1,57 @@
 {{define "title"}}{{.T "routing.rules"}}{{end}}
+{{define "routing_actions"}}{{if .Data.CanWrite}}<a class="btn btn--primary btn--sm" href="/routing/rules/new">{{.IconS "plus"}}{{.T "routing.rules.add"}}</a>{{end}}{{end}}
 {{define "content"}}
-<div class="routing-page">
-<div class="page-head page-head--hero entity-hero">
-  <div class="page-title-cluster">
-    <span class="page-title-icon" aria-hidden="true">{{.Icon "list-filter"}}</span>
-    <div>
-      <span class="eyebrow">{{.T "routing.workspace"}}</span>
-      <h1>{{.T "routing.rules"}}</h1>
-      <p>{{.T "routing.rules.intro"}}</p>
-    </div>
+{{template "routing_header" .}}
+{{template "routing_warnings" .}}
+{{if and .Data.ResolverWanted (not .Data.ResolverActive)}}<div class="alert alert--destructive">{{.Icon "alert-circle"}}<p class="alert-title">{{.T "routing.rules.resolver_down"}}</p></div>{{end}}
+
+<form method="get" action="/routing/rules#check-q" class="toolbar routing-check" role="search">
+  <label class="sr-only" for="check-q">{{.T "routing.check.title"}}</label>
+  <div class="input-group toolbar-search">
+    <span class="input-group-addon">{{.IconS "search"}}</span>
+    <input class="input input--tech" id="check-q" name="check" type="text" dir="ltr" spellcheck="false" autocomplete="off" placeholder="{{.T "routing.check.title"}} — gemini.google.com" value="{{if .Data.Check}}{{.Data.Check.Query}}{{end}}">
   </div>
-  {{if .Data.CanWrite}}<div class="actions"><a class="btn btn--primary" href="/routing/rules/new">{{.IconS "plus"}}<span>{{.T "routing.rules.add"}}</span></a></div>{{end}}
+  <button type="submit" class="btn btn--sm">{{.T "routing.check.run"}}</button>
+  <span class="text-xs text-muted hide-sm">{{.T "routing.check.hint"}}</span>
+</form>
+{{with .Data.Check}}
+<div class="alert {{if not .Valid}}alert--destructive{{else if .Matched}}alert--info{{end}} routing-check-result" role="status">
+  {{if not .Valid}}{{$.Icon "alert-circle"}}<p class="alert-title">{{if .Note}}{{$.T .Note}}{{else}}{{$.T "routing.check.invalid"}}{{end}}</p>
+  {{else}}{{$.Icon "route"}}
+  <p class="alert-title row"><bdi class="tech">{{.Query}}</bdi><span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>{{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}</p>
+  <p class="alert-description">{{if .Matched}}{{$.T "routing.check.matched"}} <strong><bdi>{{.RuleName}}</bdi></strong>{{else}}{{$.T "routing.check.default"}}{{end}}{{if .Note}} · {{$.T .Note}}{{end}}</p>
+  {{end}}
 </div>
-{{template "routing_tabs" .}}
+{{end}}
 
-{{range .Data.Warnings}}<p class="callout callout--warn routing-callout">{{$.IconS "alert-triangle"}}<span>{{$.T (printf "routing.warning.%s" .Kind) .Detail}}</span></p>{{end}}
-{{if and .Data.ResolverWanted (not .Data.ResolverActive)}}<p class="callout callout--danger routing-callout">{{.IconS "alert-circle"}}<span>{{.T "routing.rules.resolver_down"}}</span></p>{{end}}
-
-<div class="routing-rules-layout">
-<section class="routing-rules-main" aria-labelledby="rules-heading">
-  <h2 class="sr-only" id="rules-heading">{{.T "routing.rules"}}</h2>
-  {{if .Data.Rows}}
-  <ol class="rule-list">
+<section class="section" aria-labelledby="rules-heading">
+  <div class="section-header">
+    <div class="section-heading"><h2 class="section-title" id="rules-heading">{{.T "routing.rules"}}</h2><p class="section-description">{{.T "routing.rules.order_hint"}}</p></div>
+  </div>
+  <ol class="item-group rule-list">
     {{range .Data.Rows}}{{$r := .R}}
-    <li class="card rule-item" data-enabled="{{$r.Enabled}}">
-      <span class="rule-order" aria-label="{{$.T "routing.rules.order"}}"><bdi class="ltr-data">{{$.N (i64u .Index)}}</bdi></span>
-      <div class="rule-body">
-        <div class="rule-title">
-          <h3><bdi>{{$r.Name}}</bdi></h3>
-          {{if not $r.Enabled}}<span class="badge">{{$.T "routing.disabled"}}</span>{{end}}
-        </div>
+    <li class="item rule-row{{if not $r.Enabled}} item--muted{{end}}" data-enabled="{{$r.Enabled}}">
+      <span class="rule-index tech" aria-label="{{$.T "routing.rules.order"}}">{{$.N (i64u .Index)}}</span>
+      <div class="item-content">
+        <div class="item-title"><bdi>{{$r.Name}}</bdi>{{if not $r.Enabled}}<span class="badge badge--muted">{{$.T "routing.disabled"}}</span>{{end}}</div>
         <div class="rule-flow">
           <span class="rule-match">
-            {{range .Presets}}<span class="chip">{{.Name}}</span>{{end}}
-            {{if .Domains}}<span class="chip chip--quiet">{{$.T "routing.rules.count_domains" (.Domains)}}</span>{{end}}
-            {{if .Categories}}<span class="chip chip--quiet">{{$.T "routing.rules.count_categories" (.Categories)}}</span>{{end}}
-            {{if .Addresses}}<span class="chip chip--quiet">{{$.T "routing.rules.count_addresses" (.Addresses)}}</span>{{end}}
+            {{range .Presets}}<span class="badge badge--outline">{{.Name}}</span>{{end}}
+            {{if .Domains}}<span class="badge badge--muted">{{$.T "routing.rules.count_domains" (.Domains)}}</span>{{end}}
+            {{if .Categories}}<span class="badge badge--muted">{{$.T "routing.rules.count_categories" (.Categories)}}</span>{{end}}
+            {{if .Addresses}}<span class="badge badge--muted">{{$.T "routing.rules.count_addresses" (.Addresses)}}</span>{{end}}
           </span>
-          <span class="rule-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>
+          <span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>
           {{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}
         </div>
       </div>
       {{if $.Data.CanWrite}}
-      <div class="rule-actions">
-        <form method="post" action="/routing/rules/{{$r.ID}}/up"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn" aria-label="{{$.T "routing.rules.move_up"}}: {{$r.Name}}"{{if .First}} disabled{{end}}>{{$.IconS "arrow-up"}}</button></form>
-        <form method="post" action="/routing/rules/{{$r.ID}}/down"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn" aria-label="{{$.T "routing.rules.move_down"}}: {{$r.Name}}"{{if .Last}} disabled{{end}}>{{$.IconS "arrow-down"}}</button></form>
-        <a class="btn btn--sm btn--ghost" href="/routing/rules/{{$r.ID}}/edit">{{$.T "common.edit"}}</a>
+      <div class="item-actions">
+        <form method="post" action="/routing/rules/{{$r.ID}}/up"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--ghost btn--icon btn--xs" aria-label="{{$.T "routing.rules.move_up"}}: {{$r.Name}}" data-tip="{{$.T "routing.rules.move_up"}}"{{if .First}} disabled{{end}}>{{$.IconS "arrow-up"}}</button></form>
+        <form method="post" action="/routing/rules/{{$r.ID}}/down"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--ghost btn--icon btn--xs" aria-label="{{$.T "routing.rules.move_down"}}: {{$r.Name}}" data-tip="{{$.T "routing.rules.move_down"}}"{{if .Last}} disabled{{end}}>{{$.IconS "arrow-down"}}</button></form>
+        <a class="btn btn--ghost btn--xs" href="/routing/rules/{{$r.ID}}/edit">{{$.T "common.edit"}}</a>
         <div class="menu-anchor">
-          <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$.T "common.actions"}}: {{$r.Name}}">{{$.IconS "more-vertical"}}</button>
+          <button type="button" class="btn btn--ghost btn--icon btn--xs" aria-haspopup="menu" aria-expanded="false" aria-label="{{$.T "common.actions"}}: {{$r.Name}}">{{$.IconS "more-vertical"}}</button>
           <div class="menu" role="menu">
             <form role="none" method="post" action="/routing/rules/{{$r.ID}}/{{if $r.Enabled}}disable{{else}}enable{{end}}">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
@@ -63,107 +67,83 @@
       </div>
       {{end}}
     </li>
-    {{end}}
-  </ol>
-  {{else}}
-  <section class="card routing-empty">
-    <span class="empty-visual" aria-hidden="true">{{.Icon "list-filter"}}</span>
-    <h2>{{.T "routing.rules.empty.title"}}</h2>
-    <p>{{.T "routing.rules.empty.desc"}}</p>
-    {{if .Data.CanWrite}}
-    <div class="routing-quick">
-      <a class="chip-btn" href="/routing/rules/new?preset=gemini">Google Gemini</a>
-      <a class="chip-btn" href="/routing/rules/new?preset=openai">ChatGPT</a>
-      <a class="chip-btn" href="/routing/rules/new?preset=spotify">Spotify</a>
-      <a class="chip-btn" href="/routing/rules/new">{{.IconS "plus"}}{{.T "routing.rules.custom_rule"}}</a>
-    </div>
-    {{end}}
-  </section>
-  {{end}}
-
-  <form class="card card--pad rule-default" method="post" action="/routing/rules/default">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="rule-default-head">
-      <span class="rule-order rule-order--final" aria-hidden="true">{{.IconS "globe"}}</span>
-      <div><h3>{{.T "routing.rules.default"}}</h3><p class="hint">{{.T "routing.rules.default_hint"}}</p></div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="default-target">{{.T "routing.rules.default_target"}}</label>
-        <select class="select" id="default-target" name="default_target"{{if not .Data.CanWrite}} disabled{{end}}>
-          {{range .Data.DefaultOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{if eq .Group "outbound"}}{{$.T "routing.group.outbound"}}: {{else if eq .Group "balancer"}}{{$.T "routing.group.balancer"}}: {{end}}{{.Label}}{{if .Off}} ({{$.T "routing.disabled"}}){{end}}</option>{{end}}
-        </select>
+    {{else}}
+    <li class="item rule-empty">
+      <div class="empty empty--compact">
+        <span class="empty-icon">{{.Icon "list-filter"}}</span>
+        <h3 class="empty-title">{{.T "routing.rules.empty.title"}}</h3>
+        <p class="empty-description">{{.T "routing.rules.empty.desc"}}</p>
+        {{if .Data.CanWrite}}
+        <div class="empty-actions">
+          <a class="btn btn--sm" href="/routing/rules/new?preset=gemini">Google Gemini</a>
+          <a class="btn btn--sm" href="/routing/rules/new?preset=openai">ChatGPT</a>
+          <a class="btn btn--sm" href="/routing/rules/new?preset=spotify">Spotify</a>
+          <a class="btn btn--primary btn--sm" href="/routing/rules/new">{{.IconS "plus"}}{{.T "routing.rules.custom_rule"}}</a>
+        </div>
+        {{end}}
       </div>
-      <label class="switch-row">
-        <span class="switch"><input type="checkbox" name="block_dns" value="1"{{if .Data.BlockDNS}} checked{{end}}{{if not .Data.CanWrite}} disabled{{end}}><span class="track"></span></span>
-        <span><strong>{{.T "routing.rules.block_dns"}}</strong><small class="hint">{{.T "routing.rules.block_dns_hint"}}</small></span>
-      </label>
-    </div>
-    {{if .Data.CanWrite}}<div class="rule-default-actions"><button type="submit" class="btn btn--secondary">{{.IconS "check"}}{{.T "common.save"}}</button></div>{{end}}
-  </form>
+    </li>
+    {{end}}
+    <li class="item rule-row rule-default">
+      <form method="post" action="/routing/rules/default" class="rule-default-form">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <span class="rule-index" aria-hidden="true">{{.IconS "globe"}}</span>
+        <div class="item-content">
+          <div class="item-title">{{.T "routing.rules.default"}}</div>
+          <p class="item-description">{{.T "routing.rules.default_hint"}}</p>
+        </div>
+        <div class="rule-default-controls">
+          <label class="sr-only" for="default-target">{{.T "routing.rules.default_target"}}</label>
+          <select class="select select--sm" id="default-target" name="default_target"{{if not .Data.CanWrite}} disabled{{end}}>
+            {{range .Data.DefaultOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{if eq .Group "outbound"}}{{$.T "routing.group.outbound"}}: {{else if eq .Group "balancer"}}{{$.T "routing.group.balancer"}}: {{end}}{{.Label}}{{if .Off}} ({{$.T "routing.disabled"}}){{end}}</option>{{end}}
+          </select>
+          <label class="choice text-sm" data-tip="{{.T "routing.rules.block_dns_hint"}}">
+            <input class="switch" type="checkbox" role="switch" name="block_dns" value="1"{{if .Data.BlockDNS}} checked{{end}}{{if not .Data.CanWrite}} disabled{{end}}>
+            <span>{{.T "routing.rules.block_dns"}}</span>
+          </label>
+          {{if .Data.CanWrite}}<button type="submit" class="btn btn--sm">{{.T "common.save"}}</button>{{end}}
+        </div>
+      </form>
+    </li>
+  </ol>
 </section>
 
-<aside class="routing-rules-side">
-  <section class="card card--pad routing-check" aria-labelledby="check-heading">
-    <h2 id="check-heading">{{.IconS "search"}}<span>{{.T "routing.check.title"}}</span></h2>
-    <p class="hint">{{.T "routing.check.hint"}}</p>
-    <form method="get" action="/routing/rules#check-heading" class="routing-check-form">
-      <label class="sr-only" for="check-q">{{.T "routing.check.title"}}</label>
-      <input class="input ltr-data" id="check-q" name="check" type="text" dir="ltr" spellcheck="false" autocomplete="off" placeholder="gemini.google.com" value="{{if .Data.Check}}{{.Data.Check.Query}}{{end}}">
-      <button type="submit" class="btn btn--soft">{{.T "routing.check.run"}}</button>
-    </form>
-    {{with .Data.Check}}
-    <div class="routing-check-result" role="status">
-      {{if not .Valid}}
-      <p class="text-danger">{{if .Note}}{{$.T .Note}}{{else}}{{$.T "routing.check.invalid"}}{{end}}</p>
-      {{else}}
-      <p class="routing-check-line"><bdi class="ltr-data">{{.Query}}</bdi></p>
-      <p class="routing-check-line">{{if .Matched}}{{$.T "routing.check.matched"}} <strong><bdi>{{.RuleName}}</bdi></strong>{{else}}{{$.T "routing.check.default"}}{{end}}</p>
-      <p class="routing-check-line">{{$.T "routing.check.goes"}} {{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}</p>
-      {{if .Note}}<p class="hint">{{$.T .Note}}</p>{{end}}
-      {{end}}
-    </div>
-    {{end}}
-  </section>
-
-  <section class="card card--pad routing-geo" aria-labelledby="geo-heading">
-    <h2 id="geo-heading">{{.IconS "globe"}}<span>{{.T "routing.geo.title"}}</span></h2>
-    <p class="hint">{{.T "routing.geo.hint"}}</p>
-    {{range .Data.Geo}}
-    <div class="routing-geo-item">
-      <div class="routing-geo-head">
-        <strong><bdi class="ltr-data">{{.Kind}}.dat</bdi></strong>
-        {{if .Present}}<span class="badge badge--ok">{{$.T "routing.geo.categories" .Categories}}</span>{{else}}<span class="badge">{{$.T "routing.geo.missing"}}</span>{{end}}
-      </div>
-      {{if .Present}}<p class="hint">{{$.B .Size}} · {{$.T "routing.geo.updated"}} {{$.DateTime .ModTime}}</p>{{end}}
-      {{if $.Data.CanWrite}}
-      <div class="routing-geo-actions">
-        <form method="post" action="/routing/geodata/{{.Kind}}/download"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--sm btn--soft">{{$.IconS "download"}}{{if .Present}}{{$.T "routing.geo.update"}}{{else}}{{$.T "routing.geo.download"}}{{end}}</button></form>
-        <form method="post" action="/routing/geodata/{{.Kind}}/upload" enctype="multipart/form-data" class="routing-geo-upload">
-          <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-          <label class="btn btn--sm btn--ghost">{{$.IconS "upload"}}<span>{{$.T "routing.geo.upload"}}</span><input class="sr-only" type="file" name="file" accept=".dat" data-auto-submit></label>
-          <noscript><button type="submit" class="btn btn--sm">{{$.T "routing.geo.upload"}}</button></noscript>
-        </form>
-        {{if .Present}}<form method="post" action="/routing/geodata/{{.Kind}}/delete" data-confirm data-confirm-title="{{$.T "common.confirm_delete"}}" data-confirm-message="{{$.T "routing.geo.delete_confirm"}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="icon-btn icon-btn--danger" aria-label="{{$.T "common.delete"}}">{{$.IconS "trash-2"}}</button></form>{{end}}
+<details class="collapsible routing-geo" id="geodata">
+  <summary><span class="summary-text"><span>{{.T "routing.geo.title"}}</span><span class="summary-hint">{{.T "routing.geo.hint"}}</span></span></summary>
+  <div class="collapsible-content">
+    <div class="item-group">
+      {{range .Data.Geo}}
+      <div class="item">
+        <span class="item-media">{{$.IconS "database"}}</span>
+        <div class="item-content">
+          <div class="item-title"><span class="tech">{{.Kind}}.dat</span>{{if .Present}}<span class="badge badge--success"><span class="dot"></span>{{$.T "routing.geo.categories" .Categories}}</span>{{else}}<span class="badge badge--muted">{{$.T "routing.geo.missing"}}</span>{{end}}</div>
+          {{if .Present}}<p class="item-description"><span class="num">{{$.B .Size}}</span> · {{$.T "routing.geo.updated"}} {{$.DateTime .ModTime}}</p>{{end}}
+        </div>
+        {{if $.Data.CanWrite}}
+        <div class="item-actions">
+          <form method="post" action="/routing/geodata/{{.Kind}}/download"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--xs">{{$.IconS "download"}}{{if .Present}}{{$.T "routing.geo.update"}}{{else}}{{$.T "routing.geo.download"}}{{end}}</button></form>
+          <form method="post" action="/routing/geodata/{{.Kind}}/upload" enctype="multipart/form-data">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <label class="btn btn--ghost btn--xs">{{$.IconS "upload"}}<span>{{$.T "routing.geo.upload"}}</span><input class="sr-only" type="file" name="file" accept=".dat" data-auto-submit></label>
+            <noscript><button type="submit" class="btn btn--xs">{{$.T "routing.geo.upload"}}</button></noscript>
+          </form>
+          {{if .Present}}<form method="post" action="/routing/geodata/{{.Kind}}/delete" data-confirm data-confirm-title="{{$.T "common.confirm_delete"}}" data-confirm-message="{{$.T "routing.geo.delete_confirm"}}" data-confirm-label="{{$.T "common.delete"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--danger-ghost btn--icon btn--xs" aria-label="{{$.T "common.delete"}}: {{.Kind}}.dat">{{$.IconS "trash-2"}}</button></form>{{end}}
+        </div>
+        {{end}}
       </div>
       {{end}}
     </div>
-    {{end}}
     {{if .Data.CanWrite}}
-    <details class="collapse routing-geo-sources">
-      <summary>{{.IconS "link"}}<span>{{.T "routing.geo.sources"}}</span></summary>
-      <form method="post" action="/routing/geodata/sources" class="collapse-body form-stack">
-        <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <div class="field"><label for="geosite-url">geosite.dat</label><input class="input ltr-data" id="geosite-url" name="geosite_url" type="url" dir="ltr" value="{{.Data.GeositeURL}}" placeholder="https://…/dlc.dat"></div>
-        <div class="field"><label for="geoip-url">geoip.dat</label><input class="input ltr-data" id="geoip-url" name="geoip_url" type="url" dir="ltr" value="{{.Data.GeoIPURL}}" placeholder="https://…/geoip.dat"></div>
-        <p class="hint">{{.T "routing.geo.sources_hint"}}</p>
-        <button type="submit" class="btn btn--sm btn--secondary">{{.T "common.save"}}</button>
-      </form>
-    </details>
+    <form method="post" action="/routing/geodata/sources" class="stack">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field-grid field-grid--2">
+        <div class="field"><label class="field-label" for="geosite-url">{{.T "routing.geo.sources"}} · <span class="tech">geosite.dat</span></label><input class="input input--tech" id="geosite-url" name="geosite_url" type="url" dir="ltr" value="{{.Data.GeositeURL}}" placeholder="https://…/dlc.dat"></div>
+        <div class="field"><label class="field-label" for="geoip-url">{{.T "routing.geo.sources"}} · <span class="tech">geoip.dat</span></label><input class="input input--tech" id="geoip-url" name="geoip_url" type="url" dir="ltr" value="{{.Data.GeoIPURL}}" placeholder="https://…/geoip.dat"></div>
+      </div>
+      <div class="form-actions form-actions--between"><p class="field-description">{{.T "routing.geo.sources_hint"}}</p><button type="submit" class="btn btn--sm">{{.T "common.save"}}</button></div>
+    </form>
     {{end}}
-  </section>
-</aside>
-</div>
-</div>
+  </div>
+</details>
 <script type="module" src="{{.A "/js/routing.js"}}"></script>
 {{end}}

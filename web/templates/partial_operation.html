@@ -1,6 +1,7 @@
 {{define "operation-receipt"}}
-<div class="operation-receipt" data-operation-state="{{.r.State}}" data-tone="{{.r.Tone}}" role="status">
-  <span class="badge">{{.v.T .r.Label}}</span>
-  <p class="hint">{{.v.T .r.Next}}</p>
+<div class="alert{{if eq .r.Tone "info"}} alert--info{{else if eq .r.Tone "success"}} alert--success{{else if eq .r.Tone "warning"}} alert--warning{{else if eq .r.Tone "danger"}} alert--destructive{{end}} operation-receipt" data-operation-state="{{.r.State}}" data-tone="{{.r.Tone}}" role="status">
+  {{if or (eq (printf "%s" .r.State) "queued") (eq (printf "%s" .r.State) "running")}}<span class="spinner" aria-hidden="true"></span>{{else if eq (printf "%s" .r.State) "scheduled"}}{{.v.IconS "clock"}}{{else if eq .r.Tone "success"}}{{.v.IconS "check"}}{{else if eq .r.Tone "danger"}}{{.v.IconS "alert-circle"}}{{else if eq .r.Tone "warning"}}{{.v.IconS "alert-triangle"}}{{else}}{{.v.IconS "info"}}{{end}}
+  <p class="alert-title">{{.v.T .r.Label}}</p>
+  <p class="alert-description">{{.v.T .r.Next}}</p>
 </div>
 {{end}}

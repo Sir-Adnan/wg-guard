@@ -250,6 +250,15 @@ func (v *View) PresetCSS() string {
 	return v.assetFn(themeAssetName(v.Preset))
 }
 
+// PresetAsset returns a preset's stylesheet URL for live previews ("" for
+// the built-in preset, which app.css already carries).
+func (v *View) PresetAsset(id string) string {
+	if id == theme.DefaultID {
+		return ""
+	}
+	return v.assetFn(themeAssetName(id))
+}
+
 // PresetChoices lists the visual presets for pickers (Appearance, the
 // subscription visitor menu).
 func (v *View) PresetChoices() []presetChoice { return v.presets }

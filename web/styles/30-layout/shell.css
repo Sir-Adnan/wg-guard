@@ -53,7 +53,8 @@
     transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
   }
   .sidebar-item > .icon { width: var(--icon); height: var(--icon); opacity: .85; }
-  .sidebar-item > span { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .sidebar-item > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .sidebar-item > .sidebar-marker { margin-inline-start: auto; }
   .sidebar-item:hover { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
   .sidebar-item[aria-current="page"] { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); font-weight: 500; }
   .sidebar-item[aria-current="page"] > .icon { opacity: 1; }
