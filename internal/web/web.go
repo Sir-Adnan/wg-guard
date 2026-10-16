@@ -121,6 +121,7 @@ type Server struct {
 	assets      assetSet
 	pages       map[string]*pageTemplate
 	themes      *theme.Registry
+	presetList  []presetChoice
 	loginRL     *ipLimiter
 	subRL       *ipLimiter // public /sub/ surface: request-rate window per IP
 	updateCache releaseCache
@@ -157,6 +158,7 @@ func New(d Deps) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.presetList = s.presetChoices()
 	if err := s.initAssets(); err != nil {
 		return nil, err
 	}

@@ -225,6 +225,9 @@ type View struct {
 	UpdateNotice bool
 	LoginContext url.Values
 
+	// presets is the server's preset list (shared, read-only).
+	presets []presetChoice
+
 	// iconBase is the cache-busted sprite URL, resolved per server.
 	iconBase string
 	// assetFn resolves cache-busted asset URLs (set per server).
@@ -246,6 +249,10 @@ func (v *View) PresetCSS() string {
 	}
 	return v.assetFn(themeAssetName(v.Preset))
 }
+
+// PresetChoices lists the visual presets for pickers (Appearance, the
+// subscription visitor menu).
+func (v *View) PresetChoices() []presetChoice { return v.presets }
 
 // A returns the cache-busted URL for an embedded static asset, e.g.
 // {{.A "/css/app.css"}}.
@@ -535,6 +542,7 @@ func (s *Server) newView(r *http.Request) *View {
 		PageClass: pageClass(r.URL.Path),
 		Version:   s.Version,
 		iconBase:  s.assetURL("/img/icons.svg"),
+		presets:   s.presetList,
 		assetFn:   s.assetURL,
 	}
 	if a := adminFrom(r); a != nil {
