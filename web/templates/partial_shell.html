@@ -1,3 +1,5 @@
+{{define "html-attrs"}}lang="{{.Locale}}" dir="{{.Dir}}" data-digits="{{.Digits}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}} data-density="{{.UI.Density}}" data-sidebar="{{.UI.Sidebar}}" data-tabs="{{.UI.Tabs}}" data-surface="{{.UI.Surface}}"{{end}}
+
 {{define "document-head"}}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,22 +18,16 @@
 <meta name="ui-copied" content="{{.T "common.copied"}}">
 <meta name="ui-copy-error" content="{{.T "common.copy_failed"}}">
 <link rel="icon" href="{{.A "/img/favicon.svg"}}" type="image/svg+xml">
-{{if eq (printf "%v" .Locale) "fa"}}<link rel="preload" href="/assets/fonts/Vazirmatn-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/assets/fonts/Vazirmatn-SemiBold.woff2" as="font" type="font/woff2" crossorigin>{{end}}
+{{if eq (printf "%v" .Locale) "fa"}}<link rel="preload" href="/assets/fonts/vazirmatn-arabic.woff2" as="font" type="font/woff2" crossorigin>{{end}}
 <link rel="stylesheet" href="{{.A "/css/app.css"}}">
-<link rel="stylesheet" href="{{.A "/css/workspace.css"}}">
-<link rel="stylesheet" href="{{.A "/css/presentation.css"}}">
-{{if eq .Path "/updates"}}<link rel="stylesheet" href="{{.A "/css/maintenance.css"}}">{{end}}
-{{if .IsActive "/cleanup"}}<link rel="stylesheet" href="{{.A "/css/cleanup.css"}}">{{end}}
-{{if .IsActive "/routing"}}<link rel="stylesheet" href="{{.A "/css/routing.css"}}">{{end}}
-{{if or .SubLayout (eq .Path "/settings")}}<link rel="stylesheet" href="{{.A "/css/subscription.css"}}">{{end}}
-{{if or (ne .Preset "wg-guard-neutral") (eq .Path "/appearance")}}<link rel="stylesheet" href="{{.A "/css/visual-presets.css"}}">{{end}}
+{{with .PresetCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
+{{if or (eq .Path "/appearance") (eq .Path "/settings")}}<link rel="stylesheet" href="{{.A "/css/theme-swatches.css"}}">{{end}}
 <script type="module" src="{{.A "/js/ui.js"}}"></script>
 {{end}}
 
 {{define "theme-menu"}}
 <div class="menu-anchor" data-theme-menu>
-  <button type="button" class="icon-btn" aria-label="{{.T "common.theme"}}" aria-haspopup="menu" aria-expanded="false">{{.Icon "sun"}}</button>
+  <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="{{.T "common.theme"}}" aria-haspopup="menu" aria-expanded="false" data-tip="{{.T "common.theme"}}">{{if eq .Theme "dark"}}{{.Icon "moon"}}{{else if eq .Theme "light"}}{{.Icon "sun"}}{{else}}{{.Icon "monitor"}}{{end}}</button>
   <div class="menu" role="menu" aria-label="{{.T "common.theme"}}">
     {{range $theme := list "light" "dark" "system"}}
     <button type="button" role="menuitemradio" aria-checked="{{eq $.Theme $theme}}" data-theme-choice="{{$theme}}">{{if eq $theme "light"}}{{$.IconS "sun"}}{{else if eq $theme "dark"}}{{$.IconS "moon"}}{{else}}{{$.IconS "monitor"}}{{end}}<span>{{$.T (printf "theme.%s" $theme)}}</span></button>
@@ -45,15 +41,15 @@
   {{if .Admin}}
   <form method="post" action="/prefs/locale">
     <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="next" value="{{.Path}}">
-    <button type="submit" class="btn btn--ghost locale-choice" name="locale" value="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}"><span lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فارسی{{end}}</span></button>
+    <button type="submit" class="btn btn--ghost btn--sm locale-choice" name="locale" value="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}"><span lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فا{{end}}</span></button>
   </form>
   {{else}}{{template "public-language" .}}{{end}}
   {{template "theme-menu" .}}
 </div>
 {{end}}
 {{define "public-language"}}
-<a class="btn btn--ghost locale-choice" href="{{.LocaleLink}}" lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}" rel="nofollow">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فارسی{{end}}</a>
+<a class="btn btn--ghost btn--sm locale-choice" href="{{.LocaleLink}}" lang="{{if eq (printf "%v" .Locale) "fa"}}en{{else}}fa{{end}}" aria-label="{{.T "common.language"}}" rel="nofollow">{{if eq (printf "%v" .Locale) "fa"}}EN{{else}}فا{{end}}</a>
 {{end}}
 {{define "public-preferences"}}<div class="preferences">{{template "public-language" .}}{{template "theme-menu" .}}</div>{{end}}
 {{define "feedback-host"}}<div class="toasts" role="region" aria-label="{{.T "common.notifications"}}"></div>{{end}}
-{{define "flash"}}{{if .ToastMsg}}<div class="alert {{if .ToastError}}alert--error{{else}}alert--success{{end}}" role="{{if .ToastError}}alert{{else}}status{{end}}">{{if .ToastError}}{{.IconS "alert-circle"}}{{else}}{{.IconS "check"}}{{end}}<span>{{.ToastMsg}}</span></div>{{end}}{{end}}
+{{define "flash"}}{{if .ToastMsg}}<div class="alert {{if .ToastError}}alert--destructive{{else}}alert--success{{end}}" role="{{if .ToastError}}alert{{else}}status{{end}}">{{if .ToastError}}{{.Icon "alert-circle"}}{{else}}{{.Icon "check"}}{{end}}<p class="alert-title">{{.ToastMsg}}</p></div>{{end}}{{end}}

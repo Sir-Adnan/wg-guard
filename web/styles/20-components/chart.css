@@ -1,0 +1,80 @@
+/* Charts — server-rendered SVG (svgchart.go, sparkline.go) colored by the
+ * preset's --chart-1..5. RX uses a solid line, TX a dashed one, so series
+ * never depend on color alone. */
+@layer components {
+  :root { --chart-rx: var(--chart-1); --chart-tx: var(--chart-2); }
+  .legend { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; font-size: var(--text-xs); color: var(--muted-foreground); }
+  .legend-item { display: inline-flex; align-items: center; gap: var(--s-1_5); font-size: var(--text-xs); color: var(--muted-foreground); }
+  .swatch { width: .875rem; height: 2px; border-radius: 1px; background: var(--chart-rx); flex-shrink: 0; }
+  .swatch--tx { background: none; border-top: 2px dashed var(--chart-tx); height: 0; }
+  .chart-wrap { min-width: 0; }
+  .chart-period { font-size: var(--text-2xs); color: var(--muted-foreground); font-family: var(--font-code); direction: ltr; unicode-bidi: isolate; }
+
+  .chart-grid, .spark-grid { fill: none; stroke: color-mix(in srgb, var(--border) 80%, transparent); stroke-width: 1; stroke-dasharray: 3 5; shape-rendering: crispEdges; vector-effect: non-scaling-stroke; }
+  .chart path.chart-rx, .chart path.chart-tx { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+  .chart path.chart-rx { stroke: var(--chart-rx); }
+  .chart path.chart-tx { stroke: var(--chart-tx); stroke-dasharray: 5 4; }
+  .chart-area { fill: var(--chart-rx); opacity: .1; }
+  .chart-point-rx, .chart-marker-rx { fill: var(--chart-rx); }
+  .chart-point-tx, .chart-marker-tx { fill: var(--chart-tx); }
+  .sparkline, .chart { cursor: crosshair; touch-action: pan-y; overflow: visible; }
+  .sparkline { display: block; width: 100%; height: 4rem; direction: ltr; }
+  .spark-line { fill: none; stroke-width: 1.75; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+  .spark-primary { stroke: var(--chart-rx); }
+  .spark-secondary { stroke: var(--chart-tx); stroke-dasharray: 4 3; }
+  .spark-muted { stroke: var(--muted-foreground); }
+  .spark-area { fill: var(--chart-rx); opacity: .08; }
+  .spark-dot { fill: var(--chart-rx); }
+  .spark-dot.spark-secondary { fill: var(--chart-tx); }
+  .spark-empty { min-height: 4rem; display: grid; place-items: center; color: var(--muted-foreground); font-size: var(--text-xs); border: 1px dashed var(--border); border-radius: var(--radius-md); }
+
+  .chart-inspector { opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease); }
+  .interactive-chart.is-inspecting .chart-inspector { opacity: 1; }
+  .chart-inspector line { stroke: color-mix(in srgb, var(--foreground) 35%, transparent); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+  .chart-inspector circle { fill: var(--chart-rx); stroke: var(--card); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+  .chart-inspector circle:nth-of-type(2) { fill: var(--chart-tx); }
+  .chart-tooltip {
+    position: fixed; inset: auto; margin: 0; z-index: var(--z-tooltip); width: max-content; max-width: min(20rem, calc(100vw - 16px));
+    padding: var(--s-2) var(--s-3); border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--popover); color: var(--popover-foreground); box-shadow: var(--shadow-lg);
+    font-size: var(--text-xs); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease);
+  }
+  .chart-tooltip.is-visible { opacity: 1; }
+  .chart-tooltip-title { display: block; margin-bottom: var(--s-1); color: var(--muted-foreground); font-family: var(--font-code); direction: ltr; unicode-bidi: isolate; }
+  .chart-tooltip-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-5); padding-block: 2px; }
+  .chart-tooltip-name { display: flex; align-items: center; gap: var(--s-1_5); color: var(--muted-foreground); }
+  .chart-tooltip-swatch { width: .5rem; height: .5rem; border-radius: 2px; background: var(--chart-rx); flex: none; }
+  .chart-tooltip-swatch--secondary { background: var(--chart-tx); }
+  .chart-tooltip-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Traffic plot: y-axis labels + SVG + x-axis ticks (always LTR time). */
+  .traffic-plot { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--s-2_5); row-gap: var(--s-2); direction: ltr; }
+  .traffic-plot > .chart { grid-column: 2; grid-row: 1; width: 100%; height: clamp(11rem, 22vw, 16rem); }
+  .traffic-y-axis, .traffic-x-axis { font-size: var(--text-2xs); line-height: 1rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; font-family: var(--font-code); }
+  .traffic-y-axis { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)) 0; align-items: start; text-align: right; }
+  .traffic-y-axis > span { transform: translateY(-50%); white-space: nowrap; }
+  .traffic-x-axis { grid-column: 2; display: flex; height: 1rem; }
+  .traffic-tick { position: relative; flex: 1 1 0; min-width: 0; }
+  .traffic-tick:last-child { flex: 0 0 0; }
+  .traffic-tick-label { position: absolute; left: 0; transform: translateX(-50%); white-space: nowrap; }
+  .traffic-tick:first-child > .traffic-tick-label { transform: none; }
+  .traffic-tick:last-child > .traffic-tick-label { transform: translateX(-100%); }
+  .traffic-tick:only-child { flex: 1; text-align: center; }
+  .traffic-tick:only-child > .traffic-tick-label { left: 50%; transform: translateX(-50%); }
+  @media (max-width: 800px) { .traffic-tick-minor { display: none; } }
+
+  /* Percent gauge ring (CPU/RAM/disk). */
+  .resource-gauge { width: 2.25rem; height: 2.25rem; transform: rotate(-90deg); flex-shrink: 0; }
+  .gauge-track { fill: none; stroke: color-mix(in srgb, var(--foreground) 9%, transparent); stroke-width: 5; }
+  .gauge-value { fill: none; stroke: var(--chart-rx); stroke-width: 5; stroke-linecap: round; transition: stroke-dasharray var(--dur-slow) var(--ease); }
+}
+@layer components {
+  .resource-card { gap: var(--s-2); }
+  .resource-value-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+  .resource-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+  .resource-pair > div { display: flex; flex-direction: column; gap: 2px; }
+  .resource-pair strong { font-size: var(--text-lg); font-weight: 600; }
+  .resource-facts { margin-top: var(--s-1); }
+  .resource-facts .kv-row { padding-block: var(--s-1_5); font-size: var(--text-xs); }
+  .resource-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+}

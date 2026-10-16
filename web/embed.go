@@ -7,5 +7,5 @@ package webassets
 
 import "embed"
 
-//go:embed templates static
+//go:embed templates static themes styles
 var FS embed.FS

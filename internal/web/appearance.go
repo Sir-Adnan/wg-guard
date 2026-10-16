@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/web/theme"
 )
 
 // Appearance is a web-only preference, deliberately outside the public REST
@@ -18,42 +19,58 @@ type appearanceSelection struct {
 	Digits i18n.DigitStyle
 }
 
-type appearanceChoice struct {
-	ID, Name string
-}
-
 type appearancePageData struct {
-	Choices        []appearanceChoice
+	Choices        []presetChoice
 	Effective      appearanceSelection
 	EffectiveName  string
 	PanelDefault   appearanceSelection
+	SubPreset      string // blank follows the panel default
+	SubMode        string // blank follows the panel default
 	Personal       string
 	IsOwner        bool
 	ModeIsPersonal bool
 	PersonalDigits string
 }
 
+// appearanceDefaults is the installation row: the panel default and the
+// public subscription page's own (optional) preset and mode.
+type appearanceDefaults struct {
+	appearanceSelection
+	SubPreset, SubMode string
+}
+
 func validAppearanceMode(mode string) bool {
 	return mode == "light" || mode == "dark" || mode == "system"
 }
 
-func (s *Server) panelAppearance(ctx context.Context) appearanceSelection {
-	fallback := appearanceSelection{Preset: s.visualPresets.BuiltIn.ID, Mode: "light", Digits: i18n.LatinDigits}
+func (s *Server) installationAppearance(ctx context.Context) appearanceDefaults {
+	out := appearanceDefaults{appearanceSelection: appearanceSelection{Preset: theme.DefaultID, Mode: "light", Digits: i18n.LatinDigits}}
 	if s.DB == nil {
-		return fallback
+		return out
 	}
-	var saved appearanceSelection
-	if err := s.DB.QueryRowContext(ctx, `SELECT preset_id, mode,digits FROM appearance_defaults WHERE id = 1`).Scan(&saved.Preset, &saved.Mode, &saved.Digits); err != nil {
-		return fallback
+	var saved appearanceDefaults
+	if err := s.DB.QueryRowContext(ctx, `SELECT preset_id, mode, digits, sub_preset_id, sub_mode FROM appearance_defaults WHERE id = 1`).
+		Scan(&saved.Preset, &saved.Mode, &saved.Digits, &saved.SubPreset, &saved.SubMode); err != nil {
+		return out
 	}
-	saved.Preset = s.visualPresets.resolve(saved.Preset)
-	if !validAppearanceMode(saved.Mode) {
-		saved.Mode = fallback.Mode
+	out.Preset = s.themes.Resolve(saved.Preset)
+	if validAppearanceMode(saved.Mode) {
+		out.Mode = saved.Mode
 	}
-	if !saved.Digits.Valid() {
-		saved.Digits = fallback.Digits
+	if saved.Digits.Valid() {
+		out.Digits = saved.Digits
 	}
-	return saved
+	if s.themes.Known(saved.SubPreset) {
+		out.SubPreset = saved.SubPreset
+	}
+	if validAppearanceMode(saved.SubMode) {
+		out.SubMode = saved.SubMode
+	}
+	return out
+}
+
+func (s *Server) panelAppearance(ctx context.Context) appearanceSelection {
+	return s.installationAppearance(ctx).appearanceSelection
 }
 
 func themeCookieChoice(r *http.Request) string {
@@ -63,39 +80,76 @@ func themeCookieChoice(r *http.Request) string {
 	return ""
 }
 
+// subPresetCookie is a subscription visitor's own preset choice. It is a
+// presentation preference only and honored solely for allowlisted IDs.
+const subPresetCookie = "wg_sub_preset"
+
 func (s *Server) appearanceFor(r *http.Request) appearanceSelection {
-	selection := s.panelAppearance(r.Context())
-	if a := adminFrom(r); !strings.HasPrefix(r.URL.Path, "/sub/") && a != nil && a.AppearancePreset != "" && s.visualPresets.known(a.AppearancePreset) {
+	defaults := s.installationAppearance(r.Context())
+	selection := defaults.appearanceSelection
+	if strings.HasPrefix(r.URL.Path, "/sub/") {
+		if defaults.SubPreset != "" {
+			selection.Preset = defaults.SubPreset
+		}
+		if defaults.SubMode != "" {
+			selection.Mode = defaults.SubMode
+		}
+		if c, err := r.Cookie(subPresetCookie); err == nil && s.themes.Known(c.Value) {
+			selection.Preset = c.Value
+		}
+		if personalMode := themeCookieChoice(r); personalMode != "" {
+			selection.Mode = personalMode
+		}
+		return selection
+	}
+	a := adminFrom(r)
+	if a != nil && a.AppearancePreset != "" && s.themes.Known(a.AppearancePreset) {
 		selection.Preset = a.AppearancePreset
 	}
 	if personalMode := themeCookieChoice(r); personalMode != "" {
 		selection.Mode = personalMode
 	}
-	if a := adminFrom(r); !strings.HasPrefix(r.URL.Path, "/sub/") && a != nil && i18n.DigitStyle(a.AppearanceDigits).Valid() {
+	if a != nil && i18n.DigitStyle(a.AppearanceDigits).Valid() {
 		selection.Digits = i18n.DigitStyle(a.AppearanceDigits)
 	}
 	return selection
 }
 
 func (s *Server) appearancePageData(r *http.Request) appearancePageData {
-	choices := make([]appearanceChoice, 0, len(s.visualPresets.Presets)+1)
-	choices = append(choices, appearanceChoice{ID: s.visualPresets.BuiltIn.ID, Name: s.visualPresets.BuiltIn.Name})
-	for _, p := range s.visualPresets.Presets {
-		choices = append(choices, appearanceChoice{ID: p.ID, Name: p.Name})
-	}
 	a := adminFrom(r)
+	defaults := s.installationAppearance(r.Context())
 	data := appearancePageData{
-		Choices: choices, Effective: s.appearanceFor(r), PanelDefault: s.panelAppearance(r.Context()),
+		Choices: s.presetChoices(), Effective: s.appearanceFor(r), PanelDefault: defaults.appearanceSelection,
+		SubPreset: defaults.SubPreset, SubMode: defaults.SubMode,
 		ModeIsPersonal: themeCookieChoice(r) != "", IsOwner: a != nil && a.Role == auth.RoleOwner,
 	}
-	if a != nil && s.visualPresets.known(a.AppearancePreset) {
+	if a != nil && s.themes.Known(a.AppearancePreset) {
 		data.Personal = a.AppearancePreset
 	}
 	if a != nil {
 		data.PersonalDigits = a.AppearanceDigits
 	}
-	data.EffectiveName = s.visualPresets.name(data.Effective.Preset)
+	data.EffectiveName = s.presetName(data.Effective.Preset)
 	return data
+}
+
+// handleAppearanceSubscription sets the subscription page's preset and mode.
+// Blank values follow the panel default.
+func (s *Server) handleAppearanceSubscription(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAppearanceOwner(w, r) {
+		return
+	}
+	preset, mode := strings.TrimSpace(r.PostFormValue("sub_preset")), r.PostFormValue("sub_mode")
+	if (preset != "" && !s.themes.Known(preset)) || (mode != "" && !validAppearanceMode(mode)) {
+		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
+		return
+	}
+	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET sub_preset_id = ?, sub_mode = ? WHERE id = 1`, preset, mode); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	s.audit(r, "appearance.subscription_changed", "panel", map[string]any{"preset": preset, "mode": mode})
+	s.redirectToast(w, r, "/appearance#appearance-subscription", "appearance.default_saved")
 }
 
 func (s *Server) handleAppearanceDigits(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +183,7 @@ func (s *Server) handleAppearancePage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAppearanceMe(w http.ResponseWriter, r *http.Request) {
 	preset := strings.TrimSpace(r.PostFormValue("preset"))
-	if !s.visualPresets.known(preset) {
+	if !s.themes.Known(preset) {
 		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
 		return
 	}
@@ -156,7 +210,7 @@ func (s *Server) handleAppearanceDefault(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	preset, mode := strings.TrimSpace(r.PostFormValue("preset")), r.PostFormValue("mode")
-	if !s.visualPresets.known(preset) || !validAppearanceMode(mode) || r.PostFormValue("confirm") != "1" {
+	if !s.themes.Known(preset) || !validAppearanceMode(mode) || r.PostFormValue("confirm") != "1" {
 		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
 		return
 	}
@@ -176,7 +230,7 @@ func (s *Server) handleAppearanceDefaultReset(w http.ResponseWriter, r *http.Req
 		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
 		return
 	}
-	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET preset_id = ?, mode = 'light',digits='latin' WHERE id = 1`, s.visualPresets.BuiltIn.ID); err != nil {
+	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET preset_id = ?, mode = 'light', digits = 'latin', sub_preset_id = '', sub_mode = '' WHERE id = 1`, theme.DefaultID); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}

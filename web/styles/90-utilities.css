@@ -1,0 +1,57 @@
+/* Utilities: small, single-purpose helpers. Prefer components first. */
+@layer utilities {
+  /* Meter widths (strict CSP forbids inline styles; Go picks the step). */
+  .w0 > .progress-bar, .w0.progress-bar { width: 0%; }
+  .w5 > .progress-bar, .w5.progress-bar { width: 5%; }
+  .w10 > .progress-bar, .w10.progress-bar { width: 10%; }
+  .w15 > .progress-bar, .w15.progress-bar { width: 15%; }
+  .w20 > .progress-bar, .w20.progress-bar { width: 20%; }
+  .w25 > .progress-bar, .w25.progress-bar { width: 25%; }
+  .w30 > .progress-bar, .w30.progress-bar { width: 30%; }
+  .w35 > .progress-bar, .w35.progress-bar { width: 35%; }
+  .w40 > .progress-bar, .w40.progress-bar { width: 40%; }
+  .w45 > .progress-bar, .w45.progress-bar { width: 45%; }
+  .w50 > .progress-bar, .w50.progress-bar { width: 50%; }
+  .w55 > .progress-bar, .w55.progress-bar { width: 55%; }
+  .w60 > .progress-bar, .w60.progress-bar { width: 60%; }
+  .w65 > .progress-bar, .w65.progress-bar { width: 65%; }
+  .w70 > .progress-bar, .w70.progress-bar { width: 70%; }
+  .w75 > .progress-bar, .w75.progress-bar { width: 75%; }
+  .w80 > .progress-bar, .w80.progress-bar { width: 80%; }
+  .w85 > .progress-bar, .w85.progress-bar { width: 85%; }
+  .w90 > .progress-bar, .w90.progress-bar { width: 90%; }
+  .w95 > .progress-bar, .w95.progress-bar { width: 95%; }
+  .w100 > .progress-bar, .w100.progress-bar { width: 100%; }
+  .is-warn > .progress-bar { background: var(--warning); }
+  .is-danger > .progress-bar { background: var(--destructive); }
+
+  .text-muted { color: var(--muted-foreground); }
+  .text-foreground { color: var(--foreground); }
+  .text-success { color: var(--success); }
+  .text-warn, .text-warning { color: var(--warning); }
+  .text-danger { color: var(--destructive-text); }
+  .text-info { color: var(--info); }
+  .text-primary { color: var(--primary-text); }
+  .text-xs { font-size: var(--text-xs); }
+  .text-sm { font-size: var(--text-sm); }
+  .text-base { font-size: var(--text-base); }
+  .text-lg { font-size: var(--text-lg); }
+  .font-medium { font-weight: 500; }
+  .font-semibold { font-weight: 600; }
+  .text-end { text-align: end; }
+  .text-center { text-align: center; }
+  .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .nowrap { white-space: nowrap; }
+  .break { overflow-wrap: anywhere; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .w-full { width: 100%; }
+  .min-w-0 { min-width: 0; }
+  .flex-1 { flex: 1; }
+  .shrink-0 { flex-shrink: 0; }
+  .ms-auto { margin-inline-start: auto; }
+  .mt-1 { margin-top: var(--s-1); }
+  .mt-2 { margin-top: var(--s-2); }
+  .mt-4 { margin-top: var(--s-4); }
+  @media (max-width: 640px) { .hide-sm { display: none !important; } }
+  @media (min-width: 641px) { .show-sm { display: none !important; } }
+}

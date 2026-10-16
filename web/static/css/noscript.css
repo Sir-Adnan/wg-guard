@@ -1,9 +1,9 @@
 /* Native navigation fallback is loaded only when scripting is disabled. */
 @media (max-width: 960px) {
-  .sidebar { position: static; width: 100%; height: auto; visibility: visible; translate: 0; }
-  [dir="rtl"] .sidebar { translate: 0; }
-  .drawer-toggle, .sidebar .nav-close { display: none; }
+  .app { flex-direction: column; }
+  .sidebar { position: static !important; width: 100% !important; height: auto !important; visibility: visible !important; transform: none !important; box-shadow: none !important; }
+  .drawer-toggle, .sidebar .nav-close, .sidebar-search, .header-search { display: none !important; }
 }
+.sidebar-search, .header-search { display: none !important; }
 /* Quick-fill requires enhancement; manual numeric/unit inputs remain usable. */
-.preset-picker { display:none; }
-.unit-group:has(.preset-picker) { display:flex; }
+.preset-picker { display: none; }

@@ -1,16 +1,21 @@
 {{define "auth"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}" data-digits="{{.Digits}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
+<html {{template "html-attrs" .}}>
 <head>{{template "document-head" .}}<title>{{template "title" .}} · {{.T "app.name"}}</title></head>
-<body class="access-surface">
+<body>
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
-<div class="access-shell">
-<header class="access-top"><a class="access-brand" href="/login"><span class="logo">{{.Icon "shield"}}</span><span>{{.T "app.name"}}</span></a>{{template "preferences" .}}</header>
-<main id="main" tabindex="-1" class="access-frame{{if not (or (eq .Path "/login") (eq .Path "/onboarding"))}} access-frame--error{{end}}">
-{{if or (eq .Path "/login") (eq .Path "/onboarding")}}
-<section class="access-story" aria-labelledby="access-story-title"><span class="eyebrow">{{.T "app.tagline"}}</span><h2 id="access-story-title">{{.T "access.promise"}}</h2><p>{{.T "access.intro"}}</p><ul class="access-features"><li>{{.Icon "users"}}<div><strong>{{.T "access.accounts"}}</strong><p>{{.T "access.accounts_hint"}}</p></div></li><li>{{.Icon "activity"}}<div><strong>{{.T "access.health"}}</strong><p>{{.T "access.health_hint"}}</p></div></li><li>{{.Icon "key"}}<div><strong>{{.T "access.sharing"}}</strong><p>{{.T "access.sharing_hint"}}</p></div></li></ul></section>
-{{end}}
-<section class="access-panel">{{template "flash" .}}{{block "content" .}}{{end}}</section>
-</main>
-<footer class="access-footer">{{.T "access.private_panel"}}</footer>
-</div>{{template "feedback-host" .}}
-</body></html>{{end}}
+<div class="auth">
+  <header class="auth-top">
+    <a class="auth-brand" href="/login"><span class="brand-mark">{{.Icon "shield"}}</span><span>{{.T "app.name"}}</span></a>
+    {{template "preferences" .}}
+  </header>
+  <main id="main" tabindex="-1" class="auth-main">
+    <div class="auth-card{{if not (or (eq .Path "/login") (eq .Path "/onboarding"))}} auth-card--wide{{end}}">
+      {{template "flash" .}}
+      {{block "content" .}}{{end}}
+    </div>
+  </main>
+  <footer class="auth-foot">{{.T "access.private_panel"}}</footer>
+</div>
+{{template "feedback-host" .}}
+</body>
+</html>{{end}}

@@ -160,7 +160,8 @@
     const msgEl = $("[data-confirm-message]", dlg);
     msgEl.textContent = form.dataset.confirmMessage || "";
     const okBtn = $("[data-confirm-ok]", dlg);
-    okBtn.className = "btn " + (form.dataset.confirmKind === "ok" ? "btn--primary" : "btn--danger");
+    okBtn.className = "btn " + (form.dataset.confirmKind === "ok" ? "btn--primary" : "btn--destructive");
+    dlg.classList.toggle("dialog--danger", form.dataset.confirmKind !== "ok");
     okBtn.textContent = form.dataset.confirmLabel || e.submitter?.getAttribute('aria-label') || e.submitter?.textContent?.trim() || document.querySelector('meta[name="ui-confirm"]')?.content || "";
   });
 

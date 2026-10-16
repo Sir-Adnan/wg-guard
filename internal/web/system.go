@@ -38,13 +38,13 @@ func (s *Server) handleSystemPage(w http.ResponseWriter, r *http.Request) {
 func statusTone(state nodestatus.State) string {
 	switch state {
 	case nodestatus.Ready, nodestatus.Applied, nodestatus.Current, nodestatus.Healthy:
-		return "badge--ok"
+		return "badge--success"
 	case nodestatus.Pending, nodestatus.Degraded:
-		return "badge--warn"
+		return "badge--warning"
 	case nodestatus.Unobserved:
 		return ""
 	default:
-		return "badge--danger"
+		return "badge--destructive"
 	}
 }
 

@@ -45,6 +45,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/token"
 	"github.com/Sir-Adnan/wg-guard/internal/updatequeue"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
+	"github.com/Sir-Adnan/wg-guard/internal/web/theme"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
@@ -117,15 +118,14 @@ type Deps struct {
 // Server is the admin panel.
 type Server struct {
 	Deps
-	assets          assetSet
-	pages           map[string]*pageTemplate
-	visualPresets   visualPresetCatalog
-	visualPresetCSS []byte
-	loginRL         *ipLimiter
-	subRL           *ipLimiter // public /sub/ surface: request-rate window per IP
-	updateCache     releaseCache
-	cleanup         *cleanup.Service
-	cleanupMu       sync.Mutex
+	assets      assetSet
+	pages       map[string]*pageTemplate
+	themes      *theme.Registry
+	loginRL     *ipLimiter
+	subRL       *ipLimiter // public /sub/ surface: request-rate window per IP
+	updateCache releaseCache
+	cleanup     *cleanup.Service
+	cleanupMu   sync.Mutex
 }
 
 // New builds the panel: parse templates once, hash assets once.
@@ -153,7 +153,7 @@ func New(d Deps) (*Server, error) {
 		s.cleanup = cleanup.New(d.DB, d.Users, d.Ring)
 	}
 	var err error
-	s.visualPresets, s.visualPresetCSS, err = loadVisualPresets()
+	s.themes, err = loadThemes()
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +192,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /appearance/me/reset", s.requireSignedIn(s.handleAppearanceMeReset))
 	mux.HandleFunc("POST /appearance/default", s.requireSignedIn(s.handleAppearanceDefault))
 	mux.HandleFunc("POST /appearance/default/reset", s.requireSignedIn(s.handleAppearanceDefaultReset))
+	mux.HandleFunc("POST /appearance/subscription", s.requireSignedIn(s.handleAppearanceSubscription))
 	mux.HandleFunc("POST /logout", s.requireSignedIn(s.handleLogout))
 
 	// --- public subscription pages (token-gated, rate-limited) ---

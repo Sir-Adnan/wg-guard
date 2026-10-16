@@ -42,11 +42,11 @@ function showHelp(help) {
 }
 let guidanceSequence = 0;
 function guidanceHeading(host) {
-  return host.querySelector(':scope > .form-section-head > h2, :scope > .settings-section-head > h2') ||
+  return host.querySelector(':scope > .card-title, :scope > .form-section-head > h2, :scope > .settings-section-head > h2') ||
     host.querySelector(':scope > label[for]:not(.check-row):not(.switch-card), :scope > legend, :scope > h2, :scope > h3');
 }
 export function enhanceGuidance(root = document) {
-  const selectors = '.field > .hint, .form-section > p.hint, .form-section > span.hint, form .section-description, .section-head .hint, [data-guidance]';
+  const selectors = '.field > .hint, .card-header > .hint, .form-section > p.hint, .form-section > span.hint, .section-head .hint, [data-guidance]';
   root.querySelectorAll(selectors).forEach(copy => {
     if (copy.closest('.field-help,.field-help-content') || !copy.textContent.trim()) return;
     const host = copy.closest('.field') || copy.parentElement;
@@ -69,6 +69,8 @@ export function enhanceGuidance(root = document) {
     // content. Its help button is valid; the popover belongs outside the legend.
     if (title.tagName === 'LEGEND') {
       title.append(help); host.append(content);
+    } else if (title.matches('.card-title')) {
+      title.append(help); title.parentElement.append(content);
     } else if (title.parentElement.classList.contains('form-section-head')) {
       title.parentElement.append(help, content);
     } else {

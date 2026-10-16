@@ -1,0 +1,8 @@
+/*
+ * WG-Guard design system. Source files in web/styles are concatenated in
+ * path order into /assets/css/app.css when the server starts (no build tool).
+ * Tokens come from the active visual preset (web/themes); components read
+ * tokens only, so a preset restyles every page without page-specific rules.
+ * Contract: docs/product/design-system.md.
+ */
+@layer reset, tokens, base, components, layout, pages, utilities;

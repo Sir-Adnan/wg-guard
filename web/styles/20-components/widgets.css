@@ -1,0 +1,43 @@
+/* Script-rendered widgets: date picker (app.js), multi-select choice menu
+ * and field guidance popovers (presentation.js), and the generic icon button
+ * that scripts create. */
+@layer components {
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: var(--control-h-sm); height: var(--control-h-sm); border-radius: var(--radius-md); color: var(--muted-foreground); font-size: var(--text-md); line-height: 1; }
+  .icon-btn:hover:not(:disabled) { background: var(--accent); color: var(--accent-foreground); }
+  .icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* Calendar (Jalali in fa, Gregorian in en). */
+  .calendar { position: fixed; z-index: calc(var(--z-popover) + 5); display: none; padding: var(--s-3); user-select: none; max-height: calc(100dvh - 16px); overflow-y: auto; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+  .calendar.is-open { display: block; animation: pop-in var(--dur-fast) var(--ease); }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding-bottom: var(--s-2); }
+  .cal-title { font-size: var(--text-sm); font-weight: 500; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-wd { text-align: center; font-size: var(--text-2xs); color: var(--muted-foreground); padding: 2px 0 var(--s-1); }
+  .cal-day { min-height: 2.125rem; border-radius: var(--radius-md); font-size: var(--text-sm); font-variant-numeric: tabular-nums; color: var(--popover-foreground); transition: background-color var(--dur-fast) var(--ease); }
+  .cal-day:hover:not(:disabled) { background: var(--accent); }
+  .cal-day:disabled { opacity: .35; cursor: not-allowed; }
+  .cal-day.is-today { background: var(--muted); font-weight: 600; }
+  .cal-day.is-selected { background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .cal-day:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  @media (pointer: coarse) { .cal-day { min-height: 2.75rem; } }
+  .cal-foot { display: flex; justify-content: flex-end; margin-top: var(--s-2); padding-top: var(--s-2); border-top: 1px solid var(--border); }
+  .calendar-field { position: relative; }
+
+  /* Choice menu: searchable multi-select inside a <details>. */
+  .choice-menu { position: relative; }
+  .choice-menu-trigger { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); height: var(--control-h); padding-inline: var(--control-px); border: 1px solid var(--input); border-radius: var(--radius-md); background: transparent; box-shadow: var(--shadow-xs); font-size: var(--control-text); }
+  .choice-menu-trigger::after { content: ""; width: .4rem; height: .4rem; border-inline-end: 1.5px solid var(--muted-foreground); border-bottom: 1.5px solid var(--muted-foreground); transform: rotate(45deg) translateY(-2px); }
+  .choice-menu[open] > .choice-menu-trigger, .choice-menu-trigger:focus-visible { outline: none; border-color: var(--ring); box-shadow: var(--focus-ring); }
+  .choice-menu-panel { padding: var(--s-1); background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: var(--z-popover); }
+  .choice-menu-panel[popover] { position: fixed; inset: auto; margin: 0; max-width: calc(100vw - 16px); max-height: min(26rem, calc(100dvh - 32px)); overflow: auto; }
+  .choice-menu-panel .input { margin-bottom: var(--s-1); }
+  .choice-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-1); }
+  .choice-option { display: flex; align-items: center; gap: var(--s-2_5); padding: var(--s-1_5) var(--s-2); border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: pointer; }
+  .choice-option:hover { background: var(--accent); }
+  .choice-option[hidden] { display: none !important; }
+
+  /* Guidance popovers (field "?" help). */
+  .field-help-content[popover] { position: fixed; inset: auto; margin: 0; top: auto; }
+  .field-help-content .hint, .field-help-content p { color: inherit; font-size: inherit; }
+}

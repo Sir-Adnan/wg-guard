@@ -2,45 +2,15 @@
 {{$v := .}}
 {{with .Data.Attention}}
 {{if or .Any .Unavailable}}
-<div class="card card--pad dash-attention">
-  <div class="section-head"><div><h2>{{$v.T "dash.attention"}}</h2><p>{{$v.T "dash.attention_hint"}}</p></div><a class="btn btn--ghost btn--sm" href="/users">{{$v.T "nav.users"}} {{$v.IconS "arrow-right"}}</a></div>
-  {{if .Unavailable}}<p class="callout callout--warn" data-attention-unavailable>{{$v.T "dash.attention_unavailable"}}</p>{{end}}
-  <div class="attention-grid">
-    {{if .Expiring}}
-    <div class="attention-col attention-col--expiring">
-      <h3>{{$v.T "dash.attention_expiring"}}</h3>
-      {{range .Expiring}}
-      <div class="attention-row">
-        <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
-        <span class="attention-when ltr-data {{$v.ExpiryClass .When}}">{{$v.D .When}} · {{$v.RelIn .When}}</span>
-      </div>
-      {{end}}
-    </div>
-    {{end}}
-    {{if .Exceeded}}
-    <div class="attention-col attention-col--exceeded">
-      <h3>{{$v.T "dash.attention_exceeded"}}</h3>
-      {{range .Exceeded}}
-      <div class="attention-row">
-        <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
-        <span class="attention-when ltr-data">{{$v.B .Used}}{{if .Limit}} / {{$v.BLim .Limit}}{{end}}</span>
-      </div>
-      {{end}}
-    </div>
-    {{end}}
-    {{if .Expired}}
-    <div class="attention-col attention-col--expired">
-      <h3>{{$v.T "dash.attention_expired"}}</h3>
-      {{range .Expired}}
-      <div class="attention-row">
-        <a href="/users/{{.ID}}" class="ltr-data">{{.Username}}</a>
-        <span class="attention-when ltr-data {{$v.ExpiryClass .When}}">{{$v.D .When}}</span>
-      </div>
-      {{end}}
-    </div>
-    {{end}}
+<section class="card card--flush dash-attention" aria-labelledby="attention-title">
+  <div class="card-header"><h2 class="card-title" id="attention-title">{{$v.IconS "alert-triangle"}}{{$v.T "dash.attention"}}</h2><div class="card-action"><a class="btn btn--ghost btn--xs" href="/users">{{$v.T "nav.users"}}{{$v.IconS "arrow-right"}}</a></div><p class="card-description">{{$v.T "dash.attention_hint"}}</p></div>
+  <div class="card-content card-content--flush">
+    {{if .Unavailable}}<div class="item" data-attention-unavailable><span class="item-media item-media--plain text-warning">{{$v.IconS "alert-triangle"}}</span><p class="item-description">{{$v.T "dash.attention_unavailable"}}</p></div>{{end}}
+    {{range .Expiring}}<div class="item item--interactive"><span class="dot dot--warning"></span><div class="item-content"><a class="item-title item-link" href="/users/{{.ID}}"><bdi>{{.Username}}</bdi></a><span class="item-description">{{$v.T "dash.attention_expiring"}}</span></div><span class="text-xs tech {{$v.ExpiryClass .When}}">{{$v.RelIn .When}}</span></div>{{end}}
+    {{range .Exceeded}}<div class="item item--interactive"><span class="dot dot--destructive"></span><div class="item-content"><a class="item-title item-link" href="/users/{{.ID}}"><bdi>{{.Username}}</bdi></a><span class="item-description">{{$v.T "dash.attention_exceeded"}}</span></div><span class="text-xs tech">{{$v.B .Used}}{{if .Limit}} / {{$v.BLim .Limit}}{{end}}</span></div>{{end}}
+    {{range .Expired}}<div class="item item--interactive"><span class="dot dot--muted"></span><div class="item-content"><a class="item-title item-link" href="/users/{{.ID}}"><bdi>{{.Username}}</bdi></a><span class="item-description">{{$v.T "dash.attention_expired"}}</span></div><span class="text-xs tech {{$v.ExpiryClass .When}}">{{$v.D .When}}</span></div>{{end}}
   </div>
-</div>
+</section>
 {{end}}
 {{end}}
 {{end}}

@@ -1,33 +1,37 @@
 {{define "dash_chart"}}
 <section id="chart-card" class="card traffic-card" aria-labelledby="traffic-title">
-  <div class="card-head">
-    <div><h2 id="traffic-title">{{.T "dash.traffic"}}</h2><p class="section-description">{{.T "dash.rollup_source"}}</p></div>
-    <nav class="seg-group" aria-label="{{.T "dash.traffic"}}">
+  <div class="card-header">
+    <h2 class="card-title" id="traffic-title">{{.T "dash.traffic"}}</h2>
+    <p class="card-description">{{.T "dash.rollup_source"}}</p>
+    <nav class="card-action toggle-group" aria-label="{{.T "dash.traffic"}}">
       {{$r := .Data.Chart.Range}}
       {{range $key := list "24h" "7d" "30d"}}
-      <a id="traffic-range-{{$key}}" class="seg{{if eq $r $key}} is-on{{end}}" {{if eq $r $key}}aria-current="true"{{end}} href="/dashboard?range={{$key}}"
+      <a id="traffic-range-{{$key}}" {{if eq $r $key}}aria-current="true"{{end}} href="/dashboard?range={{$key}}"
          hx-get="/dashboard/chart?range={{$key}}" hx-target="#chart-card" hx-swap="outerHTML" hx-push-url="false">{{$.T (printf "dash.range_%s" $key)}}</a>
       {{end}}
     </nav>
   </div>
-  <div class="card-body">
+  <div class="card-content stack">
     {{if not .Data.Chart.HasChart}}
-    <div class="empty"><span class="empty-icon">{{.Icon "activity"}}</span><p role="status">{{.T "dash.traffic_unavailable"}}</p><a class="btn" href="/dashboard?range={{.Data.Chart.Range}}">{{.T "common.retry"}}</a></div>
+    <div class="empty empty--compact"><span class="empty-icon">{{.Icon "activity"}}</span><p class="empty-description" role="status">{{.T "dash.traffic_unavailable"}}</p><div class="empty-actions"><a class="btn btn--sm" href="/dashboard?range={{.Data.Chart.Range}}">{{.T "common.retry"}}</a></div></div>
     {{else}}
-    <div class="traffic-totals">
-      <div><span class="legend-item"><span class="swatch"></span>{{.T "dash.rx"}}</span><strong class="ltr-data">{{.B .Data.Chart.RX}}</strong></div>
-      <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{.T "dash.tx"}}</span><strong class="ltr-data">{{.B .Data.Chart.TX}}</strong></div>
+    <div class="row-between">
+      <div class="cluster-lg traffic-totals">
+        {{$rx := .BParts .Data.Chart.RX}}{{$tx := .BParts .Data.Chart.TX}}
+        <div class="stack-xs"><span class="legend-item"><span class="swatch"></span>{{.T "dash.rx"}}</span><span class="stat-value"><span class="num">{{$rx.Number}}</span><span class="stat-unit">{{$rx.Unit}}</span></span></div>
+        <div class="stack-xs"><span class="legend-item"><span class="swatch swatch--tx"></span>{{.T "dash.tx"}}</span><span class="stat-value"><span class="num">{{$tx.Number}}</span><span class="stat-unit">{{$tx.Unit}}</span></span></div>
+      </div>
+      <span class="chart-period">{{.Data.Chart.Period}}</span>
     </div>
-    <p class="chart-period ltr-data">{{.Data.Chart.Period}}</p>
     {{if .Data.Chart.SVG}}<div class="chart-wrap" dir="ltr">{{.Data.Chart.SVG}}</div>
-    {{else}}<div class="empty chart-empty"><p>{{.T "dash.no_traffic"}}</p></div>{{end}}
-    <details class="chart-data" id="traffic-data">
-      <summary>{{.T "dash.view_data"}}</summary>
-      <div class="table-wrap"><table class="table table--cards">
+    {{else}}<div class="empty empty--compact empty--bordered chart-empty"><p class="empty-description">{{.T "dash.no_traffic"}}</p></div>{{end}}
+    <details class="collapsible collapsible--plain chart-data" id="traffic-data">
+      <summary class="text-sm text-muted">{{.T "dash.view_data"}}</summary>
+      <div class="table-frame"><div class="table-wrap"><table class="table table--compact">
         <caption class="sr-only">{{.T "dash.view_data"}}</caption>
-        <thead><tr><th scope="col">{{.T "dash.period"}}</th><th scope="col">{{.T "dash.rx"}}</th><th scope="col">{{.T "dash.tx"}}</th></tr></thead>
-        <tbody>{{range .Data.Chart.Buckets}}<tr><th scope="row"><bdi>{{.Label}}</bdi></th><td data-label="{{$.T "dash.rx"}}"><bdi>{{$.B .RX}}</bdi></td><td data-label="{{$.T "dash.tx"}}"><bdi>{{$.B .TX}}</bdi></td></tr>{{end}}</tbody>
-      </table></div>
+        <thead><tr><th scope="col">{{.T "dash.period"}}</th><th scope="col" class="col-num">{{.T "dash.rx"}}</th><th scope="col" class="col-num">{{.T "dash.tx"}}</th></tr></thead>
+        <tbody>{{range .Data.Chart.Buckets}}<tr><th scope="row" class="tech nowrap">{{.Label}}</th><td class="col-num"><bdi>{{$.B .RX}}</bdi></td><td class="col-num"><bdi>{{$.B .TX}}</bdi></td></tr>{{end}}</tbody>
+      </table></div></div>
     </details>
     {{end}}
   </div>
