@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/egress"
 	"github.com/Sir-Adnan/wg-guard/internal/network"
 )
 
@@ -62,7 +63,41 @@ func removeOwnedRuntimeInterfaces(ctx context.Context, h Host, dataDir string) e
 	if err != nil {
 		return err
 	}
+	// Egress outbound links (wgoN) are recorded by slot; databases from
+	// before egress routing have no such table.
+	if slots, err := db.QueryContext(ctx, "SELECT slot FROM egress_outbounds ORDER BY slot"); err == nil {
+		for slots.Next() {
+			var slot int
+			if err := slots.Scan(&slot); err != nil {
+				slots.Close()
+				return err
+			}
+			owned = append(owned, ownedInterface{name: egress.LinkName(slot), mode: "egress"})
+		}
+		err = slots.Err()
+		slots.Close()
+		if err != nil {
+			return err
+		}
+	}
 	for _, item := range owned {
+		if item.mode == "egress" {
+			if !egress.IsLinkName(item.name) {
+				return fmt.Errorf("invalid recorded outbound link name")
+			}
+			link, exists, err := inspectRuntimeLink(ctx, h, item.name)
+			if err != nil {
+				return err
+			}
+			// Userspace outbound links end with the node; only kernel links remain.
+			if !exists || link.Info.Kind != "amneziawg" {
+				continue
+			}
+			if err := h.Run(ctx, []string{"ip", "link", "del", "dev", item.name}, 15*time.Second); err != nil {
+				return fmt.Errorf("delete %s: %w", item.name, err)
+			}
+			continue
+		}
 		if !ownedInterfaceName.MatchString(item.name) || len(item.name) > 15 {
 			return fmt.Errorf("invalid recorded tunnel interface name")
 		}
@@ -118,7 +153,7 @@ func refuseUnattributedLinks(ctx context.Context, h Host) error {
 		return fmt.Errorf("cannot parse live links without the ownership database: %w", err)
 	}
 	for _, link := range links {
-		if ownedInterfaceName.MatchString(link.Name) && (link.Info.Kind == "amneziawg" || link.Info.Kind == "tun") {
+		if (ownedInterfaceName.MatchString(link.Name) || egress.IsLinkName(link.Name)) && (link.Info.Kind == "amneziawg" || link.Info.Kind == "tun") {
 			return fmt.Errorf("live %s tunnel has no readable ownership record; restore the database or remove it explicitly before uninstall", link.Name)
 		}
 	}

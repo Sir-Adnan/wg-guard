@@ -16,6 +16,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/audit"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/network"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
@@ -37,6 +38,14 @@ type Deps struct {
 	Run      subprocess.Runner
 	Audit    *audit.Service
 	Shaper   *shaper.Manager // nil = skip shaping (tests, minimal runs)
+	// Egress applies egress routing (outbound links, policy routes and the
+	// owned egress table) after the client tunnels; nil = egress disabled.
+	Egress EgressApplier
+}
+
+// EgressApplier is the egress routing runtime (internal/egress/routing).
+type EgressApplier interface {
+	Apply(ctx context.Context, ifaces []routing.Interface) error
 }
 
 // Result reports what bring-up observed and changed. It carries no secret
@@ -186,6 +195,18 @@ func BringUp(ctx context.Context, d Deps) (*Result, error) {
 		return nil, fmt.Errorf("boot: Docker forwarding: %w", err)
 	}
 
+	// 4b. Egress routing follows the client tunnels it classifies. It is
+	// never fatal: a broken outbound must not take the VPN down; its state is
+	// reported in the panel and as a finding.
+	if d.Egress != nil {
+		if err := d.Egress.Apply(ctx, egressInterfaces(ifaces)); err != nil {
+			res.Findings = append(res.Findings, firewall.Finding{
+				Tool: "egress", Active: true, Detail: err.Error(),
+				Remedy: "open Outbounds in the panel; client traffic uses the direct route meanwhile",
+			})
+		}
+	}
+
 	// 5. Speed limits (tc): restore shaping from DB state. Never fatal — a
 	// broken tc must not take tunnels down; it is reported as a finding.
 	// (The accounting cycle re-ensures with change detection afterwards.)
@@ -273,6 +294,23 @@ func toolsVersion(ctx context.Context, b tunnel.Backend) (string, error) {
 	// Backends without a version probe (fake, dev without the CLI) report
 	// the pinned version so bring-up can run without the tooling installed.
 	return amneziawg.PinnedToolsVersion, nil
+}
+
+// egressInterfaces groups the firewall footprint (one row per pool) into
+// one entry per client tunnel.
+func egressInterfaces(footprint []firewall.Interface) []routing.Interface {
+	var out []routing.Interface
+	index := map[string]int{}
+	for _, f := range footprint {
+		i, ok := index[f.Name]
+		if !ok {
+			i = len(out)
+			index[f.Name] = i
+			out = append(out, routing.Interface{Name: f.Name})
+		}
+		out[i].Pools = append(out[i].Pools, f.Subnet)
+	}
+	return out
 }
 
 // enabledInterfaces lists the forwarding footprint for the firewall: every

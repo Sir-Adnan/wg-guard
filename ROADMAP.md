@@ -32,6 +32,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | ✅ Complete; HTTP-01 host-verified; shipped in v0.1.10 |
 | **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | ✅ Complete; shipped in v0.1.10 |
 | **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | ✅ Complete for Ubuntu 24.04 amd64 Docker scope; v0.1.10 published |
+| **21 — Egress routing and client portal** | Kernel-native outbounds (WARP, WireGuard/AmneziaWG, source IP), balancers, ordered rules with presets/geodata and a routing resolver; subscription portal, app guide, AmneziaVPN `vpn://` and machine-readable info | 🚧 Implemented and automated-tested on branch; real-host verification pending ([status](docs/development/status.md#egress-routing)) |
 
 The [refactor program](docs/development/refactor-program.md) defines Phase 15–20
 milestones, dependencies and exit evidence. Historical Phases 0–14 remain complete

@@ -1,0 +1,100 @@
+{{define "title"}}{{.T "routing.outbounds"}}{{end}}
+{{define "content"}}
+<div class="routing-page">
+<div class="page-head page-head--hero entity-hero">
+  <div class="page-title-cluster">
+    <span class="page-title-icon" aria-hidden="true">{{.Icon "route"}}</span>
+    <div>
+      <span class="eyebrow">{{.T "routing.workspace"}}</span>
+      <h1>{{.T "routing.outbounds"}}</h1>
+      <p>{{.T "routing.outbounds.intro"}}</p>
+    </div>
+  </div>
+  {{if .Can "interfaces.write"}}<div class="actions"><a class="btn btn--primary" href="/routing/outbounds/new">{{.IconS "plus"}}<span>{{.T "routing.outbounds.add"}}</span></a></div>{{end}}
+</div>
+{{template "routing_tabs" .}}
+
+{{range .Data.Warnings}}<p class="callout callout--warn routing-callout">{{$.IconS "alert-triangle"}}<span>{{$.T (printf "routing.warning.%s" .Kind) .Detail}}</span></p>{{end}}
+
+{{if .Data.Cards}}
+<div class="routing-summary" role="status">
+  <span><strong>{{.N (i64u (len .Data.Cards))}}</strong> {{.T "routing.outbounds.total"}}</span>
+  <span class="routing-summary-ok"><strong>{{.N (i64u .Data.Healthy)}}</strong> {{.T "routing.state.healthy"}}</span>
+  {{if .Data.Problems}}<span class="routing-summary-bad"><strong>{{.N (i64u .Data.Problems)}}</strong> {{.T "routing.outbounds.problems"}}</span>{{end}}
+</div>
+<div class="routing-grid">
+  {{range .Data.Cards}}{{template "outbound_card" (dict "c" . "v" $)}}{{end}}
+</div>
+{{else}}
+<section class="card routing-empty">
+  <span class="empty-visual" aria-hidden="true">{{.Icon "route"}}</span>
+  <h2>{{.T "routing.outbounds.empty.title"}}</h2>
+  <p>{{.T "routing.outbounds.empty.desc"}}</p>
+  {{if .Can "interfaces.write"}}
+  <div class="routing-starters">
+    <a class="routing-starter" href="/routing/outbounds/new?kind=warp"><span class="routing-starter-icon" data-kind="warp">{{.Icon "cloud"}}</span><strong>{{.T "routing.kind.warp"}}</strong><small>{{.T "routing.kind.warp_hint"}}</small></a>
+    <a class="routing-starter" href="/routing/outbounds/new?kind=wireguard"><span class="routing-starter-icon" data-kind="wireguard">{{.Icon "shield"}}</span><strong>{{.T "routing.kind.config"}}</strong><small>{{.T "routing.kind.config_hint"}}</small></a>
+    <a class="routing-starter" href="/routing/outbounds/new?kind=source_ip"><span class="routing-starter-icon" data-kind="source_ip">{{.Icon "server"}}</span><strong>{{.T "routing.kind.source_ip"}}</strong><small>{{.T "routing.kind.source_ip_hint"}}</small></a>
+  </div>
+  {{end}}
+</section>
+{{end}}
+<p class="hint routing-footnote">{{.IconS "info"}}<span>{{.T "routing.outbounds.footnote"}}</span></p>
+</div>
+{{end}}
+
+{{define "outbound_card"}}
+{{$c := .c}}{{$v := .v}}{{$o := $c.O}}
+<article class="card routing-card outbound-card" id="ob-{{$o.ID}}" data-state="{{$c.State}}">
+  <header class="routing-card-head">
+    <span class="routing-card-icon" data-kind="{{$o.Kind}}" aria-hidden="true">{{if eq (printf "%v" $o.Kind) "warp"}}{{$v.Icon "cloud"}}{{else if eq (printf "%v" $o.Kind) "source_ip"}}{{$v.Icon "server"}}{{else}}{{$v.Icon "shield"}}{{end}}</span>
+    <div class="routing-card-title">
+      <h3><bdi>{{$o.Name}}</bdi></h3>
+      <span class="badge badge--accent">{{$v.T $c.KindKey}}</span>
+    </div>
+    {{template "routing_state" (dict "v" $v "state" $c.State)}}
+  </header>
+  <dl class="routing-facts">
+    {{if eq (printf "%v" $o.Kind) "source_ip"}}
+    <div><dt>{{$v.T "routing.fact.source_ip"}}</dt><dd><bdi class="ltr-data">{{$o.SourceIP}}</bdi></dd></div>
+    {{else}}
+    <div><dt>{{$v.T "routing.fact.endpoint"}}</dt><dd><bdi class="ltr-data routing-ellipsis" title="{{$c.Endpoint}}">{{$c.Endpoint}}</bdi></dd></div>
+    {{end}}
+    <div><dt>{{$v.T "routing.fact.exit"}}</dt><dd>{{if $c.ExitIP}}<bdi class="ltr-data">{{$c.ExitIP}}</bdi>{{if $c.Country}} <span class="routing-country" title="{{$c.Country}}">{{$c.Flag}} <bdi class="ltr-data">{{$c.Country}}</bdi></span>{{end}}{{else}}<span class="text-subtle">—</span>{{end}}</dd></div>
+    <div><dt>{{$v.T "routing.fact.latency"}}</dt><dd>{{if $c.Latency}}<bdi class="ltr-data">{{$v.Human $c.Latency}} ms</bdi>{{else if $c.ProbeError}}<span class="text-danger">{{$v.T (printf "routing.probe.%s" $c.ProbeError)}}</span>{{else}}<span class="text-subtle">—</span>{{end}}</dd></div>
+    {{if ne (printf "%v" $o.Kind) "source_ip"}}
+    <div><dt>{{$v.T "routing.fact.handshake"}}</dt><dd>{{if $c.Handshake}}{{$v.Rel $c.Handshake}}{{else}}<span class="text-subtle">{{$v.T "common.never"}}</span>{{end}}</dd></div>
+    <div><dt>{{$v.T "routing.fact.traffic"}}</dt><dd>{{if $c.Counters}}<span class="routing-traffic"><span>{{$v.IconS "download"}}<bdi class="ltr-data">{{$v.B $c.RX}}</bdi></span><span>{{$v.IconS "upload"}}<bdi class="ltr-data">{{$v.B $c.TX}}</bdi></span></span>{{else}}<span class="text-subtle">—</span>{{end}}</dd></div>
+    {{end}}
+  </dl>
+  {{if eq $c.State "error"}}<p class="callout callout--danger routing-card-note">{{$v.IconS "alert-circle"}}<span>{{$v.T (printf "routing.link_error.%s" $c.Status.LinkError)}}</span></p>{{end}}
+  <footer class="routing-card-foot">
+    <p class="routing-usage">{{if $c.UsedBy}}{{$v.IconS "link"}}<span>{{$v.T "routing.used_by"}} <bdi>{{range $i, $n := $c.UsedBy}}{{if $i}}، {{end}}{{$n}}{{end}}</bdi></span>{{else}}<span class="text-subtle">{{$v.T "routing.unused"}}</span>{{end}}</p>
+    <div class="routing-card-actions">
+      <form method="post" action="/routing/outbounds/{{$o.ID}}/test" hx-post="/routing/outbounds/{{$o.ID}}/test" hx-target="#ob-{{$o.ID}}" hx-swap="outerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+        <button type="submit" class="btn btn--sm btn--soft"{{if not $o.Enabled}} disabled{{end}}>{{$v.IconS "activity"}}<span>{{$v.T "routing.test"}}</span><span class="spinner htmx-indicator" aria-hidden="true"></span></button>
+      </form>
+      {{if $v.Can "interfaces.write"}}
+      <a class="btn btn--sm btn--ghost" href="/routing/outbounds/{{$o.ID}}/edit">{{$v.T "common.edit"}}</a>
+      <div class="menu-anchor">
+        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$o.Name}}">{{$v.IconS "more-vertical"}}</button>
+        <div class="menu" role="menu">
+          <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/{{if $o.Enabled}}disable{{else}}enable{{end}}">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{if $o.Enabled}}{{$v.T "routing.disable"}}{{else}}{{$v.T "routing.enable"}}{{end}}</span></button>
+          </form>
+          <hr>
+          <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/delete" data-confirm data-confirm-title="{{$v.T "common.confirm_delete"}}" data-confirm-message="{{$v.T "routing.outbounds.delete_confirm" $o.Name}}" data-confirm-label="{{$v.T "common.delete"}}">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+          </form>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </footer>
+</article>
+{{end}}
+
+{{define "outbound_card_partial"}}{{template "outbound_card" (dict "c" .Data "v" .)}}{{end}}

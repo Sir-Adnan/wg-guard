@@ -49,6 +49,7 @@ Integrated panel/subscription certificate management is specified in
 | Namespaced nftables table; never touch foreign rules | [0004](../decisions/ADR-0004-namespaced-nftables.md) |
 | Pure-Go SQLite (modernc), CGO_ENABLED=0 | [0005](../decisions/ADR-0005-pure-go-sqlite.md) |
 | Docker-only runtime, verified artifacts and separated host authority | [0015](../decisions/ADR-0015-docker-only-runtime.md) |
+| Kernel-native egress routing (policy routing + nftables + resolver), no proxy engine | [0016](../decisions/ADR-0016-kernel-egress-routing.md) |
 | Backup/restore excluded from the REST API (panel + CLI only) | [0007](../decisions/ADR-0007-no-backup-rest-api.md) |
 | Optional backup password via standard age encryption | [0008](../decisions/ADR-0008-optional-backup-password.md) |
 | Vanilla-JS frontend (no Alpine), HTMX | [0009](../decisions/ADR-0009-vanilla-js-frontend.md) |
@@ -79,6 +80,13 @@ the complete network state—AWG links/peers, rendered firewall/NAT, supported m
 and shaping—so a post-start interface cannot exist without its route policy. A failure makes the
 readiness endpoint unready until a complete pass succeeds; concurrent AWG operations on one
 interface remain the race verify-after-apply exists to catch.
+Egress routing ([egress-routing.md](egress-routing.md)) adds a third fixed slow worker,
+`egress-health`, which the scheduler signals every 30 s. It runs at most four outbound probes
+at a time, refreshes least-connection shares and repairs a missing table. While domain rules
+exist, a gateway-only DNS resolver runs bounded UDP/TCP listener goroutines: 512 queries in
+flight and 128 TCP sessions, with one batched set feeder. Boot applies egress after the
+client interfaces exist. An egress failure is a non-fatal boot finding and does not change
+client-tunnel readiness.
 Explicit userspace profiles use one pin-checked foreground daemon per interface under the node;
 the scheduler checks the bounded process/socket set and retries failed members through the same
 canonical pass. Kernel profiles retain direct link creation; active unowned daemons are refused.

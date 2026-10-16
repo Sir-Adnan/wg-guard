@@ -1,6 +1,8 @@
 package web
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -143,13 +145,188 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	data.Used = u.TrafficUsedRX + u.TrafficUsedTX
 	data.Base = "/sub/" + url.PathEscape(r.PathValue("token"))
 	data.Layout = "pass"
-	if layout, err := s.Settings.GetString(ctx, "subscription.layout"); err == nil {
-		switch layout {
-		case "pass", "split", "compact":
-			data.Layout = layout
+	if layout, err := s.Settings.GetString(ctx, "subscription.layout"); err == nil && validSubLayout(layout) {
+		data.Layout = layout
+	}
+	data.Platforms = subPlatforms
+	data.usageAndTime(time.Now())
+	setSubscriptionUserinfo(w, u.TrafficUsedRX, u.TrafficUsedTX, u.TrafficLimitBytes, u.ExpiresAt)
+	s.renderSub(w, r, "sub", data)
+}
+
+// subLayouts are the installation-wide public page compositions.
+var subLayouts = []string{"pass", "split", "compact", "portal"}
+
+func validSubLayout(layout string) bool {
+	for _, l := range subLayouts {
+		if l == layout {
+			return true
 		}
 	}
-	s.renderSub(w, r, "sub", data)
+	return false
+}
+
+// usageAndTime derives the meters: data used of the quota and time elapsed
+// of the subscription period, plus whole days left (rounded up).
+func (d *subPageData) usageAndTime(now time.Time) {
+	if d.U == nil {
+		return
+	}
+	if d.U.TrafficLimitBytes != nil && *d.U.TrafficLimitBytes > 0 {
+		d.UsagePercent = int(min(100, d.Used*100 / *d.U.TrafficLimitBytes))
+		left := *d.U.TrafficLimitBytes - d.Used
+		d.Remaining = &left
+		if left < 0 {
+			zero := int64(0)
+			d.Remaining = &zero
+		}
+	}
+	if d.U.ExpiresAt == nil {
+		return
+	}
+	remaining := d.U.ExpiresAt.Sub(now)
+	days := int64(0)
+	if remaining > 0 {
+		days = int64((remaining + 24*time.Hour - time.Second) / (24 * time.Hour))
+	}
+	d.DaysLeft = &days
+	if d.U.DurationSeconds != nil && *d.U.DurationSeconds > 0 {
+		total := time.Duration(*d.U.DurationSeconds) * time.Second
+		elapsed := total - max(remaining, 0)
+		d.TimePercent = int(min(100, max(0, int64(elapsed*100/total))))
+		d.TimeKnown = true
+		d.TimeMeter = meterClass(int64(d.TimePercent), 100)
+	}
+}
+
+// setSubscriptionUserinfo emits the de-facto subscription header understood by
+// common VPN clients (upload/download/total bytes, expiry as Unix seconds).
+// It carries only what the token holder can already see on the page.
+func setSubscriptionUserinfo(w http.ResponseWriter, rx, tx int64, limit *int64, expires *time.Time) {
+	total, expire := int64(0), int64(0)
+	if limit != nil {
+		total = *limit
+	}
+	if expires != nil {
+		expire = expires.Unix()
+	}
+	// RX is client→server (upload), TX is server→client (download).
+	w.Header().Set("Subscription-Userinfo", fmt.Sprintf("upload=%d; download=%d; total=%d; expire=%d", rx, tx, total, expire))
+	w.Header().Set("Profile-Update-Interval", "24")
+}
+
+// subInfo is the machine-readable subscription (GET /sub/{token}/info).
+// Field names are a public contract (docs/architecture/api.md).
+type subInfo struct {
+	Username      string          `json:"username"`
+	Status        string          `json:"status"`
+	Plan          string          `json:"plan,omitempty"`
+	UsedBytes     int64           `json:"used_bytes"`
+	UploadBytes   int64           `json:"upload_bytes"`
+	DownloadBytes int64           `json:"download_bytes"`
+	LimitBytes    *int64          `json:"limit_bytes"`
+	ExpiresAt     *time.Time      `json:"expires_at"`
+	DaysLeft      *int64          `json:"days_left"`
+	Devices       []subInfoDevice `json:"devices"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+type subInfoDevice struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Address    string `json:"address"`
+	Enabled    bool   `json:"enabled"`
+	Online     bool   `json:"online"`
+	ConfigURL  string `json:"config_url"`
+	QRURL      string `json:"qr_url"`
+	AmneziaURL string `json:"amneziavpn_url"`
+}
+
+// handleSubInfo serves the subscription as JSON for apps and bots that
+// refresh it automatically. Same token gate and rate limit as the page.
+func (s *Server) handleSubInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if s.subRateLimited(w, r) {
+		return
+	}
+	userID, ok := s.resolveSubToken(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	u, err := s.Users.Get(ctx, userID)
+	if err != nil {
+		writeSubJSONError(w, http.StatusNotFound)
+		return
+	}
+	base := s.subBaseURL(r) + "/sub/" + url.PathEscape(r.PathValue("token"))
+	info := subInfo{Username: u.Username, Status: string(u.Status), UploadBytes: u.TrafficUsedRX, DownloadBytes: u.TrafficUsedTX,
+		UsedBytes: u.TrafficUsedRX + u.TrafficUsedTX, LimitBytes: u.TrafficLimitBytes, ExpiresAt: u.ExpiresAt,
+		Devices: []subInfoDevice{}, UpdatedAt: time.Now().UTC()}
+	d := subPageData{U: &subUserView{TrafficLimitBytes: u.TrafficLimitBytes, ExpiresAt: u.ExpiresAt, DurationSeconds: u.DurationSeconds}, Used: info.UsedBytes}
+	d.usageAndTime(time.Now())
+	info.DaysLeft = d.DaysLeft
+	if u.TemplateID != nil {
+		if p, err := s.Plans.Get(ctx, *u.TemplateID); err == nil {
+			info.Plan = p.Name
+		}
+	}
+	window := int64(180)
+	if v, err := s.Settings.GetInt(ctx, "accounting.online_window_seconds"); err == nil && v > 0 {
+		window = int64(v)
+	}
+	cutoff := time.Now().UTC().Add(-time.Duration(window) * time.Second)
+	devs, err := s.Devices.ListForUser(ctx, u.ID)
+	if err != nil {
+		writeSubJSONError(w, http.StatusServiceUnavailable)
+		return
+	}
+	for _, dv := range devs {
+		prefix := base + "/devices/" + url.PathEscape(dv.ID)
+		info.Devices = append(info.Devices, subInfoDevice{ID: dv.ID, Name: dv.Name, Address: dv.IPv4, Enabled: dv.Enabled,
+			Online:    dv.Enabled && u.Status.PeerWanted() && dv.LastHandshake != nil && dv.LastHandshake.After(cutoff),
+			ConfigURL: prefix + "/config", QRURL: prefix + "/qr", AmneziaURL: prefix + "/amneziavpn?format=text"})
+	}
+	setSubscriptionUserinfo(w, u.TrafficUsedRX, u.TrafficUsedTX, u.TrafficLimitBytes, u.ExpiresAt)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(info)
+}
+
+func writeSubJSONError(w http.ResponseWriter, status int) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(`{"error":"unavailable"}` + "\n"))
+}
+
+// handleSubDeviceAmnezia hands one device to AmneziaVPN: a redirect to the
+// vpn:// key (opens the app where the scheme is registered, e.g. Android), or
+// the key as text with ?format=text for the copy button and for apps.
+func (s *Server) handleSubDeviceAmnezia(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if s.subRateLimited(w, r) {
+		return
+	}
+	d, ok := s.subDevice(w, r)
+	if !ok {
+		return
+	}
+	text, err := s.ClientConf.Render(r.Context(), d.ID)
+	if err != nil {
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.download_unavailable", "sub")
+		return
+	}
+	key, err := clientconf.AmneziaVPNKey(text)
+	if err != nil {
+		s.surfaceError(w, r, http.StatusNotFound, "publicsub.download_unavailable", "sub")
+		return
+	}
+	if r.URL.Query().Get("format") == "text" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte(key))
+		return
+	}
+	w.Header().Set("Location", key)
+	w.WriteHeader(http.StatusSeeOther)
 }
 
 // handleSubDeviceQR streams one device's client config as a PNG, gated by
@@ -278,6 +455,13 @@ type subPageData struct {
 	DevicesKnown bool
 	Devices      []subDevice
 	OnlineWindow int64
+	Platforms    []subPlatform
+	UsagePercent int    // 0–100 of the quota; 0 when unlimited
+	Remaining    *int64 // bytes left of the quota (nil = unlimited)
+	DaysLeft     *int64 // whole days until expiry (nil = no expiry)
+	TimePercent  int    // 0–100 of the subscription period elapsed
+	TimeKnown    bool
+	TimeMeter    string // meter width/tone class for the time bar
 }
 
 // subDevice is one device card on the public page.

@@ -1,0 +1,16 @@
+{{define "routing_tabs"}}
+{{$t := .Data.Tabs}}
+<nav class="routing-tabs" aria-label="{{.T "routing.title"}}">
+  <a href="/routing/outbounds"{{if eq $t.Active "outbounds"}} aria-current="page"{{end}}>{{.IconS "route"}}<span>{{.T "routing.outbounds"}}</span><span class="routing-tab-count">{{.N (i64u $t.Outbounds)}}</span></a>
+  <a href="/routing/balancers"{{if eq $t.Active "balancers"}} aria-current="page"{{end}}>{{.IconS "shuffle"}}<span>{{.T "routing.balancers"}}</span><span class="routing-tab-count">{{.N (i64u $t.Balancers)}}</span></a>
+  <a href="/routing/rules"{{if eq $t.Active "rules"}} aria-current="page"{{end}}>{{.IconS "list-filter"}}<span>{{.T "routing.rules"}}</span><span class="routing-tab-count">{{.N (i64u $t.Rules)}}</span></a>
+</nav>
+{{end}}
+
+{{define "routing_state"}}{{/* . = dict "v" View "state" string */}}
+<span class="routing-state" data-state="{{.state}}"><span class="routing-dot" aria-hidden="true"></span>{{.v.T (printf "routing.state.%s" .state)}}</span>
+{{end}}
+
+{{define "routing_target"}}{{/* . = dict "v" View "kind" string "label" string */}}
+<span class="routing-target" data-target="{{.kind}}">{{if eq .kind "direct"}}{{.v.IconS "globe"}}{{else if eq .kind "block"}}{{.v.IconS "ban"}}{{else if eq .kind "balancer"}}{{.v.IconS "shuffle"}}{{else}}{{.v.IconS "route"}}{{end}}<bdi>{{.label}}</bdi></span>
+{{end}}

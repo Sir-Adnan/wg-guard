@@ -53,6 +53,14 @@ internal/
                          29-field dump parser, verify-after-apply, capability probe
                          (see ../integrations/amneziawg.md)
     fake/                in-memory backend for tests/dev (no root required)
+  egress/                outbounds/balancers/rules model, store (sealed secrets), matcher
+                         parser, curated presets, WireGuard/AmneziaWG client-config import
+    routing/             plan compiler, nftables/ip-rule rendering, link lifecycle, health
+                         probes, conntrack counting, teardown (see egress-routing.md)
+    dnsrouter/           gateway-only forwarding resolver feeding per-rule nft sets
+    match/               compiled domain matcher (full/suffix/keyword/regexp)
+    geodata/             dependency-free geosite.dat/geoip.dat reader and file store
+    warp/                minimal Cloudflare WARP registration client
   reconcile/             boot-time + continuous DB↔kernel reconciliation
                          (per-interface error collection; mode transitions recreate links)
   boot/                  bring-up orchestration: tooling probe → sysctl → reconcile →

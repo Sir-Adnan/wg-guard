@@ -31,6 +31,7 @@ var nodeFields = [...]storedField{
 	{table: "devices", column: "preshared_key_encrypted", id: "id", optional: true},
 	{table: "sub_links", column: "token_encrypted", id: "user_id", since: "0004_sub_links.sql"},
 	{table: "webhook_endpoints", column: "secret_encrypted", id: "id", text: true},
+	{table: "egress_outbounds", column: "secret_encrypted", id: "id", since: "0017_egress_routing.sql", optional: true},
 	{table: "settings", column: "value", id: "key", text: true,
 		predicate: "key IN ('" + strings.Join(secretSettingKeys[:], "','") + "')"},
 }

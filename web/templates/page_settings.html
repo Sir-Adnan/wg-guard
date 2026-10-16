@@ -44,7 +44,7 @@
       <label class="subscription-layout-choice">
         <input type="radio" name="{{$f.Name}}" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}>
         <span class="subscription-layout-preview" data-layout="{{.Value}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-        <strong>{{.Label}}</strong><small>{{if or (eq .Value "pass") (eq .Value "split") (eq .Value "compact")}}{{$v.T (printf "settings.sub_layout.%s_hint" .Value)}}{{else}}{{$v.T "settings.selection_unavailable"}}{{end}}</small>
+        <strong>{{.Label}}</strong><small>{{if or (eq .Value "pass") (eq .Value "split") (eq .Value "compact") (eq .Value "portal")}}{{$v.T (printf "settings.sub_layout.%s_hint" .Value)}}{{else}}{{$v.T "settings.selection_unavailable"}}{{end}}</small>
       </label>
       {{end}}
     </div>

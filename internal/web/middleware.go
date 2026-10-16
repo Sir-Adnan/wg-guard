@@ -17,6 +17,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
 )
 
 const (
@@ -279,6 +280,12 @@ func bodyCap(next http.Handler) http.Handler {
 		limit := int64(256 << 10)
 		if r.Method == http.MethodPost && r.URL.Path == "/settings/domains" {
 			limit = 2*domaintls.MaxMaterialBytes + (64 << 10)
+		}
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/routing/geodata/") && strings.HasSuffix(r.URL.Path, "/upload") {
+			limit = geodata.MaxFileBytes + (1 << 20)
+		}
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/routing/geodata/") && strings.HasSuffix(r.URL.Path, "/upload") {
+			limit = geodata.MaxFileBytes + (1 << 20)
 		}
 		if r.Method == http.MethodPost && r.URL.Path == "/backups/import" {
 			// Multipart framing gets a small allowance above the compressed

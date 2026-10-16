@@ -1,0 +1,75 @@
+{{define "title"}}{{.T "routing.balancers"}}{{end}}
+{{define "content"}}
+<div class="routing-page">
+<div class="page-head page-head--hero entity-hero">
+  <div class="page-title-cluster">
+    <span class="page-title-icon" aria-hidden="true">{{.Icon "shuffle"}}</span>
+    <div>
+      <span class="eyebrow">{{.T "routing.workspace"}}</span>
+      <h1>{{.T "routing.balancers"}}</h1>
+      <p>{{.T "routing.balancers.intro"}}</p>
+    </div>
+  </div>
+  {{if and (.Can "interfaces.write") .Data.Outbounds}}<div class="actions"><a class="btn btn--primary" href="/routing/balancers/new">{{.IconS "plus"}}<span>{{.T "routing.balancers.add"}}</span></a></div>{{end}}
+</div>
+{{template "routing_tabs" .}}
+
+{{if .Data.Cards}}
+<div class="routing-grid">
+  {{range .Data.Cards}}{{$b := .B}}
+  <article class="card routing-card balancer-card" data-state="{{if not $b.Enabled}}disabled{{else if .Live}}healthy{{else}}down{{end}}">
+    <header class="routing-card-head">
+      <span class="routing-card-icon" data-kind="balancer" aria-hidden="true">{{$.Icon "shuffle"}}</span>
+      <div class="routing-card-title">
+        <h3><bdi>{{$b.Name}}</bdi></h3>
+        <span class="badge badge--accent">{{$.T (printf "routing.strategy.%s" $b.Strategy)}}</span>
+      </div>
+      {{if not $b.Enabled}}{{template "routing_state" (dict "v" $ "state" "disabled")}}{{else}}<span class="routing-state" data-state="{{if .Live}}healthy{{else}}down{{end}}"><span class="routing-dot" aria-hidden="true"></span><bdi class="ltr-data">{{$.N (i64u .Live)}}/{{$.N (i64u (len .Members))}}</bdi> {{$.T "routing.balancers.live"}}</span>{{end}}
+    </header>
+    <ol class="balancer-members">
+      {{range .Members}}
+      <li data-state="{{if .Missing}}disabled{{else}}{{.State}}{{end}}">
+        <span class="routing-dot" aria-hidden="true"></span>
+        {{if .Missing}}<span class="text-subtle">{{$.T "routing.target.missing"}}</span>{{else}}<bdi>{{.Name}}</bdi><small class="text-subtle">{{$.T .Kind}}</small>{{end}}
+        {{if .Counted}}<span class="balancer-conns" title="{{$.T "routing.balancers.connections"}}">{{$.IconS "activity"}}<bdi class="ltr-data">{{$.N .Connections}}</bdi></span>{{end}}
+        {{if ne (printf "%v" $b.Strategy) "failover"}}<span class="balancer-weight" title="{{$.T "routing.balancers.weight"}}">×<bdi class="ltr-data">{{$.N (i64u .Weight)}}</bdi></span>{{end}}
+      </li>
+      {{end}}
+    </ol>
+    <p class="hint">{{$.T (printf "routing.fallback.%s_desc" $b.Fallback)}}</p>
+    <footer class="routing-card-foot">
+      <p class="routing-usage">{{if .UsedBy}}{{$.IconS "link"}}<span>{{$.T "routing.used_by"}} <bdi>{{range $i, $n := .UsedBy}}{{if $i}}، {{end}}{{$n}}{{end}}</bdi></span>{{else}}<span class="text-subtle">{{$.T "routing.unused"}}</span>{{end}}</p>
+      {{if $.Can "interfaces.write"}}
+      <div class="routing-card-actions">
+        <a class="btn btn--sm btn--ghost" href="/routing/balancers/{{$b.ID}}/edit">{{$.T "common.edit"}}</a>
+        <div class="menu-anchor">
+          <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$.T "common.actions"}}: {{$b.Name}}">{{$.IconS "more-vertical"}}</button>
+          <div class="menu" role="menu">
+            <form role="none" method="post" action="/routing/balancers/{{$b.ID}}/{{if $b.Enabled}}disable{{else}}enable{{end}}">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button type="submit" role="menuitem">{{$.IconS "power"}}<span>{{if $b.Enabled}}{{$.T "routing.disable"}}{{else}}{{$.T "routing.enable"}}{{end}}</span></button>
+            </form>
+            <hr>
+            <form role="none" method="post" action="/routing/balancers/{{$b.ID}}/delete" data-confirm data-confirm-title="{{$.T "common.confirm_delete"}}" data-confirm-message="{{$.T "routing.balancers.delete_confirm" $b.Name}}" data-confirm-label="{{$.T "common.delete"}}">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button type="submit" role="menuitem" class="is-danger">{{$.IconS "trash-2"}}<span>{{$.T "common.delete"}}</span></button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {{end}}
+    </footer>
+  </article>
+  {{end}}
+</div>
+{{else}}
+<section class="card routing-empty">
+  <span class="empty-visual" aria-hidden="true">{{.Icon "shuffle"}}</span>
+  <h2>{{.T "routing.balancers.empty.title"}}</h2>
+  <p>{{if .Data.Outbounds}}{{.T "routing.balancers.empty.desc"}}{{else}}{{.T "routing.balancers.empty.need_outbounds"}}{{end}}</p>
+  {{if .Can "interfaces.write"}}{{if .Data.Outbounds}}<a class="btn btn--primary" href="/routing/balancers/new">{{.IconS "plus"}}<span>{{.T "routing.balancers.add"}}</span></a>{{else}}<a class="btn btn--primary" href="/routing/outbounds/new">{{.IconS "plus"}}<span>{{.T "routing.outbounds.add"}}</span></a>{{end}}{{end}}
+</section>
+{{end}}
+<p class="hint routing-footnote">{{.IconS "info"}}<span>{{.T "routing.balancers.footnote"}}</span></p>
+</div>
+{{end}}

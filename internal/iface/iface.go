@@ -76,6 +76,27 @@ type Obfuscation struct {
 	DisableCookies         bool
 }
 
+// Tunnel converts the stored profile into the backend's parameter set.
+func (o Obfuscation) Tunnel() tunnel.Obfuscation {
+	return tunnel.Obfuscation{
+		Enabled: o.Enabled,
+		Jc:      o.Jc, Jmin: o.Jmin, Jmax: o.Jmax,
+		S1: o.S1, S2: o.S2,
+		H1: o.H1, H2: o.H2, H3: o.H3, H4: o.H4,
+		I1: o.I1, I2: o.I2, I3: o.I3, I4: o.I4, I5: o.I5,
+		S3: o.S3, S4: o.S4,
+		HeaderProtectionKey:    o.HeaderProtectionKey,
+		ContentPaddingAddition: o.ContentPaddingAddition,
+		RekeyAfterTime:         o.RekeyAfterTime,
+		RekeyTimeout:           o.RekeyTimeout,
+		RejectAfterTime:        o.RejectAfterTime,
+		KeepaliveTimeout:       o.KeepaliveTimeout,
+		MaxHandshakeAttempts:   o.MaxHandshakeAttempts,
+		RandomTrailers:         o.RandomTrailers,
+		DisableCookies:         o.DisableCookies,
+	}
+}
+
 // Constraints from the AmneziaWG kernel-README (docs/integrations/amneziawg.md).
 const (
 	JcMax             = 128

@@ -19,7 +19,8 @@ The Go production binary links direct and transitive modules. `sbom.spdx.json` r
 linked module versions for each release build; the bundle includes the license/notice files
 from those pinned module sources under `licenses/go/`. Direct dependencies include `modernc.org/sqlite` (pure-Go
 SQLite), `filippo.io/age` (encrypted backups), `golang.org/x/crypto` (Argon2id and ACME),
-`golang.org/x/sys` and `x/term` (host and terminal integration), `github.com/BurntSushi/toml`
+`golang.org/x/sys` and `x/term` (host and terminal integration), `golang.org/x/net` (DNS message
+parsing for the egress resolver; already linked transitively before it became direct), `github.com/BurntSushi/toml`
 (configuration), and `rsc.io/qr` (QR encoding). `github.com/makiuchi-d/gozxing` is used only by
 tests and is absent from the release binary.
 

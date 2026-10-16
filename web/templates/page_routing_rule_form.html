@@ -1,0 +1,100 @@
+{{define "title"}}{{if .Data.R}}{{.T "routing.rules.edit"}}{{else}}{{.T "routing.rules.add"}}{{end}}{{end}}
+{{define "content"}}
+{{$f := .Data.Form}}
+<div class="form-page premium-form-page routing-page">
+  <div class="page-head page-head--hero">
+    <div class="page-title-cluster">
+      <span class="page-title-icon" aria-hidden="true">{{.Icon "list-filter"}}</span>
+      <div>
+        <span class="eyebrow">{{.T "routing.rules"}}</span>
+        <h1>{{if .Data.R}}<bdi>{{.Data.R.Name}}</bdi>{{else}}{{.T "routing.rules.add"}}{{end}}</h1>
+        <p>{{.T "routing.rules.form_intro"}}</p>
+      </div>
+    </div>
+    <a class="btn btn--ghost" href="/routing/rules">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
+  </div>
+  <form method="post" action="{{if .Data.R}}/routing/rules/{{.Data.R.ID}}/edit{{else}}/routing/rules{{end}}" class="form-stack" novalidate>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    {{template "form_feedback" .}}
+    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
+      <legend><span class="section-icon" aria-hidden="true">{{.IconS "list-filter"}}</span><span>{{.T "routing.form.basics"}}</span></legend>
+      <div class="field-row">
+        <div class="field">
+          <label for="r-name">{{.T "routing.form.name"}}</label>
+          <input class="input" id="r-name" name="name" type="text" dir="auto" maxlength="48" required value="{{$f.V "name"}}" placeholder="{{.T "routing.rules.name_placeholder"}}"{{if $f.Invalid "name"}} aria-invalid="true" aria-describedby="err-name"{{end}}>
+          {{if $f.Invalid "name"}}<span class="field-error" id="err-name">{{index $f.Fields "name"}}</span>{{end}}
+        </div>
+        <div class="field">
+          <label for="r-enabled">{{.T "forms.availability"}}</label>
+          <select class="select" id="r-enabled" name="enabled">
+            <option value="1"{{if ne ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.enabled"}}</option>
+            <option value="0"{{if eq ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.disabled"}}</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="r-target">{{.T "routing.rules.target"}}</label>
+        <select class="select" id="r-target" name="target" aria-describedby="hint-target"{{if $f.Invalid "target"}} aria-invalid="true"{{end}}>
+          {{range .Data.Targets}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{if eq .Group "outbound"}}{{$.T "routing.group.outbound"}}: {{else if eq .Group "balancer"}}{{$.T "routing.group.balancer"}}: {{end}}{{.Label}}{{if .Off}} ({{$.T "routing.disabled"}}){{end}}</option>{{end}}
+        </select>
+        {{if $f.Invalid "target"}}<span class="field-error">{{index $f.Fields "target"}}</span>{{end}}
+        <span class="hint" id="hint-target">{{.T "routing.rules.target_hint"}}</span>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
+      <legend><span class="section-icon" aria-hidden="true">{{.IconS "sparkles"}}</span><span>{{.T "routing.rules.services"}}</span></legend>
+      <p class="section-description">{{.T "routing.rules.services_hint"}}</p>
+      {{range .Data.Groups}}
+      <div class="preset-group">
+        <h3 class="preset-group-title">{{$.T (printf "routing.category.%s" .Category)}}</h3>
+        <div class="preset-chips">
+          {{range .Presets}}
+          <label class="preset-chip"><input type="checkbox" name="preset" value="{{.ID}}"{{if .Checked}} checked{{end}}><span>{{.Name}}</span></label>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+      {{if $f.Invalid "presets"}}<span class="field-error">{{index $f.Fields "presets"}}</span>{{end}}
+    </fieldset>
+
+    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="amber">
+      <legend><span class="section-icon" aria-hidden="true">{{.IconS "pencil"}}</span><span>{{.T "routing.rules.custom"}}</span></legend>
+      <p class="section-description">{{.T "routing.rules.custom_hint"}}</p>
+      <div class="field">
+        <label for="r-matchers">{{.T "routing.rules.matchers"}}</label>
+        <textarea class="textarea ltr-data routing-code" id="r-matchers" name="matchers" dir="ltr" rows="8" spellcheck="false" autocomplete="off" placeholder="ipdata.co&#10;geosite:google-deepmind&#10;full:api.example.com&#10;keyword:openai&#10;8.8.4.0/24&#10;geoip:us"{{if $f.Invalid "matchers"}} aria-invalid="true" aria-describedby="err-matchers"{{end}}>{{$f.V "matchers"}}</textarea>
+        {{if $f.Invalid "matchers"}}<span class="field-error" id="err-matchers">{{index $f.Fields "matchers"}}</span>{{end}}
+      </div>
+      <details class="collapse routing-syntax">
+        <summary>{{.IconS "info"}}<span>{{.T "routing.rules.syntax"}}</span></summary>
+        <div class="collapse-body">
+          <dl class="routing-syntax-list">
+            <div><dt><code>example.com</code></dt><dd>{{.T "routing.syntax.domain"}}</dd></div>
+            <div><dt><code>full:www.example.com</code></dt><dd>{{.T "routing.syntax.full"}}</dd></div>
+            <div><dt><code>keyword:openai</code></dt><dd>{{.T "routing.syntax.keyword"}}</dd></div>
+            <div><dt><code>regexp:^.+\.ai$</code></dt><dd>{{.T "routing.syntax.regexp"}}</dd></div>
+            <div><dt><code>geosite:google</code></dt><dd>{{.T "routing.syntax.geosite"}}</dd></div>
+            <div><dt><code>1.2.3.0/24</code></dt><dd>{{.T "routing.syntax.cidr"}}</dd></div>
+            <div><dt><code>geoip:de</code></dt><dd>{{.T "routing.syntax.geoip"}}</dd></div>
+            <div><dt><code># …</code></dt><dd>{{.T "routing.syntax.comment"}}</dd></div>
+          </dl>
+        </div>
+      </details>
+      {{if .Data.HasGeo}}
+      <details class="collapse routing-categories">
+        <summary>{{.IconS "globe"}}<span>{{.T "routing.rules.categories"}}</span><span class="badge">{{.N (i64u (len .Data.Geosite))}}</span></summary>
+        <div class="collapse-body"><p class="hint">{{.T "routing.rules.categories_hint"}}</p><p class="routing-category-cloud ltr-data" dir="ltr">{{range .Data.Geosite}}<code>{{.}}</code> {{end}}</p></div>
+      </details>
+      {{else}}
+      <p class="hint">{{.IconS "info"}} {{.T "routing.rules.no_geosite"}}</p>
+      {{end}}
+    </fieldset>
+
+    <div class="form-actions">
+      <a class="btn btn--ghost" href="/routing/rules">{{.T "common.cancel"}}</a>
+      <button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "common.save"}}</button>
+    </div>
+  </form>
+</div>
+{{end}}

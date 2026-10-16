@@ -20,6 +20,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
+	"github.com/Sir-Adnan/wg-guard/internal/egress"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/ipam"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
@@ -136,7 +137,8 @@ func (e *Engine) Run(ctx context.Context) (*Report, error) {
 		owned[ifc.Name] = true
 	}
 	for _, name := range names {
-		if !owned[name] {
+		// Egress outbound links (wgoN) are owned by internal/egress/routing.
+		if !owned[name] && !egress.IsLinkName(name) {
 			rep.Drift = append(rep.Drift, DriftItem{
 				Interface: name, Kind: "foreign_interface",
 				Detail: "exists in backend but not in WG-Guard's database", Action: "none",
@@ -410,25 +412,7 @@ func gatewayAddress(subnet string) string {
 	return netip.PrefixFrom(p.Addr().Next(), p.Bits()).String()
 }
 
-func toTunnelObfuscation(o iface.Obfuscation) tunnel.Obfuscation {
-	return tunnel.Obfuscation{
-		Enabled: o.Enabled,
-		Jc:      o.Jc, Jmin: o.Jmin, Jmax: o.Jmax,
-		S1: o.S1, S2: o.S2,
-		H1: o.H1, H2: o.H2, H3: o.H3, H4: o.H4,
-		I1: o.I1, I2: o.I2, I3: o.I3, I4: o.I4, I5: o.I5,
-		S3: o.S3, S4: o.S4,
-		HeaderProtectionKey:    o.HeaderProtectionKey,
-		ContentPaddingAddition: o.ContentPaddingAddition,
-		RekeyAfterTime:         o.RekeyAfterTime,
-		RekeyTimeout:           o.RekeyTimeout,
-		RejectAfterTime:        o.RejectAfterTime,
-		KeepaliveTimeout:       o.KeepaliveTimeout,
-		MaxHandshakeAttempts:   o.MaxHandshakeAttempts,
-		RandomTrailers:         o.RandomTrailers,
-		DisableCookies:         o.DisableCookies,
-	}
-}
+func toTunnelObfuscation(o iface.Obfuscation) tunnel.Obfuscation { return o.Tunnel() }
 
 // peerDesire is one device that should exist as a peer.
 type peerDesire struct {
