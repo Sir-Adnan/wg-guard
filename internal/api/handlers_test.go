@@ -1226,3 +1226,28 @@ func TestResellerWebhookAPIIsolationAndRecovery(t *testing.T) {
 		t.Fatalf("foreign redelivery = %d", res.Code)
 	}
 }
+
+// TestRateLimiterConcurrentSetLimit: a live settings reload (SetLimit) races
+// request checks (allow) and housekeeping (enforce); every limit read must
+// hold the lock.
+func TestRateLimiterConcurrentSetLimit(t *testing.T) {
+	l := newRateLimiter(10)
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for i := 0; i < 500; i++ {
+				switch g % 3 {
+				case 0:
+					l.SetLimit(i % 4) // includes 0 (unlimited)
+				case 1:
+					l.allow(fmt.Sprintf("tok-%d", i%16), int64(i))
+				default:
+					l.enforce(int64(i))
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
+}
