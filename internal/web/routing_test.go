@@ -203,3 +203,17 @@ func TestRoutingRequiresInterfacePermissions(t *testing.T) {
 		t.Fatal("routing nav shown without permission")
 	}
 }
+
+func TestOutboundKindKeyWARPPlusFollowsAccountType(t *testing.T) {
+	for typ, want := range map[string]string{
+		"free":      "routing.kind.warp",
+		"":          "routing.kind.warp",
+		"limited":   "routing.kind.warp_plus",
+		"unlimited": "routing.kind.warp_plus",
+	} {
+		o := &egress.Outbound{Kind: egress.KindWARP, WARP: &egress.WARPAccount{AccountType: typ, Plus: true}}
+		if got := outboundKindKey(o); got != want {
+			t.Errorf("%q: %s, want %s", typ, got, want)
+		}
+	}
+}

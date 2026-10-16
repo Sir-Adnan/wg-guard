@@ -91,6 +91,12 @@ func TestManagedUserspaceRefusesUnreviewedBinaryBeforeLinkMutation(t *testing.T)
 	if _, err := userspaceSocketActive("../foreign"); err == nil {
 		t.Fatal("invalid socket name accepted")
 	}
+	// Egress outbound links share the backend with client interfaces.
+	for _, name := range []string{"awg0", "wgo1", "wgo63"} {
+		if _, err := userspaceSocketActive(name); err != nil {
+			t.Fatalf("%s rejected: %v", name, err)
+		}
+	}
 }
 
 // confFile returns the captured content of the last rendered config file for

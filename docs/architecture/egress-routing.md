@@ -166,8 +166,8 @@ calls that [wgcf](https://github.com/ViRb3/wgcf) uses. Reviewed at wgcf `de6bba7
   - `PUT /reg/{id}/account` applies a WARP+ license.
   - `GET /reg/{id}/account` reads the account.
 - **Secrets.** The account token, private key and license are sealed and never logged.
-- **Verification.** Registration has not been run against the live API from CI. If it fails, a
-  wgcf-generated profile can be imported as a `wireguard` outbound instead.
+- **Verification.** Registration succeeded against the live API on the Ubuntu 24.04 test node.
+  If it fails, a wgcf-generated profile can be imported as a `wireguard` outbound instead.
 
 ## Lifecycle
 

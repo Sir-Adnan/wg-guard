@@ -21,7 +21,8 @@ import (
 const userspaceSocketDir = "/var/run/amneziawg" // pinned source ipc/uapi_unix.go
 const userspaceCommit = "b5928efb6ca19f0153958460c3d141f04abc5c2e"
 
-var userspaceName = regexp.MustCompile(`^awg[0-9]+$`)
+// Client interfaces are awgN; egress outbound links are wgoN.
+var userspaceName = regexp.MustCompile(`^(awg|wgo)[0-9]+$`)
 
 type userspaceManager struct {
 	mu        sync.Mutex

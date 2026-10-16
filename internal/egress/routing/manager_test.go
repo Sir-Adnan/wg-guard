@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -183,5 +184,53 @@ func TestManagerAppliesAndFailsOverOnHealth(t *testing.T) {
 	host.argv = nil
 	if err := m.Reapply(ctx); err != nil || len(host.argv) != 0 {
 		t.Fatalf("idle pass ran commands: %v %v", host.argv, err)
+	}
+}
+
+func TestManagerSkipsRouteForFailedLink(t *testing.T) {
+	dir := t.TempDir()
+	db, err := database.Open(filepath.Join(dir, "e.db"), database.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := db.Migrate(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	ring, err := secrets.LoadKeyRing(filepath.Join(dir, "master.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := egress.NewService(db, ring)
+	conf := "[Interface]\nPrivateKey = " + keyA + "\nAddress = 10.7.0.2/32\n[Peer]\nPublicKey = " + keyB + "\nEndpoint = 198.51.100.4:51820\n"
+	nl, err := store.CreateWireGuard(ctx, "NL", conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := &hostRunner{rules: map[string]bool{}}
+	backend := fake.New()
+	backend.FailOn[fake.OpApply] = errors.New("apply refused")
+	m := &Manager{Store: store, Backend: backend, Run: host, Resolver: &nullResolver{}, Prober: &fixedProber{ok: map[uint32]bool{}}}
+	if err := m.Apply(ctx, []Interface{{Name: "awg0", Pools: []string{"10.8.0.0/24"}}}); err != nil {
+		t.Fatalf("a failed link must not fail the pass: %v", err)
+	}
+	for _, argv := range host.argv {
+		if strings.HasPrefix(strings.Join(argv, " "), "ip -4 route replace") {
+			t.Fatalf("route installed for a failed link: %v", argv)
+		}
+	}
+	if len(host.rules) != 0 {
+		t.Fatalf("policy rule for a failed link: %v", host.rules)
+	}
+	if o := m.Status().Outbounds[nl.ID]; o.LinkError != "create" || o.Healthy {
+		t.Fatalf("status: %+v", o)
+	}
+	// The next pass retries and the link comes up.
+	if err := m.Reapply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !host.rules["0x100000 51801"] {
+		t.Fatalf("retry did not install the rule: %v", host.rules)
 	}
 }

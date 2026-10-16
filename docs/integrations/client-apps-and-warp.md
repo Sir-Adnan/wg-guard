@@ -47,5 +47,7 @@ as the one-app option for every OS.
 - Request format: Android-style `CF-Client-Version` and `User-Agent` headers, pinned to TLS 1.2,
   as wgcf does. There is no uTLS dependency.
 - Storage: the token, private key and license are sealed in the outbound's secret.
-- Not verified: registration against the live API (the CI proxy blocks it). If it fails on a
+- Account type: the API reports `warp_plus: true` for free accounts too, so the panel shows WARP+
+  only for the paid `limited` and `unlimited` account types.
+- Live registration succeeded on the Ubuntu 24.04 test node (2026-10-16). If it fails on a
   host, generate a profile with wgcf and import it as a WireGuard outbound.

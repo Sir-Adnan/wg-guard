@@ -3,6 +3,7 @@ package routing
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -58,24 +59,26 @@ func ruleArgs(op string, mark uint32, table int) []string {
 }
 
 // syncPolicy converges fwmark rules and per-table default routes. Routes are
-// replaced (idempotent); rules are added before stale ones are removed.
+// replaced (idempotent); rules are added before stale ones are removed. A
+// route that fails does not stop the others, and its rule is left out so the
+// mark falls through to the main table instead of an empty one.
 func syncPolicy(ctx context.Context, run subprocess.Runner, routes []RouteSpec) error {
+	var errs []error
+	want := map[uint32]int{}
 	for _, r := range routes {
 		if _, err := run.Run(ctx, []string{"ip", "-4", "route", "replace", "default", "dev", r.Link, "table", strconv.Itoa(r.Table)}); err != nil {
-			return fmt.Errorf("routing: route table %d: %w", r.Table, err)
+			errs = append(errs, fmt.Errorf("routing: route table %d: %w", r.Table, err))
+			continue
 		}
+		want[r.Mark] = r.Table
 	}
 	res, err := run.Run(ctx, []string{"ip", "-j", "-4", "rule", "show"})
 	if err != nil {
-		return fmt.Errorf("routing: list policy rules: %w", err)
+		return errors.Join(append(errs, fmt.Errorf("routing: list policy rules: %w", err))...)
 	}
 	live, err := ownedRules(res.Stdout)
 	if err != nil {
-		return err
-	}
-	want := map[uint32]int{}
-	for _, r := range routes {
-		want[r.Mark] = r.Table
+		return errors.Join(append(errs, err)...)
 	}
 	marks := make([]uint32, 0, len(want))
 	for m := range want {
@@ -87,7 +90,7 @@ func syncPolicy(ctx context.Context, run subprocess.Runner, routes []RouteSpec) 
 			continue
 		}
 		if _, err := run.Run(ctx, ruleArgs("add", m, want[m])); err != nil {
-			return fmt.Errorf("routing: add policy rule: %w", err)
+			errs = append(errs, fmt.Errorf("routing: add policy rule: %w", err))
 		}
 	}
 	for m, table := range live {
@@ -95,8 +98,8 @@ func syncPolicy(ctx context.Context, run subprocess.Runner, routes []RouteSpec) 
 			continue
 		}
 		if _, err := run.Run(ctx, ruleArgs("del", m, table)); err != nil {
-			return fmt.Errorf("routing: remove stale policy rule: %w", err)
+			errs = append(errs, fmt.Errorf("routing: remove stale policy rule: %w", err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }

@@ -441,7 +441,8 @@ DNS resolver are implemented; see [egress routing](../architecture/egress-routin
 | Unit / integration | Matcher, preset, config parser, store lifecycle, plan compiler, strategy rendering, least-connection shares, resolver learning/blocking, WARP request encoding, web CRUD/permissions and fa RTL tests |
 | Namespace | `nft -f` transactions inside `unshare -rn`: table creation, incremental edit keeping resolver-fed timeout elements, teardown; conntrack mark-filtered netlink dump |
 | Browser | Routing pages and subscription portal screenshots in fa/en, light/dark, 390 and 1440 px |
-| Not verified | Real-host client traffic through `wgoN`, WARP registration against the live API (blocked from CI), AmneziaVPN `vpn://` import on a device, element-timeout refresh on older kernels, interaction with UFW/Docker forward chains under load |
+| Real host (first pass) | Ubuntu 24.04 Docker test node at `d87fe1f`: WARP registration succeeded, but `wgoN` creation failed because the userspace socket-name guard accepted only `awgN`, the failed link's route then failed the whole policy pass, and free WARP accounts were labeled WARP+. All three are fixed with regression tests; traffic is not yet re-verified |
+| Not verified | Real-host client traffic through `wgoN`, AmneziaVPN `vpn://` import on a device, element-timeout refresh on older kernels, interaction with UFW/Docker forward chains under load |
 
 ## Release-critical workflows
 

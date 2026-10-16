@@ -158,7 +158,7 @@ func (m *Manager) apply(ctx context.Context) error {
 	}
 	var errs []error
 	if m.Run != nil {
-		if err := syncPolicy(ctx, m.Run, plan.Routes); err != nil {
+		if err := syncPolicy(ctx, m.Run, liveRoutes(plan, linkErrs)); err != nil {
 			st.Error = "policy"
 			errs = append(errs, err)
 		}
@@ -214,6 +214,27 @@ func (m *Manager) apply(ctx context.Context) error {
 	m.setStatus(st)
 	m.idle = snap.Empty() && len(errs) == 0 && len(linkErrs) == 0
 	return errors.Join(errs...)
+}
+
+// liveRoutes drops routes whose link failed to apply: a route to a missing or
+// down link is rejected by the kernel and would fail the whole policy pass.
+func liveRoutes(plan *Plan, linkErrs map[string]string) []RouteSpec {
+	if len(linkErrs) == 0 {
+		return plan.Routes
+	}
+	failed := map[string]bool{}
+	for _, l := range plan.Links {
+		if linkErrs[l.OutboundID] != "" {
+			failed[l.Name] = true
+		}
+	}
+	routes := make([]RouteSpec, 0, len(plan.Routes))
+	for _, r := range plan.Routes {
+		if !failed[r.Link] {
+			routes = append(routes, r)
+		}
+	}
+	return routes
 }
 
 // syncLinks converges wgoN links; it returns a fixed error category per
