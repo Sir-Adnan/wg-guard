@@ -139,7 +139,9 @@ type outboundsData struct {
 func outboundKindKey(o *egress.Outbound) string {
 	switch o.Kind {
 	case egress.KindWARP:
-		if o.WARP != nil && o.WARP.Plus {
+		// The API reports warp_plus=true for free accounts too; only a paid
+		// account type ("limited" quota or "unlimited") is WARP+.
+		if o.WARP != nil && (o.WARP.AccountType == "limited" || o.WARP.AccountType == "unlimited") {
 			return "routing.kind.warp_plus"
 		}
 		return "routing.kind.warp"
