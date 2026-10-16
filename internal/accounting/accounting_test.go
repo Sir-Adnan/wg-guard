@@ -37,6 +37,7 @@ type env struct {
 	svc     *Service
 	now     time.Time // mutable fake clock
 	ipSeq   int
+	peers   []tunnel.PeerConfig // fake SyncPeers replaces the set: keep every seeded peer
 }
 
 func newEnv(t *testing.T) *env {
@@ -106,7 +107,8 @@ func (e *env) seedDevice(t *testing.T, userID, name, pubkey string, lastRX, last
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := e.backend.SyncPeers(ctx, ifaceName, []tunnel.PeerConfig{{PublicKey: pubkey, AllowedIPs: []string{ip}}}); err != nil {
+	e.peers = append(e.peers, tunnel.PeerConfig{PublicKey: pubkey, AllowedIPs: []string{ip}})
+	if err := e.backend.SyncPeers(ctx, ifaceName, e.peers); err != nil {
 		t.Fatal(err)
 	}
 	return id
@@ -147,6 +149,15 @@ func (e *env) userRow(t *testing.T, id string) (usedRX, usedTX int64, status, re
 	return
 }
 
+func (e *env) userUpdated(t *testing.T, id string) string {
+	t.Helper()
+	var updated string
+	if err := e.db.QueryRow(`SELECT updated_at FROM users WHERE id = ?`, id).Scan(&updated); err != nil {
+		t.Fatal(err)
+	}
+	return updated
+}
+
 func (e *env) auditCount(t *testing.T, action string) int {
 	t.Helper()
 	var n int
@@ -172,6 +183,7 @@ func cycle(t *testing.T, e *env) *CycleReport {
 const (
 	keyA = "devAKeyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 	keyB = "devBKeyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	keyC = "devCKeyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 )
 
 func TestCycleBasicDeltaAndAccumulation(t *testing.T) {
@@ -298,6 +310,57 @@ func TestCycleIdleDeviceNotWritten(t *testing.T) {
 	_, _, _, _, updated2 := e.deviceRow(t, did)
 	if updated1 != updated2 {
 		t.Fatalf("idle device was rewritten: %s → %s", updated1, updated2)
+	}
+}
+
+// Users with historical activity (active, expired, soft-deleted alike) are
+// not rewritten by idle cycles: last_activity_at is preloaded from the row,
+// so only a newer observed handshake may count as a change.
+func TestCycleIdleUserNotWritten(t *testing.T) {
+	e := newEnv(t)
+	active := e.seedUser(t, "dora", "active", nil, "immediate")
+	expired := e.seedUser(t, "ezra", "expired", nil, "immediate")
+	deleted := e.seedUser(t, "finn", "active", nil, "immediate")
+	e.seedDevice(t, active, "dora-phone", keyA, 0, 0)
+	e.seedDevice(t, expired, "ezra-phone", keyB, 0, 0)
+	e.seedDevice(t, deleted, "finn-phone", keyC, 0, 0)
+	old := e.now.Add(-time.Minute)
+	for _, k := range []string{keyA, keyB, keyC} {
+		e.setActivity(t, k, old, 100, 50)
+	}
+	cycle(t, e)
+	if _, err := e.db.Exec(`UPDATE users SET deleted_at = ? WHERE id = ?`, e.now.Format(time.RFC3339Nano), deleted); err != nil {
+		t.Fatal(err)
+	}
+	users := []string{active, expired, deleted}
+	before := map[string]string{}
+	for _, id := range users {
+		before[id] = e.userUpdated(t, id)
+	}
+
+	// Same counters, same handshake → no user row written.
+	e.now = e.now.Add(time.Hour)
+	cycle(t, e)
+	for _, id := range users {
+		if got := e.userUpdated(t, id); got != before[id] {
+			t.Fatalf("idle user %s was rewritten: %s → %s", id, before[id], got)
+		}
+	}
+
+	// A newer handshake alone (no traffic) advances last_activity_at.
+	e.now = e.now.Add(time.Minute)
+	fresh := e.now.Add(-time.Second)
+	e.setActivity(t, keyA, fresh, 100, 50)
+	cycle(t, e)
+	var activity string
+	if err := e.db.QueryRow(`SELECT last_activity_at FROM users WHERE id = ?`, active).Scan(&activity); err != nil {
+		t.Fatal(err)
+	}
+	if at, err := time.Parse(time.RFC3339Nano, activity); err != nil || !at.Equal(fresh) {
+		t.Fatalf("last_activity_at = %q (%v), want %v", activity, err, fresh)
+	}
+	if got := e.userUpdated(t, expired); got != before[expired] {
+		t.Fatalf("idle expired user rewritten alongside an active one: %s → %s", before[expired], got)
 	}
 }
 
@@ -464,6 +527,47 @@ func TestFirstConnectionActivation(t *testing.T) {
 		t.Fatalf("expires_at moved: %v → %v", expires, expires2)
 	}
 	_ = did
+}
+
+// Activation keys off a handshake observed by a cycle, never off stored
+// last_activity_at (e.g. a never-activated user returned to waiting after
+// metered activity in another status).
+func TestStoredActivityDoesNotActivateWaitingUser(t *testing.T) {
+	e := newEnv(t)
+	uid := e.seedUser(t, "jade", "waiting_first_connection", nil, "first_connection")
+	did := e.seedDevice(t, uid, "phone", keyA, 0, 0)
+	old := e.now.Add(-24 * time.Hour)
+	oldS := old.Format(time.RFC3339Nano)
+	if _, err := e.db.Exec(`UPDATE users SET last_activity_at = ? WHERE id = ?`, oldS, uid); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`UPDATE devices SET last_handshake_at = ? WHERE id = ?`, oldS, did); err != nil {
+		t.Fatal(err)
+	}
+	updated := e.userUpdated(t, uid)
+
+	// The dump still reports the same stale handshake → no activation, no write.
+	e.now = e.now.Add(time.Minute)
+	e.setActivity(t, keyA, old, 0, 0)
+	if rep := cycle(t, e); rep.Activated != 0 {
+		t.Fatalf("activated on stored activity: %+v", rep)
+	}
+	if _, _, status, _ := e.userRow(t, uid); status != "waiting_first_connection" {
+		t.Fatalf("status = %q, want waiting_first_connection", status)
+	}
+	if got := e.userUpdated(t, uid); got != updated {
+		t.Fatalf("waiting user rewritten without new activity: %s → %s", updated, got)
+	}
+
+	// A genuinely newer handshake activates.
+	e.now = e.now.Add(time.Minute)
+	e.setActivity(t, keyA, e.now.Add(-time.Second), 0, 0)
+	if rep := cycle(t, e); rep.Activated != 1 {
+		t.Fatalf("fresh handshake did not activate: %+v", rep)
+	}
+	if _, _, status, _ := e.userRow(t, uid); status != "active" {
+		t.Fatalf("status after fresh handshake = %q", status)
+	}
 }
 
 func TestActivationAndQuotaSameCycle(t *testing.T) {
