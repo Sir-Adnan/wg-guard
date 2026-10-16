@@ -1,0 +1,34 @@
+{{define "title"}}{{.T "routing.outbounds.add"}}{{end}}
+{{define "content"}}
+<div class="form-page premium-form-page routing-page">
+  <div class="page-head page-head--hero">
+    <div class="page-title-cluster">
+      <span class="page-title-icon" aria-hidden="true">{{.Icon "route"}}</span>
+      <div>
+        <span class="eyebrow">{{.T "routing.workspace"}}</span>
+        <h1>{{.T "routing.outbounds.add"}}</h1>
+        <p>{{.T "routing.kind.choose_intro"}}</p>
+      </div>
+    </div>
+    <a class="btn btn--ghost" href="/routing/outbounds">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
+  </div>
+  <div class="routing-kinds">
+    <a class="routing-kind" href="/routing/outbounds/new?kind=warp">
+      <span class="routing-starter-icon" data-kind="warp" aria-hidden="true">{{.Icon "cloud"}}</span>
+      <span class="routing-kind-body"><strong>{{.T "routing.kind.warp"}} <span class="badge badge--ok">{{.T "routing.kind.recommended"}}</span></strong><small>{{.T "routing.kind.warp_desc"}}</small></span>
+      {{.IconS "chevron-right"}}
+    </a>
+    <a class="routing-kind" href="/routing/outbounds/new?kind=wireguard">
+      <span class="routing-starter-icon" data-kind="wireguard" aria-hidden="true">{{.Icon "shield"}}</span>
+      <span class="routing-kind-body"><strong>{{.T "routing.kind.config"}}</strong><small>{{.T "routing.kind.config_desc"}}</small></span>
+      {{.IconS "chevron-right"}}
+    </a>
+    <a class="routing-kind" href="/routing/outbounds/new?kind=source_ip">
+      <span class="routing-starter-icon" data-kind="source_ip" aria-hidden="true">{{.Icon "server"}}</span>
+      <span class="routing-kind-body"><strong>{{.T "routing.kind.source_ip"}}</strong><small>{{.T "routing.kind.source_ip_desc"}}</small></span>
+      {{.IconS "chevron-right"}}
+    </a>
+  </div>
+  <p class="hint routing-footnote">{{.IconS "info"}}<span>{{.T "routing.kind.diversity_note"}}</span></p>
+</div>
+{{end}}

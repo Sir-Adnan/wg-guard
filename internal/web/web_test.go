@@ -19,12 +19,16 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/config"
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/device"
+	"github.com/Sir-Adnan/wg-guard/internal/egress"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/subscription"
 	"github.com/Sir-Adnan/wg-guard/internal/token"
+	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
@@ -38,6 +42,7 @@ type env struct {
 	handler http.Handler
 	admins  *admin.Service
 	ifaces  *iface.Service
+	egress  *egress.Service
 }
 
 func newEnv(t *testing.T) *env {
@@ -77,6 +82,9 @@ func newEnv(t *testing.T) *env {
 	sessions := auth.NewSessionStore(db, time.Hour, 24*time.Hour)
 	admins := admin.NewService(db, sessions)
 	ifaces := iface.NewService(db, reg, ring)
+	egressStore := egress.NewService(db, ring)
+	geo := geodata.NewStore(filepath.Join(dataDir, "egress"))
+	egressRuntime := &routing.Manager{Store: egressStore, Backend: fake.New(), Geo: geo}
 	srv, err := New(Deps{
 		DB: db, Sessions: sessions, Admins: admins, Settings: reg, Ring: ring,
 		Audit:      auditSvc,
@@ -89,12 +97,13 @@ func newEnv(t *testing.T) *env {
 		Tokens:     tokens,
 		Webhooks:   webhooksSvc,
 		Accounting: accounting.NewService(db, nil, auditSvc, nil, reg),
-		Version:    "test", TLSMode: config.TLSModeDev, NodeID: "node-1", ToolsVersion: "fake",
+		Egress:     egressStore, EgressRuntime: egressRuntime, GeoData: geo,
+		Version: "test", TLSMode: config.TLSModeDev, NodeID: "node-1", ToolsVersion: "fake",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{t: t, db: db, reg: reg, srv: srv, handler: srv.Handler(), admins: admins, ifaces: ifaces}
+	return &env{t: t, db: db, reg: reg, srv: srv, handler: srv.Handler(), admins: admins, ifaces: ifaces, egress: egressStore}
 }
 
 const testPassword = "correct-horse-battery"

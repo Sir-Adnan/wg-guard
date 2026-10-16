@@ -30,6 +30,9 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domainqueue"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
+	"github.com/Sir-Adnan/wg-guard/internal/egress"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
 	"github.com/Sir-Adnan/wg-guard/internal/nodestatus"
@@ -96,6 +99,14 @@ type Deps struct {
 	// Telemetry is the scheduler-owned immutable live history. Dashboard
 	// requests never invoke its source.
 	Telemetry *telemetry.Sampler
+
+	// Egress is the egress routing store (outbounds, balancers, rules);
+	// EgressRuntime re-renders kernel routing after changes and reports
+	// outbound health; GeoData holds the installed geosite/geoip files.
+	// All three are nil when egress routing is not wired (tests).
+	Egress        *egress.Service
+	EgressRuntime *routing.Manager
+	GeoData       *geodata.Store
 
 	Version      string
 	TLSMode      config.TLSMode
@@ -187,6 +198,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sub/{token}", s.handleSubPage)
 	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/qr", s.handleSubDeviceQR)
 	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/config", s.handleSubDeviceConfig)
+	mux.HandleFunc("GET /sub/{token}/devices/{deviceID}/amneziavpn", s.handleSubDeviceAmnezia)
+	mux.HandleFunc("GET /sub/{token}/info", s.handleSubInfo)
 
 	// --- app pages ---
 	mux.HandleFunc("GET /reseller/users", s.requireReseller(auth.ScopeUsersRead, s.handleResellerUsers))
@@ -274,6 +287,45 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /interfaces/{id}/enable", s.requirePermission(auth.ScopeIfaceWrite, s.handleIfaceEnable))
 	mux.HandleFunc("POST /interfaces/{id}/disable", s.requirePermission(auth.ScopeIfaceWrite, s.handleIfaceDisable))
 	mux.HandleFunc("POST /interfaces/{id}/delete", s.requirePermission(auth.ScopeIfaceWrite, s.handleIfaceDelete))
+
+	// --- egress routing (interfaces.read / interfaces.write) ---
+	if s.Egress != nil {
+		read := func(h http.HandlerFunc) http.HandlerFunc { return s.requirePermission(auth.ScopeIfaceRead, h) }
+		write := func(h http.HandlerFunc) http.HandlerFunc { return s.requirePermission(auth.ScopeIfaceWrite, h) }
+		mux.HandleFunc("GET /routing", read(s.handleRoutingIndex))
+		mux.HandleFunc("GET /routing/outbounds", read(s.handleOutbounds))
+		mux.HandleFunc("GET /routing/outbounds/new", write(s.handleOutboundNew))
+		mux.HandleFunc("POST /routing/outbounds", write(s.handleOutboundCreate))
+		mux.HandleFunc("GET /routing/outbounds/{id}/edit", write(s.handleOutboundEditPage))
+		mux.HandleFunc("POST /routing/outbounds/{id}/edit", write(s.handleOutboundUpdate))
+		mux.HandleFunc("POST /routing/outbounds/{id}/enable", write(s.handleOutboundToggle(true)))
+		mux.HandleFunc("POST /routing/outbounds/{id}/disable", write(s.handleOutboundToggle(false)))
+		mux.HandleFunc("POST /routing/outbounds/{id}/delete", write(s.handleOutboundDelete))
+		mux.HandleFunc("POST /routing/outbounds/{id}/test", read(s.handleOutboundTest))
+		mux.HandleFunc("GET /routing/balancers", read(s.handleBalancers))
+		mux.HandleFunc("GET /routing/balancers/new", write(s.handleBalancerNew))
+		mux.HandleFunc("POST /routing/balancers", write(s.handleBalancerSave))
+		mux.HandleFunc("GET /routing/balancers/{id}/edit", write(s.handleBalancerEditPage))
+		mux.HandleFunc("POST /routing/balancers/{id}/edit", write(s.handleBalancerSave))
+		mux.HandleFunc("POST /routing/balancers/{id}/enable", write(s.handleBalancerToggle(true)))
+		mux.HandleFunc("POST /routing/balancers/{id}/disable", write(s.handleBalancerToggle(false)))
+		mux.HandleFunc("POST /routing/balancers/{id}/delete", write(s.handleBalancerDelete))
+		mux.HandleFunc("GET /routing/rules", read(s.handleRules))
+		mux.HandleFunc("GET /routing/rules/new", write(s.handleRuleNew))
+		mux.HandleFunc("POST /routing/rules", write(s.handleRuleSave))
+		mux.HandleFunc("POST /routing/rules/default", write(s.handleRoutingDefault))
+		mux.HandleFunc("GET /routing/rules/{id}/edit", write(s.handleRuleEditPage))
+		mux.HandleFunc("POST /routing/rules/{id}/edit", write(s.handleRuleSave))
+		mux.HandleFunc("POST /routing/rules/{id}/enable", write(s.handleRuleToggle(true)))
+		mux.HandleFunc("POST /routing/rules/{id}/disable", write(s.handleRuleToggle(false)))
+		mux.HandleFunc("POST /routing/rules/{id}/up", write(s.handleRuleMove(-1)))
+		mux.HandleFunc("POST /routing/rules/{id}/down", write(s.handleRuleMove(1)))
+		mux.HandleFunc("POST /routing/rules/{id}/delete", write(s.handleRuleDelete))
+		mux.HandleFunc("POST /routing/geodata/sources", write(s.handleGeoSources))
+		mux.HandleFunc("POST /routing/geodata/{kind}/download", write(s.handleGeoDownload))
+		mux.HandleFunc("POST /routing/geodata/{kind}/upload", write(s.handleGeoUpload))
+		mux.HandleFunc("POST /routing/geodata/{kind}/delete", write(s.handleGeoDelete))
+	}
 
 	// --- settings (node.settings: the registry is operator territory) ---
 	mux.HandleFunc("GET /settings", s.requirePermission(auth.ScopeNodeSettings, s.handleSettingsPage))

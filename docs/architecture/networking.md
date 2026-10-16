@@ -69,6 +69,22 @@ creation skips occupied/host-conflicting defaults. See
   owned child chain. Interface deletion first disables the still-owned row and requires canonical
   runtime reconciliation; only then is the row removed. A failed pass restores the enabled retry state.
 
+## Egress routing
+
+Selected traffic can leave through other exits instead of the host default route. These
+exits are WARP, imported WireGuard/AmneziaWG servers or another local IPv4. The design is
+kernel-only and owns its own objects:
+
+- links `wgo1…wgo63`;
+- `ip rule` entries at priority 5180 with tables `51800+slot`;
+- marks in the field `0x7ff00000` only;
+- the separate `table ip wgguard_egress`, which never edits `inet wgguard`.
+
+Client interfaces and their masquerade are unchanged. Traffic marked direct uses the existing
+path. A built-in resolver on the tunnel gateways serves domain rules, and port-53 traffic from
+tunnel clients is redirected to it. Uninstall removes all of these objects. Full contract:
+[egress-routing.md](egress-routing.md).
+
 ## Sysctls & system state
 
 `net.ipv4.ip_forward=1` (and IPv6 forwarding when used) set idempotently at bring-up (the read

@@ -526,6 +526,36 @@ four-module white quiet zone, integer module scaling, and medium error correctio
 test decoding proves content equality. Oversized configurations fail with a typed client error
 and no partial image. The test-only decoder is not linked into the production binary.
 
+### Public subscription machine-readable endpoints
+
+The customer link `/sub/{token}` also has two token-gated, rate-limited endpoints for client
+apps and bots. They are outside `/api/v1` and do not change OpenAPI:
+
+- `GET /sub/{token}/info` returns `application/json` with `Cache-Control: no-store`. The field
+  names are a public contract:
+  - `username`, `status`, `plan` (omitted when the user has no template);
+  - `used_bytes`, `upload_bytes`, `download_bytes`;
+  - `limit_bytes` and `expires_at`, which are `null` when unlimited;
+  - `days_left`, which is `null` while the expiry is unknown or unlimited;
+  - `updated_at`;
+  - `devices[]`, each with `id`, `name`, `address`, `enabled`, `online` (handshake within
+    `accounting.online_window_seconds`, default 180 s), `config_url`, `qr_url` and `amneziavpn_url`.
+
+  An unknown token returns the same 404 page as the subscription link, so token
+  validity is not distinguishable. A user removed after token resolution returns a JSON 404,
+  and a storage failure a JSON 503 (`{"error": ...}`).
+- `GET /sub/{token}/devices/{deviceID}/amneziavpn` redirects (303) to the AmneziaVPN key
+  `vpn://<base64url(qCompress(conf))>`. With `?format=text` it returns the key as `text/plain`
+  instead. The configuration bytes are the canonical renderer's output.
+  - Format: qCompress is a 4-byte big-endian length followed by zlib data.
+  - The format was reviewed against the amnezia-client import controller at `30ff345`; the
+    client detects a native AmneziaWG config by its `[Interface]`/`[Peer]` sections.
+
+The page and `/info` responses carry `Subscription-Userinfo: upload=…; download=…; total=…;
+expire=…`, where upload is client→server, `total` and `expire` are 0 when unlimited, and
+`expire` is in Unix seconds. They also carry `Profile-Update-Interval: 24` (hours). These are
+the de-facto headers that subscription-aware clients read.
+
 ## Webhooks
 
 Durable and restart-safe (delivery state in SQLite; the event row commits in the SAME

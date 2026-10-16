@@ -305,6 +305,32 @@ scrolling body and footer as one viewport-bounded grid, while the full-page form
 fallback. The user-detail subscription card stays in document flow. The public subscription is a
 standalone connection pass with status, usage, expiry,
 device delivery and setup guidance rather than an admin-page derivative.
+Every subscription layout shows the following:
+
+- a usage meter with remaining traffic and a time-left stat with days and a time meter;
+- a per-platform guide (Android, iPhone/iPad, Windows, macOS, Linux). It uses CSS-only radio
+  tabs; JavaScript pre-selects the visitor's OS, and without `:has()` support all platforms
+  are shown;
+- official app links, in this order: AmneziaWG and WG Tunnel first, AmneziaVPN last (the most
+  complex app), amneziawg-tools for Linux;
+- for each device, **Open in AmneziaVPN** (`vpn://`) and **Copy key**.
+
+The **Portal** layout is an app-style variant with conic usage/time rings, sized for phones.
+Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the
+strict CSP holds.
+
+**Routing** (`/routing/*`) has three tabbed pages, each doing one job:
+
+- **Outbounds**: kind picker, then a form for that kind. Cards show health, latency, exit IP
+  with a country flag, live connections and usage.
+- **Balancers**: radio cards for the strategies. A warning appears when a per-connection
+  strategy is chosen. Members have weights and are kept in the order given.
+- **Rules**: an ordered list with up/down moves, the default route, a site check and geodata
+  management. The rule form groups presets by category as multi-select chips. It has a
+  matcher textarea with syntax help and geosite suggestions, and a target select listing
+  direct, block, outbounds and balancers.
+
+Technical values (matchers, IPs, endpoints, marks) are isolated as LTR in both locales.
 
 The create drawer keeps every section at natural height and scrolls its body independently;
 focused controls must stay visible in short desktop and phone viewports, including WebKit. User

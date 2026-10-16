@@ -30,6 +30,7 @@ principal checks remain in their web/REST adapters. The refactor adds no host pr
 | API tokens | `wg_` + 32 chars crypto/rand; stored as SHA-256 with indexed prefix; scopes, expiry, optional CIDR allowlist; revocable |
 | Interface/device private keys, preshared keys and customer-link capabilities | AES-256-GCM encrypted with the node-local master key (32 B, file 0600 outside the DB); required for config/link re-display; rotation procedure below + loss consequence documented |
 | Webhook secrets, Telegram credentials, backup password | encrypted at rest with the master key |
+| Egress outbound private keys, preshared keys, WARP account token and license | sealed together in `egress_outbounds.secret_encrypted` with the master key; never rendered back to the panel and never logged; passed to `awg setconf` through a 0600 file, not argv |
 | Audit log | never contains secrets (redaction list enforced in code) |
 
 ### Master-key rotation (implemented in `internal/secrets`)
@@ -182,6 +183,19 @@ reconciliation fails, rather than reviving old credentials.
   are read-only mounts; node data is writable. Host state/journal/manager are not mounted,
   and neither a Docker socket nor privileged execution is granted. New-profile real-host
   networking/resource acceptance remains separate from source/fake-container checks.
+
+- Egress routing ([egress-routing.md](../architecture/egress-routing.md)) adds no capability:
+  `NET_ADMIN` covers `wgoN` links, `ip rule`/routes, the `ip wgguard_egress` table and the
+  conntrack count, and `NET_BIND_SERVICE` covers the gateway-only resolver on port 53. The
+  resolver listens only on tunnel gateway addresses, forwards to configured upstreams and keeps
+  no cache or query log. Its concurrency and TCP sessions are bounded.
+- Outbound network calls made by the panel for egress are limited to these:
+  - the WARP client API (`api.cloudflareclient.com`), only when an operator creates or relicenses
+    a WARP outbound;
+  - geodata downloads, which must be HTTPS (redirects included) and are capped at 48 MiB;
+  - the health probe to `1.1.1.1` through each outbound.
+
+  Uploaded geodata is parsed with a bounded reader; a parse failure discards the file.
 
 ## Domain/certificate management (v0.1.10+)
 

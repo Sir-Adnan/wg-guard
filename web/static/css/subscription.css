@@ -1,0 +1,125 @@
+/* Public subscription page additions: meters, AmneziaVPN hand-off, the
+ * per-platform setup guide and the "portal" composition. Shared tokens only. */
+
+.subscription-meter-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-1) var(--sp-3); }
+.subscription-days { display: inline-flex; align-items: baseline; gap: 6px; }
+.subscription-days > span { font-size: var(--fs-sm); color: var(--fg-muted); font-weight: 500; }
+.subscription-stat--time .meter .bar > span { background: linear-gradient(90deg, #f59e0b, #f43f5e); }
+
+.publicsub-device-extra { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); justify-content: center; }
+.publicsub-link {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--sp-2);
+  border: 0; border-radius: var(--r-sm); background: none; color: var(--brand); font: inherit;
+  font-size: var(--fs-sm); font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.publicsub-link:hover { background: var(--brand-soft); }
+.publicsub-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* ---------- setup guide ---------- */
+.publicsub-guide { min-width: 0; }
+.os-tabs { display: grid; gap: var(--sp-4); }
+.os-tab-list {
+  display: flex; gap: var(--sp-1); padding: var(--sp-1); width: fit-content; max-width: 100%; overflow-x: auto;
+  scrollbar-width: none; border: 1px solid var(--border); border-radius: var(--r-full); background: var(--bg-subtle);
+}
+.os-tab-list::-webkit-scrollbar { display: none; }
+.os-tab {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--touch-h); padding-inline: var(--sp-4);
+  border-radius: var(--r-full); color: var(--fg-muted); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.os-tab:hover { color: var(--fg); }
+.os-panel { display: grid; gap: var(--sp-3); }
+.os-panel-title { display: none; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); }
+/* Without :has(), every platform stays visible with its own heading. */
+@supports not selector(:has(*)) { .os-tab-list { display: none; } .os-panel-title { display: flex; } }
+@supports selector(:has(*)) {
+  .os-panel { display: none; }
+  .os-tabs:has(#os-android:checked) .os-panel[data-os="android"] { display: grid; }
+  .os-tabs:has(#os-android:checked) .os-tab[for="os-android"] { background: var(--bg-elev); color: var(--fg); box-shadow: var(--shadow-1); }
+  .os-tabs:has(#os-ios:checked) .os-panel[data-os="ios"] { display: grid; }
+  .os-tabs:has(#os-ios:checked) .os-tab[for="os-ios"] { background: var(--bg-elev); color: var(--fg); box-shadow: var(--shadow-1); }
+  .os-tabs:has(#os-windows:checked) .os-panel[data-os="windows"] { display: grid; }
+  .os-tabs:has(#os-windows:checked) .os-tab[for="os-windows"] { background: var(--bg-elev); color: var(--fg); box-shadow: var(--shadow-1); }
+  .os-tabs:has(#os-macos:checked) .os-panel[data-os="macos"] { display: grid; }
+  .os-tabs:has(#os-macos:checked) .os-tab[for="os-macos"] { background: var(--bg-elev); color: var(--fg); box-shadow: var(--shadow-1); }
+  .os-tabs:has(#os-linux:checked) .os-panel[data-os="linux"] { display: grid; }
+  .os-tabs:has(#os-linux:checked) .os-tab[for="os-linux"] { background: var(--bg-elev); color: var(--fg); box-shadow: var(--shadow-1); }
+  .os-tabs:has(.os-tab-input:focus-visible) .os-tab-list { outline: 2px solid var(--brand); outline-offset: 2px; }
+}
+.app-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: var(--sp-3); }
+.app-card { display: grid; gap: var(--sp-3); align-content: start; padding: var(--sp-5); box-shadow: var(--shadow-1); }
+.app-card-head { display: flex; align-items: center; gap: var(--sp-3); }
+.app-card-head > div { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.app-card-head h4 { margin: 0; font-size: var(--fs-lg); }
+.app-mark {
+  display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: var(--r-md);
+  color: var(--brand); background: linear-gradient(135deg, var(--brand-soft), var(--violet-soft));
+}
+.app-mark[data-app="amneziavpn"] { color: #c2410c; background: rgba(249, 115, 22, 0.12); }
+.app-mark[data-app="wgtunnel"] { color: var(--ok); background: var(--ok-soft); }
+.app-desc { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); line-height: var(--lh-normal); }
+.app-steps { margin: 0; padding-inline-start: var(--sp-5); display: grid; gap: var(--sp-2); font-size: var(--fs-sm); line-height: var(--lh-normal); }
+.app-steps li::marker { color: var(--brand); font-weight: 700; }
+.app-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block-start: auto; }
+.publicsub-guide-note { display: flex; gap: var(--sp-2); align-items: flex-start; margin-block-start: var(--sp-4); }
+
+/* ---------- portal composition ---------- */
+.publicsub-body[data-sub-layout="portal"] .publicsub-frame { max-width: 720px; }
+.publicsub-body[data-sub-layout="portal"] .subscription-pass { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; gap: var(--sp-4); }
+.publicsub-body[data-sub-layout="portal"] .subscription-pass-head,
+.publicsub-body[data-sub-layout="portal"] .subscription-identity,
+.publicsub-body[data-sub-layout="portal"] .subscription-access,
+.publicsub-body[data-sub-layout="portal"] .subscription-pass-stats { grid-column: 1; grid-row: auto; width: 100%; }
+.publicsub-body[data-sub-layout="portal"] .subscription-identity { display: grid; justify-items: center; }
+.publicsub-body[data-sub-layout="portal"] .subscription-access { justify-content: center; text-align: start; margin-inline: auto; }
+.publicsub-body[data-sub-layout="portal"] .subscription-pass-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat { justify-items: center; text-align: center; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat--transfer { grid-column: 1 / -1; }
+.publicsub-body[data-sub-layout="portal"] .subscription-usage-values { justify-content: center; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter {
+  order: -1; width: 112px; height: 112px; margin: var(--sp-1) auto var(--sp-2); border-radius: 50%; --p: 0;
+  background: conic-gradient(var(--brand) calc(var(--p) * 1%), var(--bg-subtle) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent 72%, #000 73%);
+  mask: radial-gradient(farthest-side, transparent 72%, #000 73%);
+}
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.is-warn { background: conic-gradient(var(--warn) calc(var(--p) * 1%), var(--bg-subtle) 0); }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.is-danger { background: conic-gradient(var(--danger) calc(var(--p) * 1%), var(--bg-subtle) 0); }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat--time .meter { background: conic-gradient(#f59e0b calc(var(--p) * 1%), var(--bg-subtle) 0); }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter .bar { display: none; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat { display: flex; flex-direction: column; align-items: center; }
+.publicsub-body[data-sub-layout="portal"] .publicsub-devices { grid-template-columns: minmax(0, 1fr); }
+.publicsub-body[data-sub-layout="portal"] .os-tab-list { margin-inline: auto; }
+.publicsub-body[data-sub-layout="portal"] .app-cards { grid-template-columns: minmax(0, 1fr); }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w0 { --p: 0; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w5 { --p: 5; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w10 { --p: 10; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w15 { --p: 15; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w20 { --p: 20; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w25 { --p: 25; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w30 { --p: 30; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w35 { --p: 35; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w40 { --p: 40; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w45 { --p: 45; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w50 { --p: 50; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w55 { --p: 55; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w60 { --p: 60; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w65 { --p: 65; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w70 { --p: 70; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w75 { --p: 75; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w80 { --p: 80; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w85 { --p: 85; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w90 { --p: 90; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w95 { --p: 95; }
+.publicsub-body[data-sub-layout="portal"] .subscription-stat .meter.w100 { --p: 100; }
+@media (max-width: 480px) {
+  .publicsub-body[data-sub-layout="portal"] .subscription-pass-stats { grid-template-columns: minmax(0, 1fr); }
+  .publicsub-body[data-sub-layout="portal"] .subscription-stat .meter { width: 96px; height: 96px; }
+  .os-tab-list { width: 100%; flex-wrap: wrap; border-radius: var(--r-lg); overflow: visible; }
+  .os-tab { flex: 1 1 30%; justify-content: center; padding-inline: var(--sp-2); border-radius: var(--r-md); }
+}
+.subscription-layout-preview[data-layout="portal"] { grid-template-columns: 1fr 1fr; justify-items: center; }
+.subscription-layout-preview[data-layout="portal"] i:first-child { grid-column: 1 / -1; width: 60%; }
+.subscription-layout-preview[data-layout="portal"] i:nth-child(2),
+.subscription-layout-preview[data-layout="portal"] i:nth-child(3) { width: 34px; height: 34px; border-radius: 50%; }
+.subscription-layout-preview[data-layout="portal"] i:last-child { grid-column: 1 / -1; width: 80%; }

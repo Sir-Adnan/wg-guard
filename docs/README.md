@@ -12,6 +12,7 @@ Implementation and test evidence must support any claimed behavior.
 | Product behavior, panel UX or public API | [Requirements](product/requirements.md), [UI/UX contract](product/ui-ux.md), [API contract](architecture/api.md) as relevant |
 | Architecture or data change | [Overview](architecture/overview.md), [project structure](architecture/project-structure.md), [database](architecture/database.md) |
 | AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
+| Outbounds, balancers, routing rules or subscription client formats | [Egress routing](architecture/egress-routing.md), [ADR-0016](decisions/ADR-0016-kernel-egress-routing.md), [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
 | Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
 | Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
 | Refactor phases, scope and acceptance | [Refactor program, Phases 15–20](development/refactor-program.md); [architecture target](architecture/deployment-refactor.md) |
@@ -26,6 +27,7 @@ Implementation and test evidence must support any claimed behavior.
 **Architecture and integrations:** [overview](architecture/overview.md) ·
 [project structure](architecture/project-structure.md) · [database](architecture/database.md) ·
 [API](architecture/api.md) · [networking](architecture/networking.md) ·
+[egress routing](architecture/egress-routing.md) ·
 [Docker refactor target](architecture/deployment-refactor.md) ·
 [Docker-only cleanup](architecture/docker-only-cleanup.md) ·
 [Phase 17 implementation](development/phase17.md) ·
@@ -34,6 +36,7 @@ Implementation and test evidence must support any claimed behavior.
 [System health follow-up](development/system-health.md) ·
 [Phase 20 owner-host observations](development/phase20.md) ·
 [AmneziaWG pin and verification](integrations/amneziawg.md) ·
+[client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) ·
 [webhooks](integrations/webhooks.md) · [ADRs](decisions/).
 
 **Operations:** [deployment](operations/deployment.md) ·

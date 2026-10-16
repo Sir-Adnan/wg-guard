@@ -34,3 +34,29 @@ document.addEventListener('click', async event => {
     link.removeAttribute('aria-disabled');
   }
 });
+
+/* Copy the AmneziaVPN key for apps without the vpn:// handler (desktop, iOS). */
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-amnezia-copy]');
+  if (!button) return;
+  const state = button.closest('.publicsub-device')?.querySelector('[data-download-state]');
+  try {
+    const response = await fetch(button.dataset.amneziaCopy, { cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
+    const key = (await response.text()).trim();
+    if (!response.ok || !key.startsWith('vpn://')) throw new Error('unavailable');
+    await navigator.clipboard.writeText(key);
+    if (state) { state.setAttribute('role', 'status'); state.textContent = state.dataset.copied; }
+  } catch {
+    if (state) { state.setAttribute('role', 'alert'); state.textContent = state.dataset.error; }
+  }
+});
+
+/* Open the setup guide on the visitor's platform. */
+(() => {
+  const ua = navigator.userAgent || '';
+  const touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  const os = /Android/i.test(ua) ? 'android' : (/iPhone|iPad|iPod/.test(ua) || touchMac) ? 'ios'
+    : /Windows/.test(ua) ? 'windows' : /Macintosh|Mac OS X/.test(ua) ? 'macos' : /Linux|X11/.test(ua) ? 'linux' : '';
+  const input = os && document.getElementById('os-' + os);
+  if (input) input.checked = true;
+})();

@@ -39,6 +39,11 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/domainqueue"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
+	"github.com/Sir-Adnan/wg-guard/internal/egress"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/dnsrouter"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/warp"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/integration"
@@ -76,6 +81,9 @@ import (
 const (
 	webhookPassInterval = 5 * time.Second
 	housekeepingEvery   = 10 * time.Minute
+	// egressHealthInterval paces outbound probes (one small HTTPS request per
+	// outbound per pass).
+	egressHealthInterval = 30 * time.Second
 	// Idempotency replay horizon: stored responses may be replayed for 24 h.
 	idempotencyTTL = 24 * time.Hour
 	// Webhook event/delivery rows are pruned after this retention; deliveries
@@ -123,6 +131,8 @@ type Node struct {
 	userspace            *amneziawg.Backend
 	reconciler           accounting.Reconciler
 	runtimePolicyHealthy func(context.Context) (bool, error)
+	egress               *routing.Manager
+	resolver             *dnsrouter.Server
 
 	booted       atomic.Bool
 	networkReady atomic.Bool
@@ -199,6 +209,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.db = db
 	// Any failure from here on tears the node back down.
 	fail := func(err error) (*Node, error) {
+		if n.resolver != nil {
+			_ = n.resolver.Close()
+		}
 		if n.userspace != nil {
 			_ = n.userspace.Close()
 		}
@@ -247,15 +260,28 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		shaperMgr = shaper.New(runner)
 	}
 	runtimeNetworking := o.Backend == nil || o.Run != nil
+	egressStore := egress.NewService(db, n.ring)
+	egressStore.WARP = warp.New()
+	geoStore := geodata.NewStore(filepath.Join(cfg.DataDir, "egress"))
+	n.egress = &routing.Manager{Store: egressStore, Backend: backend, Geo: geoStore, Log: logs.network}
+	if runtimeNetworking {
+		// Host networking: kernel tables, the resolver and probes are real.
+		n.resolver = dnsrouter.New(func(ctx context.Context) []string {
+			servers, _ := n.reg.GetStringList(ctx, "network.dns_servers")
+			return servers
+		}, runner, logs.network)
+		n.egress.Run, n.egress.Resolver, n.egress.Prober = runner, n.resolver, routing.HTTPProber{}
+		n.egress.Counter = routing.CountConnections
+	}
 	bootDeps := boot.Deps{
 		DB: db, Ring: n.ring, Settings: n.reg, Backend: backend,
-		Run: runner, Audit: auditSvc, Shaper: shaperMgr,
+		Run: runner, Audit: auditSvc, Shaper: shaperMgr, Egress: n.egress,
 	}
 	if runtimeNetworking {
 		res, err := boot.BringUp(ctx, boot.Deps{
 			DB: bootDeps.DB, Ring: bootDeps.Ring, Settings: bootDeps.Settings,
 			Backend: bootDeps.Backend, Run: bootDeps.Run, Audit: bootDeps.Audit,
-			Shaper: bootDeps.Shaper,
+			Shaper: bootDeps.Shaper, Egress: bootDeps.Egress,
 		})
 		if err != nil {
 			return fail(fmt.Errorf("serve: boot: %w", err))
@@ -403,6 +429,9 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		Reconciler:    rec,
 		NodeStatus:    statusSource.Read,
 		Telemetry:     n.telemetry,
+		Egress:        egressStore,
+		EgressRuntime: n.egress,
+		GeoData:       geoStore,
 		Version:       version.Version,
 		TLSMode:       cfg.TLS.Mode,
 		NodeID:        nodeID,
@@ -478,6 +507,13 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 	n.sched.Every("telemetry", telemetryCadence(o.TelemetryCadence), n.jobTelemetry)
 	if n.userspace != nil || n.runtimePolicyHealthy != nil {
 		n.sched.Every("runtime-repair", 15*time.Second, n.jobRuntimeRepair)
+	}
+	if runtimeNetworking {
+		// Outbound health probes run on their own fixed worker (bounded
+		// network I/O); the scheduler only signals it.
+		egressWork := startSlowWork(ctx, logs.network, "egress-health", time.Minute, n.egress.ProbeAll)
+		n.slowWork = append(n.slowWork, egressWork)
+		n.sched.Every("egress-health", egressHealthInterval, egressWork.request)
 	}
 	n.sched.Start(ctx)
 
@@ -761,6 +797,11 @@ func (n *Node) Shutdown(ctx context.Context) error {
 		// A timed-out handler or operation may still own DB/key readers. Keep both the
 		// database and data lease alive; a later Shutdown can finish the drain.
 		return errors.Join(append(errs, workErrors...)...)
+	}
+	if n.resolver != nil {
+		if err := n.resolver.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if n.userspace != nil {
 		if err := n.userspace.Close(); err != nil {

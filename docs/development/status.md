@@ -419,12 +419,29 @@ and no safe reversal contract has been approved.
 | Pinned AmneziaWG kernel and managed userspace backends | Config/apply/dump/drift and lifecycle tests | Kernel/userspace client HTTPS, reboot and recovery on Ubuntu 24.04 | arm64 and uncatalogued upstream builds unsupported |
 | Users, devices, templates, quota/expiry, accounting and speed shaping | Service/API/web tests; 1000-class tc/IFB integration | Live client traffic and 1000-class shaping on dedicated VPS | 1000 simultaneous handshakes untested |
 | REST API, scoped tokens, webhooks and OpenAPI | Contract, permission, pagination and delivery tests, including Phase 14 tenant fanout/receipt and multi-device purchase tests | Exact v0.1.6 source passed main and release gates; earlier panel/API workflows served published OpenAPI | Direct purchase, quota top-up and multi-device provisioning have no new real-host claim |
+| Egress routing: outbounds, balancers, rules, resolver | Plan/nft render, real-nft namespace transactions, conntrack netlink dump, resolver, store and web tests | Panel screenshots only (fa/en, light/dark, 390/1440 px) | No real-host traffic, WARP live registration or kernel element-timeout check; see [egress routing](#egress-routing) |
+| Subscription portal, app guide, `vpn://` and `/sub/{token}/info` | Web, JSON contract and AmneziaVPN key round-trip tests | Screenshots only | AmneziaVPN import reviewed from source, not run on a device |
 | Complete bilingual panel and public subscription | Catalog parity, accessibility and browser suites | Chromium/Firefox/WebKit route/state/viewport matrix plus targeted real TLS workflows | Physical-device testing unavailable |
 | Backup/restore, settings, administrators, audit and schedules | Atomic save, recovery, encryption and error-path tests | Real disk pressure, migration, rollback and backup drills | Long-interval ACME renewal unobserved |
 | GitHub bootstrap, terminal manager, Docker/native lifecycle | Acquisition, integrity, rollback, interrupted-state tests | Fresh installs, update/rollback, reboot, data-preserving/full removal; public latest-release Docker install on Ubuntu 24.04 | Later Ubuntu and non-amd64 hosts unverified/unsupported |
 | Firewall, forwarding and diagnostics | Owned-rule, fail-closed and Docker coexistence tests | Real Docker and native client public DNS/HTTPS; scoped Docker policy | Active firewalld refused; real-host UFW cell unverified |
 | Metrics, charts and bounded logs | Telemetry, retention and redaction tests | Real client/load and browser presentation checks | Multi-day traffic soak unperformed |
 | Security and resource certification | Full Linux race, 4.75M parser fuzz cases, reachable-vulnerability scan | 0-peer control sample: 33 MB RSS; 100/1000-user ten-minute windows: 41/52 MB average RSS and ≤0.04% CPU; recovery drills | Certification applies to listed Ubuntu 24.04 paths |
+
+## Egress routing
+
+**Egress routing and subscription portal (2026-10-16; branch source, unreleased).** Kernel-native
+outbounds (WARP, WireGuard/AmneziaWG import, source IP), balancers (`sticky`, `round_robin`,
+`random`, `least_conn`, `failover`), ordered rules with presets, geosite/geoip and a built-in
+DNS resolver are implemented; see [egress routing](../architecture/egress-routing.md) and
+[ADR-0016](../decisions/ADR-0016-kernel-egress-routing.md).
+
+| Level | Evidence |
+|---|---|
+| Unit / integration | Matcher, preset, config parser, store lifecycle, plan compiler, strategy rendering, least-connection shares, resolver learning/blocking, WARP request encoding, web CRUD/permissions and fa RTL tests |
+| Namespace | `nft -f` transactions inside `unshare -rn`: table creation, incremental edit keeping resolver-fed timeout elements, teardown; conntrack mark-filtered netlink dump |
+| Browser | Routing pages and subscription portal screenshots in fa/en, light/dark, 390 and 1440 px |
+| Not verified | Real-host client traffic through `wgoN`, WARP registration against the live API (blocked from CI), AmneziaVPN `vpn://` import on a device, element-timeout refresh on older kernels, interaction with UFW/Docker forward chains under load |
 
 ## Release-critical workflows
 

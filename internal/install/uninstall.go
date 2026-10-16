@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
 	"github.com/Sir-Adnan/wg-guard/internal/firewall"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/layout"
@@ -204,6 +205,9 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *Uninsta
 	step(out, "Removing owned network policy")
 	if err := (&firewall.Manager{Run: uninstallFirewallRunner{host: h}}).Remove(ctx); err != nil {
 		return rep, fmt.Errorf("uninstall: remove owned network policy: %w", err)
+	}
+	if err := routing.Teardown(ctx, uninstallFirewallRunner{host: h}, nil); err != nil {
+		return rep, fmt.Errorf("uninstall: remove egress routing policy: %w", err)
 	}
 	if err := j.save(h, "swap-pending"); err != nil {
 		return rep, err

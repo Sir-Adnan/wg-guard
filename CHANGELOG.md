@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+- Add egress routing under **Routing** (`/routing/outbounds`, `/routing/balancers`,
+  `/routing/rules`). Outbounds are Cloudflare WARP (registered from the panel), imported
+  WireGuard/AmneziaWG client configs or another local IPv4. Balancers group outbounds with the
+  `sticky`, `round_robin`, `random`, `least_conn` or `failover` strategy, per-member weights and a
+  direct/block fallback. Ordered rules match curated service presets (Gemini, ChatGPT, Claude,
+  Google Play, IP-lookup sites and more), domains, keywords, regular expressions, geosite/geoip
+  categories and IPv4 prefixes, and send them direct, blocked, to an outbound or to a balancer.
+  The design is kernel-only, with no proxy engine
+  ([ADR-0016](docs/decisions/ADR-0016-kernel-egress-routing.md)): policy routing, the
+  `ip wgguard_egress` nftables table and a built-in DNS resolver. Health probes run every 30 s
+  and fail over automatically. Migration `0017_egress_routing.sql`. Not yet verified on a real
+  host.
+- Add the **Portal** subscription layout and a per-platform connection guide with official
+  download links (AmneziaWG, WG Tunnel, AmneziaVPN, amneziawg-tools). Every layout now shows a
+  usage meter, remaining traffic and days left. Each device offers one-tap **Open in AmneziaVPN**
+  (`vpn://`) and a copyable key.
+- Add `GET /sub/{token}/info`, a JSON summary for client apps. Subscription responses now carry
+  `Subscription-Userinfo` and `Profile-Update-Interval` headers.
+- Rewrite Persian panel copy for fluency and consistent terminology (نود, اینترفیس, پورت, لینک,
+  کانفیگ, پشتیبان, بارگذاری) and correct ezafe and half-space typography. The terminal
+  installer stays English-only.
+
 - Stop the accounting cycle from rewriting every user who ever connected. Stored
   `last_activity_at` counted as a change, so idle, expired and soft-deleted users with a past
   handshake had their row and `updated_at` rewritten every cycle (default 30 s). That defeated
