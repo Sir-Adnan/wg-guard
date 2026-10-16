@@ -294,7 +294,7 @@ func TestUserLifecycleAndSearch(t *testing.T) {
 		t.Fatal("search does not find bob")
 	}
 	rec = e.get("/users?q=zzz", cookie)
-	if !strings.Contains(rec.Body.String(), "کاربری یافت نشد") {
+	if !strings.Contains(rec.Body.String(), "کاربری پیدا نشد") {
 		t.Fatal("no-match empty state missing")
 	}
 

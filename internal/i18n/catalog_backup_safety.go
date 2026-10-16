@@ -2,7 +2,7 @@ package i18n
 
 func init() {
 	catalogEN["backup.safety.install_owner"] = "backup: installation requires an enabled source owner; repair access on the original node before migration"
-	catalogFA["backup.safety.install_owner"] = "نصب از بکاپ به مالک فعال در دادهٔ مبدأ نیاز دارد؛ پیش از مهاجرت دسترسی را در نود اصلی اصلاح کنید."
+	catalogFA["backup.safety.install_owner"] = "نصب از پشتیبان به مالک فعال در دادهٔ مبدأ نیاز دارد؛ پیش از مهاجرت دسترسی را در نود اصلی اصلاح کنید."
 	catalogEN["backup.safety.install_existing"] = "backup: installation from archive requires empty target data; existing files were preserved"
 	catalogFA["backup.safety.install_existing"] = "نصب از آرشیو به دادهٔ خالی مقصد نیاز دارد؛ فایل‌های موجود حفظ شدند."
 	for key, value := range map[string]string{
@@ -18,7 +18,7 @@ func init() {
 	for key, value := range map[string]string{
 		"password_required": "آرشیو با گذرواژه محافظت شده است؛ گذرواژه لازم است",
 		"archive_invalid":   "محفظه آرشیو نامعتبر یا ناقص است",
-		"password_short":    "گذرواژه پشتیبان باید دست‌کم %d کاراکتر باشد",
+		"password_short":    "گذرواژهٔ پشتیبان باید دست‌کم %d کاراکتر باشد",
 		"decrypt_failed":    "رمزگشایی آرشیو ممکن نشد؛ گذرواژه و یکپارچگی فایل رمزگذاری‌شده را بررسی کنید",
 		"encrypt_failed":    "رمزگذاری آرشیو محافظت‌شده با گذرواژه ممکن نشد",
 		"scrypt_limit":      "ضریب محاسباتی scrypt بیش از حد مجاز است؛ بیشترین ضریب پشتیبانی‌شده %d است",
@@ -102,7 +102,7 @@ func init() {
 		"backup.safety.telegram_unset":               "تلگرام تنظیم نشده است",
 		"backup.safety.regular_archive":              "آرشیو باید یک فایل عادی باشد",
 		"backup.safety.bounded_archive":              "آرشیو باید فایل عادی با حجم مجاز باشد",
-		"backup.safety.plaintext":                    "آرشیو خارج از میزبان رمزگذاری نشده و دارای اسرار خواندنی گره است؛ گذرواژه پشتیبان تنظیم کنید",
+		"backup.safety.plaintext":                    "آرشیو خارج از میزبان رمزگذاری نشده و دارای اسرار خواندنی گره است؛ گذرواژهٔ پشتیبان تنظیم کنید",
 		"backup.safety.telegram_near":                "حجم آرشیو به سقف ارسال تلگرام نزدیک است",
 		"backup.safety.telegram_limit":               "حجم آرشیو از سقف ارسال تلگرام بیشتر است",
 		"backup.safety.telegram_request":             "درخواست ارسال تلگرام ساخته نشد",
@@ -112,11 +112,11 @@ func init() {
 		"backup.safety.telegram_invalid":             "پاسخ نامعتبر تلگرام (HTTP %d)",
 		"backup.safety.open_blocked":                 "بازیابی آفلاین باید پیش از باز کردن داده‌های گره تکمیل شود",
 		"backup.safety.data_busy":                    "دسترسی انحصاری به داده‌های گره ممکن نیست. پیش از چرخش کلید یا بازیابی، سرویس را متوقف و فرمان‌های دیگر داده را تمام کنید؛ سپس دوباره تلاش کنید. فایل قفل داده را حذف نکنید.",
-		"backup.safety.data_layout":                  "پایگاه داده و کلید اصلی باید در پوشه داده تنظیم‌شده باشند. همه فرایندهای داده را متوقف و این جفت را با هم منتقل کنید یا مسیرهای جایگزین را اصلاح کنید؛ پوشه‌های جدا و پیوندهای خارج‌شونده پشتیبانی نمی‌شوند.",
+		"backup.safety.data_layout":                  "پایگاه داده و کلید اصلی باید در پوشهٔ داده تنظیم‌شده باشند. همه فرایندهای داده را متوقف و این جفت را با هم منتقل کنید یا مسیرهای جایگزین را اصلاح کنید؛ پوشه‌های جدا و پیوندهای خارج‌شونده پشتیبانی نمی‌شوند.",
 		"backup.safety.archive_identity":             "هویت آرشیو بازیابی تأیید نشد",
 		"backup.safety.archive_drift":                "آرشیو بازیابی در زمان اعتبارسنجی تغییر کرد",
 		"backup.safety.preview_identity":             "شناسه پیش‌نمایش بازیابی نامعتبر است",
-		"backup.safety.stage_directory":              "پوشه آماده‌سازی بازیابی امن نیست",
+		"backup.safety.stage_directory":              "پوشهٔ آماده‌سازی بازیابی امن نیست",
 		"backup.safety.stage_metadata":               "فراداده بازیابی نامعتبر است",
 		"backup.safety.stage_incomplete":             "فراداده بازیابی ناقص است",
 		"backup.safety.stage_hashes":                 "فراداده هش بازیابی نامعتبر است",
@@ -124,7 +124,7 @@ func init() {
 		"backup.safety.stage_key":                    "کلید اصلی آماده‌شده نامعتبر است",
 		"backup.safety.stage_checksum":               "تأیید دوباره صحت فایل‌های بازیابی ناموفق بود",
 		"backup.safety.manifest_incomplete":          "فراداده فهرست آرشیو ناقص است",
-		"backup.safety.stage_extra":                  "فایل غیرمنتظره در پوشه بازیابی وجود دارد",
+		"backup.safety.stage_extra":                  "فایل غیرمنتظره در پوشهٔ بازیابی وجود دارد",
 		"backup.safety.original_queue":               "بازیابی ساختار اصلی نباید برای شروع خودکار در صف قرار گیرد",
 		"backup.safety.pending_exists":               "یک بازیابی تأییدشده از قبل در انتظار است",
 		"backup.safety.original_pair":                "پایگاه داده اصلی و کلید متناظر آن لازم است",
@@ -137,21 +137,21 @@ func init() {
 		"backup.safety.recovery_metadata":            "فراداده برگرداندن وضعیت نامعتبر است",
 		"backup.safety.recovery_originals":           "صحت فایل‌های اصلی برای برگرداندن وضعیت تأیید نشد",
 		"backup.safety.recovery_unsafe":              "فایل اصلی برای برگرداندن وضعیت امن نیست",
-		"backup.safety.lifecycle_blocked":            "بازیابی چرخه نصب مسدود است؛ هماهنگ‌کننده آفلاین را ادامه دهید",
+		"backup.safety.lifecycle_blocked":            "بازیابی چرخهٔ نصب مسدود است؛ هماهنگ‌کننده آفلاین را ادامه دهید",
 		"backup.safety.recovery_limit":               "حجم فایل از سقف بازیابی بیشتر است",
 		"backup.safety.metadata_unsafe":              "فایل فراداده ناامن یا بزرگ‌تر از سقف مجاز است",
 		"backup.safety.metadata_limit":               "حجم فراداده بیشتر از سقف مجاز است",
 		"backup.safety.truncated":                    "آرشیو ناقص یا بدساخت است",
 		"backup.safety.member_unsafe":                "فایل آرشیو ناامن، تکراری یا بزرگ‌تر از سقف مجاز است",
 		"backup.safety.member_incomplete":            "فایل داخل آرشیو ناقص است",
-		"backup.safety.key_size":                     "اندازه کلید اصلی نامعتبر است",
+		"backup.safety.key_size":                     "اندازهٔ کلید اصلی نامعتبر است",
 		"backup.safety.container_checksum":           "صحت محفظه آرشیو تأیید نشد",
 		"backup.safety.expanded_limit":               "حجم بازشده آرشیو از سقف کل مجاز بیشتر است",
 		"backup.safety.manifest_missing":             "آرشیو فهرست خواندنی ندارد",
-		"backup.safety.schema_newer":                 "ساختار آرشیو جدیدتر از نسخه پشتیبانی‌شده است؛ ابتدا برنامه را ارتقا دهید",
+		"backup.safety.schema_newer":                 "ساختار آرشیو جدیدتر از نسخهٔ پشتیبانی‌شده است؛ ابتدا برنامه را ارتقا دهید",
 		"backup.safety.manifest_invalid":             "فهرست آرشیو نامعتبر یا ناقص است",
 		"backup.safety.archive_checksum":             "هش آرشیو مطابقت ندارد",
-		"backup.safety.rollback_key":                 "بازگشت به نسخه قبلی به کلید اصلی متناظر در آرشیو نیاز دارد",
+		"backup.safety.rollback_key":                 "بازگشت به نسخهٔ قبلی به کلید اصلی متناظر در آرشیو نیاز دارد",
 		"backup.safety.original_integrity":           "یکپارچگی پایگاه داده اصلی تأیید نشد",
 		"backup.safety.missing_key":                  "آرشیو کلید اصلی ندارد؛ اسرار مبدأ ممکن است قابل بازیابی نباشند",
 		"backup.safety.config_failed":                "آماده‌سازی تنظیمات شروع آرشیوشده برای بازبینی ممکن نشد",

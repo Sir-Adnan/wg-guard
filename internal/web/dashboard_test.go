@@ -123,7 +123,7 @@ func TestDashboardChart(t *testing.T) {
 
 	// A range without data renders the honest empty state (no daily rows).
 	rec = e.get("/dashboard/chart?range=30d", cookie)
-	if !strings.Contains(rec.Body.String(), "در این بازه ترافیکی ثبت نشده است.") {
+	if !strings.Contains(rec.Body.String(), "در این بازه هیچ ترافیکی ثبت نشده است.") {
 		t.Fatal("empty chart state missing")
 	}
 
