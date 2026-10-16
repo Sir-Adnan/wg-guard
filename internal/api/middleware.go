@@ -293,12 +293,12 @@ func (l *rateLimiter) SetLimit(limit int) {
 // allow reports whether the token may proceed; it also returns the window
 // remaining count for the response headers.
 func (l *rateLimiter) allow(tokenID string, now int64) (bool, int, int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.limit <= 0 {
 		return true, l.limit, l.limit
 	}
 	window := now / 60
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	e, ok := l.entries[tokenID]
 	if !ok || e.window != window {
 		if !ok {

@@ -236,15 +236,11 @@ func (s *Server) resolveSubToken(w http.ResponseWriter, r *http.Request) (string
 
 // subRateLimited applies the fixed-window public rate limit (per IP).
 func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
-	ip := clientIP(r)
-	now := time.Now()
-	if s.subRL.blocked(ip, now) {
+	if !s.subRL.allow(clientIP(r), time.Now()) {
 		w.Header().Set("Retry-After", "60")
 		s.surfaceError(w, r, http.StatusTooManyRequests, "publicsub.rate_limited", "sub")
 		return true
 	}
-	s.subRL.fail(ip, now)
-	s.subRL.trim(now)
 	return false
 }
 

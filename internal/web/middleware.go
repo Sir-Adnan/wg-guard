@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
@@ -336,14 +337,18 @@ func (s *Server) cookieSecure() bool {
 // --- login rate limiter ------------------------------------------------------
 
 // ipLimiter is a fixed-window failure counter per source IP for the login
-// and onboarding forms. Successful logins do not count. The map is bounded:
-// window resets drop counters, and a hard cap resets the whole table rather
-// than growing without limit under a spoofed-source flood (proxies forward
-// real IPs; direct deployments see kernel source addresses).
+// and onboarding forms (and a request counter for the public /sub/ surface).
+// Successful logins do not count. Handlers call it concurrently, so every
+// access to the map holds mu. The map is bounded: expired windows are swept
+// at most once per window, and a hard cap resets the whole table rather than
+// growing without limit under a spoofed-source flood (proxies forward real
+// IPs; direct deployments see kernel source addresses).
 type ipLimiter struct {
-	m      map[string]*ipWindow
-	window time.Duration
-	max    int
+	mu        sync.Mutex
+	m         map[string]*ipWindow
+	window    time.Duration
+	max       int
+	nextSweep time.Time
 }
 
 type ipWindow struct {
@@ -351,8 +356,11 @@ type ipWindow struct {
 	resetAt  time.Time
 }
 
+// ipLimiterCap bounds the tracked sources; past it the table is reset.
+const ipLimiterCap = 10_000
+
 func newIPLimiter() *ipLimiter {
-	return &ipLimiter{m: make(map[string]*ipWindow), window: time.Minute, max: 8}
+	return newRateLimiter(time.Minute, 8)
 }
 
 // newRateLimiter is the generic fixed-window limiter (public surfaces).
@@ -363,6 +371,30 @@ func newRateLimiter(window time.Duration, max int) *ipLimiter {
 // blocked reports whether ip has exceeded the failure budget in the current
 // window; a failed attempt registers via fail().
 func (l *ipLimiter) blocked(ip string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.blockedLocked(ip, now)
+}
+
+func (l *ipLimiter) fail(ip string, now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.failLocked(ip, now)
+}
+
+// allow atomically checks the budget and, when not blocked, counts this
+// request against it (request-rate use on the public surface).
+func (l *ipLimiter) allow(ip string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.blockedLocked(ip, now) {
+		return false
+	}
+	l.failLocked(ip, now)
+	return true
+}
+
+func (l *ipLimiter) blockedLocked(ip string, now time.Time) bool {
 	w, ok := l.m[ip]
 	if !ok || now.After(w.resetAt) {
 		return false
@@ -370,8 +402,9 @@ func (l *ipLimiter) blocked(ip string, now time.Time) bool {
 	return w.failures >= l.max
 }
 
-func (l *ipLimiter) fail(ip string, now time.Time) {
-	if len(l.m) > 10_000 {
+func (l *ipLimiter) failLocked(ip string, now time.Time) {
+	l.sweepLocked(now)
+	if len(l.m) > ipLimiterCap {
 		l.m = make(map[string]*ipWindow)
 	}
 	w, ok := l.m[ip]
@@ -382,8 +415,13 @@ func (l *ipLimiter) fail(ip string, now time.Time) {
 	w.failures++
 }
 
-// trim drops expired windows (housekeeping; called opportunistically).
-func (l *ipLimiter) trim(now time.Time) {
+// sweepLocked drops expired windows. It runs at most once per window, so the
+// O(n) scan is amortized instead of paid on every request.
+func (l *ipLimiter) sweepLocked(now time.Time) {
+	if now.Before(l.nextSweep) {
+		return
+	}
+	l.nextSweep = now.Add(l.window)
 	for ip, w := range l.m {
 		if now.After(w.resetAt) {
 			delete(l.m, ip)
