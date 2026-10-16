@@ -271,6 +271,12 @@ type cycleUser struct {
 
 	deltaRX, deltaTX int64
 	transition       string // "", "activated", "quota_tripped"
+	// activityObserved is set only when this cycle's dump shows a handshake
+	// newer than the stored last_activity_at. activity alone is preloaded
+	// from the row, so it cannot tell fresh activity from history: keying
+	// writes or activation off it would rewrite every user that ever
+	// connected each cycle and activate on stale handshakes.
+	activityObserved bool
 }
 
 // cycleTx loads the device/user rows inside the write transaction (serialized
@@ -341,6 +347,7 @@ func (s *Service) cycleTx(ctx context.Context, tx *sql.Tx, observed map[string]t
 			h := p.LastHandshake
 			if u.activity == nil || h.After(*u.activity) {
 				u.activity = &h
+				u.activityObserved = true
 			}
 		}
 	}
@@ -354,9 +361,10 @@ func (s *Service) cycleTx(ctx context.Context, tx *sql.Tx, observed map[string]t
 	defer userStmt.Close()
 
 	for _, u := range users {
-		// 1. First-connection activation: the first observed handshake starts
-		// the subscription (idempotent — only when never activated).
-		if !u.deleted && u.status == domain.UserWaitingFirstConnection && u.activity != nil {
+		// 1. First-connection activation: the first handshake observed by a
+		// cycle starts the subscription (idempotent — only when never
+		// activated; stored activity from before the wait does not count).
+		if !u.deleted && u.status == domain.UserWaitingFirstConnection && u.activityObserved {
 			at := now
 			u.status = domain.UserActive
 			u.activatedAt = &at
@@ -402,8 +410,8 @@ func (s *Service) cycleTx(ctx context.Context, tx *sql.Tx, observed map[string]t
 			}
 		}
 
-		if u.deltaRX == 0 && u.deltaTX == 0 && u.transition == "" && u.activity == nil {
-			continue // untouched user: no write
+		if u.deltaRX == 0 && u.deltaTX == 0 && u.transition == "" && !u.activityObserved {
+			continue // untouched user: no write (last_activity_at only advances)
 		}
 		var reason any
 		if u.reason != nil {

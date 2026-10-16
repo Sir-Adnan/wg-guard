@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Stop the accounting cycle from rewriting every user who ever connected. Stored
+  `last_activity_at` counted as a change, so idle, expired and soft-deleted users with a past
+  handshake had their row and `updated_at` rewritten every cycle (default 30 s). That defeated
+  cleanup's "Last record update" date basis for those users. A user row is now written only for
+  traffic, a lifecycle transition or a newer observed handshake. First-connection activation
+  likewise requires a handshake newer than the stored activity.
+
 ## [v0.1.11] — 2026-10-08
 
 - Make Doctor compare backend peer keys with reconciliation's eligibility rule; expired,
