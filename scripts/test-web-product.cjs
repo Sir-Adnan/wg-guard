@@ -210,7 +210,7 @@ let stage = 'launch';
       }
       await goto('/tokens');
       stage = 'user workspace token shortcuts';
-      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('.page-actions a[href="#token-create"]').click();
       await page.locator('#token-create [data-scope-preset="operator"]').click();
       assert(await page.locator('#token-create input[value="purchases.create"]').isChecked() &&
         await page.locator('#token-create input[value="next_plans.write"]').isChecked() &&
@@ -222,7 +222,7 @@ let stage = 'launch';
         'Full access selects exact scopes without future-widening wildcards');
       await goto('/resellers');
       stage = 'user workspace reseller shortcuts';
-      await page.locator('.ops-hero a[href="#reseller-create"]').click();
+      await page.locator('.page-actions a[href="#reseller-create"]').click();
       await page.locator('#reseller-create [data-scope-preset="operator"]').click();
       assert(await page.locator('#reseller-create input[value="purchases.create"]').isChecked() &&
         !await page.locator('#reseller-create input[value="webhooks.write"]').isChecked(),
@@ -958,7 +958,7 @@ let stage = 'launch';
     if (['10.4', '10.4-admin', 'final'].includes(suite)) {
       stage = 'administrator create and wildcard permissions';
       await goto('/admins');
-      await page.locator('.ops-hero a[href="#admin-create"]').click();
+      await page.locator('.page-actions a[href="#admin-create"]').click();
       assert(await page.locator('#admin-create').evaluate(el => el.open), 'administrator header action opens its form');
       await page.locator('#ops-username').fill('browser-admin');
       await page.locator('#ops-password').fill(require('node:crypto').randomBytes(24).toString('hex'));
@@ -970,7 +970,7 @@ let stage = 'launch';
       await family.locator('summary').click();
       await family.locator('input[value="users.*"]').check();
       await submit(page.locator('form[action="/admins/create"]'));
-      await page.locator('.admin-table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').click();
+      await page.locator('.table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').first().click();
       const adminEdit = new URL(page.url()).pathname + new URL(page.url()).search;
       assert(await page.locator('input[value="users.*"]').isChecked(), 'stored family wildcard remains selected');
       await submit(page.locator('form[action$="/permissions"]'));
@@ -979,7 +979,7 @@ let stage = 'launch';
       adminRoutes.push(adminEdit);
       stage = 'token invalid expiry and one-time result';
       await goto('/tokens');
-      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('.page-actions a[href="#token-create"]').click();
       assert(await page.locator('#token-create').evaluate(el => el.open), 'token header action opens its form');
       await page.locator('#ops-name').fill('Browser token');
       await page.locator('#ops-expires_days').fill('invalid-days');
@@ -999,7 +999,7 @@ let stage = 'launch';
       assert(await page.locator('#token-once').count() === 0, 'token secret is not redisplayed');
       stage = 'webhook create and disabled edit';
       await goto('/webhooks');
-      await page.locator('.ops-hero a[href="#webhook-create"]').click();
+      await page.locator('.page-actions a[href="#webhook-create"]').click();
       assert(await page.locator('#webhook-create').evaluate(el => el.open), 'webhook header action opens its form');
       await page.locator('#ops-url').fill('https://example.com/events');
       await page.locator('#webhook-create [data-event-preset="all"]').click();
@@ -1010,7 +1010,7 @@ let stage = 'launch';
       await submit(page.locator('form[action="/webhooks/create"]'));
       assert((await page.locator('#hook-secret').inputValue()).length > 0, 'webhook signing secret appears once');
       await goto('/webhooks');
-      const hookLink = page.locator('.webhook-card a[href^="/webhooks/"]').first();
+      const hookLink = page.locator('.table a[href^="/webhooks/"]').first();
       const hookPath = await hookLink.getAttribute('href');
       await hookLink.click();
       await page.locator('input[name="enabled"]').uncheck();

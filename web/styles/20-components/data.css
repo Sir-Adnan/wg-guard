@@ -38,6 +38,7 @@
     .table--cards tr { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2) var(--s-4); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); position: relative; }
     .table--cards tbody tr:last-child { border-bottom: 0; }
     .table--cards td { display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; min-width: 0; }
+    .table--cards td.col-num { text-align: start; }
     .table--cards td[data-label]::before { content: attr(data-label); font-size: var(--text-2xs); color: var(--muted-foreground); font-weight: 500; text-transform: none; }
     .table--cards td.cell-primary { grid-column: 1 / -1; padding-inline-end: 3rem; }
     .table--cards td.cell-primary::before { display: none; }
@@ -125,7 +126,8 @@
   }
   .collapsible > summary::after, .accordion summary::after {
     content: ""; width: .5rem; height: .5rem; flex-shrink: 0; margin-inline-start: auto;
-    border-inline-end: 1.5px solid var(--muted-foreground); border-bottom: 1.5px solid var(--muted-foreground);
+    /* Physical borders: the rotated corner must point down in both directions. */
+    border-right: 1.5px solid var(--muted-foreground); border-bottom: 1.5px solid var(--muted-foreground);
     transform: rotate(45deg) translateY(-2px); transition: transform var(--dur) var(--ease);
   }
   details[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }

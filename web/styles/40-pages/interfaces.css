@@ -18,7 +18,6 @@
   .obf-switch { align-items: center; white-space: nowrap; }
   .obf-presets > .choice-card { text-align: start; width: 100%; }
   .obf-presets > .choice-card .icon { color: var(--muted-foreground); }
-  .obf-presets > .choice-card[aria-pressed="true"] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
   .obf-presets > .choice-card[aria-pressed="true"] .icon { color: var(--foreground); }
   .obf-presets > .choice-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
   [data-obf-box][aria-busy="true"] .obf-presets { opacity: .65; cursor: progress; }
@@ -39,5 +38,4 @@
 }
 @layer pages {
   /* Phone cards stack label over value; numeric columns stay start-aligned there. */
-  @media (max-width: 800px) { :is(.ifaces-table, .plans-table) td.col-num { text-align: start; } }
 }
