@@ -21,7 +21,7 @@
     <div class="field-grid field-grid--2" data-pool-picker>
       <div class="field">
         <label class="field-label" for="pool-size">{{.T "ifaces.editor.size"}}</label>
-        <select class="select" id="pool-size" data-pool-size>{{range $size:=list "24" "23" "22" "21" "20"}}<option value="{{$size}}">/{{$size}}</option>{{end}}</select>
+        <select class="select" id="pool-size" data-pool-size>{{range $size:=list "24" "23" "22" "21" "20"}}<option value="{{$size}}">&#8206;/{{$size}}</option>{{end}}</select>
       </div>
       <div class="field">
         <label class="field-label" for="pool-preset">{{.T "ifaces.editor.preset"}}</label>

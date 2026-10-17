@@ -20,12 +20,12 @@
   .settings-meta-values bdi { color: var(--foreground); }
   .settings-field.is-invalid { background: color-mix(in srgb, var(--destructive) 4%, transparent); }
 
-  .settings-advanced { border-top: 1px solid var(--border); }
-  .settings-advanced > summary { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--card-p); font-size: var(--text-sm); font-weight: 500; color: var(--muted-foreground); }
-  .settings-advanced > summary:hover { color: var(--foreground); background: color-mix(in srgb, var(--muted) 50%, transparent); }
-  .settings-advanced > summary:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
-  .settings-advanced > summary::after { content: ""; width: .45rem; height: .45rem; margin-inline-start: auto; border-inline-end: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform var(--dur) var(--ease); }
-  .settings-advanced[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+  .settings-advanced, .card-disclosure { border-top: 1px solid var(--border); }
+  .settings-advanced > summary, .card-disclosure > summary { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--card-p); font-size: var(--text-sm); font-weight: 500; color: var(--muted-foreground); }
+  .settings-advanced > summary:hover, .card-disclosure > summary:hover { color: var(--foreground); background: color-mix(in srgb, var(--muted) 50%, transparent); }
+  .settings-advanced > summary:focus-visible, .card-disclosure > summary:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+  .settings-advanced > summary::after, .card-disclosure > summary::after { content: ""; width: .45rem; height: .45rem; margin-inline-start: auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); /* physical: the chevron is a rotated glyph, identical in RTL */ transition: transform var(--dur) var(--ease); }
+  .settings-advanced[open] > summary::after, .card-disclosure[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
   .settings-advanced-body > .setting-row:first-child { border-top: 1px solid var(--border); }
 
   .settings-section-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; padding: var(--s-3) var(--card-p); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--muted) 55%, transparent); font-size: var(--text-sm); color: var(--muted-foreground); }
@@ -118,4 +118,29 @@
   .hook-stats { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); font-size: var(--text-xs); color: var(--muted-foreground); }
   .hook-stats > span { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
   .hook-stats .dot { width: .375rem; height: .375rem; }
+}
+
+@layer pages {
+  .ops-time { white-space: nowrap; }
+  @media (max-width: 800px) { .ops-time { white-space: normal; overflow-wrap: anywhere; } }
+}
+
+@layer pages {
+  .card-disclosure-body { padding: var(--s-1) var(--card-p) var(--card-p); }
+  .card-disclosure > summary { color: var(--foreground); }
+  .reseller-card > .reseller-scopes { padding-block: var(--s-3); }
+  .reseller-card .scope-chips { max-width: none; }
+  .reseller-card .card-description { overflow-wrap: anywhere; }
+}
+
+@layer pages {
+  .reseller-carry { align-self: end; min-height: var(--control-h); align-items: center; }
+}
+
+@layer pages {
+  /* Behaviour/test hooks that also carry layout. */
+  .domain-fieldset { min-width: 0; }
+  .domain-operation { min-width: 0; }
+  .settings-secret-clear { width: fit-content; }
+  .ops-scope-group { min-width: 0; }
 }

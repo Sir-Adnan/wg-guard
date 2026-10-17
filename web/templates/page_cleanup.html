@@ -54,7 +54,7 @@
         {{if eq (printf "%v" .Admin.Role) "owner"}}<form method="post" action="/cleanup/optimize" data-confirm data-confirm-title="{{.T "cleanup.compact"}}" data-confirm-message="{{.T "cleanup.compact_hint"}}" data-confirm-label="{{.T "cleanup.compact"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="compact" value="1"><button class="btn btn--ghost btn--sm" type="submit" data-tip="{{.T "cleanup.compact_hint"}}">{{.IconS "database"}}{{.T "cleanup.compact"}}</button></form>{{end}}
       </div>
     </section>
-    <div class="alert">{{.IconS "info"}}<p class="alert-title">{{.T "cleanup.guidance"}}</p><div class="alert-description stack-sm"><p>{{.T "cleanup.guidance_text"}}</p><a class="btn btn--link text-sm" href="/users">{{.T "cleanup.reset_link"}}{{.IconS "arrow-right"}}</a></div></div>
+    <div class="alert">{{.IconS "info"}}<p class="alert-title">{{.T "cleanup.guidance"}}</p><div class="alert-description stack-sm"><p>{{.T "cleanup.guidance_text"}}</p><div><a class="btn btn--link text-sm" href="/users">{{.T "cleanup.reset_link"}}{{.IconS "arrow-right"}}</a></div></div></div>
   </aside>
 </div>
 {{with .Data.Preview}}

@@ -10,6 +10,23 @@
 
   const { openModal, toast, displayDigits } = await import(document.querySelector('meta[name="ui-module"]').content);
 
+  const userFilterMore = $('[data-user-filter-more]');
+  if (userFilterMore) {
+    const compactFilters = matchMedia('(max-width: 800px)');
+    const hasActiveFilter = () => {
+      const form = userFilterMore.closest('form');
+      return Boolean(form?.elements.q?.value.trim()) ||
+        !['', 'all'].includes(form?.elements.status?.value) ||
+        !['', 'created_new'].includes(form?.elements.sort?.value);
+    };
+    const syncFilterDisclosure = () => {
+      if (!compactFilters.matches) userFilterMore.open = true;
+      else if (!hasActiveFilter()) userFilterMore.open = false;
+    };
+    syncFilterDisclosure();
+    compactFilters.addEventListener('change', syncFilterDisclosure);
+  }
+
   /* ---------- user template or manual subscription terms ---------- */
   $$('[data-user-template]').forEach(select => {
     const form = select.closest('form');

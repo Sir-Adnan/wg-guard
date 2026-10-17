@@ -597,8 +597,8 @@ let stage = 'launch';
       await goto('/interfaces/new');
       const balancedProfile = page.locator('[data-generate-obf="balanced"]');
       await balancedProfile.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
-      const switchGeometry = await page.locator('.switch-card').evaluate(el => {
-        const track = el.querySelector('.switch-track').getBoundingClientRect();
+      const switchGeometry = await page.locator('.obf-switch').evaluate(el => {
+        const track = el.querySelector('.switch').getBoundingClientRect();
         const label = el.querySelector('span:last-child').getBoundingClientRect();
         return { track, label, overlap: !(track.right <= label.left || label.right <= track.left) };
       });

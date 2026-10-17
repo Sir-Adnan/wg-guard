@@ -171,14 +171,14 @@
 {{end}}
 
 {{define "domain-state-badge"}}
-{{$s := printf "%s" .state}}<span class="badge {{if or (eq $s "active") (eq $s "automatic")}}badge--success{{else if eq $s "expiring"}}badge--warning{{else if or (eq $s "external") (eq $s "configured")}}badge--info{{else}}badge--muted{{end}}"><span class="dot"></span>{{.v.T (printf "domains.state.%s" $s)}}</span>
+{{$s := printf "%s" .state}}{{$tone := "badge--muted"}}{{if or (eq $s "active") (eq $s "automatic")}}{{$tone = "badge--success"}}{{else if eq $s "expiring"}}{{$tone = "badge--warning"}}{{else if or (eq $s "external") (eq $s "configured")}}{{$tone = "badge--info"}}{{end}}<span class="badge {{$tone}}"><span class="dot"></span>{{.v.T (printf "domains.state.%s" $s)}}</span>
 {{end}}
 
 {{define "domain-status"}}
 <section class="card domain-operation" id="domain-status" aria-live="polite" aria-labelledby="domain-status-title"{{if .Data.Active}} hx-get="/settings/domains/status?id={{.Data.Status.ID}}&amp;state={{.Data.Status.State}}&amp;stage={{.Data.Status.Stage}}" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
   <div class="card-header">
     <h2 class="card-title" id="domain-status-title">{{.IconS "activity"}}{{.T "domains.operation"}}</h2>
-    {{if .Data.Status.State}}{{$st := printf "%s" .Data.Status.State}}<div class="card-action"><span class="badge {{if eq $st "succeeded"}}badge--success{{else if eq $st "failed"}}badge--destructive{{else if or (eq $st "queued") (eq $st "running")}}badge--info{{else}}badge--muted{{end}}"><span class="dot"></span>{{.T (printf "domains.operation.%s" .Data.Status.State)}}</span></div>{{end}}
+    {{if .Data.Status.State}}{{$st := printf "%s" .Data.Status.State}}{{$tone := "badge--muted"}}{{if eq $st "succeeded"}}{{$tone = "badge--success"}}{{else if eq $st "failed"}}{{$tone = "badge--destructive"}}{{else if or (eq $st "queued") (eq $st "running")}}{{$tone = "badge--info"}}{{end}}<div class="card-action"><span class="badge {{$tone}}"><span class="dot"></span>{{.T (printf "domains.operation.%s" .Data.Status.State)}}</span></div>{{end}}
     <p class="card-description">{{if .Data.Status.ID}}{{.T (printf "domains.stage.%s" .Data.Status.Stage)}}{{else}}{{.T "domains.operation.idle"}}{{end}}</p>
   </div>
   <div class="card-content stack-sm">

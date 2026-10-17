@@ -19,7 +19,7 @@
   {{template "ops_token_table" (dict "v" . "tokens" .Data.Tokens "base" .Data.Base "lastUsed" false)}}
 </section>
 {{else}}
-<div class="empty empty--bordered"><span class="empty-icon">{{.Icon "key"}}</span><h2 class="empty-title">{{.T "tokens.empty_title"}}</h2><p class="empty-description">{{.T "resellers.token_intro"}}</p><div class="empty-actions"><a class="btn btn--primary btn--sm" href="#reseller-token-create" data-open-disclosure="reseller-token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div></div>
+<div class="empty empty--bordered"><span class="empty-icon">{{.Icon "key"}}</span><h2 class="empty-title">{{.T "tokens.empty_title"}}</h2><p class="empty-description">{{.T "resellers.token_intro"}} <bdi class="tech">{{.Data.Account.Slug}}</bdi></p><div class="empty-actions"><a class="btn btn--primary btn--sm" href="#reseller-token-create" data-open-disclosure="reseller-token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div></div>
 {{end}}
 
 <details class="collapsible" id="reseller-token-create"{{if .Data.Form.Error}} open{{end}}>

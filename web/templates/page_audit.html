@@ -20,7 +20,7 @@
   <div class="section-header"><div class="section-heading"><h2 class="section-title" id="audit-results-title">{{.T "audit.events"}}<span class="badge badge--outline num">{{$.N (i64u (len .Data.Records))}}</span></h2><p class="section-description">{{.T "audit.events_hint"}}</p></div></div>
   <div class="audit-log">
     <div class="audit-log-head" aria-hidden="true"><span>{{.T "audit.col_time"}}</span><span>{{.T "audit.col_action"}}</span><span>{{.T "audit.col_actor"}}</span><span>{{.T "audit.col_target"}}</span><span></span></div>
-    <ol class="audit-log-list">
+    <ol>
       {{range .Data.Records}}
       <li class="audit-entry">
         <details>
@@ -33,12 +33,12 @@
           </summary>
           <div class="audit-entry-detail">
             <dl class="dl audit-entry-facts">
-              <dt>{{$.T "audit.col_id"}}</dt><dd class="tech">#{{.ID}}</dd>
-              <dt>{{$.T "audit.col_action"}}</dt><dd class="tech">{{.Action}}</dd>
+              <dt>{{$.T "audit.col_id"}}</dt><dd><span class="tech">#{{.ID}}</span></dd>
+              <dt>{{$.T "audit.col_action"}}</dt><dd><span class="tech">{{.Action}}</span></dd>
               {{if .ActorID}}<dt>{{$.T "audit.col_actor"}}</dt><dd class="cluster"><span class="tech break" id="audit-actor-{{.ID}}">{{.ActorID}}</span><button type="button" class="btn btn--ghost btn--icon btn--xs" data-copy="#audit-actor-{{.ID}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{$.T "audit.col_actor"}}">{{$.IconS "copy"}}</button></dd>{{end}}
               {{if .Target}}<dt>{{$.T "audit.col_target"}}</dt><dd class="cluster"><span class="break" id="audit-target-{{.ID}}"><bdi>{{.Target}}</bdi></span><button type="button" class="btn btn--ghost btn--icon btn--xs" data-copy="#audit-target-{{.ID}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{$.T "audit.col_target"}}">{{$.IconS "copy"}}</button></dd>{{end}}
-              {{if .SourceIP}}<dt>{{$.T "ops.source_ip"}}</dt><dd class="tech">{{.SourceIP}}</dd>{{end}}
-              {{if .RequestID}}<dt>{{$.T "audit.col_request"}}</dt><dd class="tech break">{{.RequestID}}</dd>{{end}}
+              {{if .SourceIP}}<dt>{{$.T "ops.source_ip"}}</dt><dd><span class="tech">{{.SourceIP}}</span></dd>{{end}}
+              {{if .RequestID}}<dt>{{$.T "audit.col_request"}}</dt><dd><span class="tech break">{{.RequestID}}</span></dd>{{end}}
             </dl>
             {{if and .Metadata (ne .Metadata "{}")}}<pre class="code-block code-block--wrap audit-json">{{.Metadata}}</pre>{{end}}
           </div>

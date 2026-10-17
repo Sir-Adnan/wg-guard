@@ -62,7 +62,7 @@ const seed = JSON.parse(fs.readFileSync(0, 'utf8'));
    await page.locator('#cleanup-before').fill('');
    await page.locator('form[action="/cleanup/preview"] button[type=submit]').click();
    await page.waitForURL(/\/cleanup\/preview$/);
-   await page.locator('.cleanup-preview').waitFor();
+   await page.locator('#cleanup-preview').waitFor();
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`preview overflow ${lang}/${theme}/${width}`);
    await qa.scan(page,`cleanup-preview-${lang}-${theme}-${width}`);
    if (process.env.WG_UI_SCREENSHOT_DIR) {

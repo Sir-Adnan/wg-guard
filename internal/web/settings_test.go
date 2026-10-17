@@ -257,11 +257,11 @@ func TestSettingsValidationRedisplayPreservesInputAndSavedMetadata(t *testing.T)
 	for _, want := range []string{
 		`name="mtu" type="text" inputmode="numeric" value="twelve-eighty"`,
 		`name="retention" type="text" inputmode="numeric" value="14"`,
-		`<span class="badge ltr-data">dev</span>`,
-		`<dd class="ltr-data">fake</dd>`,
+		`<span class="badge badge--outline tech">dev</span>`,
+		`<span class="tech">fake</span>`,
 		`value="remove"`,
 		`>awg0</option>`,
-		`badge badge--ok`,
+		`badge badge--success`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("validation redisplay missing %q", want)
@@ -366,10 +366,10 @@ func TestSettingsWriteFailureRedisplaysSafeSubmittedState(t *testing.T) {
 		"Something went wrong. Please try again.",
 		`name="node_id" value="submitted-node"`,
 		`name="mtu" type="text" inputmode="numeric" value="1280"`,
-		`<span class="badge ltr-data">dev</span>`,
-		`<dd class="ltr-data">fake</dd>`,
+		`<span class="badge badge--outline tech">dev</span>`,
+		`<span class="tech">fake</span>`,
 		`>awg0</option>`,
-		`badge badge--ok`,
+		`badge badge--success`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("write-failure redisplay missing %q", want)

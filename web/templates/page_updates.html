@@ -11,14 +11,14 @@
       <a class="btn btn--sm" href="/updates?tab={{.Data.Tab}}&amp;refresh=1">{{.IconS "refresh-cw"}}{{.T "updates.check_versions"}}</a>
     </div>
   </header>
-  {{if .Data.Error}}<div class="alert alert--destructive" role="alert" tabindex="-1">{{.IconS "alert-circle"}}<p class="alert-title">{{.Data.Error}}</p></div>{{end}}
-  {{if not .Data.Available}}<div class="alert alert--warning" role="status">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "updates.broker_unavailable"}}</p><div class="alert-description stack-xs"><p>{{.T "updates.broker_hint"}}</p><code class="code">sudo wg-guard update-broker-install</code></div></div>{{else if not .Data.Enhanced}}<div class="alert alert--warning" role="status">{{.IconS "info"}}<p class="alert-title">{{.T "updates.enhanced_hint"}}</p></div>{{end}}
   <nav class="tabs" id="maintenance-tabs" aria-label="{{.T "updates.sections"}}">
     <a class="tab" href="/updates?tab=overview"{{if eq .Data.Tab "overview"}} aria-current="page"{{end}}>{{.IconS "layout-dashboard"}}{{.T "updates.tab.overview"}}</a>
     <a class="tab" href="/updates?tab=versions"{{if eq .Data.Tab "versions"}} aria-current="page"{{end}}>{{.IconS "layers"}}{{.T "updates.tab.versions"}}{{if .Data.NewVersion}}<span class="dot dot--info" aria-hidden="true"></span><span class="sr-only">{{.T "updates.available"}}</span>{{end}}</a>
     <a class="tab" href="/updates?tab=operations"{{if eq .Data.Tab "operations"}} aria-current="page"{{end}}>{{.IconS "clock"}}{{.T "updates.tab.operations"}}</a>
     <a class="tab" href="/updates?tab=recovery"{{if eq .Data.Tab "recovery"}} aria-current="page"{{end}}>{{.IconS "shield"}}{{.T "updates.tab.recovery"}}</a>
   </nav>
+  {{if .Data.Error}}<div class="alert alert--destructive" role="alert" tabindex="-1">{{.IconS "alert-circle"}}<p class="alert-title">{{.Data.Error}}</p></div>{{end}}
+  {{if not .Data.Available}}<div class="alert alert--warning" role="status">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "updates.broker_unavailable"}}</p><div class="alert-description stack-xs"><p>{{.T "updates.broker_hint"}}</p><code class="code">sudo wg-guard update-broker-install</code></div></div>{{else if not .Data.Enhanced}}<div class="alert alert--warning" role="status">{{.IconS "info"}}<p class="alert-title">{{.T "updates.enhanced_hint"}}</p></div>{{end}}
   {{if or .Data.Active (eq .Data.Tab "operations")}}{{template "update_status" .}}{{end}}
   {{if eq .Data.Tab "overview"}}{{template "maintenance-overview" .}}{{end}}
   {{if eq .Data.Tab "versions"}}{{template "maintenance-versions" .}}{{end}}

@@ -35,12 +35,12 @@
       <details class="collapsible">
         <summary>{{.T "updates.build_details"}}</summary>
         <div class="collapsible-content"><dl class="dl">
-          <dt>{{.T "updates.module_version"}}</dt><dd class="tech">{{if .Data.Inventory.ModuleVersion}}{{.Data.Inventory.ModuleVersion}}{{else}}—{{end}}</dd>
-          <dt class="tech">DKMS</dt><dd class="tech">{{if .Data.Inventory.DKMS}}{{.Data.Inventory.DKMS}}{{else}}—{{end}}</dd>
-          <dt>{{.T "updates.tools_location"}}</dt><dd class="tech">{{.Data.Inventory.ToolsLocation}}</dd>
-          <dt>{{.T "updates.manager_commit"}}</dt><dd class="tech break">{{.Data.Inventory.ManagerCommit}}</dd>
-          <dt>{{.T "updates.userspace_commit"}}</dt><dd class="tech break">{{.Data.Inventory.UserspaceCommit}}</dd>
-          <dt>{{.T "updates.free_space"}}</dt><dd class="num">{{.B (i64u .Data.Inventory.DiskFreeBytes)}}</dd>
+          <dt>{{.T "updates.module_version"}}</dt><dd><span class="tech">{{if .Data.Inventory.ModuleVersion}}{{.Data.Inventory.ModuleVersion}}{{else}}—{{end}}</span></dd>
+          <dt class="tech">DKMS</dt><dd><span class="tech">{{if .Data.Inventory.DKMS}}{{.Data.Inventory.DKMS}}{{else}}—{{end}}</span></dd>
+          <dt>{{.T "updates.tools_location"}}</dt><dd><span class="tech">{{.Data.Inventory.ToolsLocation}}</span></dd>
+          <dt>{{.T "updates.manager_commit"}}</dt><dd><span class="tech break">{{.Data.Inventory.ManagerCommit}}</span></dd>
+          <dt>{{.T "updates.userspace_commit"}}</dt><dd><span class="tech break">{{.Data.Inventory.UserspaceCommit}}</span></dd>
+          <dt>{{.T "updates.free_space"}}</dt><dd><span class="num">{{.B (i64u .Data.Inventory.DiskFreeBytes)}}</span></dd>
         </dl></div>
       </details>
       {{if .Data.InventoryStale}}<div class="alert alert--warning">{{.IconS "clock"}}<p class="alert-title">{{.T "updates.inventory_stale"}}</p></div>{{end}}

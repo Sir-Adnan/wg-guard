@@ -6,13 +6,13 @@
     <div class="card-action">{{if .Data.Verification}}<span class="badge badge--success"><span class="dot"></span>{{.T "backups.verified"}}</span>{{else}}<span class="badge badge--warning"><span class="dot"></span>{{.T "backups.review_only"}}</span>{{end}}</div>
   </div>
   <div class="card-content stack">
-    <p class="text-sm text-muted">{{.T "backups.review_verified_at"}} <span class="num">{{.DateTime .Data.Review.VerifiedAt}} UTC</span></p>
+    <p class="text-sm text-muted">{{.T "backups.review_verified_at"}} <span class="num ltr">{{.DateTime .Data.Review.VerifiedAt}}</span></p>
     <div class="grid-2 ops-align-start">
       <div class="panel stack-sm">
         <h3 class="ops-panel-title">{{.T "backups.source_title"}}</h3>
         <div class="kv">
           <div class="kv-row"><span class="kv-label">{{.T "backups.review_archive"}}</span><span class="kv-value tech">{{.Data.Review.Archive}}</span></div>
-          <div class="kv-row"><span class="kv-label">{{.T "backups.review_created"}}</span><span class="kv-value">{{if not .Data.Review.CreatedAt.IsZero}}<span class="num">{{.DateTime .Data.Review.CreatedAt}} UTC</span>{{else}}—{{end}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{.T "backups.review_created"}}</span><span class="kv-value">{{if not .Data.Review.CreatedAt.IsZero}}<span class="num ltr">{{.DateTime .Data.Review.CreatedAt}} UTC</span>{{else}}—{{end}}</span></div>
           <div class="kv-row"><span class="kv-label">{{.T "backups.review_source"}}</span><span class="kv-value tech">{{.Data.Review.Hostname}} · {{.Data.Review.AppVersion}}</span></div>
           <div class="kv-row"><span class="kv-label">{{.T "backups.review_node"}}</span><span class="kv-value tech">{{if .Data.Review.NodeID}}{{.Data.Review.NodeID}}{{else}}—{{end}}</span></div>
           <div class="kv-row"><span class="kv-label">{{.T "backups.review_endpoint"}}</span><span class="kv-value tech">{{if .Data.Review.Endpoint}}{{.Data.Review.Endpoint}}{{else}}—{{end}}</span></div>
@@ -29,10 +29,10 @@
       <div class="collapsible-content">
         <dl class="dl">
           <dt>{{.T "backups.fingerprint"}}</dt><dd><code class="code" data-fingerprint>{{.Data.Review.ArchiveSHA256}}</code></dd>
-          <dt>{{.T "backups.review_secrets"}}</dt><dd class="num">{{.N (i64u .Data.Review.Inventory.EncryptedValues)}}</dd>
+          <dt>{{.T "backups.review_secrets"}}</dt><dd><span class="num">{{.N (i64u .Data.Review.Inventory.EncryptedValues)}}</span></dd>
           <dt>{{.T "backups.review_backends"}}</dt><dd><span class="num ltr">{{.N (i64u .Data.Review.Inventory.KernelInterfaces)}} / {{.N (i64u .Data.Review.Inventory.UserspaceInterfaces)}}</span></dd>
-          {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd class="tech">{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</dd>{{end}}
-          {{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd class="tech">{{.Name}} :{{.Port}} {{.Subnet}}{{if .ExtraPools}}, {{.ExtraPools}}{{end}}</dd>{{end}}
+          {{if .Data.Review.TLSMode}}<dt>{{.T "backups.review_tls"}}</dt><dd><span class="tech">{{.Data.Review.TLSMode}} · {{.Data.Review.Listen}}</span></dd>{{end}}
+          {{range .Data.Review.Interfaces}}<dt>{{$.T "backups.review_iface"}}</dt><dd><span class="tech">{{.Name}} :{{.Port}} {{.Subnet}}{{if .ExtraPools}}, {{.ExtraPools}}{{end}}</span></dd>{{end}}
         </dl>
       </div>
     </details>

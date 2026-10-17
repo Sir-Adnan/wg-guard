@@ -37,3 +37,7 @@
   /* Three section tabs fit a 320px phone once their icons are dropped. */
   @media (max-width: 480px) { .iface-form .tabs .tab > .icon { display: none; } }
 }
+@layer pages {
+  /* Phone cards stack label over value; numeric columns stay start-aligned there. */
+  @media (max-width: 800px) { :is(.ifaces-table, .plans-table) td.col-num { text-align: start; } }
+}

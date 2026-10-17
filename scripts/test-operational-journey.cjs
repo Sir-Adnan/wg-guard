@@ -14,7 +14,7 @@ const assert = (ok,message) => {if(!ok) throw new Error(message);};
       for(const route of ['/updates?tab=operations','/backups','/settings/domains']){
         stage=`${engine} ${lang} ${theme} ${width} ${route}`;
         await page.goto(seed.url+route+(route.includes('?')?'&':'?')+`lang=${lang}&theme=${theme}`);
-        const receipts=page.locator('.operation-receipt');assert(await receipts.count()===1,'one shared receipt');
+        const receipts=page.locator('[data-operation-state]');assert(await receipts.count()===1,'one shared receipt');
         const state=await receipts.getAttribute('data-operation-state');
         assert(state===(route.startsWith('/updates')?'queued':route==='/backups'?'awaiting_restart':''),'truthful operation state');
         if(route==='/backups')assert(await page.locator('code').filter({hasText:'sudo wg-guard restart --yes'}).count()===1,'explicit restart action');
@@ -26,7 +26,7 @@ const assert = (ok,message) => {if(!ok) throw new Error(message);};
     }
     for(const lang of ['fa','en']){
       const ctx=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:900}});await ctx.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);
-      const page=await ctx.newPage();for(const route of ['/updates?tab=operations','/backups','/settings/domains']){stage=`${engine} ${lang} native ${route}`;await page.goto(seed.url+route+(route.includes('?')?'&':'?')+`lang=${lang}`);assert(await page.locator('.operation-receipt').isVisible(),'native status/action guidance');}await ctx.close();
+      const page=await ctx.newPage();for(const route of ['/updates?tab=operations','/backups','/settings/domains']){stage=`${engine} ${lang} native ${route}`;await page.goto(seed.url+route+(route.includes('?')?'&':'?')+`lang=${lang}`);assert(await page.locator('[data-operation-state]').isVisible(),'native status/action guidance');}await ctx.close();
     }
     assert(errors.length===0,'no runtime browser errors');
     console.log(`Operational journey passed: ${engine}, 48 fa/en Light/Dark responsive cells, keyboard, queued/awaiting-restart/idle states and 6 native fallback cells`);

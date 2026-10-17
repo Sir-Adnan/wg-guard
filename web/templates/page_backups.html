@@ -12,13 +12,13 @@
   </div>
   {{end}}
 </header>
+{{if .Data.Available}}<nav class="tabs" id="backup-tabs" aria-label="{{.T "backups.sections"}}">{{range $tab := list "archives" "restore" "schedules" "delivery"}}<a class="tab" href="/backups?tab={{$tab}}"{{if eq $.Data.Tab $tab}} aria-current="page"{{end}}>{{$.IconS (index (dict "archives" "archive" "restore" "shield-check" "schedules" "clock" "delivery" "upload") $tab)}}{{$.T (printf "backups.tab.%s" $tab)}}</a>{{end}}</nav>{{end}}
 {{if .Data.Receipt.State}}{{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}{{end}}
 {{if .Data.Error}}<div class="alert alert--destructive" role="alert" tabindex="-1">{{.IconS "alert-circle"}}<p class="alert-title">{{.Data.Error}}</p></div>{{end}}
 {{if not .Data.Review}}{{range .Data.Warnings}}<div class="alert alert--warning">{{$.IconS "alert-triangle"}}<p class="alert-title">{{.}}</p></div>{{end}}{{end}}
 {{if not .Data.Available}}
 <div class="empty empty--bordered"><span class="empty-icon">{{.Icon "database"}}</span><h2 class="empty-title">{{.T "backups.unavailable"}}</h2><p class="empty-description">{{.T "backups.retry_hint"}}</p><div class="empty-actions"><a class="btn btn--sm" href="/backups">{{.IconS "refresh-cw"}}{{.T "common.retry"}}</a></div></div>
 {{else}}
-<nav class="tabs" id="backup-tabs" aria-label="{{.T "backups.sections"}}">{{range $tab := list "archives" "restore" "schedules" "delivery"}}<a class="tab" href="/backups?tab={{$tab}}"{{if eq $.Data.Tab $tab}} aria-current="page"{{end}}>{{$.IconS (index (dict "archives" "archive" "restore" "shield-check" "schedules" "clock" "delivery" "upload") $tab)}}{{$.T (printf "backups.tab.%s" $tab)}}</a>{{end}}</nav>
 {{if not .Data.PendingKnown}}<div class="alert alert--warning">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "backups.pending_unknown"}}</p></div>{{end}}
 {{if not .Data.SettingsKnown}}<div class="alert alert--warning">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "backups.settings_unknown"}}</p></div>{{end}}
 {{if .Data.Pending}}{{template "backup_pending" .}}{{end}}
@@ -55,7 +55,7 @@
 {{end}}
 
 {{define "backup_summary"}}
-<div class="stat-grid">
+<div class="stat-grid backup-summary-grid">
   <div class="stat"><span class="stat-label">{{.IconS "shield-check"}}{{.T "backups.protection"}}</span><span class="stat-value ops-stat-text">{{if not .Data.SettingsKnown}}{{.T "forms.unavailable"}}{{else if .Data.PasswordSet}}{{.T "backups.encrypted"}}{{else}}{{.T "backups.plain"}}{{end}}</span><span class="stat-meta">{{.T "backups.protection_hint"}}</span></div>
   <div class="stat"><span class="stat-label">{{.IconS "archive"}}{{.T "backups.retention_label"}}</span><span class="stat-value num">{{if .Data.SettingsKnown}}{{.N (i64u .Data.Retention)}}{{else}}—{{end}}</span><span class="stat-meta">{{.T "backups.global_retention_hint"}}</span></div>
   <div class="stat" data-telegram-ready="{{.Data.TelegramReady}}"><span class="stat-label">{{.IconS "upload"}}{{.T "backups.telegram_title"}}</span><span class="stat-value ops-stat-text">{{if .Data.TelegramReady}}<span class="badge badge--success"><span class="dot"></span>{{.T "backups.telegram_configured"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{.T "backups.telegram_unset"}}</span>{{end}}</span><span class="stat-meta">{{.T "backups.telegram_readiness"}}</span></div>
@@ -74,7 +74,7 @@
       <tbody>{{range .Data.Archives}}<tr>
         <td class="cell-primary"><span class="cell-identity"><span class="item-media">{{$.IconS "archive"}}</span><span class="tech cell-main ops-archive-name">{{.Name}}</span></span></td>
         <td class="col-num" data-label="{{$.T "backups.col_size"}}"><span class="num nowrap">{{$.B .Size}}</span></td>
-        <td data-label="{{$.T "backups.col_created"}}"><span class="num nowrap text-sm">{{$.DateTime .ModTime}} <span class="text-muted">UTC</span></span></td>
+        <td data-label="{{$.T "backups.col_created"}}"><span class="num ltr nowrap text-sm">{{$.DateTime .ModTime}}</span></td>
         <td data-label="{{$.T "backups.protection"}}">{{if .Encrypted}}<span class="badge badge--success">{{$.IconS "shield-check"}}{{$.T "backups.encrypted"}}</span>{{else}}<span class="badge badge--muted">{{$.T "backups.plain"}}</span>{{end}}</td>
         <td class="col-actions"><div class="row-actions">
           <a class="btn btn--ghost btn--sm" href="/backups?tab=restore&amp;restore={{urlquery .Name}}#restore-workbench">{{$.IconS "shield-check"}}{{$.T "backups.verify_review"}}</a>
@@ -119,7 +119,7 @@
   <div class="card-header"><h2 class="card-title" id="restore-workbench-title">{{.IconS "shield-check"}}{{.T "backups.restore"}}</h2><p class="card-description">{{.T "backups.restore_hint"}}</p></div>
   <form method="post" action="/backups/restore" class="card-content stack">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="field"><div class="field-label-row"><label class="field-label" for="restore-archive">{{.T "backups.review_archive"}}</label><a class="btn btn--link text-xs" href="/backups">{{.T "backups.choose_older"}}</a></div><select class="select" id="restore-archive" name="name" {{if not .Data.ArchiveChoices}}disabled{{end}}>{{range .Data.ArchiveChoices}}<option value="{{.Name}}" {{if eq $.Data.RestoreName .Name}}selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+    <div class="field"><div class="field-label-row"><label class="field-label" for="restore-archive">{{.T "backups.review_archive"}}</label><a class="link text-xs" href="/backups">{{.T "backups.choose_older"}}</a></div><select class="select" id="restore-archive" name="name" {{if not .Data.ArchiveChoices}}disabled{{end}}>{{range .Data.ArchiveChoices}}<option value="{{.Name}}" {{if eq $.Data.RestoreName .Name}}selected{{end}}>{{.Name}}</option>{{end}}</select></div>
     <div class="field"><label class="field-label" for="restore-password">{{.T "backups.restore_password"}}</label><input class="input input--tech" id="restore-password" name="password" type="password" autocomplete="off" aria-describedby="restore-password-help"><p class="field-description" id="restore-password-help">{{.T "backups.restore_password_hint"}}</p></div>
     <div class="form-actions form-actions--start"><button type="submit" formaction="/backups/verify" class="btn btn--primary btn--sm" {{if not .Data.ArchiveChoices}}disabled{{end}}>{{.IconS "shield-check"}}{{.T "backups.verify_action"}}</button><button type="submit" class="btn btn--sm" {{if or (not .Data.ArchiveChoices) .Data.Pending}}disabled{{end}}>{{.T "backups.prepare_restore"}}</button></div>
   </form>
@@ -153,8 +153,8 @@
         <td class="cell-primary"><span class="cluster"><span class="cell-main">{{.Name}}</span>{{if .Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$.T "backups.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "backups.disabled"}}</span>{{end}}</span></td>
         <td data-label="{{$.T "backups.col_kind"}}"><span class="text-sm">{{if eq .Kind "interval"}}{{$.T "backups.kind_every"}} <span class="num">{{.IntervalHours}}</span> {{$.T "duration.hours_short"}}{{else if eq .Kind "weekly"}}{{$.T (printf "weekday.%d" .Weekday)}} <span class="tech">{{.TimeOfDay}} UTC</span>{{else}}<span class="tech">{{.TimeOfDay}} UTC</span>{{end}}</span></td>
         <td class="col-num" data-label="{{$.T "backups.col_retention"}}">{{if .RetentionCount}}<span class="num">{{.RetentionCount}}</span>{{else}}<span class="text-muted text-sm">{{$.T "backups.retention_default"}}</span>{{end}}</td>
-        <td data-label="{{$.T "backups.col_last_run"}}">{{if .LastRunAt}}<span class="cluster"><span class="num nowrap text-sm">{{$.DT .LastRunAt}} UTC</span>{{if eq .LastStatus "failed"}}<span class="badge badge--destructive"><span class="dot"></span>{{$.T "backups.failed"}}</span>{{else}}<span class="badge badge--success"><span class="dot"></span>{{$.T "backups.ok"}}</span>{{end}}</span>{{else}}<span class="text-muted text-sm">{{$.T "backups.never"}}</span>{{end}}</td>
-        <td data-label="{{$.T "backups.col_next_run"}}">{{if .Enabled}}<span class="num nowrap text-sm">{{$.DateTime .NextRunAt}} UTC</span>{{else}}<span class="text-muted">—</span>{{end}}</td>
+        <td data-label="{{$.T "backups.col_last_run"}}">{{if .LastRunAt}}<span class="cluster"><span class="num ltr nowrap text-sm">{{$.DT .LastRunAt}} UTC</span>{{if eq .LastStatus "failed"}}<span class="badge badge--destructive"><span class="dot"></span>{{$.T "backups.failed"}}</span>{{else}}<span class="badge badge--success"><span class="dot"></span>{{$.T "backups.ok"}}</span>{{end}}</span>{{else}}<span class="text-muted text-sm">{{$.T "backups.never"}}</span>{{end}}</td>
+        <td data-label="{{$.T "backups.col_next_run"}}">{{if .Enabled}}<span class="num ltr nowrap text-sm">{{$.DateTime .NextRunAt}} UTC</span>{{else}}<span class="text-muted">—</span>{{end}}</td>
         <td class="col-actions"><div class="row-actions">
           <a class="btn btn--ghost btn--icon btn--sm" href="/backups?tab=schedules&amp;schedule={{urlquery .ID}}#schedule-editor" aria-label="{{$.T "common.edit"}}" data-tip="{{$.T "common.edit"}}">{{$.IconS "pencil"}}</a>
           <form method="post" action="/backups/schedules/{{.ID}}/toggle"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="{{if .Enabled}}{{$.T "backups.disable"}}{{else}}{{$.T "backups.enable"}}{{end}}" data-tip="{{if .Enabled}}{{$.T "backups.disable"}}{{else}}{{$.T "backups.enable"}}{{end}}">{{$.IconS "power"}}</button></form>
@@ -207,7 +207,7 @@
   <div class="section-header"><div class="section-heading"><h2 class="section-title" id="backup-previews-title">{{.T "backups.previews_title"}}</h2><p class="section-description" data-guidance>{{.T "backups.previews_hint"}}</p></div></div>
   <ul class="item-group">{{range .Data.Previews}}<li class="item">
     <span class="item-media">{{$.IconS "eye"}}</span>
-    <div class="item-content">{{if .Pending}}<span class="item-title"><span class="tech truncate">{{.Pending.Archive}}</span></span><span class="item-description"><span class="num">{{$.DateTime .Pending.StagedAt}} UTC</span></span>{{else}}<span class="item-title">{{$.T "backups.preview_incomplete"}}</span><span class="item-description"><span class="tech">{{.ID}}</span></span>{{end}}</div>
+    <div class="item-content">{{if .Pending}}<span class="item-title"><span class="tech truncate">{{.Pending.Archive}}</span></span><span class="item-description"><span class="num ltr">{{$.DateTime .Pending.StagedAt}} UTC</span></span>{{else}}<span class="item-title">{{$.T "backups.preview_incomplete"}}</span><span class="item-description"><span class="tech">{{.ID}}</span></span>{{end}}</div>
     <div class="item-actions">{{if .Pending}}<a class="btn btn--sm" href="/backups?tab=restore&amp;preview={{urlquery .ID}}#restore-review-title">{{$.T "backups.resume_review"}}</a>{{end}}<form method="post" action="/backups/restore/cancel"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="preview" value="{{.ID}}"><button class="btn btn--ghost btn--sm" type="submit">{{$.T "common.cancel"}}</button></form></div>
   </li>{{end}}</ul>
 </section>

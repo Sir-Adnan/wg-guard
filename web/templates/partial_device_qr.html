@@ -1,10 +1,10 @@
 {{define "device_qr_dialog"}}
 <script type="module" src="{{.A "/js/qr.js"}}"></script>
-<dialog id="qr-modal" class="dialog dialog--sm qr-dialog" aria-labelledby="qr-dialog-title" data-qr-loading="{{.T "common.loading"}}" data-qr-error="{{.T "devices.qr_error"}}">
+<dialog id="qr-modal" class="dialog dialog--sm" aria-labelledby="qr-dialog-title" data-qr-loading="{{.T "common.loading"}}" data-qr-error="{{.T "devices.qr_error"}}">
   <div class="dialog-header">
     <div class="dialog-heading">
       <h2 class="dialog-title" id="qr-dialog-title" data-qr-dialog-title data-single-title="{{.T "devices.qr"}}">{{.T "devices.qr"}}</h2>
-      <p class="dialog-description" data-qr-device dir="auto" hidden></p>
+      <p class="dialog-description" data-qr-device hidden></p>
     </div>
     <button type="button" class="btn btn--ghost btn--icon btn--sm" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
   </div>

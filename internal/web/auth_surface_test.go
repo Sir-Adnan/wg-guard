@@ -86,7 +86,7 @@ func TestUnknownPublicRouteDoesNotUseAdminChrome(t *testing.T) {
 	e.seedOwner()
 	cookie := e.loginEN("owner")
 	body := e.get("/sub/unknown/unmatched?lang=fa", cookie).Body.String()
-	if strings.Contains(body, `id="sidebar"`) || !strings.Contains(body, `lang="fa"`) || !strings.Contains(body, `class="surface-error"`) {
+	if strings.Contains(body, `id="sidebar"`) || !strings.Contains(body, `lang="fa"`) || !strings.Contains(body, `class="empty surface-error"`) {
 		t.Fatal("unknown public route exposes the wrong context")
 	}
 }

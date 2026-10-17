@@ -1,24 +1,56 @@
 /* Users workspace — list toolbar, unit inputs, create sheet and detail
  * compositions that the shared components do not cover. */
 @layer pages {
-  /* Toolbar: compact labeled filters beside the search box. */
-  .users-toolbar > .users-filter { width: auto; flex: 0 1 auto; }
-  .users-toolbar > .users-filter > .input-group-addon { font-size: var(--text-xs); }
-  .users-toolbar > .users-filter > .select { padding-inline-start: var(--s-2); }
-  @media (max-width: 640px) {
-    .users-toolbar > .users-filter { flex: 1 1 0; min-width: 0; }
+  /* Toolbar: search stays visible; status/sort sit inline on wide screens
+   * and collapse behind a Filters disclosure on narrow ones (app.js). */
+  .users-filters { min-width: 0; }
+  .users-filters-toggle { display: none; }
+  .users-filter-fields { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+  .users-filter { width: auto; }
+  .users-filter > .input-group-addon { font-size: var(--text-xs); }
+  .users-filter > .select { padding-inline-start: var(--s-2); }
+  @media (max-width: 800px) {
+    .users-toolbar > .toolbar-search { flex: 1 1 12rem; max-width: none; }
+    .users-filters-toggle { display: inline-flex; }
+    .users-filters[open] { flex-basis: 100%; display: flex; flex-direction: column; gap: var(--s-2); }
+    .users-filters[open] > .users-filters-toggle { align-self: flex-start; background: var(--accent); }
+    .users-filter-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .users-filter { min-width: 0; }
   }
+  @media (max-width: 420px) { .users-filter-fields { grid-template-columns: 1fr; } }
 
   /* Table: usage meter width, dense card flow on phones. */
   .users-table .cell-meter { min-width: 9rem; max-width: 14rem; }
   .users-table .cell-identity .cell-sub { max-width: 14rem; }
+  .users-table-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 2.75rem; padding: var(--s-1_5) var(--cell-px); border-top: 1px solid var(--border); }
   @media (max-width: 800px) {
     .users-table tr, .users-device-table tr { grid-auto-flow: row dense; }
     .users-table .cell-meter { max-width: none; }
+    .users-table .users-col-activity { display: none; }
+    /* Row actions share the devices row instead of a separate footer. */
+    .users-table td.col-actions { grid-column: 2; justify-content: flex-end; align-self: end; border-top: 0; padding-top: 0; }
+    .users-table td.col-actions .row-actions { justify-content: flex-end; }
+    .users-table-foot { padding-inline: var(--s-4); }
+  }
+
+  /* Device table on phones: actions float in the card's top corner. */
+  @media (max-width: 800px) {
+    .users-device-table td.cell-primary { padding-inline-end: 7.5rem; }
+    .users-device-table td.col-actions { position: absolute; top: var(--s-2); inset-inline-end: var(--s-3); width: auto; border-top: 0; padding-top: 0; }
+  }
+  @media (max-width: 640px) {
+    #user-devices > .card-header { grid-template-columns: 1fr; }
+    #user-devices > .card-header > .card-action { grid-column: 1; grid-row: auto; }
   }
 
   /* Number + unit inputs (traffic, duration) with an optional preset menu. */
   .users-unit-group > .select { flex: none; width: auto; border-inline-start: 1px solid var(--input); border-radius: 0; }
+  .users-filter > .select, .users-unit-group > .select {
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%), linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+    background-size: 4.5px 4.5px, 4.5px 4.5px; background-repeat: no-repeat;
+    background-position: calc(100% - var(--control-px) - 6px) 52%, calc(100% - var(--control-px) - 1.5px) 52%;
+  }
+  [dir="rtl"] :is(.users-filter, .users-unit-group) > .select { background-position: calc(var(--control-px) + 1.5px) 52%, calc(var(--control-px) + 6px) 52%; }
   .users-preset-row { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
   .users-preset-row > .input-group { flex: 1; }
   .users-preset-row > .select-control, .users-preset-row > .users-preset { flex: none; width: auto; }
@@ -30,11 +62,11 @@
   dialog.sheet .users-form-section > .card-header, dialog.sheet .users-form-section > .card-content { padding-inline: 0; }
   dialog.sheet .sheet-body > .users-form-section + *, dialog.sheet .users-terms { padding-top: var(--s-5); border-top: 1px solid var(--border); }
 
-  .users-form-page { max-width: 56rem; }
   .users-form-page--narrow { max-width: 36rem; }
   .users-terms > .tabs { margin-bottom: var(--s-1); }
 
-  /* Detail page. */
+  /* Detail page: the summary keeps two columns on phones. */
+  @media (max-width: 640px) { .user-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .user-stats .stat { padding-inline: var(--s-4); } .user-stats .stat-value { font-size: var(--text-xl); } }
   .user-title { font-size: 1em; }
   .user-note { white-space: pre-wrap; overflow-wrap: anywhere; }
   .stat > .progress { margin-block: var(--s-1); }

@@ -20,27 +20,32 @@
     <input class="input" type="search" id="users-search" name="q" value="{{.Data.Search}}" placeholder="{{.T "users.search_hint"}}" autocomplete="off" spellcheck="false">
     <span id="users-search-progress" class="input-group-addon htmx-indicator" role="status"><span class="spinner" aria-hidden="true"></span><span class="sr-only">{{.T "common.loading"}}</span></span>
   </div>
-  <div class="input-group users-filter">
-    <label class="input-group-addon" for="users-status">{{.T "common.status"}}</label>
-    {{$st := .Data.Status}}
-    <select class="select" id="users-status" name="status">
-      <option value="all">{{.T "common.all"}}</option>
-      {{range $s := list "active" "waiting_first_connection" "expired" "traffic_exceeded" "suspended" "disabled"}}
-      <option value="{{$s}}" {{if eq $st $s}}selected{{end}}>{{$.St $s}}</option>
-      {{end}}
-    </select>
-  </div>
-  <div class="input-group users-filter">
-    <label class="input-group-addon" for="users-sort">{{.T "users.sort"}}</label>
-    {{$sort := .Data.Sort}}
-    <select class="select" id="users-sort" name="sort">
-      <option value="created_new" {{if eq $sort "created_new"}}selected{{end}}>{{.T "users.sort.created_new"}}</option>
-      <option value="created_old" {{if eq $sort "created_old"}}selected{{end}}>{{.T "users.sort.created_old"}}</option>
-      <option value="username" {{if eq $sort "username"}}selected{{end}}>{{.T "users.sort.username"}}</option>
-      <option value="expires" {{if eq $sort "expires"}}selected{{end}}>{{.T "users.sort.expires"}}</option>
-      <option value="used" {{if eq $sort "used"}}selected{{end}}>{{.T "users.sort.used"}}</option>
-    </select>
-  </div>
+  <details class="users-filters" data-user-filter-more open>
+    <summary class="btn users-filters-toggle">{{.IconS "list-filter"}}<span>{{.T "users.ui.filters"}}</span>{{if .Data.HasFilters}}<span class="dot dot--info" aria-hidden="true"></span>{{end}}</summary>
+    <div class="users-filter-fields">
+    <div class="input-group users-filter">
+      <label class="input-group-addon" for="users-status">{{.T "common.status"}}</label>
+      {{$st := .Data.Status}}
+      <select class="select" id="users-status" name="status">
+        <option value="all">{{.T "common.all"}}</option>
+        {{range $s := list "active" "waiting_first_connection" "expired" "traffic_exceeded" "suspended" "disabled"}}
+        <option value="{{$s}}" {{if eq $st $s}}selected{{end}}>{{$.St $s}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="input-group users-filter">
+      <label class="input-group-addon" for="users-sort">{{.T "users.sort"}}</label>
+      {{$sort := .Data.Sort}}
+      <select class="select" id="users-sort" name="sort">
+        <option value="created_new" {{if eq $sort "created_new"}}selected{{end}}>{{.T "users.sort.created_new"}}</option>
+        <option value="created_old" {{if eq $sort "created_old"}}selected{{end}}>{{.T "users.sort.created_old"}}</option>
+        <option value="username" {{if eq $sort "username"}}selected{{end}}>{{.T "users.sort.username"}}</option>
+        <option value="expires" {{if eq $sort "expires"}}selected{{end}}>{{.T "users.sort.expires"}}</option>
+        <option value="used" {{if eq $sort "used"}}selected{{end}}>{{.T "users.sort.used"}}</option>
+      </select>
+    </div>
+    </div>
+  </details>
   <noscript><button type="submit" class="btn">{{.IconS "filter"}}{{.T "common.filter"}}</button></noscript>
   {{if .Data.HasFilters}}<a class="btn btn--ghost" href="/users">{{.IconS "x"}}{{.T "common.clear_filters"}}</a>{{end}}
 </form>
@@ -50,7 +55,6 @@
 <div class="table-frame">
   <div class="table-wrap">
     <table class="table table--cards users-table">
-      <caption><span class="num">{{$.N (i64u (len .Data.Items))}}</span> · {{.T "users.page_scope"}}</caption>
       <thead>
         <tr>
           {{if .Can "users.bulk"}}<th scope="col" class="col-check"><input type="checkbox" class="checkbox" id="sel-all" aria-label="{{.T "users.selection_page"}}"></th>{{end}}
@@ -68,13 +72,11 @@
       </tbody>
     </table>
   </div>
+  <div class="users-table-foot">
+    <span class="text-sm text-muted"><span class="num">{{$.N (i64u (len .Data.Items))}}</span> {{.T "users.ui.count_unit"}}</span>
+    {{if .Data.NextCursor}}<nav aria-label="{{.T "common.pagination"}}"><a class="btn btn--sm" href="/users?cursor={{.Data.NextCursor}}&q={{.Data.Search}}&status={{.Data.Status}}&sort={{.Data.Sort}}">{{.T "common.next"}}{{.IconS "chevron-right"}}</a></nav>{{end}}
+  </div>
 </div>
-{{if .Data.NextCursor}}
-<nav class="pagination" aria-label="{{.T "common.pagination"}}">
-  <span></span>
-  <span class="pagination-pages"><a class="btn btn--sm" href="/users?cursor={{.Data.NextCursor}}&q={{.Data.Search}}&status={{.Data.Status}}&sort={{.Data.Sort}}">{{.T "common.next"}}{{.IconS "chevron-right"}}</a></span>
-</nav>
-{{end}}
 {{if .Can "users.bulk"}}{{template "users_bulkbar" .}}{{end}}
 {{else if .Data.HasFilters}}
 <div class="empty empty--bordered">
@@ -182,8 +184,8 @@
   <td data-label="{{$v.T "users.expires"}}">
     {{if $u.ExpiresAt}}<span class="num nowrap {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span><span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{else}}<span class="text-muted">{{$v.T "users.ui.no_expiry"}}</span>{{end}}
   </td>
-  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}">{{if $row.DevicesKnown}}<span class="num">{{$v.N (i64u $row.DeviceCount)}}</span>{{if $u.DeviceLimit}}<span class="text-muted num"> / {{$v.Human ($v.KD $u.DeviceLimit)}}</span>{{end}}{{else}}<span class="text-muted">{{$v.T "forms.unavailable"}}</span>{{end}}</td>{{end}}
-  <td class="text-muted nowrap" data-label="{{$v.T "users.last_activity"}}">{{$v.Rel $u.LastActivityAt}}</td>
+  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}">{{if $row.DevicesKnown}}<span class="num">{{$v.N (i64u $row.DeviceCount)}}{{if $u.DeviceLimit}}<span class="text-muted"> / {{$v.Human ($v.KD $u.DeviceLimit)}}</span>{{end}}</span>{{else}}<span class="text-muted">{{$v.T "forms.unavailable"}}</span>{{end}}</td>{{end}}
+  <td class="text-muted nowrap users-col-activity" data-label="{{$v.T "users.last_activity"}}">{{$v.Rel $u.LastActivityAt}}</td>
   <td class="col-actions">
     <div class="row-actions">
       {{if $row.SubURL}}<button type="button" class="btn btn--ghost btn--icon btn--sm" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "copy"}}</button>{{end}}

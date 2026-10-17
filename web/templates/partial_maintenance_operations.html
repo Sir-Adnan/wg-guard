@@ -35,13 +35,13 @@
 </div>
 {{end}}
 
-{{define "update_state_badge"}}{{/* . = dict "v" View "state" string */}}<span class="badge {{if eq .state "succeeded"}}badge--success{{else if eq .state "failed"}}badge--destructive{{else if eq .state "canceled"}}badge--muted{{else}}badge--info{{end}}"><span class="dot"></span>{{.v.T (printf "updates.state.%s" .state)}}</span>{{end}}
+{{define "update_state_badge"}}{{/* . = dict "v" View "state" string */}}{{$tone := "badge badge--info"}}{{if eq .state "succeeded"}}{{$tone = "badge badge--success"}}{{else if eq .state "failed"}}{{$tone = "badge badge--destructive"}}{{else if eq .state "canceled"}}{{$tone = "badge badge--muted"}}{{end}}<span class="{{$tone}}"><span class="dot"></span>{{.v.T (printf "updates.state.%s" .state)}}</span>{{end}}
 
 {{define "maintenance-preflight"}}
 <div class="stack-sm">
   <div class="row-between"><h3 class="ops-panel-title">{{.T "updates.preflight_result"}}</h3><span class="tech text-xs text-muted">{{.OpsTimestamp .Data.Inventory.Preflight.CheckedAt}}</span></div>
   <p class="text-xs text-muted"><span class="tech">{{.Data.Inventory.Preflight.Input.Ref}} {{.Data.Inventory.Preflight.Input.Core}}</span></p>
-  <ul class="kv">{{range .Data.Inventory.Preflight.Checks}}<li class="kv-row"><span class="kv-label">{{$.T (printf "updates.check.%s" .Code)}}</span><span class="badge {{if eq .State "pass"}}badge--success{{else if eq .State "fail"}}badge--destructive{{else if eq .State "warn"}}badge--warning{{else}}badge--muted{{end}}"><span class="dot"></span>{{$.T (printf "updates.check_state.%s" .State)}}</span></li>{{end}}</ul>
+  <ul class="kv">{{range .Data.Inventory.Preflight.Checks}}<li class="kv-row"><span class="kv-label">{{$.T (printf "updates.check.%s" .Code)}}</span>{{$tone := "badge badge--muted"}}{{if eq .State "pass"}}{{$tone = "badge badge--success"}}{{else if eq .State "fail"}}{{$tone = "badge badge--destructive"}}{{else if eq .State "warn"}}{{$tone = "badge badge--warning"}}{{end}}<span class="{{$tone}}"><span class="dot"></span>{{$.T (printf "updates.check_state.%s" .State)}}</span></li>{{end}}</ul>
   <p class="text-xs text-muted">{{.T "updates.preflight_limits"}}</p>
 </div>
 {{end}}

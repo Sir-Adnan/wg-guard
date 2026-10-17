@@ -9,7 +9,11 @@ const dialog = () => $("#qr-modal");
 const title = () => $("[data-qr-dialog-title]", dialog());
 const setDevice = (name) => {
   const device = $("[data-qr-device]", dialog());
-  if (device) { device.textContent = name || ""; device.hidden = !name; }
+  if (!device) return;
+  const label = document.createElement("bdi");
+  label.textContent = name || "";
+  device.replaceChildren(label);
+  device.hidden = !name;
 };
 
 function showSingleView() {

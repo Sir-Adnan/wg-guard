@@ -43,7 +43,7 @@
       <div class="field">
         <label class="field-label" for="p-traffic">{{.T "users.form.traffic_limit"}}</label>
         <div class="input-group">
-          <input class="input" id="p-traffic" name="traffic_limit_value" type="text" dir="ltr" inputmode="decimal" placeholder="∞" value="{{$f.V "traffic_limit_value"}}" {{if $f.Invalid "traffic_limit_value"}}aria-invalid="true"{{end}} aria-describedby="plan-limits-hint {{if $f.Invalid "traffic_limit_value"}}error-traffic_limit_value{{end}}">
+          <input class="input input--tech" id="p-traffic" name="traffic_limit_value" type="text" dir="ltr" inputmode="decimal" placeholder="∞" value="{{$f.V "traffic_limit_value"}}" {{if $f.Invalid "traffic_limit_value"}}aria-invalid="true"{{end}} aria-describedby="plan-limits-hint {{if $f.Invalid "traffic_limit_value"}}error-traffic_limit_value{{end}}">
           <select class="select unit-select" name="traffic_limit_unit" aria-label="{{.T "forms.unit"}}">
             <option value="gb" {{if eq ($f.V "traffic_limit_unit") "gb"}}selected{{end}}>GB</option>
             <option value="mb" {{if eq ($f.V "traffic_limit_unit") "mb"}}selected{{end}}>MB</option>
@@ -59,7 +59,7 @@
       <div class="field">
         <label class="field-label" for="p-duration">{{.T "plans.duration"}}</label>
         <div class="input-group">
-          <input class="input" id="p-duration" name="duration_value" type="text" dir="ltr" inputmode="decimal" placeholder="∞" value="{{$f.V "duration_value"}}" {{if $f.Invalid "duration_value"}}aria-invalid="true"{{end}} aria-describedby="hint-duration_value {{if $f.Invalid "duration_value"}}error-duration_value{{end}}">
+          <input class="input input--tech" id="p-duration" name="duration_value" type="text" dir="ltr" inputmode="decimal" placeholder="∞" value="{{$f.V "duration_value"}}" {{if $f.Invalid "duration_value"}}aria-invalid="true"{{end}} aria-describedby="hint-duration_value {{if $f.Invalid "duration_value"}}error-duration_value{{end}}">
           <select class="select unit-select" name="duration_unit" aria-label="{{.T "forms.unit"}}">
             <option value="days" {{if eq ($f.V "duration_unit") "days"}}selected{{end}}>{{.T "duration.days"}}</option>
             <option value="hours" {{if eq ($f.V "duration_unit") "hours"}}selected{{end}}>{{.T "duration.hours"}}</option>
@@ -75,7 +75,7 @@
           <option value="first_connection" {{if eq ($f.V "start_policy") "first_connection"}}selected{{end}}>{{.T "users.start_policy.first_connection"}}</option>
         </select>
         {{if $f.Invalid "start_policy"}}<span class="field-error" id="error-start_policy">{{.T (index $f.Fields "start_policy")}}</span>{{end}}
-        <span class="field-description" id="hint-duration_value">{{.T "users.form.duration_hint"}}</span>
+        <span class="field-description" id="hint-duration_value" data-guidance>{{.T "users.form.duration_hint"}}</span>
       </div>
     </div>
   </section>

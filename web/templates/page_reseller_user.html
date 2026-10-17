@@ -1,22 +1,78 @@
 {{define "title"}}{{.Data.User.Username}}{{end}}
 {{define "content"}}
-<div class="ops-page reseller-user-page">
-  <div class="page-head page-head--hero users-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "users"}}</span><div><span class="eyebrow">{{.T "resellers.customers"}}</span><h1><bdi class="ltr-data">{{.Data.User.Username}}</bdi></h1><p>{{.T "resellers.customer_detail_hint"}}</p></div></div><div class="actions"><a class="btn btn--ghost" href="/reseller/users">{{.IconS "arrow-left"}}{{.T "common.back"}}</a></div></div>
-  <div class="user-kpis"><article class="user-kpi"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "activity"}}</span><div><span>{{.T "common.status"}}</span><strong>{{.St (printf "%v" .Data.User.Status)}}</strong></div></article><article class="user-kpi"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "gauge"}}</span><div><span>{{.T "users.traffic"}}</span><strong class="ltr-data">{{.B .Data.Used}}</strong><small>{{if .Data.User.TrafficLimitBytes}}{{.BLim .Data.User.TrafficLimitBytes}}{{else}}{{.T "common.unlimited"}}{{end}}</small></div></article><article class="user-kpi"><span class="user-kpi-icon" aria-hidden="true">{{.IconS "clock"}}</span><div><span>{{.T "users.expires"}}</span><strong class="ltr-data">{{.D .Data.User.ExpiresAt}}</strong></div></article></div>
-  {{if .Can "traffic.update"}}<form method="post" action="/reseller/users/{{.Data.User.ID}}/traffic/reset" data-confirm data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" .Data.User.Username)}}" data-confirm-message="{{.T "users.traffic_reset.confirm"}}" data-confirm-label="{{.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--soft">{{.IconS "refresh-cw"}}{{.T "users.action.reset_traffic"}}</button></form>{{end}}
-  {{if or (.Can "next_plans.read") (.Can "next_plans.write")}}<section class="card card--pad"><div class="section-head"><div><h2>{{.T "users.next_plan.title"}}</h2><p>{{.T "users.next_plan.hint"}}</p></div><span class="section-icon" aria-hidden="true">{{.IconS "calendar"}}</span></div>
-    {{if .Data.NextPlan}}<div class="callout"><strong>{{.Data.NextPlan.Terms.Name}}</strong>{{if eq .Data.NextPlan.State "needs_review"}}<p>{{.T "users.next_plan.review"}}</p>{{end}}</div>{{else if .Can "next_plans.read"}}<p class="text-muted">{{.T "users.next_plan.none"}}</p>{{end}}
-    {{if and (.Can "next_plans.write") .Data.NextPlans}}
-    <form id="reseller-next-plan-form" class="form-stack" method="post" action="/reseller/users/{{.Data.User.ID}}/next-plan">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <label for="reseller-next-plan-id">{{.T "users.next_plan.select"}}</label>
-      <select class="input" id="reseller-next-plan-id" name="template_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
-      <label class="check-row"><input class="checkbox" type="checkbox" name="carry_unused_traffic"><span>{{.T "users.next_plan.carry"}}</span></label>
-    </form>
-    <div class="next-plan-actions"><button form="reseller-next-plan-form" class="btn btn--primary" type="submit">{{.IconS "plus"}}<span>{{.T "users.next_plan.queue"}}</span></button>
-      {{if .Data.NextPlan}}<form method="post" action="/reseller/users/{{.Data.User.ID}}/next-plan/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--ghost" type="submit">{{.IconS "x"}}<span>{{.T "users.next_plan.cancel"}}</span></button></form>{{end}}
-    </div>{{end}}
-  </section>{{end}}
-  {{if .Can "devices.read"}}<section class="collection ops-roster" aria-labelledby="reseller-devices-title"><div class="section-head"><div><span class="eyebrow">{{.T "resellers.customer_detail_hint"}}</span><h2 id="reseller-devices-title">{{.T "resellers.devices"}}</h2></div></div>{{if .Data.Devices}}<div class="webhook-grid">{{range .Data.Devices}}<article class="card card--pad"><div class="section-head"><div><h3><bdi>{{.Name}}</bdi></h3><p class="hint ltr-data">{{.IPv4}}</p></div><span class="badge {{if .Enabled}}badge--ok{{end}}">{{if .Enabled}}{{$.T "admins.enabled"}}{{else}}{{$.T "admins.disabled"}}{{end}}</span></div>{{if $.Can "configs.read"}}<div class="form-actions"><a class="btn btn--primary" href="/reseller/devices/{{.ID}}/config">{{$.IconS "download"}}{{$.T "devices.download_config"}}</a><a class="btn" href="/reseller/devices/{{.ID}}/qr">{{$.IconS "qr-code"}}{{$.T "devices.qr"}}</a></div>{{end}}</article>{{end}}</div>{{else}}<div class="card empty"><h3>{{.T "resellers.no_devices"}}</h3></div>{{end}}</section>{{end}}
+{{$u := .Data.User}}{{$st := printf "%v" $u.Status}}
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title"><bdi class="tech">{{$u.Username}}</bdi><span class="badge {{.StClass $st}}"><span class="dot"></span>{{.St $st}}</span></h1>
+    <p class="page-description">{{.T "resellers.customer_detail_hint"}}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn--sm" href="/reseller/users">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
+    {{if .Can "traffic.update"}}<form method="post" action="/reseller/users/{{$u.ID}}/traffic/reset" data-confirm data-confirm-title="{{.T "users.traffic_reset.title" (printf "%v" $u.Username)}}" data-confirm-message="{{.T "users.traffic_reset.confirm"}}" data-confirm-label="{{.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="btn btn--sm">{{.IconS "refresh-cw"}}{{.T "users.action.reset_traffic"}}</button></form>{{end}}
+  </div>
+</header>
+
+<div class="stat-grid">
+  <div class="stat">
+    <span class="stat-label">{{.IconS "gauge"}}{{.T "users.traffic"}}</span>
+    <span class="stat-value num">{{.B .Data.Used}}</span>
+    <div class="progress progress--sm {{.MeterClass .Data.Used $u.TrafficLimitBytes}}"><div class="progress-bar"></div></div>
+    <span class="stat-meta">{{if $u.TrafficLimitBytes}}{{.T "admin.ui.limit_of" (.BLim $u.TrafficLimitBytes)}}{{else}}{{.T "common.unlimited"}}{{end}}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">{{.IconS "clock"}}{{.T "users.expires"}}</span>
+    <span class="stat-value num text-lg {{.ExpiryClass $u.ExpiresAt}}">{{.D $u.ExpiresAt}}</span>
+  </div>
 </div>
+
+{{if or (.Can "next_plans.read") (.Can "next_plans.write")}}
+<section class="card" aria-labelledby="reseller-next-plan-title">
+  <div class="card-header">
+    <h2 class="card-title" id="reseller-next-plan-title">{{.IconS "calendar"}}{{.T "users.next_plan.title"}}</h2>
+    <p class="card-description">{{.T "users.next_plan.hint"}}</p>
+    {{if .Data.NextPlan}}<div class="card-action">{{$tone := "badge--info"}}{{if eq .Data.NextPlan.State "needs_review"}}{{$tone = "badge--warning"}}{{end}}<span class="badge {{$tone}}"><span class="dot"></span><bdi>{{.Data.NextPlan.Terms.Name}}</bdi></span></div>{{end}}
+  </div>
+  <div class="card-content stack">
+    {{if .Data.NextPlan}}{{if eq .Data.NextPlan.State "needs_review"}}<div class="alert alert--warning">{{.IconS "alert-triangle"}}<p class="alert-description">{{.T "users.next_plan.review"}}</p></div>{{end}}
+    {{else if .Can "next_plans.read"}}<p class="text-sm text-muted">{{.T "users.next_plan.none"}}</p>{{end}}
+    {{if and (.Can "next_plans.write") .Data.NextPlans}}
+    <form id="reseller-next-plan-form" class="field-grid field-grid--2" method="post" action="/reseller/users/{{$u.ID}}/next-plan">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field">
+        <label class="field-label" for="reseller-next-plan-id">{{.T "users.next_plan.select"}}</label>
+        <select class="select" id="reseller-next-plan-id" name="template_id" required><option value="">{{.T "users.next_plan.select"}}</option>{{range .Data.NextPlans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+      </div>
+      <label class="choice text-sm reseller-carry"><input class="checkbox" type="checkbox" name="carry_unused_traffic"><span>{{.T "users.next_plan.carry"}}</span></label>
+    </form>
+    {{end}}
+  </div>
+  {{if and (.Can "next_plans.write") .Data.NextPlans}}
+  <div class="card-footer card-footer--bordered card-footer--end">
+    {{if .Data.NextPlan}}<form method="post" action="/reseller/users/{{$u.ID}}/next-plan/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--sm btn--ghost" type="submit">{{.IconS "x"}}<span>{{.T "users.next_plan.cancel"}}</span></button></form>{{end}}
+    <button form="reseller-next-plan-form" class="btn btn--primary btn--sm" type="submit">{{.IconS "plus"}}<span>{{.T "users.next_plan.queue"}}</span></button>
+  </div>
+  {{end}}
+</section>
+{{end}}
+
+{{if .Can "devices.read"}}
+<section class="section" aria-labelledby="reseller-devices-title">
+  <div class="section-header"><h2 class="section-title" id="reseller-devices-title">{{.T "resellers.devices"}} <span class="tab-count">{{.N (i64u (len .Data.Devices))}}</span></h2></div>
+  {{if .Data.Devices}}
+  <ul class="item-group">{{range .Data.Devices}}
+    <li class="item{{if not .Enabled}} item--muted{{end}}">
+      <span class="item-media" aria-hidden="true">{{$.IconS "smartphone"}}</span>
+      <div class="item-content">
+        <span class="item-title"><bdi>{{.Name}}</bdi>{{if .Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$.T "admins.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "admins.disabled"}}</span>{{end}}</span>
+        <span class="item-meta"><span class="tech">{{.IPv4}}</span><span><span class="num">{{$.B (i64u .RXBytes)}}</span> ↓ · <span class="num">{{$.B (i64u .TXBytes)}}</span> ↑</span></span>
+      </div>
+      {{if $.Can "configs.read"}}<div class="item-actions">
+        <a class="btn btn--sm btn--ghost" href="/reseller/devices/{{.ID}}/qr">{{$.IconS "qr-code"}}<span class="hide-sm">{{$.T "devices.qr"}}</span></a>
+        <a class="btn btn--sm" href="/reseller/devices/{{.ID}}/config">{{$.IconS "download"}}{{$.T "devices.download_config"}}</a>
+      </div>{{end}}
+    </li>{{end}}
+  </ul>
+  {{else}}<div class="empty empty--bordered empty--compact"><span class="empty-icon">{{.Icon "smartphone"}}</span><p class="empty-description">{{.T "resellers.no_devices"}}</p></div>{{end}}
+</section>
+{{end}}
 {{end}}

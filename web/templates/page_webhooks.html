@@ -47,9 +47,9 @@
       <thead><tr><th scope="col">{{.T "hooks.col_event"}}</th><th scope="col">{{.T "hooks.col_status"}}</th><th scope="col" class="col-num">{{.T "hooks.col_attempts"}}</th><th scope="col">{{.T "common.created"}}</th><th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th></tr></thead>
       <tbody>{{range .Data.Delivery}}<tr>
         <td class="cell-primary"><span class="cell-main">{{$.OpsLabel "event" .EventType}}</span><span class="cell-sub tech">{{.EventType}}</span></td>
-        <td data-label="{{$.T "hooks.col_status"}}"><span class="badge {{if eq .Status "delivered"}}badge--success{{else if eq .Status "dead"}}badge--destructive{{else if eq .Status "pending"}}badge--warning{{else}}badge--muted{{end}}"><span class="dot"></span>{{$.OpsLabel "delivery" .Status}}</span>{{if .LastError}}<span class="cell-sub">{{$.DeliveryError .LastError}}</span>{{end}}</td>
+        <td data-label="{{$.T "hooks.col_status"}}">{{$tone := "badge--muted"}}{{if eq .Status "delivered"}}{{$tone = "badge--success"}}{{else if eq .Status "dead"}}{{$tone = "badge--destructive"}}{{else if eq .Status "pending"}}{{$tone = "badge--warning"}}{{end}}<span class="badge {{$tone}}"><span class="dot"></span>{{$.OpsLabel "delivery" .Status}}</span>{{if .LastError}}<span class="cell-sub">{{$.DeliveryError .LastError}}</span>{{end}}</td>
         <td class="col-num tech" data-label="{{$.T "hooks.col_attempts"}}">{{.Attempts}}</td>
-        <td data-label="{{$.T "common.created"}}"><span class="tech text-sm nowrap">{{$.OpsTimestamp .CreatedAt}}</span></td>
+        <td data-label="{{$.T "common.created"}}"><span class="tech text-sm ops-time">{{$.OpsTimestamp .CreatedAt}}</span></td>
         <td class="col-actions">{{if $.Can "webhooks.write"}}<form method="post" action="{{$.Data.BasePath}}/{{$.Data.Show.ID}}/redeliver"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="delivery_id" value="{{.ID}}"><button class="btn btn--sm btn--ghost" type="submit">{{$.IconS "refresh-cw"}}{{$.T "hooks.redeliver"}}</button></form>{{end}}</td>
       </tr>{{end}}</tbody>
     </table>
