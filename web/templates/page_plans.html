@@ -1,49 +1,48 @@
 {{define "title"}}{{.T "plans.title"}}{{end}}
 {{define "content"}}
-<div class="page-head page-head--hero entity-hero">
-  <div class="page-title-cluster">
-    <span class="page-title-icon" aria-hidden="true">{{.Icon "layers"}}</span>
-    <div>
-    <span class="eyebrow">{{.T "plans.workspace"}}</span>
-    <h1>{{.T "plans.title"}}</h1>
-    <p>{{.T "plans.subtitle"}}</p>
-    </div>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "plans.title"}}</h1>
+    <p class="page-description">{{.T "plans.subtitle"}}</p>
   </div>
   {{if .Can "templates.write"}}
-  <div class="actions">
-    <a class="btn btn--primary" href="/templates/new">{{.IconS "plus"}}<span>{{.T "plans.new"}}</span></a>
+  <div class="page-actions">
+    <a class="btn btn--primary btn--sm" href="/templates/new">{{.IconS "plus"}}<span>{{.T "plans.new"}}</span></a>
   </div>
   {{end}}
-</div>
+</header>
 
 {{if .Data.Rows}}
-<div class="collection-head"><div><span class="eyebrow">{{.T "plans.list_hint"}}</span><h2>{{$.N (i64u (len .Data.Rows))}} <span>{{.T "forms.total"}}</span></h2></div><span class="badge badge--ok">{{.Data.Enabled}} {{.T "forms.enabled"}}</span></div>
-<div class="table-wrap collection entity-collection">
-  <table class="table table--cards entity-table">
-    <thead>
-      <tr>
-        <th>{{.T "plans.name"}}</th>
-        <th>{{.T "plans.quota"}}</th>
-        <th>{{.T "plans.duration"}}</th>
-        <th>{{.T "plans.device_limit"}}</th>
-        <th>{{.T "plans.speed"}}</th>
-        <th>{{.T "plans.users_count"}}</th>
-        {{if .Can "templates.write"}}<th class="text-end">{{.T "common.actions"}}</th>{{end}}
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Data.Rows}}{{template "plans_row" (dict "row" . "v" $)}}{{end}}
-    </tbody>
-  </table>
+<div class="cluster" role="status">
+  <span class="badge badge--outline"><span class="num">{{.N (i64u (len .Data.Rows))}}</span> {{.T "forms.total"}}</span>
+  <span class="badge badge--success"><span class="dot"></span><span class="num">{{.N (i64u .Data.Enabled)}}</span> {{.T "forms.enabled"}}</span>
+</div>
+<div class="table-frame">
+  <div class="table-wrap">
+    <table class="table table--cards plans-table">
+      <thead>
+        <tr>
+          <th scope="col">{{.T "plans.name"}}</th>
+          <th scope="col">{{.T "plans.quota"}}</th>
+          <th scope="col">{{.T "plans.duration"}}</th>
+          <th scope="col">{{.T "plans.device_limit"}}</th>
+          <th scope="col">{{.T "plans.speed"}}</th>
+          <th scope="col" class="col-num">{{.T "plans.users_count"}}</th>
+          {{if .Can "templates.write"}}<th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th>{{end}}
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Rows}}{{template "plans_row" (dict "row" . "v" $)}}{{end}}
+      </tbody>
+    </table>
+  </div>
 </div>
 {{else}}
-<div class="table-wrap collection empty-collection">
-  <div class="empty empty-stage">
-    <span class="empty-visual" aria-hidden="true">{{.Icon "layers"}}</span>
-    <h3>{{.T "plans.empty.title"}}</h3>
-    <p>{{.T "plans.empty.desc"}}</p>
-    {{if .Can "templates.write"}}<a class="btn btn--primary" href="/templates/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a>{{end}}
-  </div>
+<div class="empty empty--bordered">
+  <span class="empty-icon" aria-hidden="true">{{.Icon "layers"}}</span>
+  <h2 class="empty-title">{{.T "plans.empty.title"}}</h2>
+  <p class="empty-description">{{.T "plans.empty.desc"}}</p>
+  {{if .Can "templates.write"}}<div class="empty-actions"><a class="btn btn--primary btn--sm" href="/templates/new">{{.IconS "plus"}}<span>{{.T "plans.empty.cta"}}</span></a></div>{{end}}
 </div>
 {{end}}
 {{end}}
@@ -51,47 +50,53 @@
 {{define "plans_row"}}
 {{$row := .row}}{{$p := $row.P}}{{$v := .v}}
 <tr>
-  <td class="card-title" data-label="{{$v.T "plans.name"}}">
-    {{if $v.Can "templates.write"}}<a class="entity-link" href="/templates/{{$p.ID}}/edit">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></a>{{else}}<span class="entity-link">{{$v.IconS "layers"}}<bdi>{{$p.Name}}</bdi></span>{{end}}
-    {{if $p.Enabled}}<span class="badge badge--ok">{{$v.T "plans.enabled"}}</span>{{else}}<span class="badge">{{$v.T "plans.disabled"}}</span>{{end}}
-    {{if $row.IfaceUnavailable}}<span class="cell-sub">{{$v.T "users.interface"}}: {{$v.T "forms.unavailable"}}</span>{{end}}
-    {{if $row.IfaceName}}<span class="cell-sub ltr-data">{{$row.IfaceName}}</span>{{end}}
+  <td class="cell-primary">
+    <div class="cluster">
+      {{if $v.Can "templates.write"}}<a class="cell-main" href="/templates/{{$p.ID}}/edit"><bdi>{{$p.Name}}</bdi></a>{{else}}<span class="cell-main"><bdi>{{$p.Name}}</bdi></span>{{end}}
+      {{if $p.Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$v.T "plans.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$v.T "plans.disabled"}}</span>{{end}}
+    </div>
+    {{if $row.IfaceUnavailable}}<span class="cell-sub">{{$v.T "users.interface"}}: {{$v.T "forms.unavailable"}}</span>{{else if $row.IfaceName}}<span class="cell-sub row">{{$v.IconS "network"}}<span class="tech">{{$row.IfaceName}}</span></span>{{end}}
   </td>
-  <td data-label="{{$v.T "plans.quota"}}" ><bdi class="ltr-data metric-value">{{$v.BLim $p.TrafficLimitBytes}}</bdi></td>
-  <td data-label="{{$v.T "plans.duration"}}">{{if $p.DurationSeconds}}{{$v.Dur (i64u $p.DurationSeconds)}}{{else}}<span class="text-subtle">{{$v.T "common.none"}}</span>{{end}}</td>
-  <td data-label="{{$v.T "plans.device_limit"}}" ><bdi class="ltr-data">{{if $p.DeviceLimit}}{{$v.KD $p.DeviceLimit}}{{else}}{{$v.T "common.unlimited"}}{{end}}</bdi></td>
-  <td data-label="{{$v.T "plans.speed"}}" class="rate-pair">
-    <span><span class="text-subtle">{{$v.T "plans.download"}}</span><bdi class="ltr-data">{{$v.U $p.SpeedLimitDownKbps}}</bdi></span>
-    <span><span class="text-subtle">{{$v.T "plans.upload"}}</span><bdi class="ltr-data">{{$v.U $p.SpeedLimitUpKbps}}</bdi></span>
+  <td data-label="{{$v.T "plans.quota"}}"><bdi class="num">{{$v.BLim $p.TrafficLimitBytes}}</bdi></td>
+  <td data-label="{{$v.T "plans.duration"}}">{{if $p.DurationSeconds}}<bdi class="num">{{$v.Dur (i64u $p.DurationSeconds)}}</bdi>{{else}}<span class="text-muted">{{$v.T "common.none"}}</span>{{end}}</td>
+  <td data-label="{{$v.T "plans.device_limit"}}">{{if $p.DeviceLimit}}<bdi class="num">{{$v.KD $p.DeviceLimit}}</bdi>{{else}}<span class="text-muted">{{$v.T "common.unlimited"}}</span>{{end}}</td>
+  <td data-label="{{$v.T "plans.speed"}}">
+    <span class="plan-rate">
+      <span class="row" title="{{$v.T "plans.download"}}">{{$v.IconS "download"}}<span class="sr-only">{{$v.T "plans.download"}}</span><bdi class="num">{{$v.U $p.SpeedLimitDownKbps}}</bdi></span>
+      <span class="row text-muted" title="{{$v.T "plans.upload"}}">{{$v.IconS "upload"}}<span class="sr-only">{{$v.T "plans.upload"}}</span><bdi class="num">{{$v.U $p.SpeedLimitUpKbps}}</bdi></span>
+    </span>
   </td>
-  <td data-label="{{$v.T "plans.users_count"}}" >{{if $row.CountKnown}}<bdi class="ltr-data">{{$v.N (i64u $row.Users)}}</bdi>{{else}}<span class="text-subtle">{{$v.T "forms.unavailable"}}</span>{{end}}</td>
+  <td class="col-num" data-label="{{$v.T "plans.users_count"}}">{{if $row.CountKnown}}<span class="num">{{$v.N (i64u $row.Users)}}</span>{{else}}<span class="text-muted">{{$v.T "forms.unavailable"}}</span>{{end}}</td>
   {{if $v.Can "templates.write"}}
-  <td class="text-end card-actions" data-label="{{$v.T "common.actions"}}">
-    <div class="entity-actions"><a class="btn btn--sm btn--ghost" href="/templates/{{$p.ID}}/edit">{{$v.T "common.edit"}}</a><div class="menu-anchor">
-      <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$p.Name}}">{{$v.IconS "more-vertical"}}</button>
-      <div class="menu" role="menu">
-        <a role="menuitem" href="/templates/{{$p.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
-        {{if $p.Enabled}}
-        <form role="none" method="post" action="/templates/{{$p.ID}}/disable">
-          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.disable"}}</span></button>
-        </form>
-        {{else}}
-        <form role="none" method="post" action="/templates/{{$p.ID}}/enable">
-          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.enable"}}</span></button>
-        </form>
-        {{end}}
-        <hr>
-        <form role="none" method="post" action="/templates/{{$p.ID}}/delete" data-confirm
-              data-confirm-title="{{$v.T "common.confirm_delete"}}"
-              data-confirm-message="{{$v.T "plans.delete_confirm" $p.Name}}"
-              data-confirm-label="{{$v.T "common.delete"}}">
-          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-          <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
-        </form>
+  <td class="col-actions">
+    <div class="row-actions">
+      <a class="btn btn--ghost btn--xs" href="/templates/{{$p.ID}}/edit">{{$v.T "common.edit"}}</a>
+      <div class="menu-anchor">
+        <button type="button" class="btn btn--ghost btn--icon btn--xs" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$p.Name}}">{{$v.IconS "more-vertical"}}</button>
+        <div class="menu" role="menu">
+          <a role="menuitem" href="/templates/{{$p.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
+          {{if $p.Enabled}}
+          <form role="none" method="post" action="/templates/{{$p.ID}}/disable">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.disable"}}</span></button>
+          </form>
+          {{else}}
+          <form role="none" method="post" action="/templates/{{$p.ID}}/enable">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "plans.action.enable"}}</span></button>
+          </form>
+          {{end}}
+          <hr>
+          <form role="none" method="post" action="/templates/{{$p.ID}}/delete" data-confirm
+                data-confirm-title="{{$v.T "common.confirm_delete"}}"
+                data-confirm-message="{{$v.T "plans.delete_confirm" $p.Name}}"
+                data-confirm-label="{{$v.T "common.delete"}}">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+          </form>
+        </div>
       </div>
-    </div></div>
+    </div>
   </td>
   {{end}}
 </tr>

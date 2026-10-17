@@ -1,13 +1,45 @@
 {{define "title"}}{{.T "onboard.title"}}{{end}}
 {{define "content"}}
-<div class="access-heading"><span class="eyebrow">{{.T "access.initial_setup"}}</span><h1>{{.T "onboard.title"}}</h1><p>{{.T "onboard.subtitle"}}</p></div>
-{{if .Data.Error}}<div class="alert alert--error" id="auth-message" role="alert" tabindex="-1" data-initial-focus>{{.IconS "alert-circle"}}<span>{{.Data.Error}}</span></div>{{end}}
-{{if .Data.Completed}}<a class="btn btn--primary" href="/login">{{.T "login.title"}}</a>{{else}}
-<form method="post" action="/onboarding" class="access-form" novalidate>
-<div class="field"><label for="o-username">{{.T "onboard.username"}}</label><input class="input ltr-data" id="o-username" {{if eq .Data.Field "username"}}aria-invalid="true"{{end}} name="username" dir="ltr" autocomplete="username" spellcheck="false" required value="{{.Data.Username}}" aria-describedby="o-username-help{{if eq .Data.Field "username"}} auth-message{{end}}"><span class="hint" id="o-username-help">{{.T "onboard.username_hint"}}</span></div>
-<div class="field"><label for="o-password">{{.T "onboard.password"}}</label><div class="input-adj"><input class="input ltr-data" id="o-password" {{if eq .Data.Field "password"}}aria-invalid="true"{{end}} name="password" type="password" dir="ltr" autocomplete="new-password" required aria-describedby="o-password-help{{if eq .Data.Field "password"}} auth-message{{end}}"><button type="button" class="icon-btn" data-toggle-password="o-password" aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">{{.IconS "eye"}}{{.IconS "eye-off"}}</button></div><span class="hint" id="o-password-help">{{.Data.PasswordHint}}</span></div>
-<div class="field"><label for="o-password-confirm">{{.T "onboard.password_confirm"}}</label><input class="input ltr-data" id="o-password-confirm" {{if eq .Data.Field "password_confirm"}}aria-invalid="true" aria-describedby="auth-message"{{end}} name="password_confirm" type="password" dir="ltr" autocomplete="new-password" required></div>
-<details class="collapse access-optional" {{if or .Data.Endpoint (eq .Data.Field "endpoint")}}open{{end}}><summary>{{.T "onboard.section_node"}} <span>{{.T "common.optional"}}</span></summary><div class="field"><label for="o-endpoint">{{.T "onboard.endpoint"}}</label><input class="input ltr-data" id="o-endpoint" {{if eq .Data.Field "endpoint"}}aria-invalid="true"{{end}} name="endpoint" dir="ltr" spellcheck="false" value="{{.Data.Endpoint}}" placeholder="vpn.example.com" aria-describedby="o-endpoint-help{{if eq .Data.Field "endpoint"}} auth-message{{end}}"><span class="hint" id="o-endpoint-help">{{.T "onboard.endpoint_hint"}}</span></div></details>
-<button type="submit" class="btn btn--primary btn--block">{{.IconS "shield-check"}}{{.T "onboard.submit"}}</button><p class="access-form-note">{{.T "access.owner_hint"}}</p>
-</form>{{end}}
+<div class="auth-heading">
+  <span class="badge badge--outline">{{.T "access.initial_setup"}}</span>
+  <h1 class="auth-title">{{.T "onboard.title"}}</h1>
+  <p class="auth-description">{{.T "onboard.subtitle"}}</p>
+</div>
+<section class="card auth-panel" aria-label="{{.T "onboard.section_owner"}}">
+  <div class="card-content auth-form">
+    {{if .Data.Error}}<div class="alert alert--destructive" id="auth-message" role="alert" tabindex="-1" data-initial-focus>{{.Icon "alert-circle"}}<p class="alert-title">{{.Data.Error}}</p></div>{{end}}
+    {{if .Data.Completed}}<a class="btn btn--primary btn--block" href="/login">{{.T "login.title"}}{{.IconS "arrow-right"}}</a>{{else}}
+    <form method="post" action="/onboarding" class="auth-form" novalidate>
+      <div class="field">
+        <label class="field-label" for="o-username">{{.T "onboard.username"}}</label>
+        <input class="input tech" id="o-username" {{if eq .Data.Field "username"}}aria-invalid="true"{{end}} name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required value="{{.Data.Username}}" aria-describedby="o-username-help{{if eq .Data.Field "username"}} auth-message{{end}}">
+        <p class="field-description" id="o-username-help">{{.T "onboard.username_hint"}}</p>
+      </div>
+      <div class="field">
+        <label class="field-label" for="o-password">{{.T "onboard.password"}}</label>
+        <div class="password-field">
+          <input class="input tech" id="o-password" {{if eq .Data.Field "password"}}aria-invalid="true"{{end}} name="password" type="password" dir="ltr" autocomplete="new-password" required aria-describedby="o-password-help{{if eq .Data.Field "password"}} auth-message{{end}}">
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-toggle-password="o-password" aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">{{.IconS "eye"}}{{.IconS "eye-off"}}</button>
+        </div>
+        <p class="field-description" id="o-password-help">{{.Data.PasswordHint}}</p>
+      </div>
+      <div class="field">
+        <label class="field-label" for="o-password-confirm">{{.T "onboard.password_confirm"}}</label>
+        <input class="input tech" id="o-password-confirm" {{if eq .Data.Field "password_confirm"}}aria-invalid="true" aria-describedby="auth-message"{{end}} name="password_confirm" type="password" dir="ltr" autocomplete="new-password" required>
+      </div>
+      <details class="collapsible auth-optional"{{if or .Data.Endpoint (eq .Data.Field "endpoint")}} open{{end}}>
+        <summary><span class="summary-text"><span>{{.T "onboard.section_node"}}</span><span class="summary-hint">{{.T "common.optional"}}</span></span></summary>
+        <div class="collapsible-content">
+          <div class="field">
+            <label class="field-label" for="o-endpoint">{{.T "onboard.endpoint"}}</label>
+            <input class="input tech" id="o-endpoint" {{if eq .Data.Field "endpoint"}}aria-invalid="true"{{end}} name="endpoint" dir="ltr" spellcheck="false" autocapitalize="none" value="{{.Data.Endpoint}}" placeholder="vpn.example.com" aria-describedby="o-endpoint-help{{if eq .Data.Field "endpoint"}} auth-message{{end}}">
+            <p class="field-description" id="o-endpoint-help">{{.T "onboard.endpoint_hint"}}</p>
+          </div>
+        </div>
+      </details>
+      <button type="submit" class="btn btn--primary btn--block">{{.IconS "shield-check"}}{{.T "onboard.submit"}}</button>
+    </form>{{end}}
+  </div>
+</section>
+<p class="auth-note">{{.T "access.owner_hint"}}</p>
 {{end}}

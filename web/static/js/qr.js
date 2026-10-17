@@ -7,12 +7,17 @@ let qrURL = "";
 let revision = 0;
 const dialog = () => $("#qr-modal");
 const title = () => $("[data-qr-dialog-title]", dialog());
+const setDevice = (name) => {
+  const device = $("[data-qr-device]", dialog());
+  if (device) { device.textContent = name || ""; device.hidden = !name; }
+};
 
 function showSingleView() {
   const modal = dialog();
   const single = $("[data-qr-single]", modal);
   const all = $("[data-qr-all-panel]", modal);
-  modal?.classList.remove("modal--qr-all");
+  modal?.classList.remove("dialog--lg");
+  modal?.classList.add("dialog--sm");
   if (single) single.hidden = false;
   if (all) all.hidden = true;
   const heading = title();
@@ -72,7 +77,9 @@ function loadAllQR(trigger) {
   if (!links.length) return;
 
   clearAllQR();
-  modal.classList.add("modal--qr-all");
+  modal.classList.remove("dialog--sm");
+  modal.classList.add("dialog--lg");
+  setDevice("");
   single.hidden = true;
   panel.hidden = false;
   const heading = title();
@@ -86,7 +93,7 @@ function loadAllQR(trigger) {
     caption.textContent = link.dataset.qrName || link.textContent.trim();
     caption.dir = "auto";
     const state = document.createElement("span");
-    state.className = "hint";
+    state.className = "qr-state";
     state.setAttribute("role", "status");
     state.textContent = modal.dataset.qrLoading || "";
     const img = document.createElement("img");
@@ -131,6 +138,7 @@ document.addEventListener("click", (e) => {
   if (!btn) return;
   e.preventDefault();
   showSingleView();
+  setDevice(btn.dataset.qrName || "");
   qrURL = btn.dataset.qr;
   openModal("qr-modal", btn);
   loadQR();

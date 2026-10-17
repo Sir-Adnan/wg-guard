@@ -1,20 +1,25 @@
 {{define "device_qr_dialog"}}
 <script type="module" src="{{.A "/js/qr.js"}}"></script>
-<dialog id="qr-modal" class="modal modal--qr" aria-labelledby="qr-dialog-title" data-qr-loading="{{.T "common.loading"}}" data-qr-error="{{.T "devices.qr_error"}}">
-  <div class="modal-head">
-    <h2 id="qr-dialog-title" data-qr-dialog-title data-single-title="{{.T "devices.qr"}}">{{.T "devices.qr"}}</h2>
-    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
-  </div>
-  <div class="modal-body qr-body">
-    <div data-qr-single>
-      <p data-qr-state role="status" data-loading="{{.T "common.loading"}}" data-error="{{.T "devices.qr_error"}}"></p>
-      <img id="qr-img" alt="{{.T "devices.qr"}}" width="280" height="280" hidden>
-      <button type="button" class="btn" data-qr-retry hidden>{{.T "common.retry"}}</button>
-      <p class="text-muted text-sm">{{.T "devices.config_note"}}</p>
+<dialog id="qr-modal" class="dialog dialog--sm qr-dialog" aria-labelledby="qr-dialog-title" data-qr-loading="{{.T "common.loading"}}" data-qr-error="{{.T "devices.qr_error"}}">
+  <div class="dialog-header">
+    <div class="dialog-heading">
+      <h2 class="dialog-title" id="qr-dialog-title" data-qr-dialog-title data-single-title="{{.T "devices.qr"}}">{{.T "devices.qr"}}</h2>
+      <p class="dialog-description" data-qr-device dir="auto" hidden></p>
     </div>
-    <div class="qr-all-panel" data-qr-all-panel hidden>
-      <p class="section-description">{{.T "devices.qr_all_hint"}}</p>
-      <div class="qr-all-grid" data-qr-all-grid></div>
+    <button type="button" class="btn btn--ghost btn--icon btn--sm" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <div class="dialog-body">
+    <div class="qr-single" data-qr-single>
+      <div class="qr-frame">
+        <p class="qr-state" data-qr-state role="status" data-loading="{{.T "common.loading"}}" data-error="{{.T "devices.qr_error"}}"></p>
+        <img id="qr-img" alt="{{.T "devices.qr"}}" width="280" height="280" hidden>
+        <button type="button" class="btn btn--sm" data-qr-retry hidden>{{.IconS "refresh-cw"}}{{.T "common.retry"}}</button>
+      </div>
+      <p class="field-description text-center">{{.T "devices.config_note"}}</p>
+    </div>
+    <div class="stack" data-qr-all-panel hidden>
+      <div class="alert alert--warning">{{.IconS "shield"}}<p class="alert-description">{{.T "devices.qr_all_hint"}}</p></div>
+      <div class="qr-grid" data-qr-all-grid></div>
     </div>
   </div>
 </dialog>

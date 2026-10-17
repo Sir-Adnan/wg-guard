@@ -1,6 +1,6 @@
 {{define "title"}}{{.T "resellers.tokens"}}{{end}}
 {{define "content"}}
-<header class="page-header ops-hero">
+<header class="page-header">
   <div class="page-heading">
     <h1 class="page-title">{{.T "resellers.tokens"}}</h1>
     <p class="page-description">{{.T "resellers.token_intro"}} <bdi class="tech">{{.Data.Account.Slug}}</bdi></p>
@@ -22,7 +22,7 @@
 <div class="empty empty--bordered"><span class="empty-icon">{{.Icon "key"}}</span><h2 class="empty-title">{{.T "tokens.empty_title"}}</h2><p class="empty-description">{{.T "resellers.token_intro"}}</p><div class="empty-actions"><a class="btn btn--primary btn--sm" href="#reseller-token-create" data-open-disclosure="reseller-token-create">{{.IconS "plus"}}{{.T "tokens.add"}}</a></div></div>
 {{end}}
 
-<details class="collapsible editor-panel" id="reseller-token-create"{{if .Data.Form.Error}} open{{end}}>
+<details class="collapsible" id="reseller-token-create"{{if .Data.Form.Error}} open{{end}}>
   <summary><span class="summary-text"><span>{{.T "tokens.add"}}</span><span class="summary-hint">{{.T "ops.token_name_hint"}}</span></span></summary>
   <div class="collapsible-content">
     <div class="alert alert--info">{{.Icon "info"}}<p class="alert-description">{{.T "tokens.bot_setup_hint"}}</p></div>
@@ -32,8 +32,7 @@
       {{template "ops_field" (dict "v" . "f" .Data.Form "name" "cidr" "label" "tokens.cidr" "hint" "tokens.cidr_hint" "technical" true)}}
       <fieldset class="scope-picker">
         <legend class="field-label">{{.T "tokens.col_scopes"}}</legend>
-        <p class="field-description">{{.T "resellers.token_scope_hint"}}</p>
-        {{template "ops_scope_preset_buttons" (dict "v" .)}}
+        {{template "ops_scope_preset_buttons" (dict "v" . "hint" "resellers.token_scope_hint")}}
         {{template "ops_scope_list" (dict "v" . "scopes" .Data.Scopes "selected" .Data.Selected "name" "scopes" "tiers" true)}}
       </fieldset>
       <div class="form-actions"><button class="btn btn--primary" type="submit">{{.IconS "key"}}{{.T "tokens.add"}}</button></div>

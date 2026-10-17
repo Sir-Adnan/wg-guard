@@ -10,23 +10,6 @@
 
   const { openModal, toast, displayDigits } = await import(document.querySelector('meta[name="ui-module"]').content);
 
-  const userFilterMore = $('[data-user-filter-more]');
-  if (userFilterMore) {
-    const compactFilters = matchMedia('(max-width: 800px)');
-    const hasActiveFilter = () => {
-      const form = userFilterMore.closest('form');
-      return Boolean(form?.elements.q?.value.trim()) ||
-        !['', 'all'].includes(form?.elements.status?.value) ||
-        !['', 'created_new'].includes(form?.elements.sort?.value);
-    };
-    const syncFilterDisclosure = () => {
-      if (!compactFilters.matches) userFilterMore.open = true;
-      else if (!hasActiveFilter()) userFilterMore.open = false;
-    };
-    syncFilterDisclosure();
-    compactFilters.addEventListener('change', syncFilterDisclosure);
-  }
-
   /* ---------- user template or manual subscription terms ---------- */
   $$('[data-user-template]').forEach(select => {
     const form = select.closest('form');
@@ -110,7 +93,7 @@
   function updateBulkSelection() {
     const n = $$(".js-sel:checked").length;
     $$("[data-sel-count]").forEach((el) => { el.textContent = n; });
-    $$("[data-bulk-bar]").forEach((el) => el.classList.toggle("hidden", n === 0));
+    $$("[data-bulk-bar]").forEach((el) => { el.hidden = n === 0; });
     const allBox = $("#sel-all");
     if (allBox) {
       allBox.checked = n > 0 && n === $$(".js-sel").length;
@@ -403,7 +386,7 @@
 
   const syncQuickPresets = field => {
     if (!field) return;
-    const input = $('.unit-group .input', field), unit = $('.unit-group .select', field);
+    const input = $('[data-unit-value]', field), unit = $('[data-unit-select]', field);
     if (!input || !unit) return;
     const picker = $('[data-fill-preset]',field);
     if (!picker) return;
@@ -414,7 +397,7 @@
   ['input','change'].forEach(type => document.addEventListener(type,event => {
     const field = event.target.closest?.('.field');
     if (event.target.matches?.('[data-fill-preset]')) {
-      const option = event.target.selectedOptions[0], input = $('.unit-group .input',field), unit = $('.unit-group .select',field);
+      const option = event.target.selectedOptions[0], input = $('[data-unit-value]',field), unit = $('[data-unit-select]',field);
       if (option?.dataset.fillValue && input && unit) { input.value = option.dataset.fillValue; unit.value = option.dataset.fillUnit; }
     }
     syncQuickPresets(field);

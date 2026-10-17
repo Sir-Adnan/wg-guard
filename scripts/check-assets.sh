@@ -20,7 +20,10 @@ measure() { # name files...
 }
 
 measure "javascript total" web/static/js/*.js
-measure "css total" web/static/css/*.css
+mapfile -d '' style_files < <(find web/styles -type f -name '*.css' -print0 | sort -z)
+measure "design-system css (bundled into app.css)" "${style_files[@]}"
+measure "noscript css" web/static/css/*.css
+measure "theme presets (json)" web/themes/*.json
 measure "fonts total" web/static/fonts/*.woff2
 mapfile -d '' svg_files < <(find web/static -type f -name '*.svg' -print0)
 if [ "${#svg_files[@]}" -gt 0 ]; then

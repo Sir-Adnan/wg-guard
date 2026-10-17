@@ -33,7 +33,7 @@ func TestShellNavigationReflectsPermissionAndRoot(t *testing.T) {
 	}
 	updater := e.limitedLogin(t, []string{auth.ScopeUpdateManage})
 	updates := e.get("/updates", updater).Body.String()
-	if !strings.Contains(updates, `href="/updates"`) || !strings.Contains(updates, `href="/updates" aria-label="Update Center" data-tip="Update Center" aria-current="page"`) {
+	if !strings.Contains(updates, `href="/updates"`) || !strings.Contains(updates, `href="/updates" data-tip="Update Center" aria-current="page"`) {
 		t.Fatal("update manager lacks a discoverable current navigation item")
 	}
 }

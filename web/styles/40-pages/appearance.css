@@ -1,0 +1,78 @@
+/* Appearance: the theme gallery. Each preview paints a miniature app from
+   the preset's own swatch variables (--sw-*, generated into
+   theme-swatches.css), so it shows the preset regardless of the active one. */
+@layer pages {
+  .preset-toolbar { justify-content: space-between; }
+  .toolbar-hint { font-size: var(--text-xs); color: var(--muted-foreground); }
+
+  .preset-grid { display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr)); }
+  @media (max-width: 640px) { .preset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); } }
+
+  .preset-card {
+    position: relative; display: flex; flex-direction: column; gap: var(--s-2); min-width: 0;
+    padding: var(--s-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--card); cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .preset-card:hover { border-color: color-mix(in srgb, var(--foreground) 24%, var(--border)); }
+  .preset-card:has(input:checked) { border-color: var(--foreground); box-shadow: 0 0 0 1px var(--foreground); }
+  .preset-card:has(input:focus-visible) { box-shadow: var(--focus-ring); }
+  .preset-card[hidden] { display: none; }
+
+  .preset-check { z-index: 1; }
+  .preset-check {
+    position: absolute; inset-block-start: var(--s-3); inset-inline-end: var(--s-3);
+    display: none; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%;
+    background: var(--foreground); color: var(--background);
+  }
+  .preset-check > .icon { width: .8rem; height: .8rem; stroke-width: 3; }
+  .preset-card:has(input:checked) .preset-check { display: grid; }
+
+  .preset-meta { display: flex; flex-direction: column; gap: var(--s-0_5); padding: var(--s-0_5) var(--s-1) var(--s-1); min-width: 0; }
+  .preset-name { font-size: var(--text-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preset-title { display: flex; align-items: center; gap: var(--s-1_5); min-width: 0; }
+  .preset-flag { flex-shrink: 0; font-size: .6875rem; }
+  @media (max-width: 640px) { .preset-title { flex-wrap: wrap; } .preset-name { flex-basis: 100%; } }
+  .preset-axes { font-size: var(--text-xs); color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Miniature app. Sizes are illustration geometry, not UI spacing. */
+  .preset-preview {
+    --pp-r: calc(var(--sw-radius, .5rem) * .6);
+    display: grid; grid-template-columns: 27% minmax(0, 1fr); aspect-ratio: 16 / 10; overflow: hidden;
+    border: 1px solid var(--sw-border, var(--border)); border-radius: calc(var(--radius-lg) - 3px);
+    background: var(--sw-background, var(--background)); color: var(--sw-foreground, var(--foreground));
+    font-family: var(--sw-font-sans, var(--font-sans));
+  }
+  .pp-sidebar { display: flex; flex-direction: column; gap: 5px; padding: 9px 7px; background: var(--sw-sidebar, var(--sidebar)); border-inline-end: 1px solid var(--sw-border, var(--border)); }
+  .pp-sidebar > i { height: 5px; border-radius: 3px; background: var(--sw-muted, var(--muted)); }
+  .pp-sidebar > i:first-child { width: 60%; margin-bottom: 4px; background: var(--sw-foreground, var(--foreground)); opacity: .85; }
+  .pp-sidebar > i:nth-child(2) { background: var(--sw-accent, var(--accent)); box-shadow: inset 0 -1px 0 var(--sw-primary, var(--primary)); }
+  .pp-main { display: flex; flex-direction: column; gap: 6px; padding: 8px; min-width: 0; }
+  .pp-head { display: flex; align-items: center; justify-content: space-between; }
+  .pp-type { font-size: .8125rem; font-weight: 600; line-height: 1; letter-spacing: -.01em; }
+  .pp-btn { width: 30%; height: 11px; border-radius: var(--pp-r); background: var(--sw-primary, var(--primary)); }
+  .pp-card { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 7px; border: 1px solid var(--sw-border, var(--border)); border-radius: var(--pp-r); background: var(--sw-card, var(--card)); min-height: 0; }
+  .pp-line { height: 4px; width: 72%; border-radius: 2px; background: var(--sw-muted-foreground, var(--muted-foreground)); opacity: .45; }
+  .pp-line--short { width: 44%; opacity: .25; }
+  .pp-chart { flex: 1; display: flex; align-items: flex-end; gap: 3px; margin-top: 2px; min-height: 0; }
+  .pp-chart > i { flex: 1; border-radius: 2px 2px 0 0; background: var(--sw-chart-1, var(--chart-1)); }
+  .pp-chart > i:nth-child(1) { height: 40%; }
+  .pp-chart > i:nth-child(2) { height: 72%; background: var(--sw-chart-2, var(--chart-2)); }
+  .pp-chart > i:nth-child(3) { height: 55%; }
+  .pp-chart > i:nth-child(4) { height: 92%; background: var(--sw-chart-3, var(--chart-3)); }
+  .pp-chart > i:nth-child(5) { height: 64%; }
+  /* Layout axes, so each card also shows its composition. */
+  .preset-preview[data-layout="inset"] .pp-sidebar { border-inline-end: 0; }
+  .preset-preview[data-layout="inset"] .pp-main { margin-block: 4px; margin-inline-end: 4px; border: 1px solid var(--sw-border, var(--border)); border-radius: var(--pp-r); background: var(--sw-background, var(--background)); }
+  .preset-preview[data-layout="inset"] { background: var(--sw-sidebar, var(--sidebar)); }
+  .preset-preview[data-layout="floating"] .pp-sidebar { margin: 4px; border: 1px solid var(--sw-border, var(--border)); border-radius: var(--pp-r); }
+
+  .savebar-text { display: flex; flex-direction: column; gap: var(--s-0_5); min-width: 0; }
+  .savebar-title { font-size: var(--text-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .savebar-hint { font-size: var(--text-xs); color: var(--muted-foreground); }
+  .savebar-hint[data-state="dirty"] { color: var(--warning); }
+  @media (max-width: 640px) { .savebar { padding: var(--s-2) var(--s-3); } .savebar-hint { display: none; } }
+
+  .setting-control--inline { flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .setting-control--inline > .select { flex: 1 1 12rem; }
+}

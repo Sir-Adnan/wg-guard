@@ -149,7 +149,7 @@ func (s *Server) handleAppearanceSubscription(w http.ResponseWriter, r *http.Req
 		return
 	}
 	s.audit(r, "appearance.subscription_changed", "panel", map[string]any{"preset": preset, "mode": mode})
-	s.redirectToast(w, r, "/appearance#appearance-subscription", "appearance.default_saved")
+	s.redirectToast(w, r, "/appearance#appearance-subscription", "appearance.sub.saved")
 }
 
 func (s *Server) handleAppearanceDigits(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,6 @@
 {{define "title"}}{{.T "admins.title"}}{{end}}
 {{define "content"}}
-<header class="page-header ops-hero">
+<header class="page-header">
   <div class="page-heading">
     <h1 class="page-title">{{.T "admins.title"}}</h1>
     <p class="page-description">{{.T "ops.admin_intro"}}</p>
@@ -63,13 +63,13 @@
     <h2 class="section-title" id="admin-roster-title">{{.T "admins.title"}} <span class="tab-count">{{$.N (i64u (len .Data.Admins))}}</span></h2>
   </div>
   <div class="table-frame"><div class="table-wrap">
-    <table class="table table--cards admin-table">
+    <table class="table table--cards">
       <thead><tr><th scope="col">{{.T "admins.col_admin"}}</th><th scope="col">{{.T "admins.col_role"}}</th><th scope="col">{{.T "admins.col_permissions"}}</th><th scope="col">{{.T "admins.col_created"}}</th><th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th></tr></thead>
       <tbody>{{range .Data.Admins}}
         <tr>
           <td class="cell-primary"><div class="cell-identity"><span class="avatar" aria-hidden="true">{{$.Initial .Username}}</span><div><a class="cell-main" href="/admins?edit={{.ID}}"><bdi>{{.Username}}</bdi></a><span class="cell-sub">{{if .Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$.T "admins.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "admins.disabled"}}</span>{{end}}</span></div></div></td>
           <td data-label="{{$.T "admins.col_role"}}"><span class="badge badge--outline">{{$.T (printf "role.%s" .Role)}}</span></td>
-          <td data-label="{{$.T "admins.col_permissions"}}"><span class="text-sm">{{if eq (printf "%v" .Role) "owner"}}{{$.T "admins.all_permissions"}}{{else if .Permissions}}{{$.T "ops.permission_count" (len .Permissions)}}{{else}}<span class="text-muted">{{$.T "admins.no_permissions"}}</span>{{end}}</span></td>
+          <td data-label="{{$.T "admins.col_permissions"}}" class="cell-wide">{{if eq (printf "%v" .Role) "owner"}}<span class="badge badge--primary">{{$.IconS "shield-check"}}{{$.T "admins.all_permissions"}}</span>{{else if .Permissions}}{{template "ops_scope_chips" (dict "v" $ "scopes" .Permissions)}}{{else}}<span class="text-sm text-muted">{{$.T "admins.no_permissions"}}</span>{{end}}</td>
           <td data-label="{{$.T "admins.col_created"}}"><span class="tech text-sm text-muted nowrap">{{$.OpsTimestamp .CreatedAt}}</span></td>
           <td class="col-actions"><div class="row-actions">
             <a class="btn btn--sm btn--ghost" href="/admins?edit={{.ID}}">{{$.IconS "pencil"}}{{$.T "common.edit"}}</a>
@@ -82,7 +82,7 @@
 </section>
 {{else if .Data.Known}}<div class="empty empty--bordered"><span class="empty-icon">{{.Icon "users"}}</span><h2 class="empty-title">{{.T "admins.title"}}</h2><p class="empty-description">{{.T "admins.subtitle"}}</p></div>{{end}}
 
-<details class="collapsible editor-panel" id="admin-create"{{if .Data.Form.Error}} open{{end}}>
+<details class="collapsible" id="admin-create"{{if .Data.Form.Error}} open{{end}}>
   <summary><span class="summary-text"><span>{{.T "admins.add"}}</span><span class="summary-hint">{{.T "ops.admin_create_role"}}</span></span></summary>
   <div class="collapsible-content">
     <form method="post" action="/admins/create" class="stack" novalidate>

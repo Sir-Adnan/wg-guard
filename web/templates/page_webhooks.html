@@ -1,6 +1,6 @@
 {{define "title"}}{{.T "hooks.title"}}{{end}}
 {{define "content"}}
-<header class="page-header ops-hero">
+<header class="page-header">
   <div class="page-heading">
     <h1 class="page-title">{{if .Data.Show}}{{.T "hooks.detail_title"}}{{else}}{{.T "hooks.title"}}{{end}}</h1>
     <p class="page-description">{{.T "ops.hooks_intro"}}</p>
@@ -20,7 +20,7 @@
     </div>
     <div class="card-content">
       {{if .Can "webhooks.write"}}{{template "ops_webhook_form" .}}{{else}}
-      <ul class="event-list event-list--readonly">{{range .Data.Show.Events}}<li class="scope-option"><span class="choice-text"><span class="scope-option-title">{{$.OpsLabel "event" .}}<span class="tech scope-id">{{.}}</span></span><span class="choice-description">{{$.OpsLabel "event_help" .}}</span></span></li>{{end}}</ul>
+      <ul class="item-group">{{range .Data.Show.Events}}<li class="item"><div class="item-content"><span class="item-title">{{$.OpsLabel "event" .}}<code class="tech scope-id">{{.}}</code></span><span class="item-description">{{$.OpsLabel "event_help" .}}</span></div></li>{{end}}</ul>
       {{end}}
     </div>
   </section>
@@ -65,26 +65,26 @@
 {{else}}
 <section class="section" aria-labelledby="webhook-roster-title">
   <div class="section-header"><h2 class="section-title" id="webhook-roster-title">{{.T "hooks.title"}} <span class="tab-count">{{$.N (i64u (len .Data.List))}}</span></h2></div>
-  <ul class="item-group">{{range .Data.List}}
-    <li class="item item--interactive webhook-card">
-      <span class="item-media" aria-hidden="true">{{$.IconS "link"}}</span>
-      <div class="item-content">
-        <a class="item-link item-title" href="{{$.Data.BasePath}}/{{.ID}}"><span class="tech truncate">{{.URL}}</span></a>
-        <div class="item-meta">
-          <span>{{$.T "ops.event_count" (len .Events)}}</span>
-          <span><span class="num">{{.Stats.Delivered}}</span> {{$.T "hooks.stats_delivered"}}</span>
-          <span{{if .Stats.Pending}} class="text-warning"{{end}}><span class="num">{{.Stats.Pending}}</span> {{$.T "hooks.stats_pending"}}</span>
-          <span{{if .Stats.Dead}} class="text-danger"{{end}}><span class="num">{{.Stats.Dead}}</span> {{$.T "hooks.stats_dead"}}</span>
-        </div>
-      </div>
-      <div class="item-actions">{{if .Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$.T "hooks.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "hooks.disabled"}}</span>{{end}}<span class="text-muted" aria-hidden="true">{{$.IconS "chevron-right"}}</span></div>
-    </li>{{end}}
-  </ul>
+  <div class="table-frame"><div class="table-wrap">
+    <table class="table table--cards">
+      <thead><tr><th scope="col">{{.T "hooks.col_url"}}</th><th scope="col">{{.T "hooks.col_events"}}</th><th scope="col">{{.T "hooks.deliveries_title"}}</th><th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th></tr></thead>
+      <tbody>{{range .Data.List}}<tr>
+        <td class="cell-primary"><span class="row"><a class="cell-main tech" href="{{$.Data.BasePath}}/{{.ID}}">{{.URL}}</a>{{if .Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$.T "hooks.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "hooks.disabled"}}</span>{{end}}</span></td>
+        <td data-label="{{$.T "hooks.col_events"}}" class="cell-wide">{{template "ops_scope_chips" (dict "v" $ "scopes" .Events)}}</td>
+        <td data-label="{{$.T "hooks.deliveries_title"}}"><div class="hook-stats">
+          <span><span class="dot dot--success"></span><span class="num">{{$.N (i64u .Stats.Delivered)}}</span> {{$.T "hooks.stats_delivered"}}</span>
+          <span{{if .Stats.Pending}} class="text-warning"{{end}}><span class="dot dot--warning"></span><span class="num">{{$.N (i64u .Stats.Pending)}}</span> {{$.T "hooks.stats_pending"}}</span>
+          <span{{if .Stats.Dead}} class="text-danger"{{end}}><span class="dot dot--destructive"></span><span class="num">{{$.N (i64u .Stats.Dead)}}</span> {{$.T "hooks.stats_dead"}}</span>
+        </div></td>
+        <td class="col-actions"><a class="btn btn--sm btn--ghost" href="{{$.Data.BasePath}}/{{.ID}}">{{$.T "hooks.detail"}}{{$.IconS "chevron-right"}}</a></td>
+      </tr>{{end}}</tbody>
+    </table>
+  </div></div>
 </section>
 {{end}}
 {{end}}
 {{if .Can "webhooks.write"}}
-<details class="collapsible editor-panel" id="webhook-create"{{if .Data.Form.Error}} open{{end}}>
+<details class="collapsible" id="webhook-create"{{if .Data.Form.Error}} open{{end}}>
   <summary><span class="summary-text"><span>{{.T "hooks.add"}}</span><span class="summary-hint">{{.T "hooks.url_hint"}}</span></span></summary>
   <div class="collapsible-content">
     <div class="alert alert--info">{{.Icon "info"}}<p class="alert-description">{{.T "hooks.optional_hint"}}</p></div>
@@ -104,9 +104,8 @@
 </div>{{end}}
 <fieldset class="scope-picker" {{if .Data.Form.Invalid "events"}}aria-invalid="true" aria-describedby="hook-events-help"{{end}}>
   <legend class="field-label">{{.T "hooks.col_events"}}</legend>
-  <p class="field-description" id="hook-events-help">{{.T "ops.hook_events_hint"}}</p>
-  <div class="scope-presets" role="group" aria-label="{{.T "ops.presets"}}"><button class="btn btn--sm" type="button" data-event-preset="all">{{.IconS "check"}}{{.T "ops.events.all"}}</button><button class="btn btn--sm btn--ghost" type="button" data-event-preset="none">{{.IconS "x"}}{{.T "ops.preset.none"}}</button></div>
-  <div class="scope-list scope-list--flat">{{range .Data.Catalog}}<label class="choice scope-option"><input type="checkbox" class="checkbox" name="events" value="{{.}}" {{if $.HasChoice $.Data.Selected .}}checked{{end}}><span class="choice-text"><span class="scope-option-title">{{$.OpsLabel "event" .}}<span class="tech scope-id">{{.}}</span></span><span class="choice-description">{{$.OpsLabel "event_help" .}}</span></span></label>{{end}}</div>
+  <div class="scope-presets"><p class="field-description" id="hook-events-help">{{.T "ops.hook_events_hint"}}</p><div class="cluster" role="group" aria-label="{{.T "ops.presets"}}"><button class="btn btn--xs" type="button" data-event-preset="all">{{.IconS "check"}}{{.T "ops.events.all"}}</button><button class="btn btn--xs btn--ghost" type="button" data-event-preset="none">{{.IconS "x"}}{{.T "ops.preset.none"}}</button></div></div>
+  <div class="scope-list scope-list--flat">{{range .Data.Catalog}}<label class="choice scope-option"><input type="checkbox" class="checkbox" name="events" value="{{.}}" {{if $.HasChoice $.Data.Selected .}}checked{{end}}><span class="choice-text"><span class="scope-option-title">{{$.OpsLabel "event" .}}<code class="tech scope-id">{{.}}</code></span><span class="choice-description">{{$.OpsLabel "event_help" .}}</span></span></label>{{end}}</div>
 </fieldset>
 <div class="form-actions"><button class="btn btn--primary" type="submit">{{if .Data.Show}}{{.IconS "check"}}{{.T "common.save"}}{{else}}{{.IconS "plus"}}{{.T "hooks.add"}}{{end}}</button></div>
 </form>

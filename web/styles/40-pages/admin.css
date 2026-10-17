@@ -1,0 +1,121 @@
+/* Admin workspaces: settings sections, domains, scope pickers, tokens,
+ * webhooks and resellers. Tokens only; logical properties. */
+@layer pages {
+  /* Settings: sticky section nav beside setting-row cards. */
+  .settings-layout { display: grid; grid-template-columns: 10.5rem minmax(0, 1fr); gap: var(--s-8); align-items: start; }
+  .settings-nav { position: sticky; top: calc(var(--header-h) + var(--s-5)); display: flex; flex-direction: column; gap: 1px; }
+  .settings-nav > a { display: flex; align-items: center; min-height: 2rem; padding: var(--s-1_5) var(--s-2_5); border-radius: var(--radius-md); color: var(--muted-foreground); font-size: var(--text-sm); font-weight: 500; transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease); }
+  .settings-nav > a:hover { color: var(--foreground); background: var(--accent); }
+  .settings-nav > a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .settings-main { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; }
+  .settings-section { scroll-margin-top: calc(var(--header-h) + var(--s-5)); }
+  .settings-note { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--text-sm); color: var(--muted-foreground); }
+  .settings-note > .icon { margin-top: .2em; flex-shrink: 0; }
+  .settings-field .setting-title { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+  .settings-readonly { justify-content: center; align-items: flex-start; min-height: var(--control-h); }
+  .settings-section .setting-row { padding-block: var(--s-4); }
+  .setting-row--stack { grid-template-columns: 1fr; gap: var(--s-3); }
+  .settings-meta { display: flex; flex-direction: column; gap: 2px; font-size: var(--text-xs); color: var(--muted-foreground); line-height: 1.5; }
+  .settings-meta-values { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); }
+  .settings-meta-values bdi { color: var(--foreground); }
+  .settings-field.is-invalid { background: color-mix(in srgb, var(--destructive) 4%, transparent); }
+
+  .settings-advanced { border-top: 1px solid var(--border); }
+  .settings-advanced > summary { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--card-p); font-size: var(--text-sm); font-weight: 500; color: var(--muted-foreground); }
+  .settings-advanced > summary:hover { color: var(--foreground); background: color-mix(in srgb, var(--muted) 50%, transparent); }
+  .settings-advanced > summary:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+  .settings-advanced > summary::after { content: ""; width: .45rem; height: .45rem; margin-inline-start: auto; border-inline-end: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform var(--dur) var(--ease); }
+  .settings-advanced[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+  .settings-advanced-body > .setting-row:first-child { border-top: 1px solid var(--border); }
+
+  .settings-section-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; padding: var(--s-3) var(--card-p); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--muted) 55%, transparent); font-size: var(--text-sm); color: var(--muted-foreground); }
+  .settings-section-foot > p { flex: 1 1 16rem; }
+
+  .settings-savebar { margin-top: 0; }
+  .settings-save-status { display: flex; align-items: center; gap: var(--s-2_5); min-width: 0; }
+  .settings-save-dot { color: var(--success); }
+  .is-dirty .settings-save-dot { color: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent); }
+  .is-dirty .settings-savebar { border-color: color-mix(in srgb, var(--foreground) 25%, var(--border)); }
+
+  /* Subscription layout choice: a schematic of each public page arrangement. */
+  .settings-layout-choices { grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
+  .settings-layout-choices .choice-card { flex-direction: column-reverse; gap: var(--s-2); padding: var(--s-3); }
+  .settings-layout-choices .choice-card > .radio { position: absolute; top: var(--s-3); inset-inline-end: var(--s-3); margin: 0; }
+  .settings-layout-choices .choice-card-title { padding-inline-end: var(--s-6); font-size: var(--text-sm); }
+  .layout-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; height: 3.5rem; padding: var(--s-1_5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--muted); margin-bottom: var(--s-1); }
+  .layout-preview > i { display: block; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--foreground) 12%, transparent); }
+  .layout-preview > i:first-child { grid-column: 1 / -1; background: color-mix(in srgb, var(--foreground) 32%, transparent); }
+  .layout-preview[data-layout="split"] { grid-template-columns: 1fr 1fr 1fr; }
+  .layout-preview[data-layout="split"] > i:first-child { grid-column: 1; grid-row: 1 / span 2; }
+  .layout-preview[data-layout="compact"] { grid-template-columns: 1fr 1fr 1fr; }
+  .layout-preview[data-layout="compact"] > i:nth-child(n+2) { background: var(--background); border: 1px solid var(--border); }
+  .layout-preview[data-layout="portal"] { justify-items: center; }
+  .layout-preview[data-layout="portal"] > i:first-child { width: 55%; border-radius: var(--radius-full); }
+  .layout-preview[data-layout="portal"] > i:nth-child(n+2) { width: 100%; }
+  .layout-preview[data-layout="portal"] > i:last-child { grid-column: 1 / -1; }
+  .choice-card:has(input:checked) .layout-preview > i:first-child { background: var(--primary); }
+
+  @media (max-width: 960px) {
+    .settings-layout { grid-template-columns: 1fr; gap: var(--s-4); }
+    .settings-nav { top: var(--header-h); z-index: var(--z-sticky); flex-direction: row; overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--page-px) * -1); padding: var(--s-2) var(--page-px); background: color-mix(in srgb, var(--background) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+    .settings-nav::-webkit-scrollbar { display: none; }
+    .settings-nav > a { flex-shrink: 0; white-space: nowrap; }
+    .settings-section { scroll-margin-top: calc(var(--header-h) + 3.5rem); }
+  }
+}
+
+@layer pages {
+  /* Domains: one card per origin, certificate facts as key/value rows. */
+  .domain-site > .card-content { flex: 1; }
+  .domain-origin-empty { color: var(--muted-foreground); font-size: var(--text-sm); }
+  .domain-fingerprint { border-bottom: 0; padding-bottom: var(--s-1); }
+  .domain-fingerprint-value { display: block; padding: var(--s-1_5) var(--s-2); line-height: 1.6; }
+  .domain-method[hidden] { display: none; }
+  .domain-configure { display: flex; flex-direction: column; }
+  .grid-2 > .domain-aside { display: contents; }
+  .domain-aside > .card { min-width: 0; }
+}
+
+@layer pages {
+  /* Scope picker: presets, then permission families as accordion groups. */
+  .scope-picker { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+  .scope-picker > legend { margin-bottom: var(--s-1); }
+  .scope-presets { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-4); flex-wrap: wrap; }
+  .scope-presets > .field-description { flex: 1 1 18rem; }
+  .scope-groups summary { min-height: var(--control-h); padding-block: var(--s-2); font-size: var(--text-sm); }
+  .scope-groups summary > .badge { margin-inline-start: auto; }
+  .scope-groups summary::after { margin-inline-start: var(--s-1); }
+  .scope-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 2px var(--s-3); }
+  .scope-groups .scope-list { padding: 0 var(--s-2) var(--s-2); gap: 2px var(--s-3); }
+  .scope-list--flat { padding: var(--s-1_5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); max-height: 28rem; overflow-y: auto; }
+  .scope-option { padding: var(--s-2); border-radius: var(--radius-md); transition: background-color var(--dur-fast) var(--ease); }
+  .scope-option:hover { background: color-mix(in srgb, var(--muted) 60%, transparent); }
+  .scope-option:has(input:checked) { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+  .scope-option-title { display: flex; align-items: baseline; gap: var(--s-1_5) var(--s-2); flex-wrap: wrap; font-size: var(--text-sm); font-weight: 500; }
+  .scope-id { font-size: var(--text-2xs); font-weight: 400; color: var(--muted-foreground); }
+  .scope-option--invalid { border: 1px dashed color-mix(in srgb, var(--destructive) 45%, var(--border)); }
+
+  /* Scope / event chips in tables: first few inline, the rest on demand. */
+  .scope-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); min-width: 0; max-width: 28rem; }
+  .scope-chips > .badge { font-size: var(--text-2xs); }
+  .scope-chips-more { display: contents; }
+  .scope-chips-more > summary { cursor: pointer; }
+  .scope-chips-more > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .scope-chips-more[open] > summary { display: none; }
+  .scope-chips-more > .scope-chips { display: contents; }
+  .token-revoked { opacity: .62; }
+
+  /* One-time secret: success-tinted card, value in a copy field. */
+  .secret-reveal { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); background: color-mix(in srgb, var(--success) 4%, var(--card)); }
+  .secret-reveal .card-title > .icon { color: var(--success); }
+  .secret-reveal .copy-field { background: var(--background); }
+  .secret-reveal .copy-field > input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--foreground); font-size: var(--text-sm); }
+  .secret-reveal .copy-field > input:focus-visible { outline: none; }
+  .secret-reveal .copy-field:focus-within { border-color: var(--ring); box-shadow: var(--focus-ring); }
+  .secret-reveal-foot { justify-content: space-between; }
+  .secret-reveal-foot > p { flex: 1 1 16rem; }
+
+  .hook-stats { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); font-size: var(--text-xs); color: var(--muted-foreground); }
+  .hook-stats > span { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
+  .hook-stats .dot { width: .375rem; height: .375rem; }
+}

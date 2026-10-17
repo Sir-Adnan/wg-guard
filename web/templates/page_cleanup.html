@@ -1,59 +1,90 @@
 {{define "title"}}{{.T "cleanup.title"}}{{end}}
 {{define "content"}}
-<div class="page-head page-head--hero">
-  <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "database"}}</span><div><span class="eyebrow">{{.T "cleanup.workspace"}}</span><h1>{{.T "cleanup.title"}}</h1><p>{{.T "cleanup.intro"}}</p></div></div>
-  {{if .Can "backup.manage"}}<a class="btn btn--ghost" href="/backups">{{.IconS "archive"}}<span>{{.T "cleanup.backups"}}</span></a>{{end}}
-</div>
-{{if .Data.Error}}<div class="callout callout--warn" role="alert">{{.IconS "alert-triangle"}}<span>{{.Data.Error}}</span></div>{{end}}
-<div class="cleanup-workspace">
-  <section class="card card--pad" aria-labelledby="cleanup-selection-title">
-    <div class="section-head"><div><h2 id="cleanup-selection-title">{{.T "cleanup.selection"}}</h2><p class="hint">{{.T "cleanup.selection_hint"}}</p></div></div>
-    <form method="post" action="/cleanup/preview" class="form-stack">
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "cleanup.title"}}</h1>
+    <p class="page-description">{{.T "cleanup.intro"}}</p>
+  </div>
+  {{if .Can "backup.manage"}}<div class="page-actions"><a class="btn btn--sm" href="/backups">{{.IconS "archive"}}{{.T "cleanup.backups"}}</a></div>{{end}}
+</header>
+{{if .Data.Error}}<div class="alert alert--warning" role="alert">{{.IconS "alert-triangle"}}<p class="alert-title">{{.Data.Error}}</p></div>{{end}}
+<div class="split">
+  <section class="card" aria-labelledby="cleanup-selection-title">
+    <div class="card-header"><h2 class="card-title" id="cleanup-selection-title">{{.IconS "filter"}}{{.T "cleanup.selection"}}</h2><p class="card-description">{{.T "cleanup.selection_hint"}}</p></div>
+    <form method="post" action="/cleanup/preview" class="card-content stack-lg">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <fieldset class="form-section"><legend>{{.T "cleanup.target"}}</legend>
-        <div class="cleanup-target-grid">
-        <fieldset class="selection-group" data-choice-group="kinds"><legend>{{.T "cleanup.kinds"}}</legend><details class="choice-menu" data-choice-menu><summary class="choice-menu-trigger"><span data-choice-summary data-empty="{{.T "cleanup.choose_options"}}">{{.T "cleanup.choose_options"}}</span>{{.IconS "chevron-down"}}</summary><div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.kinds"}}"><input class="input" type="search" data-choice-search placeholder="{{.T "common.search"}}" aria-label="{{.T "common.search"}}"><div class="choice-toolbar"><label class="choice-master"><input class="checkbox" type="checkbox" name="kinds_all" value="1" data-choice-all {{if .Data.AllKinds}}checked{{end}}><span>{{.T "cleanup.select_all"}}</span></label><span class="hint" data-choice-count data-count-format="{{.T "cleanup.selected_count"}}" aria-live="polite"></span></div><div class="choice-grid">
-          {{range $kind := .Data.KindChoices}}<label class="choice-option"><input class="checkbox" type="checkbox" name="kinds" value="{{$kind}}" data-choice-item {{if $.HasChoice $.Data.Selected.Kinds $kind}}checked{{end}}><span>{{$.T (printf "cleanup.kind.%s" $kind)}}</span></label>{{end}}
-        </div></div></details></fieldset>
-        <fieldset class="selection-group" data-choice-group="owners"><legend id="cleanup-owner-label">{{.T "cleanup.owners"}}</legend><details class="choice-menu" data-choice-menu><summary class="choice-menu-trigger"><span data-choice-summary data-empty="{{.T "cleanup.choose_options"}}">{{.T "cleanup.choose_options"}}</span>{{.IconS "chevron-down"}}</summary><div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.owners"}}"><input class="input" type="search" data-choice-search placeholder="{{.T "common.search"}}" aria-label="{{.T "common.search"}}"><div class="choice-toolbar"><label class="choice-master"><input class="checkbox" type="checkbox" name="owners_all" value="1" data-choice-all {{if .Data.AllOwners}}checked{{end}}><span>{{.T "cleanup.owner_all"}}</span></label><span class="hint" data-choice-count data-count-format="{{.T "cleanup.selected_count"}}" aria-live="polite"></span></div><div class="choice-grid choice-scroll" tabindex="0" role="group" aria-labelledby="cleanup-owner-label">
-          <label class="choice-option"><input class="checkbox" type="checkbox" name="owners" value="node" data-choice-item {{if or .Data.AllOwners (.HasChoice .Data.Selected.Owners "node")}}checked{{end}}><span>{{.T "cleanup.owner_node"}}</span></label>
-          {{range .Data.Owners}}<label class="choice-option"><input class="checkbox" type="checkbox" name="owners" value="{{.ID}}" data-choice-item {{if or $.Data.AllOwners ($.HasChoice $.Data.Selected.Owners .ID)}}checked{{end}}><span>{{.DisplayName}} · <bdi>{{.Slug}}</bdi></span></label>{{end}}
-        </div></div></details></fieldset>
-        <fieldset class="selection-group" data-choice-group="statuses" data-cleanup-user-fields><legend>{{.T "cleanup.statuses"}}</legend><details class="choice-menu" data-choice-menu><summary class="choice-menu-trigger"><span data-choice-summary data-empty="{{.T "cleanup.choose_options"}}">{{.T "cleanup.choose_options"}}</span>{{.IconS "chevron-down"}}</summary><div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.statuses"}}"><input class="input" type="search" data-choice-search placeholder="{{.T "common.search"}}" aria-label="{{.T "common.search"}}"><div class="choice-toolbar"><label class="choice-master"><input class="checkbox" type="checkbox" name="statuses_all" value="1" data-choice-all {{if .Data.AllStatuses}}checked{{end}}><span>{{.T "cleanup.select_all"}}</span></label><span class="hint" data-choice-count data-count-format="{{.T "cleanup.selected_count"}}" aria-live="polite"></span></div><div class="choice-grid">
-          {{range $status := .Data.StatusChoices}}<label class="choice-option"><input class="checkbox" type="checkbox" name="statuses" value="{{$status}}" data-choice-item {{if $.HasChoice $.Data.Selected.Statuses $status}}checked{{end}}><span>{{$.T (printf "cleanup.status.%s" $status)}}</span></label>{{end}}
-        </div><p class="hint">{{.T "cleanup.statuses_hint"}}</p></div></details></fieldset>
-        <fieldset class="selection-group" data-cleanup-user-fields><legend>{{.T "cleanup.date_basis"}}</legend><details class="choice-menu" data-choice-menu data-choice-single><summary class="choice-menu-trigger"><span data-choice-summary>{{.T (printf "cleanup.date.%s" (.Data.Form.V "date_field"))}}</span>{{.IconS "chevron-down"}}</summary><div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.date_basis"}}"><div class="choice-grid">
-          {{range $field := list "expires_at" "created_at" "updated_at" "last_activity_at" "deleted_at"}}<label class="choice-option"><input type="radio" class="checkbox" name="date_field" value="{{$field}}" {{if eq ($.Data.Form.V "date_field") $field}}checked{{end}}><span>{{$.T (printf "cleanup.date.%s" $field)}}</span></label>{{end}}
-        </div></div></details></fieldset>
+      <fieldset class="fieldset"><legend class="fieldset-legend">{{.T "cleanup.target"}}</legend>
+        <div class="field-grid field-grid--2">
+          <fieldset class="field" data-choice-group="kinds"><legend class="field-label">{{.T "cleanup.kinds"}}</legend>{{template "cleanup_choice_menu" .}}<div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.kinds"}}">{{template "cleanup_choice_tools" (dict "v" . "all" "kinds_all" "allLabel" (.T "cleanup.select_all") "checked" .Data.AllKinds)}}<div class="stack-xs">
+            {{range $kind := .Data.KindChoices}}<label class="choice-option"><input class="checkbox" type="checkbox" name="kinds" value="{{$kind}}" data-choice-item {{if $.HasChoice $.Data.Selected.Kinds $kind}}checked{{end}}><span>{{$.T (printf "cleanup.kind.%s" $kind)}}</span></label>{{end}}
+          </div></div></details></fieldset>
+          <fieldset class="field" data-choice-group="owners"><legend class="field-label" id="cleanup-owner-label">{{.T "cleanup.owners"}}</legend>{{template "cleanup_choice_menu" .}}<div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.owners"}}">{{template "cleanup_choice_tools" (dict "v" . "all" "owners_all" "allLabel" (.T "cleanup.owner_all") "checked" .Data.AllOwners)}}<div class="stack-xs" tabindex="0" role="group" aria-labelledby="cleanup-owner-label">
+            <label class="choice-option"><input class="checkbox" type="checkbox" name="owners" value="node" data-choice-item {{if or .Data.AllOwners (.HasChoice .Data.Selected.Owners "node")}}checked{{end}}><span>{{.T "cleanup.owner_node"}}</span></label>
+            {{range .Data.Owners}}<label class="choice-option"><input class="checkbox" type="checkbox" name="owners" value="{{.ID}}" data-choice-item {{if or $.Data.AllOwners ($.HasChoice $.Data.Selected.Owners .ID)}}checked{{end}}><span>{{.DisplayName}} · <bdi>{{.Slug}}</bdi></span></label>{{end}}
+          </div></div></details></fieldset>
+          <fieldset class="field" data-choice-group="statuses" data-cleanup-user-fields><legend class="field-label">{{.T "cleanup.statuses"}}</legend>{{template "cleanup_choice_menu" .}}<div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.statuses"}}">{{template "cleanup_choice_tools" (dict "v" . "all" "statuses_all" "allLabel" (.T "cleanup.select_all") "checked" .Data.AllStatuses)}}<div class="stack-xs">
+            {{range $status := .Data.StatusChoices}}<label class="choice-option"><input class="checkbox" type="checkbox" name="statuses" value="{{$status}}" data-choice-item {{if $.HasChoice $.Data.Selected.Statuses $status}}checked{{end}}><span>{{$.T (printf "cleanup.status.%s" $status)}}</span></label>{{end}}
+          </div><p class="hint ops-menu-hint">{{.T "cleanup.statuses_hint"}}</p></div></details></fieldset>
+          <fieldset class="field" data-cleanup-user-fields><legend class="field-label">{{.T "cleanup.date_basis"}}</legend><details class="choice-menu" data-choice-menu data-choice-single><summary class="choice-menu-trigger"><span class="truncate" data-choice-summary>{{.T (printf "cleanup.date.%s" (.Data.Form.V "date_field"))}}</span></summary><div class="choice-menu-panel" data-choice-panel role="dialog" aria-label="{{.T "cleanup.date_basis"}}"><div class="stack-xs">
+            {{range $field := list "expires_at" "created_at" "updated_at" "last_activity_at" "deleted_at"}}<label class="choice-option"><input type="radio" class="radio" name="date_field" value="{{$field}}" {{if eq ($.Data.Form.V "date_field") $field}}checked{{end}}><span>{{$.T (printf "cleanup.date.%s" $field)}}</span></label>{{end}}
+          </div></div></details></fieldset>
         </div>
-        <p class="hint">{{.T "cleanup.history_basis"}}</p>
-        <label class="check-row" data-cleanup-user-fields><input type="checkbox" class="checkbox" name="include_queued" value="1" {{if eq (.Data.Form.V "include_queued") "1"}}checked{{end}}><span>{{.T "cleanup.include_queued"}}</span></label>
+        <p class="field-description">{{.T "cleanup.history_basis"}}</p>
+        <label class="choice" data-cleanup-user-fields><input type="checkbox" class="checkbox" name="include_queued" value="1" {{if eq (.Data.Form.V "include_queued") "1"}}checked{{end}}><span class="choice-text">{{.T "cleanup.include_queued"}}</span></label>
       </fieldset>
-      <fieldset class="form-section"><legend>{{.T "cleanup.date_range"}}</legend><div class="field-row">
-        {{range $name := list "after" "before"}}<div class="field"><label for="cleanup-{{$name}}">{{$.T (printf "cleanup.%s" $name)}}</label><div class="input-adj"><input class="input" name="{{$name}}" id="cleanup-{{$name}}" type="text" dir="ltr" placeholder="YYYY-MM-DD" value="{{$.Data.Form.V $name}}"><button type="button" class="icon-btn" data-calendar="#cleanup-{{$name}}" data-calendar-past="true" aria-label="{{$.T "cal.open"}}: {{$.T (printf "cleanup.%s" $name)}}" data-cal-prev="{{$.T "cal.prev"}}" data-cal-next="{{$.T "cal.next"}}" data-cal-clear="{{$.T "cal.clear"}}">{{$.IconS "calendar"}}</button></div></div>{{end}}
-      </div><p class="hint">{{.T "cleanup.dates_hint"}}</p></fieldset>
-      <button class="btn btn--primary" type="submit">{{.IconS "eye"}}<span>{{.T "cleanup.preview"}}</span></button>
+      <fieldset class="fieldset"><legend class="fieldset-legend">{{.T "cleanup.date_range"}}</legend>
+        <div class="field-grid field-grid--2">
+          {{range $name := list "after" "before"}}<div class="field"><label class="field-label" for="cleanup-{{$name}}">{{$.T (printf "cleanup.%s" $name)}}</label><div class="input-group"><input class="input input--tech" name="{{$name}}" id="cleanup-{{$name}}" type="text" dir="ltr" placeholder="YYYY-MM-DD" value="{{$.Data.Form.V $name}}"><button type="button" class="btn btn--ghost btn--icon btn--sm" data-calendar="#cleanup-{{$name}}" data-calendar-past="true" aria-label="{{$.T "cal.open"}}: {{$.T (printf "cleanup.%s" $name)}}" data-cal-prev="{{$.T "cal.prev"}}" data-cal-next="{{$.T "cal.next"}}" data-cal-clear="{{$.T "cal.clear"}}">{{$.IconS "calendar"}}</button></div></div>{{end}}
+        </div>
+        <p class="field-description">{{.T "cleanup.dates_hint"}}</p>
+      </fieldset>
+      <div class="form-actions form-actions--start"><button class="btn btn--primary btn--sm" type="submit">{{.IconS "eye"}}{{.T "cleanup.preview"}}</button></div>
     </form>
   </section>
-  <aside class="cleanup-side">
-    <section class="card card--pad" aria-labelledby="cleanup-storage-title"><div class="section-head"><div><h2 id="cleanup-storage-title">{{.T "cleanup.storage"}}</h2><p class="hint">{{.T "cleanup.storage_hint"}}</p></div></div>
-      {{if .Data.StorageKnown}}<dl class="cleanup-facts"><div><dt>{{.T "cleanup.db_size"}}</dt><dd><bdi class="ltr-data">{{.B (i64u .Data.Storage.Bytes)}}</bdi></dd></div><div><dt>{{.T "cleanup.reusable"}}</dt><dd><bdi class="ltr-data">{{.B (i64u .Data.Storage.Reusable)}}</bdi></dd></div><div><dt>WAL</dt><dd><bdi class="ltr-data">{{.B (i64u .Data.Storage.WAL)}}</bdi></dd></div></dl>{{else}}<p class="hint">{{.T "forms.unavailable"}}</p>{{end}}
-      <form method="post" action="/cleanup/optimize"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--secondary" type="submit">{{.IconS "refresh-cw"}}<span>{{.T "cleanup.optimize"}}</span></button></form>
-      {{if eq (printf "%v" .Admin.Role) "owner"}}<div class="cleanup-divider"><p class="hint">{{.T "cleanup.compact_hint"}}</p><form method="post" action="/cleanup/optimize" data-confirm data-confirm-title="{{.T "cleanup.compact"}}" data-confirm-message="{{.T "cleanup.compact_hint"}}" data-confirm-label="{{.T "cleanup.compact"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="compact" value="1"><button class="btn btn--ghost" type="submit">{{.IconS "database"}}<span>{{.T "cleanup.compact"}}</span></button></form></div>{{end}}
+  <aside class="split-aside">
+    <section class="card" aria-labelledby="cleanup-storage-title">
+      <div class="card-header"><h2 class="card-title" id="cleanup-storage-title">{{.IconS "database"}}{{.T "cleanup.storage"}}</h2><p class="card-description">{{.T "cleanup.storage_hint"}}</p></div>
+      <div class="card-content">{{if .Data.StorageKnown}}<div class="kv">
+        <div class="kv-row"><span class="kv-label">{{.T "cleanup.db_size"}}</span><span class="kv-value num">{{.B (i64u .Data.Storage.Bytes)}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "cleanup.reusable"}}</span><span class="kv-value num">{{.B (i64u .Data.Storage.Reusable)}}</span></div>
+        <div class="kv-row"><span class="kv-label tech">WAL</span><span class="kv-value num">{{.B (i64u .Data.Storage.WAL)}}</span></div>
+      </div>{{else}}<p class="text-sm text-muted">{{.T "forms.unavailable"}}</p>{{end}}</div>
+      <div class="card-footer card-footer--bordered">
+        <form method="post" action="/cleanup/optimize"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--sm" type="submit">{{.IconS "refresh-cw"}}{{.T "cleanup.optimize"}}</button></form>
+        {{if eq (printf "%v" .Admin.Role) "owner"}}<form method="post" action="/cleanup/optimize" data-confirm data-confirm-title="{{.T "cleanup.compact"}}" data-confirm-message="{{.T "cleanup.compact_hint"}}" data-confirm-label="{{.T "cleanup.compact"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="compact" value="1"><button class="btn btn--ghost btn--sm" type="submit" data-tip="{{.T "cleanup.compact_hint"}}">{{.IconS "database"}}{{.T "cleanup.compact"}}</button></form>{{end}}
+      </div>
     </section>
-    <section class="card card--pad"><h2>{{.T "cleanup.guidance"}}</h2><p class="hint">{{.T "cleanup.guidance_text"}}</p><a class="btn btn--ghost" href="/users">{{.IconS "users"}}<span>{{.T "cleanup.reset_link"}}</span></a></section>
+    <div class="alert">{{.IconS "info"}}<p class="alert-title">{{.T "cleanup.guidance"}}</p><div class="alert-description stack-sm"><p>{{.T "cleanup.guidance_text"}}</p><a class="btn btn--link text-sm" href="/users">{{.T "cleanup.reset_link"}}{{.IconS "arrow-right"}}</a></div></div>
   </aside>
 </div>
 {{with .Data.Preview}}
-<section class="card card--pad cleanup-preview" aria-labelledby="cleanup-preview-title">
-  <div class="section-head"><div><span class="eyebrow">{{$.T "cleanup.review"}}</span><h2 id="cleanup-preview-title">{{$.T "cleanup.preview_title"}}</h2><p class="hint">{{$.T "cleanup.preview_hint"}}</p></div><span class="badge">{{$.N (i64u (len .Rows))}} {{$.T "cleanup.rows"}}</span></div>
-  {{if .Users}}<p>{{$.T "cleanup.impact" .Users .Devices}}</p>{{end}}{{if .History}}<p>{{$.T "cleanup.history_impact" .History}}</p>{{end}}
-  <div class="cleanup-group-summary">{{range .Groups}}<div><strong>{{$.T (printf "cleanup.kind.%s" .Kind)}}</strong><span class="badge">{{$.N (i64u .Count)}}</span>{{if .More}}<p class="hint">{{$.T "cleanup.more" .Limit}}</p>{{end}}</div>{{end}}</div>
-  {{if .Rows}}<div class="table-wrap" tabindex="0" role="region" aria-label="{{$.T "cleanup.preview_title"}}"><table class="table"><caption class="sr-only">{{$.T "cleanup.preview_title"}}</caption><thead><tr><th>{{$.T "cleanup.kind"}}</th><th>{{$.T "users.username"}}</th><th>{{$.T "cleanup.status"}}</th><th>{{$.T "cleanup.date_basis"}}</th><th>{{$.T "ifaces.peers"}}</th></tr></thead><tbody>
-    {{range $n,$row := .Rows}}{{if lt $n 20}}<tr><td>{{$.T (printf "cleanup.kind.%s" $row.Kind)}}</td><td><bdi class="ltr-data">{{$row.Name}}</bdi></td><td>{{if eq $row.Status "deleted"}}{{$.T "cleanup.status.deleted"}}{{else}}{{$.St $row.Status}}{{end}}</td><td><bdi class="ltr-data">{{if $row.Date}}{{$row.Date}}{{else}}—{{end}}</bdi></td><td>{{$.N (i64u $row.Devices)}}</td></tr>{{end}}{{end}}
-  </tbody></table></div><p class="hint">{{$.T "cleanup.sample_hint"}}</p>
-  <form method="post" action="/cleanup/execute" data-confirm data-confirm-title="{{$.T "cleanup.execute"}}" data-confirm-message="{{$.T "cleanup.confirm"}}" data-confirm-label="{{$.T "cleanup.execute"}}">
-    <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="preview_token" value="{{.Token}}"><button type="submit" class="btn btn--danger">{{$.IconS "trash-2"}}<span>{{$.T "cleanup.execute"}}</span></button>
-  </form>{{else}}<div class="empty"><h3>{{$.T "cleanup.empty"}}</h3><p>{{$.T "cleanup.empty_hint"}}</p></div>{{end}}
-</section>{{end}}
+<section class="section" id="cleanup-preview" aria-labelledby="cleanup-preview-title">
+  <div class="section-header"><div class="section-heading"><h2 class="section-title" id="cleanup-preview-title">{{$.T "cleanup.preview_title"}}<span class="badge badge--outline num">{{$.N (i64u (len .Rows))}} {{$.T "cleanup.rows"}}</span></h2><p class="section-description">{{$.T "cleanup.preview_hint"}}</p></div></div>
+  {{if or .Users .History}}<div class="alert alert--warning">{{$.IconS "alert-triangle"}}<p class="alert-title">{{$.T "cleanup.review"}}</p><div class="alert-description stack-xs">{{if .Users}}<p>{{$.T "cleanup.impact" .Users .Devices}}</p>{{end}}{{if .History}}<p>{{$.T "cleanup.history_impact" .History}}</p>{{end}}</div></div>{{end}}
+  {{if .Groups}}<div class="stat-grid">{{range .Groups}}<div class="stat"><span class="stat-label">{{$.T (printf "cleanup.kind.%s" .Kind)}}</span><span class="stat-value num">{{$.N (i64u .Count)}}</span>{{if .More}}<span class="stat-meta">{{$.T "cleanup.more" .Limit}}</span>{{end}}</div>{{end}}</div>{{end}}
+  {{if .Rows}}
+  <div class="table-frame"><div class="table-wrap" tabindex="0" role="region" aria-label="{{$.T "cleanup.preview_title"}}">
+    <table class="table table--cards table--compact"><caption class="sr-only">{{$.T "cleanup.preview_title"}}</caption>
+      <thead><tr><th scope="col">{{$.T "users.username"}}</th><th scope="col">{{$.T "cleanup.kind"}}</th><th scope="col">{{$.T "cleanup.status"}}</th><th scope="col">{{$.T "cleanup.date_basis"}}</th><th scope="col" class="col-num">{{$.T "ifaces.peers"}}</th></tr></thead>
+      <tbody>{{range $n,$row := .Rows}}{{if lt $n 20}}<tr>
+        <td class="cell-primary"><span class="tech cell-main">{{$row.Name}}</span></td>
+        <td data-label="{{$.T "cleanup.kind"}}"><span class="text-sm">{{$.T (printf "cleanup.kind.%s" $row.Kind)}}</span></td>
+        <td data-label="{{$.T "cleanup.status"}}">{{if eq $row.Status "deleted"}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "cleanup.status.deleted"}}</span>{{else}}<span class="badge {{$.StClass $row.Status}}"><span class="dot"></span>{{$.St $row.Status}}</span>{{end}}</td>
+        <td data-label="{{$.T "cleanup.date_basis"}}"><span class="tech text-sm nowrap">{{if $row.Date}}{{$row.Date}}{{else}}—{{end}}</span></td>
+        <td class="col-num" data-label="{{$.T "ifaces.peers"}}"><span class="num">{{$.N (i64u $row.Devices)}}</span></td>
+      </tr>{{end}}{{end}}</tbody>
+    </table>
+  </div></div>
+  <p class="hint">{{$.T "cleanup.sample_hint"}}</p>
+  <div class="card card--danger">
+    <div class="card-header"><h3 class="card-title">{{$.IconS "trash-2"}}{{$.T "cleanup.execute"}}</h3><p class="card-description">{{$.T "cleanup.confirm"}}</p>
+      <div class="card-action"><form method="post" action="/cleanup/execute" data-confirm data-confirm-title="{{$.T "cleanup.execute"}}" data-confirm-message="{{$.T "cleanup.confirm"}}" data-confirm-label="{{$.T "cleanup.execute"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="preview_token" value="{{.Token}}"><button type="submit" class="btn btn--destructive btn--sm">{{$.IconS "trash-2"}}{{$.T "cleanup.execute"}}</button></form></div>
+    </div>
+  </div>
+  {{else}}<div class="empty empty--bordered empty--compact"><span class="empty-icon">{{$.Icon "check"}}</span><h3 class="empty-title">{{$.T "cleanup.empty"}}</h3><p class="empty-description">{{$.T "cleanup.empty_hint"}}</p></div>{{end}}
+</section>
 {{end}}
+{{end}}
+
+{{define "cleanup_choice_menu"}}<details class="choice-menu" data-choice-menu><summary class="choice-menu-trigger"><span class="truncate" data-choice-summary data-empty="{{.T "cleanup.choose_options"}}">{{.T "cleanup.choose_options"}}</span></summary>{{end}}
+{{define "cleanup_choice_tools"}}<input class="input input--sm" type="search" data-choice-search placeholder="{{.v.T "common.search"}}" aria-label="{{.v.T "common.search"}}"><div class="choice-toolbar"><label class="choice text-sm"><input class="checkbox" type="checkbox" name="{{.all}}" value="1" data-choice-all {{if .checked}}checked{{end}}><span>{{.allLabel}}</span></label><span class="text-xs text-muted" data-choice-count data-count-format="{{.v.T "cleanup.selected_count"}}" aria-live="polite"></span></div>{{end}}

@@ -27,7 +27,7 @@ if (form) {
     const expose = () => {
       if (document.activeElement !== target) return;
       const field = target.getBoundingClientRect(), footer = bar.getBoundingClientRect();
-      const header = document.querySelector('.topbar')?.getBoundingClientRect();
+      const header = document.querySelector('.app-header')?.getBoundingClientRect();
       const upper = (header?.bottom || 0) + 12;
       const lower = Math.min(innerHeight, footer.top) - 12;
       if (field.top < upper) window.scrollBy({top: field.top - upper, behavior:'auto'});

@@ -9,7 +9,7 @@ Implementation and test evidence must support any claimed behavior.
 | Need | Start with |
 |---|---|
 | Current capability, supported host or verification claim | [Status matrix](development/status.md); use [release readiness](development/release-readiness.md) for blockers, certification history and release decisions |
-| Product behavior, panel UX or public API | [Requirements](product/requirements.md), [UI/UX contract](product/ui-ux.md), [API contract](architecture/api.md) as relevant |
+| Product behavior, panel UX or public API | [Requirements](product/requirements.md), [UI/UX contract](product/ui-ux.md), [design system and presets](product/design-system.md) ([ADR-0017](decisions/ADR-0017-design-system-and-presets.md)), [API contract](architecture/api.md) as relevant |
 | Architecture or data change | [Overview](architecture/overview.md), [project structure](architecture/project-structure.md), [database](architecture/database.md) |
 | AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
 | Outbounds, balancers, routing rules or subscription client formats | [Egress routing](architecture/egress-routing.md), [ADR-0016](decisions/ADR-0016-kernel-egress-routing.md), [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
@@ -22,7 +22,7 @@ Implementation and test evidence must support any claimed behavior.
 ## Reference index
 
 **Product and design:** [requirements](product/requirements.md) ·
-[UI/UX](product/ui-ux.md) · [presentation primitives](product/presentation-system.md).
+[UI/UX](product/ui-ux.md) · [design system](product/design-system.md) · [presentation primitives](product/presentation-system.md).
 
 **Architecture and integrations:** [overview](architecture/overview.md) ·
 [project structure](architecture/project-structure.md) · [database](architecture/database.md) ·

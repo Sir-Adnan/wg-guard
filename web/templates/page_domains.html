@@ -1,207 +1,195 @@
 {{define "title"}}{{.T "domains.title"}}{{end}}
 {{define "content"}}
-<div class="page-head page-head--hero">
-<div class="page-title-cluster">
-<span class="page-title-icon" aria-hidden="true">{{.Icon "shield-check"}}</span>
-<div>
-<span class="eyebrow">{{.T "settings.title"}}</span>
-<h1>{{.T "domains.title"}}</h1>
-<p class="page-sub">{{.T "domains.overview"}}</p>
-</div>
-</div>
-<a class="btn btn--secondary" href="/settings">{{.IconS "arrow-right"}}{{.T "common.back"}}</a>
-</div>
-{{if .Data.Error}}<div class="callout callout--error" role="alert">{{.IconS "alert-triangle"}}<span>{{.Data.Error}}</span>
-</div>{{end}}
-<div class="domains-workspace form-stack">
-  {{if not .Data.Available}}<div class="callout callout--warn" role="status">{{.IconS "info"}}<div>
-<strong>{{.T "domains.bridge.unavailable"}}</strong>
-<p data-guidance>{{.T "domains.bridge.hint"}}</p>
-</div>
-</div>{{end}}
-  <div class="domains-sites-grid">
-    {{range .Data.Cards}}<section class="card domain-site" aria-labelledby="domain-site-{{.Role}}">
-<header class="section-head">
-<div class="page-title-cluster">
-<span class="page-title-icon" aria-hidden="true">{{$.Icon "globe"}}</span>
-<div>
-<h2 id="domain-site-{{.Role}}">{{$.T .Title}}</h2>
-<p class="hint" data-guidance>{{$.T .Description}}</p>
-</div>
-</div>
-<span class="badge">{{$.T (printf "domains.state.%s" .State)}}</span>
-</header>
-<div class="domain-site-body">
-<p class="ltr-data domain-origin">
-{{if .Origin}}{{.Origin}}{{else}}{{$.T "domains.origin.unavailable"}}{{end}}
-</p>
-<dl class="domain-certificate-meta">
-<div>
-<dt>{{$.T "domains.method"}}</dt>
-<dd>
-{{if .Method}}{{$.T (printf "domains.method.%s" .Method)}}{{else}}—{{end}}
-</dd>
-</div>
-<div>
-<dt>{{$.T "domains.expires"}}</dt>
-<dd>
-{{if .Expires}}{{$.DT .Expires}}{{else}}—{{end}}
-</dd>
-</div>
-</dl>
-{{if .Fingerprint}}<details class="collapse">
-<summary>{{$.T "domains.certificate.details"}}</summary>
-<div class="card--pad">
-<span class="hint">SHA-256</span>
-<code class="ltr-data break-all">{{.Fingerprint}}</code>
-</div>
-</details>{{end}}
-</div>
-{{if and $.Data.CanManage $.Data.Available (not $.Data.Active) (or .CanRenew .CanRemove)}}<footer class="actions domain-site-footer">
-{{if and $.Data.CanManage $.Data.Available (not $.Data.Active)}}{{if .CanRenew}}<form action="/settings/domains" method="post">
-<input type="hidden" name="_csrf" value="{{$.CSRF}}">
-<input type="hidden" name="operation" value="renew">
-<input type="hidden" name="role" value="{{.Role}}">
-<input type="hidden" name="expected_revision" value="{{$.Data.Inventory.Revision}}">
-<button class="btn btn--secondary" type="submit">{{$.IconS "refresh-cw"}}{{$.T "domains.renew"}}</button>
-</form>{{end}}{{if .CanRemove}}<form action="/settings/domains" method="post" data-confirm="{{$.T "domains.remove.confirm"}}" data-confirm-title="{{$.T "domains.same_origin"}}">
-<input type="hidden" name="_csrf" value="{{$.CSRF}}">
-<input type="hidden" name="operation" value="remove">
-<input type="hidden" name="role" value="{{.Role}}">
-<input type="hidden" name="expected_revision" value="{{$.Data.Inventory.Revision}}">
-<button class="btn btn--secondary" type="submit">{{$.IconS "unlink"}}{{$.T "domains.same_origin"}}</button>
-</form>{{end}}{{end}}
-</footer>{{end}}
-</section>{{end}}
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "domains.title"}}</h1>
+    <p class="page-description">{{.T "domains.overview"}}</p>
   </div>
-  {{template "domain-status" .}}
-  {{if .Data.CanManage}}<section class="card card--pad">
-<header class="section-head">
-<div>
-<h2>{{.T "domains.configure"}}</h2>
-<p class="hint" data-guidance>{{.T "domains.configure.hint"}}</p>
-</div>
-{{if .Data.Available}}<form method="post" action="/settings/domains">
-<input type="hidden" name="_csrf" value="{{.CSRF}}">
-<input type="hidden" name="operation" value="inspect">
-<button class="btn btn--secondary" type="submit">{{.IconS "refresh-cw"}}{{.T "domains.inspect"}}</button>
-</form>{{end}}
-</header>
-    <form class="form-stack domain-configure" action="/settings/domains" method="post" enctype="multipart/form-data" data-confirm="{{.T "domains.apply.confirm"}}" data-confirm-title="{{.T "domains.apply"}}">
+  <div class="page-actions">
+    <a class="btn btn--sm" href="/settings">{{.IconS "arrow-left"}}{{.T "settings.title"}}</a>
+    {{if and .Data.CanManage .Data.Available}}<form method="post" action="/settings/domains">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-<input type="hidden" name="operation" value="configure">
-<input type="hidden" name="expected_revision" value="{{.Data.Inventory.Revision}}">
-      <fieldset{{if or (not .Data.Available) .Data.Active}} disabled{{end}} class="form-stack domain-fieldset">
-<legend class="sr-only">{{.T "domains.configure"}}</legend>
-        <div class="form-row">
-<div class="field">
-<label for="domain-role">{{.T "domains.target"}}</label>
-<select class="select" id="domain-role" name="role">
-<option value="subscription"{{if eq .Data.Form.Role "subscription"}} selected{{end}}>{{.T "domains.role.subscription"}}</option>
-<option value="panel"{{if eq .Data.Form.Role "panel"}} selected{{end}}>{{.T "domains.role.panel"}}</option>
-</select>
+      <input type="hidden" name="operation" value="inspect">
+      <button class="btn btn--sm" type="submit">{{.IconS "refresh-cw"}}{{.T "domains.inspect"}}</button>
+    </form>{{end}}
+  </div>
+</header>
+{{if .Data.Error}}<div class="alert alert--destructive" role="alert">{{.IconS "alert-triangle"}}<p class="alert-title">{{.Data.Error}}</p></div>{{end}}
+{{if not .Data.Available}}<div class="alert alert--warning" role="status">{{.IconS "info"}}<p class="alert-title">{{.T "domains.bridge.unavailable"}}</p><p class="alert-description">{{.T "domains.bridge.hint"}}</p></div>{{end}}
+
+<div class="grid-2">
+  {{range .Data.Cards}}
+  <section class="card domain-site" aria-labelledby="domain-site-{{.Role}}">
+    <div class="card-header">
+      <h2 class="card-title" id="domain-site-{{.Role}}">{{$.IconS (or (and (eq (printf "%s" .Role) "panel") "layout-dashboard") "globe")}}{{$.T .Title}}</h2>
+      <p class="card-description">{{$.T .Description}}</p>
+      <div class="card-action">{{template "domain-state-badge" (dict "v" $ "state" .State)}}</div>
+    </div>
+    <div class="card-content stack-sm">
+      {{if .Origin}}<div class="copy-field"><span class="tech" id="domain-origin-{{.Role}}">{{.Origin}}</span><button class="btn btn--ghost btn--sm btn--icon" type="button" data-copy="#domain-origin-{{.Role}}" data-copied-msg="{{$.T "common.copied"}}" aria-label="{{$.T "common.copy"}}: {{.Origin}}">{{$.IconS "copy"}}</button></div>
+      {{else}}<div class="copy-field domain-origin-empty"><span>{{$.T "domains.origin.unavailable"}}</span></div>{{end}}
+      <div class="kv">
+        <div class="kv-row"><span class="kv-label">{{$.T "domains.method"}}</span><span class="kv-value">{{if .Method}}{{$.T (printf "domains.method.%s" .Method)}}{{else}}<span class="text-muted">—</span>{{end}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{$.T "domains.expires"}}</span><span class="kv-value">{{if .Expires}}<span class="num">{{$.DT .Expires}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
+        {{if .Fingerprint}}<div class="kv-row domain-fingerprint"><span class="kv-label">{{$.T "domains.certificate.details"}}</span><span class="kv-value"><span class="badge badge--outline tech">SHA-256</span></span></div>
+        <code class="code domain-fingerprint-value">{{.Fingerprint}}</code>{{end}}
+      </div>
+    </div>
+    {{if and $.Data.CanManage $.Data.Available (not $.Data.Active) (or .CanRenew .CanRemove)}}
+    <div class="card-footer card-footer--bordered">
+      {{if .CanRenew}}<form action="/settings/domains" method="post">
+        <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="operation" value="renew">
+        <input type="hidden" name="role" value="{{.Role}}">
+        <input type="hidden" name="expected_revision" value="{{$.Data.Inventory.Revision}}">
+        <button class="btn btn--sm" type="submit">{{$.IconS "refresh-cw"}}{{$.T "domains.renew"}}</button>
+      </form>{{end}}
+      {{if .CanRemove}}<form action="/settings/domains" method="post" data-confirm="{{$.T "domains.remove.confirm"}}" data-confirm-title="{{$.T "domains.same_origin"}}">
+        <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="operation" value="remove">
+        <input type="hidden" name="role" value="{{.Role}}">
+        <input type="hidden" name="expected_revision" value="{{$.Data.Inventory.Revision}}">
+        <button class="btn btn--sm btn--ghost" type="submit">{{$.IconS "unlink"}}{{$.T "domains.same_origin"}}</button>
+      </form>{{end}}
+    </div>
+    {{end}}
+  </section>
+  {{end}}
 </div>
-<div class="field">
-<label for="domain-origin">{{.T "domains.origin"}}</label>
-<input id="domain-origin" name="origin" type="url" class="input ltr-data" placeholder="https://sub.example.com" value="{{.Data.Form.Origin}}" required autocomplete="url" aria-describedby="domain-origin-help">
-<p id="domain-origin-help" class="hint" data-guidance>{{.T "domains.origin.hint"}}</p>
-</div>
-</div>
-        <div class="field">
-<label for="domain-method">{{.T "domains.method"}}</label>
-<select class="select" id="domain-method" name="method" data-domain-method>
-<option value="automatic"{{if eq .Data.Form.Method "automatic"}} selected{{end}}>{{.T "domains.method.automatic"}}</option>
-<option value="manual"{{if eq .Data.Form.Method "manual"}} selected{{end}}>{{.T "domains.method.manual"}}</option>
-<option value="external"{{if eq .Data.Form.Method "external"}} selected{{end}}>{{.T "domains.method.external"}}</option>
-</select>
-</div>
-        <section class="domain-method-fields form-stack" data-domain-fields="automatic">
-<h3>{{.T "domains.automatic.title"}}</h3>
-<div class="form-row">
-<div class="field">
-<label for="domain-challenge">{{.T "domains.challenge"}}</label>
-<select id="domain-challenge" name="challenge" class="select">
-<option value="http">{{.T "domains.challenge.http"}}</option>
-<option value="cloudflare">{{.T "domains.challenge.cloudflare"}}</option>
-</select>
-<p class="hint" data-guidance>{{.T "domains.challenge.hint"}}</p>
-</div>
-<div class="field">
-<label for="domain-email">{{.T "domains.email"}}</label>
-<input type="email" id="domain-email" name="email" class="input ltr-data" value="{{.Data.Form.Email}}" autocomplete="email">
-</div>
-</div>
-</section>
-        <section class="domain-method-fields form-stack" data-domain-fields="manual">
-<h3>{{.T "domains.manual.title"}}</h3>
-<p class="hint" data-guidance>{{.T "domains.manual.hint"}}</p>
-<div class="form-row" data-domain-source-fields="upload">
-<div class="field">
-<label for="domain-cert">{{.T "domains.certificate"}}</label>
-<input id="domain-cert" name="certificate" type="file" class="input" accept=".pem,.crt,.cer">
-</div>
-<div class="field">
-<label for="domain-key">{{.T "domains.private_key"}}</label>
-<input id="domain-key" name="private_key" type="file" class="input" accept=".pem,.key">
-</div>
-</div>
-<details class="collapse">
-<summary>{{.T "domains.paths.title"}}</summary>
-<div class="form-stack card--pad">
-<div class="field">
-<label for="domain-source">{{.T "domains.source"}}</label>
-<select id="domain-source" name="source" class="select" data-domain-source>
-<option value="upload">{{.T "domains.source.upload"}}</option>
-<option value="paths">{{.T "domains.source.paths"}}</option>
-</select>
-</div>
-<p class="hint" data-guidance>{{.T "domains.paths.hint"}}</p>
-<div class="form-stack" data-domain-source-fields="paths">
-<div class="field">
-<label for="domain-cert-source">{{.T "domains.certificate_path"}}</label>
-<input id="domain-cert-source" name="cert_source" class="input ltr-data" placeholder="/etc/wg-guard/certificate-import/subscription/fullchain.pem">
-</div>
-<div class="field">
-<label for="domain-key-source">{{.T "domains.key_path"}}</label>
-<input id="domain-key-source" name="key_source" class="input ltr-data" placeholder="/etc/wg-guard/certificate-import/subscription/privkey.pem">
-</div>
-</div>
-</div>
-</details>
-</section>
-        <div class="callout" data-domain-fields="external">
-<span>{{.T "domains.external.hint"}}</span>
-</div>
-        <div class="actions">
-<button class="btn btn--primary" type="submit">{{.IconS "shield-check"}}{{.T "domains.apply"}}</button>
-</div>
+
+<div class="{{if .Data.CanManage}}split{{else}}grid-2{{end}}">
+  {{if .Data.CanManage}}
+  <section class="card" aria-labelledby="domain-configure-title">
+    <div class="card-header">
+      <h2 class="card-title" id="domain-configure-title">{{.T "domains.configure"}}</h2>
+      <p class="card-description">{{.T "domains.configure.hint"}}</p>
+    </div>
+    <form class="card-content domain-configure" action="/settings/domains" method="post" enctype="multipart/form-data" data-confirm="{{.T "domains.apply.confirm"}}" data-confirm-title="{{.T "domains.apply"}}">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="operation" value="configure">
+      <input type="hidden" name="expected_revision" value="{{.Data.Inventory.Revision}}">
+      <fieldset{{if or (not .Data.Available) .Data.Active}} disabled{{end}} class="stack domain-fieldset">
+        <legend class="sr-only">{{.T "domains.configure"}}</legend>
+        <div class="field-grid field-grid--2">
+          <div class="field">
+            <label class="field-label" for="domain-role">{{.T "domains.target"}}</label>
+            <select class="select" id="domain-role" name="role">
+              <option value="subscription"{{if eq .Data.Form.Role "subscription"}} selected{{end}}>{{.T "domains.role.subscription"}}</option>
+              <option value="panel"{{if eq .Data.Form.Role "panel"}} selected{{end}}>{{.T "domains.role.panel"}}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="domain-method">{{.T "domains.method"}}</label>
+            <select class="select" id="domain-method" name="method" data-domain-method>
+              <option value="automatic"{{if eq .Data.Form.Method "automatic"}} selected{{end}}>{{.T "domains.method.automatic"}}</option>
+              <option value="manual"{{if eq .Data.Form.Method "manual"}} selected{{end}}>{{.T "domains.method.manual"}}</option>
+              <option value="external"{{if eq .Data.Form.Method "external"}} selected{{end}}>{{.T "domains.method.external"}}</option>
+            </select>
+          </div>
+          <div class="field field-span-full">
+            <label class="field-label" for="domain-origin">{{.T "domains.origin"}}</label>
+            <input id="domain-origin" name="origin" type="url" class="input input--tech" placeholder="https://sub.example.com" value="{{.Data.Form.Origin}}" required autocomplete="url" aria-describedby="domain-origin-help">
+            <p id="domain-origin-help" class="field-description">{{.T "domains.origin.hint"}}</p>
+          </div>
+        </div>
+
+        <section class="panel stack domain-method" data-domain-fields="automatic" aria-labelledby="domain-automatic-title">
+          <h3 class="text-sm font-semibold" id="domain-automatic-title">{{.T "domains.automatic.title"}}</h3>
+          <div class="field-grid field-grid--2">
+            <div class="field">
+              <label class="field-label" for="domain-challenge">{{.T "domains.challenge"}}</label>
+              <select id="domain-challenge" name="challenge" class="select">
+                <option value="http">{{.T "domains.challenge.http"}}</option>
+                <option value="cloudflare">{{.T "domains.challenge.cloudflare"}}</option>
+              </select>
+              <p class="field-description">{{.T "domains.challenge.hint"}}</p>
+            </div>
+            <div class="field">
+              <label class="field-label" for="domain-email">{{.T "domains.email"}}</label>
+              <input type="email" id="domain-email" name="email" class="input input--tech" value="{{.Data.Form.Email}}" autocomplete="email">
+            </div>
+          </div>
+        </section>
+
+        <section class="panel stack domain-method" data-domain-fields="manual" aria-labelledby="domain-manual-title">
+          <div class="stack-xs">
+            <h3 class="text-sm font-semibold" id="domain-manual-title">{{.T "domains.manual.title"}}</h3>
+            <p class="field-description">{{.T "domains.manual.hint"}}</p>
+          </div>
+          <div class="field-grid field-grid--2" data-domain-source-fields="upload">
+            <div class="field">
+              <label class="field-label" for="domain-cert">{{.T "domains.certificate"}}</label>
+              <input id="domain-cert" name="certificate" type="file" class="input" accept=".pem,.crt,.cer">
+            </div>
+            <div class="field">
+              <label class="field-label" for="domain-key">{{.T "domains.private_key"}}</label>
+              <input id="domain-key" name="private_key" type="file" class="input" accept=".pem,.key">
+            </div>
+          </div>
+          <details class="collapsible">
+            <summary><span class="summary-text"><span>{{.T "domains.paths.title"}}</span><span class="summary-hint">{{.T "domains.paths.hint"}}</span></span></summary>
+            <div class="collapsible-content">
+              <div class="field">
+                <label class="field-label" for="domain-source">{{.T "domains.source"}}</label>
+                <select id="domain-source" name="source" class="select" data-domain-source>
+                  <option value="upload">{{.T "domains.source.upload"}}</option>
+                  <option value="paths">{{.T "domains.source.paths"}}</option>
+                </select>
+              </div>
+              <div class="stack" data-domain-source-fields="paths">
+                <div class="field">
+                  <label class="field-label" for="domain-cert-source">{{.T "domains.certificate_path"}}</label>
+                  <input id="domain-cert-source" name="cert_source" class="input input--tech" placeholder="/etc/wg-guard/certificate-import/subscription/fullchain.pem">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="domain-key-source">{{.T "domains.key_path"}}</label>
+                  <input id="domain-key-source" name="key_source" class="input input--tech" placeholder="/etc/wg-guard/certificate-import/subscription/privkey.pem">
+                </div>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <div class="alert alert--info" data-domain-fields="external">{{.IconS "info"}}<p class="alert-description">{{.T "domains.external.hint"}}</p></div>
+
+        <div class="form-actions"><button class="btn btn--primary" type="submit">{{.IconS "shield-check"}}{{.T "domains.apply"}}</button></div>
       </fieldset>
     </form>
-  </section>{{end}}
-  <section class="card card--pad">
-<div class="section-head">
-<h2>{{.T "domains.endpoint.title"}}</h2>
-<span class="page-title-icon" aria-hidden="true">{{.Icon "network"}}</span>
-</div>
-<p data-guidance>{{.T "domains.endpoint.hint"}}</p>
-<a class="btn btn--secondary" href="/settings#settings-network">{{.T "domains.endpoint.settings"}}</a>
-</section>
+  </section>
+  {{end}}
+  <div class="{{if .Data.CanManage}}split-aside {{end}}domain-aside">
+    {{template "domain-status" .}}
+    <section class="card" aria-labelledby="domain-endpoint-title">
+      <div class="card-header">
+        <h2 class="card-title" id="domain-endpoint-title">{{.IconS "network"}}{{.T "domains.endpoint.title"}}</h2>
+        <p class="card-description">{{.T "domains.endpoint.hint"}}</p>
+      </div>
+      <div class="card-content"><a class="btn btn--sm" href="/settings#settings-network">{{.T "domains.endpoint.settings"}}{{.IconS "arrow-right"}}</a></div>
+    </section>
+  </div>
 </div>
 {{end}}
 
+{{define "domain-state-badge"}}
+{{$s := printf "%s" .state}}<span class="badge {{if or (eq $s "active") (eq $s "automatic")}}badge--success{{else if eq $s "expiring"}}badge--warning{{else if or (eq $s "external") (eq $s "configured")}}badge--info{{else}}badge--muted{{end}}"><span class="dot"></span>{{.v.T (printf "domains.state.%s" $s)}}</span>
+{{end}}
+
 {{define "domain-status"}}
-<section class="card card--pad domain-operation" id="domain-status" aria-live="polite"{{if .Data.Active}} hx-get="/settings/domains/status?id={{.Data.Status.ID}}&amp;state={{.Data.Status.State}}&amp;stage={{.Data.Status.Stage}}" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
-<div class="section-head">
-<h2>{{.T "domains.operation"}}</h2>
-{{if .Data.Status.State}}<span class="badge">{{.T (printf "domains.operation.%s" .Data.Status.State)}}</span>{{end}}
-</div>
-{{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}
-{{if .Data.PanelTarget}}<p class="hint">{{.T "domains.panel_change.hint"}}</p><a class="btn btn--secondary ltr-data" href="{{.Data.PanelTarget}}/settings/domains" target="_blank" rel="noopener noreferrer">{{.Data.PanelTarget}}</a>{{end}}
-{{if .Data.Status.ID}}<p>{{.T (printf "domains.stage.%s" .Data.Status.Stage)}}</p>
-{{if .Data.Status.Failure}}<p class="callout callout--warn">{{.T "domains.operation.failed_hint"}}</p>{{end}}{{else}}<p class="hint">{{.T "domains.operation.idle"}}</p>{{end}}{{if and .Data.CanManage .Data.Available (eq .Data.Status.State "failed")}}<form action="/settings/domains" method="post">
-<input type="hidden" name="_csrf" value="{{.CSRF}}">
-<input type="hidden" name="operation" value="recover">
-<button class="btn btn--secondary" type="submit">{{.IconS "refresh-cw"}}{{.T "domains.recover"}}</button>
-</form>{{end}}
+<section class="card domain-operation" id="domain-status" aria-live="polite" aria-labelledby="domain-status-title"{{if .Data.Active}} hx-get="/settings/domains/status?id={{.Data.Status.ID}}&amp;state={{.Data.Status.State}}&amp;stage={{.Data.Status.Stage}}" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
+  <div class="card-header">
+    <h2 class="card-title" id="domain-status-title">{{.IconS "activity"}}{{.T "domains.operation"}}</h2>
+    {{if .Data.Status.State}}{{$st := printf "%s" .Data.Status.State}}<div class="card-action"><span class="badge {{if eq $st "succeeded"}}badge--success{{else if eq $st "failed"}}badge--destructive{{else if or (eq $st "queued") (eq $st "running")}}badge--info{{else}}badge--muted{{end}}"><span class="dot"></span>{{.T (printf "domains.operation.%s" .Data.Status.State)}}</span></div>{{end}}
+    <p class="card-description">{{if .Data.Status.ID}}{{.T (printf "domains.stage.%s" .Data.Status.Stage)}}{{else}}{{.T "domains.operation.idle"}}{{end}}</p>
+  </div>
+  <div class="card-content stack-sm">
+    {{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}
+    {{if and .Data.Status.ID .Data.Status.Failure}}<p class="text-sm text-muted">{{.T "domains.operation.failed_hint"}}</p>{{end}}
+    {{if .Data.PanelTarget}}<p class="text-sm text-muted">{{.T "domains.panel_change.hint"}}</p><a class="btn btn--sm" href="{{.Data.PanelTarget}}/settings/domains" target="_blank" rel="noopener noreferrer"><span class="tech">{{.Data.PanelTarget}}</span>{{.IconS "external-link"}}</a>{{end}}
+    {{if and .Data.CanManage .Data.Available (eq .Data.Status.State "failed")}}<form action="/settings/domains" method="post">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="operation" value="recover">
+      <button class="btn btn--sm" type="submit">{{.IconS "refresh-cw"}}{{.T "domains.recover"}}</button>
+    </form>{{end}}
+  </div>
 </section>
 {{end}}
