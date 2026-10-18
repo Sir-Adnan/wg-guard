@@ -123,7 +123,7 @@ func TestBrowserPhase10(t *testing.T) {
 			t.Fatal("seed login account")
 		}
 	}
-	if os.Getenv("WG_TEST_UI_SUITE") == "final" || os.Getenv("WG_TEST_UI_STATE_MODE") == "preview" {
+	if os.Getenv("WG_TEST_UI_SUITE") == "final" || os.Getenv("WG_TEST_UI_STATE_MODE") == "preview" || os.Getenv("WG_TEST_UI_GROUP") == "states" {
 		cases, err := json.Marshal(finalBrowserStates(t))
 		if err != nil {
 			t.Fatal(err)

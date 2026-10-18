@@ -24,6 +24,8 @@
   .row-actions { display: inline-flex; align-items: center; gap: var(--s-0_5); justify-content: flex-end; }
   .cell-main { font-weight: 500; color: var(--foreground); display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   a.cell-main:hover { text-decoration: underline; text-underline-offset: 3px; }
+  /* Touch: the clipped (ellipsis) link cannot carry a ::after hit area, so its own box grows. */
+  @media (pointer: coarse) { a.cell-main { min-width: var(--hit); min-height: var(--hit); padding-block: calc((var(--hit) - 1lh) / 2); } }
   .cell-sub { display: block; font-size: var(--text-xs); color: var(--muted-foreground); margin-top: 1px; }
   .cell-identity { display: flex; align-items: center; gap: var(--s-2_5); min-width: 0; }
   .cell-identity > div { min-width: 0; }

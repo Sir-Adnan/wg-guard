@@ -70,7 +70,8 @@ export function toast(message, kind = 'ok', anchor = null) {
 
 function syncTheme() {
   const selected = document.documentElement.dataset.theme || 'system';
-  $$('[data-theme-choice]').forEach(el => el.setAttribute('aria-checked', String(el.dataset.themeChoice === selected)));
+  // Only the theme menu's radios carry a checked state; palette options are commands.
+  $$('[data-theme-choice][role="menuitemradio"]').forEach(el => el.setAttribute('aria-checked', String(el.dataset.themeChoice === selected)));
 }
 function setTheme(choice) {
   if (choice === 'dark' || choice === 'light') document.documentElement.dataset.theme = choice;

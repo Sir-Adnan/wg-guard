@@ -45,6 +45,11 @@
   .breadcrumb > li { display: inline-flex; align-items: center; gap: var(--s-1_5); min-width: 0; }
   .breadcrumb > li + li::before { content: "/"; color: color-mix(in srgb, var(--muted-foreground) 50%, transparent); }
   .breadcrumb a:hover { color: var(--foreground); }
+  @media (pointer: coarse) {
+    .tab { min-height: var(--hit); }
+    .breadcrumb a { position: relative; }
+    .breadcrumb a::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: max(100%, var(--hit)); height: max(100%, var(--hit)); transform: translate(-50%, -50%); }
+  }
   .breadcrumb [aria-current="page"] { color: var(--foreground); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .pagination { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; font-size: var(--text-sm); color: var(--muted-foreground); }

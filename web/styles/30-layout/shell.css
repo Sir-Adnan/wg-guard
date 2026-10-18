@@ -61,7 +61,7 @@
   .sidebar-item[aria-current="page"] > .icon { opacity: 1; }
   .sidebar-item:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--sidebar-ring); }
   .sidebar-marker { width: .4rem; height: .4rem; border-radius: 50%; background: var(--info); flex-shrink: 0; }
-  @media (pointer: coarse) { .sidebar-item { height: 2.5rem; } }
+  @media (pointer: coarse) { .sidebar-item, .sidebar-search { height: var(--hit); } .sidebar-brand, .sidebar-user { min-height: var(--hit); } }
 
   .sidebar-footer { padding: var(--s-2); border-top: 1px solid var(--sidebar-border); display: flex; flex-direction: column; gap: var(--s-1); }
   :root[data-sidebar="inset"] .sidebar-footer { border-top: 0; }
@@ -77,7 +77,9 @@
   /* Desktop icon rail */
   @media (min-width: 961px) {
     .app[data-collapsed] .sidebar { width: var(--sidebar-w-rail); }
-    .app[data-collapsed] :is(.brand-text, .sidebar-group-label, .sidebar-item > span, .sidebar-search > span, .sidebar-search > .kbd, .sidebar-user-text, .sidebar-marker) { display: none; }
+    .app[data-collapsed] :is(.brand-text, .sidebar-group-label, .sidebar-search > span, .sidebar-search > .kbd, .sidebar-user-text, .sidebar-marker) { display: none; }
+    /* Rail links have no aria-label: their text stays in the accessibility tree. */
+    .app[data-collapsed] .sidebar-item > span:not(.sidebar-marker) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .app[data-collapsed] .sidebar-header { justify-content: center; padding-inline: var(--s-2); }
     .app[data-collapsed] .sidebar-brand { flex: 0; }
     .app[data-collapsed] .sidebar-item, .app[data-collapsed] .sidebar-user { justify-content: center; padding-inline: 0; }
@@ -112,9 +114,11 @@
     position: sticky; top: 0; z-index: var(--z-sticky);
     display: flex; align-items: center; gap: var(--s-2); flex-shrink: 0;
     height: var(--header-h); padding-inline: var(--s-4);
-    background: color-mix(in srgb, var(--background) 85%, transparent); backdrop-filter: saturate(1.4) blur(8px);
     border-bottom: 1px solid var(--border);
   }
+  /* The translucent blur lives on a pseudo-element: backdrop-filter on the header itself would make
+     it the containing block for its position:fixed menus and offset them by the sidebar width. */
+  .app-header::before { content: ""; position: absolute; inset: 0; z-index: -1; background: color-mix(in srgb, var(--background) 85%, transparent); backdrop-filter: saturate(1.4) blur(8px); }
   .app-header .separator--vertical { margin-inline: var(--s-1); }
   .app-header-title { font-size: var(--text-base); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-header-actions { display: flex; align-items: center; gap: var(--s-1); margin-inline-start: auto; }

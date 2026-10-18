@@ -130,9 +130,10 @@
   }
   :root[data-surface="flat"] { --card-shadow: none; }
 
-  /* Touch: controls stay at least 40px and keep a 44px hit area (::after). */
+  /* Touch: controls stay at least 40px and keep a 44px hit area (::after). The
+   * [data-density] selector outranks the density rules above, which <html> always carries. */
   @media (pointer: coarse) {
-    :root {
+    :root, :root[data-density] {
       --control-h: max(2.5rem, calc(var(--spacing) * 10));
       --control-h-sm: 2.25rem;
       --control-h-lg: 2.75rem;

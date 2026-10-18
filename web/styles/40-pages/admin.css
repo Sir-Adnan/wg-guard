@@ -8,6 +8,7 @@
   .settings-nav > a:hover { color: var(--foreground); background: var(--accent); }
   .settings-nav > a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
   .settings-nav > a[aria-current="true"] { color: var(--foreground); background: var(--accent); }
+  @media (pointer: coarse) { .settings-nav > a { min-height: var(--hit); } }
   .settings-main { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; }
   .settings-section { scroll-margin-top: calc(var(--header-h) + var(--s-5)); }
   .settings-note { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--text-sm); color: var(--muted-foreground); }

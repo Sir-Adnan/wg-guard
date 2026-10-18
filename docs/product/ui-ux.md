@@ -140,8 +140,9 @@ and API; localized human labels/descriptions are primary UI text.
 Every component defines applicable default, hover, focus-visible, pressed, selected, disabled,
 loading, success, warning, error and destructive states. Hover only enhances interactive targets;
 keyboard/touch provide equivalent operations. Controls have accessible names, visible focus and
-44px touch targets: on coarse pointers controls grow to 40px and an invisible hit area extends
-them to 44px, so dense desktop layouts stay compact. Use native HTML semantics first; adding ARIA roles requires implementing the
+44px touch targets: on coarse pointers buttons grow to 36-40px and an invisible hit area extends
+them to 44px, while text fields, selects, tabs, navigation rows and calendar days are 44px
+themselves, so dense desktop layouts stay compact. Use native HTML semantics first; adding ARIA roles requires implementing the
 matching keyboard behavior. Focus must not be hidden behind sticky chrome/overlays.
 Checkbox glyphs stay compact inside 44px hit areas; preset buttons and calendar days also meet
 the touch target. At 320px the calendar uses the available width with seven 44px columns.

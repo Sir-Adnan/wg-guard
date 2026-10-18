@@ -28,6 +28,11 @@
   .spark-dot.spark-secondary { fill: var(--chart-tx); }
   .spark-empty { min-height: 4rem; display: grid; place-items: center; color: var(--muted-foreground); font-size: var(--text-xs); border: 1px dashed var(--border); border-radius: var(--radius-md); }
 
+  /* charts.js hosts the tooltip and round HTML markers beside each SVG. */
+  .interactive-chart { position: relative; isolation: isolate; }
+  .chart-dot { position: absolute; width: 9px; height: 9px; border-radius: var(--radius-full); border: 2px solid var(--card); background: var(--chart-rx); transform: translate(-50%, -50%); pointer-events: none; }
+  .chart-dot--secondary { background: var(--chart-tx); }
+  .chart-dot[hidden] { display: none; }
   .chart-inspector { opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease); }
   .interactive-chart.is-inspecting .chart-inspector { opacity: 1; }
   .chart-inspector line { stroke: color-mix(in srgb, var(--foreground) 35%, transparent); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
@@ -39,7 +44,7 @@
     background: var(--popover); color: var(--popover-foreground); box-shadow: var(--shadow-lg);
     font-size: var(--text-xs); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease);
   }
-  .chart-tooltip.is-visible { opacity: 1; }
+  .chart-tooltip.is-visible { opacity: 1; pointer-events: auto; }
   .chart-tooltip-title { display: block; margin-bottom: var(--s-1); color: var(--muted-foreground); font-family: var(--font-code); direction: ltr; unicode-bidi: isolate; }
   .chart-tooltip-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-5); padding-block: 2px; }
   .chart-tooltip-name { display: flex; align-items: center; gap: var(--s-1_5); color: var(--muted-foreground); }

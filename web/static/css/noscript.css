@@ -6,7 +6,7 @@
 }
 .sidebar-search, .header-search, [data-toggle-rail] { display: none !important; }
 /* Quick-fill requires enhancement; manual numeric/unit inputs remain usable. */
-.preset-picker { display: none; }
+[data-fill-preset] { display: none; }
 /* The account menu cannot open without scripting: show its actions inline. */
 .sidebar-footer .menu { display: block !important; position: static !important; box-shadow: none !important; border: 0 !important; background: none !important; padding: 0 !important; margin-top: 4px; }
 .sidebar-footer .menu .menu-label { display: none; }
