@@ -31,7 +31,7 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		if l := i18n.Normalize(r.URL.Query().Get("lang")); r.URL.Query().Get("lang") == string(l) {
 			http.SetCookie(w, &http.Cookie{
 				Name: localeCookie, Value: string(l), Path: "/",
-				MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
+				MaxAge: 31536000, SameSite: http.SameSiteLaxMode, Secure: requestIsHTTPS(r),
 			})
 		}
 		target := "/login"
@@ -189,7 +189,7 @@ func (s *Server) handleOnboardingPage(w http.ResponseWriter, r *http.Request) {
 		if l := i18n.Normalize(q); q == string(l) {
 			http.SetCookie(w, &http.Cookie{
 				Name: localeCookie, Value: string(l), Path: "/",
-				MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
+				MaxAge: 31536000, SameSite: http.SameSiteLaxMode, Secure: requestIsHTTPS(r),
 			})
 		}
 		http.Redirect(w, r, "/onboarding", http.StatusSeeOther)
@@ -328,7 +328,7 @@ func (s *Server) handleLocaleSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: localeCookie, Value: l, Path: "/", MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
+		Name: localeCookie, Value: l, Path: "/", MaxAge: 31536000, SameSite: http.SameSiteLaxMode, Secure: requestIsHTTPS(r),
 	})
 	back := safeNext(r.PostFormValue("next"))
 	if back == "" {

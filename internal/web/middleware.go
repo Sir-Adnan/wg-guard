@@ -291,9 +291,6 @@ func bodyCap(next http.Handler) http.Handler {
 		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/routing/geodata/") && strings.HasSuffix(r.URL.Path, "/upload") {
 			limit = geodata.MaxFileBytes + (1 << 20)
 		}
-		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/routing/geodata/") && strings.HasSuffix(r.URL.Path, "/upload") {
-			limit = geodata.MaxFileBytes + (1 << 20)
-		}
 		if r.Method == http.MethodPost && r.URL.Path == "/backups/import" {
 			// Multipart framing gets a small allowance above the compressed
 			// archive bound. MaxBytesReader still streams and terminates excess.

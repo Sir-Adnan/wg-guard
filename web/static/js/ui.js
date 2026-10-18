@@ -78,7 +78,7 @@ function syncTheme() {
 function setTheme(choice) {
   if (choice === 'dark' || choice === 'light') document.documentElement.dataset.theme = choice;
   else { choice = 'system'; delete document.documentElement.dataset.theme; }
-  document.cookie = 'wg_theme=' + choice + ';path=/;max-age=31536000;samesite=lax';
+  document.cookie = 'wg_theme=' + choice + ';path=/;max-age=31536000;samesite=lax' + (location.protocol === 'https:' ? ';secure' : '');
   syncTheme();
 }
 
