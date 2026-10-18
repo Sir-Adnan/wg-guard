@@ -2,7 +2,10 @@ package web
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"html/template"
@@ -510,22 +513,54 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page, layout str
 }
 
 // applyFlash resolves the ?toast= PRG flash into a localized message; the
-// ?rawmsg= variant carries an already-rendered safe string.
+// ?rawmsg= variant carries an already-rendered safe string. A link anyone can
+// craft must not put their words in the product's voice, so only catalog keys
+// render, and free text (rawmsg, targ) needs the server's flash signature.
 func (s *Server) applyFlash(r *http.Request, v *View) {
-	if raw := r.URL.Query().Get("rawmsg"); raw != "" {
-		v.ToastMsg = raw
+	q := r.URL.Query()
+	if raw := q.Get("rawmsg"); raw != "" {
+		if flashSigned(q.Get("fsig"), "raw", raw) {
+			v.ToastMsg = raw
+		}
 		return
 	}
-	key := r.URL.Query().Get("toast")
+	key := q.Get("toast")
+	if key == "" || !i18n.Has(key) {
+		return
+	}
+	targ := q.Get("targ")
+	if targ != "" && !flashSigned(q.Get("fsig"), "targ", key, targ) {
+		return
+	}
 	v.ToastError = key == "common.denied" || key == "onboard.endpoint_pending"
-	if key == "" {
-		return
-	}
-	if targ := r.URL.Query().Get("targ"); targ != "" {
+	if targ != "" {
 		v.ToastMsg = v.T(key, targ)
 	} else {
 		v.ToastMsg = v.T(key)
 	}
+}
+
+// flashKey signs PRG flash text for this process only: a flash is consumed
+// by the redirect that follows it, so a restart merely drops a pending one.
+var flashKey = func() []byte {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic("web: flash key: " + err.Error())
+	}
+	return key
+}()
+
+func flashSignature(parts ...string) string {
+	mac := hmac.New(sha256.New, flashKey)
+	for _, p := range parts {
+		mac.Write([]byte(p))
+		mac.Write([]byte{0})
+	}
+	return hex.EncodeToString(mac.Sum(nil)[:16])
+}
+
+func flashSigned(sig string, parts ...string) bool {
+	return subtle.ConstantTimeCompare([]byte(sig), []byte(flashSignature(parts...))) == 1
 }
 
 // partial executes one {{define}} block (htmx fragment swap target).

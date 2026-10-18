@@ -447,6 +447,11 @@ func TestSafeNext(t *testing.T) {
 		"https://x":  "",
 		"/a\r\nb":    "",
 		"/users?x=1": "/users?x=1",
+		// Browsers read "\" as "/" and drop tabs: both would leave the origin.
+		"/\\evil.com":   "",
+		"/\t/evil.com":  "",
+		"/%09/evil.com": "/%09/evil.com", // percent-encoded stays a path
+		"/a\x7fb":       "",
 	}
 	for in, want := range cases {
 		if got := safeNext(in); got != want {

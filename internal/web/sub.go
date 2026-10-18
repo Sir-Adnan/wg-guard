@@ -230,9 +230,11 @@ func (d *subPageData) usageAndTime(now time.Time) {
 	}
 	d.DaysLeft = &days
 	if d.U.DurationSeconds != nil && *d.U.DurationSeconds > 0 {
-		total := time.Duration(*d.U.DurationSeconds) * time.Second
-		elapsed := total - max(remaining, 0)
-		d.TimePercent = int(min(100, max(0, int64(elapsed*100/total))))
+		// Whole seconds: elapsed*100 in nanoseconds overflows int64 past ~1067
+		// days, and plans may run for ten years.
+		total := *d.U.DurationSeconds
+		elapsed := total - int64(max(remaining, 0)/time.Second)
+		d.TimePercent = int(min(100, max(0, elapsed*100/total)))
 		d.TimeKnown = true
 		d.TimeMeter = meterClass(int64(d.TimePercent), 100)
 	}
@@ -452,7 +454,7 @@ func (s *Server) resolveSubToken(w http.ResponseWriter, r *http.Request) (string
 
 // subRateLimited applies the fixed-window public rate limit (per IP).
 func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
-	if !s.subRL.allow(clientIP(r), time.Now()) {
+	if !s.subRL.allow(s.visitorIP(r), time.Now()) {
 		w.Header().Set("Retry-After", "60")
 		s.surfaceError(w, r, http.StatusTooManyRequests, "publicsub.rate_limited", "sub")
 		return true

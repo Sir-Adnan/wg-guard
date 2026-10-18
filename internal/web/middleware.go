@@ -309,6 +309,25 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
+// visitorIP is the address rate limits, sessions and audit attribute a
+// request to. Behind the managed reverse proxy every peer is the proxy, so
+// its X-Real-IP (set from $remote_addr, never appended) names the visitor;
+// the header is trusted only in proxy mode and only from a local/private
+// peer, so a direct client cannot pick its own rate-limit bucket.
+func (s *Server) visitorIP(r *http.Request) string {
+	peer := clientIP(r)
+	if s.TLSMode != config.TLSModeProxy {
+		return peer
+	}
+	if ip := net.ParseIP(peer); ip == nil || !(ip.IsLoopback() || ip.IsPrivate()) {
+		return peer
+	}
+	if real := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-IP"))); real != nil {
+		return real.String()
+	}
+	return peer
+}
+
 // --- cookies -----------------------------------------------------------------
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
@@ -441,7 +460,17 @@ func (l *ipLimiter) sweepLocked(now time.Time) {
 // safeNext validates a post-login redirect target: same-origin paths only.
 func safeNext(n string) string {
 	if n == "" || !strings.HasPrefix(n, "/") || strings.HasPrefix(n, "//") ||
-		strings.Contains(n, "://") || strings.ContainsAny(n, "\r\n") {
+		strings.Contains(n, "://") || strings.Contains(n, "\\") {
+		return ""
+	}
+	// Browsers drop tabs/newlines and read "\" as "/", so "/\evil" or
+	// "/\t/evil" would leave the origin; control characters never belong here.
+	for _, c := range n {
+		if c < 0x20 || c == 0x7f {
+			return ""
+		}
+	}
+	if u, err := url.Parse(n); err != nil || u.Scheme != "" || u.Host != "" {
 		return ""
 	}
 	return n

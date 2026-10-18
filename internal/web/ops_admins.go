@@ -229,6 +229,12 @@ func (s *Server) mayManageAdminTarget(w http.ResponseWriter, r *http.Request, id
 		s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
 		return false
 	}
+	// Only the owner manages the owner account: a password reset by anyone
+	// else would hand over owner access and lock the owner out.
+	if target.Role == auth.RoleOwner {
+		s.redirectToast(w, r, "/admins", "ops.owner_protected")
+		return false
+	}
 	return true
 }
 
