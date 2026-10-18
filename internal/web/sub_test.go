@@ -17,6 +17,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
+	"github.com/Sir-Adnan/wg-guard/migrations"
 )
 
 // seedUserWithDevice provisions a user + device through the real handlers and
@@ -508,7 +509,7 @@ func TestSubPageLocaleSwitch(t *testing.T) {
 	}
 }
 
-func TestSubscriptionLayoutSettingAppliesToExistingPublicLink(t *testing.T) {
+func TestSubscriptionLayoutPickerAndPreview(t *testing.T) {
 	e := newEnv(t)
 	userID, _, csrf, cookie := e.seedUserWithDevice()
 	link, err := e.srv.Links.ForUser(context.Background(), userID)
@@ -516,22 +517,85 @@ func TestSubscriptionLayoutSettingAppliesToExistingPublicLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	subURL := e.subBase(link.Token)
-	for _, layout := range []string{"pass", "split", "compact"} {
-		rec := e.post("/settings", url.Values{"sub_layout": {layout}}, cookie, csrf)
-		if rec.Code != http.StatusSeeOther {
+	page := e.get("/appearance", cookie).Body.String()
+	for _, layout := range subLayouts {
+		if !strings.Contains(page, `name="sub_layout" value="`+layout+`"`) {
+			t.Fatalf("appearance must offer the %s design", layout)
+		}
+	}
+	if !strings.Contains(page, `name="sub_layout" value="ticket" checked`) || strings.Contains(e.get("/settings", cookie).Body.String(), `name="sub_layout"`) {
+		t.Fatal("the design is chosen once, under Appearance, and defaults to ticket")
+	}
+	heroes := map[string]string{"ticket": `class="ticket"`, "card": `class="member"`, "minimal": `class="lean"`, "portal": `class="portal"`}
+	for _, layout := range subLayouts {
+		if rec := e.post("/appearance/subscription", url.Values{"sub_layout": {layout}}, cookie, csrf); rec.Code != http.StatusSeeOther {
 			t.Fatalf("save %s: HTTP %d", layout, rec.Code)
 		}
-		page := e.get(subURL+"?lang=en", nil)
-		if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-sub-layout="`+layout+`"`) {
-			t.Fatalf("layout %s did not apply to existing link: HTTP %d", layout, page.Code)
+		body := e.get(subURL+"?lang=en", nil).Body.String()
+		if !strings.Contains(body, `data-sub-layout="`+layout+`"`) || !strings.Contains(body, heroes[layout]) || strings.Count(body, "<h1") != 1 {
+			t.Fatalf("design %s must apply to the existing link with its hero and one heading", layout)
+		}
+		for _, section := range []string{`id="sub-tab-connect"`, `id="sub-tab-guide"`, `id="sub-tab-details"`, `<details class="sub-app"`, `name="sub-faq"`} {
+			if !strings.Contains(body, section) {
+				t.Fatalf("design %s lacks shared section %s", layout, section)
+			}
 		}
 	}
-	bad := e.post("/settings", url.Values{"sub_layout": {"unlisted"}}, cookie, csrf)
-	if bad.Code == http.StatusSeeOther {
-		t.Fatal("unlisted layout was accepted")
+	if rec := e.post("/appearance/subscription", url.Values{"sub_layout": {"unlisted"}}, cookie, csrf); rec.Code != http.StatusBadRequest {
+		t.Fatalf("unlisted design: HTTP %d", rec.Code)
 	}
-	if got, _ := e.reg.GetString(context.Background(), "subscription.layout"); got != "compact" {
-		t.Fatalf("invalid save changed layout to %q", got)
+	if got := e.srv.subLayout(context.Background()); got != "portal" {
+		t.Fatalf("a rejected save changed the design to %q", got)
+	}
+
+	preview := e.get("/appearance/subscription/preview?layout=card&preset=linear&mode=dark&lang=en", cookie)
+	body := preview.Body.String()
+	if preview.Code != http.StatusOK || !strings.Contains(body, `data-sub-layout="card"`) || !strings.Contains(body, `data-visual-preset="linear"`) ||
+		!strings.Contains(body, `data-theme="dark"`) || !strings.Contains(body, "data-sub-preview") || !strings.Contains(body, "Monthly 50 GB") {
+		t.Fatalf("preview must render unsaved choices with sample data: HTTP %d", preview.Code)
+	}
+	if strings.Contains(body, "/sub/") || strings.Contains(body, "data-config-download") || strings.Contains(body, "alice") {
+		t.Fatal("preview must not expose real links, users or live actions")
+	}
+	if got := e.srv.subLayout(context.Background()); got != "portal" {
+		t.Fatal("preview must not save")
+	}
+	if _, err := e.admins.Create(context.Background(), "operator", testPassword, auth.RoleAdmin, nil); err != nil {
+		t.Fatal(err)
+	}
+	other := e.login("operator")
+	if rec := e.get("/appearance/subscription/preview", other); rec.Code != http.StatusForbidden {
+		t.Fatalf("non-owner preview: HTTP %d", rec.Code)
+	}
+	if rec := e.post("/appearance/subscription", url.Values{"sub_layout": {"card"}}, other, deriveCSRF(other.Value)); rec.Code != http.StatusForbidden {
+		t.Fatalf("non-owner design change: HTTP %d", rec.Code)
+	}
+	if rec := e.post("/appearance/default/reset", url.Values{"confirm": {"1"}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("reset defaults: HTTP %d", rec.Code)
+	}
+	if got := e.srv.subLayout(context.Background()); got != "ticket" {
+		t.Fatalf("reset must restore the default design, got %q", got)
+	}
+}
+
+func TestSubscriptionLayoutMigrationMapsRetiredDesigns(t *testing.T) {
+	e := newEnv(t)
+	migration, err := migrations.Read("0019_subscription_layouts.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for retired, successor := range map[string]string{"pass": "ticket", "split": "ticket", "compact": "minimal", "portal": "portal"} {
+		if _, err := e.db.Exec(`INSERT INTO settings (key, value, updated_at) VALUES ('subscription.layout', ?, '2026-01-01T00:00:00Z')
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value`, retired); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.db.Exec(string(migration)); err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		if err := e.db.QueryRow(`SELECT value FROM settings WHERE key = 'subscription.layout'`).Scan(&got); err != nil || got != successor {
+			t.Fatalf("%s migrated to %q (%v), want %s", retired, got, err, successor)
+		}
 	}
 }
 

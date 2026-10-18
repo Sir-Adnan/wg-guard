@@ -127,6 +127,26 @@ holds the sidebar toggle, the page title and locale/theme controls. The desktop 
 to an icon rail with tooltips; below 960px it is a modal drawer. The command palette
 (⌘K / Ctrl+K / `/`) filters the same destinations plus quick actions and a user search.
 
+## Subscription page designs
+
+The public subscription page has one shared body and a per-design hero. A design is:
+
+1. an ID in `subLayouts` (`internal/web/sub.go`; the first entry is the default) and in the
+   `subscription.layout` options (`internal/settings/defaults.go`);
+2. a hero template `sub_hero_<id>` in `web/templates/partial_sub_heroes.html`, dispatched from
+   `subcontent` in `page_sub.html`. A hero renders the identity, status and what is left, and the
+   page's only `h1` (`#subscription-name`). It composes the shared facts (`sub-plan`,
+   `sub-data-value`, `sub-time-value`, `sub-expiry`, `sub-meters`, `sub-status-badge`) rather
+   than deriving values again;
+3. a stylesheet `web/styles/40-pages/sub-<id>.css`, scoped to `.sub--<id>` or
+   `body[data-sub-layout="<id>"]`. `sub-base.css` holds the shared body and sorts before every
+   design file, so a design overrides it at equal specificity;
+4. `appearance.layout.<id>` and `appearance.layout.<id>_hint` catalog keys and a schematic
+   thumbnail (`.layout-thumb[data-layout="<id>"]` in `appearance.css`, five `<i>` parts).
+
+Status color comes from `--status-tone`, set once per `data-status`. Retiring a design needs a
+migration that maps stored values to a successor (see `0019_subscription_layouts.sql`).
+
 ## Verification
 
 `go test ./internal/web/theme` validates every preset (schema, safety, contrast in both modes,

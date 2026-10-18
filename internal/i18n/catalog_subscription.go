@@ -36,8 +36,6 @@ func init() {
 		{"publicsub.store.download", "Download", "دانلود"},
 		{"publicsub.store.website", "Website", "وب‌سایت"},
 		{"publicsub.store.source", "Source and guide", "کد و راهنما"},
-		{"settings.sub_layout.portal", "Portal", "پورتال"},
-		{"settings.sub_layout.portal_hint", "App-style page: big usage rings, devices and a guided setup. Best on phones.", "صفحه‌ای شبیه اپلیکیشن: حلقه‌های بزرگ مصرف، دستگاه‌ها و راهنمای قدم‌به‌قدم؛ مناسب گوشی."},
 	}
 	for _, row := range rows {
 		catalogEN[row[0]] = row[1]

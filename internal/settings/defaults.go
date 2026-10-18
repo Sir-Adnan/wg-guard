@@ -178,8 +178,8 @@ func Defaults() []Definition {
 			}},
 		// One installation-wide public-page composition. Visual presets and
 		// visitor light/dark choice remain independent from this layout.
-		{Key: "subscription.layout", Kind: KindString, Default: "pass",
-			Options: []string{"pass", "split", "compact", "portal"}, Category: "general"},
+		{Key: "subscription.layout", Kind: KindString, Default: "ticket",
+			Options: []string{"ticket", "card", "minimal", "portal"}, Category: "general"},
 
 		// Users (defaults applied at creation; per-user overrides exist).
 		// The preset lists feed the create-user quick chips; the settings

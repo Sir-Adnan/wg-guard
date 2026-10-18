@@ -70,6 +70,17 @@ document.addEventListener('click', async event => {
   button.copyReset = setTimeout(() => { delete button.dataset.copied; }, 1500);
 });
 
+/* Section tabs are CSS radio tabs; mirror the chosen section in the address so a
+ * link like #guide opens that tab, without moving the page. */
+(() => {
+  const radios = [...document.querySelectorAll('input[name="sub-section"]')];
+  const fromHash = radios.find(radio => '#' + radio.value === location.hash);
+  if (fromHash) fromHash.checked = true;
+  document.addEventListener('change', event => {
+    if (event.target.matches?.('input[name="sub-section"]')) history.replaceState(null, '', '#' + event.target.value);
+  });
+})();
+
 /* Open the setup guide on the visitor's platform. */
 (() => {
   const ua = navigator.userAgent || '';

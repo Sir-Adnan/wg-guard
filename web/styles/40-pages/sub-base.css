@@ -1,0 +1,137 @@
+/* Public subscription page (sub-base sorts before every sub-<layout>.css, so a
+ * design overrides it at equal specificity): the body every design shares (notice, section tabs,
+ * devices, the accordion setup guide, details). Each design's hero lives in
+ * sub-<layout>.css and is scoped to .sub--<layout> / body[data-sub-layout]. */
+@layer pages {
+  .sub { display: flex; flex-direction: column; gap: var(--s-6); min-width: 0; }
+  .sub-preview-note { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px dashed var(--border); border-radius: var(--radius-lg); font-size: var(--text-xs); color: var(--muted-foreground); }
+
+  /* Latin number + localized unit (never one bidi run). */
+  .sub-qty { display: inline-flex; align-items: baseline; gap: .3em; }
+  .sub-qty-unit { font-size: .6em; color: var(--muted-foreground); font-weight: 500; letter-spacing: 0; }
+  .sub-value-text { font-size: var(--text-base); font-weight: 500; }
+
+  /* Data and time meters, shared by every hero. */
+  .sub-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3) var(--s-5); }
+  @media (max-width: 480px) { .sub-meters { grid-template-columns: minmax(0, 1fr); } }
+  .sub-meter { display: flex; flex-direction: column; gap: var(--s-1_5); min-width: 0; }
+  .sub-meter-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); font-size: var(--text-xs); color: var(--muted-foreground); }
+  .sub-meter-head > span:first-child { display: inline-flex; align-items: center; gap: var(--s-1); }
+  .sub-meter-note { font-variant-numeric: tabular-nums; }
+
+  /* Section tabs: CSS radio tabs (inputs precede labels), panels via :has(). On
+   * phones the tab row sticks under the header so sections stay one tap away. */
+  .sub-sections { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; }
+  .sub-tabs-picker { min-width: 0; }
+  @media (max-width: 640px) {
+    .sub-tabs-picker { position: sticky; top: var(--header-h); z-index: var(--z-sticky); margin-inline: calc(var(--s-4) * -1); padding: var(--s-1) var(--s-4) 0; background: var(--background); }
+    .sub-tabs > .tab { flex: 1 1 0; }
+  }
+  .sub-panel { display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; scroll-margin-top: calc(var(--header-h) + 4rem); }
+  .sub-panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+  .sub-panel-heading { display: flex; flex-direction: column; gap: var(--s-0_5); min-width: 0; }
+  .sub-panel-title { font-size: var(--text-md); font-weight: 600; }
+  .sub-panel-description { font-size: var(--text-sm); color: var(--muted-foreground); }
+  @supports selector(:has(*)) {
+    .sub-panel { display: none; }
+    .sub-sections:has(#sub-tab-connect:checked) > [data-panel="connect"],
+    .sub-sections:has(#sub-tab-guide:checked) > [data-panel="guide"],
+    .sub-sections:has(#sub-tab-details:checked) > [data-panel="details"] { display: flex; }
+    /* The selected tab already names the panel. */
+    .sub-panel-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  }
+  @supports not selector(:has(*)) { .sub-tabs-picker { display: none; } }
+
+  /* Devices */
+  .sub-device-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: var(--s-3); }
+  .sub-device { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; padding: var(--s-4); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); box-shadow: var(--card-shadow); }
+  .sub-device-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s-3); }
+  .sub-device-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: var(--radius-lg); background: var(--muted); color: var(--foreground); }
+  .sub-device-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .sub-device-name { font-size: var(--text-base); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-device-meta { font-size: var(--text-xs); color: var(--muted-foreground); }
+  /* The customer's primary actions stay at least 36px under every density. */
+  /* Download spans the row; QR and Copy key pair up; the AmneziaVPN hand-off
+   * (the longest label) takes its own row. */
+  .sub-device-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--s-2); }
+  .sub-device-actions > .sub-handoff { grid-column: 1 / -1; }
+  .sub-device-actions > .btn { width: 100%; min-width: 0; height: max(var(--control-h), 2.25rem); }
+  .sub-device-actions > .btn > span { overflow: hidden; text-overflow: ellipsis; }
+  .sub-device-actions > .btn--primary { grid-column: 1 / -1; }
+  .sub-device-note { display: flex; align-items: flex-start; gap: var(--s-1_5); font-size: var(--text-xs); color: var(--muted-foreground); }
+  .sub-device-note > .icon { margin-top: 2px; }
+  .sub-device-note--warning { color: var(--warning); }
+  .sub-device-state { font-size: var(--text-xs); color: var(--muted-foreground); }
+  .sub-device-state:empty { display: none; }
+  .sub-device-state[role="alert"] { color: var(--destructive-text); }
+
+  /* Setup guide: platform radio tabs, then one accordion item per app (the
+   * recommended app open). Without :has() every platform is listed. */
+  .sub-os { display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; }
+  .sub-os-picker { min-width: 0; }
+  @media (max-width: 480px) {
+    .sub-os-tabs > .tab { padding-inline: var(--s-2); }
+    .sub-os-tabs > .tab > .icon { display: none; }
+  }
+  .sub-os-panel { display: flex; flex-direction: column; gap: var(--s-3); }
+  .sub-os-title { display: none; align-items: center; gap: var(--s-2); font-size: var(--text-base); }
+  @supports not selector(:has(*)) {
+    .sub-os-picker { display: none; }
+    .sub-os-title { display: flex; }
+  }
+  @supports selector(:has(*)) {
+    .sub-os-panel { display: none; }
+    .sub-os:has(#os-android:checked) > [data-os="android"],
+    .sub-os:has(#os-ios:checked) > [data-os="ios"],
+    .sub-os:has(#os-windows:checked) > [data-os="windows"],
+    .sub-os:has(#os-macos:checked) > [data-os="macos"],
+    .sub-os:has(#os-linux:checked) > [data-os="linux"] { display: flex; }
+  }
+  .sub-app > summary { align-items: flex-start; justify-content: flex-start; gap: var(--s-3); padding-block: var(--s-3_5, var(--s-3)); }
+  .sub-app-icon { display: grid; place-items: center; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--background); }
+  .sub-app[open] .sub-app-icon { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+  .sub-app-name { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); font-weight: 600; }
+  .sub-app .accordion-content { padding-inline-start: calc(var(--s-4) + 2.25rem + var(--s-3)); }
+  @media (max-width: 480px) { .sub-app .accordion-content { padding-inline-start: var(--s-4); } }
+  .sub-steps { display: flex; flex-direction: column; gap: var(--s-2_5); counter-reset: sub-step; font-size: var(--text-sm); }
+  .sub-steps > li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: var(--s-2_5); counter-increment: sub-step; }
+  .sub-steps > li::before {
+    content: counter(sub-step); grid-row: span 2;
+    display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; margin-top: .1em;
+    border-radius: var(--radius-full); background: var(--muted);
+    font-size: var(--text-2xs); font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums;
+  }
+  .sub-step-links { display: flex; flex-wrap: wrap; gap: var(--s-1_5); margin-top: var(--s-1_5); }
+  .sub-step-links:empty { display: none; }
+  /* Copyable command/path in a step (copy-field anatomy; LTR value). */
+  .sub-command { display: flex; margin-top: var(--s-1_5); max-width: 32rem; }
+  .sub-command > code { user-select: all; }
+  .sub-command > .btn:not([data-copied]) > .icon + .icon, .sub-command > .btn[data-copied] > .icon:first-child { display: none; }
+  .sub-command > .btn[data-copied] { color: var(--success); }
+
+  .sub-faq { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-2); }
+  .sub-faq-title { display: flex; align-items: center; gap: var(--s-2); font-size: var(--text-sm); font-weight: 600; }
+  .sub-faq .accordion-content > p { font-size: var(--text-sm); color: var(--muted-foreground); }
+
+  /* Details */
+  .sub-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--s-3); }
+  .sub-detail-card { gap: var(--s-2); padding: var(--s-4); }
+  .sub-detail-title { display: flex; align-items: center; gap: var(--s-2); font-size: var(--text-sm); font-weight: 600; }
+  .sub-detail-list > div { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding-block: var(--s-2); font-size: var(--text-sm); }
+  .sub-detail-list > div + div { border-top: 1px solid var(--border); }
+  .sub-detail-list dt { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--muted-foreground); }
+  .sub-detail-list dd { font-weight: 500; text-align: end; min-width: 0; }
+
+  .sub-note { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--text-xs); color: var(--muted-foreground); }
+  .sub-note > .icon { margin-top: 2px; }
+
+  /* Visitor page-style picker: every preset stays inside the viewport and
+   * scrolls. ui.js writes an inline max-height for every menu; this one is shorter. */
+  .sub-preset-menu { min-width: 13rem; max-height: min(26rem, calc(100dvh - var(--header-h) - var(--s-6))) !important; overscroll-behavior: contain; }
+
+  /* Status tone for hero seals and rings: one mapping for every design. */
+  .sub [data-status] { --status-tone: var(--warning); }
+  .sub [data-status="active"] { --status-tone: var(--success); }
+  .sub [data-status="waiting_first_connection"] { --status-tone: var(--info); }
+  .sub [data-status="expired"], .sub [data-status="traffic_exceeded"] { --status-tone: var(--destructive); }
+}

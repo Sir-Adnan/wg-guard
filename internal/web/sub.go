@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/device"
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/web/theme"
 )
 
 // Subscription links: admin lifecycle handlers + the public customer-facing
@@ -144,10 +146,7 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: u.ExpiresAt, DurationSeconds: u.DurationSeconds}
 	data.Used = u.TrafficUsedRX + u.TrafficUsedTX
 	data.Base = "/sub/" + url.PathEscape(r.PathValue("token"))
-	data.Layout = "pass"
-	if layout, err := s.Settings.GetString(ctx, "subscription.layout"); err == nil && validSubLayout(layout) {
-		data.Layout = layout
-	}
+	data.Layout = s.subLayout(ctx)
 	data.Platforms = subPlatforms
 	data.usageAndTime(time.Now())
 	data.Attention = data.attention()
@@ -155,8 +154,19 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	s.renderSub(w, r, "sub", data)
 }
 
-// subLayouts are the installation-wide public page compositions.
-var subLayouts = []string{"pass", "split", "compact", "portal"}
+// subLayouts are the public page designs in display order; the first is the
+// default. A design is a registry entry here (and in the settings options), a
+// hero template "sub_hero_<id>" and a stylesheet 40-pages/sub-<id>.css.
+var subLayouts = []string{"ticket", "card", "minimal", "portal"}
+
+// subLayout is the installation-wide design; an unknown stored value falls
+// back to the default rather than failing the public page.
+func (s *Server) subLayout(ctx context.Context) string {
+	if layout, err := s.Settings.GetString(ctx, "subscription.layout"); err == nil && validSubLayout(layout) {
+		return layout
+	}
+	return subLayouts[0]
+}
 
 func validSubLayout(layout string) bool {
 	for _, l := range subLayouts {
@@ -451,6 +461,12 @@ func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
 // renderSub executes a customer-facing page inside the standalone sub layout
 // with a ?lang= override (customers have no admin session/cookie).
 func (s *Server) renderSub(w http.ResponseWriter, r *http.Request, page string, data subPageData) {
+	s.renderSubWith(w, r, page, data, nil)
+}
+
+// renderSubWith renders a public page; a non-nil appearance replaces the
+// visitor's resolved preset and mode (the owner's unsaved preview).
+func (s *Server) renderSubWith(w http.ResponseWriter, r *http.Request, page string, data subPageData, appearance *appearanceSelection) {
 	pt, ok := s.pages[page]
 	if !ok {
 		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "sub")
@@ -459,6 +475,12 @@ func (s *Server) renderSub(w http.ResponseWriter, r *http.Request, page string, 
 	v := s.newView(r)
 	v.Admin = nil
 	v.CSRF = ""
+	if appearance != nil {
+		v.Theme, v.Preset, v.UI = appearance.Mode, appearance.Preset, theme.UI{}
+		if p := s.themes.Get(v.Preset); p != nil {
+			v.UI = p.UI
+		}
+	}
 	v.Data = data
 	v.SubLayout = data.Layout
 	v.Locale = i18n.Normalize(r.URL.Query().Get("lang"))
@@ -490,6 +512,7 @@ type subPageData struct {
 	TimeKnown    bool
 	TimeMeter    string // meter width/tone class for the time bar
 	Attention    string // renewal notice key suffix; see attention
+	Preview      bool   // sample data for the Appearance preview: actions are inert
 }
 
 // subDevice is one device card on the public page.

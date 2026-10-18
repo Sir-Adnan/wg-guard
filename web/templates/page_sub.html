@@ -1,5 +1,11 @@
 {{define "title"}}{{.T "sub.title"}}{{end}}
 
+{{/* Public subscription page. One shared body (status notice and the Connect /
+     Setup guide / Details sections) under a per-layout hero. Layout heroes live
+     in partial_sub_heroes.html; each layout also owns a stylesheet in
+     web/styles/40-pages/sub-<layout>.css. Sections and platform tabs are CSS
+     radio tabs, so they work without JavaScript. */}}
+
 {{define "sub-theme-picker"}}
 <div class="menu-anchor" data-sub-preset-menu>
   <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="{{.T "publicsub.ui.theme_picker"}}" aria-haspopup="menu" aria-expanded="false" data-tip="{{.T "publicsub.ui.theme_picker"}}">{{.Icon "sparkles"}}</button>
@@ -21,168 +27,233 @@
      without JavaScript the text stays selectable. Expects dict "Value" "V" (the view). */}}
 {{define "sub-command"}}<span class="copy-field sub-command" dir="ltr"><code class="tech" translate="no">{{.Value}}</code><button type="button" class="btn btn--ghost btn--icon btn--sm" data-sub-copy hidden aria-label="{{.V.T "common.copy"}}" data-tip="{{.V.T "common.copy"}}">{{.V.IconS "copy"}}{{.V.IconS "check"}}</button></span>{{end}}
 
-{{define "subcontent"}}
-<div class="sub" data-access-ready="{{.Data.U.Status.PeerWanted}}">
-  {{template "sub_pass" .}}
-  {{template "sub_devices" .}}
-  {{template "sub_guide" .}}
+{{/* Shared hero facts. Every layout composes these instead of re-deriving values. */}}
+{{define "sub-status-badge"}}{{$status := printf "%v" .Data.U.Status}}<span class="badge {{.StClass $status}} sub-status"><span class="dot"></span>{{.St $status}}</span>{{end}}
+
+{{define "sub-plan"}}{{if .Data.PlanName}}<bdi>{{.Data.PlanName}}</bdi>{{else if not .Data.PlanKnown}}{{.T "publicsub.plan_unavailable"}}{{else}}{{.T "publicsub.subscription_details"}}{{end}}{{end}}
+
+{{define "sub-data-label"}}{{if .Data.U.TrafficLimitBytes}}{{.T "publicsub.ui.remaining_data"}}{{else}}{{.T "publicsub.data_used"}}{{end}}{{end}}
+{{define "sub-data-value"}}{{if .Data.U.TrafficLimitBytes}}{{with .Data.Remaining}}{{template "sub-qty" ($.BParts .)}}{{end}}{{else}}{{template "sub-qty" (.BParts .Data.Used)}}{{end}}{{end}}
+
+{{define "sub-time-value"}}{{if .Data.DaysLeft}}<span class="sub-qty"><bdi class="num" dir="ltr">{{.N (i64u .Data.DaysLeft)}}</bdi><span class="sub-qty-unit">{{.T "publicsub.days"}}</span></span>{{else if eq (printf "%v" .Data.U.Status) "waiting_first_connection"}}<span class="sub-value-text">{{.T "publicsub.not_started"}}</span>{{else}}<span class="sub-value-text">{{.T "publicsub.no_expiry"}}</span>{{end}}{{end}}
+
+{{define "sub-expiry"}}{{if .Data.U.ExpiresAt}}<bdi class="num">{{.D .Data.U.ExpiresAt}}</bdi>{{else}}{{.T "publicsub.ui.no_end"}}{{end}}{{end}}
+
+{{define "sub-devices-count"}}<bdi class="num">{{.N (i64u (len .Data.Devices))}}</bdi>{{end}}
+
+{{/* Two labelled meters: data used of the quota and time elapsed of the period. */}}
+{{define "sub-meters"}}
+{{$usage := .MeterClass .Data.Used .Data.U.TrafficLimitBytes}}
+<div class="sub-meters">
+  <div class="sub-meter">
+    <p class="sub-meter-head"><span>{{.IconS "gauge"}}<span>{{.T "publicsub.ui.data"}}</span></span><span class="sub-meter-note">{{if .Data.U.TrafficLimitBytes}}{{.T "publicsub.used_percent" .Data.UsagePercent}}{{else}}{{.T "publicsub.unlimited_data"}}{{end}}</span></p>
+    {{if .Data.U.TrafficLimitBytes}}<div class="progress {{$usage}}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Data.UsagePercent}}" aria-label="{{.T "publicsub.data_used"}}"><span class="progress-bar"></span></div>
+    {{else}}<div class="progress w0" aria-hidden="true"><span class="progress-bar"></span></div>{{end}}
+  </div>
+  <div class="sub-meter">
+    <p class="sub-meter-head"><span>{{.IconS "clock"}}<span>{{.T "publicsub.ui.time"}}</span></span><span class="sub-meter-note">{{if .Data.TimeKnown}}{{.T "publicsub.used_percent" .Data.TimePercent}}{{else}}{{template "sub-expiry" .}}{{end}}</span></p>
+    {{if .Data.TimeKnown}}<div class="progress {{.Data.TimeMeter}}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Data.TimePercent}}" aria-label="{{.T "publicsub.time_left"}}"><span class="progress-bar"></span></div>
+    {{else}}<div class="progress w0" aria-hidden="true"><span class="progress-bar"></span></div>{{end}}
+  </div>
 </div>
-{{if .Data.Devices}}{{template "device_qr_dialog" .}}{{end}}<script type="module" src="{{.A "/js/subscription.js"}}"></script>
 {{end}}
 
-{{define "sub_pass"}}
+{{define "subcontent"}}
 {{$status := printf "%v" .Data.U.Status}}
-<section class="sub-pass" data-status="{{$status}}" aria-labelledby="subscription-name">
-  <header class="sub-head">
-    <span class="avatar avatar--lg avatar--square" aria-hidden="true">{{.Initial .Data.U.Username}}</span>
-    <div class="sub-identity">
-      <h1 id="subscription-name" class="sub-name"><bdi>{{.Data.U.Username}}</bdi></h1>
-      <p class="sub-plan">{{if .Data.PlanName}}<bdi>{{.Data.PlanName}}</bdi>{{else if not .Data.PlanKnown}}{{.T "publicsub.plan_unavailable"}}{{else}}{{.T "publicsub.subscription_details"}}{{end}}</p>
-    </div>
-    <span class="badge {{.StClass $status}}"><span class="dot"></span>{{.St $status}}</span>
-  </header>
+<div class="sub sub--{{.Data.Layout}}" data-status="{{$status}}" data-access-ready="{{.Data.U.Status.PeerWanted}}"{{if .Data.Preview}} data-sub-preview{{end}}>
+  {{if .Data.Preview}}<p class="sub-preview-note" role="note">{{.IconS "info"}}<span>{{.T "appearance.sub.preview_note"}}</span></p>{{end}}
+  {{if eq .Data.Layout "card"}}{{template "sub_hero_card" .}}
+  {{else if eq .Data.Layout "minimal"}}{{template "sub_hero_minimal" .}}
+  {{else if eq .Data.Layout "portal"}}{{template "sub_hero_portal" .}}
+  {{else}}{{template "sub_hero_ticket" .}}{{end}}
+  {{template "sub_notice" .}}
+  {{template "sub_sections" .}}
+</div>
+{{if and .Data.Devices (not .Data.Preview)}}{{template "device_qr_dialog" .}}{{end}}<script type="module" src="{{.A "/js/subscription.js"}}"></script>
+{{end}}
 
-  {{if .Data.Attention}}
-  <div class="alert alert--warning" role="status" data-sub-attention="{{.Data.Attention}}">
-    {{.Icon "alert-triangle"}}
-    <p class="alert-title">{{.T (printf "publicsub.attention.%s" .Data.Attention)}}</p>
-    <p class="alert-description">{{.T "publicsub.attention.hint"}}</p>
-  </div>
-  {{else}}
-  <div class="alert {{if eq $status "active"}}alert--success{{else if eq $status "waiting_first_connection"}}alert--info{{else if or (eq $status "expired") (eq $status "traffic_exceeded")}}alert--destructive{{else}}alert--warning{{end}}" role="status">
-    {{if .Data.U.Status.PeerWanted}}{{.Icon "wifi"}}{{else}}{{.Icon "alert-circle"}}{{end}}
-    <p class="alert-title">{{.T (printf "publicsub.status.%s" .Data.U.Status)}}</p>
-    <p class="alert-description">{{if .Data.U.Status.PeerWanted}}{{.T "publicsub.connect_hint"}}{{else}}{{.T "publicsub.contact_provider"}}{{end}}</p>
-  </div>
-  {{end}}
+{{/* Ready-and-healthy needs no banner: the hero already says so. Everything else
+     (not started, running low, unusable) explains itself and the next step. */}}
+{{define "sub_notice"}}
+{{$status := printf "%v" .Data.U.Status}}
+{{if .Data.Attention}}
+<div class="alert alert--warning sub-notice" role="status" data-sub-attention="{{.Data.Attention}}">
+  {{.Icon "alert-triangle"}}
+  <p class="alert-title">{{.T (printf "publicsub.attention.%s" .Data.Attention)}}</p>
+  <p class="alert-description">{{.T "publicsub.attention.hint"}}</p>
+</div>
+{{else if eq $status "waiting_first_connection"}}
+<div class="alert alert--info sub-notice" role="status">
+  {{.Icon "info"}}
+  <p class="alert-title">{{.T "publicsub.status.waiting_first_connection"}}</p>
+  <p class="alert-description">{{.T "publicsub.connect_hint"}}</p>
+</div>
+{{else if not .Data.U.Status.PeerWanted}}
+<div class="alert {{if or (eq $status "expired") (eq $status "traffic_exceeded")}}alert--destructive{{else}}alert--warning{{end}} sub-notice" role="status">
+  {{.Icon "alert-circle"}}
+  <p class="alert-title">{{.T (printf "publicsub.status.%s" .Data.U.Status)}}</p>
+  <p class="alert-description">{{.T "publicsub.contact_provider"}}</p>
+</div>
+{{end}}
+{{end}}
 
-  <div class="stat-grid sub-stats">
-    <div class="stat sub-stat">
-      {{$usage := .MeterClass .Data.Used .Data.U.TrafficLimitBytes}}
-      <p class="stat-label">{{.IconS "gauge"}}<span>{{if .Data.U.TrafficLimitBytes}}{{.T "publicsub.ui.remaining_data"}}{{else}}{{.T "publicsub.data_used"}}{{end}}</span></p>
-      <span class="sub-ring {{if .Data.U.TrafficLimitBytes}}{{$usage}}{{else}}w0{{end}}" aria-hidden="true"></span>
-      {{if .Data.U.TrafficLimitBytes}}
-      <p class="stat-value">{{with .Data.Remaining}}{{template "sub-qty" ($.BParts .)}}{{end}}</p>
-      <div class="progress {{$usage}}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Data.UsagePercent}}" aria-label="{{.T "publicsub.data_used"}}"><span class="progress-bar"></span></div>
-      <p class="stat-meta sub-meta"><span>{{.T "publicsub.used_percent" .Data.UsagePercent}}</span><span>{{template "sub-qty" (.BParts .Data.Used)}} <span aria-hidden="true">/</span> {{template "sub-qty" (.BLimParts .Data.U.TrafficLimitBytes)}}</span></p>
-      {{else}}
-      <p class="stat-value">{{template "sub-qty" (.BParts .Data.Used)}}</p>
-      <div class="progress w0" aria-hidden="true"><span class="progress-bar"></span></div>
-      <p class="stat-meta sub-meta"><span>{{.T "publicsub.unlimited_data"}}</span></p>
-      {{end}}
-      <dl class="sub-transfer">
-        <div><dt>{{.IconS "arrow-down"}}<span>{{.T "publicsub.downloaded"}}</span></dt><dd>{{template "sub-qty" (.BParts .Data.U.TrafficUsedTX)}}</dd></div>
-        <div><dt>{{.IconS "arrow-up"}}<span>{{.T "publicsub.uploaded"}}</span></dt><dd>{{template "sub-qty" (.BParts .Data.U.TrafficUsedRX)}}</dd></div>
-      </dl>
+{{define "sub_sections"}}
+<div class="sub-sections">
+  <fieldset class="sub-tabs-picker">
+    <legend class="sr-only">{{.T "publicsub.ui.sections"}}</legend>
+    <div class="tabs sub-tabs">
+      <input class="sr-only" type="radio" name="sub-section" id="sub-tab-connect" value="connect" checked>
+      <label class="tab" for="sub-tab-connect">{{.IconS "monitor-smartphone"}}<span>{{.T "publicsub.tab.connect"}}</span>{{if .Data.Devices}}<span class="tab-count">{{template "sub-devices-count" .}}</span>{{end}}</label>
+      <input class="sr-only" type="radio" name="sub-section" id="sub-tab-guide" value="guide">
+      <label class="tab" for="sub-tab-guide">{{.IconS "book-open"}}<span>{{.T "publicsub.tab.guide"}}</span></label>
+      <input class="sr-only" type="radio" name="sub-section" id="sub-tab-details" value="details">
+      <label class="tab" for="sub-tab-details">{{.IconS "gauge"}}<span>{{.T "publicsub.tab.details"}}</span></label>
     </div>
-    <div class="stat sub-stat">
-      <p class="stat-label">{{.IconS "clock"}}<span>{{.T "publicsub.time_left"}}</span></p>
-      <span class="sub-ring {{if .Data.TimeKnown}}{{.Data.TimeMeter}}{{else}}w0{{end}}" aria-hidden="true"></span>
-      {{if .Data.DaysLeft}}
-      <p class="stat-value"><span class="sub-qty"><bdi class="num" dir="ltr">{{.N (i64u .Data.DaysLeft)}}</bdi><span class="sub-qty-unit">{{.T "publicsub.days"}}</span></span></p>
-      {{if .Data.TimeKnown}}<div class="progress {{.Data.TimeMeter}}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Data.TimePercent}}" aria-label="{{.T "publicsub.time_left"}}"><span class="progress-bar"></span></div>
-      {{else}}<div class="progress w0" aria-hidden="true"><span class="progress-bar"></span></div>{{end}}
-      <p class="stat-meta sub-meta"><span>{{.T "users.expires"}}</span><bdi class="num">{{.D .Data.U.ExpiresAt}}</bdi></p>
-      {{else}}
-      <p class="stat-value sub-value-text">{{if eq $status "waiting_first_connection"}}{{.T "publicsub.not_started"}}{{else}}{{.T "publicsub.no_expiry"}}{{end}}</p>
-      <div class="progress w0" aria-hidden="true"><span class="progress-bar"></span></div>
-      {{end}}
-      {{if .Data.U.DurationSeconds}}<dl class="sub-transfer"><div><dt>{{.IconS "timer"}}<span>{{.T "users.duration"}}</span></dt><dd><bdi>{{.Dur (i64u .Data.U.DurationSeconds)}}</bdi></dd></div></dl>{{end}}
-    </div>
-  </div>
-</section>
+  </fieldset>
+  <section class="sub-panel" id="connect" data-panel="connect" aria-labelledby="sub-connect-title" data-qr-group>{{template "sub_devices" .}}</section>
+  <section class="sub-panel" id="guide" data-panel="guide" aria-labelledby="sub-guide-title">{{template "sub_guide" .}}</section>
+  <section class="sub-panel" id="details" data-panel="details" aria-labelledby="sub-details-title">{{template "sub_details" .}}</section>
+</div>
 {{end}}
 
 {{define "sub_devices"}}
-<section class="section sub-devices" aria-labelledby="public-devices-title" data-qr-group>
-  <div class="section-header">
-    <div class="section-heading">
-      <h2 class="section-title" id="public-devices-title">{{.T "sub.devices"}}{{if .Data.Devices}}<span class="badge badge--count badge--muted num">{{.N (i64u (len .Data.Devices))}}</span>{{end}}</h2>
-      <p class="section-description">{{.T "publicsub.device_intro"}}</p>
-    </div>
-    {{if and .Data.DevicesKnown (gt (len .Data.Devices) 1)}}<button type="button" class="btn btn--sm" data-qr-all data-qr-all-title="{{.T "devices.qr_all"}}">{{.IconS "qr-code"}}<span>{{.T "devices.qr_all"}}</span></button>{{end}}
+<div class="sub-panel-head">
+  <div class="sub-panel-heading">
+    <h2 class="sub-panel-title" id="sub-connect-title">{{.T "sub.devices"}}</h2>
+    <p class="sub-panel-description">{{.T "publicsub.device_intro"}}</p>
   </div>
-  {{if not .Data.DevicesKnown}}
-  <div class="empty empty--bordered empty--compact" role="alert">
-    <span class="empty-icon">{{.Icon "alert-circle"}}</span>
-    <h3 class="empty-title">{{.T "publicsub.devices_unavailable"}}</h3>
-    <p class="empty-description">{{.T "publicsub.retry_hint"}}</p>
-    <div class="empty-actions"><a class="btn btn--sm" href="{{.Data.Base}}?lang={{.Data.Lang}}">{{.IconS "refresh-cw"}}<span>{{.T "common.retry"}}</span></a></div>
-  </div>
-  {{else if not .Data.Devices}}
-  <div class="empty empty--bordered empty--compact">
-    <span class="empty-icon">{{.Icon "monitor-smartphone"}}</span>
-    <h3 class="empty-title">{{.T "publicsub.ui.no_devices"}}</h3>
-    <p class="empty-description">{{.T "publicsub.empty_hint"}}</p>
-  </div>
-  {{else}}
-  <div class="item-group">
-    {{range .Data.Devices}}
-    <article class="item sub-device" data-sub-device aria-labelledby="device-{{.D.ID}}-name">
-      <span class="item-media" aria-hidden="true">{{$.Icon "monitor-smartphone"}}</span>
-      <div class="item-content">
-        <h3 class="item-title" id="device-{{.D.ID}}-name"><bdi>{{.D.Name}}</bdi></h3>
-        <p class="item-description"><span class="tech">{{.D.IPv4}}</span></p>
+  {{if and .Data.DevicesKnown (gt (len .Data.Devices) 1) (not .Data.Preview)}}<button type="button" class="btn btn--sm" data-qr-all data-qr-all-title="{{.T "devices.qr_all"}}">{{.IconS "qr-code"}}<span>{{.T "devices.qr_all"}}</span></button>{{end}}
+</div>
+{{if not .Data.DevicesKnown}}
+<div class="empty empty--bordered empty--compact" role="alert">
+  <span class="empty-icon">{{.Icon "alert-circle"}}</span>
+  <h3 class="empty-title">{{.T "publicsub.devices_unavailable"}}</h3>
+  <p class="empty-description">{{.T "publicsub.retry_hint"}}</p>
+  <div class="empty-actions"><a class="btn btn--sm" href="{{.Data.Base}}?lang={{.Data.Lang}}">{{.IconS "refresh-cw"}}<span>{{.T "common.retry"}}</span></a></div>
+</div>
+{{else if not .Data.Devices}}
+<div class="empty empty--bordered empty--compact">
+  <span class="empty-icon">{{.Icon "monitor-smartphone"}}</span>
+  <h3 class="empty-title">{{.T "publicsub.ui.no_devices"}}</h3>
+  <p class="empty-description">{{.T "publicsub.empty_hint"}}</p>
+</div>
+{{else}}
+<div class="sub-device-list">
+  {{range .Data.Devices}}
+  <article class="sub-device" data-sub-device aria-labelledby="device-{{.D.ID}}-name">
+    <header class="sub-device-head">
+      <span class="sub-device-icon" aria-hidden="true">{{$.Icon "monitor-smartphone"}}</span>
+      <div class="sub-device-text">
+        <h3 class="sub-device-name" id="device-{{.D.ID}}-name"><bdi>{{.D.Name}}</bdi></h3>
+        <p class="sub-device-meta"><span class="tech">{{.D.IPv4}}</span></p>
       </div>
       {{if not .D.Enabled}}<span class="badge badge--muted"><span class="dot dot--muted"></span>{{$.T "status.disabled"}}</span>{{else if .Online}}<span class="badge badge--success"><span class="dot dot--live"></span>{{$.T "status.online"}}</span>{{else}}<span class="badge badge--muted"><span class="dot dot--muted"></span>{{$.T "status.offline"}}</span>{{end}}
-      {{if not .D.Enabled}}<p class="sub-device-note sub-device-note--warning">{{$.IconS "alert-triangle"}}<span>{{$.T "publicsub.device_disabled"}}</span></p>{{else if not $.Data.U.Status.PeerWanted}}<p class="sub-device-note">{{$.IconS "info"}}<span>{{$.T "publicsub.connection_paused"}}</span></p>{{end}}
-      <div class="sub-device-actions">
-        <a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}" data-config-download>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a>
-        <a class="btn" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}">{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a>
-        <a class="btn sub-handoff" href="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?lang={{$.Data.Lang}}">{{$.IconS "zap"}}<span>{{$.T "publicsub.open_amneziavpn"}}</span></a>
-        <button type="button" class="btn" data-amnezia-copy="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?format=text">{{$.IconS "copy"}}<span>{{$.T "publicsub.ui.copy_key"}}</span></button>
-      </div>
-      <p class="sub-device-state" data-download-state role="status" data-loading="{{$.T "common.loading"}}" data-error="{{$.T "publicsub.download_failed"}}" data-rate-limit="{{$.T "publicsub.rate_limited"}}" data-success="{{$.T "publicsub.download_started"}}" data-copied="{{$.T "publicsub.key_copied"}}"></p>
-    </article>
-    {{end}}
-  </div>
+    </header>
+    {{if not .D.Enabled}}<p class="sub-device-note sub-device-note--warning">{{$.IconS "alert-triangle"}}<span>{{$.T "publicsub.device_disabled"}}</span></p>{{else if not $.Data.U.Status.PeerWanted}}<p class="sub-device-note">{{$.IconS "info"}}<span>{{$.T "publicsub.connection_paused"}}</span></p>{{end}}
+    <div class="sub-device-actions">
+      <a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}"{{if not $.Data.Preview}} data-config-download{{end}}>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a>
+      <a class="btn" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}"{{if not $.Data.Preview}} data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}"{{end}}>{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a>
+      <a class="btn sub-handoff" href="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?lang={{$.Data.Lang}}">{{$.IconS "zap"}}<span>{{$.T "publicsub.open_amneziavpn"}}</span></a>
+      <button type="button" class="btn"{{if not $.Data.Preview}} data-amnezia-copy="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?format=text"{{end}}>{{$.IconS "copy"}}<span>{{$.T "publicsub.ui.copy_key"}}</span></button>
+    </div>
+    <p class="sub-device-state" data-download-state role="status" data-loading="{{$.T "common.loading"}}" data-error="{{$.T "publicsub.download_failed"}}" data-rate-limit="{{$.T "publicsub.rate_limited"}}" data-success="{{$.T "publicsub.download_started"}}" data-copied="{{$.T "publicsub.key_copied"}}"></p>
+  </article>
   {{end}}
-</section>
+</div>
+{{end}}
 {{end}}
 
 {{define "sub_guide"}}
-<section class="section sub-guide" aria-labelledby="guide-title" data-sub-guide>
-  <div class="section-header">
-    <div class="section-heading">
-      <h2 class="section-title" id="guide-title">{{.T "publicsub.guide_eyebrow"}}</h2>
-      <p class="section-description">{{.T "publicsub.guide_intro"}}</p>
+<div class="sub-panel-head">
+  <div class="sub-panel-heading">
+    <h2 class="sub-panel-title" id="sub-guide-title">{{.T "publicsub.guide_eyebrow"}}</h2>
+    <p class="sub-panel-description">{{.T "publicsub.guide_intro"}}</p>
+  </div>
+</div>
+<div class="sub-os" data-sub-guide>
+  <fieldset class="sub-os-picker">
+    <legend class="sr-only">{{.T "publicsub.ui.choose_platform"}}</legend>
+    <div class="tabs sub-os-tabs">
+      {{range $i, $p := .Data.Platforms}}<input class="sub-os-input sr-only" type="radio" name="os" id="os-{{$p.ID}}" value="{{$p.ID}}"{{if eq $i 0}} checked{{end}}><label class="tab" for="os-{{$p.ID}}">{{$.IconS $p.Icon}}<span>{{$.T $p.LabelKey}}</span></label>{{end}}
+    </div>
+  </fieldset>
+  {{range $p := .Data.Platforms}}
+  <div class="sub-os-panel" data-os="{{$p.ID}}">
+    <h3 class="sub-os-title">{{$.IconS $p.Icon}}<span>{{$.T $p.LabelKey}}</span></h3>
+    <div class="accordion sub-apps">
+      {{range $j, $a := $p.Apps}}
+      <details class="sub-app" data-app="{{$a.ID}}" name="sub-app-{{$p.ID}}"{{if eq $j 0}} open{{end}}>
+        <summary>
+          <span class="sub-app-icon" aria-hidden="true">{{if eq $a.ID "amneziavpn"}}{{$.Icon "zap"}}{{else if eq $a.ID "awg-tools"}}{{$.Icon "server"}}{{else if eq $a.ID "wgtunnel"}}{{$.Icon "route"}}{{else}}{{$.Icon "shield"}}{{end}}</span>
+          <span class="summary-text">
+            <span class="sub-app-name"><bdi>{{$a.Name}}</bdi>{{if $a.BadgeKey}}<span class="badge {{if eq $a.BadgeKey "publicsub.app.recommended"}}badge--success{{else if eq $a.BadgeKey "publicsub.app.advanced"}}badge--outline{{else}}badge--info{{end}}">{{$.T $a.BadgeKey}}</span>{{end}}</span>
+            <span class="summary-hint">{{$.T $a.DescKey}}</span>
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <ol class="sub-steps">
+            <li><span>{{$.T "publicsub.step.install"}}</span><span class="sub-step-links">{{range $a.Links}}<a class="btn btn--xs" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{$.IconS "external-link"}}<span>{{$.T .LabelKey}}</span></a>{{end}}</span></li>
+            {{if eq $a.Import "cli"}}
+            <li><span>{{$.T "publicsub.step.cli_save"}}</span>{{template "sub-command" (dict "Value" "/etc/amnezia/amneziawg/awg0.conf" "V" $)}}</li>
+            <li><span>{{$.T "publicsub.step.cli_up"}}</span>{{template "sub-command" (dict "Value" "sudo awg-quick up awg0" "V" $)}}</li>
+            {{else}}
+            <li><span>{{if eq $a.Import "key"}}{{$.T "publicsub.step.key"}}{{else}}{{$.T "publicsub.step.conf"}}{{end}}</span></li>
+            <li><span>{{$.T "publicsub.step.connect"}}</span></li>
+            {{end}}
+          </ol>
+        </div>
+      </details>
+      {{end}}
     </div>
   </div>
-  <div class="sub-os">
-    <fieldset class="sub-os-picker">
-      <legend class="sr-only">{{.T "publicsub.ui.choose_platform"}}</legend>
-      <div class="tabs">
-        {{range $i, $p := .Data.Platforms}}<input class="sub-os-input sr-only" type="radio" name="os" id="os-{{$p.ID}}" value="{{$p.ID}}"{{if eq $i 0}} checked{{end}}><label class="tab" for="os-{{$p.ID}}">{{$.IconS $p.Icon}}<span>{{$.T $p.LabelKey}}</span></label>{{end}}
-      </div>
-    </fieldset>
-    {{range $p := .Data.Platforms}}
-    <div class="sub-os-panel" data-os="{{$p.ID}}">
-      <h3 class="sub-os-title">{{$.IconS $p.Icon}}<span>{{$.T $p.LabelKey}}</span></h3>
-      <div class="item-group">
-        {{range $p.Apps}}
-        <article class="item sub-app" data-app="{{.ID}}">
-          <span class="item-media" aria-hidden="true">{{if eq .ID "amneziavpn"}}{{$.Icon "zap"}}{{else if eq .ID "awg-tools"}}{{$.Icon "server"}}{{else if eq .ID "wgtunnel"}}{{$.Icon "route"}}{{else}}{{$.Icon "shield"}}{{end}}</span>
-          <div class="item-content">
-            <h4 class="item-title"><bdi>{{.Name}}</bdi>{{if .BadgeKey}}<span class="badge {{if eq .BadgeKey "publicsub.app.recommended"}}badge--success{{else if eq .BadgeKey "publicsub.app.advanced"}}badge--outline{{else}}badge--info{{end}}">{{$.T .BadgeKey}}</span>{{end}}</h4>
-            <p class="item-description">{{$.T .DescKey}}</p>
-            <ol class="sub-steps">
-              <li><span>{{$.T "publicsub.step.install"}}</span><span class="sub-step-links">{{range .Links}}<a class="btn btn--xs" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{$.IconS "external-link"}}<span>{{$.T .LabelKey}}</span></a>{{end}}</span></li>
-              {{if eq .Import "cli"}}
-              <li><span>{{$.T "publicsub.step.cli_save"}}</span>{{template "sub-command" (dict "Value" "/etc/amnezia/amneziawg/awg0.conf" "V" $)}}</li>
-              <li><span>{{$.T "publicsub.step.cli_up"}}</span>{{template "sub-command" (dict "Value" "sudo awg-quick up awg0" "V" $)}}</li>
-              {{else}}
-              <li><span>{{if eq .Import "key"}}{{$.T "publicsub.step.key"}}{{else}}{{$.T "publicsub.step.conf"}}{{end}}</span></li>
-              <li><span>{{$.T "publicsub.step.connect"}}</span></li>
-              {{end}}
-            </ol>
-          </div>
-        </article>
-        {{end}}
-      </div>
-    </div>
+  {{end}}
+</div>
+<p class="sr-only" role="status" data-sub-copy-status data-copied="{{.T "common.copied"}}" data-failed="{{.T "publicsub.ui.copy_failed"}}"></p>
+<div class="sub-faq">
+  <h3 class="sub-faq-title">{{.IconS "circle-help"}}<span>{{.T "publicsub.faq.title"}}</span></h3>
+  <div class="accordion">
+    {{range list "no_internet" "new_device" "share" "update"}}
+    <details name="sub-faq">
+      <summary>{{$.T (printf "publicsub.faq.%s_q" .)}}</summary>
+      <div class="accordion-content"><p>{{$.T (printf "publicsub.faq.%s_a" .)}}</p></div>
+    </details>
     {{end}}
   </div>
-  <p class="sr-only" role="status" data-sub-copy-status data-copied="{{.T "common.copied"}}" data-failed="{{.T "publicsub.ui.copy_failed"}}"></p>
-  <p class="sub-note">{{.IconS "info"}}<span>{{.T "publicsub.setup_compatibility"}}</span></p>
-</section>
+</div>
+{{end}}
+
+{{define "sub_details"}}
+<div class="sub-panel-head">
+  <div class="sub-panel-heading">
+    <h2 class="sub-panel-title" id="sub-details-title">{{.T "publicsub.tab.details"}}</h2>
+    <p class="sub-panel-description">{{.T "publicsub.ui.details_intro"}}</p>
+  </div>
+</div>
+<div class="sub-detail-grid">
+  <div class="card sub-detail-card">
+    <h3 class="sub-detail-title">{{.IconS "gauge"}}<span>{{.T "publicsub.ui.data"}}</span></h3>
+    <dl class="sub-detail-list">
+      {{if .Data.U.TrafficLimitBytes}}
+      <div><dt>{{.T "publicsub.ui.remaining_data"}}</dt><dd>{{with .Data.Remaining}}{{template "sub-qty" ($.BParts .)}}{{end}}</dd></div>
+      <div><dt>{{.T "publicsub.ui.allowance"}}</dt><dd>{{template "sub-qty" (.BLimParts .Data.U.TrafficLimitBytes)}}</dd></div>
+      {{else}}
+      <div><dt>{{.T "publicsub.ui.allowance"}}</dt><dd>{{.T "publicsub.unlimited_data"}}</dd></div>
+      {{end}}
+      <div><dt>{{.T "publicsub.data_used"}}</dt><dd>{{template "sub-qty" (.BParts .Data.Used)}}</dd></div>
+      <div><dt>{{.IconS "arrow-down"}}<span>{{.T "publicsub.downloaded"}}</span></dt><dd>{{template "sub-qty" (.BParts .Data.U.TrafficUsedTX)}}</dd></div>
+      <div><dt>{{.IconS "arrow-up"}}<span>{{.T "publicsub.uploaded"}}</span></dt><dd>{{template "sub-qty" (.BParts .Data.U.TrafficUsedRX)}}</dd></div>
+    </dl>
+  </div>
+  <div class="card sub-detail-card">
+    <h3 class="sub-detail-title">{{.IconS "clock"}}<span>{{.T "publicsub.ui.time"}}</span></h3>
+    <dl class="sub-detail-list">
+      <div><dt>{{.T "publicsub.time_left"}}</dt><dd>{{template "sub-time-value" .}}</dd></div>
+      <div><dt>{{.T "publicsub.ui.valid_until"}}</dt><dd>{{template "sub-expiry" .}}</dd></div>
+      {{if .Data.U.DurationSeconds}}<div><dt>{{.T "users.duration"}}</dt><dd><bdi>{{.Dur (i64u .Data.U.DurationSeconds)}}</bdi></dd></div>{{end}}
+      <div><dt>{{.T "publicsub.ui.plan"}}</dt><dd>{{template "sub-plan" .}}</dd></div>
+      <div><dt>{{.T "publicsub.ui.status"}}</dt><dd>{{template "sub-status-badge" .}}</dd></div>
+    </dl>
+  </div>
+</div>
+<p class="sub-note">{{.IconS "info"}}<span>{{.T "publicsub.setup_compatibility"}}</span></p>
 {{end}}

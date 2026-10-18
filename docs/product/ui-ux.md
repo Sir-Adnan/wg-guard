@@ -278,10 +278,16 @@ locale and layout boundary. Session expiry returns to a safe full page, includin
 QR loads on demand through a shared viewer. Public downloads give retry feedback and preserve
 the native file-link fallback. Connection-disabled states do not invent new config-access rules.
 Public presentation excludes admin notes and encrypted key carriers; capability URLs stay private.
-The public page has three installation-wide layouts selected in Settings: Connection pass
-(featured status), Split workspace (device delivery beside status on wide screens and first on
-phones only while access is ready), and Compact list (short summary and device rows). They share
-one semantic content tree, the panel visual preset and the same status/QR/config behavior.
+The owner picks one of four installation-wide designs under **Appearance → Subscription page**,
+next to the page's own theme and mode: **Ticket** (the default: a boarding pass with a tear-off
+status stub), **Membership card** (a wallet-style card in the theme's primary color beside the
+usage tiles), **Minimal** (text-first, no frames) and **App** (usage rings; on phones the section
+tabs become a floating bottom bar). A design changes only the hero; the body below it is shared,
+with the same status, QR and config behavior. **Preview** opens the owner-only
+`/appearance/subscription/preview`, which renders the form's unsaved design, theme and mode with
+fictional sample data, reads no real user or device and leaves every action inert. Migration
+`0019_subscription_layouts.sql` maps the retired layouts (pass and split to ticket, compact to
+minimal). See the [design system](design-system.md#subscription-page-designs) for adding one.
 Phone actions stack inside the device card with no horizontal clipping; public navigation does
 not cover scrolling content. The public theme menu stays next to its trigger and inside the
 viewport in both directions; changing Light/Dark/System remains a visitor preference. Shared
@@ -318,23 +324,29 @@ scrolling body and footer as one viewport-bounded grid, while the full-page form
 fallback. The user-detail subscription card stays in document flow. The public subscription is a
 standalone connection pass with status, usage, expiry,
 device delivery and setup guidance rather than an admin-page derivative.
-Every subscription layout shows the following:
+Every subscription design shows the following:
 
-- a usage meter with remaining traffic and a time-left stat with days and a time meter;
-- a per-platform guide (Android, iPhone/iPad, Windows, macOS, Linux). It uses CSS-only radio
-  tabs; JavaScript pre-selects the visitor's OS, and without `:has()` support all platforms
-  are shown;
-- official app links, in this order: AmneziaWG and WG Tunnel first, AmneziaVPN last (the most
-  complex app), amneziawg-tools for Linux;
-- for each device, **Open in AmneziaVPN** (`vpn://`) and **Copy key**;
+- a status notice only when there is something to say: not started yet, running low, or
+  unusable (with the next step). A ready, healthy subscription needs no banner;
+- a **running-low** warning while the subscription is usable but has used at least 90% of its
+  quota or has three or fewer days left (`data_low`, `time_low`, `both_low`). It only informs;
+  enforcement stays in accounting;
+- three sections as CSS radio tabs: **Connect** (device cards), **Setup guide** and **Details**
+  (data and time breakdown, plan and status). They work without JavaScript, `#connect`, `#guide`
+  and `#details` open a section, the tab row sticks under the header on phones, and without
+  `:has()` support every section is shown;
+- in the guide, platform tabs (Android, iPhone/iPad, Windows, macOS, Linux; JavaScript
+  pre-selects the visitor's OS) and one accordion item per app. The first (recommended) app is
+  open and opening another closes it. Official app links come in this order: AmneziaWG and WG
+  Tunnel first, AmneziaVPN last (the most complex app), amneziawg-tools for Linux;
 - command-line steps (amneziawg-tools) as LTR copy fields for the config path and the
   `awg-quick up` command; the copy button appears with JavaScript, falls back to selecting the
   text, and announces the result in one polite status region;
-- a **running-low** warning in place of the ready notice while the subscription is usable but
-  has used at least 90% of its quota or has three or fewer days left (`data_low`, `time_low`,
-  `both_low`). It only informs; enforcement stays in accounting.
+- a short **Common questions** accordion (no internet, one configuration per device, keeping the
+  link private, re-importing after a change);
+- for each device, **Download config** (full width), **QR code**, **Copy key** and **Open in
+  AmneziaVPN** (`vpn://`), at least 36px under every density.
 
-The **Portal** layout is an app-style variant with conic usage/time rings, sized for phones.
 Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the
 strict CSP holds.
 

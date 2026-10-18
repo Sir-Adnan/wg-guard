@@ -1,0 +1,49 @@
+/* Subscription design "card": a membership card in the theme's primary color
+ * beside the usage tiles. The gradient keeps the primary's lightness (relative
+ * oklch, hue shift only) so primary-foreground keeps its contrast; browsers
+ * without relative colors show the solid primary. */
+@layer pages {
+  .member { display: grid; grid-template-columns: minmax(0, 21rem) minmax(0, 1fr); gap: var(--s-4); align-items: stretch; }
+  @media (max-width: 720px) { .member { grid-template-columns: minmax(0, 1fr); } }
+  .member-card {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: space-between; gap: var(--s-3);
+    aspect-ratio: 1.586; width: 100%; max-width: 26rem; justify-self: center; padding: var(--s-5);
+    border-radius: calc(var(--radius-xl) + .25rem); color: var(--primary-foreground);
+    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary) 10%, oklch(from var(--primary) l c calc(h + 40)));
+    box-shadow: var(--shadow-xl);
+  }
+  /* Light sheen and a faint guilloche ring: decoration only. */
+  .member-card::before { content: ""; position: absolute; z-index: -1; inset: -45% -25% auto auto; width: 85%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--primary-foreground) 24%, transparent), transparent 68%); }
+  .member-card::after { content: ""; position: absolute; z-index: -1; inset: auto auto -55% -30%; width: 90%; aspect-ratio: 1; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--primary-foreground) 16%, transparent); box-shadow: 0 0 0 1.25rem color-mix(in srgb, var(--primary-foreground) 5%, transparent); }
+  .member-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+  .member-brand { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--text-sm); font-weight: 600; }
+  .member-mark { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--primary-foreground) 18%, transparent); }
+  .member-card .sub-status { background: color-mix(in srgb, var(--primary-foreground) 16%, transparent); color: var(--primary-foreground); border-color: transparent; }
+  .member-chip {
+    width: 2.75rem; height: 2rem; border-radius: .45rem;
+    background:
+      linear-gradient(90deg, transparent 32%, color-mix(in srgb, var(--primary) 35%, transparent) 32% 36%, transparent 36% 64%, color-mix(in srgb, var(--primary) 35%, transparent) 64% 68%, transparent 68%),
+      linear-gradient(0deg, transparent 45%, color-mix(in srgb, var(--primary) 35%, transparent) 45% 55%, transparent 55%),
+      color-mix(in srgb, var(--primary-foreground) 72%, transparent);
+  }
+  .member-name { font-size: var(--text-2xl); font-weight: 600; letter-spacing: .01em; line-height: var(--leading-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .member-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
+  .member-bottom > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .member-bottom > div:last-child { text-align: end; }
+  .member-label { font-size: var(--text-2xs); letter-spacing: .08em; text-transform: uppercase; opacity: .78; }
+  :root[lang="fa"] .member-label { letter-spacing: 0; font-size: var(--text-xs); }
+  .member-value { font-size: var(--text-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .member-value .sub-qty-unit, .member-card .sub-qty-unit { color: inherit; opacity: .8; }
+
+  .member-stats {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: var(--s-5) var(--s-4);
+    padding: var(--s-5); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); box-shadow: var(--card-shadow);
+  }
+  .member-stats > .sub-meters { grid-column: 1 / -1; }
+  .member-stat { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+  .member-stat-label { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--text-xs); color: var(--muted-foreground); }
+  .member-stat-value { font-size: var(--text-3xl); font-weight: 600; letter-spacing: -0.02em; line-height: var(--leading-tight); }
+  @media (max-width: 400px) { .member-card { padding: var(--s-4); } .member-name { font-size: var(--text-xl); } .member-stat-value { font-size: var(--text-2xl); } }
+}

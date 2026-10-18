@@ -1,5 +1,6 @@
 /* Navigation — Tabs (underline | segmented via data-tabs), Breadcrumb,
- * Pagination. Tabs are links (server-navigated) or buttons (in-page). */
+ * Pagination. Tabs are links (server-navigated), buttons (in-page) or CSS-only
+ * radio tabs: <input type=radio class=sr-only> directly before <label class=tab>. */
 @layer components {
   .tabs {
     display: flex; align-items: center; gap: var(--s-1);
@@ -18,7 +19,8 @@
   .tab:hover { color: var(--foreground); }
   .tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
   .tab-count { font-size: var(--text-xs); color: var(--muted-foreground); font-variant-numeric: tabular-nums; font-family: var(--font-code); }
-  .tab[aria-selected="true"], .tab[aria-current="page"], .tab[aria-current="true"] { color: var(--foreground); }
+  .tab[aria-selected="true"], .tab[aria-current="page"], .tab[aria-current="true"], :checked + .tab { color: var(--foreground); }
+  :focus-visible + .tab { box-shadow: var(--focus-ring); }
 
   /* Underline (Vercel): hairline baseline, 2px indicator on the active tab. */
   :root:not([data-tabs="segmented"]) .tabs { border-bottom: 1px solid var(--border); gap: var(--s-1); }
@@ -28,15 +30,17 @@
   :root:not([data-tabs="segmented"]) .tab { isolation: isolate; }
   :root:not([data-tabs="segmented"]) .tab[aria-selected="true"]::after,
   :root:not([data-tabs="segmented"]) .tab[aria-current="page"]::after,
-  :root:not([data-tabs="segmented"]) .tab[aria-current="true"]::after { content: ""; position: absolute; inset-inline: var(--s-2_5); bottom: 0; height: 2px; border-radius: 2px; background: var(--foreground); }
+  :root:not([data-tabs="segmented"]) .tab[aria-current="true"]::after,
+  :root:not([data-tabs="segmented"]) :checked + .tab::after { content: ""; position: absolute; inset-inline: var(--s-2_5); bottom: 0; height: 2px; border-radius: 2px; background: var(--foreground); }
 
   /* Segmented (shadcn TabsList): muted track, raised active trigger. */
   :root[data-tabs="segmented"] .tabs { width: fit-content; padding: 3px; gap: 2px; border-radius: var(--radius-lg); background: var(--muted); }
   :root[data-tabs="segmented"] .tab { height: calc(var(--control-h) - 6px); padding-inline: var(--s-3); border-radius: calc(var(--radius-lg) - 3px); border: 1px solid transparent; }
   :root[data-tabs="segmented"] .tab[aria-selected="true"],
   :root[data-tabs="segmented"] .tab[aria-current="page"],
-  :root[data-tabs="segmented"] .tab[aria-current="true"] { background: var(--background); box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--border) 60%, transparent); }
-  :root[data-theme="dark"][data-tabs="segmented"] .tab[aria-selected="true"], :root[data-theme="dark"][data-tabs="segmented"] .tab[aria-current] { background: color-mix(in srgb, var(--input) 45%, var(--background)); border-color: var(--input); }
+  :root[data-tabs="segmented"] .tab[aria-current="true"],
+  :root[data-tabs="segmented"] :checked + .tab { background: var(--background); box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--border) 60%, transparent); }
+  :root[data-theme="dark"][data-tabs="segmented"] .tab[aria-selected="true"], :root[data-theme="dark"][data-tabs="segmented"] .tab[aria-current], :root[data-theme="dark"][data-tabs="segmented"] :checked + .tab { background: color-mix(in srgb, var(--input) 45%, var(--background)); border-color: var(--input); }
   @media (max-width: 640px) { :root[data-tabs="segmented"] .tabs { width: 100%; } }
   .tabs--full { width: 100% !important; }
   .tab-panel[hidden] { display: none; }

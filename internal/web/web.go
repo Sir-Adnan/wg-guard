@@ -195,6 +195,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /appearance/default", s.requireSignedIn(s.handleAppearanceDefault))
 	mux.HandleFunc("POST /appearance/default/reset", s.requireSignedIn(s.handleAppearanceDefaultReset))
 	mux.HandleFunc("POST /appearance/subscription", s.requireSignedIn(s.handleAppearanceSubscription))
+	mux.HandleFunc("GET /appearance/subscription/preview", s.requireSignedIn(s.handleAppearanceSubscriptionPreview))
 	mux.HandleFunc("POST /logout", s.requireSignedIn(s.handleLogout))
 
 	// --- public subscription pages (token-gated, rate-limited) ---

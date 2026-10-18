@@ -82,3 +82,20 @@ window.addEventListener('pagehide', () => {
   apply(saved);
   if (nameOut) nameOut.textContent = savedName;
 });
+
+/* The subscription preview opens the form's current, unsaved choices. */
+const subForm = document.querySelector('[data-sub-appearance]');
+const previewLink = subForm?.querySelector('[data-sub-preview-link]');
+if (subForm && previewLink) {
+  const sync = () => {
+    const url = new URL(previewLink.href, location.href);
+    const data = new FormData(subForm);
+    for (const [param, field] of [['layout', 'sub_layout'], ['preset', 'sub_preset'], ['mode', 'sub_mode']]) {
+      // Blank is meaningful ("follow the panel"), so it is sent too.
+      if (data.has(field)) url.searchParams.set(param, data.get(field));
+    }
+    previewLink.href = url.pathname + url.search;
+  };
+  subForm.addEventListener('change', sync);
+  sync();
+}

@@ -1,0 +1,113 @@
+{{/* Public subscription heroes, one per layout in subLayouts (internal/web/sub.go).
+     A hero shows who the subscription belongs to, its state and what is left; the
+     shared sections below it are the same for every layout. Each hero must render
+     exactly one h1 (#subscription-name). */}}
+
+{{/* Ticket: a boarding-pass style card. The stub is torn off along a perforation
+     (vertical beside the pass on wide screens, horizontal below it on phones). */}}
+{{define "sub_hero_ticket"}}
+{{$status := printf "%v" .Data.U.Status}}
+<section class="ticket" data-status="{{$status}}" aria-labelledby="subscription-name">
+  <div class="ticket-main">
+    <header class="ticket-head">
+      <span class="ticket-kind">{{.IconS "ticket"}}<span>{{.T "publicsub.ui.pass_kind"}}</span></span>
+      {{template "sub-status-badge" .}}
+    </header>
+    <div class="ticket-holder">
+      <p class="ticket-label">{{.T "publicsub.ui.holder"}}</p>
+      <h1 id="subscription-name" class="ticket-name"><bdi>{{.Data.U.Username}}</bdi></h1>
+      <p class="ticket-plan">{{template "sub-plan" .}}</p>
+    </div>
+    <dl class="ticket-fields">
+      <div><dt>{{template "sub-data-label" .}}</dt><dd>{{template "sub-data-value" .}}</dd></div>
+      <div><dt>{{.T "publicsub.time_left"}}</dt><dd>{{template "sub-time-value" .}}</dd></div>
+      <div><dt>{{.T "publicsub.ui.valid_until"}}</dt><dd>{{template "sub-expiry" .}}</dd></div>
+      <div><dt>{{.T "publicsub.ui.devices"}}</dt><dd>{{if .Data.DevicesKnown}}{{template "sub-devices-count" .}}{{else}}—{{end}}</dd></div>
+    </dl>
+    {{template "sub-meters" .}}
+  </div>
+  <div class="ticket-stub">
+    <span class="ticket-seal" aria-hidden="true">{{if .Data.U.Status.PeerWanted}}{{.Icon "wifi"}}{{else}}{{.Icon "alert-circle"}}{{end}}</span>
+    <p class="ticket-stub-title">{{.T (printf "publicsub.status.%s" .Data.U.Status)}}</p>
+    <span class="ticket-barcode" aria-hidden="true"></span>
+  </div>
+</section>
+{{end}}
+
+{{/* Card: a membership card in the theme's primary colors, with the usage tiles
+     beside it on wide screens. */}}
+{{define "sub_hero_card"}}
+{{$status := printf "%v" .Data.U.Status}}
+<section class="member" data-status="{{$status}}" aria-labelledby="subscription-name">
+  <div class="member-card">
+    <div class="member-top">
+      <span class="member-brand"><span class="member-mark" aria-hidden="true">{{.IconS "shield"}}</span><span>{{.T "app.name"}}</span></span>
+      {{template "sub-status-badge" .}}
+    </div>
+    <span class="member-chip" aria-hidden="true"></span>
+    <h1 id="subscription-name" class="member-name"><bdi>{{.Data.U.Username}}</bdi></h1>
+    <div class="member-bottom">
+      <div><span class="member-label">{{.T "publicsub.ui.plan"}}</span><span class="member-value">{{template "sub-plan" .}}</span></div>
+      <div><span class="member-label">{{.T "publicsub.ui.valid_until"}}</span><span class="member-value">{{template "sub-expiry" .}}</span></div>
+    </div>
+  </div>
+  <div class="member-stats">
+    <div class="member-stat">
+      <p class="member-stat-label">{{.IconS "gauge"}}<span>{{template "sub-data-label" .}}</span></p>
+      <p class="member-stat-value">{{template "sub-data-value" .}}</p>
+    </div>
+    <div class="member-stat">
+      <p class="member-stat-label">{{.IconS "clock"}}<span>{{.T "publicsub.time_left"}}</span></p>
+      <p class="member-stat-value">{{template "sub-time-value" .}}</p>
+    </div>
+    {{template "sub-meters" .}}
+  </div>
+</section>
+{{end}}
+
+{{/* Minimal: a quiet header and one line of facts; no frames. */}}
+{{define "sub_hero_minimal"}}
+{{$status := printf "%v" .Data.U.Status}}
+<section class="lean" data-status="{{$status}}" aria-labelledby="subscription-name">
+  <div class="lean-head">
+    <div class="lean-identity">
+      <h1 id="subscription-name" class="lean-name"><bdi>{{.Data.U.Username}}</bdi></h1>
+      <p class="lean-plan">{{template "sub-plan" .}}</p>
+    </div>
+    {{template "sub-status-badge" .}}
+  </div>
+  <dl class="lean-facts">
+    <div><dt>{{template "sub-data-label" .}}</dt><dd>{{template "sub-data-value" .}}</dd></div>
+    <div><dt>{{.T "publicsub.time_left"}}</dt><dd>{{template "sub-time-value" .}}</dd></div>
+    <div><dt>{{.T "publicsub.ui.valid_until"}}</dt><dd>{{template "sub-expiry" .}}</dd></div>
+  </dl>
+  {{template "sub-meters" .}}
+</section>
+{{end}}
+
+{{/* Portal: app-style. Usage and time as rings with the value inside; on phones
+     the section tabs become a bottom navigation bar. */}}
+{{define "sub_hero_portal"}}
+{{$status := printf "%v" .Data.U.Status}}
+{{$usage := .MeterClass .Data.Used .Data.U.TrafficLimitBytes}}
+<section class="portal" data-status="{{$status}}" aria-labelledby="subscription-name">
+  <div class="portal-identity">
+    <span class="avatar avatar--lg portal-avatar" aria-hidden="true">{{.Initial .Data.U.Username}}</span>
+    <h1 id="subscription-name" class="portal-name"><bdi>{{.Data.U.Username}}</bdi></h1>
+    <p class="portal-plan">{{template "sub-plan" .}}</p>
+    {{template "sub-status-badge" .}}
+  </div>
+  <div class="portal-rings">
+    <figure class="portal-ring-card">
+      <span class="sub-ring {{if .Data.U.TrafficLimitBytes}}{{$usage}}{{else}}w0{{end}}" aria-hidden="true"></span>
+      <span class="portal-ring-value">{{template "sub-data-value" .}}</span>
+      <figcaption class="portal-ring-label">{{template "sub-data-label" .}}</figcaption>
+    </figure>
+    <figure class="portal-ring-card">
+      <span class="sub-ring {{if .Data.TimeKnown}}{{.Data.TimeMeter}}{{else}}w0{{end}}" aria-hidden="true"></span>
+      <span class="portal-ring-value">{{template "sub-time-value" .}}</span>
+      <figcaption class="portal-ring-label">{{.T "publicsub.time_left"}}</figcaption>
+    </figure>
+  </div>
+</section>
+{{end}}

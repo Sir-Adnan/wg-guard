@@ -1,0 +1,54 @@
+/* Subscription design "portal": app-style. A centered identity, data and time
+ * as conic rings with the value inside, and on phones the section tabs become a
+ * floating bottom bar. Ring angles come from the fixed w0…w100 classes (strict
+ * CSP: no inline styles); the mask uses alpha only. */
+@layer pages {
+  body[data-sub-layout="portal"] .public-main { max-width: 34rem; }
+  body[data-sub-layout="portal"] .public-header { padding-inline: max(var(--s-4), calc((100vw - 34rem) / 2)); }
+  .portal {
+    display: flex; flex-direction: column; align-items: center; gap: var(--s-6); padding: var(--s-6) var(--s-4);
+    text-align: center; border: 1px solid var(--border); border-radius: calc(var(--radius-xl) + .5rem);
+    background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 72%), var(--card);
+    box-shadow: var(--card-shadow);
+  }
+  .portal-identity { display: flex; flex-direction: column; align-items: center; gap: var(--s-1_5); min-width: 0; max-width: 100%; }
+  .portal-avatar { width: 4rem; height: 4rem; border-radius: var(--radius-full); font-size: var(--text-xl); background: var(--primary); color: var(--primary-foreground); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent); }
+  .portal-name { font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .portal-plan { font-size: var(--text-sm); color: var(--muted-foreground); }
+  .portal-rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4); width: 100%; }
+  .portal-ring-card { display: grid; justify-items: center; gap: var(--s-2); min-width: 0; }
+  .portal-ring-card > .sub-ring, .portal-ring-card > .portal-ring-value { grid-area: 1 / 1; }
+  .portal-ring-value { align-self: center; max-width: 5.5rem; font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-tight); }
+  .portal-ring-value .sub-value-text { font-size: var(--text-xs); }
+  .portal-ring-label { font-size: var(--text-xs); color: var(--muted-foreground); }
+  .sub-ring {
+    --p: 0; --tone: var(--primary);
+    display: block; width: 7.5rem; aspect-ratio: 1; border-radius: var(--radius-full);
+    background: conic-gradient(var(--tone) calc(var(--p) * 1%), color-mix(in srgb, var(--foreground) 9%, transparent) 0);
+    mask: radial-gradient(farthest-side, transparent calc(100% - .55rem), black calc(100% - .55rem + 1px));
+  }
+  .sub-ring.is-warn { --tone: var(--warning); }
+  .sub-ring.is-danger { --tone: var(--destructive); }
+  .sub-ring.w5 { --p: 5; } .sub-ring.w10 { --p: 10; } .sub-ring.w15 { --p: 15; } .sub-ring.w20 { --p: 20; }
+  .sub-ring.w25 { --p: 25; } .sub-ring.w30 { --p: 30; } .sub-ring.w35 { --p: 35; } .sub-ring.w40 { --p: 40; }
+  .sub-ring.w45 { --p: 45; } .sub-ring.w50 { --p: 50; } .sub-ring.w55 { --p: 55; } .sub-ring.w60 { --p: 60; }
+  .sub-ring.w65 { --p: 65; } .sub-ring.w70 { --p: 70; } .sub-ring.w75 { --p: 75; } .sub-ring.w80 { --p: 80; }
+  .sub-ring.w85 { --p: 85; } .sub-ring.w90 { --p: 90; } .sub-ring.w95 { --p: 95; } .sub-ring.w100 { --p: 100; }
+  @media (max-width: 400px) { .sub-ring { width: 6.25rem; } .portal-ring-value { font-size: var(--text-base); max-width: 4.5rem; } }
+
+  /* Phones: a floating bottom tab bar (icon over label), clear of the home indicator. */
+  @media (max-width: 640px) {
+    body[data-sub-layout="portal"] .public-main { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    body[data-sub-layout="portal"] .public-foot { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    .sub--portal .sub-tabs-picker { position: fixed; top: auto; inset-inline: var(--s-3); bottom: calc(var(--s-3) + env(safe-area-inset-bottom)); margin: 0; padding: 0; background: none; }
+    .sub--portal .sub-tabs {
+      width: 100%; justify-content: space-around; gap: 2px; padding: 4px;
+      border: 1px solid var(--border); border-radius: var(--radius-full);
+      background: color-mix(in srgb, var(--popover) 90%, transparent); backdrop-filter: blur(12px); box-shadow: var(--shadow-lg);
+    }
+    .sub--portal .sub-tabs > .tab { flex: 1 1 0; flex-direction: column; gap: 2px; height: auto; min-height: 3rem; margin: 0; padding: var(--s-1_5) var(--s-1); border: 0; border-radius: var(--radius-full); font-size: var(--text-2xs); box-shadow: none; }
+    .sub--portal .sub-tabs > .tab > .icon { width: 1.125rem; height: 1.125rem; }
+    .sub--portal .sub-tabs > .tab::before, .sub--portal .sub-tabs > .tab::after, .sub--portal .sub-tabs .tab-count { display: none; }
+    .sub--portal .sub-tabs > :checked + .tab { background: var(--accent); color: var(--foreground); }
+  }
+}

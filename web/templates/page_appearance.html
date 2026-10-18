@@ -84,31 +84,63 @@
   </form>
 
   {{if $d.IsOwner}}
-  <form id="appearance-subscription" method="post" action="/appearance/subscription" class="card">
+  <form id="appearance-subscription" method="post" action="/appearance/subscription" class="stack-lg" data-sub-appearance>
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="card-header">
-      <h2 class="card-title">{{.T "appearance.sub.title"}}</h2>
-      <p class="card-description">{{.T "appearance.sub.hint"}}</p>
-    </div>
-    <div class="setting-row">
-      <div class="setting-label"><label class="setting-title" for="sub-preset">{{.T "appearance.sub.preset"}}</label><p class="setting-description">{{.T "appearance.sub.preset_hint"}}</p></div>
-      <div class="setting-control">
-        <select class="select" id="sub-preset" name="sub_preset">
-          <option value=""{{if not $d.SubPreset}} selected{{end}}>{{.T "appearance.sub.follow"}} ({{range $d.Choices}}{{if eq .ID $d.PanelDefault.Preset}}{{.Name}}{{end}}{{end}})</option>
-          {{$group := ""}}{{range $d.Choices}}{{if ne .Group $group}}{{if $group}}</optgroup>{{end}}{{$group = .Group}}<optgroup label="{{$.T (printf "publicsub.ui.group.%s" .Group)}}">{{end}}<option value="{{.ID}}"{{if eq .ID $d.SubPreset}} selected{{end}}>{{.Name}}</option>{{end}}{{if $group}}</optgroup>{{end}}
-        </select>
+    <section class="card" aria-labelledby="sub-layout-title">
+      <div class="card-header">
+        <h2 class="card-title" id="sub-layout-title">{{.IconS "layout-grid"}}{{.T "appearance.sub.layout_title"}}</h2>
+        <p class="card-description">{{.T "appearance.sub.layout_hint"}}</p>
+      </div>
+      <div class="card-content">
+        <fieldset class="layout-grid" aria-labelledby="sub-layout-title">
+          {{range $i, $id := $d.SubLayouts}}
+          <label class="layout-card" data-layout-choice="{{$id}}">
+            <input type="radio" class="sr-only" name="sub_layout" value="{{$id}}"{{if eq $id $d.SubLayout}} checked{{end}}>
+            <span class="layout-thumb" data-layout="{{$id}}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="layout-meta">
+              <span class="layout-name">{{$.T (printf "appearance.layout.%s" $id)}}{{if eq $i 0}}<span class="badge badge--outline">{{$.T "appearance.layout.default_badge"}}</span>{{end}}</span>
+              <span class="layout-hint">{{$.T (printf "appearance.layout.%s_hint" $id)}}</span>
+            </span>
+            <span class="preset-check" aria-hidden="true">{{$.IconS "check"}}</span>
+          </label>
+          {{end}}
+        </fieldset>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="sub-style-title">
+      <div class="card-header">
+        <h2 class="card-title" id="sub-style-title">{{.IconS "sparkles"}}{{.T "appearance.sub.title"}}</h2>
+        <p class="card-description">{{.T "appearance.sub.hint"}}</p>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label"><label class="setting-title" for="sub-preset">{{.T "appearance.sub.preset"}}</label><p class="setting-description">{{.T "appearance.sub.preset_hint"}}</p></div>
+        <div class="setting-control">
+          <select class="select" id="sub-preset" name="sub_preset">
+            <option value=""{{if not $d.SubPreset}} selected{{end}}>{{.T "appearance.sub.follow"}} ({{range $d.Choices}}{{if eq .ID $d.PanelDefault.Preset}}{{.Name}}{{end}}{{end}})</option>
+            {{$group := ""}}{{range $d.Choices}}{{if ne .Group $group}}{{if $group}}</optgroup>{{end}}{{$group = .Group}}<optgroup label="{{$.T (printf "publicsub.ui.group.%s" .Group)}}">{{end}}<option value="{{.ID}}"{{if eq .ID $d.SubPreset}} selected{{end}}>{{.Name}}</option>{{end}}{{if $group}}</optgroup>{{end}}
+          </select>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label"><label class="setting-title" for="sub-mode">{{.T "appearance.sub.mode"}}</label><p class="setting-description">{{.T "appearance.sub.mode_hint"}}</p></div>
+        <div class="setting-control">
+          <select class="select" id="sub-mode" name="sub_mode">
+            <option value=""{{if not $d.SubMode}} selected{{end}}>{{.T "appearance.sub.follow"}} ({{.T (printf "theme.%s" $d.PanelDefault.Mode)}})</option>
+            {{range $mode := list "light" "dark" "system"}}<option value="{{$mode}}"{{if eq $mode $d.SubMode}} selected{{end}}>{{$.T (printf "theme.%s" $mode)}}</option>{{end}}
+          </select>
+        </div>
+      </div>
+    </section>
+    <div class="savebar">
+      <div class="savebar-text">
+        <span class="savebar-title">{{.T "appearance.sub.savebar_title"}}</span>
+        <span class="savebar-hint">{{.T "appearance.sub.preview_hint"}}</span>
+      </div>
+      <div class="cluster">
+        <a class="btn btn--sm" href="/appearance/subscription/preview?layout={{$d.SubLayout}}&amp;lang={{.Locale}}" target="_blank" rel="noopener" data-sub-preview-link>{{.IconS "external-link"}}<span>{{.T "appearance.sub.preview"}}</span></a>
+        <button type="submit" class="btn btn--primary btn--sm">{{.IconS "check"}}{{.T "appearance.sub.save"}}</button>
       </div>
     </div>
-    <div class="setting-row">
-      <div class="setting-label"><label class="setting-title" for="sub-mode">{{.T "appearance.sub.mode"}}</label><p class="setting-description">{{.T "appearance.sub.mode_hint"}}</p></div>
-      <div class="setting-control">
-        <select class="select" id="sub-mode" name="sub_mode">
-          <option value=""{{if not $d.SubMode}} selected{{end}}>{{.T "appearance.sub.follow"}} ({{.T (printf "theme.%s" $d.PanelDefault.Mode)}})</option>
-          {{range $mode := list "light" "dark" "system"}}<option value="{{$mode}}"{{if eq $mode $d.SubMode}} selected{{end}}>{{$.T (printf "theme.%s" $mode)}}</option>{{end}}
-        </select>
-      </div>
-    </div>
-    <div class="card-footer card-footer--bordered card-footer--end"><button type="submit" class="btn btn--primary btn--sm">{{.IconS "check"}}{{.T "appearance.sub.save"}}</button></div>
   </form>
   {{end}}
 

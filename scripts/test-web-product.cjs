@@ -937,7 +937,8 @@ let stage = 'launch';
       stage = 'settings dirty and validation';
       await goto('/settings');
       const settings = page.locator('[data-settings-form]');
-      assert(await settings.locator('.settings-field').count() === 35, 'all registry settings have one editor');
+      // subscription.layout is edited under Appearance with the page's theme (checked below).
+      assert(await settings.locator('.settings-field').count() === 34, 'all registry settings have one editor');
       const rateSection = page.locator('details').filter({ has: page.locator('#s-rate_limit') });
       await rateSection.locator('summary').click();
       await page.locator('#s-rate_limit').evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
@@ -969,10 +970,16 @@ let stage = 'launch';
       await submit(page.locator('[data-settings-form]'));
       assert(await page.locator('#s-node_id').inputValue() === 'Browser node', 'settings save completed');
       assert(!await page.locator('[data-settings-form]').evaluate(el => el.classList.contains('is-dirty')), 'saved settings are clean');
-      await page.locator('input[name="sub_layout"][value="split"]').check();
-      assert(await settings.evaluate(el => el.classList.contains('is-dirty')), 'layout radio marks settings dirty');
-      await submit(page.locator('[data-settings-form]'));
-      assert(await page.locator('input[name="sub_layout"][value="split"]').isChecked(), 'public layout selection persists');
+      stage = 'subscription design under appearance';
+      await goto('/appearance');
+      await page.locator('#appearance-subscription-tab').click();
+      await page.locator('[data-layout-choice="card"]').click();
+      assert((await page.locator('[data-sub-preview-link]').getAttribute('href')).includes('layout=card'), 'preview link follows the unsaved design');
+      await Promise.all([page.waitForNavigation(), page.locator('#appearance-subscription button[type="submit"]').click()]);
+      assert(await page.locator('input[name="sub_layout"][value="card"]').isChecked(), 'subscription design persists');
+      await page.locator('#appearance-subscription-tab').click();
+      await page.locator('[data-layout-choice="ticket"]').click();
+      await Promise.all([page.waitForNavigation(), page.locator('#appearance-subscription button[type="submit"]').click()]);
     }
     if (['10.4', '10.4-admin', 'final'].includes(suite)) {
       stage = 'administrator create and wildcard permissions';
