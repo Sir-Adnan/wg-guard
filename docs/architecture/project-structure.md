@@ -145,7 +145,6 @@ web/                     embedded via go:embed; prebuilt, no Node runtime:
                          concatenated at startup), themes/ (preset JSON), static/ (JS, fonts, icons)
 tools/theme-import/      developer CLI: tweakcn export → reviewed preset JSON
 migrations/              numbered forward-only SQL migrations, embedded (see database.md)
-deploy/                  reference compose for Docker mode (installer generates the tailored one)
 notices.go               fixed embedded legal inventory for image packaging
 internal/install/runtime/Dockerfile  one rendered recipe; exact precompiled manager and reviewed AWG sources
 install.sh               GitHub bootstrap/update check; refreshes only the verified manager cache

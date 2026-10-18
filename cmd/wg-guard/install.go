@@ -19,9 +19,9 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/version"
 )
 
-// routeDockerMode dispatches commands on a docker-mode host: the host binary
-// is the mode-aware shim (ADR-0006). Panel/data commands exec into the
-// container — same binary, same volume layout, identical CLI in both modes.
+// routeDockerMode dispatches commands on an installed host: the host binary
+// is the management shim (ADR-0015). Panel/data commands exec into the
+// container — same binary, same volume layout, identical CLI on both sides.
 // It runs before command dispatch and returns only for host-side commands.
 func routeDockerMode() {
 	if os.Getenv("WGG_IN_CONTAINER") == "1" {
@@ -135,7 +135,7 @@ func parseInstallOptions(args []string) (install.InstallOptions, error) {
 		acmePort           = fs.Int("acme-http-port", 80, "ACME HTTP-01 challenge port (acme mode)")
 		acmeEmail          = fs.String("acme-email", "", "optional ACME account email")
 		cloudflareFile     = fs.String("cloudflare-token-file", "", "private 0600 file containing a scoped Cloudflare API token")
-		image              = fs.String("image", install.DefaultImage, "container image (docker mode)")
+		image              = fs.String("image", install.DefaultImage, "container image")
 		certFile           = fs.String("cert-file", "", "TLS certificate file (manual mode)")
 		keyFile            = fs.String("key-file", "", "TLS key file (manual mode)")
 		yes                = fs.Bool("yes", false, "non-interactive: flags + defaults, no confirmation")
@@ -327,7 +327,7 @@ func runPanelUpdate(args []string) error {
 func parseUpdateOptions(args []string) (install.UpdateOptions, error) {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	var (
-		image      = fs.String("image", "", "new image reference (docker mode)")
+		image      = fs.String("image", "", "new image reference")
 		binaryPath = fs.String("binary", "", "verified host-manager binary matching the candidate image")
 		skipBackup = fs.Bool("skip-backup", false, "skip the pre-upgrade backup (not recommended)")
 		rollback   = fs.Bool("rollback", false, "re-deploy the last healthy image/binary recorded in the install state (recovery after a failed or interrupted update)")

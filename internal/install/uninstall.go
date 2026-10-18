@@ -51,7 +51,7 @@ type UninstallOptions struct {
 }
 
 // Uninstall stops the node and removes only the artifacts recorded in the
-// install state (ADR-0006: "removes only WG-Guard-owned resources"). Data is
+// install state, i.e. only WG-Guard-owned resources (ADR-0015). Data is
 // preserved unless PurgeData; installer-installed packages are preserved
 // unless PurgePackages. With DryRun nothing is mutated.
 func Uninstall(ctx context.Context, h Host, o UninstallOptions) (result *UninstallReport, resultErr error) {

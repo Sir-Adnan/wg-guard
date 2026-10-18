@@ -20,9 +20,9 @@ const dockerLogPolicy = `    logging:
         compress: "true"
 `
 
-// RenderCompose generates the compose file for a docker-mode install: host
-// networking + CAP_NET_ADMIN put links, nftables and tc on the host netns
-// (ADR-0006); the boot config is read-only, the data dir read-write. The
+// RenderCompose generates the compose file for the managed Docker deployment:
+// host networking + CAP_NET_ADMIN put links, nftables and tc on the host netns
+// (ADR-0015); the boot config is read-only, the data dir read-write. The
 // healthcheck matches the deployed TLS mode (see HealthProbeURL).
 func RenderCompose(p Plan) string {
 	probe, skipVerify, _ := p.HealthProbeURL()
@@ -76,9 +76,9 @@ func (p Plan) BootConfigPath() string {
 	return ConfigPath
 }
 
-// hostCommands are dispatched by the mode-aware binary itself when it runs on
-// a docker-mode host: they act on the compose project, the systemd unit or
-// the host's own state — inside the container they are meaningless.
+// hostCommands are dispatched by the host binary itself on an installed
+// host: they act on the compose project, host systemd tasks or the host's
+// own state — inside the container they are meaningless.
 var hostCommands = map[string]bool{
 	"manage": true, "owner-bootstrap": true, "restart": true, "restore": true,
 	"core":                  true,
@@ -102,7 +102,7 @@ var hostCommands = map[string]bool{
 	"--help":                true,
 }
 
-// Route returns how the binary should run one command in docker mode:
+// Route returns how the host binary should run one command:
 // "container" (exec into the shared-volume container), "host" (run locally),
 // or "refuse" (serve is owned by compose; install by the host installer).
 func Route(cmd string) string {
@@ -115,14 +115,3 @@ func Route(cmd string) string {
 	}
 	return "container"
 }
-
-// RenderShim is the docker-mode host entry point. It is the full wg-guard
-// binary; this content documents the dispatch contract the binary implements
-// via Route (kept as a comment for auditors, not executed).
-//
-// Routing rules (see Route):
-//   - serve            → refused: `docker compose -f /etc/wg-guard/compose.yaml up -d` owns it
-//   - install/update/uninstall/status/doctor/version → host
-//   - everything else  → docker exec -i wg-guard /usr/local/bin/wg-guard …
-const ShimDoc = `mode-aware dispatch: host commands run locally, panel/data commands exec
-into the wg-guard container (canonical shared data layout).`

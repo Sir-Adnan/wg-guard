@@ -210,7 +210,7 @@ func (d *doctor) checkPlatform() {
 
 func (d *doctor) checkPrivileges() {
 	st, detail := platformPrivileges()
-	d.add("privileges", st, detail, "tunnel and firewall management requires root — run the service via systemd as designed")
+	d.add("privileges", st, detail, "tunnel and firewall management requires root — run inside the managed WG-Guard container (root with NET_ADMIN)")
 }
 
 func (d *doctor) checkDataDir() {

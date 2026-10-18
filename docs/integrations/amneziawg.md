@@ -17,7 +17,7 @@ peers. This is not a new real-host multi-pool/client acceptance claim. See
 
 | Component | Pinned version | Source |
 |---|---|---|
-| amneziawg-tools (`awg`) | **v3.1.20260812**, commit `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843` | exact tag/commit from `amnezia-vpn/amneziawg-tools`; built into the host/native path and Docker runtime as required |
+| amneziawg-tools (`awg`) | **v3.1.20260812**, commit `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843` | exact tag/commit from `amnezia-vpn/amneziawg-tools`; built into the Docker runtime image (the pre-v0.1.10 native host build is historical) |
 | amneziawg kernel module source | **v3.1.20260906**, commit `4569c4c67f3a57414969260cafbbd04694fbaae0`; managed DKMS identity `1.0.0-wgguard.20260906.1` (`awg-2026-10`, reviewed correction below) or `1.0.0-wgguard.20260906` (`awg-2026-09`) | exact tag/commit from `amnezia-vpn/amneziawg-linux-kernel-module` |
 | amneziawg-go (userspace daemon, fallback backend) | **v3.1.20260828**, commit `b5928efb6ca19f0153958460c3d141f04abc5c2e`; binary `amneziawg-go` | built from github.com/amnezia-vpn/amneziawg-go |
 | Verification environment (userspace) | WSL2 Ubuntu **26.04 LTS**, kernel `6.18.33.1-microsoft-standard-WSL2` | local |
@@ -58,8 +58,8 @@ tag differs by a reviewed RandomTrailers classification correction; its configur
 contract used by WG-Guard is unchanged. The userspace daemon remains an explicit, pinned fallback
 integration target, not the managed Ubuntu default.
 
-`wg-guard core installed` reports tools from the running container in Docker mode and the host
-in native mode; kernel observations always come from the host. Requested source/package pins,
+`wg-guard core installed` reports tools from the running container; kernel observations always
+come from the host. Host-located tools appear only in historical pre-v0.1.10 native reports. Requested source/package pins,
 installed packages, loaded module version and loaded/disk `srcversion` are separate facts.
 Equal module version strings do not prove equal builds: this source revision still reports
 `3.1.20260812`. A differing `srcversion` requires an operator maintenance reboot; unavailable
@@ -70,10 +70,11 @@ Phase 11 adds explicit service-owned userspace lifecycle for profiles configured
 apply/dump and peer reconciliation, failure detection/restart, and owned teardown. It refuses an
 active unowned userspace socket. The repository Docker image and v0.1.7 installer-generated
 runtime include the exact reviewed source build and
-maps `/dev/net/tun`; native operators must provision the same pin separately. No automatic
-kernel-to-userspace selection on module failure is implied. Managed Docker and native userspace
-profiles passed real Ubuntu 24.04 client HTTPS traffic, service recovery and reboot drills;
-later Ubuntu releases remain unverified.
+maps `/dev/net/tun`. No automatic kernel-to-userspace selection on module failure is implied.
+Before v0.1.10, managed Docker and the since-removed native userspace profiles passed real
+Ubuntu 24.04 client HTTPS traffic, service recovery and reboot drills; that evidence is
+historical and does not certify the current Docker-only layout (ADR-0015). Later Ubuntu
+releases remain unverified.
 At this pinned commit, the daemon's `--version` still prints `0.0.20250522`; it is not a
 reliable source identity. WG-Guard checks the Go build metadata for module path,
 `vcs.revision=b5928ef…` and `vcs.modified=false`; builds without that provenance fail closed.

@@ -467,7 +467,7 @@ PY
 )
 ui_ok "Build ready: $selected_version · $selected_commit"
 # Every accepted build lives in a separate manager cache. This keeps bootstrap
-# refreshes from changing the binary used by an active native/Docker service.
+# refreshes from changing the binary used by an active Docker deployment.
 manager_dir=${manager_receipt%/*}
 if "${sudo_cmd[@]}" test -L "$manager_dir"; then
   die "Refusing unsafe manager cache path: $manager_dir"

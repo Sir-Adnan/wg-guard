@@ -125,11 +125,7 @@ func MaintenancePreflight(ctx context.Context, h Host, input updatequeue.Input, 
 	if e != nil || st == nil {
 		add("runtime", "fail")
 	} else {
-		tool := "systemctl"
-
-		tool = "docker"
-
-		if _, e := h.LookPath(tool); e == nil {
+		if _, e := h.LookPath("docker"); e == nil {
 			add("runtime", "pass")
 		} else {
 			add("runtime", "fail")
