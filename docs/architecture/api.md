@@ -55,6 +55,9 @@ node capability through `GET /api/v1/node/health`.
   the owner or reseller identity, survives token rotation within that identity, and can be
   looked up for 90 days. Identical retries return the prior result; changed payloads return 409.
   Keys are hashed at rest and must not contain secrets.
+- **Optional bodies**: `POST /users/{id}/disable` (`reason`: `manual` or `admin_action`) and
+  `POST /devices/{id}/regenerate` accept an absent or empty body; a malformed one is 400 and
+  changes nothing. Lists in responses (for example `tags`) are always arrays, never `null`.
 - **Rate limits**: per-token fixed 60 s window (`api.rate_limit_per_minute`, default 600; 0
   disables). Responses carry `X-RateLimit-Limit`/`X-RateLimit-Remaining`; a 429 carries
   `Retry-After`. Setting changes apply live (no restart).
@@ -188,7 +191,7 @@ GB, speed Kbps or calendar dates.
 | Stats | `GET /stats`, `GET /node/telemetry`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
 | Templates | `GET/POST /templates`, `GET/PATCH/DELETE /templates/{id}` |
 | Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation), `GET /interfaces/{id}/capacity` |
-| Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope) |
+| Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope; a PATCH applies every key in one transaction or none) |
 | Webhooks | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
 | Ops | `GET /healthz` (public liveness), `GET /readyz`, `GET /openapi.json`, `GET /docs`; `GET /metrics` (config-gated, served outside `/api/v1`) |
 
@@ -303,7 +306,9 @@ not quota. Their `update` parameters are a restricted subset of single-user PATC
 Panel-only operations must not be guessed as REST paths: administrator/reseller creation and
 permission assignment, API-token issuance/revocation, account restore, customer-link
 create/revoke/restore, downloading all configs as a ZIP, backup/restore, installer/update control
-and browser appearance preferences have no corresponding management REST operation here.
+browser appearance preferences and egress routing (outbounds, balancers, rules) have no
+corresponding management REST operation here. The subscription page design is the
+`subscription.layout` setting (`ticket`, `card`, `minimal`, `portal`).
 `update.read` and `update.manage` are panel-only grants, excluded from REST token scope presets.
 The [maintenance bridge](../operations/update-center.md) is a private host protocol, not a new
 public update/command API. Existing API/OpenAPI paths and payloads are unchanged by that workspace.
@@ -579,6 +584,11 @@ that every registered route appears with the correct scope and that the document
 paths; focused contract tests cover selected schemas, the full typed webhook catalog and behavior.
 User/device/template DTO and bulk-action parameter field coverage is checked against the
 description so accepted or returned fields cannot silently disappear from generated references.
+An integrity test keeps the document machine-usable: every `$ref` resolves, every operation has
+a unique `operationId`, every authenticated operation lists 401, 403 and 429
+(`TooManyRequests`, with the rate-limit headers), idempotent routes declare the optional
+`Idempotency-Key` header parameter, and `Error.code` lists every machine code in
+`internal/domain/errors.go`. The file is plain two-space-indented JSON.
 The description uses OpenAPI 3.2.1 and JSON Schema null unions. Its `info.version` remains
 `1.0.0` for the V1 API contract; the `openapi` field versions the description format,
 not a WG-Guard release or a new endpoint set. Consumers parsing the description need tooling
