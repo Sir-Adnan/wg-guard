@@ -468,7 +468,22 @@ CI now runs `python3 scripts/check-docs.py` to check links, anchors and named re
 |---|---|
 | Unit | `TestPublicSubscriptionDeviceActivity` (usage and last-connected rendering); `TestSubscriptionDesignsAreComplete` (every design ID has a hero template and a stylesheet bundled after `sub-base.css`) |
 | CI | Docs check step in `.github/workflows/ci.yml` |
-| Not verified | Browser suites for the new device-card fields, physical phones and real hosts |
+| Browser | Public subscription surface for all four designs at 320–1440px (local Chromium) |
+| Not verified | WebKit/Firefox, physical phones and real hosts |
+
+**Review fixes: panel security, REST contract and cleanup (2026-10-18; unreleased branch).**
+Owner-account management is owner-only and delegated grants are capped at the granter; return
+paths, flash text and the proxy visitor address are hardened; REST optional bodies, atomic
+`PATCH /settings`, tag arrays, the bulk `start_index` default, webhook stats and replay
+`Content-Type` match the contract; the OpenAPI document is complete; native remnants, dead code
+and orphaned catalog strings are removed.
+
+| Level | Evidence |
+|---|---|
+| Unit | `TestOwnerPasswordIsOwnerOnly`, `TestAdminGrantsAreCappedByTheGranter`, `TestSafeNext`, `TestVisitorIPTrustsOnlyTheManagedProxy`, `TestFlashTextNeedsServerSignature`, `TestSessionSurvivesTransientStorageError`, `TestLongPlanTimeMeterDoesNotOverflow` (`internal/web`); `TestOptionalBodiesAndDisableReason`, `TestSettingsPatchIsAtomic`, `TestUserTagsAreAlwaysAnArray`, `TestBulkCreateStartIndexDefaultsToOne`, `TestWebhookGetReportsDeliveryStats`, `TestIdempotentReplayKeepsContentType`, `TestOpenAPIDocumentIntegrity` (`internal/api`); `TestSanitizeURLValuesAndKeepTimes` (`internal/logsafe`) |
+| Static | `deadcode -test` reports only an interface method; staticcheck clean apart from intentional Persian ZWNJ literals and proper-noun error strings |
+| Browser | Interaction, states and maintenance suites after the `htmx:load` change (local Chromium) |
+| Not verified | A real reverse-proxy deployment for the visitor-address change; real hosts |
 
 ## Release-critical workflows
 
