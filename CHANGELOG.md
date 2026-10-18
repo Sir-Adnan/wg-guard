@@ -60,6 +60,11 @@
   help text), 22 functions nothing called and 193 catalog strings nothing referenced.
 
 ### Fixed
+
+- Development installs (`--commit`) failed outright when the newest Go toolchain archive could
+  not be downloaded (for example an HTTP 404 from a mirror); the bootstrap now falls back to the
+  next compatible stable Go release, reports the failing host and status instead of raw curl
+  output, and no longer blames GitHub when a build cannot be completed.
 - REST: `POST /users/{id}/disable` with no body answered 400 yet disabled the user; `PATCH
   /settings` could commit some keys and fail on others; `tags` could be `null`; bulk create
   ignored the documented `start_index` default of 1; `GET /webhooks/{id}` always reported zero
