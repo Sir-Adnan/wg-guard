@@ -94,7 +94,7 @@ func (s *Server) loadSampleData(r *http.Request) []sampleDataRow {
 func newTelemetryView(loc i18n.Locale, history telemetry.History) telemetryView {
 	view := telemetryView{
 		HealthCode: "unavailable", HealthLabel: i18n.T(loc, "dash.health_unavailable"),
-		HealthClass: "badge--danger",
+		HealthClass: "badge--destructive",
 	}
 	if !history.Available {
 		return view
@@ -104,11 +104,11 @@ func newTelemetryView(loc i18n.Locale, history telemetry.History) telemetryView 
 	view.HealthCode = string(point.Health)
 	switch point.Health {
 	case telemetry.HealthHealthy:
-		view.HealthLabel, view.HealthClass = i18n.T(loc, "dash.health_healthy"), "badge--ok"
+		view.HealthLabel, view.HealthClass = i18n.T(loc, "dash.health_healthy"), "badge--success"
 	case telemetry.HealthDegraded:
-		view.HealthLabel, view.HealthClass = i18n.T(loc, "dash.health_degraded"), "badge--warn"
+		view.HealthLabel, view.HealthClass = i18n.T(loc, "dash.health_degraded"), "badge--warning"
 	default:
-		view.HealthLabel, view.HealthClass = i18n.T(loc, "dash.health_unavailable"), "badge--danger"
+		view.HealthLabel, view.HealthClass = i18n.T(loc, "dash.health_unavailable"), "badge--destructive"
 	}
 	for _, code := range point.Issues.Codes() {
 		view.Issues = append(view.Issues, i18n.T(loc, "dash.issue."+code))

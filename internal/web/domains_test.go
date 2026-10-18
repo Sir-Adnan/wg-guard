@@ -46,13 +46,13 @@ func TestDomainsPageOwnerReaderAndCSRFBoundaries(t *testing.T) {
 	q := wireDomainQueue(t, e)
 	for _, lang := range []string{"en", "fa"} {
 		r := e.get("/settings/domains?lang="+lang, owner)
-		if r.Code != 200 || !strings.Contains(r.Body.String(), "id=\"domain-origin\"") {
+		if r.Code != 200 || !strings.Contains(r.Body.String(), "id=\"domain-origin\"") || !strings.Contains(r.Body.String(), "class=\"card-content domain-configure\"") {
 			t.Fatal("domain form unavailable", lang, r.Code)
 		}
 	}
 	reader := e.limitedLogin(t, []string{auth.ScopeServerView})
 	r := e.get("/settings/domains", reader)
-	if r.Code != 200 || strings.Contains(r.Body.String(), "class=\"form-stack domain-configure\"") {
+	if r.Code != 200 || strings.Contains(r.Body.String(), "class=\"card-content domain-configure\"") {
 		t.Fatal("reader gained owner controls")
 	}
 	form := url.Values{"operation": {"configure"}, "role": {"subscription"}, "origin": {"https://sub.example.test"}, "method": {"automatic"}, "expected_revision": {"legacy"}, "challenge": {"http"}}
@@ -72,7 +72,7 @@ func TestDomainsPageOwnerReaderAndCSRFBoundaries(t *testing.T) {
 		t.Fatal("queue status", err)
 	}
 	r = e.get("/settings/domains", owner)
-	if !strings.Contains(r.Body.String(), "hx-trigger=\"every 3s\"") || !strings.Contains(r.Body.String(), "<fieldset disabled class=\"form-stack domain-fieldset\"") {
+	if !strings.Contains(r.Body.String(), "hx-trigger=\"every 3s\"") || !strings.Contains(r.Body.String(), "<fieldset disabled class=\"stack domain-fieldset\"") {
 		t.Fatal("active operation did not gate controls/polling")
 	}
 }

@@ -1,9 +1,38 @@
 {{define "title"}}{{.T "resellers.customers"}}{{end}}
 {{define "content"}}
-<div class="ops-page reseller-users-page">
-  <div class="page-head page-head--hero users-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "users"}}</span><div><span class="eyebrow">{{.T "resellers.workspace"}}</span><h1>{{.T "resellers.customers"}}</h1><p>{{.T "resellers.customers_hint"}}</p></div></div></div>
-  <form class="toolbar card card--pad" method="get" action="/reseller/users"><div class="field"><label for="reseller-search">{{.T "users.username"}}</label><div class="search-box">{{.Icon "search"}}<input class="input" id="reseller-search" type="search" name="q" value="{{.Data.Search}}" placeholder="{{.T "users.search_hint"}}"></div></div><button class="btn" type="submit">{{.T "common.filter"}}</button></form>
-  {{if .Data.Rows}}<section class="collection ops-roster" aria-labelledby="reseller-customers-title"><div class="section-head"><h2 id="reseller-customers-title">{{.T "resellers.customers"}}</h2></div><div class="table-wrap"><table class="table table--cards entity-table"><thead><tr><th>{{.T "users.username"}}</th><th>{{.T "common.status"}}</th><th>{{.T "users.traffic"}}</th><th>{{.T "users.expires"}}</th><th class="text-end">{{.T "common.actions"}}</th></tr></thead><tbody>{{range .Data.Rows}}<tr><td class="card-title" data-label="{{$.T "users.username"}}"><bdi class="ltr-data">{{.User.Username}}</bdi></td><td data-label="{{$.T "common.status"}}"><span class="badge">{{$.St .User.Status}}</span></td><td data-label="{{$.T "users.traffic"}}"><span class="ltr-data">{{$.B .Used}}</span>{{if .User.TrafficLimitBytes}} / <span class="ltr-data">{{$.BLim .User.TrafficLimitBytes}}</span>{{end}}</td><td data-label="{{$.T "users.expires"}}"><span class="ltr-data">{{$.D .User.ExpiresAt}}</span></td><td class="card-actions text-end" data-label="{{$.T "common.actions"}}"><a class="btn btn--sm" href="/reseller/users/{{.User.ID}}">{{$.T "common.details"}}</a></td></tr>{{end}}</tbody></table></div></section>{{else}}<div class="card empty empty-stage"><span class="empty-visual">{{.Icon "users"}}</span><h2>{{.T "resellers.no_customers"}}</h2><p>{{.T "resellers.no_customers_hint"}}</p></div>{{end}}
-  {{if .Data.NextCursor}}<nav class="pagination" aria-label="{{.T "resellers.customers"}}"><a class="btn" href="/reseller/users?q={{urlquery .Data.Search}}&amp;cursor={{urlquery .Data.NextCursor}}">{{.T "common.next"}}</a></nav>{{end}}
-</div>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "resellers.customers"}}</h1>
+    <p class="page-description">{{.T "resellers.customers_hint"}}</p>
+  </div>
+</header>
+<form class="toolbar" method="get" action="/reseller/users" role="search">
+  <label class="sr-only" for="reseller-search">{{.T "admin.ui.search_customers"}}</label>
+  <div class="input-group toolbar-search">
+    <span class="input-group-addon">{{.IconS "search"}}</span>
+    <input class="input" id="reseller-search" type="search" name="q" value="{{.Data.Search}}" placeholder="{{.T "users.search_hint"}}" autocomplete="off">
+  </div>
+  <button class="btn btn--sm" type="submit">{{.T "common.filter"}}</button>
+  {{if .Data.Search}}<a class="btn btn--sm btn--ghost" href="/reseller/users">{{.IconS "x"}}{{.T "ops.preset.none"}}</a>{{end}}
+</form>
+{{if .Data.Rows}}
+<section class="section" aria-labelledby="reseller-customers-title">
+  <h2 class="sr-only" id="reseller-customers-title">{{.T "resellers.customers"}}</h2>
+  <div class="table-frame"><div class="table-wrap">
+    <table class="table table--cards">
+      <thead><tr><th scope="col">{{.T "users.username"}}</th><th scope="col">{{.T "common.status"}}</th><th scope="col">{{.T "users.traffic"}}</th><th scope="col">{{.T "users.expires"}}</th><th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th></tr></thead>
+      <tbody>{{range .Data.Rows}}{{$st := printf "%v" .User.Status}}<tr>
+        <td class="cell-primary"><div class="cell-identity"><span class="avatar avatar--sm" aria-hidden="true">{{$.Initial (printf "%v" .User.Username)}}</span><a class="cell-main" href="/reseller/users/{{.User.ID}}"><bdi class="tech">{{.User.Username}}</bdi></a></div></td>
+        <td data-label="{{$.T "common.status"}}"><span class="badge {{$.StClass $st}}"><span class="dot"></span>{{$.St $st}}</span></td>
+        <td data-label="{{$.T "users.traffic"}}"><div class="cell-meter"><div class="cell-meter-text"><span class="num">{{$.B .Used}}</span><span class="num">{{if .User.TrafficLimitBytes}}{{$.BLim .User.TrafficLimitBytes}}{{else}}{{$.T "common.unlimited"}}{{end}}</span></div><div class="progress progress--sm {{$.MeterClass .Used .User.TrafficLimitBytes}}"><div class="progress-bar"></div></div></div></td>
+        <td data-label="{{$.T "users.expires"}}"><span class="num text-sm {{$.ExpiryClass .User.ExpiresAt}}">{{$.D .User.ExpiresAt}}</span></td>
+        <td class="col-actions"><a class="btn btn--sm btn--ghost" href="/reseller/users/{{.User.ID}}">{{$.T "common.details"}}{{$.IconS "chevron-right"}}</a></td>
+      </tr>{{end}}</tbody>
+    </table>
+  </div></div>
+  {{if .Data.NextCursor}}<nav class="pagination" aria-label="{{.T "common.pagination"}}"><span></span><span class="pagination-pages"><a class="btn btn--sm" href="/reseller/users?q={{urlquery .Data.Search}}&amp;cursor={{urlquery .Data.NextCursor}}">{{.T "common.next"}}{{.IconS "chevron-right"}}</a></span></nav>{{end}}
+</section>
+{{else}}
+<div class="empty empty--bordered"><span class="empty-icon">{{.Icon "users"}}</span><h2 class="empty-title">{{.T "resellers.no_customers"}}</h2><p class="empty-description">{{.T "resellers.no_customers_hint"}}</p></div>
+{{end}}
 {{end}}

@@ -5,7 +5,7 @@ const compact = matchMedia('(max-width:800px)');
 let density = 'normal';
 try { density = localStorage.getItem('wg-maintenance-density') || density; } catch { /* optional preference */ }
 const applyDensity = () => {
-  currentPage()?.querySelectorAll('.release-list').forEach(list => { list.dataset.density = density; });
+  currentPage()?.querySelectorAll('[data-release-list]').forEach(list => { list.dataset.density = density; });
   currentPage()?.querySelectorAll('[data-density-toggle]').forEach(button => button.setAttribute('aria-pressed', String(density === 'compact')));
 };
 const initialize = (force = false) => {

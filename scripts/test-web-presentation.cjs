@@ -3,9 +3,10 @@ const playwright=require(process.env.WG_TEST_PLAYWRIGHT||'playwright');
 const qa=require('./web-qa.cjs');const seed=JSON.parse(fs.readFileSync(0,'utf8'));
 async function checkSectionLayout(page,selector,inputSelector,cell){
  const layout=await page.locator(selector).evaluate((section,inputSelector)=>{
-  const card=section.getBoundingClientRect(),legend=section.querySelector('legend').getBoundingClientRect();
-  const field=section.querySelector(inputSelector).getBoundingClientRect(),label=(section.querySelector('.field-label-row')||section.querySelector('label')).getBoundingClientRect();
-  const style=getComputedStyle(section);
+  const card=section.getBoundingClientRect(),legend=section.querySelector('legend:not(.sr-only),.card-title').getBoundingClientRect();
+  const input=section.querySelector(inputSelector),labelNode=section.querySelector(`label[for="${input.id}"]`)||section.querySelector('label');
+  const field=input.getBoundingClientRect(),label=(labelNode.closest('.field-label-row')||labelNode).getBoundingClientRect();
+  const style=getComputedStyle(section.querySelector(':scope > .card-content')||section);
   return {padding:Math.min(parseFloat(style.paddingLeft),parseFloat(style.paddingRight)),insets:[legend.left-card.left,card.right-legend.right,field.left-card.left,card.right-field.right,label.left-card.left,card.right-label.right],top:legend.top-card.top,bottom:card.bottom-field.bottom,labelGap:field.top-label.bottom,legendGap:label.top-legend.bottom};
  },inputSelector);
  assert(layout.padding>=16,`card padding ${cell}: ${layout.padding}`);
@@ -28,11 +29,12 @@ async function checkSectionLayout(page,selector,inputSelector,cell){
    await qa.scan(page,`presentation-${lang}-${theme}-${width}-${route.replaceAll('/','-')}`);
   }
   const cell=`${lang}/${theme}/${width}`;
-  await checkSectionLayout(page,'#iface-panel-general > .form-section','#i-name',`general/${cell}`);
+  await checkSectionLayout(page,'#iface-panel-general > .card','#i-name',`general/${cell}`);
+  await checkSectionLayout(page,'#iface-panel-general > .card','#i-endpoint',`endpoint/${cell}`);
   await page.locator('#iface-tab-pools').click();
   await page.locator('[data-pool-proposed]').filter({hasText:/10\./}).waitFor();
   assert(await page.locator('#iface-panel-pools').isVisible(),'pool tab did not open');
-  await page.locator('[name="pool_mode"][value="custom"]').check();
+  await page.locator('label:has(> [name="pool_mode"][value="custom"])').click();assert(await page.locator('[name="pool_mode"][value="custom"]').isChecked(),'custom pool mode not selected');
   await page.locator('[data-pool-size]').selectOption('22');
   await page.waitForFunction(()=>[...document.querySelector('[data-pool-preset]').options].some(option=>option.value.endsWith('/22')));
   const available=await page.locator('[data-pool-preset]').evaluate(select=>[...select.options].find(option=>option.value&&!option.disabled)?.value);
@@ -44,13 +46,10 @@ async function checkSectionLayout(page,selector,inputSelector,cell){
   const bounds=await page.locator('.field-help-content:popover-open').boundingBox();assert(bounds.x>=0&&bounds.x+bounds.width<=width+1,'help popover outside viewport');
   await page.keyboard.press('Escape');assert.equal(await page.locator('.field-help-content:popover-open').count(),0,'help could not dismiss');
   await page.locator('#iface-tab-profile').click();await qa.scan(page,`profile-editor-${lang}-${theme}-${width}`);
-  await checkSectionLayout(page,'#iface-panel-profile > .form-section','#i-endpoint',`advanced/${cell}`);
-  const cardGap=await page.locator('#iface-panel-profile').evaluate(panel=>panel.querySelector('.form-section').getBoundingClientRect().top-panel.querySelector('.profile-studio').getBoundingClientRect().bottom);
-  assert(cardGap>=16,`profile/advanced card gap ${cell}: ${cardGap}`);
   if(process.env.WG_UI_SCREENSHOT_DIR){fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.WG_UI_SCREENSHOT_DIR,`interface-${engine}-${lang}-${theme}-${width}.png`),fullPage:true});}
   await page.locator('#obf-fields > summary').click();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`expanded profile overflow ${cell}`);
-  await checkSectionLayout(page,'#iface-panel-profile > .form-section','#i-endpoint',`expanded advanced/${cell}`);
+  await checkSectionLayout(page,'#iface-panel-profile > .card','#i-obf-jc',`expanded profile/${cell}`);
   await qa.scan(page,`profile-expanded-${lang}-${theme}-${width}`);
   await context.request.post(seed.url+'/appearance/digits/me',{form:{digits:'persian',_csrf:seed.csrf}});
   await page.goto(seed.url+'/appearance');assert.equal(await page.locator('html').getAttribute('data-digits'),'persian','Persian preference missing');
@@ -64,8 +63,8 @@ async function checkSectionLayout(page,selector,inputSelector,cell){
   await context.addCookies([{name:'wg_session',value:seed.session,url:seed.url},{name:'wg_theme',value:'light',url:seed.url}]);
   await context.request.post(seed.url+'/prefs/locale',{form:{locale:lang,_csrf:seed.csrf}});
   const page=await context.newPage();await page.goto(seed.url+'/interfaces/new');await page.evaluate(()=>document.fonts.ready);
-  await checkSectionLayout(page,'#iface-panel-general > .form-section','#i-name',`no-JS general/${lang}/${width}`);
-  await checkSectionLayout(page,'#iface-panel-profile > .form-section','#i-endpoint',`no-JS advanced/${lang}/${width}`);
+  await checkSectionLayout(page,'#iface-panel-general > .card','#i-name',`no-JS general/${lang}/${width}`);
+  await checkSectionLayout(page,'#iface-panel-general > .card','#i-endpoint',`no-JS endpoint/${lang}/${width}`);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`no-JS form overflow ${lang}/${width}`);
   await context.close();
  }

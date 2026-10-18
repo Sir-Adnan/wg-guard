@@ -2,11 +2,11 @@
 {{define "content"}}{{template "surface_error" .}}{{end}}
 {{define "subcontent"}}{{template "surface_error" .}}{{end}}
 {{define "surface_error"}}
-<section class="surface-error" role="alert" tabindex="-1">
-  <span class="surface-error-symbol" aria-hidden="true">{{.Icon "alert-circle"}}</span>
-  <span class="eyebrow ltr-data">{{.Data.Status}}</span>
-  {{if .Data.Fragment}}<h2>{{.T .Data.MessageKey}}</h2>{{else}}<h1>{{.T .Data.MessageKey}}</h1>{{end}}
-  <p>{{.T .Data.HintKey}}</p>
-  {{if .Data.ActionHref}}<a class="btn btn--primary" href="{{.Data.ActionHref}}">{{.T .Data.ActionKey}}</a>{{end}}
+<section class="empty surface-error" role="alert" tabindex="-1" aria-labelledby="surface-error-title">
+  <span class="empty-icon">{{.Icon "alert-circle"}}</span>
+  <span class="badge badge--outline"><span class="sr-only">{{.T "error.status_label" .Data.Status}}</span><span class="tech" aria-hidden="true">{{.Data.Status}}</span></span>
+  {{if .Data.Fragment}}<h2 class="empty-title" id="surface-error-title">{{.T .Data.MessageKey}}</h2>{{else}}<h1 class="empty-title" id="surface-error-title">{{.T .Data.MessageKey}}</h1>{{end}}
+  <p class="empty-description">{{.T .Data.HintKey}}</p>
+  {{if .Data.ActionHref}}<div class="empty-actions"><a class="btn btn--primary btn--sm" href="{{.Data.ActionHref}}">{{.T .Data.ActionKey}}</a></div>{{end}}
 </section>
 {{end}}

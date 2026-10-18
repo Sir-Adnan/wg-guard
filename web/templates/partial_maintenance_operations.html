@@ -1,32 +1,112 @@
 {{define "update_status"}}
-<div id="update-status-region" aria-live="polite" aria-atomic="true" aria-busy="{{if .Data.Active}}true{{else}}false{{end}}" {{if .Data.Active}}data-maintenance-poll data-pause-hidden hx-get="/updates/status?id={{.Data.Status.ID}}&amp;state={{.Data.Status.State}}&amp;revision={{.Data.Status.Revision}}" hx-trigger="every {{if eq .Data.Status.State "scheduled"}}30s{{else}}3s{{end}}" hx-swap="outerHTML"{{end}}>
+<div id="update-status-region" class="ops-page" aria-live="polite" aria-atomic="true" aria-busy="{{if .Data.Active}}true{{else}}false{{end}}" {{if .Data.Active}}data-maintenance-poll data-pause-hidden hx-get="/updates/status?id={{.Data.Status.ID}}&amp;state={{.Data.Status.State}}&amp;revision={{.Data.Status.Revision}}" hx-trigger="every {{if eq .Data.Status.State "scheduled"}}30s{{else}}3s{{end}}" hx-swap="outerHTML"{{end}}>
   {{template "operation-receipt" (dict "v" . "r" .Data.Receipt)}}
-  {{if .Data.Status.ID}}<section class="card card--pad maintenance-operation"><div class="section-head"><div><span class="eyebrow">{{.T "updates.last_operation"}}</span><h2>{{.T (printf "updates.operation.%s" .Data.Status.Operation)}}</h2><p><bdi class="ltr-data">{{.Data.Status.Ref}}</bdi> <bdi class="ltr-data">{{.Data.Status.Core}}</bdi></p></div><span class="badge {{if eq .Data.Status.State "succeeded"}}badge--ok{{else if eq .Data.Status.State "failed"}}badge--danger{{else}}badge--info{{end}}">{{.T (printf "updates.state.%s" .Data.Status.State)}}</span></div>
-    <p class="hint">{{.T "updates.requested_by"}}: {{if .Data.Status.Actor}}{{.Data.Status.Actor}}{{else}}—{{end}} · <bdi class="ltr-data">{{.OpsTimestamp .Data.Status.CreatedAt}}</bdi></p>
-    {{if .Data.Status.Outcome}}<dl class="detail-list"><dt>{{.T "updates.panel_version"}}</dt><dd class="ltr-data">{{.Data.Status.Outcome.PanelVersion}}</dd><dt>{{.T "updates.manager"}}</dt><dd class="ltr-data">{{.Data.Status.Outcome.ManagerVersion}}</dd><dt>{{.T "updates.bundle"}}</dt><dd class="ltr-data">{{.Data.Status.Outcome.Bundle}}</dd></dl>{{if .Data.Status.Outcome.RebootRequired}}<p class="hint">{{.T "updates.reboot_hint"}}</p>{{end}}{{end}}
-    {{if not .Data.Status.ExecuteAt.IsZero}}<p>{{.T "updates.schedule_at"}}: <bdi class="ltr-data">{{.OpsTimestamp .Data.Status.ExecuteAt}}</bdi></p>{{end}}
-    {{if .Data.Status.Steps}}<ol class="operation-timeline">{{range .Data.Status.Steps}}<li data-state="{{.State}}"><span class="timeline-marker" aria-hidden="true">{{if eq .State "succeeded"}}{{$.IconS "check"}}{{else if eq .State "failed"}}{{$.IconS "alert-circle"}}{{else}}{{$.IconS "clock"}}{{end}}</span><div><strong>{{$.T (printf "updates.stage.%s" .Stage)}}</strong><small>{{$.T (printf "updates.component.%s" .Component)}} · {{$.T (printf "updates.state.%s" .State)}} · {{$.Elapsed .StartedAt .FinishedAt}}</small></div></li>{{end}}</ol>{{end}}
-    <p class="hint" data-maintenance-connection hidden>{{.T "updates.reconnecting"}}</p>
-    {{if .Data.Status.Failure}}<p class="hint">{{.T (printf "updates.failure.%s" .Data.Status.Failure)}}</p>{{end}}{{if eq .Data.Status.State "failed"}}<div class="alert alert--warning">{{.T "updates.failed_hint"}} <a href="/updates?tab=recovery">{{.T "updates.tab.recovery"}}</a></div>{{end}}
-    <div class="action-pair"><button type="button" class="btn btn--ghost" data-copy-report="/updates/report/{{.Data.Status.ID}}">{{.IconS "copy"}}{{.T "updates.copy_report"}}</button><a class="btn btn--ghost" href="/updates/report/{{.Data.Status.ID}}">{{.T "updates.safe_report"}}</a>{{if and .Data.CanManage (or (eq .Data.Status.State "queued") (eq .Data.Status.State "scheduled"))}}<form method="post" action="/updates/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="id" value="{{.Data.Status.ID}}"><button class="btn btn--outline" type="submit">{{.T "updates.cancel_request"}}</button></form>{{end}}</div>
-  </section>{{end}}
+  {{if .Data.Status.ID}}
+  <section class="card" id="maintenance-operation" aria-labelledby="maintenance-operation-title">
+    <div class="card-header">
+      <h2 class="card-title" id="maintenance-operation-title">{{.T (printf "updates.operation.%s" .Data.Status.Operation)}}</h2>
+      <p class="card-description">{{.T "updates.last_operation"}}{{if .Data.Status.Ref}} · <span class="tech">{{.Data.Status.Ref}}</span>{{end}}{{if .Data.Status.Core}} · <span class="tech">{{.Data.Status.Core}}</span>{{end}}</p>
+      <div class="card-action">{{template "update_state_badge" (dict "v" . "state" (printf "%s" .Data.Status.State))}}</div>
+    </div>
+    <div class="card-content stack">
+      <div class="kv">
+        <div class="kv-row"><span class="kv-label">{{.T "updates.requested_by"}}</span><span class="kv-value">{{if .Data.Status.Actor}}<bdi>{{.Data.Status.Actor}}</bdi>{{else}}—{{end}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "common.created"}}</span><span class="kv-value tech">{{.OpsTimestamp .Data.Status.CreatedAt}}</span></div>
+        {{if not .Data.Status.ExecuteAt.IsZero}}<div class="kv-row"><span class="kv-label">{{.T "updates.schedule_at"}}</span><span class="kv-value tech">{{.OpsTimestamp .Data.Status.ExecuteAt}}</span></div>{{end}}
+        {{if .Data.Status.Outcome}}
+        <div class="kv-row"><span class="kv-label">{{.T "updates.panel_version"}}</span><span class="kv-value tech">{{.Data.Status.Outcome.PanelVersion}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.manager"}}</span><span class="kv-value tech">{{.Data.Status.Outcome.ManagerVersion}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.bundle"}}</span><span class="kv-value tech">{{.Data.Status.Outcome.Bundle}}</span></div>
+        {{end}}
+      </div>
+      {{if and .Data.Status.Outcome .Data.Status.Outcome.RebootRequired}}<div class="alert alert--warning">{{.IconS "power"}}<p class="alert-title">{{.T "updates.reboot_hint"}}</p></div>{{end}}
+      {{if .Data.Status.Steps}}<ol class="ops-timeline">{{range .Data.Status.Steps}}<li class="ops-timeline-step" data-state="{{.State}}"><span class="ops-timeline-marker" aria-hidden="true">{{if eq .State "succeeded"}}{{$.IconS "check"}}{{else if eq .State "failed"}}{{$.IconS "x"}}{{else if eq .State "running"}}<span class="spinner"></span>{{else}}{{$.IconS "clock"}}{{end}}</span><div class="ops-timeline-body"><span class="ops-timeline-title">{{$.T (printf "updates.stage.%s" .Stage)}}</span><span class="ops-timeline-meta">{{$.T (printf "updates.component.%s" .Component)}} · {{$.T (printf "updates.state.%s" .State)}} · <span class="num">{{$.Elapsed .StartedAt .FinishedAt}}</span></span></div></li>{{end}}</ol>{{end}}
+      <p class="hint" data-maintenance-connection hidden>{{.T "updates.reconnecting"}}</p>
+      {{if .Data.Status.Failure}}<div class="alert alert--destructive">{{.IconS "alert-circle"}}<p class="alert-title">{{.T (printf "updates.failure.%s" .Data.Status.Failure)}}</p></div>{{end}}
+      {{if eq .Data.Status.State "failed"}}<div class="alert alert--warning">{{.IconS "shield"}}<p class="alert-title">{{.T "updates.failed_hint"}}</p><a class="btn btn--sm alert-action" href="/updates?tab=recovery">{{.T "updates.tab.recovery"}}{{.IconS "arrow-right"}}</a></div>{{end}}
+    </div>
+    <div class="card-footer card-footer--bordered">
+      <button type="button" class="btn btn--sm" data-copy-report="/updates/report/{{.Data.Status.ID}}">{{.IconS "copy"}}{{.T "updates.copy_report"}}</button>
+      <a class="btn btn--ghost btn--sm" href="/updates/report/{{.Data.Status.ID}}">{{.IconS "download"}}{{.T "updates.safe_report"}}</a>
+      {{if and .Data.CanManage (or (eq .Data.Status.State "queued") (eq .Data.Status.State "scheduled"))}}<form class="ms-auto" method="post" action="/updates/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="id" value="{{.Data.Status.ID}}"><button class="btn btn--danger-ghost btn--sm" type="submit">{{.IconS "x"}}{{.T "updates.cancel_request"}}</button></form>{{end}}
+    </div>
+  </section>
+  {{end}}
 </div>
 {{end}}
 
+{{define "update_state_badge"}}{{/* . = dict "v" View "state" string */}}{{$tone := "badge badge--info"}}{{if eq .state "succeeded"}}{{$tone = "badge badge--success"}}{{else if eq .state "failed"}}{{$tone = "badge badge--destructive"}}{{else if eq .state "canceled"}}{{$tone = "badge badge--muted"}}{{end}}<span class="{{$tone}}"><span class="dot"></span>{{.v.T (printf "updates.state.%s" .state)}}</span>{{end}}
+
 {{define "maintenance-preflight"}}
-<div class="preflight-result"><h3>{{.T "updates.preflight_result"}}</h3><p class="hint"><bdi class="ltr-data">{{.OpsTimestamp .Data.Inventory.Preflight.CheckedAt}}</bdi> · <bdi class="ltr-data">{{.Data.Inventory.Preflight.Input.Ref}} {{.Data.Inventory.Preflight.Input.Core}}</bdi></p><ul class="preflight-checks">{{range .Data.Inventory.Preflight.Checks}}<li><span>{{$.T (printf "updates.check.%s" .Code)}}</span><span class="badge {{if eq .State "pass"}}badge--ok{{else if eq .State "fail"}}badge--danger{{end}}">{{$.T (printf "updates.check_state.%s" .State)}}</span></li>{{end}}</ul><p class="hint">{{.T "updates.preflight_limits"}}</p></div>
+<div class="stack-sm">
+  <div class="row-between"><h3 class="ops-panel-title">{{.T "updates.preflight_result"}}</h3><span class="tech text-xs text-muted">{{.OpsTimestamp .Data.Inventory.Preflight.CheckedAt}}</span></div>
+  <p class="text-xs text-muted"><span class="tech">{{.Data.Inventory.Preflight.Input.Ref}} {{.Data.Inventory.Preflight.Input.Core}}</span></p>
+  <ul class="kv ops-checks">{{range .Data.Inventory.Preflight.Checks}}<li class="kv-row"><span class="kv-label">{{$.T (printf "updates.check.%s" .Code)}}</span>{{$tone := "badge badge--muted"}}{{if eq .State "pass"}}{{$tone = "badge badge--success"}}{{else if eq .State "fail"}}{{$tone = "badge badge--destructive"}}{{else if eq .State "warn"}}{{$tone = "badge badge--warning"}}{{end}}<span class="{{$tone}}"><span class="dot"></span>{{$.T (printf "updates.check_state.%s" .State)}}</span></li>{{end}}</ul>
+  <p class="text-xs text-muted">{{.T "updates.preflight_limits"}}</p>
+</div>
 {{end}}
 
 {{define "maintenance-history"}}
-{{if .Data.Inventory.Preflight}}<section class="card card--pad">{{template "maintenance-preflight" .}}<a class="btn btn--outline" href="/updates?tab=versions&amp;version={{.Data.Status.Ref}}&amp;component={{if eq .Data.Status.Core ""}}panel{{else if eq .Data.Scope "all"}}panel{{else}}core{{end}}&amp;core={{.Data.Status.Core}}&amp;scope={{.Data.Scope}}">{{.T "updates.return_selection"}}</a></section>{{end}}
-<section class="card" aria-labelledby="maintenance-history-title"><div class="section-head card-pad"><div><h2 id="maintenance-history-title">{{.T "updates.history"}}</h2><p>{{.T "updates.history_hint"}}</p></div></div><div class="operation-list">{{range .Data.History}}<details class="operation-row"><summary><span><strong>{{$.T (printf "updates.operation.%s" .Operation)}}</strong><small><bdi class="ltr-data">{{$.OpsTimestamp .CreatedAt}}</bdi></small></span><span class="badge {{if eq .State "succeeded"}}badge--ok{{else if eq .State "failed"}}badge--danger{{end}}">{{$.T (printf "updates.state.%s" .State)}}</span></summary><div class="operation-detail"><dl class="detail-list"><dt>{{$.T "updates.requested_by"}}</dt><dd>{{if .Actor}}{{.Actor}}{{else}}—{{end}}</dd><dt>{{$.T "updates.panel_version"}}</dt><dd class="ltr-data">{{.Ref}}</dd><dt>{{$.T "updates.bundle"}}</dt><dd class="ltr-data">{{.Core}}</dd></dl>{{range .Steps}}<p>{{$.T (printf "updates.component.%s" .Component)}} · {{$.T (printf "updates.stage.%s" .Stage)}} — {{$.T (printf "updates.state.%s" .State)}}</p>{{end}}<a class="btn btn--outline" href="/updates/report/{{.ID}}">{{$.IconS "download"}}{{$.T "updates.safe_report"}}</a></div></details>{{else}}<div class="empty"><h3>{{.T "updates.history_empty"}}</h3></div>{{end}}</div><div class="collection-footer">{{template "workspace-pagination" (dict "View" . "Previous" .Data.HistoryPrevious "Next" .Data.HistoryNext)}}</div></section>
+{{if .Data.Inventory.Preflight}}
+<section class="card">
+  <div class="card-content">{{template "maintenance-preflight" .}}</div>
+  <div class="card-footer card-footer--bordered"><a class="btn btn--sm" href="/updates?tab=versions&amp;version={{.Data.Status.Ref}}&amp;component={{if eq .Data.Status.Core ""}}panel{{else if eq .Data.Scope "all"}}panel{{else}}core{{end}}&amp;core={{.Data.Status.Core}}&amp;scope={{.Data.Scope}}">{{.IconS "arrow-left"}}{{.T "updates.return_selection"}}</a></div>
+</section>
+{{end}}
+<section class="section" aria-labelledby="maintenance-history-title">
+  <div class="section-header"><div class="section-heading"><h2 class="section-title" id="maintenance-history-title">{{.T "updates.history"}}</h2><p class="section-description">{{.T "updates.history_hint"}}</p></div></div>
+  {{if .Data.History}}
+  <div class="accordion ops-history">{{range .Data.History}}
+    <details>
+      <summary><span class="ops-history-row"><span class="ops-history-title">{{$.T (printf "updates.operation.%s" .Operation)}}</span>{{if .Ref}}<span class="tech text-xs text-muted hide-sm">{{.Ref}}</span>{{end}}<span class="tech text-xs text-muted ops-history-time">{{$.OpsTimestamp .CreatedAt}}</span>{{template "update_state_badge" (dict "v" $ "state" (printf "%s" .State))}}</span></summary>
+      <div class="accordion-content">
+        <div class="kv">
+          <div class="kv-row"><span class="kv-label">{{$.T "updates.requested_by"}}</span><span class="kv-value">{{if .Actor}}<bdi>{{.Actor}}</bdi>{{else}}—{{end}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{$.T "updates.panel_version"}}</span><span class="kv-value tech">{{if .Ref}}{{.Ref}}{{else}}—{{end}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{$.T "updates.bundle"}}</span><span class="kv-value tech">{{if .Core}}{{.Core}}{{else}}—{{end}}</span></div>
+        </div>
+        {{if .Steps}}<ol class="ops-timeline ops-timeline--compact">{{range .Steps}}<li class="ops-timeline-step" data-state="{{.State}}"><span class="ops-timeline-marker" aria-hidden="true">{{if eq .State "succeeded"}}{{$.IconS "check"}}{{else if eq .State "failed"}}{{$.IconS "x"}}{{else}}{{$.IconS "clock"}}{{end}}</span><div class="ops-timeline-body"><span class="ops-timeline-title">{{$.T (printf "updates.stage.%s" .Stage)}}</span><span class="ops-timeline-meta">{{$.T (printf "updates.component.%s" .Component)}} · {{$.T (printf "updates.state.%s" .State)}}</span></div></li>{{end}}</ol>{{end}}
+        <div><a class="btn btn--sm" href="/updates/report/{{.ID}}">{{$.IconS "download"}}{{$.T "updates.safe_report"}}</a></div>
+      </div>
+    </details>{{end}}
+  </div>
+  {{else}}<div class="empty empty--bordered empty--compact"><span class="empty-icon">{{.Icon "clock"}}</span><h3 class="empty-title">{{.T "updates.history_empty"}}</h3></div>{{end}}
+  {{template "workspace-pagination" (dict "View" . "Previous" .Data.HistoryPrevious "Next" .Data.HistoryNext)}}
+</section>
 {{end}}
 
 {{define "maintenance-recovery"}}
-<div class="maintenance-columns"><section class="card card--pad"><h2>{{.T "updates.recovery_title"}}</h2><p class="hint">{{.T "updates.recovery_hint"}}</p>
-  {{if not .Data.InventoryKnown}}<p class="hint">{{.T "updates.inventory_missing"}}</p>{{else if .Data.Inventory.Recovery}}<div class="alert alert--warning"><strong>{{.T "updates.attention"}}</strong><span class="ltr-data">{{.Data.Inventory.Recovery}}</span></div>{{else}}<p>{{.T "updates.no_recovery"}}</p>{{end}}
-  {{if .Data.Inventory.RebootRequired}}<div class="alert alert--warning">{{.T "updates.reboot_hint"}}</div>{{end}}
-  {{if and .Data.CanManage .Data.Enhanced}}<div class="action-pair"><form method="post" action="/updates/request" data-confirm data-confirm-title="{{.T "updates.confirm_title"}}" data-confirm-message="{{.T "updates.recover_confirm"}}" data-confirm-label="{{.T "updates.operation.recover"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--outline" name="operation" value="recover" {{if or .Data.Active (not .Data.RecoveryAllowed)}}disabled{{end}}>{{.T "updates.operation.recover"}}</button></form><form method="post" action="/updates/request" data-confirm data-confirm-title="{{.T "updates.confirm_title"}}" data-confirm-message="{{.T "updates.rollback_confirm"}}" data-confirm-label="{{.T "updates.operation.rollback"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--outline" name="operation" value="rollback" {{if or .Data.Active (not .Data.Inventory.RollbackAllowed) .Data.Inventory.Recovery}}disabled{{end}}>{{.T "updates.operation.rollback"}}</button></form></div>{{end}}
-  <a class="btn btn--ghost" href="https://github.com/Sir-Adnan/wg-guard/blob/main/docs/operations/lifecycle-recovery.md" target="_blank" rel="noopener noreferrer">{{.T "updates.recovery_guide"}}{{.IconS "external-link"}}</a>
-</section><aside class="card card--pad"><h2>{{.T "updates.recovery_backup"}}</h2>{{if .Data.Inventory.Backup}}<p class="ltr-data">{{.Data.Inventory.Backup.Name}}</p><p class="hint">{{.T "updates.backup_recorded_hint"}}</p><span class="badge">{{if .Data.Inventory.Backup.Encrypted}}{{.T "updates.encrypted"}}{{else}}{{.T "updates.plaintext"}}{{end}}</span>{{if .Can "backup.manage"}}<a class="btn btn--outline" href="/updates/backup">{{.IconS "download"}}{{.T "updates.download_backup"}}</a>{{end}}{{else}}<p class="hint">{{.T "updates.backup_none"}}</p>{{end}}<a class="btn btn--ghost" href="/backups">{{.T "nav.backups"}}{{.IconS "arrow-left"}}</a></aside></div>
+<div class="split">
+  <section class="card" aria-labelledby="recovery-title">
+    <div class="card-header"><h2 class="card-title" id="recovery-title">{{.IconS "shield"}}{{.T "updates.recovery_title"}}</h2><p class="card-description">{{.T "updates.recovery_hint"}}</p></div>
+    <div class="card-content stack">
+      {{if not .Data.InventoryKnown}}<div class="alert">{{.IconS "info"}}<p class="alert-title">{{.T "updates.inventory_missing"}}</p></div>
+      {{else if .Data.Inventory.Recovery}}<div class="alert alert--warning">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "updates.attention"}}</p><p class="alert-description"><span class="tech break">{{.Data.Inventory.Recovery}}</span></p></div>
+      {{else}}<div class="alert alert--success">{{.IconS "check"}}<p class="alert-title">{{.T "updates.no_recovery"}}</p></div>{{end}}
+      {{if .Data.Inventory.RebootRequired}}<div class="alert alert--warning">{{.IconS "power"}}<p class="alert-title">{{.T "updates.reboot_hint"}}</p></div>{{end}}
+    </div>
+    <div class="card-footer card-footer--bordered">
+      {{if and .Data.CanManage .Data.Enhanced}}
+      <form method="post" action="/updates/request" data-confirm data-confirm-title="{{.T "updates.confirm_title"}}" data-confirm-message="{{.T "updates.recover_confirm"}}" data-confirm-label="{{.T "updates.operation.recover"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--sm" name="operation" value="recover" {{if or .Data.Active (not .Data.RecoveryAllowed)}}disabled{{end}}>{{.IconS "refresh-cw"}}{{.T "updates.operation.recover"}}</button></form>
+      <form method="post" action="/updates/request" data-confirm data-confirm-title="{{.T "updates.confirm_title"}}" data-confirm-message="{{.T "updates.rollback_confirm"}}" data-confirm-label="{{.T "updates.operation.rollback"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--sm" name="operation" value="rollback" {{if or .Data.Active (not .Data.Inventory.RollbackAllowed) .Data.Inventory.Recovery}}disabled{{end}}>{{.IconS "rotate-ccw"}}{{.T "updates.operation.rollback"}}</button></form>
+      {{end}}
+      <a class="btn btn--ghost btn--sm ms-auto" href="https://github.com/Sir-Adnan/wg-guard/blob/main/docs/operations/lifecycle-recovery.md" target="_blank" rel="noopener noreferrer">{{.T "updates.recovery_guide"}}{{.IconS "external-link"}}</a>
+    </div>
+  </section>
+  <aside class="split-aside">
+    <section class="card" aria-labelledby="recovery-backup-title">
+      <div class="card-header"><h2 class="card-title" id="recovery-backup-title">{{.IconS "archive"}}{{.T "updates.recovery_backup"}}</h2>{{if .Data.Inventory.Backup}}<p class="card-description">{{.T "updates.backup_recorded_hint"}}</p>{{end}}</div>
+      <div class="card-content">
+        {{if .Data.Inventory.Backup}}<div class="kv">
+          <div class="kv-row"><span class="kv-label">{{.T "backups.col_archive"}}</span><span class="kv-value tech">{{.Data.Inventory.Backup.Name}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{.T "backups.protection"}}</span><span class="kv-value">{{if .Data.Inventory.Backup.Encrypted}}<span class="badge badge--success">{{.IconS "shield-check"}}{{.T "updates.encrypted"}}</span>{{else}}<span class="badge badge--muted">{{.T "updates.plaintext"}}</span>{{end}}</span></div>
+        </div>{{else}}<p class="text-sm text-muted">{{.T "updates.backup_none"}}</p>{{end}}
+      </div>
+      <div class="card-footer card-footer--bordered">
+        {{if and .Data.Inventory.Backup (.Can "backup.manage")}}<a class="btn btn--sm" href="/updates/backup">{{.IconS "download"}}{{.T "updates.download_backup"}}</a>{{end}}
+        <a class="btn btn--ghost btn--sm" href="/backups">{{.T "nav.backups"}}{{.IconS "arrow-right"}}</a>
+      </div>
+    </section>
+  </aside>
+</div>
 {{end}}

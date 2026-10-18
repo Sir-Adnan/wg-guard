@@ -1,307 +1,299 @@
 {{define "title"}}{{if .Data.I}}{{.T "ifaces.edit"}}{{else}}{{.T "ifaces.new"}}{{end}}{{end}}
 {{define "content"}}
-<div class="form-page premium-form-page interface-builder">
-  <div class="page-head page-head--hero">
-    <div class="page-title-cluster">
-      <span class="page-title-icon" aria-hidden="true">{{.Icon "network"}}</span>
-      <div>
-      <span class="eyebrow">{{.T "ifaces.form.workspace"}}</span>
-      <h1>{{if .Data.I}}{{.T "ifaces.edit"}}{{else}}{{.T "ifaces.new"}}{{end}}</h1>
-      <p>{{.T "ifaces.form.intro"}}</p>
-      </div>
+{{$f := .Data.Form}}
+{{$back := "/"}}{{if .Can "interfaces.read"}}{{$back = "/interfaces"}}{{end}}
+<header class="page-header">
+  <div class="page-heading">
+    <a class="page-eyebrow" href="{{$back}}">{{.IconS "arrow-left"}}{{if .Can "interfaces.read"}}{{.T "ifaces.title"}}{{else}}{{.T "common.back"}}{{end}}</a>
+    <h1 class="page-title">{{if .Data.I}}<span class="tech">{{.Data.I.Name}}</span>{{else}}{{.T "ifaces.new"}}{{end}}</h1>
+    <p class="page-description">{{.T "ifaces.form.intro"}}</p>
+  </div>
+</header>
+
+<form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="stack-lg iface-form" novalidate>
+  {{template "form_feedback" .}}
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <input type="hidden" name="profile_policy" value="{{$f.V "profile_policy"}}" data-profile-policy>
+  <input type="hidden" name="profile_token" value="{{$f.V "profile_token"}}" data-profile-token>
+
+  <div class="stack" data-section-tabs>
+    <div class="tabs" data-tab-list aria-label="{{.T "ifaces.editor.sections"}}">
+      <button type="button" class="tab" id="iface-tab-general" data-tab-target="iface-panel-general">{{.IconS "settings-2"}}<span>{{.T "ifaces.editor.general"}}</span></button>
+      <button type="button" class="tab" id="iface-tab-pools" data-tab-target="iface-panel-pools">{{.IconS "network"}}<span>{{.T "ifaces.editor.addresses"}}</span></button>
+      <button type="button" class="tab" id="iface-tab-profile" data-tab-target="iface-panel-profile">{{.IconS "shield"}}<span>{{.T "ifaces.obfuscation"}}</span></button>
     </div>
-    <div class="actions">
-      <a class="btn btn--ghost" href="{{if .Can "interfaces.read"}}/interfaces{{else}}/{{end}}">{{.IconS "arrow-left"}}<span>{{.T "common.back"}}</span></a>
+
+    <div class="stack" id="iface-panel-general">
+      <section class="card" aria-labelledby="iface-general-title">
+        <div class="card-header">
+          <h2 class="card-title" id="iface-general-title">{{.T "ifaces.form.section_profile"}}</h2>
+          {{if .Data.I}}<p class="card-description">{{.T "ifaces.form.immutable_hint"}}</p>{{end}}
+        </div>
+        <div class="card-content field-grid field-grid--3">
+          <div class="field">
+            <label class="field-label" for="i-name">{{.T "ifaces.name"}}</label>
+            <input class="input input--tech" id="i-name" name="name" dir="ltr" spellcheck="false" placeholder="awg0"
+            value="{{$f.V "name"}}"
+            {{if .Data.I}}readonly{{else}}required pattern="awg[0-9]{1,3}"{{end}} {{if $f.Invalid "name"}}aria-invalid="true"{{end}} aria-describedby="{{if not .Data.I}}hint-name {{end}}{{if $f.Invalid "name"}}error-name{{end}}">
+            {{if $f.Invalid "name"}}<span class="field-error" id="error-name">{{.T (index $f.Fields "name")}}</span>{{end}}
+            {{if not .Data.I}}<span class="field-description" id="hint-name">{{.T "ifaces.form.name_hint"}}</span>{{end}}
+          </div>
+          <div class="field">
+            <label class="field-label" for="i-port">{{.T "ifaces.port"}}</label>
+            <div class="input-group">
+              <input class="input input--tech" id="i-port" name="listen_port" type="text" inputmode="numeric" dir="ltr"
+              value="{{$f.V "listen_port"}}" {{if .Data.I}}readonly{{end}} {{if $f.Invalid "listen_port"}}aria-invalid="true"{{end}} aria-describedby="{{if not .Data.I}}hint-listen_port {{end}}{{if $f.Invalid "listen_port"}}error-listen_port{{end}}">
+              <span class="input-group-addon tech">UDP</span>
+            </div>
+            {{if $f.Invalid "listen_port"}}<span class="field-error" id="error-listen_port">{{.T (index $f.Fields "listen_port")}}</span>{{end}}
+            {{if not .Data.I}}<span class="field-description" id="hint-listen_port" data-guidance>{{.T "ifaces.create_hint"}}</span>{{end}}
+          </div>
+          <div class="field">
+            <label class="field-label" for="i-mtu">{{.T "ifaces.mtu"}}</label>
+            <input class="input input--tech" id="i-mtu" name="mtu" type="text" inputmode="numeric" dir="ltr" placeholder="1420"
+            value="{{$f.V "mtu"}}" {{if $f.Invalid "mtu"}}aria-invalid="true" aria-describedby="error-mtu"{{end}}>
+            {{if $f.Invalid "mtu"}}<span class="field-error" id="error-mtu">{{.T (index $f.Fields "mtu")}}</span>{{end}}
+          </div>
+          <div class="field field-span-2">
+            <label class="field-label" for="i-endpoint">{{.T "ifaces.endpoint_override"}}</label>
+            <input class="input input--tech" id="i-endpoint" name="endpoint_override" dir="ltr" spellcheck="false" placeholder="vpn.example.com:51820"
+            value="{{$f.V "endpoint_override"}}" {{if $f.Invalid "endpoint_override"}}aria-invalid="true"{{end}} aria-describedby="hint-endpoint_override{{if $f.Invalid "endpoint_override"}} error-endpoint_override{{end}}">
+            {{if $f.Invalid "endpoint_override"}}<span class="field-error" id="error-endpoint_override">{{.T (index $f.Fields "endpoint_override")}}</span>{{end}}
+            <span class="field-description" id="hint-endpoint_override">{{.T "ifaces.form.endpoint_hint"}}</span>
+          </div>
+          {{if .Data.I}}
+          <div class="field">
+            <label class="field-label" for="i-enabled">{{.T "forms.availability"}}</label>
+            <select class="select" id="i-enabled" name="enabled">
+              <option value="1" {{if eq ($f.V "enabled") "1"}}selected{{end}}>{{.T "ifaces.status_enabled"}}</option>
+              <option value="0" {{if eq ($f.V "enabled") "0"}}selected{{end}}>{{.T "ifaces.status_disabled"}}</option>
+            </select>
+          </div>
+          {{end}}
+        </div>
+      </section>
+    </div>
+
+    <div class="stack" id="iface-panel-pools">{{template "pool-editor" .}}</div>
+
+    <div class="stack" id="iface-panel-profile">
+      <section class="card obf-card" data-obf-box {{if and (not .Data.I) (not $f.Error)}}data-autoload-profile="suggested"{{end}} aria-labelledby="profile-studio-title">
+        <div class="card-header">
+          <h2 class="card-title" id="profile-studio-title">{{.T "ifaces.obfuscation"}}</h2>
+          <p class="card-description" id="hint-obf_enabled">{{.T "ifaces.obf.hint"}}</p>
+          <div class="card-action">
+            <label class="choice obf-switch" for="i-obf-enabled">
+              <input class="switch" id="i-obf-enabled" type="checkbox" role="switch" name="obf_enabled" value="1"
+              data-obf-toggle {{if eq ($f.V "obf_enabled") "1"}}checked{{end}} {{if $f.Invalid "obf_enabled"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_enabled{{if $f.Invalid "obf_enabled"}} error-obf_enabled{{end}}">
+              <span class="text-sm font-medium">{{.T "ifaces.form.obf_enable"}}</span>
+            </label>
+          </div>
+        </div>
+        <div class="card-content stack">
+          {{if $f.Invalid "obf_enabled"}}<span class="field-error" id="error-obf_enabled">{{.T (index $f.Fields "obf_enabled")}}</span>{{end}}
+          <div class="row-between">
+            <span class="text-sm text-muted">{{.T "ifaces.form.profile_policy"}}</span>
+            <span class="badge badge--outline" data-profile-label aria-live="polite" data-policy-plain="{{.T "ifaces.profile.plain"}}" data-policy-custom="{{.T "ifaces.profile.custom"}}" data-policy-recommended="{{.T "ifaces.profile.recommended"}}" data-policy-performance="{{.T "ifaces.profile.performance"}}" data-policy-balanced="{{.T "ifaces.profile.balanced"}}" data-policy-resilient="{{.T "ifaces.profile.resilient"}}" data-policy-suggested="{{.T "ifaces.profile.suggested"}}" data-policy-randomized="{{.T "ifaces.profile.randomized"}}">{{.T .Data.ProfileKey}}</span>
+          </div>
+          <div class="choice-grid obf-presets" role="group" aria-label="{{.T "ifaces.form.profile_policy"}}">
+            <button type="button" class="choice-card" data-profile-plain aria-controls="obf-fields" aria-pressed="false"><span class="choice-card-body"><span class="choice-card-title">{{.IconS "globe"}}{{.T "ifaces.profile.plain"}}</span><span class="choice-card-description">{{.T "ifaces.profile.plain_desc"}}</span></span></button>
+            <button type="button" class="choice-card" data-generate-obf="suggested" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="choice-card-body"><span class="choice-card-title">{{.IconS "sparkles"}}{{.T "ifaces.profile.suggested"}}<span class="badge badge--success">{{.T "common.recommended"}}</span></span><span class="choice-card-description">{{.T "ifaces.profile.suggested_desc"}}</span></span></button>
+            <button type="button" class="choice-card" data-generate-obf="performance" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="choice-card-body"><span class="choice-card-title">{{.IconS "zap"}}{{.T "ifaces.profile.performance"}}</span><span class="choice-card-description">{{.T "ifaces.profile.performance_desc"}}</span></span></button>
+            <button type="button" class="choice-card" data-generate-obf="balanced" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="choice-card-body"><span class="choice-card-title">{{.IconS "gauge"}}{{.T "ifaces.profile.balanced"}}</span><span class="choice-card-description">{{.T "ifaces.profile.balanced_desc"}}</span></span></button>
+            <button type="button" class="choice-card" data-generate-obf="resilient" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="choice-card-body"><span class="choice-card-title">{{.IconS "shield-check"}}{{.T "ifaces.profile.resilient"}}</span><span class="choice-card-description">{{.T "ifaces.profile.resilient_desc"}}</span></span></button>
+            <button type="button" class="choice-card" data-generate-obf="randomized" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="choice-card-body"><span class="choice-card-title">{{.IconS "wand"}}{{.T "ifaces.profile.randomized"}}</span><span class="choice-card-description">{{.T "ifaces.profile.randomized_desc"}}</span></span></button>
+          </div>
+          <p class="text-xs text-muted row obf-note">{{.IconS "info"}}<span>{{.T "ifaces.profile.effectiveness_hint"}}</span></p>
+          {{if $f.SecretReset}}<div class="alert alert--warning">{{.IconS "shield"}}<p class="alert-title">{{.T "ifaces.form.secret_retry"}}</p></div>{{end}}
+          {{if .Data.I}}<div class="alert alert--warning">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "ifaces.rotation_warning"}}</p></div>{{end}}
+        </div>
+
+        <details id="obf-fields" class="collapsible obf-params" {{if $f.Error}}open{{end}}>
+          <summary><span class="summary-text"><span>{{.T "ifaces.editor.parameters"}}</span><span class="summary-hint">{{.T "ifaces.form.packet_shape"}}</span></span></summary>
+          <div class="collapsible-content">
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend">{{.T "ifaces.form.junk"}}</legend>
+              <div class="field-grid field-grid--3">
+                <div class="field">
+                  <label class="field-label" for="i-obf-jc">{{.T "ifaces.obf.jc"}}</label>
+                  <input class="input input--tech" id="i-obf-jc" name="obf_jc" type="text" inputmode="numeric" dir="ltr"
+                  value="{{$f.V "obf_jc"}}" {{if $f.Invalid "obf_jc"}}aria-invalid="true" aria-describedby="error-obf_jc"{{end}}>
+                  {{if $f.Invalid "obf_jc"}}<span class="field-error" id="error-obf_jc">{{.T (index $f.Fields "obf_jc")}}</span>{{end}}
+                </div>
+                <div class="field">
+                  <label class="field-label" for="i-obf-jmin">{{.T "ifaces.obf.jmin"}}</label>
+                  <input class="input input--tech" id="i-obf-jmin" name="obf_jmin" type="text" inputmode="numeric" dir="ltr"
+                  value="{{$f.V "obf_jmin"}}" {{if $f.Invalid "obf_jmin"}}aria-invalid="true" aria-describedby="error-obf_jmin"{{end}}>
+                  {{if $f.Invalid "obf_jmin"}}<span class="field-error" id="error-obf_jmin">{{.T (index $f.Fields "obf_jmin")}}</span>{{end}}
+                </div>
+                <div class="field">
+                  <label class="field-label" for="i-obf-jmax">{{.T "ifaces.obf.jmax"}}</label>
+                  <input class="input input--tech" id="i-obf-jmax" name="obf_jmax" type="text" inputmode="numeric" dir="ltr"
+                  value="{{$f.V "obf_jmax"}}" {{if $f.Invalid "obf_jmax"}}aria-invalid="true" aria-describedby="error-obf_jmax"{{end}}>
+                  {{if $f.Invalid "obf_jmax"}}<span class="field-error" id="error-obf_jmax">{{.T (index $f.Fields "obf_jmax")}}</span>{{end}}
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend">{{.T "ifaces.form.sizes"}}</legend>
+              <div class="field-grid field-grid--2">
+                <div class="field">
+                  <label class="field-label" for="i-obf-s1">{{.T "ifaces.obf.s1"}}</label>
+                  <input class="input input--tech" id="i-obf-s1" name="obf_s1" type="text" inputmode="numeric" dir="ltr"
+                  value="{{$f.V "obf_s1"}}" {{if $f.Invalid "obf_s1"}}aria-invalid="true" aria-describedby="error-obf_s1"{{end}}>
+                  {{if $f.Invalid "obf_s1"}}<span class="field-error" id="error-obf_s1">{{.T (index $f.Fields "obf_s1")}}</span>{{end}}
+                </div>
+                <div class="field">
+                  <label class="field-label" for="i-obf-s2">{{.T "ifaces.obf.s2"}}</label>
+                  <input class="input input--tech" id="i-obf-s2" name="obf_s2" type="text" inputmode="numeric" dir="ltr"
+                  value="{{$f.V "obf_s2"}}" {{if $f.Invalid "obf_s2"}}aria-invalid="true" aria-describedby="error-obf_s2"{{end}}>
+                  {{if $f.Invalid "obf_s2"}}<span class="field-error" id="error-obf_s2">{{.T (index $f.Fields "obf_s2")}}</span>{{end}}
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend">{{.T "ifaces.form.headers"}}</legend>
+              <div class="field-grid obf-headers">
+                {{range list "1" "2" "3" "4"}}{{$n := printf "obf_h%s" .}}
+                <div class="field">
+                  <label class="field-label" for="i-obf-h{{.}}"><bdi class="tech">H{{.}}</bdi></label>
+                  <input class="input input--tech" id="i-obf-h{{.}}" name="{{$n}}" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                  value="{{$f.V $n}}" placeholder="{{.}}00 / {{.}}00-{{.}}10" {{if $f.Invalid $n}}aria-invalid="true"{{end}} aria-describedby="hint-headers{{if $f.Invalid $n}} error-{{$n}}{{end}}">
+                  {{if $f.Invalid $n}}<span class="field-error" id="error-{{$n}}">{{$.T (index $f.Fields $n)}}</span>{{end}}
+                </div>
+                {{end}}
+              </div>
+              <p class="field-description" id="hint-headers">{{.T "ifaces.obf.header_range_hint"}}</p>
+            </fieldset>
+
+            <details class="collapsible" id="awg-advanced" {{if .Data.AdvancedOpen}}open{{end}}>
+              <summary><span class="summary-text"><span>{{.T "ifaces.obf.gated_title"}}</span><span class="summary-hint">{{.T "ifaces.form.advanced_summary"}}</span></span></summary>
+              <div class="collapsible-content">
+                <div class="alert alert--warning">{{.IconS "alert-triangle"}}<p class="alert-description">{{.T "ifaces.obf.gated_warning"}}</p></div>
+
+                <fieldset class="fieldset">
+                  <legend class="fieldset-legend">{{.T "ifaces.obf.i"}}</legend>
+                  <div class="field-grid">
+                    {{range list "1" "2" "3" "4" "5"}}{{$n := printf "obf_i%s" .}}
+                    <div class="field">
+                      <label class="field-label" for="i-obf-i{{.}}"><bdi class="tech">I{{.}}</bdi></label>
+                      <input class="input input--tech" id="i-obf-i{{.}}" name="{{$n}}" dir="ltr" spellcheck="false"
+                      value="{{$f.V $n}}" placeholder="I{{.}} (hex)" {{if $f.Invalid $n}}aria-invalid="true"{{end}} aria-describedby="hint-signatures{{if $f.Invalid $n}} error-{{$n}}{{end}}">
+                      {{if $f.Invalid $n}}<span class="field-error" id="error-{{$n}}">{{$.T (index $f.Fields $n)}}</span>{{end}}
+                    </div>
+                    {{end}}
+                  </div>
+                  <p class="field-description" id="hint-signatures">{{.T "ifaces.obf.ios_warning"}}</p>
+                </fieldset>
+
+                <fieldset class="fieldset">
+                  <legend class="fieldset-legend">{{.T "ifaces.form.protection"}}</legend>
+                  <div class="field-grid field-grid--2">
+                    <div class="field">
+                      <label class="field-label" for="i-obf-s3">{{.T "ifaces.obf.s3"}}</label>
+                      <input class="input input--tech" id="i-obf-s3" name="obf_s3" type="text" inputmode="numeric" dir="ltr"
+                      value="{{$f.V "obf_s3"}}" {{if $f.Invalid "obf_s3"}}aria-invalid="true" aria-describedby="error-obf_s3"{{end}}>
+                      {{if $f.Invalid "obf_s3"}}<span class="field-error" id="error-obf_s3">{{.T (index $f.Fields "obf_s3")}}</span>{{end}}
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-s4">{{.T "ifaces.obf.s4"}}</label>
+                      <input class="input input--tech" id="i-obf-s4" name="obf_s4" type="text" inputmode="numeric" dir="ltr"
+                      value="{{$f.V "obf_s4"}}" {{if $f.Invalid "obf_s4"}}aria-invalid="true" aria-describedby="error-obf_s4"{{end}}>
+                      {{if $f.Invalid "obf_s4"}}<span class="field-error" id="error-obf_s4">{{.T (index $f.Fields "obf_s4")}}</span>{{end}}
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-hpk">{{.T "ifaces.obf.hpk"}}</label>
+                      <input class="input input--tech" id="i-obf-hpk" name="obf_hpk" type="password" dir="ltr" spellcheck="false" maxlength="44"
+                      value="" autocomplete="off" {{if $f.Invalid "obf_hpk"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_hpk{{if $f.Invalid "obf_hpk"}} error-obf_hpk{{end}}">
+                      {{if $f.Invalid "obf_hpk"}}<span class="field-error" id="error-obf_hpk">{{.T (index $f.Fields "obf_hpk")}}</span>{{end}}
+                      <span class="field-description" id="hint-obf_hpk" data-guidance>{{.T "ifaces.obf.hpk_hint"}}</span>
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-padding">{{.T "ifaces.obf.padding"}}</label>
+                      <input class="input input--tech" id="i-obf-padding" name="obf_padding" type="text" dir="ltr" inputmode="numeric" spellcheck="false" placeholder="10 / 10-20"
+                      value="{{$f.V "obf_padding"}}" {{if $f.Invalid "obf_padding"}}aria-invalid="true"{{end}} aria-describedby="hint-obf-ranges{{if $f.Invalid "obf_padding"}} error-obf_padding{{end}}">
+                      {{if $f.Invalid "obf_padding"}}<span class="field-error" id="error-obf_padding">{{.T (index $f.Fields "obf_padding")}}</span>{{end}}
+                    </div>
+                    {{if .Data.HasHeaderProtectionKey}}
+                    <div class="field field-span-full">
+                      <label class="choice" for="i-obf-hpk-clear">
+                        <input class="checkbox" id="i-obf-hpk-clear" type="checkbox" name="obf_hpk_clear" value="1" {{if eq ($f.V "obf_hpk_clear") "1"}}checked{{end}} {{if $f.Invalid "obf_hpk_clear"}}aria-invalid="true" aria-describedby="error-obf_hpk_clear"{{end}}>
+                        <span class="text-sm">{{.T "ifaces.obf.hpk_clear"}}</span>
+                      </label>
+                      {{if $f.Invalid "obf_hpk_clear"}}<span class="field-error" id="error-obf_hpk_clear">{{.T (index $f.Fields "obf_hpk_clear")}}</span>{{end}}
+                    </div>
+                    {{end}}
+                  </div>
+                </fieldset>
+
+                <fieldset class="fieldset">
+                  <legend class="fieldset-legend">{{.T "ifaces.form.timers"}}</legend>
+                  <div class="field-grid field-grid--3">
+                    <div class="field">
+                      <label class="field-label" for="i-obf-rekey-after">{{.T "ifaces.obf.rekey_after"}}</label>
+                      <input class="input input--tech" id="i-obf-rekey-after" name="obf_rekey_after" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                      value="{{$f.V "obf_rekey_after"}}" {{if $f.Invalid "obf_rekey_after"}}aria-invalid="true"{{end}} aria-describedby="hint-obf-ranges{{if $f.Invalid "obf_rekey_after"}} error-obf_rekey_after{{end}}">
+                      {{if $f.Invalid "obf_rekey_after"}}<span class="field-error" id="error-obf_rekey_after">{{.T (index $f.Fields "obf_rekey_after")}}</span>{{end}}
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-rekey-timeout">{{.T "ifaces.obf.rekey_timeout"}}</label>
+                      <input class="input input--tech" id="i-obf-rekey-timeout" name="obf_rekey_timeout" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                      value="{{$f.V "obf_rekey_timeout"}}" {{if $f.Invalid "obf_rekey_timeout"}}aria-invalid="true"{{end}} aria-describedby="hint-obf-ranges{{if $f.Invalid "obf_rekey_timeout"}} error-obf_rekey_timeout{{end}}">
+                      {{if $f.Invalid "obf_rekey_timeout"}}<span class="field-error" id="error-obf_rekey_timeout">{{.T (index $f.Fields "obf_rekey_timeout")}}</span>{{end}}
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-reject-after">{{.T "ifaces.obf.reject_after"}}</label>
+                      <input class="input input--tech" id="i-obf-reject-after" name="obf_reject_after" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                      value="{{$f.V "obf_reject_after"}}" {{if $f.Invalid "obf_reject_after"}}aria-invalid="true"{{end}} aria-describedby="hint-obf-ranges{{if $f.Invalid "obf_reject_after"}} error-obf_reject_after{{end}}">
+                      {{if $f.Invalid "obf_reject_after"}}<span class="field-error" id="error-obf_reject_after">{{.T (index $f.Fields "obf_reject_after")}}</span>{{end}}
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-keepalive">{{.T "ifaces.obf.keepalive"}}</label>
+                      <input class="input input--tech" id="i-obf-keepalive" name="obf_keepalive" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                      value="{{$f.V "obf_keepalive"}}" {{if $f.Invalid "obf_keepalive"}}aria-invalid="true"{{end}} aria-describedby="hint-obf-ranges{{if $f.Invalid "obf_keepalive"}} error-obf_keepalive{{end}}">
+                      {{if $f.Invalid "obf_keepalive"}}<span class="field-error" id="error-obf_keepalive">{{.T (index $f.Fields "obf_keepalive")}}</span>{{end}}
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="i-obf-max-handshake">{{.T "ifaces.obf.max_handshake"}}</label>
+                      <input class="input input--tech" id="i-obf-max-handshake" name="obf_max_handshake" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
+                      value="{{$f.V "obf_max_handshake"}}" {{if $f.Invalid "obf_max_handshake"}}aria-invalid="true"{{end}} aria-describedby="hint-obf-ranges{{if $f.Invalid "obf_max_handshake"}} error-obf_max_handshake{{end}}">
+                      {{if $f.Invalid "obf_max_handshake"}}<span class="field-error" id="error-obf_max_handshake">{{.T (index $f.Fields "obf_max_handshake")}}</span>{{end}}
+                    </div>
+                  </div>
+                  <p class="field-description" id="hint-obf-ranges">{{.T "ifaces.obf.range_hint"}}</p>
+                </fieldset>
+
+                <div class="choice-list">
+                  <div class="field">
+                    <label class="choice" for="i-obf-random-trailers">
+                      <input class="checkbox" id="i-obf-random-trailers" type="checkbox" name="obf_random_trailers" value="1"
+                      {{if eq ($f.V "obf_random_trailers") "1"}}checked{{end}} {{if $f.Invalid "obf_random_trailers"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_random_trailers{{if $f.Invalid "obf_random_trailers"}} error-obf_random_trailers{{end}}">
+                      <span class="choice-text"><span class="text-sm font-medium">{{.T "ifaces.obf.random_trailers"}}</span><span class="choice-description" id="hint-obf_random_trailers">{{.T "ifaces.obf.random_trailers_hint"}}</span></span>
+                    </label>
+                    {{if $f.Invalid "obf_random_trailers"}}<span class="field-error" id="error-obf_random_trailers">{{.T (index $f.Fields "obf_random_trailers")}}</span>{{end}}
+                  </div>
+                  <div class="field">
+                    <label class="choice" for="i-obf-disable-cookies">
+                      <input class="checkbox" id="i-obf-disable-cookies" type="checkbox" name="obf_disable_cookies" value="1"
+                      {{if eq ($f.V "obf_disable_cookies") "1"}}checked{{end}} {{if $f.Invalid "obf_disable_cookies"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_disable_cookies{{if $f.Invalid "obf_disable_cookies"}} error-obf_disable_cookies{{end}}">
+                      <span class="choice-text"><span class="text-sm font-medium">{{.T "ifaces.obf.disable_cookies"}}</span><span class="choice-description" id="hint-obf_disable_cookies">{{.T "ifaces.obf.disable_cookies_hint"}}</span></span>
+                    </label>
+                    {{if $f.Invalid "obf_disable_cookies"}}<span class="field-error" id="error-obf_disable_cookies">{{.T (index $f.Fields "obf_disable_cookies")}}</span>{{end}}
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
+        </details>
+      </section>
     </div>
   </div>
 
-  <form method="post" action="{{if .Data.I}}/interfaces/{{.Data.I.ID}}/edit{{else}}/interfaces{{end}}" class="form-stack interface-form" novalidate>
-    {{template "form_feedback" .}}
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <input type="hidden" name="profile_policy" value="{{.Data.Form.V "profile_policy"}}" data-profile-policy>
-    <input type="hidden" name="profile_token" value="{{.Data.Form.V "profile_token"}}" data-profile-token>
-
-    <div class="form-stack" data-section-tabs>
-    <div class="section-tab-list" data-tab-list aria-label="{{.T "ifaces.editor.sections"}}"><button type="button" id="iface-tab-general" data-tab-target="iface-panel-general">{{.IconS "settings-2"}}<span>{{.T "ifaces.editor.general"}}</span></button><button type="button" id="iface-tab-pools" data-tab-target="iface-panel-pools">{{.IconS "network"}}<span>{{.T "ifaces.editor.addresses"}}</span></button><button type="button" id="iface-tab-profile" data-tab-target="iface-panel-profile">{{.IconS "shield"}}<span>{{.T "ifaces.obfuscation"}}</span></button></div>
-    <div class="form-stack" id="iface-panel-general">
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><span>{{.T "ifaces.form.section_profile"}}</span></legend>
-      <div class="field-row">
-        <div class="field">
-          <label for="i-name">{{.T "ifaces.name"}}</label>
-          <input class="input" id="i-name" name="name" dir="ltr" spellcheck="false" placeholder="awg0"
-          value="{{.Data.Form.V "name"}}"
-          {{if .Data.I}}readonly{{else}}required pattern="awg[0-9]{1,3}"{{end}} {{if .Data.Form.Invalid "name"}}aria-invalid="true"{{end}} aria-describedby="{{if not .Data.I}}hint-name {{end}}{{if .Data.Form.Invalid "name"}}error-name{{end}}">{{if .Data.Form.Invalid "name"}}<span class="field-error" id="error-name">{{.T (index .Data.Form.Fields "name")}}</span>{{end}}
-          {{if not .Data.I}}<span class="hint" id="hint-name">{{.T "ifaces.form.name_hint"}}</span>{{end}}
-        </div>
-        <div class="field">
-          <label for="i-port">{{.T "ifaces.port"}}</label>
-          <input class="input" id="i-port" name="listen_port" type="text" inputmode="numeric" dir="ltr"
-
-          value="{{.Data.Form.V "listen_port"}}" {{if .Data.I}}readonly{{end}} {{if .Data.Form.Invalid "listen_port"}}aria-invalid="true"{{end}} aria-describedby="{{if not .Data.I}}hint-listen_port {{end}}{{if .Data.Form.Invalid "listen_port"}}error-listen_port{{end}}">{{if .Data.Form.Invalid "listen_port"}}<span class="field-error" id="error-listen_port">{{.T (index .Data.Form.Fields "listen_port")}}</span>{{end}}
-          {{if .Data.I}}<span class="hint">{{.T "ifaces.form.immutable_hint"}}</span>
-          {{else}}<span class="hint" id="hint-listen_port">{{.T "ifaces.create_hint"}}</span>{{end}}
-        </div>
-      </div>
-      <div class="field-row">
-
-        <div class="field">
-          <label for="i-mtu">{{.T "ifaces.mtu"}}</label>
-          <input class="input" id="i-mtu" name="mtu" type="text" inputmode="numeric" dir="ltr"
-          value="{{.Data.Form.V "mtu"}}" {{if .Data.Form.Invalid "mtu"}}aria-invalid="true" aria-describedby="error-mtu"{{end}}>{{if .Data.Form.Invalid "mtu"}}<span class="field-error" id="error-mtu">{{.T (index .Data.Form.Fields "mtu")}}</span>{{end}}
-        </div>
-      </div>
-      {{if .Data.I}}
-      <div class="field">
-        <label for="i-enabled">{{.T "forms.availability"}}</label>
-        <select class="select" id="i-enabled" name="enabled">
-          <option value="1" {{if eq (.Data.Form.V "enabled") "1"}}selected{{end}}>{{.T "ifaces.status_enabled"}}</option>
-          <option value="0" {{if eq (.Data.Form.V "enabled") "0"}}selected{{end}}>{{.T "ifaces.status_disabled"}}</option>
-        </select>
-      </div>
-      {{end}}
-    </fieldset>
-
-    </div>
-    <div class="form-stack" id="iface-panel-pools">{{template "pool-editor" .}}</div>
-    <div class="form-stack" id="iface-panel-profile">
-    <section class="profile-studio card card--pad" data-obf-box {{if and (not .Data.I) (not .Data.Form.Error)}}data-autoload-profile="suggested"{{end}} aria-labelledby="profile-studio-title">
-      <div class="profile-studio-head">
-        <div><span class="section-icon" aria-hidden="true">{{.IconS "shield"}}</span><div><h2 id="profile-studio-title">{{.T "ifaces.obfuscation"}}</h2><p data-guidance>{{.T "ifaces.obf.hint"}}</p></div></div>
-        <div class="field">
-          <label class="switch-card" for="i-obf-enabled">
-          <input class="checkbox" id="i-obf-enabled" type="checkbox" name="obf_enabled" value="1"
-          data-obf-toggle {{if eq (.Data.Form.V "obf_enabled") "1"}}checked{{end}} {{if .Data.Form.Invalid "obf_enabled"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_enabled{{if .Data.Form.Invalid "obf_enabled"}} error-obf_enabled{{end}}">{{if .Data.Form.Invalid "obf_enabled"}}<span class="field-error" id="error-obf_enabled">{{.T (index .Data.Form.Fields "obf_enabled")}}</span>{{end}}
-          <span class="switch-track" aria-hidden="true"></span><span>{{.T "ifaces.form.obf_enable"}}</span>
-          </label>
-          <span class="sr-only" id="hint-obf_enabled">{{.T "ifaces.obf.hint"}}</span>
-        </div>
-      </div>
-
-        <div class="profile-preset-grid" role="group" aria-label="{{.T "ifaces.form.profile_policy"}}">
-          <button type="button" class="profile-preset" data-profile-plain aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "globe"}}</span><span><strong>{{.T "ifaces.profile.plain"}}</strong><small>{{.T "ifaces.profile.plain_desc"}}</small></span></button>
-          <button type="button" class="profile-preset" data-generate-obf="performance" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "zap"}}</span><span><strong>{{.T "ifaces.profile.performance"}}</strong><small>{{.T "ifaces.profile.performance_desc"}}</small></span></button>
-          <button type="button" class="profile-preset" data-generate-obf="balanced" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "gauge"}}</span><span><strong>{{.T "ifaces.profile.balanced"}}</strong><small>{{.T "ifaces.profile.balanced_desc"}}</small></span></button>
-          <button type="button" class="profile-preset" data-generate-obf="resilient" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "shield-check"}}</span><span><strong>{{.T "ifaces.profile.resilient"}}</strong><small>{{.T "ifaces.profile.resilient_desc"}}</small></span></button>
-          <button type="button" class="profile-preset is-featured" data-generate-obf="suggested" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "sparkles"}}</span><span><strong>{{.T "ifaces.profile.suggested"}}</strong><small>{{.T "ifaces.profile.suggested_desc"}}</small></span><em>{{.T "common.recommended"}}</em></button>
-          <button type="button" class="profile-preset" data-generate-obf="randomized" data-generation-error="{{.T "ifaces.obf.generation_error"}}" aria-controls="obf-fields" aria-pressed="false"><span class="profile-preset-icon">{{.IconS "wand"}}</span><span><strong>{{.T "ifaces.profile.randomized"}}</strong><small>{{.T "ifaces.profile.randomized_desc"}}</small></span></button>
-        </div>
-    <p class="profile-guidance">{{.IconS "info"}}<span>{{.T "ifaces.profile.effectiveness_hint"}}</span></p>
-
-        <div class="profile-context">
-          <span class="hint">{{.T "ifaces.form.profile_policy"}}</span>
-          <strong data-profile-label aria-live="polite" data-policy-plain="{{.T "ifaces.profile.plain"}}" data-policy-custom="{{.T "ifaces.profile.custom"}}" data-policy-recommended="{{.T "ifaces.profile.recommended"}}" data-policy-performance="{{.T "ifaces.profile.performance"}}" data-policy-balanced="{{.T "ifaces.profile.balanced"}}" data-policy-resilient="{{.T "ifaces.profile.resilient"}}" data-policy-suggested="{{.T "ifaces.profile.suggested"}}" data-policy-randomized="{{.T "ifaces.profile.randomized"}}">{{.T .Data.ProfileKey}}</strong>
-        </div>
-        {{if .Data.Form.SecretReset}}<div class="callout callout--warn">{{.IconS "shield"}}<span>{{.T "ifaces.form.secret_retry"}}</span>
-        </div>{{end}}
-        <details id="obf-fields" class="profile-fields form-advanced" {{if .Data.Form.Error}}open{{end}}><summary>{{.IconS "settings-2"}}<span>{{.T "ifaces.editor.parameters"}}</span></summary><div class="collapse-body">
-          <p class="section-description">{{.T "ifaces.form.packet_shape"}}</p>
-          <div class="field-row">
-            <div class="field">
-              <label for="i-obf-jc">{{.T "ifaces.obf.jc"}}</label>
-              <input class="input" id="i-obf-jc" name="obf_jc" type="text" inputmode="numeric" dir="ltr"
-              value="{{.Data.Form.V "obf_jc"}}" {{if .Data.Form.Invalid "obf_jc"}}aria-invalid="true" aria-describedby="error-obf_jc"{{end}}>{{if .Data.Form.Invalid "obf_jc"}}<span class="field-error" id="error-obf_jc">{{.T (index .Data.Form.Fields "obf_jc")}}</span>{{end}}
-            </div>
-            <div class="field">
-              <label for="i-obf-jmin">{{.T "ifaces.obf.jmin"}}</label>
-              <input class="input" id="i-obf-jmin" name="obf_jmin" type="text" inputmode="numeric" dir="ltr"
-              value="{{.Data.Form.V "obf_jmin"}}" {{if .Data.Form.Invalid "obf_jmin"}}aria-invalid="true" aria-describedby="error-obf_jmin"{{end}}>{{if .Data.Form.Invalid "obf_jmin"}}<span class="field-error" id="error-obf_jmin">{{.T (index .Data.Form.Fields "obf_jmin")}}</span>{{end}}
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label for="i-obf-jmax">{{.T "ifaces.obf.jmax"}}</label>
-              <input class="input" id="i-obf-jmax" name="obf_jmax" type="text" inputmode="numeric" dir="ltr"
-              value="{{.Data.Form.V "obf_jmax"}}" {{if .Data.Form.Invalid "obf_jmax"}}aria-invalid="true" aria-describedby="error-obf_jmax"{{end}}>{{if .Data.Form.Invalid "obf_jmax"}}<span class="field-error" id="error-obf_jmax">{{.T (index .Data.Form.Fields "obf_jmax")}}</span>{{end}}
-            </div>
-
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label for="i-obf-s1">{{.T "ifaces.obf.s1"}}</label>
-              <input class="input" id="i-obf-s1" name="obf_s1" type="text" inputmode="numeric" dir="ltr"
-              value="{{.Data.Form.V "obf_s1"}}" {{if .Data.Form.Invalid "obf_s1"}}aria-invalid="true" aria-describedby="error-obf_s1"{{end}}>{{if .Data.Form.Invalid "obf_s1"}}<span class="field-error" id="error-obf_s1">{{.T (index .Data.Form.Fields "obf_s1")}}</span>{{end}}
-            </div>
-            <div class="field">
-              <label for="i-obf-s2">{{.T "ifaces.obf.s2"}}</label>
-              <input class="input" id="i-obf-s2" name="obf_s2" type="text" inputmode="numeric" dir="ltr"
-              value="{{.Data.Form.V "obf_s2"}}" {{if .Data.Form.Invalid "obf_s2"}}aria-invalid="true" aria-describedby="error-obf_s2"{{end}}>{{if .Data.Form.Invalid "obf_s2"}}<span class="field-error" id="error-obf_s2">{{.T (index .Data.Form.Fields "obf_s2")}}</span>{{end}}
-            </div>
-          </div>
-          <div class="field">
-            <h3 class="section-title">{{.T "ifaces.form.headers"}}</h3>
-            <div class="field-row">
-              <div class="field">
-                <label for="i-obf-h1"><bdi>H1</bdi></label>
-                <input class="input ltr-data" id="i-obf-h1" name="obf_h1" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                value="{{.Data.Form.V "obf_h1"}}" placeholder="H1: 100 / 100-110" {{if .Data.Form.Invalid "obf_h1"}}aria-invalid="true"{{end}} aria-describedby="hint-headers{{if .Data.Form.Invalid "obf_h1"}} error-obf_h1{{end}}">{{if .Data.Form.Invalid "obf_h1"}}<span class="field-error" id="error-obf_h1">{{.T (index .Data.Form.Fields "obf_h1")}}</span>{{end}}
-              </div>
-              <div class="field">
-                <label for="i-obf-h2"><bdi>H2</bdi></label>
-                <input class="input ltr-data" id="i-obf-h2" name="obf_h2" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                value="{{.Data.Form.V "obf_h2"}}" placeholder="H2: 200 / 200-210" {{if .Data.Form.Invalid "obf_h2"}}aria-invalid="true"{{end}} aria-describedby="hint-headers{{if .Data.Form.Invalid "obf_h2"}} error-obf_h2{{end}}">{{if .Data.Form.Invalid "obf_h2"}}<span class="field-error" id="error-obf_h2">{{.T (index .Data.Form.Fields "obf_h2")}}</span>{{end}}
-              </div>
-              <div class="field">
-                <label for="i-obf-h3"><bdi>H3</bdi></label>
-                <input class="input ltr-data" id="i-obf-h3" name="obf_h3" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                value="{{.Data.Form.V "obf_h3"}}" placeholder="H3: 300 / 300-310" {{if .Data.Form.Invalid "obf_h3"}}aria-invalid="true"{{end}} aria-describedby="hint-headers{{if .Data.Form.Invalid "obf_h3"}} error-obf_h3{{end}}">{{if .Data.Form.Invalid "obf_h3"}}<span class="field-error" id="error-obf_h3">{{.T (index .Data.Form.Fields "obf_h3")}}</span>{{end}}
-              </div>
-              <div class="field">
-                <label for="i-obf-h4"><bdi>H4</bdi></label>
-                <input class="input ltr-data" id="i-obf-h4" name="obf_h4" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                value="{{.Data.Form.V "obf_h4"}}" placeholder="H4: 400 / 400-410" {{if .Data.Form.Invalid "obf_h4"}}aria-invalid="true"{{end}} aria-describedby="hint-headers{{if .Data.Form.Invalid "obf_h4"}} error-obf_h4{{end}}">{{if .Data.Form.Invalid "obf_h4"}}<span class="field-error" id="error-obf_h4">{{.T (index .Data.Form.Fields "obf_h4")}}</span>{{end}}
-              </div>
-            </div>
-            <span class="hint" id="hint-headers">{{.T "ifaces.obf.header_range_hint"}}</span>
-          </div>
-
-          <details class="collapse form-panel" id="awg-advanced" {{if .Data.AdvancedOpen}}open{{end}}>
-            <summary>{{.IconS "alert-triangle"}}<span>{{.T "ifaces.obf.gated_title"}}</span></summary>
-            <div class="collapse-body">
-              <div class="callout callout--warn">
-                {{.IconS "alert-triangle"}}<span>{{.T "ifaces.obf.gated_warning"}}</span>
-              </div>
-              <div class="field">
-                <h3 class="section-title">{{.T "ifaces.obf.i"}}</h3>
-                <div class="field-row">
-                  <div class="field">
-                    <label for="i-obf-i1"><bdi>I1</bdi></label>
-                    <input class="input" id="i-obf-i1" name="obf_i1" dir="ltr" spellcheck="false"
-                    value="{{.Data.Form.V "obf_i1"}}" placeholder="I1 (hex)" {{if .Data.Form.Invalid "obf_i1"}}aria-invalid="true"{{end}} aria-describedby="hint-signatures{{if .Data.Form.Invalid "obf_i1"}} error-obf_i1{{end}}">{{if .Data.Form.Invalid "obf_i1"}}<span class="field-error" id="error-obf_i1">{{.T (index .Data.Form.Fields "obf_i1")}}</span>{{end}}
-                  </div>
-                  <div class="field">
-                    <label for="i-obf-i2"><bdi>I2</bdi></label>
-                    <input class="input" id="i-obf-i2" name="obf_i2" dir="ltr" spellcheck="false"
-                    value="{{.Data.Form.V "obf_i2"}}" placeholder="I2 (hex)" {{if .Data.Form.Invalid "obf_i2"}}aria-invalid="true"{{end}} aria-describedby="hint-signatures{{if .Data.Form.Invalid "obf_i2"}} error-obf_i2{{end}}">{{if .Data.Form.Invalid "obf_i2"}}<span class="field-error" id="error-obf_i2">{{.T (index .Data.Form.Fields "obf_i2")}}</span>{{end}}
-                  </div>
-                </div>
-                <div class="field-row">
-                  <div class="field">
-                    <label for="i-obf-i3"><bdi>I3</bdi></label>
-                    <input class="input" id="i-obf-i3" name="obf_i3" dir="ltr" spellcheck="false"
-                    value="{{.Data.Form.V "obf_i3"}}" placeholder="I3 (hex)" {{if .Data.Form.Invalid "obf_i3"}}aria-invalid="true"{{end}} aria-describedby="hint-signatures{{if .Data.Form.Invalid "obf_i3"}} error-obf_i3{{end}}">{{if .Data.Form.Invalid "obf_i3"}}<span class="field-error" id="error-obf_i3">{{.T (index .Data.Form.Fields "obf_i3")}}</span>{{end}}
-                  </div>
-                  <div class="field">
-                    <label for="i-obf-i4"><bdi>I4</bdi></label>
-                    <input class="input" id="i-obf-i4" name="obf_i4" dir="ltr" spellcheck="false"
-                    value="{{.Data.Form.V "obf_i4"}}" placeholder="I4 (hex)" {{if .Data.Form.Invalid "obf_i4"}}aria-invalid="true"{{end}} aria-describedby="hint-signatures{{if .Data.Form.Invalid "obf_i4"}} error-obf_i4{{end}}">{{if .Data.Form.Invalid "obf_i4"}}<span class="field-error" id="error-obf_i4">{{.T (index .Data.Form.Fields "obf_i4")}}</span>{{end}}
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="i-obf-i5"><bdi>I5</bdi></label>
-                  <input class="input" id="i-obf-i5" name="obf_i5" dir="ltr" spellcheck="false"
-                  value="{{.Data.Form.V "obf_i5"}}" placeholder="I5 (hex)" {{if .Data.Form.Invalid "obf_i5"}}aria-invalid="true"{{end}} aria-describedby="hint-signatures{{if .Data.Form.Invalid "obf_i5"}} error-obf_i5{{end}}">{{if .Data.Form.Invalid "obf_i5"}}<span class="field-error" id="error-obf_i5">{{.T (index .Data.Form.Fields "obf_i5")}}</span>{{end}}
-                </div>
-                <span class="hint" id="hint-signatures">{{.T "ifaces.obf.ios_warning"}}</span>
-              </div>
-
-              <div class="field-row">
-                <div class="field">
-                  <label for="i-obf-s3">{{.T "ifaces.obf.s3"}}</label>
-                  <input class="input" id="i-obf-s3" name="obf_s3" type="text" inputmode="numeric" dir="ltr"
-                  value="{{.Data.Form.V "obf_s3"}}" {{if .Data.Form.Invalid "obf_s3"}}aria-invalid="true" aria-describedby="error-obf_s3"{{end}}>{{if .Data.Form.Invalid "obf_s3"}}<span class="field-error" id="error-obf_s3">{{.T (index .Data.Form.Fields "obf_s3")}}</span>{{end}}
-                </div>
-                <div class="field">
-                  <label for="i-obf-s4">{{.T "ifaces.obf.s4"}}</label>
-                  <input class="input" id="i-obf-s4" name="obf_s4" type="text" inputmode="numeric" dir="ltr"
-                  value="{{.Data.Form.V "obf_s4"}}" {{if .Data.Form.Invalid "obf_s4"}}aria-invalid="true" aria-describedby="error-obf_s4"{{end}}>{{if .Data.Form.Invalid "obf_s4"}}<span class="field-error" id="error-obf_s4">{{.T (index .Data.Form.Fields "obf_s4")}}</span>{{end}}
-                </div>
-              </div>
-              <div class="field">
-                <label for="i-obf-hpk">{{.T "ifaces.obf.hpk"}}</label>
-                <input class="input" id="i-obf-hpk" name="obf_hpk" type="password" dir="ltr" spellcheck="false" maxlength="44"
-                value="" autocomplete="off" {{if .Data.Form.Invalid "obf_hpk"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_hpk{{if .Data.Form.Invalid "obf_hpk"}} error-obf_hpk{{end}}">{{if .Data.Form.Invalid "obf_hpk"}}<span class="field-error" id="error-obf_hpk">{{.T (index .Data.Form.Fields "obf_hpk")}}</span>{{end}}
-                <span class="hint" id="hint-obf_hpk">{{.T "ifaces.obf.hpk_hint"}}</span>
-                {{if .Data.HasHeaderProtectionKey}}
-                <label class="check-label" for="i-obf-hpk-clear">
-                <input class="checkbox" id="i-obf-hpk-clear" type="checkbox" name="obf_hpk_clear" value="1" {{if eq (.Data.Form.V "obf_hpk_clear") "1"}}checked{{end}} {{if .Data.Form.Invalid "obf_hpk_clear"}}aria-invalid="true" aria-describedby="error-obf_hpk_clear"{{end}}>{{if .Data.Form.Invalid "obf_hpk_clear"}}<span class="field-error" id="error-obf_hpk_clear">{{.T (index .Data.Form.Fields "obf_hpk_clear")}}</span>{{end}}
-                <span>{{.T "ifaces.obf.hpk_clear"}}</span>
-                </label>
-                {{end}}
-              </div>
-              <div class="field">
-                <label for="i-obf-padding">{{.T "ifaces.obf.padding"}}</label>
-                <input class="input ltr-data" id="i-obf-padding" name="obf_padding" type="text" dir="ltr" inputmode="numeric" spellcheck="false" placeholder="10 / 10-20"
-                value="{{.Data.Form.V "obf_padding"}}" {{if .Data.Form.Invalid "obf_padding"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_padding{{if .Data.Form.Invalid "obf_padding"}} error-obf_padding{{end}}">{{if .Data.Form.Invalid "obf_padding"}}<span class="field-error" id="error-obf_padding">{{.T (index .Data.Form.Fields "obf_padding")}}</span>{{end}}
-                <span class="hint" id="hint-obf_padding">{{.T "ifaces.obf.range_hint"}}</span>
-              </div>
-              <div class="field-row">
-                <div class="field">
-                  <label for="i-obf-rekey-after">{{.T "ifaces.obf.rekey_after"}}</label>
-                  <input class="input ltr-data" id="i-obf-rekey-after" name="obf_rekey_after" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                  value="{{.Data.Form.V "obf_rekey_after"}}" {{if .Data.Form.Invalid "obf_rekey_after"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_rekey_after{{if .Data.Form.Invalid "obf_rekey_after"}} error-obf_rekey_after{{end}}">{{if .Data.Form.Invalid "obf_rekey_after"}}<span class="field-error" id="error-obf_rekey_after">{{.T (index .Data.Form.Fields "obf_rekey_after")}}</span>{{end}}
-                  <span class="hint" id="hint-obf_rekey_after">{{.T "ifaces.obf.range_hint"}}</span>
-                </div>
-                <div class="field">
-                  <label for="i-obf-rekey-timeout">{{.T "ifaces.obf.rekey_timeout"}}</label>
-                  <input class="input ltr-data" id="i-obf-rekey-timeout" name="obf_rekey_timeout" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                  value="{{.Data.Form.V "obf_rekey_timeout"}}" {{if .Data.Form.Invalid "obf_rekey_timeout"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_rekey_timeout{{if .Data.Form.Invalid "obf_rekey_timeout"}} error-obf_rekey_timeout{{end}}">{{if .Data.Form.Invalid "obf_rekey_timeout"}}<span class="field-error" id="error-obf_rekey_timeout">{{.T (index .Data.Form.Fields "obf_rekey_timeout")}}</span>{{end}}
-                  <span class="hint" id="hint-obf_rekey_timeout">{{.T "ifaces.obf.range_hint"}}</span>
-                </div>
-              </div>
-              <div class="field-row">
-                <div class="field">
-                  <label for="i-obf-reject-after">{{.T "ifaces.obf.reject_after"}}</label>
-                  <input class="input ltr-data" id="i-obf-reject-after" name="obf_reject_after" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                  value="{{.Data.Form.V "obf_reject_after"}}" {{if .Data.Form.Invalid "obf_reject_after"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_reject_after{{if .Data.Form.Invalid "obf_reject_after"}} error-obf_reject_after{{end}}">{{if .Data.Form.Invalid "obf_reject_after"}}<span class="field-error" id="error-obf_reject_after">{{.T (index .Data.Form.Fields "obf_reject_after")}}</span>{{end}}
-                  <span class="hint" id="hint-obf_reject_after">{{.T "ifaces.obf.range_hint"}}</span>
-                </div>
-                <div class="field">
-                  <label for="i-obf-keepalive">{{.T "ifaces.obf.keepalive"}}</label>
-                  <input class="input ltr-data" id="i-obf-keepalive" name="obf_keepalive" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                  value="{{.Data.Form.V "obf_keepalive"}}" {{if .Data.Form.Invalid "obf_keepalive"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_keepalive{{if .Data.Form.Invalid "obf_keepalive"}} error-obf_keepalive{{end}}">{{if .Data.Form.Invalid "obf_keepalive"}}<span class="field-error" id="error-obf_keepalive">{{.T (index .Data.Form.Fields "obf_keepalive")}}</span>{{end}}
-                  <span class="hint" id="hint-obf_keepalive">{{.T "ifaces.obf.range_hint"}}</span>
-                </div>
-              </div>
-              <div class="field">
-                <label for="i-obf-max-handshake">{{.T "ifaces.obf.max_handshake"}}</label>
-                <input class="input ltr-data" id="i-obf-max-handshake" name="obf_max_handshake" type="text" dir="ltr" inputmode="numeric" spellcheck="false"
-                value="{{.Data.Form.V "obf_max_handshake"}}" {{if .Data.Form.Invalid "obf_max_handshake"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_max_handshake{{if .Data.Form.Invalid "obf_max_handshake"}} error-obf_max_handshake{{end}}">{{if .Data.Form.Invalid "obf_max_handshake"}}<span class="field-error" id="error-obf_max_handshake">{{.T (index .Data.Form.Fields "obf_max_handshake")}}</span>{{end}}
-                <span class="hint" id="hint-obf_max_handshake">{{.T "ifaces.obf.range_hint"}}</span>
-              </div>
-              <div class="field">
-                <label class="check-label" for="i-obf-random-trailers">
-                <input class="checkbox" id="i-obf-random-trailers" type="checkbox" name="obf_random_trailers" value="1"
-                {{if eq (.Data.Form.V "obf_random_trailers") "1"}}checked{{end}} {{if .Data.Form.Invalid "obf_random_trailers"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_random_trailers{{if .Data.Form.Invalid "obf_random_trailers"}} error-obf_random_trailers{{end}}">{{if .Data.Form.Invalid "obf_random_trailers"}}<span class="field-error" id="error-obf_random_trailers">{{.T (index .Data.Form.Fields "obf_random_trailers")}}</span>{{end}}
-                <span>{{.T "ifaces.obf.random_trailers"}}</span>
-                </label>
-                <span class="hint" id="hint-obf_random_trailers">{{.T "ifaces.obf.random_trailers_hint"}}</span>
-              </div>
-              <div class="field">
-                <label class="check-label" for="i-obf-disable-cookies">
-                <input class="checkbox" id="i-obf-disable-cookies" type="checkbox" name="obf_disable_cookies" value="1"
-                {{if eq (.Data.Form.V "obf_disable_cookies") "1"}}checked{{end}} {{if .Data.Form.Invalid "obf_disable_cookies"}}aria-invalid="true"{{end}} aria-describedby="hint-obf_disable_cookies{{if .Data.Form.Invalid "obf_disable_cookies"}} error-obf_disable_cookies{{end}}">{{if .Data.Form.Invalid "obf_disable_cookies"}}<span class="field-error" id="error-obf_disable_cookies">{{.T (index .Data.Form.Fields "obf_disable_cookies")}}</span>{{end}}
-                <span>{{.T "ifaces.obf.disable_cookies"}}</span>
-                </label>
-                <span class="hint" id="hint-obf_disable_cookies">{{.T "ifaces.obf.disable_cookies_hint"}}</span>
-              </div>
-            </div>
-          </details>
-        </div></details><!-- /#obf-fields -->
-
-        {{if .Data.I}}
-        <div class="callout callout--warn">
-          {{.IconS "alert-triangle"}}<span>{{.T "ifaces.rotation_warning"}}</span>
-        </div>
-        {{end}}
-    </section>
-
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "settings-2"}}</span><span>{{.T "users.form.section_advanced"}}</span></legend>
-      <div class="field">
-        <label for="i-endpoint">{{.T "ifaces.endpoint_override"}}</label>
-        <input class="input" id="i-endpoint" name="endpoint_override" dir="ltr" spellcheck="false"
-        value="{{.Data.Form.V "endpoint_override"}}" {{if .Data.Form.Invalid "endpoint_override"}}aria-invalid="true"{{end}} aria-describedby="hint-endpoint_override{{if .Data.Form.Invalid "endpoint_override"}} error-endpoint_override{{end}}">{{if .Data.Form.Invalid "endpoint_override"}}<span class="field-error" id="error-endpoint_override">{{.T (index .Data.Form.Fields "endpoint_override")}}</span>{{end}}
-        <span class="hint" id="hint-endpoint_override">{{.T "ifaces.form.endpoint_hint"}}</span>
-      </div>
-    </fieldset>
-
-    </div>
-    </div>
-    <div class="form-actions">
-      <a class="btn btn--ghost" href="{{if .Can "interfaces.read"}}/interfaces{{else}}/{{end}}">{{.T "common.cancel"}}</a>
-      <button type="submit" class="btn btn--primary">{{.T "common.save"}}</button>
-    </div>
-  </form>
-</div>
+  <div class="form-actions">
+    <a class="btn btn--ghost" href="{{$back}}">{{.T "common.cancel"}}</a>
+    <button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "common.save"}}</button>
+  </div>
+</form>
 {{end}}

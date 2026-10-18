@@ -17,7 +17,7 @@ async function disclose(details) {
 }
 
 async function userMenu(page) {
-  const trigger = page.locator('.page-head .menu-anchor > button[aria-haspopup="menu"]').first();
+  const trigger = page.locator('.page-header .menu-anchor > button[aria-haspopup="menu"]').first();
   if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
 }
 
@@ -65,7 +65,7 @@ async function prepare(page, state, label) {
 
       case 'destructive-dialog':
         await userMenu(page);
-        await page.locator('.page-head form[action^="/users/"][action$="/delete"] button[type="submit"]').click();
+        await page.locator('.page-header form[action^="/users/"][action$="/delete"] button[type="submit"]').click();
         await page.locator('#confirm-dialog[open]').waitFor();
         cleanup = () => closeDialog(page, 'confirm-dialog');
         break;

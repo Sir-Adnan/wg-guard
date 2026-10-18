@@ -1,16 +1,46 @@
-{{define "routing_tabs"}}
+{{define "routing_header"}}{{/* the shared workspace header + tabs; "routing_actions" is defined per page */}}
 {{$t := .Data.Tabs}}
-<nav class="routing-tabs" aria-label="{{.T "routing.title"}}">
-  <a href="/routing/outbounds"{{if eq $t.Active "outbounds"}} aria-current="page"{{end}}>{{.IconS "route"}}<span>{{.T "routing.outbounds"}}</span><span class="routing-tab-count">{{.N (i64u $t.Outbounds)}}</span></a>
-  <a href="/routing/balancers"{{if eq $t.Active "balancers"}} aria-current="page"{{end}}>{{.IconS "shuffle"}}<span>{{.T "routing.balancers"}}</span><span class="routing-tab-count">{{.N (i64u $t.Balancers)}}</span></a>
-  <a href="/routing/rules"{{if eq $t.Active "rules"}} aria-current="page"{{end}}>{{.IconS "list-filter"}}<span>{{.T "routing.rules"}}</span><span class="routing-tab-count">{{.N (i64u $t.Rules)}}</span></a>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "routing.title"}}</h1>
+    <p class="page-description">{{.T (printf "routing.%s.intro" $t.Active)}}</p>
+  </div>
+  <div class="page-actions">{{block "routing_actions" .}}{{end}}</div>
+</header>
+<nav class="tabs" aria-label="{{.T "routing.title"}}">
+  <a class="tab" href="/routing/outbounds"{{if eq $t.Active "outbounds"}} aria-current="page"{{end}}>{{.IconS "route"}}{{.T "routing.outbounds"}}<span class="tab-count">{{.N (i64u $t.Outbounds)}}</span></a>
+  <a class="tab" href="/routing/rules"{{if eq $t.Active "rules"}} aria-current="page"{{end}}>{{.IconS "list-filter"}}{{.T "routing.rules"}}<span class="tab-count">{{.N (i64u $t.Rules)}}</span></a>
+  <a class="tab" href="/routing/balancers"{{if eq $t.Active "balancers"}} aria-current="page"{{end}}>{{.IconS "shuffle"}}{{.T "routing.balancers"}}<span class="tab-count">{{.N (i64u $t.Balancers)}}</span></a>
 </nav>
 {{end}}
 
+{{define "routing_warnings"}}{{range .Data.Warnings}}<div class="alert alert--warning">{{$.Icon "alert-triangle"}}<p class="alert-title">{{$.T (printf "routing.warning.%s" .Kind) .Detail}}</p></div>{{end}}{{end}}
+
+{{define "routing_form_header"}}{{/* . = dict "v" View "title" string "description" string "back" href */}}
+<header class="page-header">
+  <div class="page-heading">
+    <a class="page-eyebrow" href="{{.back}}">{{.v.IconS "arrow-left"}}{{.v.T "routing.title"}}</a>
+    <h1 class="page-title">{{.title}}</h1>
+    {{if .description}}<p class="page-description">{{.description}}</p>{{end}}
+  </div>
+</header>
+{{end}}
+
 {{define "routing_state"}}{{/* . = dict "v" View "state" string */}}
-<span class="routing-state" data-state="{{.state}}"><span class="routing-dot" aria-hidden="true"></span>{{.v.T (printf "routing.state.%s" .state)}}</span>
+<span class="badge {{if eq .state "healthy"}}badge--success{{else if eq .state "error"}}badge--destructive{{else if eq .state "down"}}badge--destructive{{else if eq .state "checking"}}badge--info{{else}}badge--muted{{end}} routing-state" data-state="{{.state}}"><span class="dot"></span>{{.v.T (printf "routing.state.%s" .state)}}</span>
 {{end}}
 
 {{define "routing_target"}}{{/* . = dict "v" View "kind" string "label" string */}}
 <span class="routing-target" data-target="{{.kind}}">{{if eq .kind "direct"}}{{.v.IconS "globe"}}{{else if eq .kind "block"}}{{.v.IconS "ban"}}{{else if eq .kind "balancer"}}{{.v.IconS "shuffle"}}{{else}}{{.v.IconS "route"}}{{end}}<bdi>{{.label}}</bdi></span>
 {{end}}
+
+{{define "routing_kind_icon"}}{{/* . = dict "v" View "kind" string */}}{{if eq .kind "warp"}}{{.v.IconS "cloud"}}{{else if eq .kind "source_ip"}}{{.v.IconS "server"}}{{else}}{{.v.IconS "shield"}}{{end}}{{end}}
+
+{{define "outbound_kinds"}}
+<div class="choice-grid routing-kinds">
+  <a class="choice-card" href="/routing/outbounds/new?kind=warp"><span class="item-media">{{.IconS "cloud"}}</span><span class="choice-card-body"><span class="choice-card-title">{{.T "routing.kind.warp"}} <span class="badge badge--success">{{.T "routing.kind.recommended"}}</span></span><span class="choice-card-description">{{.T "routing.kind.warp_desc"}}</span></span></a>
+  <a class="choice-card" href="/routing/outbounds/new?kind=wireguard"><span class="item-media">{{.IconS "shield"}}</span><span class="choice-card-body"><span class="choice-card-title">{{.T "routing.kind.config"}}</span><span class="choice-card-description">{{.T "routing.kind.config_desc"}}</span></span></a>
+  <a class="choice-card" href="/routing/outbounds/new?kind=source_ip"><span class="item-media">{{.IconS "server"}}</span><span class="choice-card-body"><span class="choice-card-title">{{.T "routing.kind.source_ip"}}</span><span class="choice-card-description">{{.T "routing.kind.source_ip_desc"}}</span></span></a>
+</div>
+{{end}}
+

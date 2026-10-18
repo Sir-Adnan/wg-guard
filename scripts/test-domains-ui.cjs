@@ -20,7 +20,7 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
       await page.selectOption('#domain-method', 'manual');
       assert(await page.locator('[data-domain-fields=manual]').isVisible(), 'manual section visible');
       assert(!await page.locator('[data-domain-fields=automatic]').isVisible(), 'automatic section hidden');
-      await page.locator('details.collapse').last().evaluate(el => { el.open = true; });
+      await page.locator('[data-domain-fields=manual] details').evaluate(el => { el.open = true; });
       await page.selectOption('#domain-source', 'paths');
       assert(await page.locator('#domain-cert-source').isVisible(), 'controlled path source');
       assert(await page.locator('#domain-cert').isDisabled(), 'unused private upload disabled');

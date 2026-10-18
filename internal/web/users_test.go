@@ -280,7 +280,7 @@ func TestUserLifecycleAndSearch(t *testing.T) {
 		t.Fatalf("disable: %d", rec.Code)
 	}
 	rec = e.get("/users?status=disabled", cookie)
-	if !strings.Contains(rec.Body.String(), "bob") {
+	if !strings.Contains(rec.Body.String(), "cell-main\">bob<") {
 		t.Fatal("disabled filter does not show bob")
 	}
 	rec = e.get("/users?status=active", cookie)

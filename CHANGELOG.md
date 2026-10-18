@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+- Redesign every panel, sign-in and subscription page on a new design system: shadcn/ui
+  component anatomy in plain CSS (`web/styles`, cascade layers, concatenated at startup; no build
+  tool) with a Vercel/Linear default — compact density, hairline borders, monospace technical
+  values and underline tabs. New app shell with a collapsible sidebar and a command palette
+  (⌘K / Ctrl+K / `/`). See the [design system](docs/product/design-system.md) and
+  [ADR-0017](docs/decisions/ADR-0017-design-system-and-presets.md).
+- Replace the visual preset registry with 29 reviewed theme files in `web/themes` (WG-Guard,
+  Linear, the shadcn palettes and 20 tweakcn imports). A theme now sets fonts, radius, shadows,
+  spacing, density, sidebar composition, tab style and surface elevation, not only colors.
+  Every text pair meets WCAG AA in both modes. Add `tools/theme-import` for tweakcn exports.
+- Rebuild **Appearance** as a theme gallery with a live preview of the whole panel. Owners can set
+  a separate default theme and mode for the public subscription page (migration
+  `0018_subscription_appearance.sql`), and subscription visitors can pick their own theme.
+- Self-host the fonts the themes use (OFL) and switch Persian text to variable Vazirmatn limited
+  to Arabic script.
+
 - Add egress routing under **Routing** (`/routing/outbounds`, `/routing/balancers`,
   `/routing/rules`). Outbounds are Cloudflare WARP (registered from the panel), imported
   WireGuard/AmneziaWG client configs or another local IPv4. Balancers group outbounds with the

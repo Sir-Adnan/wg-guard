@@ -1,5 +1,5 @@
 {{define "app"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}" data-digits="{{.Digits}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
+<html {{template "html-attrs" .}}>
 <head>
 {{template "document-head" .}}
 <title>{{template "title" .}} · {{.T "app.name"}}</title>
@@ -9,92 +9,99 @@
 </head>
 <body>
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
-<div class="shell" id="shell">
-  <aside class="sidebar" id="sidebar" aria-label="{{.T "nav.section"}}">
-    <div class="sidebar-brand"><a class="brand" href="{{if .Admin.ResellerID}}/reseller/users{{else}}/{{end}}">
-      <span class="logo">{{.Icon "shield"}}</span>
-      <span class="brand-text">{{.T "app.name"}}<small>{{.T "app.tagline"}}</small></span>
-    </a><button type="button" class="icon-btn nav-close" data-close-nav aria-label="{{.T "common.close"}}">{{.Icon "x"}}</button></div>
-    <nav class="nav">
-      {{if .Admin.ResellerID}}
-      <details class="nav-group" open><summary class="nav-group-trigger"><span>{{.T "nav.group.manage"}}</span>{{.IconS "chevron-down"}}</summary><div class="nav-group-links">
-      {{if .Can "users.read"}}<a href="/reseller/users" {{if .IsActive "/reseller/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>{{end}}
-      </div></details><details class="nav-group" data-nav-system open><summary class="nav-group-trigger"><span>{{.T "nav.group.system"}}</span>{{.IconS "chevron-down"}}</summary><div class="nav-group-links">
-      {{if .Can "api_tokens.manage"}}<a href="/reseller/tokens" {{if .IsActive "/reseller/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
-      {{if .Can "webhooks.read"}}<a href="/reseller/webhooks" {{if .IsActive "/reseller/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}
-      <a href="/appearance" {{if .IsActive "/appearance"}}aria-current="page"{{end}}>{{.Icon "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
-      </div></details>
-      {{else}}
-      <details class="nav-group" open><summary class="nav-group-trigger"><span>{{.T "nav.group.manage"}}</span>{{.IconS "chevron-down"}}</summary><div class="nav-group-links">
-      {{if .Can "stats.read"}}
-      <a href="/dashboard" {{if or (eq .Path "/dashboard") (eq .Path "/")}}aria-current="page"{{end}} aria-label="{{.T "nav.dashboard"}}" data-tip="{{.T "nav.dashboard"}}">{{.Icon "layout-dashboard"}}<span>{{.T "nav.dashboard"}}</span></a>
-      {{end}}
-      {{if or (.Can "users.read") (.Can "users.create") (.Can "users.bulk")}}
-      <a href="{{if .Can "users.read"}}/users{{else if .Can "users.create"}}/users/new{{else}}/users/bulk{{end}}" aria-label="{{.T "nav.users"}}" data-tip="{{.T "nav.users"}}" {{if .IsActive "/users"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "nav.users"}}</span></a>
-      {{end}}
-      {{if or (.Can "templates.read") (.Can "templates.write")}}
-      <a href="{{if .Can "templates.read"}}/templates{{else}}/templates/new{{end}}" aria-label="{{.T "nav.plans"}}" data-tip="{{.T "nav.plans"}}" {{if .IsActive "/templates"}}aria-current="page"{{end}}>{{.Icon "layers"}}<span>{{.T "nav.plans"}}</span></a>
-      {{end}}
-      {{if or (.Can "interfaces.read") (.Can "interfaces.write")}}
-      <a href="{{if .Can "interfaces.read"}}/interfaces{{else}}/interfaces/new{{end}}" aria-label="{{.T "nav.interfaces"}}" data-tip="{{.T "nav.interfaces"}}" {{if .IsActive "/interfaces"}}aria-current="page"{{end}}>{{.Icon "network"}}<span>{{.T "nav.interfaces"}}</span></a>
-      {{end}}
-      {{if .Can "interfaces.read"}}
-      <a href="/routing/outbounds" aria-label="{{.T "nav.routing"}}" data-tip="{{.T "nav.routing"}}" {{if .IsActive "/routing"}}aria-current="page"{{end}}>{{.Icon "route"}}<span>{{.T "nav.routing"}}</span></a>
-      {{end}}
-      </div></details><details class="nav-group" data-nav-system open><summary class="nav-group-trigger"><span>{{.T "nav.group.system"}}</span>{{.IconS "chevron-down"}}</summary><div class="nav-group-links">
-      {{if .Can "backup.manage"}}<a href="/backups" aria-label="{{.T "nav.backups"}}" data-tip="{{.T "nav.backups"}}" {{if .IsActive "/backups"}}aria-current="page"{{end}}>{{.Icon "database"}}<span>{{.T "nav.backups"}}</span></a>{{end}}
-      {{if or (.Can "update.manage") (.Can "update.read")}}<a href="/updates" aria-label="{{.T "nav.updates"}}" data-tip="{{.T "nav.updates"}}" {{if .IsActive "/updates"}}aria-current="page"{{end}}>{{.Icon "refresh-cw"}}<span>{{.T "nav.updates"}}</span>{{if .UpdateNotice}}<span class="nav-update-marker" aria-label="{{.T "updates.available"}}"></span>{{end}}</a>{{end}}
-      {{if .Can "admins.manage"}}<a href="/admins" aria-label="{{.T "nav.admins"}}" data-tip="{{.T "nav.admins"}}" {{if .IsActive "/admins"}}aria-current="page"{{end}}>{{.Icon "user-plus"}}<span>{{.T "nav.admins"}}</span></a>{{end}}
-      {{if eq (printf "%v" .Admin.Role) "owner"}}<a href="/resellers" aria-label="{{.T "resellers.title"}}" data-tip="{{.T "resellers.title"}}" {{if .IsActive "/resellers"}}aria-current="page"{{end}}>{{.Icon "users"}}<span>{{.T "resellers.title"}}</span></a>{{end}}
-      {{if .Can "api_tokens.manage"}}<a href="/tokens" aria-label="{{.T "nav.tokens"}}" data-tip="{{.T "nav.tokens"}}" {{if .IsActive "/tokens"}}aria-current="page"{{end}}>{{.Icon "key"}}<span>{{.T "nav.tokens"}}</span></a>{{end}}
-      {{if .Can "webhooks.read"}}<a href="/webhooks" aria-label="{{.T "nav.webhooks"}}" data-tip="{{.T "nav.webhooks"}}" {{if .IsActive "/webhooks"}}aria-current="page"{{end}}>{{.Icon "link"}}<span>{{.T "nav.webhooks"}}</span></a>{{end}}
-      {{if .Can "node.read"}}<a href="/system" aria-label="{{.T "system.title"}}" data-tip="{{.T "system.title"}}" {{if .IsActive "/system"}}aria-current="page"{{end}}>{{.Icon "activity"}}<span>{{.T "system.title"}}</span></a>{{end}}
-      {{if .Can "audit.view"}}<a href="/audit" aria-label="{{.T "nav.audit"}}" data-tip="{{.T "nav.audit"}}" {{if .IsActive "/audit"}}aria-current="page"{{end}}>{{.Icon "inbox"}}<span>{{.T "nav.audit"}}</span></a>{{end}}
-      </div></details><details class="nav-group" open><summary class="nav-group-trigger"><span>{{.T "nav.group.preferences"}}</span>{{.IconS "chevron-down"}}</summary><div class="nav-group-links">
-      {{if .Can "node.settings"}}<a href="/settings" aria-label="{{.T "nav.settings"}}" data-tip="{{.T "nav.settings"}}" {{if eq .Path "/settings"}}aria-current="page"{{end}}>{{.Icon "settings-2"}}<span>{{.T "nav.settings"}}</span></a>{{end}}
-      {{if .Can "server.view"}}<a href="/settings/domains" aria-label="{{.T "domains.title"}}" data-tip="{{.T "domains.title"}}" {{if .IsActive "/settings/domains"}}aria-current="page"{{end}}>{{.Icon "globe"}}<span>{{.T "domains.title"}}</span></a>{{end}}
-      {{if .Can "cleanup.manage"}}<a href="/cleanup" aria-label="{{.T "cleanup.title"}}" data-tip="{{.T "cleanup.title"}}" {{if .IsActive "/cleanup"}}aria-current="page"{{end}}>{{.Icon "database"}}<span>{{.T "cleanup.title"}}</span></a>{{end}}
-      <a href="/appearance" aria-label="{{.T "appearance.title"}}" data-tip="{{.T "appearance.title"}}" {{if .IsActive "/appearance"}}aria-current="page"{{end}}>{{.Icon "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
-      </div></details>
-      {{end}}
-    </nav>
-    <div class="sidebar-foot">
-      <button type="button" class="btn btn--ghost" id="btn-collapse" aria-label="{{.T "nav.collapse"}}" aria-expanded="true">{{.Icon "panel-left"}}<span>{{.T "nav.collapse"}}</span></button>
-      <div class="user-row">
-        <span class="avatar" aria-hidden="true">{{.Initial .Admin.Username}}</span>
-        <span class="user-name">
-          <span class="cell-main">{{.Admin.Username}}</span>
-          <span class="cell-sub">{{if eq (printf "%v" .Admin.Role) "owner"}}{{.T "role.owner"}}{{else if eq (printf "%v" .Admin.Role) "admin"}}{{.T "role.admin"}}{{else}}{{printf "%v" .Admin.Role}}{{end}}</span>
-        </span>
-        <form method="post" action="/logout">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" class="icon-btn" data-tip="{{.T "common.logout"}}" aria-label="{{.T "common.logout"}}">{{.IconS "log-out"}}</button>
-        </form>
-      </div>
-    </div>
-  </aside>
+<div class="app" id="shell">
+  {{template "sidebar" .}}
   <div class="scrim" id="scrim"></div>
-  <div class="main">
-    <header class="topbar">
-      <button type="button" class="icon-btn sidebar-desktop-toggle" data-toggle-rail aria-label="{{.T "nav.collapse"}}" aria-controls="sidebar" aria-expanded="true">{{.Icon "panel-left"}}</button>
-      <button type="button" class="icon-btn drawer-toggle" id="btn-drawer" aria-label="{{.T "common.menu"}}" aria-controls="sidebar" aria-expanded="false">{{.Icon "menu"}}</button>
-      <span class="topbar-context">{{template "title" .}}</span>
-      <span class="spacer"></span>
-      {{block "topbar" .}}{{end}}
-      {{template "preferences" .}}
+  <div class="app-main" id="app-main">
+    <header class="app-header">
+      <button type="button" class="btn btn--ghost btn--icon btn--sm sidebar-desktop-toggle" data-toggle-rail aria-label="{{.T "shell.toggle_sidebar"}}" aria-controls="sidebar" aria-expanded="true">{{.Icon "panel-left"}}</button>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm drawer-toggle" id="btn-drawer" aria-label="{{.T "common.menu"}}" aria-controls="sidebar" aria-expanded="false">{{.Icon "menu"}}</button>
+      <span class="separator separator--vertical" aria-hidden="true"></span>
+      <span class="app-header-title">{{template "title" .}}</span>
+      <div class="app-header-actions">
+        {{block "topbar" .}}{{end}}
+        <button type="button" class="btn btn--ghost btn--icon btn--sm header-search" data-command-open aria-label="{{.T "shell.search_label"}}">{{.Icon "search"}}</button>
+        {{template "preferences" .}}
+      </div>
     </header>
-    <main class="content{{.PageClass}}" id="main" tabindex="-1">
+    <main class="app-content{{.PageClass}}" id="main" tabindex="-1">
       {{template "flash" .}}
       {{block "content" .}}{{end}}
     </main>
   </div>
 </div>
 {{template "feedback-host" .}}
+{{template "command-palette" .}}
 {{if eq .Path "/settings"}}<script type="module" src="{{.A "/js/settings.js"}}"></script>{{end}}
 {{if eq .Path "/settings/domains"}}<script type="module" src="{{.A "/js/domains.js"}}"></script>{{end}}
 {{if eq .Path "/updates"}}<script type="module" src="{{.A "/js/maintenance.js"}}"></script>{{end}}
 {{if .IsActive "/cleanup"}}<script type="module" src="{{.A "/js/cleanup.js"}}"></script>{{end}}
 {{if or (eq .Path "/interfaces/new") (and (.IsActive "/interfaces") (ne .Path "/interfaces"))}}<script type="module" src="{{.A "/js/pool-editor.js"}}"></script>{{end}}
+{{if eq .Path "/appearance"}}<script type="module" src="{{.A "/js/appearance.js"}}"></script>{{end}}
 {{template "confirm-dialog" .}}
 </body>
 </html>{{end}}
+
+{{define "sidebar"}}
+<aside class="sidebar" id="sidebar" aria-label="{{.T "nav.section"}}">
+  <div class="sidebar-header">
+    <a class="sidebar-brand" href="{{.HomeHref}}">
+      <span class="brand-mark">{{.Icon "shield"}}</span>
+      <span class="brand-text"><span class="brand-name">{{.T "app.name"}}</span><span class="brand-sub">{{.T "app.tagline"}}</span></span>
+    </a>
+    <button type="button" class="btn btn--ghost btn--icon btn--sm nav-close" data-close-nav aria-label="{{.T "common.close"}}">{{.Icon "x"}}</button>
+  </div>
+  <button type="button" class="sidebar-search" data-command-open data-tip="{{.T "shell.search_label"}}" aria-label="{{.T "shell.search_label"}}">{{.IconS "search"}}<span>{{.T "shell.search"}}</span><kbd class="kbd">⌘K</kbd></button>
+  <nav class="sidebar-content nav">
+    {{range .Nav}}
+    <div class="sidebar-group">
+      <p class="sidebar-group-label">{{.Label}}</p>
+      <ul class="sidebar-menu">
+        {{range .Items}}<li><a class="sidebar-item" href="{{.Href}}" data-tip="{{.Label}}"{{if .Active}} aria-current="page"{{end}}>{{$.Icon .Icon}}<span>{{.Label}}</span>{{if .Marker}}<span class="sidebar-marker" role="img" aria-label="{{.Marker}}"></span>{{end}}</a></li>{{end}}
+      </ul>
+    </div>
+    {{end}}
+  </nav>
+  <div class="sidebar-footer">
+    <div class="menu-anchor">
+      <button type="button" class="sidebar-user" aria-haspopup="menu" aria-expanded="false" aria-label="{{.T "shell.account"}}: {{.Admin.Username}}">
+        <span class="avatar avatar--sm avatar--square" aria-hidden="true">{{.Initial .Admin.Username}}</span>
+        <span class="sidebar-user-text"><span class="sidebar-user-name"><bdi>{{.Admin.Username}}</bdi></span><span class="sidebar-user-role">{{.RoleLabel}}</span></span>
+        {{.IconS "more-vertical"}}
+      </button>
+      <div class="menu" role="menu" aria-label="{{.T "shell.account"}}">
+        <p class="menu-label"><bdi>{{.Admin.Username}}</bdi> · {{.RoleLabel}}</p>
+        <a role="menuitem" href="/appearance">{{.IconS "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
+        <hr>
+        <form method="post" action="/logout">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button type="submit" role="menuitem">{{.IconS "log-out"}}<span>{{.T "common.logout"}}</span></button>
+        </form>
+      </div>
+    </div>
+  </div>
+</aside>
+{{end}}
+
+{{define "command-palette"}}
+<dialog class="command" id="command" aria-label="{{.T "shell.search_label"}}">
+  <div class="command-input">{{.Icon "search"}}<input type="text" data-command-input placeholder="{{.T "command.placeholder"}}" aria-label="{{.T "shell.search_label"}}" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="command-list"></div>
+  <div class="command-list" id="command-list" role="listbox" aria-label="{{.T "shell.search_label"}}">
+    {{if .Can "users.read"}}<div class="command-group" data-command-dynamic><a class="command-item" role="option" href="/users?q=" data-command-search="/users?q=" data-command-template="{{.T "command.find_user" "%s"}}" hidden>{{.IconS "search"}}<span></span></a></div>{{end}}
+    <div class="command-group">
+      <p class="command-group-label">{{.T "command.pages"}}</p>
+      {{range .Nav}}{{range .Items}}<a class="command-item" role="option" href="{{.Href}}" data-command-text="{{.Label}}">{{$.IconS .Icon}}<span>{{.Label}}</span></a>{{end}}{{end}}
+    </div>
+    <div class="command-group">
+      <p class="command-group-label">{{.T "command.actions"}}</p>
+      {{if .Can "users.create"}}<a class="command-item" role="option" href="/users/new" data-command-text="{{.T "command.new_user"}}">{{.IconS "user-plus"}}<span>{{.T "command.new_user"}}</span></a>{{end}}
+      {{if .Can "interfaces.write"}}<a class="command-item" role="option" href="/routing/rules/new" data-command-text="{{.T "command.new_rule"}}">{{.IconS "route"}}<span>{{.T "command.new_rule"}}</span></a>
+      <a class="command-item" role="option" href="/routing/outbounds/new" data-command-text="{{.T "command.new_outbound"}}">{{.IconS "globe"}}<span>{{.T "command.new_outbound"}}</span></a>{{end}}
+      <button type="button" class="command-item" role="option" data-theme-choice="light" data-command-text="{{.T "command.theme_light"}} light">{{.IconS "sun"}}<span>{{.T "command.theme_light"}}</span></button>
+      <button type="button" class="command-item" role="option" data-theme-choice="dark" data-command-text="{{.T "command.theme_dark"}} dark">{{.IconS "moon"}}<span>{{.T "command.theme_dark"}}</span></button>
+    </div>
+    <p class="command-empty" data-command-empty hidden>{{.T "command.empty"}}</p>
+  </div>
+  <div class="command-footer"><span><kbd class="kbd">↑</kbd> <kbd class="kbd">↓</kbd> {{.T "command.navigate_hint"}}</span><span><kbd class="kbd">↵</kbd> {{.T "command.open_hint"}}</span><span><kbd class="kbd">esc</kbd> {{.T "command.close_hint"}}</span></div>
+</dialog>
+{{end}}

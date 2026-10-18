@@ -1,0 +1,51 @@
+/* Routing workspace: rule rows ("match → target"), targets and outbound cards. */
+@layer pages {
+  .routing-target { display: inline-flex; align-items: center; gap: var(--s-1_5); height: 1.5rem; padding-inline: var(--s-2); border-radius: var(--radius-sm); background: var(--secondary); color: var(--secondary-foreground); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; max-width: 100%; }
+  .routing-target > bdi { overflow: hidden; text-overflow: ellipsis; }
+  .routing-target[data-target="direct"] { background: color-mix(in srgb, var(--success) 10%, transparent); color: var(--success); }
+  .routing-target[data-target="block"] { background: color-mix(in srgb, var(--destructive) 10%, transparent); color: var(--destructive-text); }
+  .routing-target[data-target="balancer"] { background: color-mix(in srgb, var(--info) 10%, transparent); color: var(--info); }
+  .routing-arrow { display: inline-flex; color: var(--muted-foreground); }
+
+  .rule-list { counter-reset: none; }
+  .rule-row { align-items: center; }
+  .rule-index { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: var(--radius-md); border: 1px solid var(--border); color: var(--muted-foreground); font-size: var(--text-xs); }
+  .rule-flow { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; margin-top: var(--s-1); min-width: 0; }
+  .rule-match { display: inline-flex; align-items: center; gap: var(--s-1); flex-wrap: wrap; min-width: 0; }
+  .rule-default { background: color-mix(in srgb, var(--muted) 60%, transparent); }
+  .rule-default-form { display: flex; align-items: center; gap: var(--s-3); width: 100%; flex-wrap: wrap; }
+  .rule-default-form > .item-content { flex: 1 1 14rem; }
+  .rule-default-controls { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+  .rule-default-controls > .select { width: auto; min-width: 12rem; max-width: 100%; }
+  .rule-empty { justify-content: center; }
+  .rule-empty > .empty { width: 100%; }
+  @media (max-width: 640px) {
+    .rule-row { align-items: flex-start; }
+    .rule-row > .item-actions { width: 100%; justify-content: flex-end; border-top: 1px dashed var(--border); padding-top: var(--s-2); }
+    .rule-default-controls { width: 100%; }
+    .rule-default-controls > .select { flex: 1; min-width: 0; }
+  }
+
+  .outbound-card.is-disabled { opacity: .7; }
+  .outbound-card .card-footer { justify-content: space-between; }
+  .outbound-card .card-footer > p { flex: 1; }
+  .routing-check { align-items: center; }
+
+  .member-row .input { width: 4.5rem; }
+}
+@layer pages {
+  /* The per-connection note only matters for strategies that rotate exits. */
+  .routing-per-connection { display: none; }
+  .strategy-section:has(input[name=strategy][value=round_robin]:checked, input[name=strategy][value=random]:checked, input[name=strategy][value=least_conn]:checked) .routing-per-connection { display: grid; }
+  .balancer-card.is-disabled { opacity: .7; }
+  .member-item { padding-block: var(--s-2); }
+  fieldset.card > .card-header { padding-top: 0; }
+}
+@layer pages {
+  .step { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: var(--radius-full); background: var(--primary); color: var(--primary-foreground); font-size: var(--text-2xs); font-weight: 600; font-family: var(--font-code); }
+  .routing-category-cloud { display: flex; flex-wrap: wrap; gap: var(--s-1); max-height: 14rem; overflow: auto; }
+}
+@layer pages {
+  .outbound-card > .card-content.kv { flex: 1; }
+  .balancer-card > ol.card-content { flex: 1; }
+}

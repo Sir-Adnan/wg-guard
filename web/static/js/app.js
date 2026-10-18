@@ -110,7 +110,7 @@
   function updateBulkSelection() {
     const n = $$(".js-sel:checked").length;
     $$("[data-sel-count]").forEach((el) => { el.textContent = n; });
-    $$("[data-bulk-bar]").forEach((el) => el.classList.toggle("hidden", n === 0));
+    $$("[data-bulk-bar]").forEach((el) => { el.hidden = n === 0; });
     const allBox = $("#sel-all");
     if (allBox) {
       allBox.checked = n > 0 && n === $$(".js-sel").length;
@@ -160,7 +160,8 @@
     const msgEl = $("[data-confirm-message]", dlg);
     msgEl.textContent = form.dataset.confirmMessage || "";
     const okBtn = $("[data-confirm-ok]", dlg);
-    okBtn.className = "btn " + (form.dataset.confirmKind === "ok" ? "btn--primary" : "btn--danger");
+    okBtn.className = "btn " + (form.dataset.confirmKind === "ok" ? "btn--primary" : "btn--destructive");
+    dlg.classList.toggle("dialog--danger", form.dataset.confirmKind !== "ok");
     okBtn.textContent = form.dataset.confirmLabel || e.submitter?.getAttribute('aria-label') || e.submitter?.textContent?.trim() || document.querySelector('meta[name="ui-confirm"]')?.content || "";
   });
 
@@ -402,7 +403,7 @@
 
   const syncQuickPresets = field => {
     if (!field) return;
-    const input = $('.unit-group .input', field), unit = $('.unit-group .select', field);
+    const input = $('[data-unit-value]', field), unit = $('[data-unit-select]', field);
     if (!input || !unit) return;
     const picker = $('[data-fill-preset]',field);
     if (!picker) return;
@@ -413,7 +414,7 @@
   ['input','change'].forEach(type => document.addEventListener(type,event => {
     const field = event.target.closest?.('.field');
     if (event.target.matches?.('[data-fill-preset]')) {
-      const option = event.target.selectedOptions[0], input = $('.unit-group .input',field), unit = $('.unit-group .select',field);
+      const option = event.target.selectedOptions[0], input = $('[data-unit-value]',field), unit = $('[data-unit-select]',field);
       if (option?.dataset.fillValue && input && unit) { input.value = option.dataset.fillValue; unit.value = option.dataset.fillUnit; }
     }
     syncQuickPresets(field);

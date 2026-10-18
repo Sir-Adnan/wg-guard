@@ -15,6 +15,7 @@ import (
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
+	"github.com/Sir-Adnan/wg-guard/internal/web/theme"
 	webassets "github.com/Sir-Adnan/wg-guard/web"
 )
 
@@ -65,9 +66,22 @@ func (s *Server) initAssets() error {
 	if err != nil {
 		return fmt.Errorf("web: assets: %w", err)
 	}
-	sum := sha256.Sum256(s.visualPresetCSS)
-	set["/css/visual-presets.css"] = asset{
-		data: s.visualPresetCSS, hash: hex.EncodeToString(sum[:8]), ctype: contentTypes[".css"],
+	// Generated stylesheets: the design-system bundle (with the built-in
+	// preset), one file per other preset and the preset preview swatches.
+	generated := map[string][]byte{"/css/theme-swatches.css": s.themes.SwatchCSS()}
+	bundle, err := buildStyles(s.themes)
+	if err != nil {
+		return err
+	}
+	generated["/css/app.css"] = bundle
+	for _, p := range s.themes.All() {
+		if p.ID != theme.DefaultID {
+			generated[themeAssetName(p.ID)] = s.themes.CSS(p)
+		}
+	}
+	for name, data := range generated {
+		sum := sha256.Sum256(data)
+		set[name] = asset{data: data, hash: hex.EncodeToString(sum[:8]), ctype: contentTypes[".css"]}
 	}
 	s.assets = set
 	return nil
@@ -143,6 +157,14 @@ func (s *Server) initTemplates() error {
 			return 0
 		},
 		"timePtr": func(t time.Time) *time.Time { return &t },
+		// add sums counters for compact summaries (e.g. users needing attention).
+		"add": func(values ...int64) int64 {
+			var total int64
+			for _, v := range values {
+				total += v
+			}
+			return total
+		},
 	})
 	files, err := fs.Glob(webassets.FS, "templates/*.html")
 	if err != nil {
@@ -190,8 +212,9 @@ func (s *Server) initTemplates() error {
 type View struct {
 	Locale       i18n.Locale
 	Dir          string
-	Theme        string // "light" | "dark" | "system"
-	Preset       string // allowlisted visual preset ID; empty/unknown resolves to built-in
+	Theme        string   // "light" | "dark" | "system"
+	Preset       string   // allowlisted visual preset ID; empty/unknown resolves to built-in
+	UI           theme.UI // the preset's layout axes (density, sidebar, tabs, surface)
 	Digits       i18n.DigitStyle
 	Path         string // request path, for nav highlighting
 	PageClass    string // content width tier (" content--narrow" on form/settings routes)
@@ -201,6 +224,9 @@ type View struct {
 	Version      string
 	UpdateNotice bool
 	LoginContext url.Values
+
+	// presets is the server's preset list (shared, read-only).
+	presets []presetChoice
 
 	// iconBase is the cache-busted sprite URL, resolved per server.
 	iconBase string
@@ -214,6 +240,28 @@ type View struct {
 	// Data carries the page-specific payload (typed per page).
 	Data any
 }
+
+// PresetCSS returns the active preset's stylesheet URL, or "" for the
+// built-in preset, whose tokens ship inside app.css.
+func (v *View) PresetCSS() string {
+	if v.Preset == "" || v.Preset == theme.DefaultID {
+		return ""
+	}
+	return v.assetFn(themeAssetName(v.Preset))
+}
+
+// PresetAsset returns a preset's stylesheet URL for live previews ("" for
+// the built-in preset, which app.css already carries).
+func (v *View) PresetAsset(id string) string {
+	if id == theme.DefaultID {
+		return ""
+	}
+	return v.assetFn(themeAssetName(id))
+}
+
+// PresetChoices lists the visual presets for pickers (Appearance, the
+// subscription visitor menu).
+func (v *View) PresetChoices() []presetChoice { return v.presets }
 
 // A returns the cache-busted URL for an embedded static asset, e.g.
 // {{.A "/css/app.css"}}.
@@ -381,17 +429,15 @@ func (v *View) St(status string) string { return v.T("status." + status) }
 func (v *View) StClass(status string) string {
 	switch status {
 	case "active":
-		return "badge--ok"
+		return "badge--success"
 	case "waiting_first_connection":
 		return "badge--info"
 	case "expired":
-		return "badge--warn"
-	case "suspended", "disabled":
-		return "badge"
+		return "badge--warning"
 	case "traffic_exceeded":
-		return "badge--danger"
+		return "badge--destructive"
 	default:
-		return "badge"
+		return "badge--muted"
 	}
 }
 
@@ -500,11 +546,12 @@ func (s *Server) newView(r *http.Request) *View {
 	v := &View{
 		Dir:       "rtl",
 		Theme:     "light",
-		Preset:    s.visualPresets.BuiltIn.ID,
+		Preset:    theme.DefaultID,
 		Path:      r.URL.Path,
 		PageClass: pageClass(r.URL.Path),
 		Version:   s.Version,
 		iconBase:  s.assetURL("/img/icons.svg"),
+		presets:   s.presetList,
 		assetFn:   s.assetURL,
 	}
 	if a := adminFrom(r); a != nil {
@@ -521,6 +568,9 @@ func (s *Server) newView(r *http.Request) *View {
 	}
 	appearance := s.appearanceFor(r)
 	v.Theme, v.Preset, v.Digits = appearance.Mode, appearance.Preset, appearance.Digits
+	if p := s.themes.Get(v.Preset); p != nil {
+		v.UI = p.UI
+	}
 	v.Locale = s.localeFor(r)
 	if r.URL.Path == "/login" {
 		v.LoginContext = loginContext(r)

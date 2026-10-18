@@ -152,8 +152,8 @@ let stage = 'launch';
               const layout = await page.evaluate(() => ({
                 fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
                 rowHeight: document.querySelector('.users-table tbody tr')?.getBoundingClientRect().height || 0,
-                kpiColumns: document.querySelector('.user-kpi-grid') &&
-                  getComputedStyle(document.querySelector('.user-kpi-grid')).gridTemplateColumns.split(' ').length,
+                kpiColumns: document.querySelector('.user-stats') &&
+                  getComputedStyle(document.querySelector('.user-stats')).gridTemplateColumns.split(' ').length,
               }));
               assert(layout.fits, 'user workspace must fit ' + route + ' ' + lang + ' ' + width + ' ' + mode);
               if (route === '/users' && width < 800) {
@@ -164,7 +164,7 @@ let stage = 'launch';
               }
               if (route !== '/users' && width < 600) {
                 assert(layout.kpiColumns === 2, 'phone user summary uses two columns');
-                assert(await page.locator('.user-action-bar form[action$="/traffic/reset"]').count() === 1,
+                assert(await page.locator('[data-user-actions] form[action$="/traffic/reset"]').count() === 1,
                   'Reset Usage is visible in the action bar');
               }
               if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && mode === 'light' &&
@@ -185,9 +185,9 @@ let stage = 'launch';
       const row = page.locator('.users-table tbody tr').first();
       for (const action of ['renew', 'traffic']) {
         stage = 'user workspace quick ' + action + ' open menu';
-        await row.locator('.users-col--actions .menu-anchor').last().locator(':scope > button').click();
+        await row.locator('.col-actions .menu-anchor').last().locator(':scope > button').click();
         stage = 'user workspace quick ' + action + ' select';
-        const menuState = await row.locator('.users-col--actions .menu-anchor').last().evaluate(el => ({
+        const menuState = await row.locator('.col-actions .menu-anchor').last().evaluate(el => ({
           open: el.querySelector('.menu')?.classList.contains('is-open'),
           expanded: el.querySelector(':scope > button')?.getAttribute('aria-expanded'),
           shown: getComputedStyle(el.querySelector('.menu')).display,
@@ -210,7 +210,7 @@ let stage = 'launch';
       }
       await goto('/tokens');
       stage = 'user workspace token shortcuts';
-      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('.page-actions a[href="#token-create"]').click();
       await page.locator('#token-create [data-scope-preset="operator"]').click();
       assert(await page.locator('#token-create input[value="purchases.create"]').isChecked() &&
         await page.locator('#token-create input[value="next_plans.write"]').isChecked() &&
@@ -222,7 +222,7 @@ let stage = 'launch';
         'Full access selects exact scopes without future-widening wildcards');
       await goto('/resellers');
       stage = 'user workspace reseller shortcuts';
-      await page.locator('.ops-hero a[href="#reseller-create"]').click();
+      await page.locator('.page-actions a[href="#reseller-create"]').click();
       await page.locator('#reseller-create [data-scope-preset="operator"]').click();
       assert(await page.locator('#reseller-create input[value="purchases.create"]').isChecked() &&
         !await page.locator('#reseller-create input[value="webhooks.write"]').isChecked(),
@@ -245,7 +245,7 @@ let stage = 'launch';
             for (const path of ['/reseller/webhooks', '/reseller/webhooks/' + seed.resellerWebhookID]) {
               await goto(path);
               await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
-              const geometry = await page.locator('.webhook-page').evaluate(root => {
+              const geometry = await page.locator('#main').evaluate(root => {
                 const viewport = document.documentElement.clientWidth;
                 const controls = [...root.querySelectorAll('input, button, a.btn')].filter(el => getComputedStyle(el).display !== 'none');
                 return { pageFits: document.documentElement.scrollWidth <= viewport,
@@ -285,13 +285,13 @@ let stage = 'launch';
           for (const mode of ['light', 'dark']) {
             await goto('/users/' + seed.user);
             await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
-            assert(await page.locator('.user-next-plan-card').count() === 1, 'next-plan card renders');
-            assert(await page.locator('.user-next-plan-card strong').filter({ hasText: 'Monthly / ماهانه' }).count() === 1,
+            assert(await page.locator('#user-next-plan').count() === 1, 'next-plan card renders');
+            assert(await page.locator('#user-next-plan .alert-title').filter({ hasText: 'Monthly / ماهانه' }).count() === 1,
               'queued plan is visible');
-            const layout = await page.locator('.user-next-plan-card').evaluate(card => {
+            const layout = await page.locator('#user-next-plan').evaluate(card => {
               const controls = [...card.querySelectorAll('select, input:not([type="hidden"]), button')];
               const viewport = document.documentElement.clientWidth;
-              const actions = [...card.querySelectorAll('.next-plan-actions .btn')].map(button => button.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+              const actions = [...card.querySelectorAll('[data-next-plan-actions] .btn')].map(button => button.getBoundingClientRect()).sort((a, b) => a.left - b.left);
               return { pageFits: document.documentElement.scrollWidth <= viewport,
                 controlsFit: controls.every(control => {
                   const box = control.getBoundingClientRect();
@@ -597,8 +597,8 @@ let stage = 'launch';
       await goto('/interfaces/new');
       const balancedProfile = page.locator('[data-generate-obf="balanced"]');
       await balancedProfile.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
-      const switchGeometry = await page.locator('.switch-card').evaluate(el => {
-        const track = el.querySelector('.switch-track').getBoundingClientRect();
+      const switchGeometry = await page.locator('.obf-switch').evaluate(el => {
+        const track = el.querySelector('.switch').getBoundingClientRect();
         const label = el.querySelector('span:last-child').getBoundingClientRect();
         return { track, label, overlap: !(track.right <= label.left || label.right <= track.left) };
       });
@@ -620,9 +620,9 @@ let stage = 'launch';
       }
       const desktopDrawer = await page.locator('#create-drawer').evaluate(dialog => {
         const rect = dialog.getBoundingClientRect();
-        const foot = dialog.querySelector('.modal-foot').getBoundingClientRect();
-        const body = dialog.querySelector('.drawer-body');
-        const sections = [...body.querySelectorAll('.form-section')].map(section => {
+        const foot = dialog.querySelector('.sheet-footer').getBoundingClientRect();
+        const body = dialog.querySelector('.sheet-body');
+        const sections = [...body.querySelectorAll('.users-form-section')].map(section => {
           const sectionRect = section.getBoundingClientRect();
           return {
             height: sectionRect.height,
@@ -647,7 +647,7 @@ let stage = 'launch';
       assert(await page.locator('#create-drawer').evaluate(dialog => {
         const rect = dialog.getBoundingClientRect();
         return rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth &&
-          dialog.querySelector('.modal-foot').getBoundingClientRect().bottom <= rect.bottom;
+          dialog.querySelector('.sheet-footer').getBoundingClientRect().bottom <= rect.bottom;
       }), 'create-user drawer fits a phone viewport');
       const drawer = page.locator('#create-drawer');
       await drawer.locator('[name="username"]').fill('drawer-user');
@@ -657,7 +657,7 @@ let stage = 'launch';
       await page.evaluate(() => new Promise(requestAnimationFrame));
       const noteGeometry = await drawer.locator('[name="note"]').evaluate(el => {
         const dialog = el.closest('dialog').getBoundingClientRect(), field = el.getBoundingClientRect();
-        const body = el.closest('.drawer-body');
+        const body = el.closest('.sheet-body');
         return {ok: field.top >= dialog.top && field.bottom <= dialog.bottom,
           dialogTop: dialog.top, dialogBottom: dialog.bottom, fieldTop: field.top, fieldBottom: field.bottom,
           scrollTop: body?.scrollTop, scrollHeight: body?.scrollHeight, clientHeight: body?.clientHeight};
@@ -690,9 +690,9 @@ let stage = 'launch';
       await submit(page.locator('form[action="/users"]'));
       assert(await page.locator('main h1').innerText() === 'browser-user', 'created user detail');
       const detailURL = page.url();
-      assert(await page.locator('.subscription-access-card').evaluate(el => getComputedStyle(el).position === 'static'), 'subscription access card is not sticky');
-      if (await page.locator('.subscription-url .input-adj').count()) {
-        assert(await page.locator('.subscription-url .input-adj').evaluate(el => {
+      assert(await page.locator('#user-subscription').evaluate(el => getComputedStyle(el).position === 'static'), 'subscription access card is not sticky');
+      if (await page.locator('#user-subscription .input-group').count()) {
+        assert(await page.locator('#user-subscription .input-group').evaluate(el => {
           const input = el.querySelector('input').getBoundingClientRect(), button = el.querySelector('button').getBoundingClientRect();
           return input.right <= button.left || button.right <= input.left;
         }), 'subscription copy action does not overlap its value');
@@ -958,7 +958,7 @@ let stage = 'launch';
     if (['10.4', '10.4-admin', 'final'].includes(suite)) {
       stage = 'administrator create and wildcard permissions';
       await goto('/admins');
-      await page.locator('.ops-hero a[href="#admin-create"]').click();
+      await page.locator('.page-actions a[href="#admin-create"]').click();
       assert(await page.locator('#admin-create').evaluate(el => el.open), 'administrator header action opens its form');
       await page.locator('#ops-username').fill('browser-admin');
       await page.locator('#ops-password').fill(require('node:crypto').randomBytes(24).toString('hex'));
@@ -970,7 +970,7 @@ let stage = 'launch';
       await family.locator('summary').click();
       await family.locator('input[value="users.*"]').check();
       await submit(page.locator('form[action="/admins/create"]'));
-      await page.locator('.admin-table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').click();
+      await page.locator('.table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').first().click();
       const adminEdit = new URL(page.url()).pathname + new URL(page.url()).search;
       assert(await page.locator('input[value="users.*"]').isChecked(), 'stored family wildcard remains selected');
       await submit(page.locator('form[action$="/permissions"]'));
@@ -979,7 +979,7 @@ let stage = 'launch';
       adminRoutes.push(adminEdit);
       stage = 'token invalid expiry and one-time result';
       await goto('/tokens');
-      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('.page-actions a[href="#token-create"]').click();
       assert(await page.locator('#token-create').evaluate(el => el.open), 'token header action opens its form');
       await page.locator('#ops-name').fill('Browser token');
       await page.locator('#ops-expires_days').fill('invalid-days');
@@ -999,7 +999,7 @@ let stage = 'launch';
       assert(await page.locator('#token-once').count() === 0, 'token secret is not redisplayed');
       stage = 'webhook create and disabled edit';
       await goto('/webhooks');
-      await page.locator('.ops-hero a[href="#webhook-create"]').click();
+      await page.locator('.page-actions a[href="#webhook-create"]').click();
       assert(await page.locator('#webhook-create').evaluate(el => el.open), 'webhook header action opens its form');
       await page.locator('#ops-url').fill('https://example.com/events');
       await page.locator('#webhook-create [data-event-preset="all"]').click();
@@ -1010,7 +1010,7 @@ let stage = 'launch';
       await submit(page.locator('form[action="/webhooks/create"]'));
       assert((await page.locator('#hook-secret').inputValue()).length > 0, 'webhook signing secret appears once');
       await goto('/webhooks');
-      const hookLink = page.locator('.webhook-card a[href^="/webhooks/"]').first();
+      const hookLink = page.locator('.table a[href^="/webhooks/"]').first();
       const hookPath = await hookLink.getAttribute('href');
       await hookLink.click();
       await page.locator('input[name="enabled"]').uncheck();

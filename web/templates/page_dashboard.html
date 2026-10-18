@@ -1,42 +1,64 @@
 {{define "title"}}{{.T "dash.title"}}{{end}}
 {{define "content"}}
-<div class="dashboard-page">
-  <div class="page-head page-head--hero dashboard-hero">
-    <div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "layout-dashboard"}}</span><div><span class="eyebrow">{{.T "dash.overview"}}</span><h1>{{.T "dash.title"}}</h1><p>{{.T "dash.subtitle"}}</p></div></div>
-    {{if .Data.Allowed}}<span class="badge">{{.IconS "server"}}<bdi>{{.Data.NodeID}}</bdi></span>{{end}}
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "dash.title"}}</h1>
+    <p class="page-description">{{.T "dash.subtitle"}}</p>
   </div>
   {{if .Data.Allowed}}
-  {{if .Can "backup.manage"}}<section class="dashboard-command-bar" id="dashboard-recovery" aria-labelledby="dashboard-recovery-title">
-    <div class="dashboard-command-copy"><span class="section-icon" aria-hidden="true">{{.IconS "database"}}</span><div><h2 id="dashboard-recovery-title">{{.T "dash.recovery_title"}}</h2><p>{{.T "dash.recovery_hint"}}</p></div></div>
-    <div class="actions"><form method="post" action="/backups/create" data-file-download><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="download" value="1"><button type="submit" class="btn btn--primary">{{.IconS "download"}}{{.T "dash.backup_download"}}</button></form><a class="btn" href="/backups?tab=restore#restore-workbench">{{.IconS "upload"}}{{.T "dash.restore_backup"}}</a></div>
-  </section>{{end}}
-  {{if .Can "node.read"}}<a class="btn btn--outline" href="/system">{{.IconS "activity"}}{{.T "system.open"}}</a>{{end}}
-  {{template "dash_live" .}}
-  <details class="collapse form-panel live-data"{{if .Data.History}} open{{end}}>
-    <summary>{{.IconS "activity"}}<span>{{.T "dash.sample_data"}}</span></summary>
-    <div class="collapse-body">
-      <p class="hint">{{.T "dash.sample_data_hint"}}</p>
-      <a class="btn btn--outline btn--sm" href="/dashboard?history=1#telemetry-history" hx-get="/dashboard/live?view=history" hx-target="#telemetry-history" hx-swap="innerHTML">{{.T "dash.load_samples"}}</a>
-      <div id="telemetry-history">{{if .Data.History}}{{template "dash_history" .}}{{end}}</div>
-    </div>
-  </details>
-  {{template "dash_attention" .}}
-  {{template "dash_chart" .}}
-  <section class="card card--pad node-software" id="node-software" aria-labelledby="node-software-title"><div class="section-head"><div><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><h2 id="node-software-title">{{.T "dash.node_software"}}</h2><p>{{.T "dash.node_software_hint"}}</p></div>{{if or (.Can "update.manage") (.Can "update.read")}}<a class="btn btn--primary" href="/updates">{{.IconS "refresh-cw"}}{{.T "updates.open"}}</a>{{end}}</div><div class="node-software-grid"><div><span>{{.T "updates.panel_version"}}</span><strong class="ltr-data">{{.Version}}</strong></div><div><span>{{.T "updates.tools_version"}}</span><strong class="ltr-data">{{if .Data.ToolsVersion}}{{.Data.ToolsVersion}}{{else}}—{{end}}</strong></div>{{if .Data.Endpoint}}<div><span>{{.T "dash.endpoint"}}</span><strong class="ltr-data">{{.Data.Endpoint}}</strong></div>{{end}}</div></section>
-  {{else}}
-  <div class="empty card card--pad"><span class="empty-icon">{{.Icon "shield"}}</span><h2>{{.T "dash.access_limited"}}</h2><p>{{.T "dash.access_limited_hint"}}</p></div>
+  <div class="page-actions">
+    <span class="badge badge--outline">{{.IconS "server"}}<bdi class="tech">{{.Data.NodeID}}</bdi></span>
+    {{if .Can "node.read"}}<a class="btn btn--sm" href="/system">{{.IconS "activity"}}{{.T "system.open"}}</a>{{end}}
+  </div>
   {{end}}
+</header>
+{{if .Data.Allowed}}
+{{template "dash_live" .}}
+<div class="split">
+  <div class="stack-lg">
+    {{template "dash_chart" .}}
+    <details class="collapsible" id="live-data"{{if .Data.History}} open{{end}}>
+      <summary><span class="summary-text"><span>{{.T "dash.sample_data"}}</span><span class="summary-hint">{{.T "dash.sample_data_hint"}}</span></span></summary>
+      <div class="collapsible-content">
+        <div><a class="btn btn--sm" href="/dashboard?history=1#telemetry-history" hx-get="/dashboard/live?view=history" hx-target="#telemetry-history" hx-swap="innerHTML">{{.IconS "refresh-cw"}}{{.T "dash.load_samples"}}</a></div>
+        <div id="telemetry-history">{{if .Data.History}}{{template "dash_history" .}}{{end}}</div>
+      </div>
+    </details>
+  </div>
+  <aside class="split-aside">
+    {{template "dash_attention" .}}
+    {{if .Can "backup.manage"}}
+    <section class="card" id="dashboard-recovery" aria-labelledby="dashboard-recovery-title">
+      <div class="card-header"><h2 class="card-title" id="dashboard-recovery-title">{{.IconS "archive"}}{{.T "dash.recovery_title"}}</h2><p class="card-description">{{.T "dash.recovery_hint"}}</p></div>
+      <div class="card-content cluster">
+        <form method="post" action="/backups/create" data-file-download><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="download" value="1"><button type="submit" class="btn btn--primary btn--sm">{{.IconS "download"}}{{.T "dash.backup_download"}}</button></form>
+        <a class="btn btn--sm" href="/backups?tab=restore#restore-workbench">{{.IconS "upload"}}{{.T "dash.restore_backup"}}</a>
+      </div>
+    </section>
+    {{end}}
+    <section class="card" id="node-software" aria-labelledby="node-software-title">
+      <div class="card-header"><h2 class="card-title" id="node-software-title">{{.IconS "server"}}{{.T "dash.node_software"}}</h2>{{if or (.Can "update.manage") (.Can "update.read")}}<div class="card-action"><a class="btn btn--ghost btn--xs" href="/updates">{{.T "updates.open"}}{{.IconS "arrow-right"}}</a></div>{{end}}<p class="card-description">{{.T "dash.node_software_hint"}}</p></div>
+      <div class="card-content kv">
+        <div class="kv-row"><span class="kv-label">{{.T "updates.panel_version"}}</span><span class="kv-value tech">{{.Version}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.tools_version"}}</span><span class="kv-value tech">{{if .Data.ToolsVersion}}{{.Data.ToolsVersion}}{{else}}—{{end}}</span></div>
+        {{if .Data.Endpoint}}<div class="kv-row"><span class="kv-label">{{.T "dash.endpoint"}}</span><span class="kv-value tech">{{.Data.Endpoint}}</span></div>{{end}}
+      </div>
+    </section>
+  </aside>
 </div>
+{{else}}
+<div class="empty empty--bordered"><span class="empty-icon">{{.Icon "shield"}}</span><h2 class="empty-title">{{.T "dash.access_limited"}}</h2><p class="empty-description">{{.T "dash.access_limited_hint"}}</p></div>
+{{end}}
 {{if .Data.Allowed}}<script type="module" src="{{.A "/js/charts.js"}}"></script>{{end}}
 {{end}}
 
 {{define "dash_history"}}
 {{if .Data.History}}
-<div class="table-wrap sample-data-wrap" tabindex="0" role="region" aria-label="{{.T "dash.sample_data"}}">
-<table class="sample-data-table">
+<div class="table-frame"><div class="table-wrap" tabindex="0" role="region" aria-label="{{.T "dash.sample_data"}}">
+<table class="table table--compact">
 <caption>{{.T "dash.sample_data"}} · UTC</caption>
 <thead><tr><th scope="col">{{.T "dash.period"}}</th><th scope="col">{{.T "dash.cpu"}}</th><th scope="col">{{.T "dash.memory"}}</th><th scope="col">{{.T "dash.disk"}}</th><th scope="col">{{.T "dash.host_network"}} · RX</th><th scope="col">{{.T "dash.host_network"}} · TX</th><th scope="col">{{.T "dash.vpn_live"}} · RX</th><th scope="col">{{.T "dash.vpn_live"}} · TX</th><th scope="col">{{.T "dash.users_online"}}</th><th scope="col">{{.T "dash.active_peers"}}</th></tr></thead>
-<tbody>{{range .Data.History}}<tr><th scope="row"><bdi>{{.At}}</bdi></th>{{range .Values}}<td><bdi>{{.}}</bdi></td>{{end}}</tr>{{end}}</tbody>
-</table></div>
-{{else}}<p class="callout">{{.T "dash.no_samples"}}</p>{{end}}
+<tbody>{{range .Data.History}}<tr><th scope="row" class="tech nowrap">{{.At}}</th>{{range .Values}}<td class="tech nowrap">{{.}}</td>{{end}}</tr>{{end}}</tbody>
+</table></div></div>
+{{else}}<p class="alert"><span>{{.T "dash.no_samples"}}</span></p>{{end}}
 {{end}}

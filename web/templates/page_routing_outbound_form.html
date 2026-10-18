@@ -1,33 +1,27 @@
 {{define "title"}}{{if .Data.O}}{{.T "routing.outbounds.edit"}}{{else}}{{.T "routing.outbounds.add"}}{{end}}{{end}}
 {{define "content"}}
 {{$kind := printf "%v" .Data.Kind}}{{$f := .Data.Form}}
-<div class="form-page premium-form-page routing-page">
-  <div class="page-head page-head--hero">
-    <div class="page-title-cluster">
-      <span class="page-title-icon" aria-hidden="true">{{if eq $kind "warp"}}{{.Icon "cloud"}}{{else if eq $kind "source_ip"}}{{.Icon "server"}}{{else}}{{.Icon "shield"}}{{end}}</span>
-      <div>
-        <span class="eyebrow">{{if eq $kind "warp"}}{{.T "routing.kind.warp"}}{{else if eq $kind "source_ip"}}{{.T "routing.kind.source_ip"}}{{else}}{{.T "routing.kind.config"}}{{end}}</span>
-        <h1>{{if .Data.O}}<bdi>{{.Data.O.Name}}</bdi>{{else}}{{.T "routing.outbounds.add"}}{{end}}</h1>
-        <p>{{if eq $kind "warp"}}{{.T "routing.form.warp_intro"}}{{else if eq $kind "source_ip"}}{{.T "routing.form.source_ip_intro"}}{{else}}{{.T "routing.form.config_intro"}}{{end}}</p>
-      </div>
+{{$title := .T "routing.outbounds.add"}}{{if .Data.O}}{{$title = .Data.O.Name}}{{end}}
+{{$intro := .T "routing.form.config_intro"}}{{if eq $kind "warp"}}{{$intro = .T "routing.form.warp_intro"}}{{else if eq $kind "source_ip"}}{{$intro = .T "routing.form.source_ip_intro"}}{{end}}
+{{template "routing_form_header" (dict "v" . "title" $title "description" $intro "back" (or (and .Data.O "/routing/outbounds") "/routing/outbounds/new"))}}
+<form method="post" action="{{if .Data.O}}/routing/outbounds/{{.Data.O.ID}}/edit{{else}}/routing/outbounds{{end}}" class="stack-lg" enctype="multipart/form-data" novalidate>
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <input type="hidden" name="kind" value="{{$kind}}">
+  {{template "form_feedback" .}}
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title">{{template "routing_kind_icon" (dict "v" . "kind" $kind)}}{{if eq $kind "warp"}}{{.T "routing.kind.warp"}}{{else if eq $kind "source_ip"}}{{.T "routing.kind.source_ip"}}{{else}}{{.T "routing.kind.config"}}{{end}}</h2>
     </div>
-    <a class="btn btn--ghost" href="{{if .Data.O}}/routing/outbounds{{else}}/routing/outbounds/new{{end}}">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
-  </div>
-  <form method="post" action="{{if .Data.O}}/routing/outbounds/{{.Data.O.ID}}/edit{{else}}/routing/outbounds{{end}}" class="form-stack" enctype="multipart/form-data" novalidate>
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <input type="hidden" name="kind" value="{{$kind}}">
-    {{template "form_feedback" .}}
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "route"}}</span><span>{{.T "routing.form.basics"}}</span></legend>
-      <div class="field-row">
+    <div class="card-content stack">
+      <div class="field-grid">
         <div class="field">
-          <label for="ob-name">{{.T "routing.form.name"}}</label>
+          <label class="field-label" for="ob-name">{{.T "routing.form.name"}}</label>
           <input class="input" id="ob-name" name="name" type="text" dir="auto" maxlength="48" required value="{{$f.V "name"}}" placeholder="{{.T "routing.form.name_placeholder"}}"{{if $f.Invalid "name"}} aria-invalid="true" aria-describedby="err-name"{{end}}>
           {{if $f.Invalid "name"}}<span class="field-error" id="err-name">{{index $f.Fields "name"}}</span>{{end}}
         </div>
         {{if .Data.O}}
         <div class="field">
-          <label for="ob-enabled">{{.T "forms.availability"}}</label>
+          <label class="field-label" for="ob-enabled">{{.T "forms.availability"}}</label>
           <select class="select" id="ob-enabled" name="enabled">
             <option value="1"{{if eq ($f.V "enabled") "1"}} selected{{end}}>{{.T "routing.enabled"}}</option>
             <option value="0"{{if eq ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.disabled"}}</option>
@@ -35,78 +29,68 @@
         </div>
         {{end}}
       </div>
-    </fieldset>
 
-    {{if eq $kind "warp"}}
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "zap"}}</span><span>{{.T "routing.form.warp_plus"}}</span></legend>
-      <p class="section-description">{{if and .Data.O .Data.O.WARP .Data.O.WARP.Plus}}{{.T "routing.form.warp_plus_active"}}{{else}}{{.T "routing.form.warp_plus_hint"}}{{end}}</p>
+      {{if eq $kind "warp"}}
       <div class="field">
-        <label for="ob-license">{{.T "routing.form.license"}} <span class="text-muted">({{.T "forms.optional"}})</span></label>
-        <input class="input ltr-data" id="ob-license" name="license" type="text" dir="ltr" autocomplete="off" spellcheck="false" maxlength="26" placeholder="xxxxxxxx-xxxxxxxx-xxxxxxxx"{{if $f.Invalid "license"}} aria-invalid="true" aria-describedby="err-license"{{end}}>
+        <label class="field-label" for="ob-license">{{.T "routing.form.license"}} <span class="field-optional">{{.T "forms.optional"}}</span></label>
+        <input class="input input--tech" id="ob-license" name="license" type="text" dir="ltr" autocomplete="off" spellcheck="false" maxlength="26" placeholder="xxxxxxxx-xxxxxxxx-xxxxxxxx"{{if $f.Invalid "license"}} aria-invalid="true" aria-describedby="err-license"{{end}}>
         {{if $f.Invalid "license"}}<span class="field-error" id="err-license">{{index $f.Fields "license"}}</span>{{end}}
+        <p class="field-description">{{if and .Data.O .Data.O.WARP .Data.O.WARP.Plus}}{{.T "routing.form.warp_plus_active"}}{{else}}{{.T "routing.form.warp_plus_hint"}}{{end}}{{if and .Data.O .Data.O.WARP}} · {{.T "routing.form.warp_account"}} <bdi class="tech">{{.Data.O.WARP.AccountType}}</bdi>{{end}}</p>
       </div>
-      {{if and .Data.O .Data.O.WARP}}<p class="hint">{{.T "routing.form.warp_account"}} <bdi class="ltr-data">{{.Data.O.WARP.AccountType}}</bdi></p>{{end}}
-    </fieldset>
-    {{end}}
+      {{end}}
 
-    {{if eq $kind "wireguard"}}
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "upload"}}</span><span>{{.T "routing.form.config"}}</span></legend>
-      <p class="section-description">{{if .Data.O}}{{.T "routing.form.config_replace_hint"}}{{else}}{{.T "routing.form.config_hint"}}{{end}}</p>
+      {{if eq $kind "wireguard"}}
       <div class="field">
-        <label for="ob-config">{{.T "routing.form.config_paste"}}</label>
-        <textarea class="textarea ltr-data routing-code" id="ob-config" name="config" dir="ltr" rows="9" spellcheck="false" autocomplete="off" placeholder="[Interface]&#10;PrivateKey = …&#10;Address = 10.0.0.2/32&#10;&#10;[Peer]&#10;PublicKey = …&#10;Endpoint = vpn.example.com:51820"{{if $f.Invalid "config"}} aria-invalid="true" aria-describedby="err-config"{{end}}></textarea>
+        <label class="field-label" for="ob-config">{{.T "routing.form.config_paste"}}</label>
+        <textarea class="textarea textarea--tech" id="ob-config" name="config" dir="ltr" rows="9" spellcheck="false" autocomplete="off" placeholder="[Interface]&#10;PrivateKey = …&#10;Address = 10.0.0.2/32&#10;&#10;[Peer]&#10;PublicKey = …&#10;Endpoint = vpn.example.com:51820"{{if $f.Invalid "config"}} aria-invalid="true" aria-describedby="err-config"{{end}}></textarea>
         {{if $f.Invalid "config"}}<span class="field-error" id="err-config">{{index $f.Fields "config"}}</span>{{end}}
+        <p class="field-description">{{if .Data.O}}{{.T "routing.form.config_replace_hint"}}{{else}}{{.T "routing.form.config_hint"}}{{end}}</p>
       </div>
       <div class="field">
-        <label for="ob-file">{{.T "routing.form.config_file"}}</label>
+        <label class="field-label" for="ob-file">{{.T "routing.form.config_file"}}</label>
         <input class="input" id="ob-file" name="config_file" type="file" accept=".conf,text/plain">
-        <span class="hint">{{.T "routing.form.config_secret_note"}}</span>
+        <p class="field-description">{{.T "routing.form.config_secret_note"}}</p>
       </div>
-    </fieldset>
-    {{end}}
+      {{end}}
 
-    {{if eq $kind "source_ip"}}
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "server"}}</span><span>{{.T "routing.form.source_ip"}}</span></legend>
-      <p class="section-description">{{.T "routing.form.source_ip_hint"}}</p>
+      {{if eq $kind "source_ip"}}
       <div class="field">
-        <label for="ob-ip">{{.T "routing.fact.source_ip"}}</label>
-        <input class="input ltr-data" id="ob-ip" name="source_ip" type="text" dir="ltr" inputmode="decimal" spellcheck="false" placeholder="203.0.113.7" value="{{$f.V "source_ip"}}"{{if $f.Invalid "source_ip"}} aria-invalid="true" aria-describedby="err-ip"{{end}}>
+        <label class="field-label" for="ob-ip">{{.T "routing.fact.source_ip"}}</label>
+        <input class="input input--tech" id="ob-ip" name="source_ip" type="text" dir="ltr" inputmode="decimal" spellcheck="false" placeholder="203.0.113.7" value="{{$f.V "source_ip"}}"{{if $f.Invalid "source_ip"}} aria-invalid="true" aria-describedby="err-ip"{{end}}>
         {{if $f.Invalid "source_ip"}}<span class="field-error" id="err-ip">{{index $f.Fields "source_ip"}}</span>{{end}}
+        <p class="field-description">{{.T "routing.form.source_ip_hint"}}</p>
       </div>
-    </fieldset>
-    {{end}}
-
-    {{if ne $kind "source_ip"}}
-    <details class="collapse form-panel premium-disclosure"{{if or ($f.Invalid "endpoint") ($f.Invalid "mtu")}} open{{end}}>
-      <summary>{{.IconS "settings-2"}}<span>{{.T "settings.advanced"}}</span></summary>
-      <div class="collapse-body">
-        <div class="field-row">
-          <div class="field">
-            <label for="ob-endpoint">{{.T "routing.fact.endpoint"}}</label>
-            <input class="input ltr-data" id="ob-endpoint" name="endpoint" type="text" dir="ltr" spellcheck="false" value="{{$f.V "endpoint"}}" placeholder="{{if eq $kind "warp"}}engage.cloudflareclient.com:2408{{else}}host:port{{end}}"{{if $f.Invalid "endpoint"}} aria-invalid="true" aria-describedby="err-endpoint"{{end}}>
-            {{if $f.Invalid "endpoint"}}<span class="field-error" id="err-endpoint">{{index $f.Fields "endpoint"}}</span>{{end}}
-            <span class="hint">{{if eq $kind "warp"}}{{.T "routing.form.warp_endpoint_hint"}}{{else}}{{.T "routing.form.endpoint_hint"}}{{end}}</span>
-          </div>
-          {{if .Data.O}}
-          <div class="field">
-            <label for="ob-mtu">MTU</label>
-            <input class="input ltr-data" id="ob-mtu" name="mtu" type="text" dir="ltr" inputmode="numeric" value="{{$f.V "mtu"}}"{{if $f.Invalid "mtu"}} aria-invalid="true" aria-describedby="err-mtu"{{end}}>
-            {{if $f.Invalid "mtu"}}<span class="field-error" id="err-mtu">{{index $f.Fields "mtu"}}</span>{{end}}
-            <span class="hint">{{.T "routing.form.mtu_hint"}}</span>
-          </div>
-          {{end}}
-        </div>
-      </div>
-    </details>
-    {{end}}
-
-    <div class="form-actions">
-      <a class="btn btn--ghost" href="/routing/outbounds">{{.T "common.cancel"}}</a>
-      <button type="submit" class="btn btn--primary">{{.IconS "check"}}{{if .Data.O}}{{.T "common.save"}}{{else if eq $kind "warp"}}{{.T "routing.form.warp_create"}}{{else}}{{.T "routing.form.create"}}{{end}}</button>
+      {{end}}
     </div>
-  </form>
-</div>
+  </section>
+
+  {{if ne $kind "source_ip"}}
+  <details class="collapsible"{{if or ($f.Invalid "endpoint") ($f.Invalid "mtu")}} open{{end}}>
+    <summary>{{.T "settings.advanced"}}</summary>
+    <div class="collapsible-content">
+      <div class="field-grid">
+        <div class="field">
+          <label class="field-label" for="ob-endpoint">{{.T "routing.fact.endpoint"}}</label>
+          <input class="input input--tech" id="ob-endpoint" name="endpoint" type="text" dir="ltr" spellcheck="false" value="{{$f.V "endpoint"}}" placeholder="{{if eq $kind "warp"}}engage.cloudflareclient.com:2408{{else}}host:port{{end}}"{{if $f.Invalid "endpoint"}} aria-invalid="true" aria-describedby="err-endpoint"{{end}}>
+          {{if $f.Invalid "endpoint"}}<span class="field-error" id="err-endpoint">{{index $f.Fields "endpoint"}}</span>{{end}}
+          <p class="field-description">{{if eq $kind "warp"}}{{.T "routing.form.warp_endpoint_hint"}}{{else}}{{.T "routing.form.endpoint_hint"}}{{end}}</p>
+        </div>
+        {{if .Data.O}}
+        <div class="field">
+          <label class="field-label" for="ob-mtu">MTU</label>
+          <input class="input input--tech" id="ob-mtu" name="mtu" type="text" dir="ltr" inputmode="numeric" value="{{$f.V "mtu"}}"{{if $f.Invalid "mtu"}} aria-invalid="true" aria-describedby="err-mtu"{{end}}>
+          {{if $f.Invalid "mtu"}}<span class="field-error" id="err-mtu">{{index $f.Fields "mtu"}}</span>{{end}}
+          <p class="field-description">{{.T "routing.form.mtu_hint"}}</p>
+        </div>
+        {{end}}
+      </div>
+    </div>
+  </details>
+  {{end}}
+
+  <div class="form-actions">
+    <a class="btn btn--ghost" href="/routing/outbounds">{{.T "common.cancel"}}</a>
+    <button type="submit" class="btn btn--primary">{{if .Data.O}}{{.T "common.save"}}{{else if eq $kind "warp"}}{{.T "routing.form.warp_create"}}{{else}}{{.T "routing.form.create"}}{{end}}</button>
+  </div>
+</form>
 {{end}}

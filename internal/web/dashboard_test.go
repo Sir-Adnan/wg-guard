@@ -139,7 +139,7 @@ func TestDashboardChart(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "chart-rx") {
 		t.Fatal("7d chart missing bars")
 	}
-	if !strings.Contains(rec.Body.String(), `seg is-on`) {
+	if !strings.Contains(rec.Body.String(), `id="traffic-range-7d" aria-current="true"`) {
 		t.Fatal("no active range segment")
 	}
 }
@@ -237,9 +237,9 @@ func TestTelemetryViewLocalizesDegradedUnavailableAndStaleStates(t *testing.T) {
 		issue  string
 		class  string
 	}{
-		{"degraded-en", i18n.En, telemetry.HealthDegraded, telemetry.IssueAWGInterfaceMissing, "Needs attention", "An enabled VPN interface is missing", "badge--warn"},
-		{"unavailable-en", i18n.En, telemetry.HealthUnavailable, telemetry.IssueSourceUnavailable, "Unavailable", "Telemetry source unavailable", "badge--danger"},
-		{"stale-fa", i18n.Fa, telemetry.HealthDegraded, telemetry.IssueSampleStale, "نیازمند توجه", "نمونهٔ تله‌متری قدیمی است", "badge--warn"},
+		{"degraded-en", i18n.En, telemetry.HealthDegraded, telemetry.IssueAWGInterfaceMissing, "Needs attention", "An enabled VPN interface is missing", "badge--warning"},
+		{"unavailable-en", i18n.En, telemetry.HealthUnavailable, telemetry.IssueSourceUnavailable, "Unavailable", "Telemetry source unavailable", "badge--destructive"},
+		{"stale-fa", i18n.Fa, telemetry.HealthDegraded, telemetry.IssueSampleStale, "نیازمند توجه", "نمونهٔ تله‌متری قدیمی است", "badge--warning"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -341,7 +341,7 @@ func TestDashboardAttention(t *testing.T) {
 		t.Fatalf("dashboard: %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"dash-attention", "soon-gone", "overquota", "attention-col--exceeded"} {
+	for _, want := range []string{"dash-attention", "soon-gone", "overquota", `data-attention="exceeded"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("attention card missing %q", want)
 		}

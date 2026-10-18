@@ -1,74 +1,126 @@
 {{define "title"}}{{.T "settings.title"}}{{end}}
 {{define "content"}}
-<div class="page-head page-head--hero settings-hero"><div class="page-title-cluster"><span class="page-title-icon" aria-hidden="true">{{.Icon "settings-2"}}</span><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "settings.title"}}</h1><p class="page-sub">{{.T "settings.overview"}}</p></div></div><div class="actions"><a class="btn btn--secondary" href="/appearance">{{.IconS "sparkles"}}{{.T "appearance.title"}}</a></div></div>
-<form method="post" action="/settings" class="settings-workspace" data-settings-form data-settings-retry="{{if .Data.Error}}true{{else}}false{{end}}" data-settings-clean="{{if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}" data-settings-dirty="{{.T "settings.save.dirty"}}" novalidate>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "settings.title"}}</h1>
+    <p class="page-description">{{.T "settings.overview"}}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn--sm" href="/settings/domains">{{.IconS "globe"}}{{.T "domains.title"}}</a>
+    <a class="btn btn--sm" href="/appearance">{{.IconS "sparkles"}}{{.T "appearance.title"}}</a>
+  </div>
+</header>
+<form method="post" action="/settings" class="settings-layout" data-settings-form data-settings-retry="{{if .Data.Error}}true{{else}}false{{end}}" data-settings-clean="{{if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}" data-settings-dirty="{{.T "settings.save.dirty"}}" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
   <nav class="settings-nav" aria-label="{{.T "settings.sections"}}">
-    <p class="eyebrow">{{.T "settings.sections"}}</p>
     {{range .Data.Sections}}<a href="#settings-{{.ID}}">{{$.T .Title}}</a>{{end}}
-    <a href="/settings/domains">{{.T "domains.title"}}</a><a href="/appearance">{{.T "appearance.title"}}</a>
   </nav>
-  <div class="settings-main form-stack">
-    <section class="card card--pad" aria-labelledby="settings-appearance-title"><div class="section-head"><div><h2 id="settings-appearance-title">{{.T "appearance.title"}}</h2><p class="section-description" data-guidance>{{.T "appearance.digits.hint"}}</p></div><a class="btn btn--secondary" href="/appearance">{{.IconS "sparkles"}}<span>{{.T "appearance.digits.title"}}</span></a></div></section>
-    <p class="callout settings-guidance">{{.IconS "info"}}<span>{{.T "settings.blank_text"}}</span></p>
-    {{if .Data.Error}}<div class="form-feedback callout callout--error" id="form-errors" role="alert" tabindex="-1">{{.IconS "alert-triangle"}}<div><strong>{{.Data.Error}}</strong><p>{{.T "settings.save.retry"}}</p>{{if .Data.Field}}<a href="#s-{{.Data.Field}}">{{.T .Data.ErrorLabel}}</a>{{end}}</div></div>{{end}}
-    {{if .Data.LoadFailed}}<div class="callout callout--warn" role="status">{{.IconS "alert-triangle"}}<div><strong>{{.T "settings.load.title"}}</strong><p>{{.T "settings.load.hint"}}</p><a href="/settings">{{.T "settings.reload"}}</a></div></div>{{end}}
+  <div class="settings-main">
+    {{if .Data.Error}}<div class="alert alert--destructive" id="form-errors" role="alert" tabindex="-1">{{.IconS "alert-triangle"}}<p class="alert-title">{{.Data.Error}}</p><p class="alert-description">{{.T "settings.save.retry"}}{{if .Data.Field}} <a class="link" href="#s-{{.Data.Field}}">{{.T .Data.ErrorLabel}}</a>{{end}}</p></div>{{end}}
+    {{if .Data.LoadFailed}}<div class="alert alert--warning" role="status">{{.IconS "alert-triangle"}}<p class="alert-title">{{.T "settings.load.title"}}</p><p class="alert-description">{{.T "settings.load.hint"}} <a class="link" href="/settings">{{.T "settings.reload"}}</a></p></div>{{end}}
+    <p class="settings-note">{{.IconS "info"}}<span>{{.T "settings.blank_text"}}</span></p>
     {{range .Data.Sections}}
-    <section class="card settings-section" id="settings-{{.ID}}" aria-labelledby="settings-title-{{.ID}}">
-      <header class="settings-section-head"><h2 id="settings-title-{{.ID}}">{{$.T .Title}}</h2><p class="section-description">{{$.T .Description}}</p></header>
-      {{if eq .ID "identity"}}
-      <dl class="settings-runtime"><div><dt>{{$.T "settings.tls_mode"}}</dt><dd>{{if $.Data.TLSMode}}<span class="badge ltr-data">{{$.Data.TLSMode}}</span>{{else}}{{$.T "settings.unavailable"}}{{end}}</dd></div><div><dt>{{$.T "settings.tools_ver"}}</dt><dd class="ltr-data">{{if $.Data.ToolsVer}}{{$.Data.ToolsVer}}{{else}}{{$.T "settings.unavailable"}}{{end}}</dd></div></dl>
-      {{end}}
-      <div class="settings-fields">
+    <section class="card card--flush settings-section" id="settings-{{.ID}}" aria-labelledby="settings-title-{{.ID}}">
+      <div class="card-header">
+        <h2 class="card-title" id="settings-title-{{.ID}}">{{$.T .Title}}</h2>
+        <p class="card-description">{{$.T .Description}}</p>
+      </div>
+      <div class="card-content card-content--flush">
+        {{if eq .ID "identity"}}
+        <div class="setting-row">
+          <div class="setting-label"><span class="setting-title">{{$.T "settings.tls_mode"}}</span></div>
+          <div class="setting-control settings-readonly">{{if $.Data.TLSMode}}<span class="badge badge--outline tech">{{$.Data.TLSMode}}</span>{{else}}<span class="text-muted">{{$.T "settings.unavailable"}}</span>{{end}}</div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span class="setting-title">{{$.T "settings.tools_ver"}}</span></div>
+          <div class="setting-control settings-readonly">{{if $.Data.ToolsVer}}<span class="tech">{{$.Data.ToolsVer}}</span>{{else}}<span class="text-muted">{{$.T "settings.unavailable"}}</span>{{end}}</div>
+        </div>
+        {{end}}
         {{range .Fields}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}
       </div>
-      {{if eq .ID "subscription"}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/settings/domains">{{$.IconS "globe"}}{{$.T "domains.title"}}</a>{{if $.Data.ManagedDomains}}<p class="hint" data-guidance>{{$.T "domains.settings.managed"}}</p>{{end}}</footer>{{end}}
-      {{if .Advanced}}<details class="collapse settings-advanced" id="settings-{{.ID}}-advanced"{{if .AdvancedOpen}} open{{end}}><summary>{{$.T "settings.advanced"}}<span class="badge">{{$.N (i64u (len .Advanced))}}</span></summary><div class="settings-fields">{{range .Advanced}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}</div></details>{{end}}
-      {{if and (eq .ID "backup") ($.Can "backup.manage")}}<footer class="settings-section-foot"><a class="btn btn--secondary" href="/backups">{{$.IconS "database"}}{{$.T "settings.open_backups"}}</a><p class="hint">{{$.T "settings.backup_destination"}}</p></footer>{{end}}
+      {{if .Advanced}}
+      <details class="settings-advanced" id="settings-{{.ID}}-advanced"{{if .AdvancedOpen}} open{{end}}>
+        <summary><span>{{$.T "settings.advanced"}}</span><span class="badge badge--muted num">{{$.N (i64u (len .Advanced))}}</span></summary>
+        <div class="settings-advanced-body">{{range .Advanced}}{{template "settings-field" (dict "v" $ "f" .)}}{{end}}</div>
+      </details>
+      {{end}}
+      {{if eq .ID "subscription"}}<div class="settings-section-foot"><p>{{if $.Data.ManagedDomains}}{{$.T "domains.settings.managed"}}{{else}}{{$.T "domains.overview"}}{{end}}</p><a class="btn btn--sm" href="/settings/domains">{{$.IconS "globe"}}{{$.T "domains.title"}}</a></div>{{end}}
+      {{if and (eq .ID "backup") ($.Can "backup.manage")}}<div class="settings-section-foot"><p>{{$.T "settings.backup_destination"}}</p><a class="btn btn--sm" href="/backups">{{$.IconS "database"}}{{$.T "settings.open_backups"}}</a></div>{{end}}
     </section>
     {{end}}
-    <div class="settings-savebar"><div><strong data-settings-status role="status">{{if .Data.Error}}{{.T "settings.save.dirty"}}{{else if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}</strong><p class="hint">{{.T "settings.save.atomic"}}</p></div><button type="submit" class="btn btn--primary">{{.IconS "check"}}{{.T "settings.save.all"}}</button></div>
+    <div class="savebar settings-savebar">
+      <div class="settings-save-status">
+        <span class="dot settings-save-dot" aria-hidden="true"></span>
+        <div class="stack-xs">
+          <strong class="text-sm" data-settings-status role="status">{{if .Data.Error}}{{.T "settings.save.dirty"}}{{else if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}</strong>
+          <span class="savebar-status hide-sm">{{.T "settings.save.atomic"}}</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn--primary btn--sm">{{.IconS "check"}}{{.T "settings.save.all"}}</button>
+    </div>
   </div>
 </form>
 {{end}}
 
 {{define "settings-field"}}
 {{$v := .v}}{{$f := .f}}
-<div class="field settings-field{{if $f.Invalid}} field--invalid{{end}}">
-  {{if eq $f.Name "sub_layout"}}
-  <fieldset class="subscription-layout-picker" aria-describedby="s-{{$f.Name}}-hint s-{{$f.Name}}-meta{{if $f.Invalid}} s-{{$f.Name}}-error{{end}}">
-    <legend>{{$v.T $f.Label}}</legend>
-    <p class="hint" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
-    <div class="subscription-layout-choices">
+{{$describe := printf "s-%s-hint s-%s-meta" $f.Name $f.Name}}{{if $f.Invalid}}{{$describe = printf "%s s-%s-error" $describe $f.Name}}{{end}}{{if $f.Unavailable}}{{$describe = printf "%s s-%s-unavailable" $describe $f.Name}}{{end}}
+{{if eq $f.Name "sub_layout"}}
+<div class="setting-row setting-row--stack settings-field{{if $f.Invalid}} is-invalid{{end}}">
+  <div class="setting-label">
+    <span class="setting-title" id="s-{{$f.Name}}-label">{{$v.T $f.Label}}</span>
+    <p class="setting-description" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
+  </div>
+  <div class="setting-control">
+    <div class="choice-grid settings-layout-choices" role="radiogroup" aria-labelledby="s-{{$f.Name}}-label" aria-describedby="{{$describe}}">
       {{range $f.Options}}
-      <label class="subscription-layout-choice">
-        <input type="radio" name="{{$f.Name}}" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}>
-        <span class="subscription-layout-preview" data-layout="{{.Value}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-        <strong>{{.Label}}</strong><small>{{if or (eq .Value "pass") (eq .Value "split") (eq .Value "compact") (eq .Value "portal")}}{{$v.T (printf "settings.sub_layout.%s_hint" .Value)}}{{else}}{{$v.T "settings.selection_unavailable"}}{{end}}</small>
+      <label class="choice-card">
+        <input class="radio" type="radio" name="{{$f.Name}}" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}>
+        <span class="choice-card-body">
+          <span class="layout-preview" data-layout="{{.Value}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="choice-card-title">{{.Label}}</span>
+          <span class="choice-card-description">{{if or (eq .Value "pass") (eq .Value "split") (eq .Value "compact") (eq .Value "portal")}}{{$v.T (printf "settings.sub_layout.%s_hint" .Value)}}{{else}}{{$v.T "settings.selection_unavailable"}}{{end}}</span>
+        </span>
       </label>
       {{end}}
     </div>
-  </fieldset>
-  {{else}}
-  <label for="s-{{$f.Name}}">{{$v.T $f.Label}}{{if $f.Unit}} <span class="text-muted">({{$v.T $f.Unit}})</span>{{end}}{{if $f.Secret}} {{if $f.Unavailable}}<span class="badge">{{$v.T "settings.unavailable"}}</span>{{else if $f.SecretSet}}<span class="badge badge--ok">{{$v.T "settings.secret_set"}}</span>{{else}}<span class="badge">{{$v.T "settings.secret_unset"}}</span>{{end}}{{end}}</label>
-  <p class="hint" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
-  {{if $f.Options}}
-  <select class="select" id="s-{{$f.Name}}" name="{{$f.Name}}" aria-describedby="s-{{$f.Name}}-hint s-{{$f.Name}}-meta{{if $f.Invalid}} s-{{$f.Name}}-error{{end}}{{if $f.Unavailable}} s-{{$f.Name}}-unavailable{{end}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
-    {{range $f.Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
-  </select>
-  {{else if $f.Secret}}
-  <input class="input ltr-data" id="s-{{$f.Name}}" name="{{$f.Name}}" type="password" autocomplete="new-password" dir="ltr" placeholder="{{$v.T "settings.secret_placeholder"}}" aria-describedby="s-{{$f.Name}}-hint s-{{$f.Name}}-meta{{if $f.Invalid}} s-{{$f.Name}}-error{{end}}{{if $f.Unavailable}} s-{{$f.Name}}-unavailable{{end}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
-  <label class="check-label settings-secret-clear"><input type="checkbox" class="checkbox" name="{{$f.Name}}_clear" value="1"{{if $f.Clear}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}> {{$v.T "settings.secret_clear"}}</label>
-  {{else}}
-  <input class="input ltr-data" id="s-{{$f.Name}}" name="{{$f.Name}}"{{if $f.Numeric}} type="text" inputmode="numeric"{{else if eq $f.Name "keepalive"}} type="text"{{end}} value="{{$f.Value}}" dir="ltr" spellcheck="false" autocomplete="off" aria-describedby="s-{{$f.Name}}-hint s-{{$f.Name}}-meta{{if $f.Invalid}} s-{{$f.Name}}-error{{end}}{{if $f.Unavailable}} s-{{$f.Name}}-unavailable{{end}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
-  {{end}}
-  {{end}}
-  {{if $f.Invalid}}<span class="field-error" id="s-{{$f.Name}}-error">{{$v.Data.Error}}</span>{{end}}
-  {{if $f.Unavailable}}<p class="field-error" id="s-{{$f.Name}}-unavailable">{{$v.T "settings.load.field"}}</p>{{end}}
-  <div class="settings-field-meta" id="s-{{$f.Name}}-meta">
-    <p>{{$v.T $f.Effect}}</p>
-    {{if not $f.Secret}}<p>{{$v.T "settings.default"}}: {{if $f.Default}}<bdi class="ltr-data">{{$f.Default}}</bdi>{{else}}{{$v.T "settings.default_empty"}}{{end}}{{if $f.Range}} <span class="settings-range">{{$v.T "settings.range"}}: <bdi class="ltr-data">{{$f.Range}}</bdi></span>{{end}}</p>{{end}}
-    {{if $f.Numeric}}<p>{{$v.T "settings.blank_number"}}</p>{{else if $f.Secret}}<p>{{$v.T "settings.blank_secret"}}</p>{{end}}
+    {{template "settings-field-foot" .}}
   </div>
+</div>
+{{else}}
+<div class="setting-row settings-field{{if $f.Invalid}} is-invalid{{end}}">
+  <div class="setting-label">
+    <label class="setting-title" for="s-{{$f.Name}}">{{$v.T $f.Label}}{{if $f.Secret}}{{if $f.Unavailable}}<span class="badge badge--muted">{{$v.T "settings.unavailable"}}</span>{{else if $f.SecretSet}}<span class="badge badge--success"><span class="dot"></span>{{$v.T "settings.secret_set"}}</span>{{else}}<span class="badge badge--muted">{{$v.T "settings.secret_unset"}}</span>{{end}}{{end}}</label>
+    <p class="setting-description" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
+  </div>
+  <div class="setting-control">
+    {{if $f.Options}}
+    <select class="select" id="s-{{$f.Name}}" name="{{$f.Name}}" aria-describedby="{{$describe}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
+      {{range $f.Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    {{else if $f.Secret}}
+    <input class="input" id="s-{{$f.Name}}" name="{{$f.Name}}" type="password" autocomplete="new-password" placeholder="{{$v.T "settings.secret_placeholder"}}" aria-describedby="{{$describe}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
+    <label class="choice text-sm settings-secret-clear"><input type="checkbox" class="checkbox" name="{{$f.Name}}_clear" value="1"{{if $f.Clear}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}><span>{{$v.T "settings.secret_clear"}}</span></label>
+    {{else if $f.Unit}}
+    <div class="input-group">
+      <input class="input input--tech" id="s-{{$f.Name}}" name="{{$f.Name}}"{{if $f.Numeric}} type="text" inputmode="numeric"{{else if eq $f.Name "keepalive"}} type="text"{{end}} value="{{$f.Value}}" dir="ltr" spellcheck="false" autocomplete="off" aria-describedby="{{$describe}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
+      <span class="input-group-addon input-group-addon--boxed">{{$v.T $f.Unit}}</span>
+    </div>
+    {{else}}
+    <input class="input input--tech" id="s-{{$f.Name}}" name="{{$f.Name}}"{{if $f.Numeric}} type="text" inputmode="numeric"{{else if eq $f.Name "keepalive"}} type="text"{{end}} value="{{$f.Value}}" dir="ltr" spellcheck="false" autocomplete="off" aria-describedby="{{$describe}}"{{if $f.Invalid}} aria-invalid="true"{{end}}{{if $f.Unavailable}} disabled{{end}}>
+    {{end}}
+    {{template "settings-field-foot" .}}
+  </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "settings-field-foot"}}
+{{$v := .v}}{{$f := .f}}
+{{if $f.Invalid}}<p class="field-error" id="s-{{$f.Name}}-error">{{$v.IconS "alert-circle"}}{{$v.Data.Error}}</p>{{end}}
+{{if $f.Unavailable}}<p class="field-error" id="s-{{$f.Name}}-unavailable">{{$v.IconS "alert-circle"}}{{$v.T "settings.load.field"}}</p>{{end}}
+<div class="settings-meta" id="s-{{$f.Name}}-meta">
+  {{if not $f.Secret}}<p class="settings-meta-values"><span>{{$v.T "settings.default"}}: {{if $f.Default}}<bdi{{if not $f.Options}} class="tech"{{end}}>{{$f.Default}}</bdi>{{else}}{{$v.T "settings.default_empty"}}{{end}}</span>{{if $f.Range}}<span>{{$v.T "settings.range"}}: <bdi class="tech">{{$f.Range}}</bdi></span>{{end}}</p>{{end}}
+  <p>{{$v.T $f.Effect}}{{if $f.Numeric}} {{$v.T "settings.blank_number"}}{{else if $f.Secret}} {{$v.T "settings.blank_secret"}}{{end}}</p>
 </div>
 {{end}}

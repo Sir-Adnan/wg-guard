@@ -75,7 +75,7 @@ async function helpInteractions(page, selector, cell) {
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1), `overflow ${cell}/${route.split('/')[1]}`);
         await guidanceGeometry(page,'main',cell);
         await qa.scan(page,`guidance-${cell}-${route.split('/')[1]}`);
-        if (route === '/templates/new') await helpInteractions(page,'legend .field-help-trigger',cell);
+        if (route === '/templates/new') await helpInteractions(page,'.field-label-row .field-help-trigger',cell);
         if (route === '/backups') {
           const layout = await page.locator('#new-backup').evaluate(card => {
             const rect = card.getBoundingClientRect(), workspace = card.closest('.backup-workspace').getBoundingClientRect();
@@ -113,8 +113,8 @@ async function helpInteractions(page, selector, cell) {
       }
       await page.goto(seed.url+'/interfaces');
       await page.evaluate(() => document.fonts.ready);
-      const pool = await page.locator('.iface-network').first().evaluate(network => {
-        const address = network.querySelector('bdi'), description = network.querySelector('.cell-sub');
+      const pool = await page.locator('.ifaces-table tbody td:nth-child(3)').first().evaluate(network => {
+        const address = network.querySelector('.iface-pools .tech'), description = network.querySelector('.cell-sub');
         return {addressBottom:address.getBoundingClientRect().bottom,descriptionTop:description.getBoundingClientRect().top,direction:getComputedStyle(address).direction,address:address.textContent};
       });
       assert(pool.descriptionTop >= pool.addressBottom && pool.direction === 'ltr' && /^[0-9./]+$/.test(pool.address), `CIDR/capacity collision ${cell}`);
@@ -158,7 +158,7 @@ async function helpInteractions(page, selector, cell) {
       assert(await page.locator('[data-fill-preset]').first().isHidden(),'inert native quick-fill shown');
       assert(await page.locator('#u-traffic').isVisible(),'native manual quota inaccessible');
       await page.goto(seed.url+'/templates/new?lang='+lang);
-      assert(await page.locator('form .section-description').first().isVisible(),'native instructions absent');
+      assert(await page.locator('form .card-description').first().isVisible(),'native instructions absent');
       await page.goto(seed.url+'/backups?lang='+lang);
       assert(await page.locator('#b-password-help').isVisible(),'native backup instructions absent');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1),'native backup overflow');
@@ -169,12 +169,12 @@ async function helpInteractions(page, selector, cell) {
     await touch.addInitScript(() => Object.defineProperty(HTMLElement.prototype,'showPopover',{value:undefined,configurable:true}));
     await touch.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);
     const page = await touch.newPage(); await page.goto(seed.url+'/templates/new?lang=fa');
-    await page.locator('legend .field-help-trigger').first().tap();
+    await page.locator('.field-label-row .field-help-trigger').first().tap();
     const help = page.locator('.field-help-content:not([hidden])');
     assert(await help.isVisible(),'touch fallback did not open');
     const rect = await help.boundingBox();
     assert(rect.x >= 0 && rect.y >= 0 && rect.x+rect.width <= 391 && rect.y+rect.height <= 801,'touch fallback outside viewport');
-    await page.locator('legend .field-help-trigger').first().tap();
+    await page.locator('.field-label-row .field-help-trigger').first().tap();
     assert.equal(await page.locator('.field-help-content:not([hidden])').count(),0,'touch fallback did not close');
     await page.goto(seed.url+'/users?lang=fa');
     await page.locator('[data-open-modal="create-drawer"]').tap();

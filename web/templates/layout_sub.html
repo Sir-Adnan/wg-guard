@@ -1,17 +1,23 @@
 {{define "sub"}}<!DOCTYPE html>
-<html lang="{{.Locale}}" dir="{{.Dir}}" data-digits="{{.Digits}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}{{if ne .Preset "wg-guard-neutral"}} data-visual-preset="{{.Preset}}"{{end}}>
+<html {{template "html-attrs" .}}>
 <head>
 {{template "document-head" .}}
 <meta name="robots" content="noindex, nofollow">
 <title>{{.T "sub.title"}} · {{.T "app.name"}}</title>
 </head>
-<body class="publicsub-body"{{if .SubLayout}} data-sub-layout="{{.SubLayout}}"{{end}}>
+<body{{if .SubLayout}} data-sub-layout="{{.SubLayout}}"{{end}}>
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
-<div class="publicsub-ambience" aria-hidden="true"><span></span><span></span></div>
-<div class="publicsub-frame">
-<header class="publicsub-bar"><div class="brand"><span class="logo">{{.IconS "shield"}}</span><span>{{.T "app.name"}}</span></div>{{template "public-preferences" .}}</header>
-<main id="main" class="publicsub-main">{{block "subcontent" .}}{{end}}</main>
-<footer class="publicsub-footer"><span>{{.T "publicsub.private_hint"}}</span><span>{{.T "app.name"}}</span></footer>
+<div class="public">
+  <header class="public-header">
+    <div class="public-brand"><span class="brand-mark">{{.IconS "shield"}}</span><span>{{.T "app.name"}}</span></div>
+    <div class="preferences">
+      {{template "public-language" .}}
+      {{block "sub-theme-picker" .}}{{end}}
+      {{template "theme-menu" .}}
+    </div>
+  </header>
+  <main id="main" class="public-main">{{block "subcontent" .}}{{end}}</main>
+  <footer class="public-foot">{{.T "publicsub.private_hint"}}</footer>
 </div>
 {{template "feedback-host" .}}
 </body>

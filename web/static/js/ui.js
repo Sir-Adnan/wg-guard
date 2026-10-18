@@ -96,7 +96,8 @@ function hideTip() {
 }
 
 function showTip(anchor) {
-  if (!anchor?.dataset.tip || (anchor.closest('.nav') && shell && !shell.hasAttribute('data-collapsed'))) return;
+  // Sidebar labels are visible unless the rail is collapsed; tips would repeat them.
+  if (!anchor?.dataset.tip || (anchor.closest('.sidebar') && (!shell?.hasAttribute('data-collapsed') || mobile.matches))) return;
   if (tipAnchor === anchor) return;
   hideTip();
   const tip = document.createElement('div');
@@ -165,7 +166,7 @@ document.addEventListener('close', event => {
 }, true);
 
 const sidebar = $('#sidebar');
-const main = $('.main');
+const main = $('#app-main');
 const drawerTrigger = $('#btn-drawer');
 const mobile = matchMedia('(max-width: 960px)');
 let drawerOpen = false;
@@ -193,13 +194,8 @@ mobile.addEventListener('change', () => setDrawer(false));
 setDrawer(false, false);
 
 const shell = $('#shell');
-$$('.nav-group',shell || document).forEach(group => {
-  if (group.matches('[data-nav-system]')) group.open = Boolean(group.querySelector('[aria-current="page"]'));
-});
 function setCollapsed(collapsed) {
   if (!shell) return;
-  if (collapsed) $$('.nav-group',shell).forEach(group => { group.dataset.wasOpen = String(group.open); group.open = true; });
-  else $$('.nav-group',shell).forEach(group => { if (group.dataset.wasOpen) { group.open = group.dataset.wasOpen === 'true'; delete group.dataset.wasOpen; } });
   shell.toggleAttribute('data-collapsed', collapsed);
   $('#btn-collapse')?.setAttribute('aria-expanded', String(!collapsed));
   $('[data-toggle-rail]')?.setAttribute('aria-expanded', String(!collapsed));
@@ -233,8 +229,11 @@ document.addEventListener('click', event => {
     closeMenu(Boolean(target.closest('.menu a,.menu button')));
   }
   if (target.closest('#btn-drawer')) setDrawer(true);
-  if (target.closest('#scrim,[data-close-nav]') || (drawerOpen && target.closest('.nav a'))) setDrawer(false);
-  if (target.closest('#btn-collapse,[data-toggle-rail]')) setCollapsed(!shell.hasAttribute('data-collapsed'));
+  if (target.closest('#scrim,[data-close-nav]') || (drawerOpen && target.closest('.sidebar-item'))) setDrawer(false);
+  if (target.closest('#btn-collapse,[data-toggle-rail]')) {
+    shell?.setAttribute('data-rail-animate', '');
+    setCollapsed(!shell.hasAttribute('data-collapsed'));
+  }
   const opener = target.closest('[data-open-modal]');
   if (opener) { event.preventDefault(); openModal(opener.dataset.openModal, opener); }
   if (target.closest('[data-close-modal]')) target.closest('dialog')?.close();
@@ -250,7 +249,7 @@ document.addEventListener('pointerout', event => {
 document.addEventListener('focusin', event => {
   const anchor = event.target.closest?.('[data-tip]');
   if (anchor) showTip(anchor);
-  const body = event.target.closest?.('dialog.drawer .drawer-body');
+  const body = event.target.closest?.('dialog.sheet .sheet-body');
   if (body) requestAnimationFrame(() => {
     if (!body.closest('dialog')?.open || !event.target.isConnected) return;
     const view = body.getBoundingClientRect();
@@ -313,7 +312,7 @@ document.addEventListener('focusin', event => {
       if (box.top < 0 || box.bottom > innerHeight) target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
       return;
     }
-    const header = document.querySelector('.topbar')?.getBoundingClientRect();
+    const header = document.querySelector('.app-header')?.getBoundingClientRect();
     const upper = (header?.bottom || 0) + 8, lower = innerHeight - 8;
     if (box.top < upper) window.scrollBy({ top: box.top - upper, behavior: 'auto' });
     else if (box.bottom > lower) window.scrollBy({ top: box.bottom - lower, behavior: 'auto' });
@@ -393,5 +392,65 @@ document.addEventListener('click', event => {
   input.type = show ? 'text' : 'password';
   toggle.setAttribute('aria-pressed', String(show));
 });
+// Command palette (⌘K / Ctrl+K / "/"): filters the server-rendered,
+// permission-aware destinations; no request is made until one is chosen.
+const command = $('#command');
+if (command) {
+  const input = $('[data-command-input]', command);
+  const empty = $('[data-command-empty]', command);
+  const search = $('[data-command-search]', command);
+  const fold = value => value.toLocaleLowerCase().replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200c/g, ' ').trim();
+  const items = () => $$('.command-item', command).filter(item => !item.hidden);
+  let selected = 0;
+  const select = index => {
+    const list = items();
+    selected = list.length ? (index + list.length) % list.length : 0;
+    list.forEach((item, i) => item.setAttribute('aria-selected', String(i === selected)));
+    list[selected]?.scrollIntoView({ block: 'nearest' });
+  };
+  const filter = () => {
+    const query = fold(input.value);
+    $$('.command-item:not([data-command-search])', command).forEach(item => {
+      item.hidden = Boolean(query) && !fold(item.dataset.commandText || item.textContent).includes(query);
+    });
+    $$('.command-group', command).forEach(group => {
+      group.hidden = !$$('.command-item', group).some(item => !item.hidden) && !group.matches('[data-command-dynamic]');
+    });
+    if (search) {
+      search.hidden = !query;
+      search.href = search.dataset.commandSearch + encodeURIComponent(input.value.trim());
+      search.lastElementChild.textContent = search.dataset.commandTemplate.replace('%s', input.value.trim());
+    }
+    empty.hidden = items().length > 0;
+    select(0);
+  };
+  const openCommand = () => {
+    if (command.open) return;
+    closeMenu(); hideTip(); setDrawer(false, false);
+    input.value = ''; filter();
+    openModal('command');
+    input.focus();
+  };
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); select(selected + (event.key === 'ArrowDown' ? 1 : -1)); }
+    else if (event.key === 'Enter') { event.preventDefault(); items()[selected]?.click(); }
+  });
+  command.addEventListener('click', event => {
+    if (event.target === command) command.close();
+    const item = event.target.closest?.('.command-item');
+    if (item) setTimeout(() => command.open && command.close(), 0);
+  });
+  command.addEventListener('pointermove', event => {
+    const item = event.target.closest?.('.command-item');
+    if (item) select(items().indexOf(item));
+  });
+  document.addEventListener('click', event => { if (event.target.closest?.('[data-command-open]')) { event.preventDefault(); openCommand(); } });
+  document.addEventListener('keydown', event => {
+    const typing = event.target.closest?.('input,textarea,select,[contenteditable="true"]');
+    if ((event.key === 'k' || event.key === 'K') && (event.metaKey || event.ctrlKey)) { event.preventDefault(); command.open ? command.close() : openCommand(); }
+    else if (event.key === '/' && !typing && !document.querySelector('dialog[open]')) { event.preventDefault(); openCommand(); }
+  });
+}
 document.querySelector('[data-initial-focus]')?.focus();
 document.documentElement.dataset.ui = 'ready';

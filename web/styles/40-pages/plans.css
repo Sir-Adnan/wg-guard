@@ -1,0 +1,17 @@
+/* Templates workspace: compact limit columns and unit selectors joined to
+ * numeric inputs (GB/MB, days/hours/months). Shared by the interface form. */
+@layer pages {
+  .plans-table td { white-space: nowrap; }
+  .plans-table td.cell-primary { white-space: normal; min-width: 12rem; }
+  .plan-rate { display: flex; flex-direction: column; gap: 2px; font-size: var(--text-sm); }
+  .plan-rate .icon { color: var(--muted-foreground); }
+
+  /* Trailing unit selector inside an input group. */
+  .input-group > .select.unit-select {
+    flex: 0 0 auto; width: auto; min-width: 5.5rem;
+    border-inline-start: 1px solid var(--input); border-radius: 0;
+    border-start-end-radius: calc(var(--radius-md) - 1px); border-end-end-radius: calc(var(--radius-md) - 1px);
+    background-color: var(--muted);
+    font-size: var(--text-sm);
+  }
+}

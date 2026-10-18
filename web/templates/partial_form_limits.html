@@ -1,8 +1,8 @@
 {{define "preset_picker"}}
 {{$v := .v}}
-<select class="select preset-picker" data-fill-preset aria-label="{{$v.T "users.form.presets"}} · {{if .quota}}{{$v.T "users.form.traffic_limit"}}{{else}}{{$v.T "users.form.duration"}}{{end}}">
-  <option value="" disabled>{{$v.T "users.form.presets"}}</option>
+<select class="select select--auto users-preset" data-fill-preset aria-label="{{$v.T "users.form.presets"}} · {{if .quota}}{{$v.T "users.form.traffic_limit"}}{{else}}{{$v.T "users.form.duration"}}{{end}}">
+  <option value="">{{$v.T "users.form.presets"}}</option>
   {{range .quota}}<option value="gb:{{.}}" data-fill-value="{{.}}" data-fill-unit="gb" dir="ltr">{{.}} GB</option>{{end}}
-  {{range .months}}<option value="months:{{.}}" data-fill-value="{{.}}" data-fill-unit="months">{{.}} {{$v.T "duration.months_short"}}</option>{{end}}
+  {{range .months}}<option value="months:{{.}}" data-fill-value="{{.}}" data-fill-unit="months">{{$v.Human .}} {{$v.T "duration.months_short"}}</option>{{end}}
 </select>
 {{end}}

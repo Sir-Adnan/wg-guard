@@ -1,0 +1,41 @@
+/* Interfaces workspace: list facts, pool editor and the obfuscation card. */
+@layer pages {
+  .ifaces-table td { white-space: nowrap; }
+  .ifaces-table td.cell-primary { min-width: 9rem; }
+  .iface-pools { display: flex; flex-wrap: wrap; gap: var(--s-0_5) var(--s-2); }
+
+  /* Header actions (mode toggle, obfuscation switch) drop below the title on phones. */
+  @media (max-width: 640px) {
+    .iface-form .card-header { grid-template-columns: minmax(0, 1fr); }
+    .iface-form .card-action { grid-column: 1; grid-row: auto; }
+  }
+
+  .pool-usage { border-block: 1px solid var(--border); }
+  .pool-add { display: flex; align-items: flex-end; gap: var(--s-2); flex-wrap: wrap; }
+  .pool-add > .field { flex: 1 1 16rem; }
+  [data-pool-status]:empty { display: none; }
+
+  .obf-switch { align-items: center; white-space: nowrap; }
+  .obf-presets > .choice-card { text-align: start; width: 100%; }
+  .obf-presets > .choice-card .icon { color: var(--muted-foreground); }
+  .obf-presets > .choice-card[aria-pressed="true"] .icon { color: var(--foreground); }
+  .obf-presets > .choice-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  [data-obf-box][aria-busy="true"] .obf-presets { opacity: .65; cursor: progress; }
+  .obf-note { align-items: flex-start; }
+  .obf-note > .icon { margin-top: 2px; }
+
+  /* Parameter disclosure is the card's last region, flush with its edges. */
+  .obf-card > .obf-params { border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; margin-block-end: calc(var(--card-p) * -1); }
+  .obf-card > .obf-params > summary { padding-inline: var(--card-p); border-end-start-radius: var(--radius-xl); border-end-end-radius: var(--radius-xl); }
+  .obf-card > .obf-params[open] > summary { border-radius: 0; }
+  .obf-card > .obf-params > .collapsible-content { padding: var(--s-2) var(--card-p) var(--card-p); gap: var(--s-6); }
+  .obf-headers { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 900px) { .obf-headers { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+}
+@layer pages {
+  /* Three section tabs fit a 320px phone once their icons are dropped. */
+  @media (max-width: 480px) { .iface-form .tabs .tab > .icon { display: none; } }
+}
+@layer pages {
+  /* Phone cards stack label over value; numeric columns stay start-aligned there. */
+}
