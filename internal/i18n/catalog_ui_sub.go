@@ -14,6 +14,11 @@ func init() {
 		{"publicsub.ui.copy_key", "Copy key", "کپی کلید"},
 		{"publicsub.ui.no_devices", "No devices yet", "هنوز دستگاهی ندارید"},
 		{"publicsub.ui.choose_platform", "Choose your platform", "سیستم‌عامل خود را انتخاب کنید"},
+		{"publicsub.ui.copy_failed", "Copy failed. Select the text and copy it manually.", "کپی انجام نشد. متن را انتخاب و دستی کپی کنید."},
+		{"publicsub.attention.data_low", "Your data is almost used up", "حجم شما رو به اتمام است"},
+		{"publicsub.attention.time_low", "Your subscription ends soon", "اشتراک شما به‌زودی تمام می‌شود"},
+		{"publicsub.attention.both_low", "Your data and time are almost used up", "حجم و زمان اشتراک شما رو به اتمام است"},
+		{"publicsub.attention.hint", "You can still connect. Ask your provider to renew before it runs out.", "هنوز می‌توانید وصل شوید. پیش از تمام شدن، برای تمدید با ارائه‌دهنده تماس بگیرید."},
 		{"error.status_label", "Error %d", "خطای %d"},
 	}
 	for _, row := range rows {

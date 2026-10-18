@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/reconcile"
@@ -76,6 +77,56 @@ func TestPublicSubscriptionPresentationBoundaries(t *testing.T) {
 	rec = e.get(base+"?lang=en", nil)
 	if !strings.Contains(rec.Body.String(), "Devices could not be loaded") || strings.Contains(rec.Body.String(), "No devices yet") {
 		t.Fatal("failed device read must not imply empty account")
+	}
+}
+
+func TestPublicSubscriptionRunningLowNoticeAndCommands(t *testing.T) {
+	e := newEnv(t)
+	uid, _, _, _ := e.seedUserWithDevice()
+	link, err := e.srv.Links.ForUser(context.Background(), uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := e.subBase(link.Token)
+	set := func(query string, args ...any) {
+		t.Helper()
+		if _, err := e.db.Exec(query, append(args, uid)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	notice := func() string {
+		t.Helper()
+		body := e.get(base+"?lang=en", nil).Body.String()
+		if !strings.Contains(body, `<code class="tech" translate="no">sudo awg-quick up awg0</code>`) || !strings.Contains(body, `data-sub-copy hidden`) {
+			t.Fatal("CLI guide must render copyable LTR commands with a JS-revealed copy button")
+		}
+		if i := strings.Index(body, `data-sub-attention="`); i >= 0 {
+			rest := body[i+len(`data-sub-attention="`):]
+			return rest[:strings.IndexByte(rest, '"')]
+		}
+		return ""
+	}
+	soon := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
+	later := time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	set(`UPDATE users SET status='active', traffic_limit_bytes=1000, traffic_used_rx=100, traffic_used_tx=0, expires_at=? WHERE id=?`, later)
+	if got := notice(); got != "" {
+		t.Fatalf("healthy subscription must not warn, got %q", got)
+	}
+	set(`UPDATE users SET traffic_used_rx=900 WHERE id=?`)
+	if got := notice(); got != "data_low" {
+		t.Fatalf("90%% used: got %q", got)
+	}
+	set(`UPDATE users SET expires_at=? WHERE id=?`, soon)
+	if got := notice(); got != "both_low" {
+		t.Fatalf("low data and time: got %q", got)
+	}
+	set(`UPDATE users SET traffic_used_rx=0 WHERE id=?`)
+	if got := notice(); got != "time_low" {
+		t.Fatalf("two days left: got %q", got)
+	}
+	set(`UPDATE users SET status='disabled' WHERE id=?`)
+	if got := notice(); got != "" {
+		t.Fatalf("unusable subscription keeps its status notice, got %q", got)
 	}
 }
 

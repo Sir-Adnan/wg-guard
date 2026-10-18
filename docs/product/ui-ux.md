@@ -165,7 +165,10 @@ with a useful next action. Destructive confirmation names the target, count and 
 
 Motion is short (120–240ms), purposeful, mainly opacity/transform; no idle pulse or decorative
 movement. Loading animation exists only while loading. `prefers-reduced-motion` disables overlay,
-skeleton, chart and other nonessential animation without hiding feedback. Both themes meet AA
+skeleton, chart and other nonessential animation without hiding feedback; it removes
+transitions outright (`transition: none`) rather than shortening them, because a near-zero `all`
+transition still leaves an inherited `visibility` change hidden for the first frame and loses
+synchronous focus into a just-opened drawer or dialog. Both themes meet AA
 contrast for text and controls; status/series never depend on color alone. Verify keyboard,
 screen-reader reading/announcements, zoom/reflow and touch, not only DOM attributes.
 
@@ -192,6 +195,9 @@ Snapshot reading and focus never trigger extra samplers or automatic table repla
 ## Settings and performance
 
 Settings uses grouped section navigation, progressive disclosure and one editor per setting;
+the section navigation (`nav[data-scrollspy]`, a shared presentation enhancement) marks the
+section being read with `aria-current="true"`, keeps a clicked short trailing section current
+while it is on screen, and on phones scrolls its horizontal row to the current link;
 operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
 consequences and external host ownership are explained. Save/validation/secret semantics are
 specified in [Phase 10](../development/phase10.md#settings-save-decision-100-prerequisite).
@@ -319,7 +325,13 @@ Every subscription layout shows the following:
   are shown;
 - official app links, in this order: AmneziaWG and WG Tunnel first, AmneziaVPN last (the most
   complex app), amneziawg-tools for Linux;
-- for each device, **Open in AmneziaVPN** (`vpn://`) and **Copy key**.
+- for each device, **Open in AmneziaVPN** (`vpn://`) and **Copy key**;
+- command-line steps (amneziawg-tools) as LTR copy fields for the config path and the
+  `awg-quick up` command; the copy button appears with JavaScript, falls back to selecting the
+  text, and announces the result in one polite status region;
+- a **running-low** warning in place of the ready notice while the subscription is usable but
+  has used at least 90% of its quota or has three or fewer days left (`data_low`, `time_low`,
+  `both_low`). It only informs; enforcement stays in accounting.
 
 The **Portal** layout is an app-style variant with conic usage/time rings, sized for phones.
 Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the

@@ -7,6 +7,7 @@
   .settings-nav > a { display: flex; align-items: center; min-height: 2rem; padding: var(--s-1_5) var(--s-2_5); border-radius: var(--radius-md); color: var(--muted-foreground); font-size: var(--text-sm); font-weight: 500; transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease); }
   .settings-nav > a:hover { color: var(--foreground); background: var(--accent); }
   .settings-nav > a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .settings-nav > a[aria-current="true"] { color: var(--foreground); background: var(--accent); }
   .settings-main { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; }
   .settings-section { scroll-margin-top: calc(var(--header-h) + var(--s-5)); }
   .settings-note { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--text-sm); color: var(--muted-foreground); }
@@ -57,7 +58,7 @@
 
   @media (max-width: 960px) {
     .settings-layout { grid-template-columns: 1fr; gap: var(--s-4); }
-    .settings-nav { top: var(--header-h); z-index: var(--z-sticky); flex-direction: row; overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--page-px) * -1); padding: var(--s-2) var(--page-px); background: color-mix(in srgb, var(--background) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+    .settings-nav { top: var(--header-h); z-index: var(--z-sticky); flex-direction: row; overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--page-px) * -1); padding: var(--s-2) var(--page-px); background: var(--background); border-bottom: 1px solid var(--border); }
     .settings-nav::-webkit-scrollbar { display: none; }
     .settings-nav > a { flex-shrink: 0; white-space: nowrap; }
     .settings-section { scroll-margin-top: calc(var(--header-h) + 3.5rem); }

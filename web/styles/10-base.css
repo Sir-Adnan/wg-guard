@@ -88,7 +88,10 @@
   a.link, .prose a { color: var(--primary-text); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); }
   a.link:hover, .prose a:hover { text-decoration-color: currentColor; }
 
+  /* Reduced motion removes transitions outright: a near-zero duration still starts an `all`
+     transition on every element, so an inherited visibility flip stays `hidden` for the first
+     frame and synchronous focus() into a just-opened drawer or dialog is lost. */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; scroll-behavior: auto !important; }
   }
 }

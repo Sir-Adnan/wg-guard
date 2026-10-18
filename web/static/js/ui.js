@@ -8,7 +8,7 @@ const restoreFocus = el => { if (el?.isConnected && !el.closest('[inert]')) el.f
 const presentation = await import(document.querySelector('meta[name="ui-presentation-module"]').content);
 const selects = await import(document.querySelector('meta[name="ui-select-module"]').content);
 export const displayDigits = presentation.displayDigits;
-const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); selects.enhanceSelects(root,presentation.closePresentationOverlays); };
+const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); presentation.enhanceScrollSpy(root); selects.enhanceSelects(root,presentation.closePresentationOverlays); };
 enhancePresentation(document);
 document.body.addEventListener('htmx:afterSwap', event => enhancePresentation(event.detail?.target || document));
 document.documentElement.dataset.inputModality = 'pointer';
@@ -133,8 +133,8 @@ function positionMenu() {
   activeMenu.style.position = 'fixed'; activeMenu.style.insetInlineEnd = 'auto';
   activeMenu.style.maxHeight = Math.max(120, innerHeight - 16) + 'px';
   activeMenu.style.overflowY = 'auto';
-  const menuRect = activeMenu.getBoundingClientRect();
-  const w = menuRect.width, h = menuRect.height;
+  // Layout size, not the bounding rect: the pop-in entrance animation scales the menu.
+  const w = activeMenu.offsetWidth, h = activeMenu.offsetHeight;
   activeMenu.style.left = Math.max(8, Math.min(document.documentElement.dir === 'rtl' ? r.left : r.right - w, innerWidth - w - 8)) + 'px';
   activeMenu.style.top = Math.max(8, r.bottom + h + 6 > innerHeight ? r.top - h - 6 : r.bottom + 6) + 'px';
 }

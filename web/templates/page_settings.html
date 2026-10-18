@@ -12,7 +12,7 @@
 </header>
 <form method="post" action="/settings" class="settings-layout" data-settings-form data-settings-retry="{{if .Data.Error}}true{{else}}false{{end}}" data-settings-clean="{{if .Data.LoadFailed}}{{.T "settings.load.title"}}{{else}}{{.T "settings.save.clean"}}{{end}}" data-settings-dirty="{{.T "settings.save.dirty"}}" novalidate>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
-  <nav class="settings-nav" aria-label="{{.T "settings.sections"}}">
+  <nav class="settings-nav" data-scrollspy aria-label="{{.T "settings.sections"}}">
     {{range .Data.Sections}}<a href="#settings-{{.ID}}">{{$.T .Title}}</a>{{end}}
   </nav>
   <div class="settings-main">

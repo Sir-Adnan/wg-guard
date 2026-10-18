@@ -25,7 +25,7 @@ func TestSettingsPageAndSave(t *testing.T) {
 		t.Fatalf("GET /settings: %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"quota_presets", "100, 150"} {
+	for _, want := range []string{"quota_presets", "100, 150", `class="settings-nav" data-scrollspy`, `href="#settings-identity"`, `id="settings-identity"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("settings page missing %q", want)
 		}

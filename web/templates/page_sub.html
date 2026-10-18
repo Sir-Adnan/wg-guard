@@ -17,6 +17,10 @@
 {{/* A Latin number with its localized unit; the unit never joins the LTR run. */}}
 {{define "sub-qty"}}<span class="sub-qty"><bdi class="num" dir="ltr">{{.Number}}</bdi>{{if .Unit}}<span class="sub-qty-unit">{{.Unit}}</span>{{end}}</span>{{end}}
 
+{{/* A copyable LTR command or path. The copy button is revealed by subscription.js;
+     without JavaScript the text stays selectable. Expects dict "Value" "V" (the view). */}}
+{{define "sub-command"}}<span class="copy-field sub-command" dir="ltr"><code class="tech" translate="no">{{.Value}}</code><button type="button" class="btn btn--ghost btn--icon btn--sm" data-sub-copy hidden aria-label="{{.V.T "common.copy"}}" data-tip="{{.V.T "common.copy"}}">{{.V.IconS "copy"}}{{.V.IconS "check"}}</button></span>{{end}}
+
 {{define "subcontent"}}
 <div class="sub" data-access-ready="{{.Data.U.Status.PeerWanted}}">
   {{template "sub_pass" .}}
@@ -38,11 +42,19 @@
     <span class="badge {{.StClass $status}}"><span class="dot"></span>{{.St $status}}</span>
   </header>
 
+  {{if .Data.Attention}}
+  <div class="alert alert--warning" role="status" data-sub-attention="{{.Data.Attention}}">
+    {{.Icon "alert-triangle"}}
+    <p class="alert-title">{{.T (printf "publicsub.attention.%s" .Data.Attention)}}</p>
+    <p class="alert-description">{{.T "publicsub.attention.hint"}}</p>
+  </div>
+  {{else}}
   <div class="alert {{if eq $status "active"}}alert--success{{else if eq $status "waiting_first_connection"}}alert--info{{else if or (eq $status "expired") (eq $status "traffic_exceeded")}}alert--destructive{{else}}alert--warning{{end}}" role="status">
     {{if .Data.U.Status.PeerWanted}}{{.Icon "wifi"}}{{else}}{{.Icon "alert-circle"}}{{end}}
     <p class="alert-title">{{.T (printf "publicsub.status.%s" .Data.U.Status)}}</p>
     <p class="alert-description">{{if .Data.U.Status.PeerWanted}}{{.T "publicsub.connect_hint"}}{{else}}{{.T "publicsub.contact_provider"}}{{end}}</p>
   </div>
+  {{end}}
 
   <div class="stat-grid sub-stats">
     <div class="stat sub-stat">
@@ -155,8 +167,13 @@
             <p class="item-description">{{$.T .DescKey}}</p>
             <ol class="sub-steps">
               <li><span>{{$.T "publicsub.step.install"}}</span><span class="sub-step-links">{{range .Links}}<a class="btn btn--xs" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{$.IconS "external-link"}}<span>{{$.T .LabelKey}}</span></a>{{end}}</span></li>
-              <li><span>{{if eq .Import "key"}}{{$.T "publicsub.step.key"}}{{else if eq .Import "cli"}}{{$.T "publicsub.step.cli"}}{{else}}{{$.T "publicsub.step.conf"}}{{end}}</span></li>
+              {{if eq .Import "cli"}}
+              <li><span>{{$.T "publicsub.step.cli_save"}}</span>{{template "sub-command" (dict "Value" "/etc/amnezia/amneziawg/awg0.conf" "V" $)}}</li>
+              <li><span>{{$.T "publicsub.step.cli_up"}}</span>{{template "sub-command" (dict "Value" "sudo awg-quick up awg0" "V" $)}}</li>
+              {{else}}
+              <li><span>{{if eq .Import "key"}}{{$.T "publicsub.step.key"}}{{else}}{{$.T "publicsub.step.conf"}}{{end}}</span></li>
               <li><span>{{$.T "publicsub.step.connect"}}</span></li>
+              {{end}}
             </ol>
           </div>
         </article>
@@ -165,6 +182,7 @@
     </div>
     {{end}}
   </div>
+  <p class="sr-only" role="status" data-sub-copy-status data-copied="{{.T "common.copied"}}" data-failed="{{.T "publicsub.ui.copy_failed"}}"></p>
   <p class="sub-note">{{.IconS "info"}}<span>{{.T "publicsub.setup_compatibility"}}</span></p>
 </section>
 {{end}}

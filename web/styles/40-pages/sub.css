@@ -85,6 +85,11 @@
   }
   .sub-step-links { display: flex; flex-wrap: wrap; gap: var(--s-1_5); margin-top: var(--s-1_5); }
   .sub-step-links:empty { display: none; }
+  /* Copyable command/path in a step (copy-field anatomy; LTR value). */
+  .sub-command { display: flex; margin-top: var(--s-1_5); max-width: 32rem; }
+  .sub-command > code { user-select: all; }
+  .sub-command > .btn:not([data-copied]) > .icon + .icon, .sub-command > .btn[data-copied] > .icon:first-child { display: none; }
+  .sub-command > .btn[data-copied] { color: var(--success); }
   @media (max-width: 640px) { .sub-app > .item-media { display: none; } }
 
   .sub-note { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--text-xs); color: var(--muted-foreground); }

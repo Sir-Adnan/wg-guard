@@ -17,6 +17,11 @@
   `0018_subscription_appearance.sql`), and subscription visitors can pick their own theme.
 - Self-host the fonts the themes use (OFL) and switch Persian text to variable Vazirmatn limited
   to Arabic script.
+- The subscription page warns while a usable subscription is running low (at least 90% of the
+  data used or three days or fewer left), and the Linux guide shows the config path and
+  `awg-quick` command as copyable fields.
+- The Settings section list highlights the section being read while scrolling.
+- Fix: with reduced motion, opening the phone navigation drawer or a dialog lost keyboard focus.
 
 - Add egress routing under **Routing** (`/routing/outbounds`, `/routing/balancers`,
   `/routing/rules`). Outbounds are Cloudflare WARP (registered from the panel), imported

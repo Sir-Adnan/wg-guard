@@ -51,6 +51,25 @@ document.addEventListener('click', async event => {
   }
 });
 
+/* Copy a guide command or path. Without clipboard access the text is selected
+ * so the visitor can copy it by hand; the result is announced politely. */
+document.querySelectorAll('[data-sub-copy]').forEach(button => { button.hidden = false; });
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-sub-copy]');
+  if (!button) return;
+  const code = button.parentElement.querySelector('code');
+  const status = document.querySelector('[data-sub-copy-status]');
+  let copied = false;
+  try { await navigator.clipboard.writeText(code.textContent.trim()); copied = true; } catch {
+    getSelection()?.selectAllChildren(code);
+  }
+  if (status) status.textContent = copied ? status.dataset.copied : status.dataset.failed;
+  if (!copied) return;
+  button.dataset.copied = 'true';
+  clearTimeout(button.copyReset);
+  button.copyReset = setTimeout(() => { delete button.dataset.copied; }, 1500);
+});
+
 /* Open the setup guide on the visitor's platform. */
 (() => {
   const ua = navigator.userAgent || '';
