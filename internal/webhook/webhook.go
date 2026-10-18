@@ -492,32 +492,49 @@ func (s *Service) list(ctx context.Context, resellerID *string, globalOnly bool)
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("webhook: list endpoints: %w", err)
 	}
-	// Delivery counters (tiny GROUP BY; the deliveries table is pruned).
-	statQuery := `SELECT d.endpoint_id, d.status, COUNT(*) FROM webhook_deliveries d
+	var filter string
+	var filterArgs []any
+	if resellerID != nil {
+		filter, filterArgs = ` AND e.reseller_id = ?`, []any{*resellerID}
+	} else if globalOnly {
+		filter = ` AND e.reseller_id IS NULL AND e.include_reseller_events = 0`
+	}
+	stats, err := s.deliveryStats(ctx, filter, filterArgs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Stats = stats[out[i].ID]
+	}
+	return out, nil
+}
+
+// Stats returns one endpoint's delivery counters, counted like the lists.
+func (s *Service) Stats(ctx context.Context, endpointID string) (Stats, error) {
+	stats, err := s.deliveryStats(ctx, ` AND e.id = ?`, []any{endpointID})
+	return stats[endpointID], err
+}
+
+// deliveryStats counts deliveries per endpoint and status (a tiny GROUP BY;
+// the deliveries table is pruned), only for events each endpoint may see.
+func (s *Service) deliveryStats(ctx context.Context, filter string, args []any) (map[string]Stats, error) {
+	query := `SELECT d.endpoint_id, d.status, COUNT(*) FROM webhook_deliveries d
 		JOIN webhook_endpoints e ON e.id = d.endpoint_id
 		JOIN webhook_events ev ON ev.id = d.event_id
 		WHERE ((e.reseller_id IS NULL AND (ev.reseller_id IS NULL OR e.include_reseller_events = 1))
-		       OR e.reseller_id = ev.reseller_id)`
-	var statArgs []any
-	if resellerID != nil {
-		statQuery += ` AND e.reseller_id = ?`
-		statArgs = append(statArgs, *resellerID)
-	} else if globalOnly {
-		statQuery += ` AND e.reseller_id IS NULL AND e.include_reseller_events = 0`
-	}
-	statQuery += ` GROUP BY d.endpoint_id, d.status`
-	statRows, err := s.db.QueryContext(ctx, statQuery, statArgs...)
+		       OR e.reseller_id = ev.reseller_id)` + filter + ` GROUP BY d.endpoint_id, d.status`
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("webhook: stats: %w", err)
 	}
-	defer statRows.Close()
+	defer rows.Close()
 	stats := map[string]Stats{}
-	for statRows.Next() {
+	for rows.Next() {
 		var (
 			id, status string
 			n          int
 		)
-		if err := statRows.Scan(&id, &status, &n); err != nil {
+		if err := rows.Scan(&id, &status, &n); err != nil {
 			return nil, fmt.Errorf("webhook: scan stats: %w", err)
 		}
 		st := stats[id]
@@ -531,13 +548,10 @@ func (s *Service) list(ctx context.Context, resellerID *string, globalOnly bool)
 		}
 		stats[id] = st
 	}
-	if err := statRows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("webhook: stats: %w", err)
 	}
-	for i := range out {
-		out[i].Stats = stats[out[i].ID]
-	}
-	return out, nil
+	return stats, nil
 }
 
 // EndpointWithStats pairs an endpoint with its delivery counters.

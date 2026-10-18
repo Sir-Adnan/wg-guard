@@ -18,11 +18,13 @@ node data and private host authority. See [Phase 17 evidence](../development/pha
 
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:
-                         HTTP + scheduler + graceful shutdown), token, install/update/
-                         uninstall/status/logs/core/tls-check/restart, English-only manage,
-                         host-local owner-bootstrap (mode-aware Docker dispatch), doctor,
-                         backup, restore, settings, secrets (single binary, hand-rolled arg
-                         parsing — no CLI framework)
+                         HTTP + scheduler + graceful shutdown), token, install/recover-install/
+                         update/uninstall/status/logs/core/restart, image-import, exposure,
+                         domains, tls-check, certificate-sync, userspace-check, English-only
+                         manage, host-local owner-bootstrap (mode-aware Docker dispatch),
+                         update-broker-install/update-request-run (Web Panel update bridge),
+                         doctor, backup, restore, settings, secrets (single binary,
+                         hand-rolled arg parsing — no CLI framework)
 internal/
   config/                boot config (TOML + env overrides), validation, exposure modes
   layout/                current host/node paths and closed managed replacement targets
@@ -39,11 +41,19 @@ internal/
   domainqueue/           closed owner intent, atomic mailbox/status and bounded private imports
                          (host CA/lifecycle executor stays in install; no panel root shell)
   domain/                shared types: IDs (UUIDv7), statuses, disable reasons, machine error codes
+  version/               build identity of the wg-guard binary
   settings/              typed runtime settings registry (validators, categories, defaults)
   user/ device/ plan/    domain packages: model + service + repository
                          device key/PSK generation is shared sealed-material provisioning
   iface/                 tunnel interface/profile service (ports, subnets, params);
                          package name `iface` — `interface` is a Go keyword
+  awgparam/              scalar-or-range values of the pinned AmneziaWG configuration contract
+  ipam/                  shared bounded IPv4-pool contract: ordered pools, reserved addresses
+  cleanup/               reviewed bounded data maintenance: sealed actor-bound previews, no
+                         caller-supplied table names or SQL
+  reseller/              node-local reseller registry
+  integration/           durable principal-scoped automation operations; results carry no
+                         subscription capabilities or device private keys
   admin/ auth/           owner/admin accounts, argon2id, sessions, permission registry
   token/                 API tokens (hash storage, scopes, CIDR allowlists)
   secrets/               master key ring, AES-256-GCM cipher, shared stored-field inventory,
@@ -109,6 +119,8 @@ internal/
                          DB → secrets → settings → services →
                          boot → HTTP(S) listener (manual/proxy/dev/ACME) → scheduler;
                          serialized reconciler shared by API + accounting (Phase 4 ✅)
+  doctor/                `wg-guard doctor`: read-only checks with remedies; `--fix` reruns boot
+                         repairs and refuses while the service is up
   metrics/               healthz/readyz + optional hand-written /metrics (Phase 4 ✅)
   i18n/                  fa/en catalogs (embedded) with key-parity test, locale helpers,
                          Jalali dates (Phase 5 ✅)
@@ -127,19 +139,21 @@ internal/
                          pages (Phase 5 ✅)
   web/theme/             visual preset registry: JSON validation, contrast checks/fixes,
                          CSS and swatch generation, tweakcn import
+  testutil/qrdecode/     independent QR decoder for tests
 web/                     embedded via go:embed; prebuilt, no Node runtime:
                          templates/ (html/template), styles/ (design-system CSS, layered and
                          concatenated at startup), themes/ (preset JSON), static/ (JS, fonts, icons)
 tools/theme-import/      developer CLI: tweakcn export → reviewed preset JSON
-migrations/              numbered SQL migrations (embedded; 0004 sub_links,
-                         0005 gated interface obfuscation parameters,
-                         0006 backup schedules, 0007 lossless H1–H4 ranges)
-deploy/                  reference compose for Docker mode (installer generates the tailored one)
+migrations/              numbered forward-only SQL migrations, embedded (see database.md)
 notices.go               fixed embedded legal inventory for image packaging
 internal/install/runtime/Dockerfile  one rendered recipe; exact precompiled manager and reviewed AWG sources
 install.sh               GitHub bootstrap/update check; refreshes only the verified manager cache
                          and delegates host lifecycle to the Go binary
-scripts/                 dev helpers, immutable candidate builder and executable bootstrap fixtures
+scripts/                 dev/CI helpers: check-docs.py (living-doc links/anchors/paths),
+                         check-assets.sh, bench-idle.sh, build-artifacts.sh,
+                         build-runtime-artifacts.py, release-metadata.py, executable bootstrap
+                         and runtime-image fixtures; opt-in dev-only Node browser QA drivers
+                         (test-*.cjs with shared web-qa.cjs/web-state-actions.cjs; never shipped)
 docs/                    this documentation tree
 .github/workflows/       CI
 ```
@@ -165,8 +179,11 @@ docs/                    this documentation tree
 owns head/preferences/feedback; app/auth/sub layouts compose it. The public subscription page keeps
 its shared body in `page_sub.html` and one hero per design in `partial_sub_heroes.html`. `web/static/js/ui.js` owns shared
 navigation/overlay/theme/request lifecycle; `app.js` imports its cache-busted URL for page-specific
-forms. CSS lives in `web/styles` (tokens → base → components → layout → pages → utilities, see
-the [design system](../product/design-system.md)); presets in `web/themes` are data only. No new
+forms. CSS lives in `web/styles`, concatenated in path order (`00-layers.css` → `01-fonts.css` → tokens →
+base → components → layout → pages → utilities, see the
+[design system](../product/design-system.md)). Subscription designs live in
+`web/styles/40-pages/sub-designs/<id>.css` and bundle after the shared `sub-base.css`
+(`TestSubscriptionDesignsAreComplete`). Presets in `web/themes` are data only. No new
 frontend runtime or REST request path is introduced. Settings batch writes reuse registry
 validation/encryption and commit all submitted overrides in one SQLite transaction.
 Operational forms reuse `operational_forms.go` and `partial_form_feedback.html` for allowlisted

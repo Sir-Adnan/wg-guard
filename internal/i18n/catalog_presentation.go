@@ -2,11 +2,9 @@ package i18n
 
 func init() {
 	rows := [][3]string{
-		{"appearance.sections", "Appearance sections", "بخش‌های ظاهر"}, {"appearance.style_tab", "Visual style", "سبک بصری"},
+		{"appearance.sections", "Appearance sections", "بخش‌های ظاهر"},
 		{"appearance.numbers_tab", "Numerals", "اعداد"}, {"appearance.reset_tab", "Reset", "بازنشانی"},
-		{"appearance.live_preview", "Live preview", "پیش‌نمایش زنده"},
 		{"appearance.account_scope", "My account", "حساب من"}, {"appearance.panel_scope", "Panel default", "پیش‌فرض پنل"},
-		{"appearance.preview_only", "Preview locally, then apply to save your choice.", "ابتدا پیش‌نمایش را ببینید؛ برای ذخیره، اعمال را بزنید."},
 		{"nav.group.preferences", "Preferences", "تنظیمات"},
 		{"users.form.creation_mode", "User creation method", "روش ساخت کاربر"},
 		{"users.form.mode_custom", "Standard", "معمولی"}, {"users.form.mode_template", "From template", "از روی قالب"},
@@ -23,7 +21,7 @@ func init() {
 		{"appearance.digits.title", "Number display", "نمایش اعداد"}, {"appearance.digits.hint", "Choose numeral glyphs independently of language and theme. Inputs, IP/CIDR, ports, keys, identifiers and copied values remain canonical Latin.", "شکل اعداد را مستقل از زبان و تم انتخاب کنید. ورودی‌ها، IP/CIDR، پورت، کلید، شناسه و مقادیر کپی‌شده لاتین می‌مانند."},
 		{"appearance.digits.personal", "For my account", "برای حساب من"}, {"appearance.digits.default", "Panel default", "پیش‌فرض پنل"}, {"appearance.digits.inherit", "Use panel default", "استفاده از پیش‌فرض پنل"},
 		{"appearance.digits.latin", "English numerals", "اعداد انگلیسی"}, {"appearance.digits.persian", "Persian numerals", "اعداد فارسی"},
-		{"common.field_help", "Help for %s", "راهنمای %s"}, {"common.help", "Help", "راهنما"},
+		{"common.field_help", "Help for %s", "راهنمای %s"},
 	}
 	for _, row := range rows {
 		catalogEN[row[0]] = row[1]

@@ -120,7 +120,7 @@ func (s *Server) handleDeviceRegenerate(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		PresharedKey bool `json:"preshared_key"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !decodeOptionalJSON(w, r, &req) {
 		return
 	}
 	keys, err := s.generateKeys(r, req.PresharedKey)

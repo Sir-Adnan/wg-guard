@@ -81,10 +81,9 @@ func planSeeds(p Plan) []seed {
 
 // seedSettings applies the wizard's runtime choices through the installed
 // CLI, BEFORE the service first boots: the settings registry caches values
-// in memory, so post-boot writes would stay invisible until a restart. In
-// docker mode this runs while the state file does not exist yet, so the
-// shim is guaranteed to execute host-direct (mode routing needs
-// install-state.json) and the bind-mounted data dir gives host and
+// in memory, so post-boot writes would stay invisible until a restart. This
+// runs while the state file does not exist yet, so the shim is guaranteed
+// to execute host-direct (container routing needs install-state.json) and the bind-mounted data dir gives host and
 // container the same database.
 func seedSettings(ctx context.Context, h Host, p Plan, out io.Writer) error {
 	seeds := planSeeds(p)

@@ -26,10 +26,6 @@ func init() {
 	catalogFA["install.cli.tls_arguments"] = "tls-check: آرگومانی پذیرفته نمی‌شود"
 	catalogEN["install.cli.help"] = "\nPrerequisites and certificates:\n  install     --public-ip IP --prerequisites auto|check --core BUNDLE\n  core        installed | recommended | latest-compatible | exact BUNDLE\n  tls-check   Retry certificate verification for an installed node\n"
 	catalogFA["install.cli.help"] = "\nپیش‌نیازها و گواهی‌ها:\n  install     --public-ip IP --prerequisites auto|check --core BUNDLE\n  core        installed | recommended | latest-compatible | exact BUNDLE\n  tls-check   تلاش مجدد برای تأیید گواهی گره نصب‌شده\n"
-	catalogEN["install.summary.certificate"] = "   2. Certificate readiness: %s (HTTP-01 needs external TCP 80).\n"
-	catalogFA["install.summary.certificate"] = "   2. آمادگی گواهی: %s (HTTP-01 به TCP 80 خارجی نیاز دارد).\n"
-	catalogEN["install.summary.core"] = "  Core requested: %s (tools %s; kernel source %s)\n  Core installed: tools %s; kernel package %s\n  Module loaded:  %s; identity %s; reboot required %t\n"
-	catalogFA["install.summary.core"] = "  هستهٔ درخواستی: %s (ابزار %s؛ منبع کرنل %s)\n  هستهٔ نصب‌شده: ابزار %s؛ بستهٔ کرنل %s\n  ماژول بارگذاری‌شده: %s؛ هویت %s؛ نیاز به راه‌اندازی مجدد %t\n"
 	catalogEN["install.error.manual_path"] = "install: manual certificate paths must be absolute and contain no whitespace or compose delimiters"
 	catalogFA["install.error.manual_path"] = "نصب: مسیر گواهی دستی باید مطلق و بدون فاصله یا جداکننده‌های Compose باشد"
 	catalogEN["install.error.manual_files"] = "install: manual certificate and private key files must be readable before installation"
@@ -50,7 +46,6 @@ func init() {
 		"install.error.core.11":    "install: missing prerequisite %s; repair its package manually",
 		"install.error.core.12":    "install: Docker Compose is unavailable",
 		"install.error.core.13":    "install: Docker daemon is unavailable; start Docker and retry",
-		"install.error.core.14":    "install: installed AWG tools do not match selected bundle",
 		"install.error.core.15":    "install: installed kernel module source does not match the selected bundle",
 		"install.error.core.16":    "install: loaded module differs from disk; schedule a maintenance reboot, then retry (active tunnels preserved)",
 		"install.error.core.17":    "install: load the compatible AmneziaWG module manually, then retry",
@@ -59,7 +54,6 @@ func init() {
 		"install.error.core.20":    "install: module cannot load; check headers and Secure Boot or select explicit external core",
 		"install.error.core.21":    "install: module load was not observable; managed tunnel readiness is unverified",
 		"install.error.core.22":    "install: loaded module build identity is unknown; inspect loaded and disk srcversion or select explicit external core",
-		"install.error.core.23":    "install: refresh Ubuntu package metadata failed",
 		"install.error.core.24":    "install: Ubuntu repository tooling installation failed",
 		"install.error.core.25":    "install: prepare the Amnezia PPA for this Ubuntu release failed",
 		"install.error.core.26":    "install: refresh Amnezia PPA metadata failed",
@@ -114,7 +108,6 @@ func init() {
 		"install.error.core.11":    "نصب: پیش‌نیاز %s موجود نیست؛ بستهٔ آن را دستی ترمیم کنید",
 		"install.error.core.12":    "نصب: Docker Compose در دسترس نیست",
 		"install.error.core.13":    "نصب: سرویس Docker در دسترس نیست؛ آن را راه‌اندازی و دوباره تلاش کنید",
-		"install.error.core.14":    "نصب: ابزار AWG نصب‌شده با بستهٔ انتخابی مطابقت ندارد",
 		"install.error.core.15":    "نصب: منبع ماژول نصب‌شده با بستهٔ انتخابی مطابقت ندارد",
 		"install.error.core.16":    "نصب: ماژول بارگذاری‌شده با نسخهٔ روی دیسک متفاوت است؛ راه‌اندازی مجدد را در زمان نگهداری انجام دهید و دوباره تلاش کنید (تونل‌های فعال حفظ شدند)",
 		"install.error.core.17":    "نصب: ماژول سازگار AmneziaWG را دستی بارگذاری و دوباره تلاش کنید",
@@ -123,7 +116,6 @@ func init() {
 		"install.error.core.20":    "نصب: ماژول بارگذاری نمی‌شود؛ هدرها و Secure Boot را بررسی یا مدیریت خارجی هسته را صریحاً انتخاب کنید",
 		"install.error.core.21":    "نصب: بارگذاری ماژول مشاهده نشد؛ آمادگی تونل‌های مدیریت‌شده تأیید نشده است",
 		"install.error.core.22":    "نصب: هویت ساخت ماژول بارگذاری‌شده نامشخص است؛ srcversion حافظه و دیسک را بررسی یا مدیریت خارجی هسته را انتخاب کنید",
-		"install.error.core.23":    "نصب: به‌روزرسانی فهرست بسته‌های Ubuntu ناموفق بود",
 		"install.error.core.24":    "نصب: نصب ابزار مخزن Ubuntu ناموفق بود",
 		"install.error.core.25":    "نصب: آماده‌سازی مخزن Amnezia PPA برای این نسخه Ubuntu ناموفق بود",
 		"install.error.core.26":    "نصب: به‌روزرسانی فهرست Amnezia PPA ناموفق بود",

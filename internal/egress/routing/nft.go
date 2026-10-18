@@ -36,6 +36,7 @@ const (
 	chainMSS        = "mss_clamp"
 	chainDNS        = "dns_redirect"
 	chainSourceNAT  = "source_nat"
+	chainKeepPrefix = "k_"
 	dynamicSetSize  = 65536
 	elementsPerLine = 512
 )
@@ -123,6 +124,9 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 		for name := range p.Chains {
 			chains[name] = ""
 		}
+		for name := range keepChains(p) {
+			chains[name] = ""
+		}
 		sets[setReserved] = "type ipv4_addr; flags interval; auto-merge;"
 		if p.BlockEncryptedDNS {
 			sets[setEncryptedDNS] = "type ipv4_addr; flags interval; auto-merge;"
@@ -194,7 +198,13 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 	if classifying {
 		mask := fmt.Sprintf("0x%08x", MarkMask)
 		line("add rule %s %s iifname != %s return", t, chainPrerouting, ifaces)
-		line("add rule %s %s ct mark and %s != 0 meta mark set ct mark and %s return", t, chainPrerouting, mask, mask)
+		keep := keepChains(p)
+		entries := make([]string, 0, len(keep))
+		for _, name := range sortedKeys(keep) {
+			entries = append(entries, fmt.Sprintf("0x%08x : goto %s", keep[name], name))
+		}
+		// Pinned connections get their mark field back (other bits kept).
+		line("add rule %s %s ct mark and %s vmap { %s }", t, chainPrerouting, mask, strings.Join(entries, ", "))
 		// Flows that predate classification keep the direct route.
 		line("add rule %s %s ct state established,related goto %s", t, chainPrerouting, chainDirect)
 		line("add rule %s %s ip daddr @%s return", t, chainPrerouting, setReserved)
@@ -215,6 +225,9 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 		for _, name := range sortedKeys(p.Chains) {
 			line("add rule %s %s %s", t, name, p.Chains[name])
 		}
+		for _, name := range sortedKeys(keep) {
+			line("add rule %s %s %s", t, name, restoreStatement(keep[name]))
+		}
 		block := fmt.Sprintf("0x%08x", MarkBlock)
 		line("add rule %s %s meta mark and %s == %s meta l4proto tcp reject with tcp reset", t, chainBlockFwd, mask, block)
 		line("add rule %s %s meta mark and %s == %s reject with icmp type admin-prohibited", t, chainBlockFwd, mask, block)
@@ -230,6 +243,20 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 		line("add rule %s %s meta mark and 0x%08x == 0x%08x snat to %s", t, chainSourceNAT, MarkMask, s.Mark, s.Address)
 	}
 	return []byte(b.String())
+}
+
+// keepChains maps one restore chain per mark a connection can be pinned to
+// (direct, block and every enabled outbound, used by a rule or not) to that
+// mark, so a flow keeps its exit while the outbound exists.
+func keepChains(p *Plan) map[string]uint32 {
+	keep := map[string]uint32{chainKeepPrefix + "direct": MarkDirect, chainKeepPrefix + "block": MarkBlock}
+	for _, r := range p.Routes {
+		keep[fmt.Sprintf("%so%d", chainKeepPrefix, r.Mark>>markShift)] = r.Mark
+	}
+	for _, s := range p.SNAT {
+		keep[fmt.Sprintf("%so%d", chainKeepPrefix, s.Mark>>markShift)] = s.Mark
+	}
+	return keep
 }
 
 func prefixStrings(prefixes []netip.Prefix) []string {

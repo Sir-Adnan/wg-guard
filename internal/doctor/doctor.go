@@ -78,17 +78,6 @@ func (r *Report) Failures() int {
 	return n
 }
 
-// Warnings counts warn-grade checks.
-func (r *Report) Warnings() int {
-	n := 0
-	for _, c := range r.Checks {
-		if c.Status == StatusWarn {
-			n++
-		}
-	}
-	return n
-}
-
 // Deps wires the doctor. DB/Reg may be nil where a check cannot run.
 type Deps struct {
 	Cfg        *config.Config
@@ -221,7 +210,7 @@ func (d *doctor) checkPlatform() {
 
 func (d *doctor) checkPrivileges() {
 	st, detail := platformPrivileges()
-	d.add("privileges", st, detail, "tunnel and firewall management requires root — run the service via systemd as designed")
+	d.add("privileges", st, detail, "tunnel and firewall management requires root — run inside the managed WG-Guard container (root with NET_ADMIN)")
 }
 
 func (d *doctor) checkDataDir() {

@@ -204,7 +204,6 @@ func TestSoftDeleteRestore(t *testing.T) {
 
 func strPtr(s string) *string { return &s }
 func i64Ptr(v int64) *int64   { return &v }
-func intPtr(v int) *int       { return &v }
 
 func TestCreateExactExpiry(t *testing.T) {
 	svc := newService(t)

@@ -97,6 +97,7 @@ func coreReportMatchesBundle(r CoreReport, b CoreBundle) bool {
 	if b.Source == coreSourceGitHub {
 		return r.ToolsSource == coreSourceGitHub && r.KernelSource == coreSourceGitHub && r.KernelDKMS == b.KernelDKMSVersion
 	}
+	// ToolsLocation "host" appears only in pre-v0.1.10 core reports.
 	if r.ToolsLocation == "container" && r.ToolsSource == coreSourceGitHub {
 		return r.KernelPackage == b.KernelPackage
 	}

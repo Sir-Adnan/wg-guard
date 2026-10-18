@@ -35,6 +35,12 @@ Only an enabled node owner can submit operations, with CSRF and audit. A reader
 with `server.view` receives safe certificate/address/status metadata. Bot tokens
 and customer capabilities cannot issue certificates or read host files.
 
+The workspace (Phases 18–19, first shipped in v0.1.10; absent from v0.1.9) shows
+independent panel and subscription cards, the choices below, certificate metadata
+and safe operation/recovery status, with controlled host cert/key paths as an
+advanced option. It never displays private key material, and the standard
+same-host workflow needs no Nginx or Compose edits.
+
 | Choice | Required input | Renewal |
 |---|---|---|
 | Automatic HTTPS | HTTPS origin, HTTP-01 or managed Cloudflare DNS-01, optional email | Host Certbot, named lineage only, normal due checks |

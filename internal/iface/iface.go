@@ -808,23 +808,6 @@ func (s *Service) SetEnabled(ctx context.Context, id string, enabled bool) error
 	return nil
 }
 
-// UpdateMTU changes the MTU of one profile (recommended default lives in
-// settings; per-interface values override it).
-func (s *Service) UpdateMTU(ctx context.Context, id string, mtu int) error {
-	if mtu < 576 || mtu > 65535 {
-		return domain.E(domain.CodeInvalidRequest, "MTU must be 576–65535, got %d", mtu)
-	}
-	res, err := s.db.ExecContext(ctx, `UPDATE tunnel_interfaces SET mtu = ?, updated_at = ? WHERE id = ?`,
-		mtu, s.now().UTC().Format(time.RFC3339Nano), id)
-	if err != nil {
-		return fmt.Errorf("iface: set mtu: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return domain.E(domain.CodeInterfaceNotFound, "interface %s not found", id)
-	}
-	return nil
-}
-
 // UpdateInput is a partial profile update. Name, port and primary pool stay
 // immutable. Ordered overflow pools may change only when existing allocated
 // addresses remain protected; pool validation shares the allocation transaction.

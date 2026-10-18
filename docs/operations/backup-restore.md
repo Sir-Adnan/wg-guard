@@ -243,7 +243,7 @@ Telegram probe, sends one explicitly selected encrypted archive, and permits one
 encrypted send: at most two archive sends. It scans bounded captures for its random password and
 Telegram values before writing sanitized evidence. The credential file is preserved for the
 operator; cleanup never removes it. A helper pass is synthetic fixture evidence, not proof of the
-managed native/Docker lifecycle, original-data recovery, public networking, or the dedicated VPS.
+managed Docker lifecycle, original-data recovery, public networking, or the dedicated VPS.
 
 Run its safe local regressions with:
 

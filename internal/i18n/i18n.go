@@ -69,6 +69,13 @@ func Normalize(s string) Locale {
 	return Default
 }
 
+// Has reports whether key exists in the English catalog (parity tests keep
+// the locales aligned), for callers that must not echo arbitrary keys.
+func Has(key string) bool {
+	_, ok := catalogs[En][key]
+	return ok
+}
+
 // T translates key for locale, formatting args into the result. Missing
 // keys fall back to English (so a partially translated catalog degrades to
 // English, never to a raw key) and then to the key itself — which the parity

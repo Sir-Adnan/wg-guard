@@ -317,7 +317,7 @@ func rollbackExposure(h Host, journal *Journal) error {
 }
 
 // ReconfigureExposure changes only panel access/TLS while retaining the
-// installed build, deployment mode, data and AmneziaWG state.
+// installed build, Docker deployment, data and AmneziaWG state.
 func ReconfigureExposure(ctx context.Context, h Host, o ReconfigureOptions) (result *State, resultErr error) {
 	if !h.IsRoot() {
 		return nil, terminalError("manage.root")

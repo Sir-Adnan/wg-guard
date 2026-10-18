@@ -15,9 +15,11 @@ replay their gates.
    platform assumption or newly discovered regression crosses that scope. Fix and rerun affected
    checks, not an unrelated historical matrix.
 3. At coherent delivery, confirm the applicable checks on the resulting revision. A docs-only
-   change can use text/link/diff inspection; a code or asset change needs tests for its affected
-   behavior and a build when compilation, embedding or distribution is in question. Use the full
-   repository suite when the change is cross-cutting, the test boundary is unclear, or acceptance
+   change can use text/link/diff inspection plus `python3 scripts/check-docs.py` (stdlib only, no
+   network), which fails on broken relative links, missing heading anchors and backticked
+   repository paths that no longer exist in living docs. A code or asset change needs tests for its
+   affected behavior and a build when compilation, embedding or distribution is in question. Use
+   the full repository suite when the change is cross-cutting, the test boundary is unclear, or acceptance
    requires it. Do not rerun an unchanged, still-applicable result solely for a commit, a final
    response or a documentation edit.
 4. Acceptance and publication have separate gates. CI exercises its configured source checks on
@@ -77,8 +79,11 @@ checks, not aliases for the Go package suite.
 ## CI, commits and documentation
 
 [CI](../../.github/workflows/ci.yml) currently runs for every PR and push to `main`, including
-docs-only pushes: format check, vet, asset measurement, bootstrap and synthetic-backup fixtures,
-full race tests on Go 1.25.x and stable, a Linux/amd64 build, and a reachable-vulnerability scan.
+docs-only pushes: format check, vet, `python3 scripts/check-docs.py`, asset measurement, bootstrap
+and synthetic-backup fixtures, full race tests on Go 1.25.x and stable, the integration-tag
+encrypted-archive enforcement check (`GOMAXPROCS=1 go test -race -tags integration ./internal/serve
+-run TestEncryptedBackupLoadPreservesEnforcementCadence -count=1`), a Linux/amd64 build, and a
+reachable-vulnerability scan.
 There is no docs-only path filter. Do not duplicate these entire gates locally simply because CI
 will run; inspect its result for the exact revision before claiming CI passed.
 

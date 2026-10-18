@@ -3,7 +3,7 @@
 Status: **complete (2026-09-13)**. The owner approved
 this order on 2026-09-10, with the owner's 2026-09-12 continuation clarifications taking precedence.
 The complete requirement input is the tracked
-[Phase 10 prompt](../prompt/PropmtForPhase10.md); this document owns execution/evidence and
+[Phase 10 owner prompt](../archive/phase10-owner-prompt.md); this document owns execution/evidence and
 [UI/UX](../product/ui-ux.md) owns the lasting design contract. This is the frozen Phase 10
 record; Phase 11 later completed its documented Ubuntu 24.04 scope.
 

@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"bytes"
 	"context"
 	"path/filepath"
 	"strings"
@@ -12,8 +11,6 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/secrets"
 )
-
-func key32(b byte) []byte { return bytes.Repeat([]byte{b}, 32) }
 
 func newRegistry(t *testing.T) (*Registry, *database.DB) {
 	t.Helper()

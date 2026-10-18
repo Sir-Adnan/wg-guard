@@ -79,9 +79,14 @@ mark 0x7ff… (block)   → block_forward drops (TCP gets a reset)
 ```
 
 - **Marks.** Only the field `0x7ff00000` is used, so marks from other tools are preserved.
-  Slot `N` gets mark `N<<20`. Direct is `0x7fe<<20` and block is `0x7ff<<20`.
-- **Connections stay on one exit.** The chosen mark is saved in the conntrack mark. Flows that
-  existed before a table rebuild go to direct. A flow never changes exits mid-connection.
+  Slot `N` gets mark `N<<20`. Direct is `0x7fe<<20` and block is `0x7ff<<20`. Every write is
+  `meta mark set meta mark and 0x800fffff or <mark>` (the same for `ct mark`), so bits outside
+  the field (Docker, kube-proxy, Tailscale) are kept on both the packet and the connection.
+- **Connections stay on one exit.** The chosen mark is saved in the conntrack mark. A pinned
+  flow gets its mark back through `ct mark and 0x7ff00000 vmap { <mark> : goto k_<exit> }`, with
+  one constant restore chain for direct, block and every enabled outbound (used by a rule or
+  not). nft cannot OR two runtime values on supported kernels, hence the map. Flows that existed
+  before a table rebuild go to direct. A flow never changes exits mid-connection.
 - **Policy routing.** There is one `ip rule fwmark <mark>/0x7ff00000 table <51800+slot>
   priority 5180` per tunneled outbound, and the table holds `default dev wgoN`.
   `source_ip` outbounds need no table; `source_nat` (postrouting priority 99) changes the
@@ -92,7 +97,12 @@ mark 0x7ff… (block)   → block_forward drops (TCP gets a reset)
   - AmneziaWG obfuscation parameters are passed through unchanged.
   - Each link gets `rp_filter=2` and MSS clamping (`mss_clamp`, link MTU − 40).
   - The default MTU is 1280.
-  - Links are adopted after a panel restart and removed when their row is deleted or disabled.
+  - Links are adopted after a panel restart when the keys and obfuscation match. Peer settings
+    (endpoint, preshared key, keepalive) are then converged in place with `syncconf`, the MTU
+    with `ip link set mtu` and the address with the backend, so changes saved but not applied
+    before the restart still land without a session reset. If any of those steps fails, the
+    link is recreated.
+  - Links are removed when their row is deleted or disabled.
 - **nftables.** Everything lives in `table ip wgguard_egress`, which sits next to the existing
   `inet wgguard` table and never touches foreign tables
   ([ADR-0004](../decisions/ADR-0004-namespaced-nftables.md)). It is changed in place in one
@@ -128,6 +138,10 @@ single outbound that is unhealthy fails open to direct.
   exit IP and country.
 - An outbound is marked down after 2 failures in a row and up after 1 success. A state change
   rebuilds the plan.
+- The panel **Test** button (`POST /routing/outbounds/{id}/test`, `interfaces.read`) probes
+  once and records the result, but never changes the kernel itself. If the result flips the
+  health state, the next health pass rebuilds the plan. Health of deleted outbounds is
+  dropped on the next apply.
 - The same pass recreates the table if something removed it, and refreshes the least-connection
   shares.
 
@@ -143,7 +157,23 @@ Domain matching needs the names clients look up, so a small forwarding resolver
   are set, it uses 1.1.1.1 and 1.0.0.1.
 - **Matching names.** For A records of matching names, the answer addresses are added to that
   rule's `r<id>_d` timeout set before the reply goes out. Additions are batched through `nft -f`.
+  - When an answer has an address the feeder has not written (or whose remembered timeout has
+    expired), the feeder writes it at once, together with anything already queued. The reply
+    waits for that write for at most 300 ms. After that it is sent anyway and counted as `Late`;
+    only that first connection then takes the default route. Addresses that are still present
+    (including ones due for refresh) never delay the reply.
   - The timeout is the record TTL, clamped to 30 minutes–6 hours, and is refreshed at half-life.
+    Each write is `add`, `delete`, `add` of the elements in one transaction. Older kernels do
+    not extend the timeout of an existing element on a plain `add`; this form resets it on every
+    kernel, and the element is never absent.
+  - All sets are written in one transaction. If it fails (for example, one set is full), each
+    set is retried in its own transaction, so the other rules keep learning (at most one retry
+    per domain rule).
+  - When an apply (re)creates a resolver set (first apply, or the health pass rebuilding a
+    table someone flushed), the feeder forgets what it wrote to that set. The next answer
+    re-adds the addresses. Clients that still have the name cached take the default route
+    until they query again. A set emptied externally while the table stays in place is not
+    detected; its addresses return with the first query after their half-life.
   - AAAA queries for matching names get an empty answer, so dual-stack clients use IPv4, which
     the rule can steer.
 - **Bounds.** At most 512 queries in flight, 128 TCP sessions with 32 queries each, 65 536

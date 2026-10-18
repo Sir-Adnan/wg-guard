@@ -124,6 +124,9 @@ func (s *Server) adminFormFailure(w http.ResponseWriter, r *http.Request, edit, 
 	if domain.CodeOf(err) == domain.CodeOwnerProtected {
 		d.Form.Error = s.t(r, "ops.owner_protected")
 	}
+	if domain.CodeOf(err) == domain.CodeForbidden {
+		d.Form.Error = s.t(r, "admins.error.grant_exceeds")
+	}
 	_ = s.render(w, r, "admins", "app", d)
 }
 
@@ -141,6 +144,10 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 		perms = nil // a scope selection would mislead for owners
 	}
 
+	if err := grantWithinCaller(r, perms); err != nil {
+		s.adminFormFailure(w, r, "", "permissions", err)
+		return
+	}
 	created, err := s.Admins.Create(r.Context(), username, password, auth.Role(role), perms)
 	if err != nil {
 		s.adminFormFailure(w, r, "", "", err)
@@ -176,6 +183,10 @@ func (s *Server) handleAdminPermissions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	perms := r.Form["permissions"]
+	if err := grantWithinCaller(r, perms); err != nil {
+		s.adminFormFailure(w, r, id, "permissions", err)
+		return
+	}
 	if err := s.Admins.SetPermissions(r.Context(), id, perms); err != nil {
 		s.adminFormFailure(w, r, id, "permissions", err)
 		return
@@ -216,6 +227,22 @@ func (s *Server) handleAdminDelete(w http.ResponseWriter, r *http.Request) {
 	s.redirectToast(w, r, "/admins", "admins.toast.deleted")
 }
 
+// grantWithinCaller caps delegated access the way API tokens are capped: an
+// administrator other than the owner grants only scopes they hold, so
+// admins.manage alone cannot mint a more powerful account.
+func grantWithinCaller(r *http.Request, perms []string) error {
+	caller := adminFrom(r)
+	if caller.Role == auth.RoleOwner {
+		return nil
+	}
+	for _, p := range perms {
+		if !auth.Allows(caller.Permissions, p) {
+			return domain.E(domain.CodeForbidden, "permissions: %q exceeds your own access", p)
+		}
+	}
+	return nil
+}
+
 func (s *Server) mayManageAdminTarget(w http.ResponseWriter, r *http.Request, id string) bool {
 	if adminFrom(r).Role == auth.RoleOwner {
 		return true
@@ -227,6 +254,12 @@ func (s *Server) mayManageAdminTarget(w http.ResponseWriter, r *http.Request, id
 	}
 	if target.ResellerID != nil {
 		s.surfaceError(w, r, http.StatusForbidden, "common.denied", "")
+		return false
+	}
+	// Only the owner manages the owner account: a password reset by anyone
+	// else would hand over owner access and lock the owner out.
+	if target.Role == auth.RoleOwner {
+		s.redirectToast(w, r, "/admins", "ops.owner_protected")
 		return false
 	}
 	return true

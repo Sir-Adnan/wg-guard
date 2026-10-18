@@ -7,10 +7,8 @@ func init() {
 		{"admin.ui.permissions_n", "%d permissions", "%d مجوز"},
 		{"admin.ui.templates_n", "%d templates", "%d قالب"},
 		{"admin.ui.accounts_n", "%d accounts", "%d حساب"},
-		{"admin.ui.customers_n", "%d customers", "%d مشتری"},
 		{"admin.ui.reseller_actions", "Reseller actions", "کارهای فروشنده"},
 		{"admin.ui.search_customers", "Search customers", "جستجوی مشتری‌ها"},
-		{"admin.ui.usage", "Usage", "مصرف"},
 		{"admin.ui.limit_of", "of %s", "از %s"},
 	}
 	for _, row := range rows {

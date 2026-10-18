@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"filippo.io/age"
@@ -169,16 +168,6 @@ func fileEncrypted(path string) bool {
 		return false
 	}
 	return string(magic[:]) == ageMagic
-}
-
-// trimEcho bounds sink error bodies so upstream responses can never dump
-// unbounded (or sensitive) text into warnings and logs.
-func trimEcho(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) > n {
-		s = s[:n] + "…"
-	}
-	return s
 }
 
 // httpTimeout is the sink delivery budget (large uploads over real networks).

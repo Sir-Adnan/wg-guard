@@ -14,9 +14,11 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 )
 
+// maintenanceCan never admits a reseller account: maintenance is node-wide,
+// whatever grants a reseller ceiling might later allow.
 func maintenanceCan(r *http.Request, scope string) bool {
 	a := adminFrom(r)
-	return a != nil && auth.Authorized(a.Role, a.Permissions, scope)
+	return a != nil && a.ResellerID == nil && auth.Authorized(a.Role, a.Permissions, scope)
 }
 func (s *Server) requireMaintenanceRead(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

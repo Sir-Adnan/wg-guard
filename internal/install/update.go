@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"path"
 	"path/filepath"
 	"strings"
@@ -193,29 +192,6 @@ func Update(ctx context.Context, h Host, o UpdateOptions) (resultErr error) {
 		}
 	}
 	progress(out, "update_complete")
-	return nil
-}
-
-func requireOwnedOrAbsent(h Host, state *State, target string) error {
-	if _, ok := h.(realHost); ok {
-		if err := safeHostPath(target); err != nil {
-			return err
-		}
-	}
-	info, err := h.Stat(target)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	owned := false
-	for _, file := range state.ExtraFiles {
-		owned = owned || file == target
-	}
-	if !owned || !info.Mode().IsRegular() {
-		return fmt.Errorf("update: refusing unowned policy %s", target)
-	}
 	return nil
 }
 
@@ -671,11 +647,7 @@ func createBackup(ctx context.Context, h Host, st *State, id string) (*BackupIde
 	if err := h.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	args := []string{BinPath}
-
-	args = []string{"docker", "exec", Container, BinPath}
-
-	args = append(args, "backup", "create", "--reason", "pre-upgrade", "--output", dir)
+	args := []string{"docker", "exec", Container, BinPath, "backup", "create", "--reason", "pre-upgrade", "--output", dir}
 	raw, err := h.Output(ctx, args, 5*time.Minute)
 	if err != nil {
 		return nil, err

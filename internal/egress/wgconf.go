@@ -40,6 +40,7 @@ func ParseClientConfig(text string) (ParsedConfig, error) {
 	peers := 0
 	obf := iface.Obfuscation{}
 	obfSeen := false
+	keepaliveSeen := false
 	for _, raw := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
@@ -71,7 +72,7 @@ func ParseClientConfig(text string) (ParsedConfig, error) {
 				return out, err
 			}
 		case "peer":
-			if err := parsePeerKey(&out, key, value); err != nil {
+			if err := parsePeerKey(&out, &keepaliveSeen, key, value); err != nil {
 				return out, err
 			}
 		default:
@@ -84,7 +85,8 @@ func ParseClientConfig(text string) (ParsedConfig, error) {
 	if out.Tunnel.MTU == 0 {
 		out.Tunnel.MTU = DefaultTunnelMTU
 	}
-	if out.Tunnel.Keepalive == 0 {
+	if !keepaliveSeen {
+		// Absent means the usual NAT-friendly default; an explicit 0 is off.
 		out.Tunnel.Keepalive = 25
 	}
 	if obfSeen {
@@ -195,7 +197,7 @@ func parseInterfaceKey(out *ParsedConfig, obf *iface.Obfuscation, seen *bool, ke
 	return nil
 }
 
-func parsePeerKey(out *ParsedConfig, key, value string) error {
+func parsePeerKey(out *ParsedConfig, keepaliveSeen *bool, key, value string) error {
 	switch key {
 	case "publickey":
 		if tunnel.ValidatePublicKey(value) != nil {
@@ -218,6 +220,7 @@ func parsePeerKey(out *ParsedConfig, key, value string) error {
 			return invalid("config", "config_invalid")
 		}
 		out.Tunnel.Keepalive = n
+		*keepaliveSeen = true
 	case "allowedips":
 		// Ignored: everything steered into the outbound may leave through it.
 	default:
@@ -242,6 +245,3 @@ func validEndpoint(value string) error {
 	}
 	return nil
 }
-
-// ValidEndpoint exposes endpoint validation for form edits.
-func ValidEndpoint(value string) error { return validEndpoint(value) }

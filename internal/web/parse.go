@@ -1,7 +1,6 @@
 package web
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -197,15 +196,6 @@ func parseDateOnly(raw string) (*time.Time, error) {
 	}
 	noon := d.UTC().Add(12 * time.Hour)
 	return &noon, nil
-}
-
-// formDurationValue returns the submitted duration value under either the
-// current (value+unit) or legacy (days) field name — used for error redisplay.
-func formDurationValue(r *http.Request) string {
-	if v := r.PostFormValue("duration_value"); v != "" {
-		return v
-	}
-	return r.PostFormValue("duration_days")
 }
 
 // --- form-display helpers ---------------------------------------------------------

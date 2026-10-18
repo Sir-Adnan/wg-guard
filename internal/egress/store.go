@@ -312,6 +312,10 @@ func (s *Service) UpdateWARPLicense(ctx context.Context, id, license string) (*O
 
 // licenseRe-free check: WARP+ keys are three dash-separated 8-character
 // groups of letters and digits ("xxxxxxxx-xxxxxxxx-xxxxxxxx").
+// ValidateLicense checks the format of a WARP+ license key without any
+// network call (the panel validates before its first write).
+func ValidateLicense(license string) error { return validLicense(strings.TrimSpace(license)) }
+
 func validLicense(license string) error {
 	if license == "" {
 		return nil

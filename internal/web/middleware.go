@@ -16,6 +16,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
 )
@@ -81,6 +82,12 @@ func (s *Server) sessionMiddleware(next http.Handler) http.Handler {
 				r = r.WithContext(context.WithValue(r.Context(), ctxSession, c.Value))
 				r = r.WithContext(context.WithValue(r.Context(), ctxCSRF, deriveCSRF(c.Value)))
 				w.Header().Add("Vary", "Cookie")
+			} else if domain.CodeOf(err) == domain.CodeInternal {
+				// A storage failure (busy or unreadable database) says nothing
+				// about the session: serve this request signed out but keep the
+				// cookie, so the next request after a transient error still
+				// has its session.
+				s.logError(r, "session lookup", err)
 			} else {
 				// Stale or revoked cookie: drop it so templates don't loop.
 				s.clearSessionCookie(w)
@@ -284,9 +291,6 @@ func bodyCap(next http.Handler) http.Handler {
 		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/routing/geodata/") && strings.HasSuffix(r.URL.Path, "/upload") {
 			limit = geodata.MaxFileBytes + (1 << 20)
 		}
-		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/routing/geodata/") && strings.HasSuffix(r.URL.Path, "/upload") {
-			limit = geodata.MaxFileBytes + (1 << 20)
-		}
 		if r.Method == http.MethodPost && r.URL.Path == "/backups/import" {
 			// Multipart framing gets a small allowance above the compressed
 			// archive bound. MaxBytesReader still streams and terminates excess.
@@ -307,6 +311,25 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// visitorIP is the address rate limits, sessions and audit attribute a
+// request to. Behind the managed reverse proxy every peer is the proxy, so
+// its X-Real-IP (set from $remote_addr, never appended) names the visitor;
+// the header is trusted only in proxy mode and only from a local/private
+// peer, so a direct client cannot pick its own rate-limit bucket.
+func (s *Server) visitorIP(r *http.Request) string {
+	peer := clientIP(r)
+	if s.TLSMode != config.TLSModeProxy {
+		return peer
+	}
+	if ip := net.ParseIP(peer); ip == nil || !(ip.IsLoopback() || ip.IsPrivate()) {
+		return peer
+	}
+	if real := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-IP"))); real != nil {
+		return real.String()
+	}
+	return peer
 }
 
 // --- cookies -----------------------------------------------------------------
@@ -441,7 +464,17 @@ func (l *ipLimiter) sweepLocked(now time.Time) {
 // safeNext validates a post-login redirect target: same-origin paths only.
 func safeNext(n string) string {
 	if n == "" || !strings.HasPrefix(n, "/") || strings.HasPrefix(n, "//") ||
-		strings.Contains(n, "://") || strings.ContainsAny(n, "\r\n") {
+		strings.Contains(n, "://") || strings.Contains(n, "\\") {
+		return ""
+	}
+	// Browsers drop tabs/newlines and read "\" as "/", so "/\evil" or
+	// "/\t/evil" would leave the origin; control characters never belong here.
+	for _, c := range n {
+		if c < 0x20 || c == 0x7f {
+			return ""
+		}
+	}
+	if u, err := url.Parse(n); err != nil || u.Scheme != "" || u.Host != "" {
 		return ""
 	}
 	return n

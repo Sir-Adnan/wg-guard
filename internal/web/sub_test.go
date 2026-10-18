@@ -18,6 +18,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/tunnel/fake"
 	"github.com/Sir-Adnan/wg-guard/internal/user"
 	"github.com/Sir-Adnan/wg-guard/migrations"
+	webassets "github.com/Sir-Adnan/wg-guard/web"
 )
 
 // seedUserWithDevice provisions a user + device through the real handlers and
@@ -128,6 +129,38 @@ func TestPublicSubscriptionRunningLowNoticeAndCommands(t *testing.T) {
 	set(`UPDATE users SET status='disabled' WHERE id=?`)
 	if got := notice(); got != "" {
 		t.Fatalf("unusable subscription keeps its status notice, got %q", got)
+	}
+}
+
+// Each device card tells the customer what it used and, while offline, when
+// it last connected, so "which device used my data" needs no support ticket.
+func TestPublicSubscriptionDeviceActivity(t *testing.T) {
+	e := newEnv(t)
+	uid, _, _, _ := e.seedUserWithDevice()
+	link, err := e.srv.Links.ForUser(context.Background(), uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := func() string { t.Helper(); return e.get(e.subBase(link.Token)+"?lang=en", nil).Body.String() }
+	if _, err := e.db.Exec(`UPDATE devices SET rx_bytes=1500000000, tx_bytes=500000000, last_handshake_at=NULL WHERE user_id=?`, uid); err != nil {
+		t.Fatal(err)
+	}
+	body := page()
+	if !strings.Contains(body, "2 GB used") || !strings.Contains(body, "Not connected yet") {
+		t.Fatal("a device that never connected must show its usage and that it has not connected")
+	}
+	earlier := time.Now().Add(-3 * time.Hour).UTC().Format(time.RFC3339)
+	if _, err := e.db.Exec(`UPDATE devices SET last_handshake_at=? WHERE user_id=?`, earlier, uid); err != nil {
+		t.Fatal(err)
+	}
+	if body := page(); !strings.Contains(body, "Last connected 3h ago") {
+		t.Fatal("an offline device must show when it last connected")
+	}
+	if _, err := e.db.Exec(`UPDATE devices SET last_handshake_at=? WHERE user_id=?`, time.Now().UTC().Format(time.RFC3339), uid); err != nil {
+		t.Fatal(err)
+	}
+	if body := page(); strings.Contains(body, "Last connected") || !strings.Contains(body, ">Online</span>") {
+		t.Fatal("an online device shows its online badge instead of a last-connected time")
 	}
 }
 
@@ -575,6 +608,34 @@ func TestSubscriptionLayoutPickerAndPreview(t *testing.T) {
 	}
 	if got := e.srv.subLayout(context.Background()); got != "ticket" {
 		t.Fatalf("reset must restore the default design, got %q", got)
+	}
+}
+
+// Every registered subscription design has its hero template and stylesheet,
+// and the shared body CSS is bundled before any design so designs can
+// override it whatever their ID sorts as.
+func TestSubscriptionDesignsAreComplete(t *testing.T) {
+	e := newEnv(t)
+	pt, ok := e.srv.pages["sub"]
+	if !ok {
+		t.Fatal("sub page template missing")
+	}
+	css, err := buildStyles(e.srv.themes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := bytes.Index(css, []byte("styles/40-pages/sub-base.css"))
+	for _, id := range subLayouts {
+		if pt.t.Lookup("sub_hero_"+id) == nil {
+			t.Errorf("design %q has no sub_hero_%s template", id, id)
+		}
+		file := "styles/40-pages/sub-designs/" + id + ".css"
+		if _, err := webassets.FS.Open(file); err != nil {
+			t.Errorf("design %q has no %s", id, file)
+		}
+		if at := bytes.Index(css, []byte(file)); base < 0 || at < base {
+			t.Errorf("design %q must be bundled after sub-base.css", id)
+		}
 	}
 }
 

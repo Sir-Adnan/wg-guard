@@ -2,8 +2,9 @@
 // with kernel routing. Client DNS (port 53, any destination) is redirected to
 // it on the tunnel gateways; it forwards to the configured upstreams and,
 // when the queried name matches a rule, adds the A records of the answer to
-// that rule's nftables timeout set before replying. The client's following
-// connection to that address is then classified by the kernel.
+// that rule's nftables timeout set before replying (bounded by learnWait).
+// The client's following connection to that address is then classified by
+// the kernel.
 //
 // Bounds: one UDP and one TCP listener per gateway, a fixed in-flight query
 // budget (excess datagrams are dropped like on any overloaded resolver),
@@ -363,7 +364,16 @@ func (s *Server) handle(ctx context.Context, network string, query []byte) []byt
 	}
 	if matched && (q.Type == dnsmessage.TypeA || q.Type == dnsmessage.TypeALL) {
 		s.matched.Add(1)
-		s.learn(entry.SetName, resp)
+		if done := s.learn(entry.SetName, resp); done != nil {
+			wait := time.NewTimer(learnWait)
+			select {
+			case <-done:
+			case <-wait.C:
+				s.feeder.late.Add(1)
+			case <-ctx.Done():
+			}
+			wait.Stop()
+		}
 	}
 	return resp
 }
@@ -377,34 +387,45 @@ func encryptedDNSName(name string) bool {
 	return false
 }
 
-// learn feeds the A records of a successful answer into the rule's set.
-func (s *Server) learn(set string, resp []byte) {
+// learn feeds the A records of a successful answer into the rule's set. The
+// returned channel (nil: nothing to wait for) closes once addresses the
+// kernel did not have yet are in the set.
+func (s *Server) learn(set string, resp []byte) <-chan struct{} {
 	var p dnsmessage.Parser
 	hdr, err := p.Start(resp)
 	if err != nil || hdr.RCode != dnsmessage.RCodeSuccess {
-		return
+		return nil
 	}
 	if err := p.SkipAllQuestions(); err != nil {
-		return
+		return nil
 	}
+	var addrs []netip.Addr
+	var ttls []uint32
 	for {
 		h, err := p.AnswerHeader()
 		if err != nil {
-			return
+			break
 		}
 		if h.Type != dnsmessage.TypeA || h.Class != dnsmessage.ClassINET {
 			if err := p.SkipAnswer(); err != nil {
-				return
+				break
 			}
 			continue
 		}
 		a, err := p.AResource()
 		if err != nil {
-			return
+			break
 		}
-		s.feeder.add(set, netip.AddrFrom4(a.A), h.TTL)
+		addrs, ttls = append(addrs, netip.AddrFrom4(a.A)), append(ttls, h.TTL)
 	}
+	if len(addrs) == 0 {
+		return nil
+	}
+	return s.feeder.learn(set, addrs, ttls)
 }
+
+// Forget implements routing.Resolver: the named sets were (re)created empty.
+func (s *Server) Forget(sets []string) { s.feeder.forget(sets) }
 
 func (s *Server) upstreamList(ctx context.Context, st *state) []string {
 	var out []string

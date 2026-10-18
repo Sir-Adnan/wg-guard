@@ -147,7 +147,7 @@ func extractArchive(ctx context.Context, archive, dest, root string, max int64) 
 			// to the selected immutable source root before ignoring metadata.
 			commit := strings.TrimPrefix(root, "wg-guard-")
 			if count != 1 || root != "wg-guard-"+commit || !commitSHA.MatchString(commit) ||
-				h.Name != "pax_global_header" || h.Format != tar.FormatPAX || len(h.Xattrs) != 0 ||
+				h.Name != "pax_global_header" || h.Format != tar.FormatPAX ||
 				len(h.PAXRecords) != 1 || h.PAXRecords["comment"] != commit {
 				return fmt.Errorf("distribution: unsupported archive metadata")
 			}

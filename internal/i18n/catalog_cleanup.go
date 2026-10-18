@@ -49,7 +49,6 @@ func init() {
 		{"ifaces.pools.primary_hint", "/24: 253 configs · /23: 509 · /22: 1021 · /21: 2045 · /20: 4093. Blank creation selects an available default /24; the primary pool stays fixed after creation.", "/24: ۲۵۳ کانفیگ · /23: ۵۰۹ · /22: ۱۰۲۱ · /21: ۲۰۴۵ · /20: ۴۰۹۳. ورودی خالی هنگام ساخت، بازهٔ پیش‌فرض آزاد را انتخاب می‌کند؛ بازهٔ اصلی پس از ساخت ثابت می‌ماند."},
 		{"ifaces.pools.capacity", "%d free / %d total", "%d آزاد / %d کل"}, {"ifaces.pools.full", "Address pools full", "بازه‌های IP پر هستند"},
 		{"users.confirm_delete", "Permanently delete %s and every device? IPs are released, customer access and queued next plans are removed. Recovery requires a backup.", "حذف دائمی %s و همهٔ دستگاه‌ها؟ IPها آزاد و دسترسی مشتری و پلن بعدی حذف می‌شوند. بازیابی به پشتیبان نیاز دارد."},
-		{"users.bulk.confirm_delete", "Permanently delete %d users and every device? IPs are released. Recovery requires a backup.", "حذف دائمی %d کاربر و همهٔ دستگاه‌ها؟ IPها آزاد می‌شوند. بازیابی به پشتیبان نیاز دارد."},
 	}
 	for _, row := range rows {
 		catalogEN[row[0]] = row[1]

@@ -283,12 +283,6 @@ func (u *UI) Operation(receipt operation.Receipt) {
 	u.Text(i18n.T(i18n.En, receipt.Next))
 }
 
-// ReadLine deliberately performs no read-ahead: secret reads can safely switch
-// to the actual terminal FD even when several answers were pasted together.
-// A partial final line is cancellation, never confirmation.
-func ReadLine(in io.Reader) (string, error) {
-	return readLine(context.Background(), in, false)
-}
 func readLine(ctx context.Context, in io.Reader, raw bool) (string, error) {
 	var b []byte
 	var one [1]byte

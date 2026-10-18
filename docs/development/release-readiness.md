@@ -14,9 +14,10 @@ publication and unobserved host/client cells are not authorized/certified.
 v0.1.11 (2026-10-08, exact `228e2a5`) corrects release-image admission on Docker's containerd
 image store and ships bundle `awg-2026-10`. Main CI, the release workflow and independent
 asset/attestation checks passed; its real-host fresh release install is recorded in
-[status](status.md) when observed.
+[status](status.md) when observed. Phases 21–22 (egress routing and client portal; design
+system and subscription designs) are on main after v0.1.11 and unreleased.
 
-Last updated: 2026-10-06. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-10-18. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
@@ -74,11 +75,13 @@ further release authorization.
 | 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
 | 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
 | 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; host resource/kernel/client acceptance completed in Phase 20 |
-| 16 — Modular boundaries | complete within documented source scope; no release | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
+| 16 — Modular boundaries | complete within documented source scope; shipped in v0.1.10 | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
 | 17 — Docker-only/native cleanup | source/image/CI and Phase 20 host gates passed; v0.1.10 public | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
 | 18 — Domains/TLS | listed Phase 20 HTTP-01/SNI/renewal/replacement host gates passed; v0.1.10 public | Unobserved external/DNS-01/long-interval renewal cells excluded |
 | 19 — Operational UX | corrected fresh archive host acceptance passed; v0.1.10 public | Documented supported matrix |
 | 20 — Refactor certification | complete; v0.1.10 public | Exact main/release CI and independently checked public assets passed; unsupported cells excluded |
+| 21 — Egress routing and client portal | on main, unreleased; real-host/Firefox/WebKit unverified | Real-host client traffic through an outbound and device import of AmneziaVPN keys ([status](status.md#egress-routing)) |
+| 22 — Design system and subscription designs | on main, unreleased; real-host/Firefox/WebKit unverified | Go and local Chromium suites passed; other engines, physical phones and real hosts remain ([status](status.md#design-system-redesign)) |
 
 ### Refactor entry findings
 
@@ -297,7 +300,10 @@ The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v
 [v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) and
 [v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) and
 [v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7)
-and [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8)
+and [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8),
+[v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9),
+[v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) and
+[v0.1.11](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.11)
 were published after their exact-source gates. Further tags, releases and official registry
 images require separate authorization. The support boundary remains as recorded in
 [phase12.md](phase12.md) and [status.md](status.md).
@@ -314,10 +320,6 @@ container before source delivery is called verified. New physical Ubuntu kernel/
 reboot/TLS/restore/failure and resource acceptance remain Phase 20; historical evidence is not
 relabelled. No release, registry or live-host mutation is authorized here.
 
-
-Phase 17 exact implementation `5952d97bb07b656db4d931230a4f4c671be9d3e4` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37247158064) on 2026-10-05:
-both Linux race matrices and encrypted-archive load, vet/build, vulnerability/bootstrap,
-canonical image/binary/core identity and offline-load/fake-node persistence/hardening checks.
-The unpublished seven-day Actions artifact was independently downloaded: ZIP digest and all
-six file checksums passed; binary/runtime metadata identify that SHA. No new real-host/client,
-public release or registry result is implied. Latest stable remains v0.1.9.
+The exact CI and unpublished-artifact result for `5952d97` (2026-10-05) is in
+[phase17.md](phase17.md#exact-delivery-result); Phase 20 completed host acceptance and
+v0.1.10 shipped it.

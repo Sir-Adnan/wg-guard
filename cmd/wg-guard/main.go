@@ -121,8 +121,8 @@ func main() {
 		return
 	}
 	maybeDelegateManager()
-	// Docker-mode host shim: on a docker-mode install the host binary routes
-	// panel/data commands into the container (ADR-0006). No-op otherwise.
+	// Host shim: on an installed host the binary routes panel/data commands
+	// into the managed container (ADR-0015). No-op without install state.
 	routeDockerMode()
 
 	switch os.Args[1] {

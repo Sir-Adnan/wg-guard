@@ -218,10 +218,6 @@ func validSparkMetric(value telemetry.Metric) bool {
 	return value.Available && value.Value >= 0 && !math.IsNaN(value.Value) && !math.IsInf(value.Value, 0)
 }
 
-func sparkPath(values []telemetry.Metric, widthPoints int, maxValue float64) string {
-	return timedSparkPath(values, widthPoints, maxValue, nil, 0)
-}
-
 func timedSparkPath(values []telemetry.Metric, widthPoints int, maxValue float64, times []time.Time, cadence time.Duration) string {
 	if maxValue <= 0 {
 		return ""

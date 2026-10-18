@@ -171,9 +171,9 @@ func TestUserActionFormsRetainInvalidInput(t *testing.T) {
 
 func TestUserOptionReadFailureRetainsAssociation(t *testing.T) {
 	e := newEnv(t)
-	id, _, csrf, cookie := e.seedUserWithDevice()
-	cookie = e.loginEN("owner")
-	csrf = deriveCSRF(cookie.Value)
+	id, _, _, _ := e.seedUserWithDevice()
+	cookie := e.loginEN("owner")
+	csrf := deriveCSRF(cookie.Value)
 	rec := e.post("/templates", url.Values{"name": {"Preserved plan"}}, cookie, csrf)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatal("seed plan", rec.Code)

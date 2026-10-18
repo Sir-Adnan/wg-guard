@@ -64,7 +64,7 @@
       <span class="item-media" aria-hidden="true">{{$.IconS "smartphone"}}</span>
       <div class="item-content">
         <span class="item-title"><bdi>{{.Name}}</bdi>{{if .Enabled}}<span class="badge badge--success"><span class="dot"></span>{{$.T "admins.enabled"}}</span>{{else}}<span class="badge badge--muted"><span class="dot"></span>{{$.T "admins.disabled"}}</span>{{end}}</span>
-        <span class="item-meta"><span class="tech">{{.IPv4}}</span><span><span class="num">{{$.B (i64u .RXBytes)}}</span> ↓ · <span class="num">{{$.B (i64u .TXBytes)}}</span> ↑</span></span>
+        <span class="item-meta"><span class="tech">{{.IPv4}}</span>{{if $.Can "traffic.read"}}<span><span class="num">{{$.B (i64u .TXBytes)}}</span> ↓ · <span class="num">{{$.B (i64u .RXBytes)}}</span> ↑</span>{{end}}</span>
       </div>
       {{if $.Can "configs.read"}}<div class="item-actions">
         <a class="btn btn--sm btn--ghost" href="/reseller/devices/{{.ID}}/qr">{{$.IconS "qr-code"}}<span class="hide-sm">{{$.T "devices.qr"}}</span></a>

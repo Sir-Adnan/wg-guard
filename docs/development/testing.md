@@ -98,10 +98,11 @@ for the bounded invocation and evidence limits.
 
 Deterministic `/proc` fixtures and fake clocks cover metric availability, rate continuity, ring
 bounds, log retention and operation outcomes. Text/JSON secret corpora cover the central redaction
-handler; the install Host seam covers exact Docker/journal argv, split/oversized lines, broken
+handler; the install Host seam covers exact Docker argv, split/oversized lines, broken
 output, cancellation, policy ownership and transactional update rollback.
 
-The [repeatable Phase 9 fixture](../integrations/fixtures/verify-phase9-vps.sh) and
+The historical [Phase 9 fixture](../integrations/fixtures/verify-phase9-vps.sh) (pre-v0.1.10;
+it requires `--mode native|docker` and does not run against the Docker-only layout) and its
 [sanitized acceptance record](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) add
 sequential Native/Docker Ubuntu 24.04.4 amd64 evidence: platform policy inspection, bounded/follow
 CLI behavior, process crash recovery, real kernel AmneziaWG traffic, telemetry under load,
@@ -197,53 +198,57 @@ recorded in [status.md](status.md); regressions are treated as bugs.
 implementation use targeted settings/web/i18n tests and changed interaction checks. Coherent
 commits still require build/unit success; the full Phase 10 QA matrix runs at 10.7, not per edit.
 
-`go test ./internal/web -run '^TestBrowserFoundation$' -count=1 -v` optionally runs the real-browser
-foundation regression. Set `WG_TEST_BROWSER_NODE` to a development Node executable and
-`WG_TEST_PLAYWRIGHT` to an existing Playwright module path; `WG_TEST_BROWSER_CHANNEL` defaults to
-`chrome`. Without the Node opt-in the test skips. No npm/Node dependency is added to production.
-The Go test hosts an isolated temporary database; ephemeral session/subscription values travel
-only over child stdin and are never printed or committed. It tests focus/inert/resize, menu keys,
-dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery and representative
-locale/theme layouts. Settings errors belong to the product driver. This is not the full matrix.
+### Opt-in browser tests
 
-`go test ./internal/web -run '^TestBrowserPhase10$' -count=1 -v -timeout 70m` uses the same opt-in runtime
-for milestone-specific product checks (`WG_TEST_UI_SUITE`, default `10.2`). It exercises form
-errors and mutations in the isolated database, plus relevant fa/en/theme/phone/desktop pages,
-without replaying the foundation suite. `WG_TEST_BROWSER_ENGINE` defaults to `chromium`;
-alternate engines require their development browser binaries. The `final` suite expands the
-viewport matrix and is reserved for 10.7. Browser diagnostics omit URLs and capabilities.
-`WG_TEST_UI_PAGE` filters composition reruns to an affected route. Native device/schedule checks
-use actual JavaScript-disabled contexts; standalone native User checks use `10.3-users-native`.
-Suite `10.5` invokes the shared-fixture auth/public driver, including a separate temporary first-run
-node; generated login credentials travel only over stdin. No configs or QR pixels enter diagnostics.
-`WG_TEST_AXE` optionally locates a development-only `@axe-core/playwright` installation. The driver
-checks WCAG-tagged rules and measures request/loading/layout behavior before instrumentation.
-`WG_TEST_UI_GROUP=user-workspace` is a focused Chromium/WebKit check for `/users` and user detail
-at 320/390/1440px in fa/en and Light/Dark. It checks compact row and detail geometry, quick-action
-dialogs, and current token/reseller permission shortcuts without running the full milestone matrix.
-`WG_TEST_UI_GROUP=calendar` exercises month navigation, day selection and clearing on the create-user
-page and modal drawer in fa/en at 320/390/1440px; it also checks that the popover stays in bounds.
-`WG_TEST_UI_GROUP=user-template` checks the same create-user page/drawer widths and languages:
-selecting From template reveals its terms and disables hidden manual fields, while Standard
-restores editable fields without overflowing a narrow viewport.
+Each test below skips unless `WG_TEST_BROWSER_NODE` names a development Node executable;
+`WG_TEST_PLAYWRIGHT` names an existing Playwright module (default `playwright`). Drivers default
+`WG_TEST_BROWSER_ENGINE` to `chromium` (alternate engines such as `webkit` need their development
+browser binaries); Chromium launches the `WG_TEST_BROWSER_CHANNEL` channel (default `chrome`) where
+the driver supports it. Optional `WG_TEST_AXE` locates a development-only `@axe-core/playwright`
+installation for WCAG-tagged scans. Each Go test hosts an isolated temporary database; ephemeral
+session/subscription values travel only over child stdin and are never printed or committed.
+Diagnostics omit URLs, capabilities, configs and QR pixels. No npm/Node dependency enters
+production. Run one with `go test ./internal/web -run '^<Test>$' -count=1 -v`; give
+`TestBrowserPhase10` a sufficient `-timeout` (for example `70m`).
 
-`TestBrowserGuidanceLayout` is an opt-in focused regression for help anchoring,
-paired inputs, legends/drawers, Standard/From template value retention, interface
-CIDR/capacity separation, compact backup creation and structured chart hover/keyboard
-inspection. It checks representative fa/en, light/dark phone/tablet/desktop cells,
-native descriptions and touch fallback without Popover. It reuses the real disposable
-application fixtures; it is not a complete panel or physical-device certification.
-The final driver adds real-route state cases from temporary databases, interactive states, touch,
-system-theme and equivalent-zoom checks. Synthetic healthy telemetry stays fresh; stale data has
-its own case. Virtual subscriber identities prevent matrix traffic from consuming one rate bucket;
-the production limit and a dedicated limited-state case remain enforced.
+| Go test | Driver (`scripts/`) | Covers | Extra env |
+|---|---|---|---|
+| `TestBrowserFoundation` | `test-web-ui.cjs` | focus/inert/resize, menu keys, dynamic dialogs, submitter preservation, duplicate submission, HTMX recovery, representative locale/theme layouts | — |
+| `TestBrowserPhase10` | `test-web-product.cjs`, which loads `test-web-public.cjs`, `test-web-states.cjs`, `test-web-interactions.cjs` | milestone product checks: form errors and mutations, fa/en/theme/phone/desktop pages, auth/public, states, interactions | suites, groups and filters below |
+| `TestBrowserPresentation` | `test-web-presentation.cjs` | appearance, digits and representative panel pages across locale/theme/viewport cells | — |
+| `TestBrowserGuidanceLayout` | `test-guidance-layout.cjs` | help anchoring, paired inputs, legends/drawers, Standard/From template retention, interface CIDR/capacity, compact backup creation, chart hover/keyboard, native and touch-without-Popover fallbacks | `WG_TEST_VISUAL_PRESET` |
+| `TestBrowserMaintenance` | `test-web-maintenance.cjs` | Update Center tabs across locale/theme/viewport cells | — |
+| `TestBrowserBackupWorkbench` | `test-backup-workbench.cjs` | 80 fa/en Light/Dark responsive cells, cursor pagination, native verification/reload, approval and conditional cancellation | `WG_TEST_BACKUP_NATIVE_ONLY` (native flow only) |
+| `TestBrowserSystemHealth` | `test-system-health.cjs` | synthetic `/system` health states, keyboard/details, read-only forms, native fallbacks | — |
+| `TestBrowserCleanup` | `test-web-cleanup.cjs` | `/cleanup` selection menus plus interface list/edit pages across 16 fa/en Light/Dark responsive cells | — |
+| `TestBrowserOperationalJourney` | `test-operational-journey.cjs` | domains, backups and updates journey: queued/awaiting-restart/idle states, keyboard, native fallbacks | — |
+| `TestBrowserDomains` | `test-domains-ui.cjs` | 16 fa/en Light/Dark responsive cells, method/source selection, keyboard and two no-JavaScript fallbacks | `WG_TEST_DOMAIN_SCREENSHOTS` (isolated artifacts) |
 
-Use `WG_TEST_UI_GROUP` (`main`, `public`, `states`, `interactions`; `states` seeds its own state
-cases outside the `final` suite), `WG_TEST_UI_STATE`,
-`WG_TEST_UI_STATE_FROM` (resume an interrupted state matrix at one named case),
-`WG_TEST_UI_PUBLIC`, `WG_TEST_UI_LANG`, `WG_TEST_UI_THEME` and `WG_TEST_UI_WIDTH` for affected-cell
-reruns. Run full acceptance with these filters absent and a sufficient Go test timeout. No physical
-devices, physical browser zoom or assistive-technology operation are implied by emulation or axe.
+`web-qa.cjs` is the shared QA helper (`web-state-actions.cjs` serves the state driver). It applies the cell filters
+`WG_TEST_UI_LANG`, `WG_TEST_UI_THEME` and `WG_TEST_UI_WIDTH`, measures request/loading/layout
+behavior before instrumentation, and offers diagnostics: `WG_TEST_UI_PERF_TRACE` prints performance
+probes, `WG_TEST_UI_PERF_FONT_DELAY` delays `.woff2` responses by that many milliseconds and
+`WG_TEST_UI_CHART_TRACE` prints traffic-chart geometry.
+
+`TestBrowserPhase10` controls:
+
+| Variable | Values and effect |
+|---|---|
+| `WG_TEST_UI_SUITE` | `10.2` (default), `10.3`, `10.3-dashboard`, `10.3-users`, `10.3-users-native` (standalone JavaScript-disabled User checks), `10.4`, `10.4-admin`, `10.4-backups`, `10.4-settings`, `10.5` (auth/public driver with a separate temporary first-run node), `10.6` (public compositions only), `appearance` (visual preset gallery), `final` (expanded viewport matrix, real-route states from temporary databases, interactions, touch, system theme and equivalent zoom; reserved for 10.7) |
+| `WG_TEST_UI_GROUP` | `all` (default), `public`, `states` (seeds its own state cases outside `final`), `interactions`, `user-workspace` (Chromium/WebKit `/users` and user detail at 320/390/1440px), `calendar` (create-user page and drawer date picker), `user-template` (From template/Standard fields), `reseller-webhooks` (seeds a reseller webhook account), `next-plan` (seeds a 1 MB allowance and checks the queued-successor card; needs only this variable) |
+| `WG_TEST_UI_PAGE` | limit composition reruns to one route |
+| `WG_TEST_UI_STATE`, `WG_TEST_UI_STATE_FROM` | run one named state case, or resume an interrupted state matrix there |
+| `WG_TEST_UI_STATE_MODE` | `preview` seeds and runs the state matrix outside the `final` suite |
+| `WG_TEST_UI_PUBLIC` | one surface: `login`, `expired-login`, `limited-login`, `onboarding`, `not-found`, `subscription`, `unavailable-subscription` |
+| `WG_TEST_SUB_LAYOUT` | sets `subscription.layout` before seeding; the public driver expects it (default `ticket`) |
+| `WG_TEST_VISUAL_PRESET` | sets the installation preset; the public driver asserts it |
+
+Native device/schedule checks use actual JavaScript-disabled contexts. Generated login credentials
+travel only over stdin. Synthetic healthy telemetry stays fresh; stale data has its own case.
+Virtual subscriber identities prevent matrix traffic from consuming one rate bucket; the production
+limit and a dedicated limited-state case remain enforced. Run full acceptance with the filters
+absent and a sufficient Go test timeout. These checks are not a complete panel, physical-device or
+assistive-technology certification; emulation and axe imply no physical zoom or screen-reader use.
 
 The asset script reports JS/CSS/fonts/SVG raw and gzip sizes without size ceilings; rendered HTML
 and fragments are browser measurements. Investigate waste and loading/rendering regressions. Browser
@@ -269,10 +274,6 @@ name and checks existing requests and session-ticket handshake denial. Host CA
 seams are synthetic, not a real issuance/renewal claim. Root lifecycle failure,
 owner/lease, controlled source and queue publication checks belong to this boundary.
 
-`go test ./internal/web -run '^TestBrowserDomains$' -count=1 -v` uses the existing
-opt-in `WG_TEST_BROWSER_NODE`/`WG_TEST_PLAYWRIGHT` setup. Select `chromium` or
-`webkit` with `WG_TEST_BROWSER_ENGINE`. It checks 16 fa/en Light/Dark responsive
-cells, method/source selection, keyboard and two no-JavaScript fallbacks. Optional
-`WG_TEST_AXE` adds a scan when a development installation is available; optional
-`WG_TEST_DOMAIN_SCREENSHOTS` writes isolated artifacts. There is no production
-browser runtime. See [Phase 18 evidence](phase18.md) and the Phase 20 physical gate.
+`TestBrowserDomains` (see [opt-in browser tests](#opt-in-browser-tests)) covers the domains panel;
+there is no production browser runtime. See [Phase 18 evidence](phase18.md) and the Phase 20
+physical gate.

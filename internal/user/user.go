@@ -422,8 +422,7 @@ func (s *Service) ListPage(ctx context.Context, q ListQuery) (*Page, error) {
 	const nullSentinel = 1e12 // > any real julianday date; NULLs sort last (desc)
 	switch sort {
 	case SortCreatedAt:
-		keyExpr = fmt.Sprintf("julianday(created_at)")
-		valExpr = fmt.Sprintf("julianday(created_at)")
+		keyExpr, valExpr = "julianday(created_at)", "julianday(created_at)"
 	case SortUsername:
 		keyExpr, valExpr = "username", "username"
 	case SortExpiresAt:
@@ -951,21 +950,6 @@ func scanUser(row rowScanner) (*User, error) {
 	return &u, nil
 }
 
-// List returns live users, newest first, capped at limit (small callers:
-// exports, tests). The API list path is ListPage (cursor pagination).
-func (s *Service) List(ctx context.Context, limit int) ([]*User, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 100
-	}
-	rows, err := s.db.QueryContext(ctx, userColumns+` FROM users WHERE deleted_at IS NULL
-		ORDER BY created_at DESC, id DESC LIMIT ?`, limit)
-	if err != nil {
-		return nil, fmt.Errorf("user: list: %w", err)
-	}
-	defer rows.Close()
-	return scanUsers(rows)
-}
-
 // CountForPlans returns live users per plan id (batch for plan lists;
 // plans deleted with users on SET NULL show their remaining references).
 func (s *Service) CountForPlans(ctx context.Context, planIDs []string) (map[string]int, error) {
@@ -996,19 +980,6 @@ func (s *Service) CountForPlans(ctx context.Context, planIDs []string) (map[stri
 		counts[id] = n
 	}
 	return counts, rows.Err()
-}
-
-func scanUsers(rows *sql.Rows) ([]*User, error) {
-	defer rows.Close()
-	var out []*User
-	for rows.Next() {
-		u, err := scanUser(rows)
-		if err != nil {
-			return nil, fmt.Errorf("user: scan: %w", err)
-		}
-		out = append(out, u)
-	}
-	return out, rows.Err()
 }
 
 func validateLimits(in Input) error {

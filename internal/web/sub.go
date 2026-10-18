@@ -122,7 +122,8 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	data := subPageData{Lang: "fa", OnlineWindow: 180, PlanKnown: u.TemplateID == nil}
-	if lang := r.URL.Query().Get("lang"); lang == "en" {
+	// Same rule as the page locale, so links keep the language being read.
+	if i18n.Normalize(r.URL.Query().Get("lang")) == i18n.En {
 		data.Lang = "en"
 	}
 	if v, err := s.Settings.GetInt(ctx, "accounting.online_window_seconds"); err == nil && v > 0 {
@@ -133,7 +134,8 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 		data.DevicesKnown = true
 		data.Devices = make([]subDevice, 0, len(devs))
 		for _, d := range devs {
-			row := subDevice{D: safeDeviceViews([]*device.Device{d})[0], Online: d.Enabled && u.Status.PeerWanted() && d.LastHandshake != nil && d.LastHandshake.After(cutoff)}
+			row := subDevice{D: safeDeviceViews([]*device.Device{d})[0], LastSeen: d.LastHandshake,
+				Online: d.Enabled && u.Status.PeerWanted() && d.LastHandshake != nil && d.LastHandshake.After(cutoff)}
 			data.Devices = append(data.Devices, row)
 		}
 	}
@@ -156,7 +158,8 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 
 // subLayouts are the public page designs in display order; the first is the
 // default. A design is a registry entry here (and in the settings options), a
-// hero template "sub_hero_<id>" and a stylesheet 40-pages/sub-<id>.css.
+// hero template "sub_hero_<id>" (dispatched in page_sub.html) and a stylesheet
+// 40-pages/sub-designs/<id>.css; TestSubscriptionDesignsAreComplete checks them.
 var subLayouts = []string{"ticket", "card", "minimal", "portal"}
 
 // subLayout is the installation-wide design; an unknown stored value falls
@@ -228,9 +231,11 @@ func (d *subPageData) usageAndTime(now time.Time) {
 	}
 	d.DaysLeft = &days
 	if d.U.DurationSeconds != nil && *d.U.DurationSeconds > 0 {
-		total := time.Duration(*d.U.DurationSeconds) * time.Second
-		elapsed := total - max(remaining, 0)
-		d.TimePercent = int(min(100, max(0, int64(elapsed*100/total))))
+		// Whole seconds: elapsed*100 in nanoseconds overflows int64 past ~1067
+		// days, and plans may run for ten years.
+		total := *d.U.DurationSeconds
+		elapsed := total - int64(max(remaining, 0)/time.Second)
+		d.TimePercent = int(min(100, max(0, elapsed*100/total)))
 		d.TimeKnown = true
 		d.TimeMeter = meterClass(int64(d.TimePercent), 100)
 	}
@@ -450,7 +455,7 @@ func (s *Server) resolveSubToken(w http.ResponseWriter, r *http.Request) (string
 
 // subRateLimited applies the fixed-window public rate limit (per IP).
 func (s *Server) subRateLimited(w http.ResponseWriter, r *http.Request) bool {
-	if !s.subRL.allow(clientIP(r), time.Now()) {
+	if !s.subRL.allow(s.visitorIP(r), time.Now()) {
 		w.Header().Set("Retry-After", "60")
 		s.surfaceError(w, r, http.StatusTooManyRequests, "publicsub.rate_limited", "sub")
 		return true
@@ -517,8 +522,9 @@ type subPageData struct {
 
 // subDevice is one device card on the public page.
 type subDevice struct {
-	D      *deviceView
-	Online bool
+	D        *deviceView
+	Online   bool
+	LastSeen *time.Time // latest handshake; nil when the device never connected
 }
 
 // Public templates receive only customer-facing account fields and keyless

@@ -121,31 +121,47 @@ Never put Persian words inside `.tech`.
 
 ## Shell
 
-The app shell is the shadcn Sidebar block: brand, a search button that opens the command palette,
-permission-aware groups (`View.Nav`, shared with the palette), and an account menu. The header
-holds the sidebar toggle, the page title and locale/theme controls. The desktop sidebar collapses
-to an icon rail with tooltips; below 960px it is a modal drawer. The command palette
+The app shell (`web/templates/layout_app.html`, `web/styles/30-layout/shell.css`) is the shadcn
+Sidebar block: brand, a search button that opens the command palette, static labeled groups
+rendered from `View.Nav` (`internal/web/navigation.go`, shared with the palette) and an account
+menu. The header holds the sidebar toggle, the page title and locale/theme controls. The desktop
+sidebar collapses to an icon rail with tooltips; below 960px it is a modal drawer. The preset's
+`sidebar` axis picks the composition (`plain`, `inset` or `floating`). The command palette
 (⌘K / Ctrl+K / `/`) filters the same destinations plus quick actions and a user search.
+
+`.content` caps the page column at `--content-max` (80rem). `pageClass` in
+`internal/web/render.go` adds `.content--narrow` (48rem) on `/new` and `/edit` routes and
+`.content--settings` (64rem) on `/settings`; `.content--wide` (96rem) exists but no route uses it.
 
 ## Subscription page designs
 
-The public subscription page has one shared body and a per-design hero. A design is:
+The public subscription page has one shared body (`web/templates/page_sub.html`: notice,
+section tabs, devices, guide, details) and a per-design hero. Adding a design takes:
 
-1. an ID in `subLayouts` (`internal/web/sub.go`; the first entry is the default) and in the
+1. its ID in `subLayouts` (`internal/web/sub.go`; the first entry is the default) and in the
    `subscription.layout` options (`internal/settings/defaults.go`);
-2. a hero template `sub_hero_<id>` in `web/templates/partial_sub_heroes.html`, dispatched from
-   `subcontent` in `page_sub.html`. A hero renders the identity, status and what is left, and the
-   page's only `h1` (`#subscription-name`). It composes the shared facts (`sub-plan`,
-   `sub-data-value`, `sub-time-value`, `sub-expiry`, `sub-meters`, `sub-status-badge`) rather
-   than deriving values again;
-3. a stylesheet `web/styles/40-pages/sub-<id>.css`, scoped to `.sub--<id>` or
-   `body[data-sub-layout="<id>"]`. `sub-base.css` holds the shared body and sorts before every
-   design file, so a design overrides it at equal specificity;
-4. `appearance.layout.<id>` and `appearance.layout.<id>_hint` catalog keys and a schematic
-   thumbnail (`.layout-thumb[data-layout="<id>"]` in `appearance.css`, five `<i>` parts).
+2. a hero template `sub_hero_<id>` in `web/templates/partial_sub_heroes.html`. A hero renders
+   the identity, status and what is left, and the page's only `h1` (`#subscription-name`). It
+   composes the shared defines in `page_sub.html` (`sub-plan`, `sub-data-label`,
+   `sub-data-value`, `sub-time-value`, `sub-expiry`, `sub-devices-count`, `sub-meters`,
+   `sub-status-badge`) rather than deriving values again;
+3. an `{{else if eq .Data.Layout "<id>"}}` branch in the `subcontent` dispatch chain in
+   `page_sub.html` (the final `else` renders the default `sub_hero_ticket`);
+4. a stylesheet `web/styles/40-pages/sub-designs/<id>.css`. Rules for the hero's own classes
+   need no prefix; rules that restyle the shared body are scoped to `.sub--<id>` or
+   `body[data-sub-layout="<id>"]`. The server bundles `web/styles` in sorted path order, and
+   `sub-base.css` (the shared body) sorts before the `sub-designs/` directory, so it always
+   loads first and a design overrides it at equal specificity whatever its ID;
+5. `appearance.layout.<id>` and `appearance.layout.<id>_hint` catalog strings in fa and en
+   (`internal/i18n/catalog_ui_appearance.go`) and a schematic thumbnail
+   (`.layout-thumb[data-layout="<id>"]` in `web/styles/40-pages/appearance.css`, five `<i>` parts).
 
-Status color comes from `--status-tone`, set once per `data-status`. Retiring a design needs a
-migration that maps stored values to a successor (see `0019_subscription_layouts.sql`).
+`TestSubscriptionDesignsAreComplete` (`internal/web/sub_test.go`) fails when a `subLayouts` entry
+lacks its `sub_hero_<id>` template or `sub-designs/<id>.css`, or when that file is bundled before
+`sub-base.css`. It does not check the dispatch branch, settings options, catalog strings or
+thumbnail. Status color comes from `--status-tone`, set once per `data-status`. Retiring a
+design needs a migration that maps its stored value to a successor (see
+`migrations/0019_subscription_layouts.sql`).
 
 ## Verification
 

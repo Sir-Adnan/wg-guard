@@ -133,6 +133,10 @@ func TestResolverFeedsMatchedAnswersOverUDPAndTCP(t *testing.T) {
 	if rc, n := rcodeOf(t, exchangeUDP(query(t, "Gemini.Google.com.", dnsmessage.TypeA))); rc != dnsmessage.RCodeSuccess || n != 3 {
 		t.Fatalf("matched A: %v %d", rc, n)
 	}
+	// Learned before the reply went out: no waiting for a feeder tick.
+	if !strings.Contains(run.joined(), "142.250.1.2 timeout 7200s") {
+		t.Fatalf("reply sent before the set update:\n%s", run.joined())
+	}
 	if rc, n := rcodeOf(t, exchangeUDP(query(t, "gemini.google.com.", dnsmessage.TypeAAAA))); rc != dnsmessage.RCodeSuccess || n != 0 {
 		t.Fatalf("matched AAAA must be empty: %v %d", rc, n)
 	}
@@ -168,7 +172,7 @@ func TestResolverFeedsMatchedAnswersOverUDPAndTCP(t *testing.T) {
 	if !strings.Contains(got, "add element ip "+routing.TableName+" r1_d { 142.250.1.1 timeout 1800s, 142.250.1.2 timeout 7200s }") {
 		t.Fatalf("unexpected feed:\n%s", got)
 	}
-	if strings.Count(got, "142.250.1.1") != 1 {
+	if strings.Count(got, "142.250.1.1 timeout") != 1 {
 		t.Fatalf("repeated answers within half the timeout must not be re-written:\n%s", got)
 	}
 	st := s.Stats()

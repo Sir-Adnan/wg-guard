@@ -8,7 +8,6 @@ func init() {
 		{"appearance.tab.subscription", "Subscription page", "صفحهٔ اشتراک"},
 		{"appearance.filter", "Theme source", "منبع تم"},
 		{"appearance.filter_all", "All", "همه"},
-		{"appearance.active", "Active", "فعال"},
 		{"appearance.previewing", "Previewing", "پیش‌نمایش"},
 		{"appearance.unsaved", "Not saved yet. Leaving the page restores your current theme.", "هنوز ذخیره نشده است. با ترک صفحه، تم فعلی برمی‌گردد."},
 		{"appearance.ui.compact", "Compact", "فشرده"},

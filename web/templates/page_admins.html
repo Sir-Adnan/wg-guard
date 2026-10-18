@@ -42,6 +42,7 @@
       {{end}}
     </div>
   </section>
+  {{if or (ne (printf "%v" $a.Role) "owner") (eq (printf "%v" .Admin.Role) "owner")}}
   <aside class="split-aside">
     <section class="card" aria-labelledby="admin-password-title">
       <div class="card-header">
@@ -55,6 +56,7 @@
       </form>
     </section>
   </aside>
+  {{end}}
 </div>
 {{else}}
 {{if .Data.Admins}}

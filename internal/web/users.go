@@ -981,6 +981,7 @@ func (s *Server) redirectToast(w http.ResponseWriter, r *http.Request, path, key
 	q := url.Values{"toast": {key}}
 	if len(targ) > 0 && targ[0] != "" {
 		q.Set("targ", targ[0])
+		q.Set("fsig", flashSignature("targ", key, targ[0]))
 	}
 	http.Redirect(w, r, flashLocation(path, q), http.StatusSeeOther)
 }
@@ -988,7 +989,7 @@ func (s *Server) redirectToast(w http.ResponseWriter, r *http.Request, path, key
 // redirectToastRaw carries an already-rendered message (e.g. a safe domain
 // error string) through the same PRG flash channel.
 func (s *Server) redirectToastRaw(w http.ResponseWriter, r *http.Request, path, msg string) {
-	q := url.Values{"rawmsg": {msg}}
+	q := url.Values{"rawmsg": {msg}, "fsig": {flashSignature("raw", msg)}}
 	http.Redirect(w, r, flashLocation(path, q), http.StatusSeeOther)
 }
 
@@ -1010,7 +1011,11 @@ func flashLocation(path string, flash url.Values) string {
 // the operation did not apply, and the message says so (ui-ux.md).
 func (s *Server) actionFailed(w http.ResponseWriter, r *http.Request, err error) {
 	s.logError(r, "action failed", err)
-	http.Redirect(w, r, "/?toast=common.error_generic", http.StatusSeeOther)
+	home := "/" // resellers may not open the operator dashboard
+	if a := adminFrom(r); a != nil && a.ResellerID != nil {
+		home = "/reseller/users"
+	}
+	http.Redirect(w, r, home+"?toast=common.error_generic", http.StatusSeeOther)
 }
 
 func (s *Server) badRequest(w http.ResponseWriter, r *http.Request, what string) {

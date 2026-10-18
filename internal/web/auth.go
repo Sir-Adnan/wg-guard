@@ -31,7 +31,7 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		if l := i18n.Normalize(r.URL.Query().Get("lang")); r.URL.Query().Get("lang") == string(l) {
 			http.SetCookie(w, &http.Cookie{
 				Name: localeCookie, Value: string(l), Path: "/",
-				MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
+				MaxAge: 31536000, SameSite: http.SameSiteLaxMode, Secure: requestIsHTTPS(r),
 			})
 		}
 		target := "/login"
@@ -99,7 +99,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := r.PostFormValue("username")
 	password := r.PostFormValue("password")
 	next := safeNext(r.PostFormValue("next"))
-	ip := clientIP(r)
+	ip := s.visitorIP(r)
 	now := time.Now()
 
 	if s.loginRL.blocked(ip, now) {
@@ -138,7 +138,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 
 // loginAfter mints the session, sets the cookie and redirects.
 func (s *Server) loginAfter(w http.ResponseWriter, r *http.Request, adminID, next string) {
-	token, expires, err := s.Sessions.Create(r.Context(), adminID, clientIP(r))
+	token, expires, err := s.Sessions.Create(r.Context(), adminID, s.visitorIP(r))
 	if err != nil {
 		s.logError(r, "session create", err)
 		s.surfaceError(w, r, http.StatusInternalServerError, "common.error_generic", "")
@@ -189,7 +189,7 @@ func (s *Server) handleOnboardingPage(w http.ResponseWriter, r *http.Request) {
 		if l := i18n.Normalize(q); q == string(l) {
 			http.SetCookie(w, &http.Cookie{
 				Name: localeCookie, Value: string(l), Path: "/",
-				MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
+				MaxAge: 31536000, SameSite: http.SameSiteLaxMode, Secure: requestIsHTTPS(r),
 			})
 		}
 		http.Redirect(w, r, "/onboarding", http.StatusSeeOther)
@@ -220,7 +220,7 @@ func (s *Server) handleOnboardingSubmit(w http.ResponseWriter, r *http.Request) 
 		s.surfaceError(w, r, http.StatusBadRequest, "common.error_validation", "")
 		return
 	}
-	ip := clientIP(r)
+	ip := s.visitorIP(r)
 	now := time.Now()
 	view := func(data onboardData, status int) {
 		if data.Error != "" {
@@ -328,7 +328,7 @@ func (s *Server) handleLocaleSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: localeCookie, Value: l, Path: "/", MaxAge: 31536000, SameSite: http.SameSiteLaxMode,
+		Name: localeCookie, Value: l, Path: "/", MaxAge: 31536000, SameSite: http.SameSiteLaxMode, Secure: requestIsHTTPS(r),
 	})
 	back := safeNext(r.PostFormValue("next"))
 	if back == "" {
@@ -352,7 +352,7 @@ func (s *Server) audit(r *http.Request, action, target string, meta map[string]a
 	}
 	_ = s.Audit.Record(r.Context(), audit.Entry{
 		ActorType: actorType, ActorID: actorID,
-		Action: action, Target: target, SourceIP: clientIP(r), Metadata: meta,
+		Action: action, Target: target, SourceIP: s.visitorIP(r), Metadata: meta,
 	})
 }
 
@@ -364,7 +364,7 @@ func (s *Server) auditLogin(r *http.Request, adminID, username string, meta map[
 	}
 	_ = s.Audit.Record(r.Context(), audit.Entry{
 		ActorType: audit.ActorAdmin, ActorID: adminID,
-		Action: "auth.login", Target: username, SourceIP: clientIP(r), Metadata: meta,
+		Action: "auth.login", Target: username, SourceIP: s.visitorIP(r), Metadata: meta,
 	})
 }
 

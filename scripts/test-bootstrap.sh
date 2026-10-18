@@ -39,8 +39,9 @@ mode=os.environ.get('FIXTURE_MODE','valid')
 if mode=='offline' and 'api.github.com' in url:sys.exit(22)
 if url=='https://go.dev/dl/?mode=json':
  import hashlib
- data=json.dumps([{'version':'go1.99.0','stable':True,'files':[{'filename':'go1.99.0.linux-amd64.tar.gz','os':'linux','arch':'amd64','kind':'archive','size':(p/'toolchain').stat().st_size,'sha256':hashlib.sha256((p/'toolchain').read_bytes()).hexdigest()}]}]).encode()
-elif url=='https://go.dev/dl/go1.99.0.linux-amd64.tar.gz':data=b'x'*(p/'toolchain').stat().st_size if mode=='bad-toolchain' else (p/'toolchain').read_bytes()
+ data=json.dumps([{'version':v,'stable':True,'files':[{'filename':v+'.linux-amd64.tar.gz','os':'linux','arch':'amd64','kind':'archive','size':(p/'toolchain').stat().st_size,'sha256':hashlib.sha256((p/'toolchain').read_bytes()).hexdigest()}]} for v in ('go1.99.0','go1.98.0')]).encode()
+elif url.startswith('https://go.dev/dl/go1.9') and (mode=='toolchain-down' or mode=='toolchain-404' and 'go1.99.0' in url):sys.stdout.write('404');sys.exit(22)
+elif url in ('https://go.dev/dl/go1.99.0.linux-amd64.tar.gz','https://go.dev/dl/go1.98.0.linux-amd64.tar.gz'):data=b'x'*(p/'toolchain').stat().st_size if mode=='bad-toolchain' else (p/'toolchain').read_bytes()
 elif '/tar.gz/' in url:data=(p/('source-'+url.rsplit('/',1)[-1])).read_bytes()
 elif '/commits/' in url:
  ref=url.rsplit('/',1)[-1]
@@ -237,6 +238,15 @@ rm "$fixture/argv"
 if FIXTURE_MODE=bad-toolchain bash "$fixture/bootstrap" --commit main --yes </dev/null; then fail 'corrupt toolchain accepted'; fi
 test ! -e "$fixture/argv" || fail 'corrupt toolchain produced executable'
 test -z "$(ls -A "$fixture/tmp")" || fail 'corrupt toolchain cleanup'
+grep -q 'go1.98.0' "$fixture/requests" && fail 'a corrupt toolchain must not fall back to another release'
+FIXTURE_MODE=toolchain-404 bash "$fixture/bootstrap" --commit main --yes </dev/null || fail 'an unavailable newest toolchain did not fall back'
+grep -q 'go.dev/dl/go1.98.0' "$fixture/requests" || fail 'toolchain fallback did not use the next compatible release'
+rm -f "$fixture/argv"
+toolchain_output=$(FIXTURE_MODE=toolchain-down bash "$fixture/bootstrap" --commit main --yes </dev/null 2>&1) && fail 'missing toolchains were accepted'
+case "$toolchain_output" in *'download from go.dev failed (HTTP 404)'*) :;; *) fail 'toolchain failure did not name the host and status';; esac
+case "$toolchain_output" in *'curl:'*) fail 'raw curl output leaked into progress';; esac
+test ! -e "$fixture/argv" || fail 'missing toolchain produced executable'
+test -z "$(ls -A "$fixture/tmp")" || fail 'missing toolchain cleanup'
 touch "$fixture/nonroot"
 bash "$fixture/bootstrap" --release v1 --yes </dev/null
 test -s "$fixture/sudo-used" || fail 'non-root installation was not elevated'

@@ -27,8 +27,8 @@ const (
 
 func (m Mode) Valid() bool { return m == ModeDocker }
 
-// Fixed layout (docs/operations/deployment.md): identical in both modes so
-// backups, restore and mode switches are layout-independent.
+// Fixed layout (docs/operations/deployment.md, centralized in internal/layout)
+// so backups and restore are layout-independent.
 const (
 	EtcDir     = layout.ConfigDir
 	DataDir    = layout.DataDir
@@ -78,7 +78,7 @@ type Plan struct {
 	// ACMEHTTPPort is the HTTP-01 challenge port (acme only, default 80).
 	ACMEHTTPPort int
 
-	// Image is the container reference (docker mode).
+	// Image is the container reference.
 	Image string
 
 	// Runtime settings collected by the wizard (all optional; zero values

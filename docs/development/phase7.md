@@ -42,7 +42,7 @@ managed product and release pipeline target Ubuntu 24.04+ on amd64 only.
 - **`wg-guard status`**: install state, image, container/unit status line, health probe.
 - **Docker image** (`Dockerfile`): multi-stage amd64 Go build (CGO_ENABLED=0) onto
   `ubuntu:24.04` + pinned `amneziawg-tools` from `ppa:amnezia/ppa` + nftables + iproute2;
-  reference compose under `deploy/`.
+  reference compose under deploy/ (later removed; the installer renders the only compose file).
 - **Module boot persistence + self-heal**: the installer writes
   `/etc/modules-load.d/wg-guard.conf` and, when the DKMS module is registered for a different
   kernel series than the running one (typical after an unattended kernel upgrade), installs
