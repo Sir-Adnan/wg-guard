@@ -8,14 +8,8 @@ The post-v0.1.0 appearance extension below adds visual presets without reopening
 ## Architecture and visual direction
 
 The [refactor program](../development/refactor-program.md) preserves this design
-system. Its Phase 18–19 domain/TLS workspace ships in v0.1.10: independent panel and
-subscription cards, automatic/manual/external choices, certificate metadata and
-safe operation/recovery status, with advanced controlled cert/key paths when useful.
-Do not display private material or make operators edit Nginx/Compose for the
-standard same-host workflow. These controls are absent from preparation v0.1.9;
-physical CA/host acceptance is recorded in [Phase 20](../development/phase20.md).
-The [domain/TLS contract](../operations/domains-and-tls.md) defines role/ownership
-and verification boundaries for implementation.
+system. The Domains and HTTPS workspace is specified in the
+[domain/TLS contract](../operations/domains-and-tls.md#settings--domains-and-https).
 
 Go `html/template` renders the product; HTMX enhances targeted regions and ordinary forms/links
 retain meaningful fallback paths. `internal/web` calls existing services directly, never the REST
@@ -51,21 +45,14 @@ CSP, same-origin assets, session/CSRF checks and no-store sensitive responses.
 
 ## Visual presets
 
-Presets are reviewed JSON files in `web/themes` (format and importer in the
-[design system](design-system.md#visual-presets)): the built-in `wg-guard-neutral` ("WG-Guard",
-Vercel/Geist style), Linear, the official shadcn palettes and imports from tweakcn that name
-their source page. Each preset sets the shadcn tokens for light and dark, fonts, radius, shadows,
-spacing and four layout axes (density, sidebar composition, tab style, surface elevation), so a
-preset changes everything from control height to the shell; feature pages carry no preset
-conditions. `internal/web/theme` validates every file and generates CSS at startup: the built-in
-preset is part of `app.css`, other presets are separate cache-busted stylesheets loaded only
-while active. No remote CSS, executable theme code or build tool is used at runtime.
-
-Status meaning, readable contrast, focus visibility, accessibility and reduced motion outrank
-source fidelity: the importer stores WCAG AA corrections (4.5:1 for every text pair, both modes)
-in the preset's `contrast` section and tests fail a preset below that. Fonts are self-hosted
-(THIRD_PARTY.md). Persian text always uses Vazirmatn (restricted to Arabic script), so a preset's
-Latin face never renders Persian, and technical data stays LTR-isolated and tabular.
+A preset restyles the whole product, from colors, fonts, radius, shadows and spacing to density
+and shell composition; feature pages carry no preset conditions. The catalog holds the built-in
+`wg-guard-neutral` ("WG-Guard", Vercel/Geist style), Linear, the official shadcn palettes and
+tweakcn imports that name their source page. Status meaning, readable contrast (WCAG AA 4.5:1 for
+every text pair in both modes), focus visibility, accessibility and reduced motion outrank source
+fidelity. No remote CSS, executable theme code or runtime build tool is used. The
+[design system](design-system.md#visual-presets) defines the file format, layout axes, importer
+and generated stylesheets.
 
 Appearance has distinct axes: visual preset, Light/Dark/System mode, and independent locale/
 direction/Latin technical digits. A preset changes none of the latter. The account's saved preset
@@ -79,10 +66,13 @@ panel default). A visitor may pick another preset from the page; that choice is 
 Reset my appearance clears the personal preset and mode override; reset panel default restores
 the built-in preset, Light, Latin digits and the subscription defaults.
 
-The Appearance screen shows every preset as a miniature drawn from its own colors, radius, font
+Appearance has keyboard tabs (Theme, Subscription page for the owner only, Numerals and Reset),
+and the open tab is kept in the URL fragment; Subscription page and Numerals saves return to
+their own tab. Theme shows every preset as a miniature drawn from its own colors, radius, font
 and sidebar composition; selecting one previews it live across the whole page (layout axes
-included) without saving, and leaving restores the saved appearance. Explicit actions apply it to
-the account, set the panel default, or set the subscription page default.
+included) without saving, and leaving restores the saved appearance. Applying it changes only
+the account; the owner's panel default is a separate card in the same tab with an explicit
+confirmation. The subscription page default lives in its own tab.
 
 ## Layout and navigation
 
@@ -97,8 +87,9 @@ and a user search; it is an enhancement, never the only path.
 Below 960px the sidebar becomes a modal navigation drawer: close button/Escape/backdrop, contained
 focus, inactive background, scroll containment and return to the trigger. Resizing across the
 boundary releases mobile state. Do not add bottom navigation without a demonstrated workflow.
-Forms/settings use a centered narrow tier (about 760px); operational content uses a fluid tier
-capped at 1400px and 1560px on large displays. Keep 320px layouts usable without hiding data.
+Content is a centered fluid column with a per-route cap: create/edit forms (`/new`, `/edit`)
+48rem, Settings 64rem and every other workspace 80rem. Keep 320px layouts usable without hiding
+data.
 
 Lists transform into intentional cards when columns stop being useful (initial table tier 800px),
 preserving labels, selection, action order and semantics. Do not duplicate whole desktop/mobile
@@ -146,7 +137,6 @@ themselves, so dense desktop layouts stay compact. Use native HTML semantics fir
 matching keyboard behavior. Focus must not be hidden behind sticky chrome/overlays.
 Checkbox glyphs stay compact inside 44px hit areas; preset buttons and calendar days also meet
 the touch target. At 320px the calendar uses the available width with seven 44px columns.
-Directional navigation icons mirror in RTL; plots and technical values retain their data direction.
 
 Menus support open/focus, arrows/Home/End, Escape and focus return; Tab can leave and dismiss.
 Dialogs/sheets contain focus and restore it to the invoker, including after successful actions.
@@ -195,11 +185,9 @@ Snapshot reading and focus never trigger extra samplers or automatic table repla
 
 ## Settings and performance
 
-Settings uses grouped section navigation, progressive disclosure and one editor per setting;
-the section navigation (`nav[data-scrollspy]`, a shared presentation enhancement) marks the
-section being read with `aria-current="true"`, keeps a clicked short trailing section current
-while it is on screen, and on phones scrolls its horizontal row to the current link;
-operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
+Settings uses grouped section navigation that marks the section being read
+([section navigation](presentation-system.md#section-navigation)), progressive disclosure and one
+editor per setting; operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
 consequences and external host ownership are explained. Save/validation/secret semantics are
 specified in [Phase 10](../development/phase10.md#settings-save-decision-100-prerequisite).
 Its separate lightweight `settings.js` module tracks dirty state without repeated announcements;
@@ -288,9 +276,8 @@ with the same status, QR and config behavior. **Preview** opens the owner-only
 fictional sample data, reads no real user or device and leaves every action inert. Migration
 `0019_subscription_layouts.sql` maps the retired layouts (pass and split to ticket, compact to
 minimal). See the [design system](design-system.md#subscription-page-designs) for adding one.
-Phone actions stack inside the device card with no horizontal clipping; public navigation does
-not cover scrolling content. The public theme menu stays next to its trigger and inside the
-viewport in both directions; changing Light/Dark/System remains a visitor preference. Shared
+Public navigation does not cover scrolling content. The public theme menu stays next to its
+trigger and inside the viewport in both directions; changing Light/Dark/System remains a visitor preference. Shared
 buttons use restrained elevation, with color, border and focus state carrying the interaction
 instead of a large ambient shadow or persistent touch-hover glow.
 Config downloads use a short, stable device-specific `.conf` filename and browser-safe binary
@@ -299,9 +286,10 @@ Usage and transfer metrics keep Latin numbers separate from localized units, so 
 their meaning. The all-device QR view contains exactly one image per actual device; hidden
 single-device controls must stay hidden even when component layout styles change.
 
-Interfaces and Templates use shared `form-page`/`form-stack` section cards and `form-panel` disclosures,
-with one primary save action. Technical numeric/range fields use text controls with appropriate
-input modes so server validation can redisplay exact invalid input. Field errors and a focusable
+Interfaces and Templates compose shared Card sections, Fields and Collapsible disclosures
+(Interfaces adds `.fieldset` groups and `.choice-card` profile selectors; see the
+[design system](design-system.md#components)), with one primary save action. Technical
+numeric/range fields use text controls with appropriate input modes so server validation can redisplay exact invalid input. Field errors and a focusable
 summary accompany a failed save; fresh secrets are cleared with explicit retry guidance. Profile
 generation remains server-owned and sealed; changing a generated value changes its provenance.
 Plain mode hides inactive parameter controls when JavaScript is available, with a native fallback.
@@ -310,8 +298,8 @@ The interface form presents Standard, Performance, Balanced, Resilient, Suggeste
 profiles as a responsive selector. New forms suggest the first free `awgN`; Suggested is the
 initial enhanced profile and exposes its complete advanced set while keeping I1–I5 empty. The user
 form uses username as the sole visible identity, supports multiline notes, generates an optional
-eight-character word-plus-digits username, keeps quota/duration shortcuts in compact scrollable
-rows, and treats a blank device limit as unlimited while creating one ready configuration by
+eight-character word-plus-digits username, keeps quota/duration shortcuts in compact preset
+dropdowns, and treats a blank device limit as unlimited while creating one ready configuration by
 default. A configured default device limit is shown and governs provisioning. User filtering is
 live with a native submit fallback, and bulk controls do not appear until at least one visible user
 is selected. Panel quotas and traffic displays use decimal SI MB/GB (1 MB = 1,000,000 B;
@@ -322,7 +310,7 @@ User-row subscription copy has a non-Clipboard-API
 fallback; QR and configuration downloads are separate actions. The create drawer owns its header,
 scrolling body and footer as one viewport-bounded grid, while the full-page form remains the native
 fallback. The user-detail subscription card stays in document flow. The public subscription is a
-standalone connection pass with status, usage, expiry,
+standalone customer page with status, usage, expiry,
 device delivery and setup guidance rather than an admin-page derivative.
 Every subscription design shows the following:
 
@@ -336,16 +324,20 @@ Every subscription design shows the following:
   and `#details` open a section, the tab row sticks under the header on phones, and without
   `:has()` support every section is shown;
 - in the guide, platform tabs (Android, iPhone/iPad, Windows, macOS, Linux; JavaScript
-  pre-selects the visitor's OS) and one accordion item per app. The first (recommended) app is
-  open and opening another closes it. Official app links come in this order: AmneziaWG and WG
-  Tunnel first, AmneziaVPN last (the most complex app), amneziawg-tools for Linux;
+  pre-selects the visitor's OS) and one accordion item per app. The first app is open and opening
+  another closes it. App order and official links are defined in
+  [client apps](../integrations/client-apps-and-warp.md#client-apps-on-the-subscription-page);
 - command-line steps (amneziawg-tools) as LTR copy fields for the config path and the
   `awg-quick up` command; the copy button appears with JavaScript, falls back to selecting the
   text, and announces the result in one polite status region;
 - a short **Common questions** accordion (no internet, one configuration per device, keeping the
   link private, re-importing after a change);
-- for each device, **Download config** (full width), **QR code**, **Copy key** and **Open in
-  AmneziaVPN** (`vpn://`), at least 36px under every density.
+- for each device, its usage ("2 GB used") and, while it is enabled but offline, "Last connected
+  3h ago" or "Not connected yet", then its IPv4;
+- for each device, **Download config**, **QR code**, **Copy key** and **Open in AmneziaVPN**
+  (`vpn://`), at least 36px under every density, in a two-column grid: Download spans the row,
+  QR code and Copy key share one, and Open in AmneziaVPN takes its own, so nothing clips
+  horizontally on phones.
 
 Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the
 strict CSP holds.
@@ -395,8 +387,8 @@ own treatment. `update.read` grants observation without execution. Readiness, re
 stage revisions, safe history/reports and referenced lifecycle archives preserve the existing
 host broker and lifecycle engine; no arbitrary command or automatic reboot UI is introduced.
 
-`collection`/`entity-table` retain one semantic table on desktop and transform its rows to labeled
-cards on phones. Name/edit links, availability, exact technical units and action menus have stable
+Collections use `.table--cards`: one semantic table on desktop whose rows become labeled cards
+below 800px. Name/edit links, availability, exact technical units and action menus have stable
 positions. Missing secondary counts/references display unavailable, never an invented zero.
 Templates and Interfaces enforce their existing read/write permissions at the server boundary as
 well as in navigation and controls; a read-only account can inspect lists without mutation affordances.

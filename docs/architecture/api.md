@@ -187,7 +187,7 @@ GB, speed Kbps or calendar dates.
 | Devices | `GET/POST /users/{id}/devices`, `GET/PATCH/DELETE /devices/{id}`, `POST /devices/{id}/enable\|disable\|regenerate`, `GET /devices/{id}/config\|qr` |
 | Stats | `GET /stats`, `GET /node/telemetry`, `GET /users/{id}/stats`, `GET /devices/{id}/stats` |
 | Templates | `GET/POST /templates`, `GET/PATCH/DELETE /templates/{id}` |
-| Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation) |
+| Interfaces | `GET/POST /interfaces`, `GET/PATCH/DELETE /interfaces/{id}` (ports, subnet, MTU, params, rotation), `GET /interfaces/{id}/capacity` |
 | Settings | `GET/PATCH /settings` (typed registry; advanced keys gated by scope) |
 | Webhooks | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/redeliver`, `GET /webhooks/{id}/deliveries` and `GET /webhooks/{id}/deliveries/{deliveryID}` |
 | Ops | `GET /healthz` (public liveness), `GET /readyz`, `GET /openapi.json`, `GET /docs`; `GET /metrics` (config-gated, served outside `/api/v1`) |

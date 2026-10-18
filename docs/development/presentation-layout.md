@@ -1,5 +1,9 @@
 # Presentation layout follow-up — 2026-10-05
 
+> Superseded in part by [ADR-0017](../decisions/ADR-0017-design-system-and-presets.md)
+> (2026-10-17/18): sidebar groups and the Appearance layout changed. This file is a dated
+> verification record; the [presentation contract](../product/presentation-system.md) is current.
+
 Implementation source: `76776bebaa39d12f424f7138180410937f02187e`.
 
 The owner supplied regressions in help placement, interface metadata/capacity,

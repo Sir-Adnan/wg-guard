@@ -25,6 +25,9 @@ must stay free of Node.js, Tailwind and build tools, under a strict CSP.
 - Self-host every font; restrict Vazirmatn to Arabic script so Persian is always readable.
 - Keep the subscription page's default preset/mode in the installation row; a visitor's own
   choice is a cookie honored only for registered IDs.
+- Subscription page designs vary only the hero; the body and its sections are shared. The owner
+  picks one in Appearance, and retiring a design requires a migration that maps its stored value
+  (see the [design system](../product/design-system.md#subscription-page-designs)).
 
 ## Consequences
 

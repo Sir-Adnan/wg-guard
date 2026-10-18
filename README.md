@@ -20,12 +20,13 @@ recovery without turning the server into a large application stack.
 | | Built for operators |
 |---|---|
 | 🛡️ | **AmneziaWG control** — interfaces with ordered IPv4 pools and capacity snapshots, generated anti-DPI profiles, peers, and guarded host reconciliation |
+| 🧭 | **Egress routing (unreleased)** — outbounds through WARP, imported WireGuard/AmneziaWG or a source IP, balancers, and ordered rules with presets and geodata |
 | 👥 | **Subscriber lifecycle** — optional technical templates, quota top-ups, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
-| 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a simple public subscription page |
+| 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a public subscription page with four selectable designs and per-app setup guides |
 | 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
 | 🔐 | **Safe operations** — owner/reseller permissions, scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
 | 🧹 | **Reviewed maintenance** — combined account/history cleanup with status, owner and date filters, impact previews, and database space maintenance |
-| 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, ten optional visual presets, desktop and mobile |
+| 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, selectable themes, desktop and mobile |
 
 > Since v0.1.10, WG-Guard uses Docker-only deployment and the new private host layout.
 > Existing schema-1–3/native deployments must export and verify an off-host backup with

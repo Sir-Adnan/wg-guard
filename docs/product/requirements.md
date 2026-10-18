@@ -130,7 +130,8 @@ implementation shipped in v0.1.3 within the documented source/artifact scope; se
 
 ## Bilingual product
 
-Persian (**default**) and English; full RTL; light (default) and dark themes. See
+Persian (**default**) and English; full RTL; Light (default), Dark and System modes plus
+selectable visual themes ([design system](design-system.md#visual-presets)). See
 [ui-ux.md](ui-ux.md).
 
 ## Backups

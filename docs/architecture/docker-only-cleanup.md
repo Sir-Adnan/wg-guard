@@ -122,8 +122,11 @@ Phase 15 backup/readiness/slow-work gates or Phase 20 final certification.
   quota preservation and network ownership retain equivalent or stronger coverage.
 - [x] Host manager works offline and with a stopped container; broker/renewal/owned
   retention survives restart/rollback and is cleaned up without touching foreign resources.
-- [ ] Supported Docker kernel and explicit userspace client traffic, reboot, update,
-  restored backup and scoped removal pass real-host acceptance; other cells stay unverified.
+- [x] Supported Docker kernel and explicit userspace client traffic, reboot, update and
+  restored backup pass real-host acceptance ([Phase 20](../development/phase20.md#completed-host-scope));
+  other cells stay unverified.
+- [ ] Scoped Docker-only removal/uninstall passes real-host acceptance. Phase 20 records no
+  uninstall or purge drill; earlier removal evidence predates the Docker-only layout.
 - [x] Current living docs describe Docker-only only after implementation; old
   published docs/fixtures remain explicitly historical. Public API/OpenAPI changes
   follow affected contracts, not the absence of a deployment choice alone.
@@ -133,6 +136,7 @@ release, registry publication or destructive operation on the owner's live serve
 Dependencies and delivery gates: [Phases 15–20](../development/refactor-program.md).
 
 
-Completed checkboxes record current source, host-seam and exact image/fake-container CI evidence,
-not physical networking certification. That real-host checkbox remains open; the implementation,
-initial fixture failure/correction and downloaded candidate identity are in [Phase 17](../development/phase17.md).
+Completed checkboxes record current source, host-seam and exact image/fake-container CI evidence;
+the real-host traffic, reboot, update and restore item is certified by Phase 20 within its listed
+matrix. Only real-host scoped removal remains open. The implementation, initial fixture
+failure/correction and downloaded candidate identity are in [Phase 17](../development/phase17.md).

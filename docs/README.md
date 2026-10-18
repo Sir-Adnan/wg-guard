@@ -12,6 +12,7 @@ Implementation and test evidence must support any claimed behavior.
 | Product behavior, panel UX or public API | [Requirements](product/requirements.md), [UI/UX contract](product/ui-ux.md), [design system and presets](product/design-system.md) ([ADR-0017](decisions/ADR-0017-design-system-and-presets.md)), [API contract](architecture/api.md) as relevant |
 | Architecture or data change | [Overview](architecture/overview.md), [project structure](architecture/project-structure.md), [database](architecture/database.md) |
 | AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
+| Subscription page designs | [Design system: subscription page designs](product/design-system.md#subscription-page-designs) |
 | Outbounds, balancers, routing rules or subscription client formats | [Egress routing](architecture/egress-routing.md), [ADR-0016](decisions/ADR-0016-kernel-egress-routing.md), [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
 | Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
 | Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
@@ -33,7 +34,6 @@ Implementation and test evidence must support any claimed behavior.
 [Phase 17 implementation](development/phase17.md) ·
 [Phase 18 domains/HTTPS](development/phase18.md) ·
 [Phase 19 operator journeys](development/phase19.md) ·
-[System health follow-up](development/system-health.md) ·
 [Phase 20 owner-host observations](development/phase20.md) ·
 [AmneziaWG pin and verification](integrations/amneziawg.md) ·
 [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) ·
@@ -66,9 +66,16 @@ inventory, shared operation ownership, runtime consistency and retained deployme
 [12](development/phase12.md). Read only the record relevant to a changed claim or acceptance
 boundary; its historical test plan is not a standing instruction for routine edits.
 
+**Follow-up records (2026-10-05):** [presentation layout](development/presentation-layout.md) ·
+[acquisition staging](development/acquisition-staging.md) ·
+[backup workbench](development/backup-workbench.md) ·
+[runtime recovery](development/runtime-recovery.md) ·
+[system health](development/system-health.md).
+
 **Frozen provenance:** [original specification](archive/wg-guard_SPEC.md),
-[initial upstream research](archive/INITIAL_DELIVERABLE.md), and
-[architecture proposal](archive/ARCHITECTURE_V2_PROPOSAL.md). These preserve origin and context;
+[initial upstream research](archive/INITIAL_DELIVERABLE.md),
+[architecture proposal](archive/ARCHITECTURE_V2_PROPOSAL.md) and
+[Phase 10 owner prompt](archive/phase10-owner-prompt.md). These preserve origin and context;
 the living contracts and current status above govern new work. Consult the initial research for
 upstream facts absent from the pinned integration document, then verify the relevant version
 before making a new claim. Test fixtures retain their recorded form for reproducibility.
@@ -76,4 +83,5 @@ before making a new claim. Test fixtures retain their recorded form for reproduc
 Update the matching living document in the same change when behavior, compatibility or a
 documented claim changes. An internal change that leaves those claims true does not require
 touching unrelated documents. Distinguish designed, implemented, automated-test verified and
-real-host verified behavior; do not infer one level from another.
+real-host verified behavior; do not infer one level from another. CI runs
+`python3 scripts/check-docs.py`, which validates links, anchors and named repository paths.

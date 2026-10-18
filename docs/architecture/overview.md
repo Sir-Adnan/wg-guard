@@ -18,7 +18,7 @@ retains its earlier deployment contract. Decisions and their rationale live in
                   accounting/ (delta pipeline)                     │        │                   │
                   backup/ (UI+CLI only)                            ▼        ▼                   │
                   reconcile/ (DB vs kernel state)              database/  tunnel.TunnelBackend │
-                                                               (SQLite WAL) ├ amneziawg (exec awg)
+                  egress/ (outbounds, routing, DNS router)     (SQLite WAL) ├ amneziawg (exec awg)
                                                                             └ fake (tests/dev)
                   firewall/ (nftables table `wgguard`) ◀── network/ (ip/sysctl)   shaper/ (tc)
                 └──────────────────────────────────────────────────────────────────────────────┘
@@ -48,8 +48,7 @@ Integrated panel/subscription certificate management is specified in
 | Kernel module primary, userspace fallback | [0003](../decisions/ADR-0003-kernel-first-userspace-fallback.md) |
 | Namespaced nftables table; never touch foreign rules | [0004](../decisions/ADR-0004-namespaced-nftables.md) |
 | Pure-Go SQLite (modernc), CGO_ENABLED=0 | [0005](../decisions/ADR-0005-pure-go-sqlite.md) |
-| Docker-only runtime, verified artifacts and separated host authority | [0015](../decisions/ADR-0015-docker-only-runtime.md) |
-| Kernel-native egress routing (policy routing + nftables + resolver), no proxy engine | [0016](../decisions/ADR-0016-kernel-egress-routing.md) |
+| Docker-default deployment, native secondary (superseded by 0015) | [0006](../decisions/ADR-0006-docker-default-deployment.md) |
 | Backup/restore excluded from the REST API (panel + CLI only) | [0007](../decisions/ADR-0007-no-backup-rest-api.md) |
 | Optional backup password via standard age encryption | [0008](../decisions/ADR-0008-optional-backup-password.md) |
 | Vanilla-JS frontend (no Alpine), HTMX | [0009](../decisions/ADR-0009-vanilla-js-frontend.md) |
@@ -57,6 +56,10 @@ Integrated panel/subscription certificate management is specified in
 | Built-in TLS/ACME without a reverse proxy | [0011](../decisions/ADR-0011-builtin-tls.md) |
 | stdlib net/http ServeMux routing | [0012](../decisions/ADR-0012-net-http-mux.md) |
 | Scheduler-owned live telemetry and mode-native bounded logs | [0013](../decisions/ADR-0013-operational-observability.md) |
+| Secure exposure orchestration without public plaintext | [0014](../decisions/ADR-0014-secure-exposure-orchestration.md) |
+| Docker-only runtime, verified artifacts and separated host authority | [0015](../decisions/ADR-0015-docker-only-runtime.md) |
+| Kernel-native egress routing (policy routing + nftables + resolver), no proxy engine | [0016](../decisions/ADR-0016-kernel-egress-routing.md) |
+| shadcn-anatomy design system with data-only visual presets | [0017](../decisions/ADR-0017-design-system-and-presets.md) |
 
 ## Runtime (`serve`)
 
@@ -65,7 +68,9 @@ DB inspection + required pre-migration archive → migrations → master key →
 services → boot bring-up → HTTP(S) listener → the central scheduler. Unknown/incomplete migration
 history or a failed existing-data archive stops startup before schema changes.
 One scheduler goroutine runs accounting + expiry (`accounting.interval_seconds`, live-reloadable),
-sample flush, live telemetry (10 s), and housekeeping (10 min prunes + rate-limit reload).
+sample flush, live telemetry (10 s), housekeeping (10 min prunes + rate-limit reload) and, when
+userspace daemons or a runtime network-policy check exist, `runtime-repair` (15 s: reruns the
+canonical pass only while the network is unready, a daemon needs repair or the policy is unhealthy).
 It signals two fixed in-process workers: webhook delivery every 5 s and backup schedules every
 minute. Each worker has one coalesced pending signal, no overlapping pass and a cancellation
 deadline (4 min for delivery, 15 min for archives). Durable due rows remain the retry source;
@@ -91,7 +96,8 @@ Explicit userspace profiles use one pin-checked foreground daemon per interface 
 the scheduler checks the bounded process/socket set and retries failed members through the same
 canonical pass. Kernel profiles retain direct link creation; active unowned daemons are refused.
 Graceful shutdown marks readiness false, drains HTTP (both the TLS listener and, in ACME mode,
-the port-80 challenge sidecar), stops scheduling, cancels/drains both slow workers, stops owned
+the port-80 challenge sidecar), stops scheduling, cancels/drains the slow workers (`webhooks`, `backups` and, with runtime
+networking, `egress-health`), stops owned
 userspace children, then closes the DB. A failed handler/worker drain retains the DB and data
 lease for a later shutdown attempt or process cleanup. TLS: manual cert, proxy, loopback
 dev, and ACME (`autocert`; HTTP-01 sidecar + certificate cache under the data dir) — all four

@@ -24,7 +24,7 @@ unverified work. Detailed release-readiness tracking lives in
 | **10 — Product UI/UX redesign** | Complete shadcn-style redesign of every page/state; responsive desktop/mobile; Settings IA; fa/en copy and accessibility audit | ✅ Complete |
 | **11 — Production certification** | Security, race/soak/performance, 1000-peer shaping, recovery drills, and supported-Ubuntu/deployment compatibility matrix | ✅ Complete for Ubuntu 24.04 amd64 scope |
 | **12 — Release candidate** | Release pipeline, checksummed amd64 artifacts, repository/docs/API freeze, final regression, and publication-ready report | ✅ Complete; v0.1.0 published |
-| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets with personal/installation defaults | ✅ Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
+| **13 — Appearance and subscription follow-up** | Public QR/RTL fixes, responsive subscription redesign, ten source-reviewed visual presets (since replaced by 29 themes, ADR-0017) with personal/installation defaults | ✅ Complete; v0.1.1 published after exact-source CI/release gates; Firefox/Phase 13 real host unverified |
 | **14 — Integration API for automation** | Isolated reseller accounts and owner/reseller integrations; recoverable provisioning, customer delivery, usage reset, queued successor plans and webhook contracts | ✅ Complete for documented scope; security in v0.1.2, integration in v0.1.3, template/direct-entitlement follow-up in v0.1.4 after exact-source CI and release gates |
 | **15 — Operational safety and migration preparation** | Complete portable backup checks, pre-migration ordering, readiness and slow-job isolation | ✅ Complete; preparation release v0.1.9 published |
 | **16 — Modular responsibility boundaries** | Shared application operations, desired/applied state, host/runtime/lifecycle separation and centralized paths | ✅ Complete; shipped in v0.1.10 |
@@ -32,7 +32,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | ✅ Complete; HTTP-01 host-verified; shipped in v0.1.10 |
 | **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | ✅ Complete; shipped in v0.1.10 |
 | **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | ✅ Complete for Ubuntu 24.04 amd64 Docker scope; v0.1.10 published |
-| **21 — Egress routing and client portal** | Kernel-native outbounds (WARP, WireGuard/AmneziaWG, source IP), balancers, ordered rules with presets/geodata and a routing resolver; subscription portal, app guide, AmneziaVPN `vpn://` and machine-readable info | 🚧 Implemented and automated-tested on branch; real-host verification pending ([status](docs/development/status.md#egress-routing)) |
+| **21 — Egress routing and client portal** | Kernel-native outbounds (WARP, WireGuard/AmneziaWG, source IP), balancers, ordered rules with presets/geodata and a routing resolver; subscription portal, app guide, AmneziaVPN `vpn://` and machine-readable info | 🚧 On main, unreleased; automated-tested; real-host verification pending ([status](docs/development/status.md#egress-routing)) |
+| **22 — Design system and subscription designs** | shadcn-anatomy CSS design system, 29 themes, Appearance gallery and four selectable subscription page designs | 🚧 On main, unreleased; Go + Chromium browser suites; WebKit/Firefox/physical phones unverified ([status](docs/development/status.md#design-system-redesign)) |
 
 The [refactor program](docs/development/refactor-program.md) defines Phase 15–20
 milestones, dependencies and exit evidence. Historical Phases 0–14 remain complete
@@ -308,10 +309,32 @@ corrected reboot and measured resources. Phases 16–20 were published as
 main CI, the release workflow and independent public-asset verification. Detailed gate:
 [docs/development/phase20.md](docs/development/phase20.md).
 
+### Phase 21 — Egress routing and client portal
+
+Kernel-native outbounds (WARP, imported WireGuard/AmneziaWG, source IP), balancers, ordered
+rules with presets and geodata, and a built-in DNS resolver, without a proxy engine; the
+subscription portal adds per-app guides, AmneziaVPN `vpn://` keys and machine-readable info.
+Merged to main (PR #5) and unreleased. Unit, integration and namespace `nft` tests pass; the
+first real-host pass found three defects, now fixed with regression tests, and client traffic
+through an outbound is not yet re-verified. Design: [egress routing](docs/architecture/egress-routing.md)
+and [ADR-0016](docs/decisions/ADR-0016-kernel-egress-routing.md); evidence:
+[status](docs/development/status.md#egress-routing).
+
+### Phase 22 — Design system and subscription designs
+
+Every panel, auth and public surface is rebuilt on the `web/styles` shadcn-anatomy layers; 29
+data-only themes in `web/themes` are chosen in the Appearance gallery, and the public subscription
+page offers four owner-selectable designs (Ticket, Membership card, Minimal, App) with
+Connect / Setup guide / Details tabs. Merged to main on 2026-10-18 (PRs #6 and #7) and
+unreleased. Go tests and the opt-in Chromium browser suites passed locally; WebKit, Firefox,
+physical phones and real hosts are unverified. Design: [design system](docs/product/design-system.md)
+and [ADR-0017](docs/decisions/ADR-0017-design-system-and-presets.md); evidence:
+[status](docs/development/status.md#design-system-redesign).
+
 ## Next scope and open items
 
-No further phase is scheduled. Each item below needs its own owner decision, scope and evidence;
-none is implied by the v0.1.10/v0.1.11 support claims.
+Phases 21–22 are on main and unreleased; nothing beyond them is scheduled. Each item below needs
+its own owner decision, scope and evidence; none is implied by the v0.1.10/v0.1.11 support claims.
 
 - **Ubuntu 26.04 / kernel `7.0.0-38` (compile fix shipped in v0.1.11 as bundle `awg-2026-10`; real-host load unverified):** the pinned kernel module fails to build there
   ([upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259));
@@ -321,9 +344,6 @@ none is implied by the v0.1.10/v0.1.11 support claims.
 - **Unverified cells:** IPv6, DNS-01 real issuance, external proxy/firewall-manager coexistence,
   active firewalld, physical mobile apps and Firefox for later UI phases, 1000 simultaneous
   handshakes, multi-day soak and an observed long-interval CA renewal.
-- **Doctor peer warning (fixed on main, unreleased):** Doctor now compares backend peer keys
-  with reconciliation's own eligibility rule, so expired, quota-exhausted, disabled and deleted
-  accounts no longer produce a false warning.
 - **Distribution:** no official registry image is published; releases ship verified offline
   image assets.
 - **Deferred products:** remote AmneziaWG nodes, native WireGuard, Xray/sing-box/OpenVPN and

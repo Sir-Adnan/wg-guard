@@ -15,7 +15,7 @@ manifest digest, every provenance label matched metadata and the embedded binary
 v0.1.11 with the published digest. A real-host fresh release install on the containerd store
 and client traffic remain to be reported. v0.1.11 is Latest stable; no registry image exists.
 
-**Containerd image store correction (2026-10-08; main source, unreleased):** a fresh
+**Containerd image store correction (2026-10-08; shipped in v0.1.11):** a fresh
 v0.1.10 install on the owner's Ubuntu 24.04.4 amd64 host (`6.8.0-138-generic`,
 `docker.io` 29.1.3 from `noble-updates`, containerd snapshotter) stopped with
 `runtime: image inspection failed` after `docker load` reported ID
@@ -111,7 +111,7 @@ Exact source `e589b2a5fc1ad4d92afb689c1c5dfea45e91d862` passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37298179907), including
 both full Linux race/load jobs, build, vulnerability and runtime-image checks.
 The independently checked unpublished candidate is recorded in Phase 19. No owner-server/rebuild/real CA claim or new release
-is made; latest stable remains v0.1.9.
+is made; latest stable remained v0.1.9 at that time.
 
 
 **Phase 18 source (2026-10-05; unreleased):** independent panel/public origins,
@@ -125,7 +125,7 @@ vet/build and bootstrap/asset checks passed. Exact implementation
 both full Linux race/load jobs, build, vulnerability and fake runtime-image checks.
 The unpublished image and independently checked artifact are recorded in
 [Phase 18](phase18.md); physical CA/forwarding/reboot/client acceptance remains
-Phase 20. Latest stable v0.1.9 and the no-further-release instruction are unchanged.
+Phase 20. Latest stable v0.1.9 and the no-further-release instruction were unchanged at that time.
 
 
 This is the current capability matrix. A feature is not production-verified merely because it
@@ -430,7 +430,7 @@ and no safe reversal contract has been approved.
 
 ## Egress routing
 
-**Egress routing and subscription portal (2026-10-16; branch source, unreleased).** Kernel-native
+**Egress routing and subscription portal (2026-10-16; on main, unreleased).** Kernel-native
 outbounds (WARP, WireGuard/AmneziaWG import, source IP), balancers (`sticky`, `round_robin`,
 `random`, `least_conn`, `failover`), ordered rules with presets, geosite/geoip and a built-in
 DNS resolver are implemented; see [egress routing](../architecture/egress-routing.md) and
@@ -446,7 +446,7 @@ DNS resolver are implemented; see [egress routing](../architecture/egress-routin
 
 ## Design system redesign
 
-**shadcn-anatomy design system and visual presets (2026-10-18; branch source, unreleased).** Every
+**shadcn-anatomy design system and visual presets (2026-10-18; on main, unreleased).** Every
 panel, auth and public subscription surface is rebuilt on `web/styles`; 29 presets in `web/themes`
 drive colors, fonts, radius, shadows, spacing and four layout axes; the subscription page has its
 own owner default and a visitor choice. See the [design system](../product/design-system.md) and
@@ -455,9 +455,20 @@ own owner default and a visitor choice. See the [design system](../product/desig
 | Level | Evidence |
 |---|---|
 | Unit / integration | Preset schema, value safety, WCAG AA contrast in both modes, CSS generation and import (`internal/web/theme`); appearance precedence, owner boundaries, subscription defaults and visitor cookie; every page's handler/markup tests; full `go test ./...`, `go vet ./...` and race tests for `internal/web/...`, `internal/i18n`, `internal/database` |
-| Browser (Chromium, local) | 24 panel routes × 3 presets (WG-Guard, Linear, shadcn Zinc) × fa-light-390 / en-dark-390 / fa-dark-1440 with no horizontal overflow or console errors; per-area screenshots in fa/en, light/dark, 390/1440; live-preview checks. On the final tree every opt-in driver passed fresh: `TestBrowserFoundation`, `TestBrowserGuidanceLayout`, `TestBrowserBackupWorkbench`, `TestBrowserCleanup`, `TestBrowserDomains`, `TestBrowserMaintenance`, `TestBrowserOperationalJourney`, `TestBrowserPresentation`, `TestBrowserSystemHealth`, and `TestBrowserPhase10` suites `10.2`, `10.3`, `10.4`, `appearance` (every preset), `10.5` (auth/public, 56 cells; subscription at 320–1440 px for the pass, split, compact and portal layouts) and groups `states` (122 cells), `interactions` and `calendar` |
+| Browser (Chromium, local) | 24 panel routes × 3 presets (WG-Guard, Linear, shadcn Zinc) × fa-light-390 / en-dark-390 / fa-dark-1440 with no horizontal overflow or console errors; per-area screenshots in fa/en, light/dark, 390/1440; live-preview checks. On the final tree every opt-in driver passed fresh: `TestBrowserFoundation`, `TestBrowserGuidanceLayout`, `TestBrowserBackupWorkbench`, `TestBrowserCleanup`, `TestBrowserDomains`, `TestBrowserMaintenance`, `TestBrowserOperationalJourney`, `TestBrowserPresentation`, `TestBrowserSystemHealth`, and `TestBrowserPhase10` suites `10.2`, `10.3`, `10.4`, `appearance` (every preset), `10.5` (auth/public, 56 cells; subscription at 320–1440 px for the pass, split, compact and portal layouts, since replaced by the four designs in the next row) and groups `states` (122 cells), `interactions` and `calendar` |
 | Subscription designs (fresh) | Ticket, Membership card, Minimal and App designs with Connect / Setup guide / Details tabs: Go tests for the Appearance picker, owner-only sample preview, reset and the `0019` mapping; `TestBrowserPhase10` suite `10.5` (56 cells) and the subscription surface per design at 320–1440 px in fa/en, Light/Dark (tab switching, one-at-a-time guide accordion, isolated quantities, device-action sizing), plus suites `10.4` and `appearance` |
 | Not verified | WebKit/Firefox, physical phones and touch hardware (coarse-pointer sizing is emulated), assistive technology, the `final` 16-width matrix and the axe scan (`WG_TEST_AXE` not installed) |
+
+**Subscription device activity and design files (2026-10-18; unreleased branch).** Device
+cards on the public subscription page show each device's usage and, while it is offline, when
+it last connected. Each design's stylesheet lives at `web/styles/40-pages/sub-designs/<id>.css`.
+CI now runs `python3 scripts/check-docs.py` to check links, anchors and named repository paths.
+
+| Level | Evidence |
+|---|---|
+| Unit | `TestPublicSubscriptionDeviceActivity` (usage and last-connected rendering); `TestSubscriptionDesignsAreComplete` (every design ID has a hero template and a stylesheet bundled after `sub-base.css`) |
+| CI | Docs check step in `.github/workflows/ci.yml` |
+| Not verified | Browser suites for the new device-card fields, physical phones and real hosts |
 
 ## Release-critical workflows
 
@@ -491,10 +502,5 @@ results never upgrade a real-host cell. Phase 11's scoped gate, risks and resour
 are in [phase11.md](phase11.md); exact published-artifact evidence is in
 [phase12.md](phase12.md).
 
-
-Phase 17 exact implementation `5952d97bb07b656db4d931230a4f4c671be9d3e4` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37247158064) on 2026-10-05:
-both Linux race matrices and encrypted-archive load, vet/build, vulnerability/bootstrap,
-canonical image/binary/core identity and offline-load/fake-node persistence/hardening checks.
-The unpublished seven-day Actions artifact was independently downloaded: ZIP digest and all
-six file checksums passed; binary/runtime metadata identify that SHA. No new real-host/client,
-public release or registry result is implied. Latest stable remains v0.1.9.
+Phase 17's exact CI and unpublished-artifact result (`5952d97`, 2026-10-05) is in
+[phase17.md](phase17.md#exact-delivery-result).

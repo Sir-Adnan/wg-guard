@@ -112,8 +112,10 @@ No dates, performance promises, release numbers or completion percentages are in
   age export encryption, the independent password-recovery requirement, streaming/
   admission limits, transient KDF memory and remaining real-host resource gates.
 - [x] Produce an owner-usable backup/export/verify/recovery drill linked above.
-- [ ] Owner checkpoint after the preparation release: download and independently verify
-  the off-host copy before any rebuild. This is not a pre-publication or Phase 16
+- [x] Owner checkpoint after the preparation release: download and independently verify
+  the off-host copy before any rebuild. Completed: the owner restored a prior-installation
+  archive onto a fresh install ([Phase 20 owner report](phase20.md#owner-report)); a
+  byte-for-byte comparison was not supplied. This is not a pre-publication or Phase 16
   source-refactor dependency: on 2026-10-04 the owner explicitly requested release
   first so the installed server can be updated and backed up, then full Phase 16
   implementation without another release. The rebuild remains separately gated.
@@ -130,7 +132,7 @@ Stored-domain admission at `bb60bfd06696fcb3355debc76a0982bd39b22a1f` passed loc
 tests, vet/build and [exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37207442547),
 including both Linux race jobs. Original/current layouts, readable invalid data, old approved
 previews and supported backend inventory have regression evidence; real-host requirements
-and the owner's verified off-host copy remain open.
+and the owner's verified off-host copy remained open then and closed in [Phase 20](phase20.md).
 
 Preparation exit: failure-injection/race coverage for changed boundaries; actual offline
 fixture restore with preserved identity/data; measured real crypto/slow-delivery isolation;
@@ -183,9 +185,12 @@ Mandatory milestones 17.0–17.5 and removal inventory:
 - [x] Bind image digest, panel binary hash/commit, AWG tools/userspace source,
   kernel bundle, data contract, lifecycle protocol, notices and SBOM in release metadata.
   Digests establish content identity; publisher authentication needs its own policy.
-- [ ] Build/test runtime images in CI. Publish only with owner authorization.
+- [x] Build/test runtime images in CI. Publish only with owner authorization.
   Support bounded cache/local verified artifacts so outage recovery does not require
   a functioning registry, internet connection or running container.
+  Completed: the `runtime` job in `.github/workflows/ci.yml` builds the image and runs
+  `scripts/test-runtime-image.sh`; owner-dispatched `.github/workflows/release.yml` publishes
+  the offline image archive as a release asset. No registry image is published.
 - [x] Remove native production install/update/rollback/server rendering and all
   mode-specific status/log/restart/health/restore/exposure paths. Keep one Docker
   execution path under the shared lifecycle coordinator and preserve host/fake roles.
@@ -216,7 +221,7 @@ cleanup checklist must pass; merely removing its menu option is incomplete.
 Source scope and fresh/reused/unrun checks are in [Phase 17](phase17.md). A checkbox above
 records source implementation/review, not physical host certification. Exact Docker image/CI
 evidence passed; registry/release publication is not authorized. The required physical
-client/reboot/restore/failure/resource matrix remains open under Phase 20. Global Docker cache
+client/reboot/restore/failure/resource matrix was completed by Phase 20 within its listed scope. Global Docker cache
 or shared-image pruning is not automatic; current/previous file recovery identities are bounded.
 
 ## Phase 18 — Domains and TLS inside the panel

@@ -24,3 +24,11 @@ Server-rendered `html/template` + HTMX partial swaps + hand-written vanilla ES m
 
 - Alpine.js: 15 KB gz runtime + hidden declarative state for needs vanilla covers cleanly.
 - React/Vue/Next: explicitly forbidden by the spec and the resource budgets.
+
+## Note — 2026-10-18
+
+The size figures above are historical. App JavaScript is now about 36 KB gzip across its
+modules (HTMX excluded), and the project has no numerical asset-size targets (see the
+[UI/UX contract](../product/ui-ux.md#settings-and-performance)): `bash scripts/check-assets.sh`
+reports raw/gzip sizes instead. The decision itself (vanilla modules, no Alpine.js or SPA
+framework) is unchanged.

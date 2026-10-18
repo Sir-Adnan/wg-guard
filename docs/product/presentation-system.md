@@ -6,8 +6,9 @@ shadcn's [Field](https://ui.shadcn.com/docs/components/base/field),
 [Popover](https://ui.shadcn.com/docs/components/base/popover) composition and interaction
 patterns without introducing React or a production package runner.
 Compact preset pickers follow [Select](https://ui.shadcn.com/docs/components/base/select);
-desktop navigation follows the [inset sidebar](https://ui.shadcn.com/blocks/sidebar#sidebar-08)
-composition while preserving the existing permissions and native/mobile navigation.
+desktop navigation follows the shadcn [Sidebar](https://ui.shadcn.com/blocks/sidebar) block,
+whose plain, inset or floating composition is a per-preset axis (see the
+[design system shell](design-system.md#shell)).
 
 ## Numerals
 
@@ -51,9 +52,10 @@ The tab primitive registers existing panels, supports directional arrows and Hom
 with roving focus, and opens the panel containing a server validation error. Without
 JavaScript all sections remain accessible. Hidden panels retain submitted input values.
 Interface forms group General, Address pools and Profile; packet parameters and overflow
-pool editing are collapsible. Tab groups and panels compose the shared `form-stack`
-layout so nested fieldsets retain card padding, heading alignment and spacing at every
-viewport, including the all-sections fallback without JavaScript. Shared CSS uses
+pool editing are collapsible. Each panel holds shared `.card` sections whose nested
+`.fieldset` groups keep card padding, heading alignment and spacing at every viewport,
+including the all-sections fallback without JavaScript. With `data-tab-address` the open
+panel is kept in the URL fragment and restored from it. Shared CSS uses
 existing semantic tokens for restrained headers, type, borders, controls and focus
 states across presets.
 
@@ -82,19 +84,10 @@ manual editing updates or clears the selected preset. Without JavaScript the ine
 quick-fill picker is hidden and the ordinary fields remain available. No scrolling
 chip strip or multi-row button matrix consumes the card's unused half.
 
-The inset desktop shell is composed from the existing sidebar/drawer primitives,
-with disclosure groups, a topbar rail trigger and current-location state. Rail mode
-temporarily expands all groups and restores their prior disclosure choices when
-expanded again. The System group starts collapsed off its active routes; native
-navigation remains expanded without JavaScript. Domains/HTTPS has its own `server.view`
-navigation item; Settings is current only at its own root. Neither link exposure nor
-group presentation grants permissions or exposes domains to reseller navigation.
-
-Appearance uses separate Visual style, Numerals and Reset panels with keyboard tabs
-and section-address preservation. The gallery and a live sample/application column
-compose one form; the owner's shared-default controls use a disclosure and explicit
-confirmation, separate from personal application. Preset, mode, digits, language and
-direction semantics stay independent. Numeral submissions return to their own panel.
+The sidebar renders `View.Nav` as static labeled groups, not disclosures.
+Domains/HTTPS has its own `server.view` navigation item; Settings is current only at
+its own root. Neither link exposure nor group presentation grants permissions or exposes
+domains to reseller navigation.
 
 Dashboard charts use the existing bounded server-rendered SVGs with chronological
 lines and subtle area segments; missing samples stay gaps in both. Latest CPU, memory
@@ -106,6 +99,19 @@ hoverable/dismissible; click/touch pins the selected sample, keyboard arrows/Hom
 inspect chronological points, and Escape/outside interaction or a swap closes it.
 Exact native data tables and no-JavaScript plots remain available. These are local
 SVG compositions inspired by the shadcn examples, not an embedded Recharts runtime.
+
+## Section navigation
+
+`enhanceScrollSpy` in `presentation.js` turns `nav[data-scrollspy]` (a list of
+`a[href="#id"]` links; Settings uses it) into a scroll-spy. The link of the last section
+whose top has reached a reading line 24px below the sticky header (or below the nav itself
+when it is sticky and scrolls horizontally on phones) gets `aria-current="true"`; at the
+page bottom the last section wins. A clicked link, or the
+section named by the URL fragment on load, stays current while its section is on screen, so
+short trailing sections remain selectable. When the nav row overflows horizontally, it
+scrolls the current link into view without moving the page. Measurement runs at most once
+per animation frame on passive scroll/resize listeners; without JavaScript the links are
+ordinary anchors.
 
 ## Pool editor
 
