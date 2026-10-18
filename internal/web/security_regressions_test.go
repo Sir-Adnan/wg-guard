@@ -121,3 +121,27 @@ func TestSessionSurvivesTransientStorageError(t *testing.T) {
 		t.Fatalf("session after recovery: %d", rec.Code)
 	}
 }
+
+// admins.manage alone cannot mint an account more powerful than its holder.
+func TestAdminGrantsAreCappedByTheGranter(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	operator := e.limitedLogin(t, []string{auth.ScopeAdminsManage, auth.ScopeUsersRead})
+	csrf := deriveCSRF(operator.Value)
+	form := func(name string, perms ...string) url.Values {
+		return url.Values{"username": {name}, "password": {"Delegated-Password-1"}, "role": {"admin"}, "permissions": perms}
+	}
+	rec := e.post("/admins/create", form("escalated", auth.ScopeAdminsManage, auth.ScopeServerManage), operator, csrf)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), i18n.T(i18n.En, "admins.error.grant_exceeds")) {
+		t.Fatalf("grant beyond the caller: %d", rec.Code)
+	}
+	if rec := e.post("/admins/create", form("delegated", auth.ScopeUsersRead), operator, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("grant within the caller: %d", rec.Code)
+	}
+	admins, _ := e.admins.List(context.Background())
+	for _, a := range admins {
+		if a.Username == "escalated" {
+			t.Fatal("the over-granted account must not exist")
+		}
+	}
+}

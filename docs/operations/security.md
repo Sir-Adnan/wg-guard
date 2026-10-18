@@ -119,9 +119,15 @@ removed when the operator explicitly purges node data.
 
 - CSRF token on all mutating form/HTMX requests; security headers (CSP, X-Content-Type-Options,
   frame denial, referrer policy); `no-store` on sensitive endpoints.
-- Login rate limiting (per-IP and per-account lockout), audit-logged login activity.
+- Login rate limiting (per-IP and per-account lockout), audit-logged login activity. Behind the
+  managed reverse proxy (`proxy` TLS mode) the visitor address is the proxy's `X-Real-IP`, trusted
+  only from a loopback/private peer; other modes use the socket peer.
 - Authorization is centralized: a permission registry checked server-side per handler; the UI
-  never hides what the server doesn't enforce; the Owner role cannot remove itself.
+  never hides what the server doesn't enforce; the Owner role cannot remove itself. Only the owner
+  manages the owner account (password, permissions, state), and an administrator other than the
+  owner grants only scopes they hold, as with API tokens.
+- Return paths (`next`) are same-origin paths only: no scheme, host, backslash or control
+  character. Toasts render catalog keys; free text in a flash link needs a per-process HMAC.
 - Web-triggered updates require `update.manage` and cross to the host only as a fixed 0600 envelope
   containing a stable release or reviewed core identity. The root-owned broker revalidates that
   identity and maps it to closed argv; no shell text, executable path, development ref, credential,
