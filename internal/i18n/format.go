@@ -38,11 +38,6 @@ func FormatInt(n int64) string {
 	return s
 }
 
-// FormatFloat formats v with prec decimals, no grouping (used for rates).
-func FormatFloat(v float64, prec int) string {
-	return fmt.Sprintf("%.*f", prec, v)
-}
-
 var byteUnits = map[Locale][]string{
 	// Decimal (SI) units: quotas are marketed in decimal GB and the traffic
 	// accounting sums raw bytes, so 1000-based humanization is the honest
@@ -269,13 +264,4 @@ func FormatRelativeUntil(locale Locale, now, t time.Time) string {
 		}
 		return fmt.Sprintf("in %dd", n)
 	}
-}
-
-// MonthNames returns the month names for locale (used by the traffic chart
-// axis): fa Jalali names, en Gregorian abbreviations.
-func MonthNames(locale Locale) [12]string {
-	if locale == En {
-		return [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
-	}
-	return jalaliMonthNames
 }

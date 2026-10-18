@@ -100,11 +100,7 @@ func StreamLogs(ctx context.Context, h Host, state *State, options LogOptions, s
 	// Docker preserves the container's stdout/stderr split. WG-Guard's
 	// structured logger writes to stderr, so route both container streams into
 	// the command's single documented stdout stream.
-	sourceStderr := stderr
-
-	sourceStderr = logOutput
-
-	if err := h.Stream(ctx, argv, logOutput, sourceStderr); err != nil {
+	if err := h.Stream(ctx, argv, logOutput, logOutput); err != nil {
 		return fmt.Errorf("logs: %s source: %w", state.Mode, err)
 	}
 	return nil

@@ -73,10 +73,6 @@ func (s *Server) installationAppearance(ctx context.Context) appearanceDefaults 
 	return out
 }
 
-func (s *Server) panelAppearance(ctx context.Context) appearanceSelection {
-	return s.installationAppearance(ctx).appearanceSelection
-}
-
 func themeCookieChoice(r *http.Request) string {
 	if c, err := r.Cookie(themeCookie); err == nil && validAppearanceMode(c.Value) {
 		return c.Value

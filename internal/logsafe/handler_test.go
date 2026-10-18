@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -211,5 +212,25 @@ func TestComponentLoggerUsesClosedStableValue(t *testing.T) {
 		if _, ok := ParseComponent(invalid); ok {
 			t.Errorf("ParseComponent accepted %q", invalid)
 		}
+	}
+}
+
+func TestSanitizeURLValuesAndKeepTimes(t *testing.T) {
+	u, err := url.Parse("https://alice:url-secret@example.test/hook?token=query-secret&page=2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []any{u, *u} {
+		got, _ := sanitizeAny(value, 0, map[visit]bool{}).(string)
+		if got == "" || strings.Contains(got, "url-secret") || strings.Contains(got, "query-secret") || !strings.Contains(got, "page=2") {
+			t.Errorf("%T sanitized to %q", value, got)
+		}
+	}
+	at := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+	if got := sanitizeAny(at, 0, map[visit]bool{}); got != at {
+		t.Errorf("time.Time must stay structured, got %#v", got)
+	}
+	if got := sanitizeAny(3*time.Second, 0, map[visit]bool{}); got != 3*time.Second {
+		t.Errorf("time.Duration must stay structured, got %#v", got)
 	}
 }

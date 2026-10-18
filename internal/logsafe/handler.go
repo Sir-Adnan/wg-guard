@@ -241,13 +241,9 @@ func sanitizeAny(value any, depth int, seen map[visit]bool) any {
 	if depth >= maxSanitizeDepth {
 		return Redacted
 	}
+	// Concrete types come before fmt.Stringer, which *url.URL, time.Time and
+	// time.Duration all implement.
 	switch typed := value.(type) {
-	case error:
-		return sanitizeText(typed.Error())
-	case fmt.Stringer:
-		return sanitizeText(typed.String())
-	case []byte:
-		return Redacted
 	case url.URL:
 		return sanitizeURL(typed)
 	case *url.URL:
@@ -257,6 +253,12 @@ func sanitizeAny(value any, depth int, seen map[visit]bool) any {
 		return sanitizeURL(*typed)
 	case time.Time, time.Duration:
 		return value
+	case []byte:
+		return Redacted
+	case error:
+		return sanitizeText(typed.Error())
+	case fmt.Stringer:
+		return sanitizeText(typed.String())
 	}
 	return sanitizeReflect(reflect.ValueOf(value), depth, seen)
 }

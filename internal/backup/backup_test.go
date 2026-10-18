@@ -577,5 +577,3 @@ func TestPendingLifecycle(t *testing.T) {
 		t.Fatal("discard left a pending restore")
 	}
 }
-
-func ctxBG() context.Context { return context.Background() }

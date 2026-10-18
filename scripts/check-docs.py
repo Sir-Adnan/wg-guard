@@ -3,7 +3,7 @@
 
 Fails when a relative Markdown link points at a missing file or heading, or
 when a living document names a repository path in backticks that no longer
-exists. Historical records (phase evidence, archive, prompts, CHANGELOG) keep
+exists. Historical records (phase evidence, archive, CHANGELOG) keep
 their recorded paths and are link-checked only.
 """
 import os
@@ -13,7 +13,7 @@ import sys
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SKIP_DIRS = {".git", "node_modules"}
 # Paths these records name are evidence of their time, not current claims.
-HISTORICAL = re.compile(r"^(CHANGELOG\.md|docs/archive/|docs/prompt/|docs/development/phase[^/]*\.md$)")
+HISTORICAL = re.compile(r"^(CHANGELOG\.md|docs/archive/|docs/development/phase[^/]*\.md$)")
 PATH_PREFIXES = ("internal/", "web/", "scripts/", "migrations/", "cmd/", "deploy/", "docs/", ".github/")
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 TICKED = re.compile(r"`([^`\s]+)`")

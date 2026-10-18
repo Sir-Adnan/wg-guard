@@ -27,10 +27,6 @@ func jsonTime(t *time.Time) *string {
 	return &s
 }
 
-func optI64(o *int64) *int64 { return o }
-
-func optInt(o *int) *int { return o }
-
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)

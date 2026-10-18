@@ -203,16 +203,6 @@ func Allows(granted []string, required string) bool {
 	return false
 }
 
-// AllowsAll is the conjunctive form used by handlers needing two scopes.
-func AllowsAll(granted []string, required ...string) bool {
-	for _, r := range required {
-		if !Allows(granted, r) {
-			return false
-		}
-	}
-	return true
-}
-
 // Role is an admin role. Owner is immutable and implicitly authorized for
 // everything; the Owner cannot remove or demote itself (requirements.md).
 type Role string

@@ -419,18 +419,3 @@ func runStatus(args []string) error {
 	fmt.Printf("access:      %s (%s)\n", p.Exposure, st.TLSReadiness)
 	return nil
 }
-
-func splitListen(listen string) (host string, port int, err error) {
-	idx := strings.LastIndex(listen, ":")
-	if idx < 0 {
-		return "", 0, fmt.Errorf("no port in %q", listen)
-	}
-	n := 0
-	for _, c := range listen[idx+1:] {
-		if c < '0' || c > '9' {
-			return "", 0, fmt.Errorf("bad port in %q", listen)
-		}
-		n = n*10 + int(c-'0')
-	}
-	return listen[:idx], n, nil
-}

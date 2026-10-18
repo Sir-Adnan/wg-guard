@@ -242,6 +242,3 @@ func validEndpoint(value string) error {
 	}
 	return nil
 }
-
-// ValidEndpoint exposes endpoint validation for form edits.
-func ValidEndpoint(value string) error { return validEndpoint(value) }

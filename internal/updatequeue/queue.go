@@ -311,14 +311,6 @@ func statusFrom(req Request, state State) Status {
 	return Status{Schema: Schema, ID: req.ID, State: state, CreatedAt: req.CreatedAt, Actor: req.Actor, ActorID: req.ActorID, ExecuteAt: req.ExecuteAt, Revision: 1, Input: req.Input}
 }
 
-func (q *Queue) statusStartedAt(id string) time.Time {
-	status, err := q.Status()
-	if err == nil && status.ID == id {
-		return status.StartedAt
-	}
-	return time.Time{}
-}
-
 func validRequest(req Request) bool {
 	return req.Schema == Schema && safeRequestID.MatchString(req.ID) && !req.CreatedAt.IsZero() && validActor(req.Actor) && validActor(req.ActorID) && validInput(req.Input)
 }
