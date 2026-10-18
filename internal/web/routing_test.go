@@ -217,3 +217,30 @@ func TestOutboundKindKeyWARPPlusFollowsAccountType(t *testing.T) {
 		}
 	}
 }
+
+func TestOutboundEditRejectsBadConfigBeforeSaving(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	csrf := deriveCSRF(cookie.Value)
+	ctx := context.Background()
+	nl, err := e.egress.CreateWireGuard(ctx, "Netherlands", routingConf())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := e.post("/routing/outbounds/"+nl.ID+"/edit", url.Values{"name": {"Renamed"}, "mtu": {"1300"},
+		"config": {"[Interface]\nPrivateKey = " + routingTestPriv + "\n"}}, cookie, csrf)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("broken config on edit: %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), routingTestPriv) {
+		t.Fatal("private key echoed back into the form")
+	}
+	got, err := e.egress.GetOutbound(ctx, nl.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "Netherlands" || got.Tunnel.MTU != nl.Tunnel.MTU {
+		t.Fatalf("a rejected edit must not save its other fields: %q mtu %d", got.Name, got.Tunnel.MTU)
+	}
+}

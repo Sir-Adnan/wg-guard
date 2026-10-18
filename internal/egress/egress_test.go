@@ -126,6 +126,9 @@ func TestParseClientConfig(t *testing.T) {
 	if p, err := ParseClientConfig(plain); err != nil || p.Tunnel.MTU != DefaultTunnelMTU || p.Tunnel.Obfuscation.Enabled || p.Tunnel.Keepalive != 25 {
 		t.Fatalf("plain: %+v %v", p, err)
 	}
+	if p, err := ParseClientConfig(plain + "PersistentKeepalive = 0\n"); err != nil || p.Tunnel.Keepalive != 0 {
+		t.Fatalf("explicit PersistentKeepalive = 0 must stay off: %+v %v", p.Tunnel, err)
+	}
 	for conf, r := range map[string]string{
 		"[Interface]\nPrivateKey = nope\n":                                            "config_key",
 		plain + "[Peer]\nPublicKey = " + testPub + "\n":                               "config_multiple_peers",

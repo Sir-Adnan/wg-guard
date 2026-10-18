@@ -450,21 +450,46 @@ func (s *Server) handleOutboundUpdate(w http.ResponseWriter, r *http.Request) {
 	if in.Name == "" {
 		in.Name = " " // explicit empty name is a validation error, not "keep"
 	}
+	conf := ""
+	if o.Kind == egress.KindWireGuard {
+		if c, err := readConfigField(r); err == nil && strings.TrimSpace(c) != "" {
+			conf = c
+		}
+	}
+	license := ""
+	if o.Kind == egress.KindWARP {
+		license = strings.TrimSpace(r.PostFormValue("license"))
+	}
+	// Validate the config and license before the first write, so a rejected
+	// form leaves the stored outbound, and therefore the kernel, unchanged.
+	if conf != "" {
+		if _, err := egress.ParseClientConfig(conf); err != nil {
+			s.outboundFormError(w, r, o.Kind, o, err)
+			return
+		}
+	}
+	if license != "" {
+		if err := egress.ValidateLicense(license); err != nil {
+			s.outboundFormError(w, r, o.Kind, o, err)
+			return
+		}
+	}
 	if _, err := s.Egress.UpdateOutbound(r.Context(), id, in); err != nil {
 		s.outboundFormError(w, r, o.Kind, o, err)
 		return
 	}
-	if o.Kind == egress.KindWireGuard {
-		conf, err := readConfigField(r)
-		if err == nil && strings.TrimSpace(conf) != "" {
-			if _, err := s.Egress.ReplaceWireGuardConfig(r.Context(), id, conf); err != nil {
-				s.outboundFormError(w, r, o.Kind, o, err)
-				return
-			}
+	// Later steps can still fail (storage, WARP rejecting the license); the
+	// fields saved above are then applied before the form is shown again.
+	if conf != "" {
+		if _, err := s.Egress.ReplaceWireGuardConfig(r.Context(), id, conf); err != nil {
+			_ = s.egressApply(r)
+			s.outboundFormError(w, r, o.Kind, o, err)
+			return
 		}
 	}
-	if o.Kind == egress.KindWARP && strings.TrimSpace(r.PostFormValue("license")) != "" {
-		if _, err := s.Egress.UpdateWARPLicense(r.Context(), id, r.PostFormValue("license")); err != nil {
+	if license != "" {
+		if _, err := s.Egress.UpdateWARPLicense(r.Context(), id, license); err != nil {
+			_ = s.egressApply(r)
 			s.outboundFormError(w, r, o.Kind, o, err)
 			return
 		}

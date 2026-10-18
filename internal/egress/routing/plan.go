@@ -146,9 +146,21 @@ func staticSetName(ruleID string) string { return "r" + idHex(ruleID) + "_c" }
 
 func balancerChain(id string) string { return "t_b" + idHex(id) }
 
+// markKeep selects the mark bits egress routing never changes.
+const markKeep = ^MarkMask
+
+// markStatements sets the mark field on the packet and the connection and
+// keeps every bit outside MarkMask.
 func markStatements(mark uint32) string {
-	keep := ^MarkMask
-	return fmt.Sprintf("meta mark set 0x%08x ct mark set ct mark and 0x%08x or 0x%08x", mark, keep, mark)
+	return fmt.Sprintf("meta mark set meta mark and 0x%08x or 0x%08x ct mark set ct mark and 0x%08x or 0x%08x", markKeep, mark, markKeep, mark)
+}
+
+// restoreStatement copies a pinned connection's mark field back onto a
+// packet, keeping the other bits. nft cannot OR two runtime values on the
+// kernels WG-Guard supports, so each pinned mark gets its own constant
+// statement, reached through a verdict map.
+func restoreStatement(mark uint32) string {
+	return fmt.Sprintf("meta mark set meta mark and 0x%08x or 0x%08x", markKeep, mark)
 }
 
 // Inputs are the runtime observations a plan depends on besides stored state.

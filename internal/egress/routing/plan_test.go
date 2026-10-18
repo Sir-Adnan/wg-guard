@@ -291,3 +291,28 @@ func TestLeastConnShares(t *testing.T) {
 		t.Fatalf("busy member must receive few new flows: %v", got)
 	}
 }
+
+func TestMarkRulesKeepForeignBits(t *testing.T) {
+	if MarkMask != 0x7ff00000 || markKeep != 0x800fffff {
+		t.Fatalf("mark field: mask %#x keep %#x", MarkMask, markKeep)
+	}
+	p := Compile(scenario(), ifaces, Inputs{Health: Health{}}, geo)
+	if got := p.Chains["t_o1"]; got != "meta mark set meta mark and 0x800fffff or 0x00100000 ct mark set ct mark and 0x800fffff or 0x00100000" {
+		t.Fatalf("mark statements: %q", got)
+	}
+	table := string(RenderTable(p, Inventory{}, true))
+	// Restore covers every enabled outbound (o-ip has no rule of its own)
+	// plus direct and block, each with constant operands only.
+	for _, want := range []string{
+		"add rule ip " + TableName + " prerouting ct mark and 0x7ff00000 vmap { 0x7ff00000 : goto k_block, 0x7fe00000 : goto k_direct, 0x00100000 : goto k_o1, 0x00200000 : goto k_o2, 0x00300000 : goto k_o3 }",
+		"add rule ip " + TableName + " k_o3 meta mark set meta mark and 0x800fffff or 0x00300000",
+		"add rule ip " + TableName + " k_direct meta mark set meta mark and 0x800fffff or 0x7fe00000",
+	} {
+		if !strings.Contains(table, want) {
+			t.Fatalf("missing %q in:\n%s", want, table)
+		}
+	}
+	if strings.Contains(table, "k_o4") || strings.Contains(table, "meta mark set ct mark") {
+		t.Fatalf("disabled outbound restored or foreign bits overwritten:\n%s", table)
+	}
+}

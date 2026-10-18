@@ -28,9 +28,12 @@ type ResolverConfig struct {
 // Resolver is the built-in DNS resolver (dnsrouter.Server). Configure starts,
 // reconfigures or stops it and reports whether it serves every gateway, which
 // gates DNS redirection: client DNS is never redirected to a resolver that is
-// not listening.
+// not listening. Forget tells it that the named resolver-fed sets were
+// (re)created empty (first apply, or repair after something outside WG-Guard
+// flushed the table), so its memory of written elements is stale.
 type Resolver interface {
 	Configure(ctx context.Context, cfg ResolverConfig) bool
+	Forget(sets []string)
 }
 
 // Health thresholds: an outbound is down after this many consecutive failed
@@ -93,10 +96,13 @@ type Manager struct {
 	// passes with nothing configured cost no subprocess.
 	idle bool
 
-	stateMu sync.RWMutex // guards health, load and status
+	stateMu sync.RWMutex // guards health, healthDirty, load and status
 	health  map[string]*healthEntry
-	load    map[string]int64
-	status  Status
+	// healthDirty records a health flip (panel Test) that no apply has
+	// rendered yet; the next health pass re-renders.
+	healthDirty bool
+	load        map[string]int64
+	status      Status
 }
 
 type healthEntry struct {
@@ -146,6 +152,7 @@ func (m *Manager) apply(ctx context.Context) error {
 		m.setStatus(st)
 		return nil
 	}
+	m.pruneHealth(snap)
 	in := Inputs{Health: m.healthSnapshot(), Load: m.loadSnapshot()}
 	plan := Compile(snap, m.ifaces, in, m.Geo)
 	linkErrs := m.syncLinks(ctx, plan)
@@ -171,9 +178,13 @@ func (m *Manager) apply(ctx context.Context) error {
 		}
 		resolverOK = m.Resolver.Configure(ctx, cfg) && plan.Resolves()
 	}
-	if err := m.syncTable(ctx, plan, resolverOK); err != nil {
+	created, err := m.syncTable(ctx, plan, resolverOK)
+	if err != nil {
 		st.Error = "table"
 		errs = append(errs, err)
+	}
+	if m.Resolver != nil && len(created) > 0 {
+		m.Resolver.Forget(created)
 	}
 	st.Warnings = plan.Warnings
 	st.ResolverWanted, st.ResolverActive = plan.Resolves(), resolverOK
@@ -303,11 +314,16 @@ func (m *Manager) syncLinks(ctx context.Context, plan *Plan) map[string]string {
 	return failed
 }
 
-// adopt accepts a link that survived a process restart when its live
-// identity matches the desired configuration (no session reset on upgrade).
+// adopt accepts a link that survived a process restart (no session reset on
+// upgrade). Its identity (keys, obfuscation) must match the desired
+// configuration; everything a restart may have left behind that the live
+// state cannot prove (endpoint, preshared key, keepalive, MTU, address) is
+// converged in place: peers through SyncPeers (syncconf keeps sessions), the
+// MTU through `ip link`, the address through EnsureAddresses. Any step that
+// cannot be done means the link is recreated instead.
 func (m *Manager) adopt(ctx context.Context, l LinkSpec) bool {
 	st, err := m.Backend.Dump(ctx, l.Name)
-	if err != nil || len(st.Peers) != 1 || len(l.Config.Peers) != 1 {
+	if err != nil || len(st.Peers) != 1 || len(l.Config.Peers) != 1 || m.Run == nil {
 		return false
 	}
 	pub, err := tunnel.PublicKeyFromPrivate(l.Config.PrivateKey)
@@ -315,12 +331,23 @@ func (m *Manager) adopt(ctx context.Context, l LinkSpec) bool {
 		st.Obfuscation != l.Config.Obfuscation {
 		return false
 	}
-	if adder, ok := m.Backend.(interface {
+	adder, ok := m.Backend.(interface {
 		EnsureAddresses(context.Context, string, []string) error
-	}); ok {
-		if err := adder.EnsureAddresses(ctx, l.Name, []string{l.Address}); err != nil {
+	})
+	if !ok {
+		return false
+	}
+	if err := m.Backend.SyncPeers(ctx, l.Name, l.Config.Peers); err != nil {
+		m.logger().Warn("egress: adopt link peer sync failed", "link", l.Name, "err", err)
+		return false
+	}
+	if l.MTU > 0 {
+		if _, err := m.Run.Run(ctx, []string{"ip", "link", "set", "dev", l.Name, "mtu", strconv.Itoa(l.MTU)}); err != nil {
 			return false
 		}
+	}
+	if err := adder.EnsureAddresses(ctx, l.Name, []string{l.Address}); err != nil {
+		return false
 	}
 	m.modes[l.Name] = st.BackendMode
 	return true
@@ -353,40 +380,48 @@ func (m *Manager) createLink(ctx context.Context, l LinkSpec) (string, error) {
 	return mode, nil
 }
 
-func (m *Manager) syncTable(ctx context.Context, plan *Plan, resolver bool) error {
+// syncTable converges the nftables table. It returns the resolver-fed sets
+// the live table did not have, which this pass (re)creates empty.
+func (m *Manager) syncTable(ctx context.Context, plan *Plan, resolver bool) ([]string, error) {
 	if m.Run == nil {
-		return nil
+		return nil, nil
 	}
 	inv, err := m.inventory(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	needed := plan.Classifies() || (resolver && plan.Resolves())
 	if !needed {
 		if !inv.Present {
-			return nil
+			return nil, nil
 		}
 		if _, err := m.Run.Run(ctx, []string{"nft", "delete", "table", "ip", TableName}); err != nil {
-			return fmt.Errorf("routing: remove table: %w", err)
+			return nil, fmt.Errorf("routing: remove table: %w", err)
 		}
-		return nil
+		return nil, nil
+	}
+	var created []string
+	for _, name := range plan.DynamicSets {
+		if !inv.Sets[name] {
+			created = append(created, name)
+		}
 	}
 	script := RenderTable(plan, inv, resolver)
 	f, err := os.CreateTemp("", "wg-guard-egress-*.nft")
 	if err != nil {
-		return fmt.Errorf("routing: temp script: %w", err)
+		return created, fmt.Errorf("routing: temp script: %w", err)
 	}
 	path := f.Name()
 	defer os.Remove(path)
 	_, werr := f.Write(script)
 	cerr := f.Close()
 	if werr != nil || cerr != nil {
-		return fmt.Errorf("routing: temp script: %w", errors.Join(werr, cerr))
+		return created, fmt.Errorf("routing: temp script: %w", errors.Join(werr, cerr))
 	}
 	if _, err := m.Run.Run(ctx, []string{"nft", "-f", path}); err != nil {
-		return fmt.Errorf("routing: apply table: %w", err)
+		return created, fmt.Errorf("routing: apply table: %w", err)
 	}
-	return nil
+	return created, nil
 }
 
 func (m *Manager) inventory(ctx context.Context) (Inventory, error) {
@@ -466,6 +501,32 @@ func (m *Manager) countLoads(st Status) bool {
 	}
 	m.load = fresh
 	return changed
+}
+
+// pruneHealth drops health of deleted outbounds. The apply that follows
+// renders the current health, so a pending flip is consumed here too.
+func (m *Manager) pruneHealth(snap *egress.Snapshot) {
+	live := make(map[string]bool, len(snap.Outbounds))
+	for _, o := range snap.Outbounds {
+		live[o.ID] = true
+	}
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	for id := range m.health {
+		if !live[id] {
+			delete(m.health, id)
+		}
+	}
+	m.healthDirty = false
+}
+
+// takeHealthDirty reports and clears a health flip no apply has rendered.
+func (m *Manager) takeHealthDirty() bool {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	dirty := m.healthDirty
+	m.healthDirty = false
+	return dirty
 }
 
 func (m *Manager) healthSnapshot() Health {
@@ -573,14 +634,19 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 	if m.countLoads(m.Status()) {
 		changed = true
 	}
+	if m.takeHealthDirty() {
+		changed = true
+	}
 	if changed && ctx.Err() == nil {
 		return m.Reapply(ctx)
 	}
 	return nil
 }
 
-// Test probes one outbound now (panel "Test" action) and re-renders when its
-// health flips.
+// Test probes one outbound now (panel "Test" action) and records the result.
+// It never touches the kernel, so a read-only viewer can run it: a health
+// flip is rendered by the next health pass (ProbeAll), like a scheduled probe
+// result.
 func (m *Manager) Test(ctx context.Context, id string) (ProbeResult, error) {
 	st := m.Status()
 	o, ok := st.Outbounds[id]
@@ -592,9 +658,9 @@ func (m *Manager) Test(ctx context.Context, id string) (ProbeResult, error) {
 	}
 	res := m.Prober.Probe(ctx, o.Mark)
 	if m.record(id, res) {
-		if err := m.Reapply(ctx); err != nil {
-			return res, err
-		}
+		m.stateMu.Lock()
+		m.healthDirty = true
+		m.stateMu.Unlock()
 	}
 	return res, nil
 }
