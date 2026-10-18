@@ -199,7 +199,10 @@ not retained in that host command log.
 An existing Go compiler is accepted only when its version meets the selected source's `go`
 directive. Otherwise the bootstrap/package select a compatible stable Linux compiler from
 [official Go download metadata](https://go.dev/dl/?mode=json), validate its platform filename,
-size and SHA-256, and extract it privately. No global Go installation is changed. This handles
+size and SHA-256, and extract it privately. If the newest compatible archive cannot be
+downloaded, the next compatible stable release is tried with its own checksum; a checksum
+mismatch is never retried with another release. A failure names only the host and HTTP status
+(redirect URLs can carry temporary tokens). No global Go installation is changed. This handles
 Ubuntu 24.04 hosts without Go or with the distribution's older compiler. The compiler uses
 `GOTOOLCHAIN=local`, `GOENV=off`, `GOWORK=off`, CGO disabled, trimpath, readonly module resolution,
 and the public Go module checksum database. Builds do not inherit `GOFLAGS`, workspace settings,

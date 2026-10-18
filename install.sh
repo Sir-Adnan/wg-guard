@@ -261,6 +261,12 @@ if list_only!='1':
 def require(value,message):
     if not value: raise ValueError(message)
 
+class NetworkError(subprocess.SubprocessError):
+    # Names only the host and status: redirect URLs may carry temporary tokens.
+    def __init__(self,host,status):
+        self.host=host
+        super().__init__('download from '+str(host)+' failed'+(' (HTTP '+status+')' if status.isdigit() and status!='000' else ''))
+
 def download(url,dest,limit,expected=None):
     initial=urllib.parse.urlsplit(url).hostname
     for attempt in range(6):
@@ -271,7 +277,9 @@ def download(url,dest,limit,expected=None):
         # Redirects are validated here, never followed implicitly by curl.
         command=['curl','--disable','--proto','=https','--fail','--silent','--show-error','--connect-timeout','15','--max-time','300',
                  '--max-filesize',str(limit),'--dump-header',str(header),'--output',str(dest),'--write-out','%{http_code}',url]
-        status=subprocess.run(command,check=True,stdout=subprocess.PIPE,timeout=310).stdout.decode().strip()
+        result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=310)
+        status=result.stdout.decode().strip()
+        if result.returncode!=0:raise NetworkError(parsed.hostname,status)
         require(dest.stat().st_size<=limit,'Download exceeds size limit')
         if status in ('301','302','303','307','308'):
             require(header.stat().st_size<=64<<10,'Redirect headers exceed limit')
@@ -337,6 +345,9 @@ def compiler(minimum,env):
         except (subprocess.SubprocessError,OSError):pass
     rows=metadata('https://go.dev/dl/?mode=json')
     require(isinstance(rows,list),'Invalid Go metadata')
+    # Newest compatible stable first; if a mirror cannot serve one archive,
+    # the next compatible release (verified against its own checksum) is used.
+    failed=None
     for release in rows:
         version=release.get('version','')
         if not release.get('stable') or go_version(version)<minimum:continue
@@ -344,12 +355,16 @@ def compiler(minimum,env):
         require(len(files)==1,'Ambiguous Go toolchain')
         f=files[0];name=version+'.linux-'+arch+'.tar.gz'
         require(f.get('filename')==name and HEX.fullmatch(f.get('sha256','')) and 0<f.get('size',0)<=256<<20,'Invalid Go toolchain metadata')
-        phase('Downloading official Go toolchain')
+        phase('Downloading official Go toolchain '+version)
         archive=stage/'go.tar.gz'
-        require(download('https://go.dev/dl/'+name,archive,256<<20,f['size'])==f['sha256'],'Go toolchain checksum mismatch')
+        try:digest=download('https://go.dev/dl/'+name,archive,256<<20,f['size'])
+        except NetworkError as error:
+            failed=error;archive.unlink(missing_ok=True);continue
+        require(digest==f['sha256'],'Go toolchain checksum mismatch')
         phase('Verifying Go toolchain')
         extract(archive,stage/'toolchain','go',1<<30)
         return str(stage/'toolchain'/'bin'/'go')
+    if failed:raise failed
     raise ValueError('No compatible official Go compiler')
 
 try:
@@ -436,11 +451,14 @@ try:
     (stage/'build.json').write_text(json.dumps(dict(Channel=channel,Ref=selected_ref,Commit=sha,Version=version,SHA256=digest,BinaryPath=str(stage/'wg-guard'))))
     (stage/'build.json').chmod(0o600)
     finish(True)
-except subprocess.SubprocessError:
+except subprocess.SubprocessError as error:
     # CalledProcessError includes argv; redirect URLs may contain temporary tokens.
-    (stage/'fallback-ok').touch(mode=0o600)
+    github=isinstance(error,NetworkError) and str(error.host).endswith(('github.com','githubusercontent.com'))
+    (stage/'fallback-ok').write_text('github' if github else 'build')
+    (stage/'fallback-ok').chmod(0o600)
     finish(False)
-    print('WG-Guard acquisition failed: download or compiler command failed/timed out',file=sys.stderr)
+    reason=str(error) if isinstance(error,NetworkError) else 'download or compiler command failed/timed out'
+    print('WG-Guard acquisition failed: '+reason,file=sys.stderr)
     sys.exit(1)
 except (ValueError,KeyError,TypeError,OSError,tarfile.TarError) as error:
     finish(False)
@@ -452,7 +470,11 @@ finally:
 PY
 then
   if ((management_entry && refresh == 0 && cache_trusted)) && [[ -f $stage/fallback-ok ]]; then
-    ui_warn 'GitHub update check unavailable; opening the verified local manager.'
+    if [[ $(<"$stage/fallback-ok") == github ]]; then
+      ui_warn 'GitHub update check unavailable; opening the verified local manager.'
+    else
+      ui_warn 'The selected revision could not be built; opening the verified local manager.'
+    fi
     open_cached_manager
   fi
   ui_error 'Verified build acquisition did not complete. Review the message above and retry.'
