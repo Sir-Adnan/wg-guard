@@ -10,7 +10,9 @@ const selects = await import(document.querySelector('meta[name="ui-select-module
 export const displayDigits = presentation.displayDigits;
 const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); presentation.enhanceScrollSpy(root); selects.enhanceSelects(root,presentation.closePresentationOverlays); };
 enhancePresentation(document);
-document.body.addEventListener('htmx:afterSwap', event => enhancePresentation(event.detail?.target || document));
+// htmx:load fires on each inserted element, including outerHTML replacements
+// whose old swap target has already left the document. Enhancers are idempotent.
+document.body.addEventListener('htmx:load', event => enhancePresentation(event.target instanceof Element ? event.target : document));
 document.documentElement.dataset.inputModality = 'pointer';
 document.addEventListener('pointerdown', () => { document.documentElement.dataset.inputModality = 'pointer'; }, true);
 document.addEventListener('keydown', event => {
