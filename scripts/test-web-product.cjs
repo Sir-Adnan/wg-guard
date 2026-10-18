@@ -1162,7 +1162,6 @@ let stage = 'launch';
   } finally { await browser.close(); }
 })().catch(error => {
   const category = error.message.includes('strict mode violation') ? 'ambiguous locator' : error.message.includes('not a valid URL') ? 'invalid request URL' : error.message.includes('has been closed') ? 'browser closed' : error.name === 'TimeoutError' ? 'timeout' : 'browser operation failed';
-  console.error("TEMPDEBUG " + error.message); // TEMPDEBUG
   console.error('FAIL ' + stage + (error.message.startsWith('contract:') ? ': ' + error.message : ' (' + category + '; sensitive details suppressed)'));
   process.exitCode = 1;
 });

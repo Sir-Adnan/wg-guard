@@ -25,7 +25,6 @@ async function checkSectionLayout(page,selector,inputSelector,cell){
   const page=await context.newPage();let errors=0;page.on('pageerror',()=>errors++);
   for(const route of ['/appearance','/settings','/users','/users/new','/interfaces/new']){
    await page.goto(seed.url+route);await page.locator('h1').waitFor();await page.evaluate(()=>document.fonts.ready);
-   if(!await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))console.log('TEMPDEBUG '+route+' '+JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>{const r=el.getBoundingClientRect();return r.right>innerWidth+1||r.left<-1}).slice(0,15).map(el=>({tag:el.tagName,id:el.id,cls:String(el.className).slice(0,80),l:Math.round(el.getBoundingClientRect().left),r:Math.round(el.getBoundingClientRect().right),w:el.scrollWidth}))))); // TEMPDEBUG
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`overflow ${lang}/${theme}/${width}/${route}`);
    await qa.scan(page,`presentation-${lang}-${theme}-${width}-${route.replaceAll('/','-')}`);
   }
