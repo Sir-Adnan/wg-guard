@@ -228,8 +228,17 @@ func (s *Server) handleUserDisable(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Reason string `json:"reason"`
 	}
-	_ = decodeJSON(w, r, &req) // body optional
+	if !decodeOptionalJSON(w, r, &req) {
+		return
+	}
+	// Lifecycle reasons (expired, traffic_limit) belong to enforcement.
 	reason := domain.DisableReason(req.Reason)
+	switch reason {
+	case "", domain.DisableManual, domain.DisableAdminAction:
+	default:
+		writeErr(w, r, http.StatusBadRequest, "INVALID_REQUEST", "reason must be manual or admin_action")
+		return
+	}
 	u, err := s.Users.SetEnabledStatus(r.Context(), pathID(r, "id"), false, reason)
 	if err != nil {
 		writeServiceErr(w, r, err)
@@ -336,7 +345,7 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Count              int              `json:"count"`
 		Prefix             string           `json:"prefix"`
-		StartIndex         int              `json:"start_index"`
+		StartIndex         *int             `json:"start_index"` // omitted = 1 (OpenAPI default)
 		Width              int              `json:"width"`
 		DisplayName        *string          `json:"display_name"`
 		Note               *string          `json:"note"`
@@ -376,7 +385,11 @@ func (s *Server) handleBulkCreate(w http.ResponseWriter, r *http.Request) {
 		writeServiceErr(w, r, err)
 		return
 	}
-	res, err := s.Users.CreateBulk(r.Context(), req.Prefix, req.Count, req.StartIndex, req.Width, in)
+	startIndex := 1
+	if req.StartIndex != nil {
+		startIndex = *req.StartIndex
+	}
+	res, err := s.Users.CreateBulk(r.Context(), req.Prefix, req.Count, startIndex, req.Width, in)
 	if err != nil {
 		writeServiceErr(w, r, err)
 		return

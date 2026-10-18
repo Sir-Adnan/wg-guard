@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -57,7 +58,33 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+// decodeOptionalJSON is decodeJSON for operations whose body is optional: an
+// absent or blank body leaves dst at its zero value.
+func decodeOptionalJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	if r.Body == nil {
+		return true
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeErr(w, r, http.StatusBadRequest, "INVALID_REQUEST", "could not read request body")
+		return false
+	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return true
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return decodeJSON(w, r, dst)
+}
+
 // --- User ---
+
+// nonNilTags keeps "tags" an array in JSON; the store decodes none as nil.
+func nonNilTags(tags []string) []string {
+	if tags == nil {
+		return []string{}
+	}
+	return tags
+}
 
 type userDTO struct {
 	ID                 string         `json:"id"`
@@ -102,7 +129,7 @@ func toUserDTO(u *user.User) userDTO {
 	}
 	return userDTO{
 		ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, Note: u.Note,
-		Tags: u.Tags, Status: string(u.Status), DisableReason: reason,
+		Tags: nonNilTags(u.Tags), Status: string(u.Status), DisableReason: reason,
 		TrafficLimitBytes: u.TrafficLimitBytes,
 		TrafficUsedRX:     u.TrafficUsedRX, TrafficUsedTX: u.TrafficUsedTX,
 		TrafficUsedTotal:   u.TrafficUsedRX + u.TrafficUsedTX,

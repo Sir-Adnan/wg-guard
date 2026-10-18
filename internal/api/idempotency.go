@@ -104,7 +104,11 @@ func (st *idempotencyStore) wrap(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 
 		if rec.status >= 200 && rec.status < 300 {
-			_ = st.store(r.Context(), storedKey, idemResponse{Status: rec.status, Body: rec.buf.Bytes()})
+			snapshot := idemResponse{Status: rec.status, Body: rec.buf.Bytes()}
+			if ct := rec.Header().Get("Content-Type"); ct != "" {
+				snapshot.Headers = map[string]string{"Content-Type": ct}
+			}
+			_ = st.store(r.Context(), storedKey, snapshot)
 		} else {
 			_ = st.release(r.Context(), storedKey) // failures are retryable
 		}

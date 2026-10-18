@@ -2,12 +2,14 @@ package api
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
 	"github.com/Sir-Adnan/wg-guard/internal/plan"
+	"github.com/Sir-Adnan/wg-guard/internal/settings"
 	"github.com/Sir-Adnan/wg-guard/internal/webhook"
 )
 
@@ -358,13 +360,19 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, http.StatusBadRequest, "INVALID_REQUEST", "provide 1-100 setting keys")
 		return
 	}
+	// One transaction: an invalid key or value leaves every setting unchanged.
 	updated := make([]string, 0, len(req))
-	for key, value := range req {
-		if err := s.Settings.Set(r.Context(), key, value); err != nil {
-			writeServiceErr(w, r, err)
-			return
-		}
+	for key := range req {
 		updated = append(updated, key)
+	}
+	sort.Strings(updated)
+	batch := make([]settings.Update, 0, len(updated))
+	for _, key := range updated {
+		batch = append(batch, settings.Update{Key: key, Value: req[key]})
+	}
+	if err := s.Settings.SetBatch(r.Context(), batch); err != nil {
+		writeServiceErr(w, r, err)
+		return
 	}
 	s.audit(r, "settings.updated", "settings", map[string]any{"keys": updated})
 	writeJSON(w, http.StatusOK, map[string]any{"updated": updated})
@@ -451,10 +459,15 @@ func (s *Server) handleWebhookGet(w http.ResponseWriter, r *http.Request) {
 		writeServiceErr(w, r, err)
 		return
 	}
+	stats, err := s.Webhooks.Stats(r.Context(), ep.ID)
+	if err != nil {
+		writeServiceErr(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, webhookEndpointDTO{
 		ID: ep.ID, ResellerID: ep.ResellerID, IncludeResellerEvents: ep.IncludeResellerEvents,
 		URL: ep.URL, Enabled: ep.Enabled, Events: ep.Events,
-		CreatedAt: jsonTime(&ep.CreatedAt),
+		CreatedAt: jsonTime(&ep.CreatedAt), Stats: stats,
 	})
 }
 
