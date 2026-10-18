@@ -145,7 +145,7 @@
       <span class="sub-device-icon" aria-hidden="true">{{$.Icon "monitor-smartphone"}}</span>
       <div class="sub-device-text">
         <h3 class="sub-device-name" id="device-{{.D.ID}}-name"><bdi>{{.D.Name}}</bdi></h3>
-        <p class="sub-device-meta"><span class="tech">{{.D.IPv4}}</span></p>
+        <p class="sub-device-meta"><span>{{$.T "publicsub.ui.device_used" ($.B (add (i64u .D.RXBytes) (i64u .D.TXBytes)))}}</span>{{if and .D.Enabled (not .Online)}}<span>{{if .LastSeen}}{{$.T "publicsub.ui.last_seen" ($.Rel .LastSeen)}}{{else}}{{$.T "publicsub.ui.never_connected"}}{{end}}</span>{{end}}<span class="tech">{{.D.IPv4}}</span></p>
       </div>
       {{if not .D.Enabled}}<span class="badge badge--muted"><span class="dot dot--muted"></span>{{$.T "status.disabled"}}</span>{{else if .Online}}<span class="badge badge--success"><span class="dot dot--live"></span>{{$.T "status.online"}}</span>{{else}}<span class="badge badge--muted"><span class="dot dot--muted"></span>{{$.T "status.offline"}}</span>{{end}}
     </header>

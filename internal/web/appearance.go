@@ -311,6 +311,7 @@ func sampleSubPage(locale i18n.Locale, now time.Time) subPageData {
 	const gb = int64(1_000_000_000)
 	limit, duration := 50*gb, int64(30*24*3600)
 	expires := now.Add(19 * 24 * time.Hour)
+	recent, earlier := now.Add(-time.Minute), now.Add(-5*time.Hour)
 	data := subPageData{
 		Lang: string(locale), Base: "#", Preview: true, DevicesKnown: true, PlanKnown: true, OnlineWindow: 180,
 		PlanName:  i18n.T(locale, "appearance.sub.sample_plan"),
@@ -318,8 +319,8 @@ func sampleSubPage(locale i18n.Locale, now time.Time) subPageData {
 		U: &subUserView{Username: "sara", Status: domain.UserActive, TrafficLimitBytes: &limit,
 			TrafficUsedRX: 3_100_000_000, TrafficUsedTX: 15_300_000_000, ExpiresAt: &expires, DurationSeconds: &duration},
 		Devices: []subDevice{
-			{D: &deviceView{ID: "sample-phone", Name: "iPhone", IPv4: "10.8.0.2/32", Enabled: true}, Online: true},
-			{D: &deviceView{ID: "sample-laptop", Name: "Laptop", IPv4: "10.8.0.3/32", Enabled: true}},
+			{D: &deviceView{ID: "sample-phone", Name: "iPhone", IPv4: "10.8.0.2/32", Enabled: true, RXBytes: 2_000_000_000, TXBytes: 10_100_000_000}, Online: true, LastSeen: &recent},
+			{D: &deviceView{ID: "sample-laptop", Name: "Laptop", IPv4: "10.8.0.3/32", Enabled: true, RXBytes: 1_100_000_000, TXBytes: 5_200_000_000}, LastSeen: &earlier},
 		},
 	}
 	data.Used = data.U.TrafficUsedRX + data.U.TrafficUsedTX

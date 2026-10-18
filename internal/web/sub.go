@@ -133,7 +133,8 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 		data.DevicesKnown = true
 		data.Devices = make([]subDevice, 0, len(devs))
 		for _, d := range devs {
-			row := subDevice{D: safeDeviceViews([]*device.Device{d})[0], Online: d.Enabled && u.Status.PeerWanted() && d.LastHandshake != nil && d.LastHandshake.After(cutoff)}
+			row := subDevice{D: safeDeviceViews([]*device.Device{d})[0], LastSeen: d.LastHandshake,
+				Online: d.Enabled && u.Status.PeerWanted() && d.LastHandshake != nil && d.LastHandshake.After(cutoff)}
 			data.Devices = append(data.Devices, row)
 		}
 	}
@@ -156,7 +157,8 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 
 // subLayouts are the public page designs in display order; the first is the
 // default. A design is a registry entry here (and in the settings options), a
-// hero template "sub_hero_<id>" and a stylesheet 40-pages/sub-<id>.css.
+// hero template "sub_hero_<id>" (dispatched in page_sub.html) and a stylesheet
+// 40-pages/sub-designs/<id>.css; TestSubscriptionDesignsAreComplete checks them.
 var subLayouts = []string{"ticket", "card", "minimal", "portal"}
 
 // subLayout is the installation-wide design; an unknown stored value falls
@@ -517,8 +519,9 @@ type subPageData struct {
 
 // subDevice is one device card on the public page.
 type subDevice struct {
-	D      *deviceView
-	Online bool
+	D        *deviceView
+	Online   bool
+	LastSeen *time.Time // latest handshake; nil when the device never connected
 }
 
 // Public templates receive only customer-facing account fields and keyless

@@ -63,7 +63,7 @@ func TestBrowserPhase10(t *testing.T) {
 	if err := e.db.QueryRow(`SELECT id FROM templates LIMIT 1`).Scan(&pid); err != nil {
 		t.Fatal(err)
 	}
-	if os.Getenv("WG_TEST_UI_SUITE") == "next-plan" {
+	if os.Getenv("WG_TEST_UI_GROUP") == "next-plan" { // the driver branch keys on the group
 		if _, err := e.db.Exec(`UPDATE users SET traffic_limit_bytes = 1000000 WHERE id = ?`, uid); err != nil {
 			t.Fatal(err)
 		}

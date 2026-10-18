@@ -2,33 +2,7 @@
 
 ## [Unreleased]
 
-- Rewrite the subscription page around four designs the owner picks under **Appearance →
-  Subscription page**: Ticket (the new default, a boarding pass with a tear-off status stub),
-  Membership card, Minimal and App (usage rings and a bottom tab bar on phones). Every design
-  shares Connect, Setup guide and Details tabs; the guide lists each app as an accordion item and
-  ends with common questions. **Preview** shows unsaved choices with sample data. The layout
-  setting moved from Settings to Appearance, and migration `0019_subscription_layouts.sql` maps
-  the retired layouts (pass and split to Ticket, compact to Minimal; Portal is now App).
-- Redesign every panel, sign-in and subscription page on a new design system: shadcn/ui
-  component anatomy in plain CSS (`web/styles`, cascade layers, concatenated at startup; no build
-  tool) with a Vercel/Linear default — compact density, hairline borders, monospace technical
-  values and underline tabs. New app shell with a collapsible sidebar and a command palette
-  (⌘K / Ctrl+K / `/`). See the [design system](docs/product/design-system.md) and
-  [ADR-0017](docs/decisions/ADR-0017-design-system-and-presets.md).
-- Replace the visual preset registry with 29 reviewed theme files in `web/themes` (WG-Guard,
-  Linear, the shadcn palettes and 20 tweakcn imports). A theme now sets fonts, radius, shadows,
-  spacing, density, sidebar composition, tab style and surface elevation, not only colors.
-  Every text pair meets WCAG AA in both modes. Add `tools/theme-import` for tweakcn exports.
-- Rebuild **Appearance** as a theme gallery with a live preview of the whole panel. Owners can set
-  a separate default theme and mode for the public subscription page (migration
-  `0018_subscription_appearance.sql`), and subscription visitors can pick their own theme.
-- Self-host the fonts the themes use (OFL) and switch Persian text to variable Vazirmatn limited
-  to Arabic script.
-- The subscription page warns while a usable subscription is running low (at least 90% of the
-  data used or three days or fewer left), and the Linux guide shows the config path and
-  `awg-quick` command as copyable fields.
-- The Settings section list highlights the section being read while scrolling.
-- Fix: with reduced motion, opening the phone navigation drawer or a dialog lost keyboard focus.
+### Added
 
 - Add egress routing under **Routing** (`/routing/outbounds`, `/routing/balancers`,
   `/routing/rules`). Outbounds are Cloudflare WARP (registered from the panel), imported
@@ -42,22 +16,58 @@
   `ip wgguard_egress` nftables table and a built-in DNS resolver. Health probes run every 30 s
   and fail over automatically. Migration `0017_egress_routing.sql`. Not yet verified on a real
   host.
-- Add the **Portal** subscription layout and a per-platform connection guide with official
-  download links (AmneziaWG, WG Tunnel, AmneziaVPN, amneziawg-tools). Every layout now shows a
-  usage meter, remaining traffic and days left. Each device offers one-tap **Open in AmneziaVPN**
-  (`vpn://`) and a copyable key.
+- Rewrite the subscription page around four designs the owner picks under **Appearance →
+  Subscription page**: Ticket (the default, a boarding pass with a tear-off status stub),
+  Membership card, Minimal and App (usage rings and a bottom tab bar on phones). Every design
+  shares Connect, Setup guide and Details tabs; the guide lists each app (AmneziaWG, WG Tunnel,
+  AmneziaVPN, amneziawg-tools, with official download links) as an accordion item and ends with
+  common questions. Each device offers one-tap **Open in AmneziaVPN** (`vpn://`), a copyable key,
+  its own usage and, while offline, when it last connected. **Preview** shows unsaved choices
+  with sample data.
 - Add `GET /sub/{token}/info`, a JSON summary for client apps. Subscription responses now carry
   `Subscription-Userinfo` and `Profile-Update-Interval` headers.
+- The subscription page warns while a usable subscription is running low (at least 90% of the
+  data used or three days or fewer left), and the Linux guide shows the config path and
+  `awg-quick` command as copyable fields.
+- The Settings section list highlights the section being read while scrolling.
+- CI checks every relative documentation link, heading anchor and named repository path
+  (`scripts/check-docs.py`).
+
+### Changed
+
+- Redesign every panel, sign-in and subscription page on a new design system: shadcn/ui
+  component anatomy in plain CSS (`web/styles`, cascade layers, concatenated at startup; no build
+  tool) with a Vercel/Linear default — compact density, hairline borders, monospace technical
+  values and underline tabs. New app shell with a collapsible sidebar and a command palette
+  (⌘K / Ctrl+K / `/`). See the [design system](docs/product/design-system.md) and
+  [ADR-0017](docs/decisions/ADR-0017-design-system-and-presets.md).
+- Replace the visual preset registry with 29 reviewed theme files in `web/themes` (WG-Guard,
+  Linear, the shadcn palettes and 20 tweakcn imports). A theme now sets fonts, radius, shadows,
+  spacing, density, sidebar composition, tab style and surface elevation, not only colors.
+  Every text pair meets WCAG AA in both modes. Add `tools/theme-import` for tweakcn exports.
+- Rebuild **Appearance** as a theme gallery with a live preview of the whole panel. Owners can set
+  a separate default theme and mode for the public subscription page (migration
+  `0018_subscription_appearance.sql`), and subscription visitors can pick their own theme.
+- The subscription layout setting moved from Settings to Appearance. Migration
+  `0019_subscription_layouts.sql` maps the retired layouts (pass and split to Ticket, compact to
+  Minimal).
+- Self-host the fonts the themes use (OFL) and switch Persian text to variable Vazirmatn limited
+  to Arabic script.
 - Rewrite Persian panel copy for fluency and consistent terminology (نود, اینترفیس, پورت, لینک,
   کانفیگ, پشتیبان, بارگذاری) and correct ezafe and half-space typography. The terminal
   installer stays English-only.
 
+### Fixed
+
+- Concurrent public `/sub/` requests could crash the node with a concurrent map access in the
+  panel IP rate limiters; the limiters are now locked.
 - Stop the accounting cycle from rewriting every user who ever connected. Stored
   `last_activity_at` counted as a change, so idle, expired and soft-deleted users with a past
   handshake had their row and `updated_at` rewritten every cycle (default 30 s). That defeated
   cleanup's "Last record update" date basis for those users. A user row is now written only for
   traffic, a lifecycle transition or a newer observed handshake. First-connection activation
   likewise requires a handshake newer than the stored activity.
+- With reduced motion, opening the phone navigation drawer or a dialog lost keyboard focus.
 
 ## [v0.1.11] — 2026-10-08
 
