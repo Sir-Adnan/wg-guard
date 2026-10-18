@@ -19,6 +19,10 @@
   .card-title > .icon { color: var(--muted-foreground); }
   .card-description { font-size: var(--text-sm); color: var(--muted-foreground); line-height: 1.5; }
   .card-action { grid-column: 2; grid-row: 1 / span 2; align-self: start; display: flex; align-items: center; gap: var(--s-2); }
+  @media (max-width: 480px) {
+    .card-header { grid-template-columns: minmax(0, 1fr); }
+    .card-header > .card-action { grid-column: 1; grid-row: auto; flex-wrap: wrap; }
+  }
   .card-content { padding-inline: var(--card-p); min-width: 0; }
   .card-content--flush { padding-inline: 0; }
   .card-footer {

@@ -63,7 +63,7 @@
           {{if .Can "traffic.read"}}<th scope="col">{{.T "users.traffic"}}</th>{{end}}
           <th scope="col">{{.T "users.expires"}}</th>
           {{if .Can "devices.read"}}<th scope="col">{{.T "users.devices"}}</th>{{end}}
-          <th scope="col">{{.T "users.last_activity"}}</th>
+          <th scope="col" class="users-col-activity">{{.T "users.last_activity"}}</th>
           <th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th>
         </tr>
       </thead>

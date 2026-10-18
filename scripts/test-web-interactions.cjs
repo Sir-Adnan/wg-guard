@@ -101,7 +101,7 @@ module.exports = async ({ browser, seed, engine }) => {
           ['.cal-day', 'calendar-day'], ['[data-cal-prev]', 'calendar-previous'],
           ['[data-cal-next]', 'calendar-next'], ['[data-cal-clear]', 'calendar-clear'],
           ['[data-qr]', 'qr-trigger'], ['[data-close-modal]', 'dialog-close'],
-          ['.select-trigger', 'preset-picker'],
+          ['.select-trigger', 'select-trigger'],
           ['.settings-secret-clear input', 'settings-secret-clear'], ['.choice input', 'form-choice'],
           ['a.cell-main', 'entity-name-link'], ['.breadcrumb a', 'breadcrumb-link'], ['.tab', 'tab'],
           ['.settings-savebar button', 'settings-save'], ['.settings-nav a', 'settings-section-link'],

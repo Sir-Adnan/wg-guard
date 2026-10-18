@@ -90,3 +90,23 @@ func TestUnknownPublicRouteDoesNotUseAdminChrome(t *testing.T) {
 		t.Fatal("unknown public route exposes the wrong context")
 	}
 }
+
+// The brand panel belongs to sign-in and setup only; error pages keep the plain column. The
+// password reveal sits in an input group so it never covers the LTR value in either direction.
+func TestAccessLayoutSplitsOnlySignInAndSetup(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	login := e.get("/login", nil).Body.String()
+	for _, want := range []string{`class="auth auth--split"`, `class="auth-hero"`, `class="input-group password-field"`, `data-capslock hidden`} {
+		if !strings.Contains(login, want) {
+			t.Fatalf("sign-in page lacks %s", want)
+		}
+	}
+	missing := e.get("/missing", nil)
+	if missing.Code != http.StatusNotFound || strings.Contains(missing.Body.String(), "auth-hero") {
+		t.Fatal("error surfaces must not render the sign-in brand panel")
+	}
+	if body := e.get("/users", e.login("owner")).Body.String(); !strings.Contains(body, `class="menu menu--account" role="menu"`) || !strings.Contains(body, `data-placement="top" data-match-width`) {
+		t.Fatal("sidebar account menu must open upward at the trigger's width")
+	}
+}

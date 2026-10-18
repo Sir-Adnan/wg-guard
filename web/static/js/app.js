@@ -407,8 +407,9 @@
     if (!input || !unit) return;
     const picker = $('[data-fill-preset]',field);
     if (!picker) return;
-    const selected = [...picker.options].find(option => input.value.trim() !== '' && Number(input.value) === Number(option.dataset.fillValue) && unit.value === option.dataset.fillUnit)?.value || '';
-    if (picker.value !== selected) { picker.value = selected; picker.dispatchEvent(new Event('ui:select-sync')); }
+    // No matching preset shows the (disabled) placeholder option rather than an empty control.
+    const selected = [...picker.options].find(option => input.value.trim() !== '' && Number(input.value) === Number(option.dataset.fillValue) && unit.value === option.dataset.fillUnit) || picker.options[0];
+    if (selected && !selected.selected) { selected.selected = true; picker.dispatchEvent(new Event('ui:select-sync')); }
   };
   $$('[data-fill-preset]').forEach(picker => syncQuickPresets(picker.closest('.field')));
   ['input','change'].forEach(type => document.addEventListener(type,event => {

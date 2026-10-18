@@ -3,19 +3,55 @@
 <head>{{template "document-head" .}}<title>{{template "title" .}} · {{.T "app.name"}}</title></head>
 <body>
 <a class="skip-link sr-only" href="#main">{{.T "common.skip_to_content"}}</a>
-<div class="auth">
-  <header class="auth-top">
-    <a class="auth-brand" href="/login"><span class="brand-mark">{{.Icon "shield"}}</span><span>{{.T "app.name"}}</span></a>
-    {{template "preferences" .}}
-  </header>
-  <main id="main" tabindex="-1" class="auth-main">
-    <div class="auth-card{{if not (or (eq .Path "/login") (eq .Path "/onboarding"))}} auth-card--wide{{end}}">
-      {{template "flash" .}}
-      {{block "content" .}}{{end}}
-    </div>
-  </main>
-  <footer class="auth-foot">{{.T "access.private_panel"}}</footer>
+{{$hero := or (eq .Path "/login") (eq .Path "/onboarding")}}
+<div class="auth{{if $hero}} auth--split{{end}}">
+  <div class="auth-pane">
+    <header class="auth-top">
+      <a class="auth-brand" href="/login"><span class="brand-mark">{{.Icon "shield"}}</span><span>{{.T "app.name"}}</span></a>
+      {{template "preferences" .}}
+    </header>
+    <main id="main" tabindex="-1" class="auth-main">
+      <div class="auth-card{{if not $hero}} auth-card--wide{{end}}">
+        {{template "flash" .}}
+        {{block "content" .}}{{end}}
+      </div>
+    </main>
+    <footer class="auth-foot">{{.T "access.private_panel"}}</footer>
+  </div>
+  {{if $hero}}{{template "auth-hero" .}}{{end}}
 </div>
 {{template "feedback-host" .}}
 </body>
 </html>{{end}}
+
+{{/* Brand panel beside the sign-in and setup forms (wide screens only). The art is
+     decorative CSS/SVG motion that stops under prefers-reduced-motion. */}}
+{{define "auth-hero"}}
+<aside class="auth-hero" aria-labelledby="auth-hero-title">
+  <div class="auth-hero-art" aria-hidden="true">
+    <div class="auth-aurora"></div>
+    <div class="auth-grid"></div>
+    <div class="auth-stage">
+      <svg class="auth-orbits" viewBox="0 0 480 480" focusable="false">
+        <circle class="auth-ring" cx="240" cy="240" r="96"></circle>
+        <circle class="auth-ring auth-ring--dashed" cx="240" cy="240" r="152"></circle>
+        <circle class="auth-ring" cx="240" cy="240" r="212"></circle>
+        <g class="auth-orbit auth-orbit--1"><circle class="auth-node" cx="240" cy="144" r="5"></circle><circle class="auth-node auth-node--dim" cx="336" cy="240" r="3"></circle></g>
+        <g class="auth-orbit auth-orbit--2"><circle class="auth-node auth-node--accent" cx="240" cy="88" r="6"></circle><circle class="auth-node auth-node--dim" cx="132.5" cy="347.5" r="3.5"></circle></g>
+        <g class="auth-orbit auth-orbit--3"><circle class="auth-node" cx="452" cy="240" r="4.5"></circle><circle class="auth-node auth-node--accent" cx="90" cy="390" r="3.5"></circle></g>
+      </svg>
+      <span class="auth-hero-mark">{{.Icon "shield"}}</span>
+    </div>
+  </div>
+  <div class="auth-hero-content">
+    <span class="auth-eyebrow"><span class="dot"></span>{{.T "auth.hero.eyebrow"}}</span>
+    <h2 class="auth-hero-title" id="auth-hero-title">{{.T "auth.hero.title"}}</h2>
+    <p class="auth-hero-body">{{.T "auth.hero.body"}}</p>
+    <ul class="auth-features">
+      <li>{{.IconS "shield-check"}}<span>{{.T "auth.hero.feature_tunnel"}}</span></li>
+      <li>{{.IconS "users"}}<span>{{.T "auth.hero.feature_users"}}</span></li>
+      <li>{{.IconS "route"}}<span>{{.T "auth.hero.feature_routing"}}</span></li>
+    </ul>
+  </div>
+</aside>
+{{end}}

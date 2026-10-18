@@ -72,7 +72,9 @@
   .num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; }
   .ltr { direction: ltr; unicode-bidi: isolate; }
   bdi { unicode-bidi: isolate; }
-  [dir="rtl"] .tech, [dir="rtl"] .ltr { text-align: start; }
+  /* An isolated LTR block still aligns at the locale's start edge (right in fa); `start` would
+   * resolve against its own LTR direction. Editable fields keep their own alignment rules. */
+  [dir="rtl"] :is(.tech, .ltr):not(input, textarea, pre, .code-block) { text-align: right; }
 
   .sr-only {
     position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;

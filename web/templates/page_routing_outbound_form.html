@@ -16,7 +16,7 @@
       <div class="field-grid">
         <div class="field">
           <label class="field-label" for="ob-name">{{.T "routing.form.name"}}</label>
-          <input class="input" id="ob-name" name="name" type="text" dir="auto" maxlength="48" required value="{{$f.V "name"}}" placeholder="{{.T "routing.form.name_placeholder"}}"{{if $f.Invalid "name"}} aria-invalid="true" aria-describedby="err-name"{{end}}>
+          <input class="input" id="ob-name" name="name" type="text" maxlength="48" required value="{{$f.V "name"}}" placeholder="{{.T "routing.form.name_placeholder"}}"{{if $f.Invalid "name"}} aria-invalid="true" aria-describedby="err-name"{{end}}>
           {{if $f.Invalid "name"}}<span class="field-error" id="err-name">{{index $f.Fields "name"}}</span>{{end}}
         </div>
         {{if .Data.O}}

@@ -86,7 +86,10 @@ and a user search; it is an enhancement, never the only path.
 
 Below 960px the sidebar becomes a modal navigation drawer: close button/Escape/backdrop, contained
 focus, inactive background, scroll containment and return to the trigger. Resizing across the
-boundary releases mobile state. Do not add bottom navigation without a demonstrated workflow.
+boundary releases mobile state. The drawer has one shape for every preset: the `sidebar`
+composition axis (plain, inset, floating) applies above 960px only. The sidebar footer's account
+menu opens upward at the trigger's width and holds the account identity, Appearance, the command
+palette and sign-out. Do not add bottom navigation without a demonstrated workflow.
 Content is a centered fluid column with a per-route cap: create/edit forms (`/new`, `/edit`)
 48rem, Settings 64rem and every other workspace 80rem. Keep 320px layouts usable without hiding
 data.
@@ -139,7 +142,14 @@ Checkbox glyphs stay compact inside 44px hit areas; preset buttons and calendar 
 the touch target. At 320px the calendar uses the available width with seven 44px columns.
 
 Menus support open/focus, arrows/Home/End, Escape and focus return; Tab can leave and dismiss.
+Menus, select listboxes, help and choice popovers close on a press outside them.
 Dialogs/sheets contain focus and restore it to the invoker, including after successful actions.
+They close with Escape, their close/cancel controls and a press that starts and ends on the
+backdrop. A dialog whose form holds unsaved input, or whose submission is pending, stays open on a
+backdrop press and gives a brief nudge instead, so no typed work is lost to a stray click.
+Single-choice `.select` controls render a themed listbox (`select.js`): the native select keeps
+the value, validation and submission, options are read when the list opens (scripts may replace
+them), `<optgroup>` labels become group headings and `data-native` keeps the browser picker.
 There is one active modal interaction; nested controls remain operable. Tooltips never contain
 essential instructions or require hover. Calendar keyboard/date-entry behavior belongs to its
 form migration; it must support Jalali/Gregorian labels without changing stored date semantics.
@@ -155,7 +165,9 @@ and routine updates avoid flooding live regions. Empty/no-results/unavailable/er
 with a useful next action. Destructive confirmation names the target, count and consequence.
 
 Motion is short (120–240ms), purposeful, mainly opacity/transform; no idle pulse or decorative
-movement. Loading animation exists only while loading. `prefers-reduced-motion` disables overlay,
+movement. The one exception is the sign-in/setup brand panel: its aurora and orbit art turns
+slowly (36–110s loops, transform only) on a surface that holds no controls, and stops under
+`prefers-reduced-motion`. Loading animation exists only while loading. `prefers-reduced-motion` disables overlay,
 skeleton, chart and other nonessential animation without hiding feedback; it removes
 transitions outright (`transition: none`) rather than shortening them, because a near-zero `all`
 transition still leaves an inherited `visibility` change hidden for the first frame and loses
@@ -260,7 +272,12 @@ forms to avoid duplicated actions. Shared workspace tabs, semantic badges/receip
 question-mark guidance and responsive cards retain native/no-JavaScript operation,
 fa/en parity, number preferences and isolated Latin technical values.
 
-Auth/setup use a focused access layout; public subscriptions have independent customer navigation
+Auth/setup use a focused access layout. From 1024px, sign-in and first-run setup split into the
+form pane and a brand panel (product promise, three capabilities, decorative orbit art tinted by
+the preset's primary and chart colors); phones and tablets keep one centered column over a quiet
+glow. Fields carry leading icons, the password reveal sits beside the value in both directions,
+Caps Lock is announced under the password and a pending sign-in shows progress on its button.
+Error pages keep the plain centered column. Public subscriptions have independent customer navigation
 and technical summaries. Error pages/fragments keep their HTTP status, query-selected public
 locale and layout boundary. Session expiry returns to a safe full page, including during polling.
 QR loads on demand through a shared viewer. Public downloads give retry feedback and preserve

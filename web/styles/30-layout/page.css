@@ -1,5 +1,6 @@
 /* Page composition — header, sections and layout primitives. */
 @layer layout {
+  @media (pointer: coarse) { .page-eyebrow a, a.page-eyebrow { display: inline-flex; align-items: center; min-height: var(--hit); } }
   .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; }
   .page-heading { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; flex: 1 1 18rem; }
   .page-eyebrow { display: inline-flex; align-items: center; gap: var(--s-1_5); font-size: var(--text-sm); color: var(--muted-foreground); }

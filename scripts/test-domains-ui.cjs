@@ -30,7 +30,7 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
       await page.selectOption('#domain-method', 'manual');
       await page.selectOption('#domain-source', 'upload');
       assert(await page.locator('#domain-key').isVisible(), 'upload restored');
-      const geometry = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth + 1, fields: [...document.querySelectorAll('.domain-configure input:not([type=hidden]),.domain-configure select')].filter(el=>el.getBoundingClientRect().width && !el.closest('[hidden]')).map(el=>el.getBoundingClientRect()).every(r=>r.width>=100 && r.left>=-1 && r.right<=innerWidth+1) }));
+      const geometry = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth + 1, fields: [...document.querySelectorAll('.domain-configure input:not([type=hidden]),.domain-configure select:not(.select-native),.domain-configure .select-trigger')].filter(el=>el.getBoundingClientRect().width && !el.closest('[hidden]')).map(el=>el.getBoundingClientRect()).every(r=>r.width>=100 && r.left>=-1 && r.right<=innerWidth+1) }));
       assert(!geometry.overflow && geometry.fields, 'contained responsive controls');
       await page.locator('#domain-origin').fill('https://sub.example.test');
       await page.locator('#domain-origin').focus(); await page.keyboard.press('Tab');

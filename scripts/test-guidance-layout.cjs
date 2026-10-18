@@ -200,7 +200,7 @@ async function helpInteractions(page, selector, cell) {
     assert.equal(await page.locator('.field-help-content:not([hidden])').count(),0,'touch fallback did not close');
     await page.goto(seed.url+'/users?lang=fa');
     await page.locator('[data-open-modal="create-drawer"]').tap();
-    const quick=page.locator('#create-drawer #user-limits .select-trigger');
+    const quick=page.locator('#create-drawer #user-limits .select-trigger.users-preset');
     await quick.tap();
     const options=page.locator('#'+await quick.getAttribute('aria-controls'));
     assert(await options.isVisible(),'touch select fallback did not open');
@@ -230,19 +230,19 @@ async function creationModes(page, scope, cell) {
   assert(!await root.locator('#user-limits').isVisible(),'manual limits remain in template mode '+cell);
   await root.locator('[data-user-template]').selectOption(seed.template);
   assert(await quota.isDisabled(),'hidden manual limits submitted '+cell);
-  assert(await root.locator('#user-limits .select-trigger').isDisabled(),'inactive preset trigger remains enabled '+cell);
+  assert(await root.locator('#user-limits .select-trigger.users-preset').isDisabled(),'inactive preset trigger remains enabled '+cell);
   assert(await root.locator('[data-user-template-preview]').isVisible(),'template preview absent '+cell);
   if (process.env.WG_UI_SCREENSHOT_DIR && cell.includes('/fa/dark/1440')) await root.screenshot({path:path.join(process.env.WG_UI_SCREENSHOT_DIR,`user-template-${cell.replaceAll('/','-')}.png`)});
   await root.locator('[data-user-create-tab="template"]').focus(); await page.keyboard.press('Home');
   assert(await root.locator('#user-limits').isVisible(),'keyboard did not select Standard '+cell);
   assert.equal(await quota.inputValue(),'70','manual quota lost while switching '+cell);
-  assert(await root.locator('#user-limits .select-trigger').isEnabled(),'manual preset remains disabled '+cell);
+  assert(await root.locator('#user-limits .select-trigger.users-preset').isEnabled(),'manual preset remains disabled '+cell);
   assert.equal(await root.locator('[name="username"]').inputValue(),'retained','shared account lost '+cell);
   assert(await root.locator('[data-user-template]').isDisabled(),'hidden template overrides Standard '+cell);
 }
 
 async function presetLayout(page,scope,cell) {
-  const root=page.locator(scope), groups=root.locator('.users-preset-row .select-trigger');
+  const root=page.locator(scope), groups=root.locator('.users-preset-row .select-trigger.users-preset');
   assert.equal(await groups.count(),2,'duplicate or missing preset enhancement '+cell);
   const geometry=await groups.evaluateAll(nodes=>nodes.map(group=>{
     // Dense fine-pointer controls keep the WCAG 2.5.8 minimum; coarse pointers grow to 40px (ui-ux contract).
@@ -251,7 +251,7 @@ async function presetLayout(page,scope,cell) {
   }));
   assert(geometry.every(g=>!g.overflow&&g.inside),'preset clipping or undersized targets '+cell);
   const quota=root.locator('#u-traffic');
-  const trigger=root.locator('#user-limits .select-trigger');
+  const trigger=root.locator('#user-limits .select-trigger.users-preset');
   const list=page.locator('#'+await trigger.getAttribute('aria-controls'));
   await trigger.click();
   const box=await list.boundingBox(), viewport=page.viewportSize();
@@ -279,7 +279,7 @@ async function presetLayout(page,scope,cell) {
   assert.equal(await root.locator('#user-limits [data-fill-preset]').inputValue(),'','manual input left stale preset '+cell);
   await trigger.click(); await quota.click();
   assert.equal(await trigger.getAttribute('aria-expanded'),'false','select outside dismissal '+cell);
-  const durationTrigger=root.locator('#user-timing .select-trigger');
+  const durationTrigger=root.locator('#user-timing .select-trigger.users-preset');
   await durationTrigger.click();
   const duration=page.locator('#'+await durationTrigger.getAttribute('aria-controls'));
   await duration.getByRole('option').filter({hasText:/^3 /}).click();

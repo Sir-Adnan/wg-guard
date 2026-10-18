@@ -94,6 +94,15 @@
     --card-shadow: var(--shadow-sm);
     --surface-border: var(--border);
 
+    /* Access brand panel: one deep surface in both modes, tinted by the preset's primary and lit
+     * by its first two chart colors, so every preset gets its own variant. */
+    --hero-bg: color-mix(in oklab, var(--primary) 14%, #09090b);
+    --hero-fg: #fafafa;
+    --hero-muted: color-mix(in srgb, #fafafa 70%, transparent);
+    --hero-line: color-mix(in srgb, #fafafa 8%, transparent);
+    --hero-glow-1: var(--chart-1);
+    --hero-glow-2: var(--chart-2);
+
     color-scheme: light;
   }
   :root[data-theme="dark"] { color-scheme: dark; --overlay: color-mix(in srgb, #000 70%, transparent); }
