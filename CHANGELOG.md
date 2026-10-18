@@ -3,7 +3,6 @@
 ## [Unreleased]
 
 ### Added
-
 - Add egress routing under **Routing** (`/routing/outbounds`, `/routing/balancers`,
   `/routing/rules`). Outbounds are Cloudflare WARP (registered from the panel), imported
   WireGuard/AmneziaWG client configs or another local IPv4. Balancers group outbounds with the
@@ -34,7 +33,6 @@
   (`scripts/check-docs.py`).
 
 ### Changed
-
 - Redesign every panel, sign-in and subscription page on a new design system: shadcn/ui
   component anatomy in plain CSS (`web/styles`, cascade layers, concatenated at startup; no build
   tool) with a Vercel/Linear default — compact density, hairline borders, monospace technical
@@ -57,8 +55,22 @@
   کانفیگ, پشتیبان, بارگذاری) and correct ezafe and half-space typography. The terminal
   installer stays English-only.
 
-### Fixed
+### Removed
+- Native-mode remnants (dead branches, the unused `deploy/compose.yaml`, two-mode comments and
+  help text), 22 functions nothing called and 193 catalog strings nothing referenced.
 
+### Fixed
+- REST: `POST /users/{id}/disable` with no body answered 400 yet disabled the user; `PATCH
+  /settings` could commit some keys and fail on others; `tags` could be `null`; bulk create
+  ignored the documented `start_index` default of 1; `GET /webhooks/{id}` always reported zero
+  deliveries; idempotent replays lost their `Content-Type`. The OpenAPI document now has
+  operationIds, the 429 and `Idempotency-Key` declarations and the complete error-code list.
+- A busy database during session lookup signed administrators out.
+- Content inserted by an HTMX `outerHTML` swap missed its help popovers, tabs and menus.
+- The subscription time meter showed 0% for plans longer than about three years, and its links
+  switched to Persian for `lang=EN` or `en-US`.
+- Reseller device rows swapped upload and download and showed traffic without `traffic.read`.
+- Log redaction now reaches `*url.URL` values directly (they were already redacted as text).
 - Concurrent public `/sub/` requests could crash the node with a concurrent map access in the
   panel IP rate limiters; the limiters are now locked.
 - Stop the accounting cycle from rewriting every user who ever connected. Stored
@@ -68,6 +80,16 @@
   traffic, a lifecycle transition or a newer observed handshake. First-connection activation
   likewise requires a handshake newer than the stored activity.
 - With reduced motion, opening the phone navigation drawer or a dialog lost keyboard focus.
+
+### Security
+- An administrator holding `admins.manage` could reset the owner's password and take over the
+  owner account; only the owner now manages it. Administrators other than the owner grant only
+  scopes they hold.
+- Login return paths such as `/\evil.example` or `/<tab>/evil.example` redirected off-origin.
+- A crafted link could show arbitrary text in a panel toast; toasts now render catalog keys only,
+  and free text needs a server signature.
+- Behind the managed reverse proxy every visitor shared one login and subscription rate-limit
+  bucket, so a few failed logins locked out every administrator.
 
 ## [v0.1.11] — 2026-10-08
 
