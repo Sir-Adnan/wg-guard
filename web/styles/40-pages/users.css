@@ -23,6 +23,7 @@
   .users-table .cell-meter { min-width: 9rem; max-width: 14rem; }
   .users-table .cell-identity .cell-sub { max-width: 14rem; }
   .users-table-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 2.75rem; padding: var(--s-1_5) var(--cell-px); border-top: 1px solid var(--border); }
+  @media (max-width: 1200px) and (min-width: 801px) { .users-table :is(th, td).users-col-activity { display: none; } }
   @media (max-width: 800px) {
     .users-table tr, .users-device-table tr { grid-auto-flow: row dense; }
     .users-table .cell-meter { max-width: none; }
@@ -30,7 +31,7 @@
     /* Row actions share the devices row instead of a separate footer. */
     .users-table td.col-actions { grid-column: 2; justify-content: flex-end; align-self: end; border-top: 0; padding-top: 0; }
     .users-table td.col-actions .row-actions { justify-content: flex-end; }
-    .users-table-foot { padding-inline: var(--s-4); }
+    .users-table-foot { padding-inline: var(--s-1); border-top: 0; }
   }
 
   /* Device table on phones: actions float in the card's top corner. */
@@ -47,8 +48,8 @@
   .users-unit-group > .select { flex: none; width: auto; border-inline-start: 1px solid var(--input); border-radius: 0; }
   .users-preset-row { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
   .users-preset-row > .input-group { flex: 1; }
-  .users-preset-row > .select-control, .users-preset-row > .users-preset { flex: none; width: auto; }
-  .users-preset-row .select-trigger { width: auto; color: var(--muted-foreground); }
+  .users-preset-row > .users-preset { flex: none; width: auto; }
+  .users-preset-row > .select-trigger { color: var(--muted-foreground); }
 
   /* Forms embedded in dialogs and the create sheet keep the overlay grid. */
   .users-dialog-form, .users-sheet-form { display: contents; }
@@ -61,6 +62,7 @@
 
   /* Detail page: the summary keeps two columns on phones. */
   @media (max-width: 640px) { .user-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .user-stats .stat { padding-inline: var(--s-4); } .user-stats .stat-value { font-size: var(--text-xl); } }
+  @media (max-width: 380px) { .user-stats .stat { padding-inline: var(--s-3); } .user-stats .stat-value { font-size: var(--text-md); } }
   .user-title { font-size: 1em; }
   .user-note { white-space: pre-wrap; overflow-wrap: anywhere; }
   .stat > .progress { margin-block: var(--s-1); }

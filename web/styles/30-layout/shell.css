@@ -5,7 +5,6 @@
  * collapses to icons with tooltips. */
 @layer layout {
   .app { display: flex; min-height: 100dvh; background: var(--background); }
-  :root[data-sidebar="inset"] .app { background: var(--sidebar); }
 
   .sidebar {
     position: sticky; top: 0; z-index: var(--z-sidebar);
@@ -16,10 +15,15 @@
   }
   /* Animate only a user toggle, never the saved state restored on load. */
   .app[data-rail-animate] .sidebar { transition: width var(--dur) var(--ease); }
-  :root[data-sidebar="inset"] .sidebar { border-inline-end: 0; }
-  :root[data-sidebar="floating"] .sidebar {
-    top: var(--s-2); height: calc(100dvh - var(--s-4)); margin: var(--s-2); margin-inline-end: 0;
-    border: 1px solid var(--sidebar-border); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+  /* Compositions apply to the desktop sidebar only; the phone drawer below is one shape for
+   * every preset, so its open state never competes with a composition's specificity. */
+  @media (min-width: 961px) {
+    :root[data-sidebar="inset"] .app { background: var(--sidebar); }
+    :root[data-sidebar="inset"] .sidebar { border-inline-end: 0; }
+    :root[data-sidebar="floating"] .sidebar {
+      top: var(--s-2); height: calc(100dvh - var(--s-4)); margin: var(--s-2); margin-inline-end: 0;
+      border: 1px solid var(--sidebar-border); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+    }
   }
 
   .sidebar-header { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-3) var(--s-2); min-height: var(--header-h); }
@@ -70,14 +74,15 @@
   .sidebar-user-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
   .sidebar-user-name { font-weight: 500; font-size: var(--text-sm); color: var(--sidebar-accent-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sidebar-user-role { font-size: var(--text-xs); color: var(--sidebar-foreground); }
+  .sidebar-user-chevron { display: inline-flex; color: var(--muted-foreground); }
+  .sidebar-user-chevron > .icon { width: var(--icon-sm); height: var(--icon-sm); }
   .sidebar-footer .menu-anchor { display: flex; }
-  .sidebar-footer .menu { inset-inline-end: auto; inset-inline-start: 0; bottom: calc(100% + 4px); top: auto; width: 100%; }
   .nav-close { display: none; }
 
   /* Desktop icon rail */
   @media (min-width: 961px) {
     .app[data-collapsed] .sidebar { width: var(--sidebar-w-rail); }
-    .app[data-collapsed] :is(.brand-text, .sidebar-group-label, .sidebar-search > span, .sidebar-search > .kbd, .sidebar-user-text, .sidebar-marker) { display: none; }
+    .app[data-collapsed] :is(.brand-text, .sidebar-group-label, .sidebar-search > span, .sidebar-search > .kbd, .sidebar-user-text, .sidebar-user-chevron, .sidebar-marker) { display: none; }
     /* Rail links have no aria-label: their text stays in the accessibility tree. */
     .app[data-collapsed] .sidebar-item > span:not(.sidebar-marker) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .app[data-collapsed] .sidebar-header { justify-content: center; padding-inline: var(--s-2); }
@@ -85,24 +90,23 @@
     .app[data-collapsed] .sidebar-item, .app[data-collapsed] .sidebar-user { justify-content: center; padding-inline: 0; }
     .app[data-collapsed] .sidebar-search { justify-content: center; margin-inline: var(--s-2); padding: 0; }
     .app[data-collapsed] .sidebar-group + .sidebar-group { border-top: 1px solid var(--sidebar-border); padding-top: var(--s-2); }
-    .app[data-collapsed] .sidebar-footer .menu { width: 14rem; }
   }
 
   /* Phone/tablet drawer */
   .scrim { display: none; }
   @media (max-width: 960px) {
-    .sidebar, :root[data-sidebar="floating"] .sidebar {
-      position: fixed; inset-block: 0; inset-inline-start: 0; top: 0; margin: 0; height: 100dvh; width: min(18rem, 86vw);
-      border-radius: 0; border: 0; border-inline-end: 1px solid var(--sidebar-border); box-shadow: var(--shadow-2xl);
+    .sidebar {
+      position: fixed; inset-block: 0; inset-inline-start: 0; margin: 0; height: 100dvh; width: min(18rem, 86vw);
+      border-inline-end: 1px solid var(--sidebar-border); box-shadow: var(--shadow-2xl);
+      padding-bottom: env(safe-area-inset-bottom);
       transform: translateX(var(--drawer-x, -105%)); visibility: hidden;
       transition: transform var(--dur-slow) var(--ease), visibility 0s linear var(--dur-slow);
     }
     :root[dir="rtl"] { --drawer-x: 105%; }
-    .sidebar.is-open { transform: none !important; visibility: visible; transition: transform var(--dur-slow) var(--ease); }
+    .sidebar.is-open { transform: none; visibility: visible; transition: transform var(--dur-slow) var(--ease); }
     .scrim { display: block; position: fixed; inset: 0; z-index: calc(var(--z-sidebar) - 1); background: var(--overlay); opacity: 0; pointer-events: none; transition: opacity var(--dur-slow) var(--ease); }
     .scrim.is-open { opacity: 1; pointer-events: auto; }
     .nav-close { display: inline-flex; }
-    :root[data-sidebar="inset"] .app { background: var(--background); }
   }
 
   /* Main column */

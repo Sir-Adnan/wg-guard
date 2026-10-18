@@ -51,6 +51,15 @@
   Minimal).
 - Self-host the fonts the themes use (OFL) and switch Persian text to variable Vazirmatn limited
   to Arabic script.
+- Redesign the sign-in and first-run setup pages: from 1024px a split layout with a brand panel
+  (slow orbit art in the theme's colors, stopped under reduced motion), fields with leading
+  icons, a Caps Lock warning and a progress state on the sign-in button.
+- Every single-choice dropdown now opens a themed list (group headings, check mark, keyboard and
+  type-ahead) instead of the browser's unstyled picker; the native control still submits.
+- Dialogs and the create drawer close on a click outside them; one with unsaved input nudges
+  instead of closing. The account menu at the foot of the sidebar shows the account and offers
+  Appearance, search and sign-out.
+- On phones, standalone lists (users, templates, interfaces) show each row as its own card.
 - Rewrite Persian panel copy for fluency and consistent terminology (نود, اینترفیس, پورت, لینک,
   کانفیگ, پشتیبان, بارگذاری) and correct ezafe and half-space typography. The terminal
   installer stays English-only.
@@ -60,6 +69,18 @@
   help text), 22 functions nothing called and 193 catalog strings nothing referenced.
 
 ### Fixed
+
+- The mobile navigation drawer never appeared under themes with a floating sidebar (most
+  tweakcn imports): the desktop composition outranked its open state.
+- The sidebar account menu opened as an empty strip, so its ⋮ button seemed to do nothing.
+- The password reveal button covered the password in Persian, and unit and protocol addons
+  (UDP, GB, hours) were clipped against the field edge: LTR values flipped their padding.
+- Under a dark system theme, native selects lost their chevron.
+- Phone and tablet layout fixes: tab strips hid their last tabs without a hint, technical
+  values sat under the neighbouring label in RTL list cards, four-tile summaries left a lone
+  tile, card actions squeezed headings into one-word lines, the users table pushed its actions
+  out of view at 1024px, Persian placeholders lost letter joining in technical fields, the
+  user edit page showed empty quick-preset selects and audit rows truncated their target.
 
 - Development installs (`--commit`) failed outright when the newest Go toolchain archive could
   not be downloaded (for example an HTTP 404 from a mirror); the bootstrap now falls back to the

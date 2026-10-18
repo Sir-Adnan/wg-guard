@@ -12,7 +12,7 @@
     transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
   }
   :root[data-theme="dark"] :is(.input, .textarea, .select) { background-color: color-mix(in srgb, var(--input) 30%, transparent); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme]) :is(.input, .textarea, .select) { background: color-mix(in srgb, var(--input) 30%, transparent); } }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme]) :is(.input, .textarea, .select) { background-color: color-mix(in srgb, var(--input) 30%, transparent); } }
   .input:hover, .textarea:hover, .select:hover { border-color: color-mix(in srgb, var(--foreground) 22%, var(--input)); }
   .input:focus-visible, .textarea:focus-visible, .select:focus-visible { outline: none; border-color: var(--ring); box-shadow: var(--focus-ring); }
   .input:disabled, .textarea:disabled, .select:disabled, .input[readonly] { opacity: .6; cursor: not-allowed; background: var(--muted); }
@@ -23,6 +23,8 @@
   .input[type="file"]::file-selector-button { height: calc(var(--control-h) - 2px); margin-inline-end: var(--s-3); padding-inline: var(--s-3); border: 0; border-inline-end: 1px solid var(--input); background: var(--muted); color: var(--foreground); font: inherit; font-weight: 500; cursor: pointer; }
   .input--sm { height: var(--control-h-sm); font-size: var(--text-sm); }
   .input--tech, .textarea--tech { font-family: var(--font-code); font-size: var(--text-sm); direction: ltr; text-align: left; }
+  /* Placeholders are prose (often Persian); a monospace Latin face would break Arabic joining. */
+  :is(.input, .textarea)::placeholder { font-family: var(--font-ui); }
   [dir="rtl"] .input--tech { text-align: right; }
   [dir="rtl"] .input--tech:not(:placeholder-shown) { text-align: left; }
   /* Numbers and dates keep LTR editing order but align at the RTL start edge. */
@@ -54,11 +56,14 @@
   .input-group:has([aria-invalid="true"]) { border-color: var(--destructive); }
   .input-group > .input, .input-group > .select, :root[data-theme="dark"] .input-group > :is(.input, .select) { border: 0; box-shadow: none; background-color: transparent; height: 100%; flex: 1; }
   .input-group > .input:focus-visible { box-shadow: none; }
-  .input-group-addon { display: inline-flex; align-items: center; gap: var(--s-1); padding-inline: var(--control-px); color: var(--muted-foreground); font-size: var(--text-sm); white-space: nowrap; height: 100%; }
+  /* Addons follow the page direction: put LTR text (units, protocols) in an inner .tech span,
+   * never on the addon itself, or its one-sided padding lands on the wrong edge. */
+  .input-group-addon { display: inline-flex; align-items: center; gap: var(--s-1); flex-shrink: 0; padding-inline: var(--control-px); color: var(--muted-foreground); font-size: var(--text-sm); white-space: nowrap; height: 100%; direction: inherit; }
   .input-group-addon:first-child { padding-inline-end: 0; }
   .input-group-addon:last-child { padding-inline-start: 0; }
-  .input-group-addon--boxed { background: var(--muted); border-inline-start: 1px solid var(--input); padding-inline: var(--control-px); }
-  .input-group-addon--boxed:first-child { border-inline-start: 0; border-inline-end: 1px solid var(--input); }
+  .input-group > .input-group-addon--boxed { align-self: stretch; height: auto; justify-content: center; min-width: 2.75rem; background: var(--muted); border-inline-start: 1px solid var(--input); padding-inline: var(--s-3); }
+  .input-group-addon--boxed:last-child { border-start-end-radius: calc(var(--radius-md) - 1px); border-end-end-radius: calc(var(--radius-md) - 1px); }
+  .input-group-addon--boxed:first-child { border-inline-start: 0; border-inline-end: 1px solid var(--input); border-start-start-radius: calc(var(--radius-md) - 1px); border-end-start-radius: calc(var(--radius-md) - 1px); }
   .input-group > .btn { height: calc(100% - 6px); margin-inline: 3px; box-shadow: none; }
   :root[data-theme="dark"] .input-group { background: color-mix(in srgb, var(--input) 30%, transparent); }
   /* Touch: text fields and selects are themselves the 44px target (they cannot carry a ::after
@@ -115,6 +120,7 @@
   [dir="rtl"] .switch:checked::before { transform: translateX(-.875rem); }
   :root[data-theme="dark"] .switch:checked::before { background: var(--primary-foreground); }
   .switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  @media (pointer: coarse) { .switch::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: var(--hit); height: var(--hit); transform: translate(-50%, -50%); } }
   .switch:disabled { opacity: .5; cursor: not-allowed; }
 
   /* Field: label + control + description + error. */
@@ -186,6 +192,8 @@
     transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
   }
   .toggle-group > label > input { position: absolute; opacity: 0; pointer-events: none; }
+  /* Touch: segments stay compact but each gets a 44px-tall hit area. */
+  @media (pointer: coarse) { .toggle-group { overflow: visible; } .toggle-group > :is(label, a, button)::after { content: ""; position: absolute; inset-inline: 0; top: 50%; height: var(--hit); transform: translateY(-50%); } }
   .toggle-group > :hover { color: var(--foreground); }
   .toggle-group > label:has(input:checked), .toggle-group > [aria-pressed="true"], .toggle-group > [aria-current], .toggle-group > [aria-selected="true"] {
     background: var(--background); color: var(--foreground); box-shadow: var(--shadow-xs), 0 0 0 1px var(--border);
@@ -211,7 +219,8 @@
   .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2); flex-wrap: wrap; }
   .form-actions--start { justify-content: flex-start; }
   .form-actions--between { justify-content: space-between; }
-  .password-field { position: relative; }
-  .password-field > .input { padding-inline-end: calc(var(--control-h) + var(--s-1)); }
-  .password-field > .btn { position: absolute; inset-inline-end: 2px; top: 2px; height: calc(var(--control-h) - 4px); width: calc(var(--control-h) - 4px); border: 0; box-shadow: none; }
+  /* Password field: an input group, so the reveal button sits beside the (LTR) value and never
+   * over it in either page direction. */
+  .password-field > .btn { flex-shrink: 0; color: var(--muted-foreground); }
+  .password-field > .btn:hover { color: var(--foreground); }
 }

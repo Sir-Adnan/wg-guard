@@ -8,7 +8,38 @@ const restoreFocus = el => { if (el?.isConnected && !el.closest('[inert]')) el.f
 const presentation = await import(document.querySelector('meta[name="ui-presentation-module"]').content);
 const selects = await import(document.querySelector('meta[name="ui-select-module"]').content);
 export const displayDigits = presentation.displayDigits;
-const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); presentation.enhanceScrollSpy(root); selects.enhanceSelects(root,presentation.closePresentationOverlays); };
+// Horizontal strips (tabs, the phone Settings nav) keep their current item in view and fade
+// the edge that hides more items, so a clipped strip never looks complete.
+const STRIPS = '.tabs, .settings-nav';
+function syncStrip(strip) {
+  const max = strip.scrollWidth - strip.clientWidth, x = Math.abs(strip.scrollLeft);
+  const rtl = getComputedStyle(strip).direction === 'rtl', moreStart = x > 1, moreEnd = x < max - 1;
+  strip.toggleAttribute('data-fade-left', max > 1 && (rtl ? moreEnd : moreStart));
+  strip.toggleAttribute('data-fade-right', max > 1 && (rtl ? moreStart : moreEnd));
+}
+function revealCurrent(strip) {
+  const current = strip.querySelector('[aria-current], [aria-selected="true"], :checked + .tab');
+  if (current && strip.scrollWidth > strip.clientWidth) {
+    const box = strip.getBoundingClientRect(), item = current.getBoundingClientRect(), pad = 32;
+    if (item.left < box.left + pad) strip.scrollLeft -= box.left + pad - item.left;
+    else if (item.right > box.right - pad) strip.scrollLeft += item.right - box.right + pad;
+  }
+  syncStrip(strip);
+}
+function enhanceStrips(root) {
+  const strips = [...(root.matches?.(STRIPS) ? [root] : []), ...root.querySelectorAll(STRIPS)];
+  for (const strip of strips) {
+    if (!strip.hasAttribute('data-strip')) {
+      strip.setAttribute('data-strip', '');
+      strip.addEventListener('scroll', () => syncStrip(strip), { passive: true });
+      strip.addEventListener('click', () => requestAnimationFrame(() => revealCurrent(strip)));
+    }
+    revealCurrent(strip);
+  }
+}
+let stripFrame = 0;
+addEventListener('resize', () => { cancelAnimationFrame(stripFrame); stripFrame = requestAnimationFrame(() => $$('[data-strip]').forEach(syncStrip)); });
+const enhancePresentation = root => { presentation.enhanceGuidance(root); presentation.enhanceSectionTabs(root); presentation.enhanceChoiceMenus(root); presentation.enhanceScrollSpy(root); selects.enhanceSelects(root,presentation.closePresentationOverlays); enhanceStrips(root); };
 enhancePresentation(document);
 // htmx:load fires on each inserted element, including outerHTML replacements
 // whose old swap target has already left the document. Enhancers are idempotent.
@@ -133,13 +164,21 @@ function closeMenu(returnFocus = false) {
 function positionMenu() {
   if (!activeMenu || !menuTrigger) return;
   const r = menuTrigger.getBoundingClientRect();
-  activeMenu.style.position = 'fixed'; activeMenu.style.insetInlineEnd = 'auto';
-  activeMenu.style.maxHeight = Math.max(120, innerHeight - 16) + 'px';
-  activeMenu.style.overflowY = 'auto';
+  const style = activeMenu.style, matchWidth = activeMenu.hasAttribute('data-match-width');
+  // Fixed geometry replaces every stylesheet offset, so no top/bottom pair can collapse the menu.
+  style.position = 'fixed'; style.inset = 'auto'; style.margin = '0';
+  style.width = matchWidth ? Math.min(Math.max(r.width, 224), innerWidth - 16) + 'px' : '';
+  style.maxWidth = (innerWidth - 16) + 'px';
+  style.maxHeight = Math.max(120, innerHeight - 16) + 'px';
+  style.overflowY = 'auto';
   // Layout size, not the bounding rect: the pop-in entrance animation scales the menu.
-  const w = activeMenu.offsetWidth, h = activeMenu.offsetHeight;
-  activeMenu.style.left = Math.max(8, Math.min(document.documentElement.dir === 'rtl' ? r.left : r.right - w, innerWidth - w - 8)) + 'px';
-  activeMenu.style.top = Math.max(8, r.bottom + h + 6 > innerHeight ? r.top - h - 6 : r.bottom + 6) + 'px';
+  const w = activeMenu.offsetWidth, h = activeMenu.offsetHeight, rtl = document.documentElement.dir === 'rtl';
+  // Menus align to the trigger's inline end; width-matched menus share its inline start.
+  const left = matchWidth ? (rtl ? r.right - w : r.left) : (rtl ? r.left : r.right - w);
+  style.left = Math.max(8, Math.min(left, innerWidth - w - 8)) + 'px';
+  const below = innerHeight - r.bottom - 6, above = r.top - 6;
+  const up = activeMenu.dataset.placement === 'top' ? above >= h || above > below : h > below && above > below;
+  style.top = Math.max(8, up ? r.top - h - 6 : r.bottom + 6) + 'px';
 }
 function openMenu(trigger, last = false) {
   hideTip();
@@ -165,8 +204,35 @@ export function openModal(id, invoker = document.activeElement) {
   return dialog;
 }
 document.addEventListener('close', event => {
-  if (event.target instanceof HTMLDialogElement) restoreFocus(invokers.get(event.target));
+  if (!(event.target instanceof HTMLDialogElement)) return;
+  event.target.removeAttribute('data-dirty');
+  restoreFocus(invokers.get(event.target));
 }, true);
+
+// Light dismiss: a press that starts and ends on a modal's backdrop closes it. A dialog holding
+// unsaved input or a pending submission stays open and nudges instead, so no work is lost;
+// Escape and the explicit close/cancel controls still close it.
+const onBackdrop = event => {
+  const dialog = event.target;
+  if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return false;
+  const r = dialog.getBoundingClientRect();
+  return event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom;
+};
+let backdropPress = null;
+document.addEventListener('pointerdown', event => { backdropPress = onBackdrop(event) ? event.target : null; }, true);
+document.addEventListener('click', event => {
+  const dialog = backdropPress;
+  backdropPress = null;
+  if (!dialog || event.target !== dialog || !onBackdrop(event)) return;
+  if (dialog.hasAttribute('data-dirty') || dialog.querySelector('[aria-busy="true"]')) {
+    dialog.classList.remove('is-nudged'); void dialog.offsetWidth; dialog.classList.add('is-nudged');
+    return;
+  }
+  dialog.close();
+});
+document.addEventListener('animationend', event => { if (event.target instanceof HTMLDialogElement) event.target.classList.remove('is-nudged'); });
+// Only form input counts: typing a command-palette query is not work to protect.
+document.addEventListener('input', event => { if (event.target.form) event.target.closest('dialog[open]')?.setAttribute('data-dirty', ''); }, true);
 
 const sidebar = $('#sidebar');
 const main = $('#app-main');
@@ -395,6 +461,12 @@ document.addEventListener('click', event => {
   input.type = show ? 'text' : 'password';
   toggle.setAttribute('aria-pressed', String(show));
 });
+// Caps Lock hint for password fields that render one ([data-capslock] after the field).
+for (const type of ['keydown', 'keyup']) document.addEventListener(type, event => {
+  if (!(event.target instanceof HTMLInputElement) || !event.target.closest('.password-field') || !event.getModifierState) return;
+  const hint = event.target.closest('.field')?.querySelector('[data-capslock]');
+  if (hint) hint.hidden = !event.getModifierState('CapsLock');
+});
 // Command palette (⌘K / Ctrl+K / "/"): filters the server-rendered,
 // permission-aware destinations; no request is made until one is chosen.
 const command = $('#command');
@@ -440,7 +512,6 @@ if (command) {
     else if (event.key === 'Enter') { event.preventDefault(); items()[selected]?.click(); }
   });
   command.addEventListener('click', event => {
-    if (event.target === command) command.close();
     const item = event.target.closest?.('.command-item');
     if (item) setTimeout(() => command.open && command.close(), 0);
   });

@@ -132,6 +132,11 @@
     .audit-entry-target:has(> [aria-hidden="true"]:only-child) { display: none; }
     .audit-entry-detail { grid-template-columns: 1fr; }
   }
+  @media (max-width: 520px) {
+    .audit-entry-summary { grid-template-areas: "action toggle" "actor actor" "time time" "target target"; }
+    .audit-entry-time { justify-self: start; }
+    .audit-entry-title { white-space: normal; }
+  }
 }
 @layer pages {
   /* LTR codes inside RTL flex columns hug the reading start edge. */

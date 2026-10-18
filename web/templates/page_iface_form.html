@@ -43,7 +43,7 @@
             <div class="input-group">
               <input class="input input--tech" id="i-port" name="listen_port" type="text" inputmode="numeric" dir="ltr"
               value="{{$f.V "listen_port"}}" {{if .Data.I}}readonly{{end}} {{if $f.Invalid "listen_port"}}aria-invalid="true"{{end}} aria-describedby="{{if not .Data.I}}hint-listen_port {{end}}{{if $f.Invalid "listen_port"}}error-listen_port{{end}}">
-              <span class="input-group-addon tech">UDP</span>
+              <span class="input-group-addon"><span class="tech">UDP</span></span>
             </div>
             {{if $f.Invalid "listen_port"}}<span class="field-error" id="error-listen_port">{{.T (index $f.Fields "listen_port")}}</span>{{end}}
             {{if not .Data.I}}<span class="field-description" id="hint-listen_port" data-guidance>{{.T "ifaces.create_hint"}}</span>{{end}}

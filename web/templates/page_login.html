@@ -1,6 +1,7 @@
 {{define "title"}}{{.T "login.title"}}{{end}}
 {{define "content"}}
 <div class="auth-heading">
+  <span class="brand-mark auth-heading-mark" aria-hidden="true">{{.Icon "shield"}}</span>
   <h1 class="auth-title">{{.T "login.title"}}</h1>
   <p class="auth-description">{{.T "login.subtitle"}}</p>
 </div>
@@ -13,16 +14,21 @@
       <input type="hidden" name="next" value="{{.Data.Next}}">
       <div class="field">
         <label class="field-label" for="f-username">{{.T "login.username"}}</label>
-        <input class="input tech" id="f-username" name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required value="{{.Data.Username}}" {{if eq .Data.Error "login.invalid"}}aria-invalid="true" aria-describedby="auth-message"{{end}}>
+        <div class="input-group">
+          <span class="input-group-addon" aria-hidden="true">{{.IconS "user"}}</span>
+          <input class="input tech" id="f-username" name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required value="{{.Data.Username}}" {{if eq .Data.Error "login.invalid"}}aria-invalid="true" aria-describedby="auth-message"{{end}}>
+        </div>
       </div>
       <div class="field">
         <label class="field-label" for="f-password">{{.T "login.password"}}</label>
-        <div class="password-field">
-          <input class="input tech" id="f-password" name="password" type="password" dir="ltr" autocomplete="current-password" required {{if eq .Data.Error "login.invalid"}}aria-invalid="true" aria-describedby="auth-message"{{end}}>
+        <div class="input-group password-field">
+          <span class="input-group-addon" aria-hidden="true">{{.IconS "lock"}}</span>
+          <input class="input tech" id="f-password" name="password" type="password" dir="ltr" autocomplete="current-password" required aria-describedby="f-password-caps{{if eq .Data.Error "login.invalid"}} auth-message{{end}}" {{if eq .Data.Error "login.invalid"}}aria-invalid="true"{{end}}>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-toggle-password="f-password" aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">{{.IconS "eye"}}{{.IconS "eye-off"}}</button>
         </div>
+        <p class="field-error" id="f-password-caps" data-capslock hidden>{{.IconS "alert-triangle"}}<span>{{.T "auth.capslock"}}</span></p>
       </div>
-      <button type="submit" class="btn btn--primary btn--block">{{.T "login.submit"}}{{.IconS "arrow-right"}}</button>
+      <button type="submit" class="btn btn--primary btn--lg btn--block auth-submit"><span class="spinner" aria-hidden="true"></span><span class="auth-submit-label">{{.T "login.submit"}}</span><span class="auth-submit-busy">{{.T "auth.signing_in"}}</span>{{.IconS "arrow-right"}}</button>
     </form>
   </div>
 </section>

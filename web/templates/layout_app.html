@@ -67,15 +67,20 @@
       <button type="button" class="sidebar-user" aria-haspopup="menu" aria-expanded="false" aria-label="{{.T "shell.account"}}: {{.Admin.Username}}">
         <span class="avatar avatar--sm avatar--square" aria-hidden="true">{{.Initial .Admin.Username}}</span>
         <span class="sidebar-user-text"><span class="sidebar-user-name"><bdi>{{.Admin.Username}}</bdi></span><span class="sidebar-user-role">{{.RoleLabel}}</span></span>
-        {{.IconS "more-vertical"}}
+        <span class="sidebar-user-chevron" aria-hidden="true">{{.IconS "chevrons-up-down"}}</span>
       </button>
-      <div class="menu" role="menu" aria-label="{{.T "shell.account"}}">
-        <p class="menu-label"><bdi>{{.Admin.Username}}</bdi> · {{.RoleLabel}}</p>
+      <div class="menu menu--account" role="menu" aria-label="{{.T "shell.account"}}" data-placement="top" data-match-width>
+        <div class="menu-header">
+          <span class="avatar avatar--square avatar--primary" aria-hidden="true">{{.Initial .Admin.Username}}</span>
+          <span class="menu-header-text"><span class="menu-header-title"><bdi>{{.Admin.Username}}</bdi></span><span class="menu-header-sub">{{.RoleLabel}}</span></span>
+        </div>
+        <hr>
         <a role="menuitem" href="/appearance">{{.IconS "sparkles"}}<span>{{.T "appearance.title"}}</span></a>
+        <button type="button" role="menuitem" data-command-open>{{.IconS "search"}}<span>{{.T "shell.search_label"}}</span><kbd class="kbd menu-shortcut">⌘K</kbd></button>
         <hr>
         <form method="post" action="/logout">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" role="menuitem">{{.IconS "log-out"}}<span>{{.T "common.logout"}}</span></button>
+          <button type="submit" role="menuitem" class="is-danger">{{.IconS "log-out"}}<span>{{.T "common.logout"}}</span></button>
         </form>
       </div>
     </div>

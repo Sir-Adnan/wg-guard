@@ -98,7 +98,8 @@ by `web/static/js/ui.js` (shell, menus, dialogs, tooltips, toasts, command palet
 | Badge | `.badge` + `--success` / `--warning` / `--destructive` / `--info` / `--muted` / `--outline` / `--primary`; status badges start with `<span class="dot"></span>` |
 | Card | `.card` › `.card-header` (`.card-title`, `.card-description`, `.card-action`) · `.card-content` · `.card-footer`; `.card--flush` for lists and tables; inner regions use `.panel`, never a nested card |
 | Field | `.field` › `label.field-label` + control + `.field-description` + `.field-error`; `.field-grid` (`--2`, `--3`) for forms |
-| Controls | `.input`, `.textarea`, `.select` (native), `.input-group` › `.input-group-addon`, `.checkbox`, `.radio`, `.switch` (`role="switch"`), `.choice`, `.choice-card`, `.toggle-group`, `.chip` |
+| Controls | `.input`, `.textarea`, `.select`, `.input-group` › `.input-group-addon` (`--boxed` for units), `.password-field` (an input group with the reveal button), `.checkbox`, `.radio`, `.switch` (`role="switch"`), `.choice`, `.choice-card`, `.toggle-group`, `.chip` |
+| Select | native `select.select`; `select.js` inserts a `button.select-trigger` carrying the select's classes and a `.select-content[role=listbox]` (`.select-label`, `.select-item`, `.select-check`); the native control stays in the form as `.select-native`; `data-native` opts out |
 | Tabs | `nav.tabs` › `a.tab[aria-current="page"]` or `button.tab[aria-selected]`; style follows `data-tabs` |
 | Table | `.table-frame` › `.table-wrap` › `table.table`; `.table--cards` turns rows into labeled cards under 800px (`td[data-label]`, `.cell-primary`, `.col-check`, `.col-actions`) |
 | Item | `.item-group` › `.item` (`.item-media`, `.item-content` › `.item-title` + `.item-description`, `.item-actions`); `a.item-link` makes the row clickable |
@@ -107,7 +108,7 @@ by `web/static/js/ui.js` (shell, menus, dialogs, tooltips, toasts, command palet
 | Empty | `.empty` (`--bordered`, `--compact`) › `.empty-icon`, `.empty-title`, `.empty-description`, `.empty-actions` |
 | Dialog | `dialog.dialog` › `.dialog-header` (`.dialog-heading` › `.dialog-title` + `.dialog-description`) · `.dialog-body` · `.dialog-footer`; sizes `--sm`/`--lg`/`--xl`; becomes a bottom sheet on phones |
 | Sheet | `dialog.sheet` › `.sheet-header` · `.sheet-body` · `.sheet-footer` |
-| Menu | `.menu-anchor` › trigger button + `.menu[role=menu]` › items, `.menu-label`, `hr` |
+| Menu | `.menu-anchor` › trigger button + `.menu[role=menu]` › items, `.menu-header` (`.menu-header-title`, `.menu-header-sub`), `.menu-label`, `hr`; `data-placement="top"` opens upward, `data-match-width` matches the trigger |
 | Collapsible | `details.collapsible` › `summary` + `.collapsible-content`; `.accordion` groups them |
 | Misc | `.kbd`, `.separator`, `.avatar`, `.spinner`, `.skeleton`, `.progress` › `.progress-bar` (`w0`…`w100`), `.code`, `.code-block`, `.copy-field`, `.dl`, `.kv` › `.kv-row` |
 
@@ -117,16 +118,38 @@ Page composition: `.page-header` › `.page-heading` (`h1.page-title`, `.page-de
 
 Technical values (IPs, keys, versions, ports, matchers) use `.tech`: LTR isolation, monospace,
 tabular digits. Human numbers with localized units use `.num` (tabular, isolated, UI font).
-Never put Persian words inside `.tech`.
+Never put Persian words inside `.tech`. Never put `.tech` (or `dir="ltr"`) on an element whose
+own logical padding or position matters, such as an input-group addon: its `inline-start`
+would flip to the other edge. Wrap the value in an inner `<span class="tech">` instead.
+
+Collections (`.table--cards`) inside a standalone `.table-frame` become a stack of separate
+cards below 800px; inside a card they keep divided rows, so cards never nest.
+
+Responsive rules the components own, so pages need none:
+
+- Horizontal strips (`.tabs`, the phone Settings nav) scroll their current item into view and
+  fade the edge that hides more items (`data-fade-left`/`data-fade-right`, set by `ui.js`).
+- `.stat-grid` with four (or eight) tiles uses two columns, then four from 1100px, never three
+  plus a lone tile.
+- Below 480px a `.card-header` stacks its `.card-action` under the title.
+- In RTL, isolated LTR blocks (`.tech`, `.ltr`) align right, at the locale's start edge.
+- Input placeholders always use the UI face, so Persian hints in `.input--tech` keep their
+  letter joining.
 
 ## Shell
 
 The app shell (`web/templates/layout_app.html`, `web/styles/30-layout/shell.css`) is the shadcn
 Sidebar block: brand, a search button that opens the command palette, static labeled groups
 rendered from `View.Nav` (`internal/web/navigation.go`, shared with the palette) and an account
-menu. The header holds the sidebar toggle, the page title and locale/theme controls. The desktop
+menu (identity, Appearance, command palette, sign-out). The header holds the sidebar toggle, the
+page title and locale/theme controls. The desktop
 sidebar collapses to an icon rail with tooltips; below 960px it is a modal drawer. The preset's
-`sidebar` axis picks the composition (`plain`, `inset` or `floating`). The command palette
+`sidebar` axis picks the desktop composition (`plain`, `inset` or `floating`); its rules live in
+a `min-width: 961px` query so the drawer's open state never competes with them.
+
+The access layout (`layout_auth.html`, `30-layout/auth.css`, `40-pages/auth.css`) splits sign-in
+and setup into the form pane and `.auth-hero` from 1024px. The hero reads only the `--hero-*`
+tokens in `02-tokens.css`, derived from the preset's `primary`, `chart-1` and `chart-2`. The command palette
 (⌘K / Ctrl+K / `/`) filters the same destinations plus quick actions and a user search.
 
 `.content` caps the page column at `--content-max` (80rem). `pageClass` in

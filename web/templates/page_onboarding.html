@@ -1,6 +1,7 @@
 {{define "title"}}{{.T "onboard.title"}}{{end}}
 {{define "content"}}
 <div class="auth-heading">
+  <span class="brand-mark auth-heading-mark" aria-hidden="true">{{.Icon "shield"}}</span>
   <span class="badge badge--outline">{{.T "access.initial_setup"}}</span>
   <h1 class="auth-title">{{.T "onboard.title"}}</h1>
   <p class="auth-description">{{.T "onboard.subtitle"}}</p>
@@ -17,10 +18,11 @@
       </div>
       <div class="field">
         <label class="field-label" for="o-password">{{.T "onboard.password"}}</label>
-        <div class="password-field">
-          <input class="input tech" id="o-password" {{if eq .Data.Field "password"}}aria-invalid="true"{{end}} name="password" type="password" dir="ltr" autocomplete="new-password" required aria-describedby="o-password-help{{if eq .Data.Field "password"}} auth-message{{end}}">
+        <div class="input-group password-field">
+          <input class="input tech" id="o-password" {{if eq .Data.Field "password"}}aria-invalid="true"{{end}} name="password" type="password" dir="ltr" autocomplete="new-password" required aria-describedby="o-password-help o-password-caps{{if eq .Data.Field "password"}} auth-message{{end}}">
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-toggle-password="o-password" aria-label="{{.T "common.toggle_password"}}" aria-pressed="false">{{.IconS "eye"}}{{.IconS "eye-off"}}</button>
         </div>
+        <p class="field-error" id="o-password-caps" data-capslock hidden>{{.IconS "alert-triangle"}}<span>{{.T "auth.capslock"}}</span></p>
         <p class="field-description" id="o-password-help">{{.Data.PasswordHint}}</p>
       </div>
       <div class="field">
@@ -37,7 +39,7 @@
           </div>
         </div>
       </details>
-      <button type="submit" class="btn btn--primary btn--block">{{.IconS "shield-check"}}{{.T "onboard.submit"}}</button>
+      <button type="submit" class="btn btn--primary btn--lg btn--block auth-submit"><span class="spinner" aria-hidden="true"></span>{{.IconS "shield-check"}}<span class="auth-submit-label">{{.T "onboard.submit"}}</span></button>
     </form>{{end}}
   </div>
 </section>

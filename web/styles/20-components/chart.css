@@ -78,7 +78,9 @@
   .resource-value-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
   .resource-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
   .resource-pair > div { display: flex; flex-direction: column; gap: 2px; }
-  .resource-pair strong { font-size: var(--text-lg); font-weight: 600; }
+  .resource-pair strong { font-size: var(--text-lg); font-weight: 600; white-space: nowrap; }
+  /* Rates carry long units (کیلوبایت/ثانیه): stack them rather than break the unit. */
+  @media (max-width: 420px) { .resource-pair { grid-template-columns: 1fr; gap: var(--s-2); } }
   .resource-facts { margin-top: var(--s-1); }
   .resource-facts .kv-row { padding-block: var(--s-1_5); font-size: var(--text-xs); }
   /* Six resource cards: 3 × 2 on desktop, 2 × 3 on tablets, stacked on phones. */

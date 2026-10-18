@@ -23,7 +23,7 @@
     .rule-row { align-items: flex-start; }
     .rule-row > .item-actions { width: 100%; justify-content: flex-end; border-top: 1px dashed var(--border); padding-top: var(--s-2); }
     .rule-default-controls { width: 100%; }
-    .rule-default-controls > .select { flex: 1; min-width: 0; }
+    .rule-default-controls > .select { flex: 1 1 10rem; min-width: 0; }
   }
 
   .outbound-card.is-disabled { opacity: .7; }

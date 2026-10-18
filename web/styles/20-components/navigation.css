@@ -8,6 +8,10 @@
     -webkit-overflow-scrolling: touch;
   }
   .tabs::-webkit-scrollbar { display: none; }
+  /* ui.js marks the physical edge that hides more items (scroll position is physical). */
+  :is(.tabs, .settings-nav)[data-fade-left] { -webkit-mask-image: linear-gradient(to right, transparent, black 2.5rem); mask-image: linear-gradient(to right, transparent, black 2.5rem); }
+  :is(.tabs, .settings-nav)[data-fade-right] { -webkit-mask-image: linear-gradient(to left, transparent, black 2.5rem); mask-image: linear-gradient(to left, transparent, black 2.5rem); }
+  :is(.tabs, .settings-nav)[data-fade-left][data-fade-right] { -webkit-mask-image: linear-gradient(to right, transparent, black 2.5rem, black calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, transparent, black 2.5rem, black calc(100% - 2.5rem), transparent); }
   .tab {
     position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1_5);
     flex-shrink: 0; height: var(--control-h-sm); padding-inline: var(--s-3);
