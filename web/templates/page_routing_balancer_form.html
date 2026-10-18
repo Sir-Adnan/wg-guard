@@ -1,87 +1,81 @@
 {{define "title"}}{{if .Data.B}}{{.T "routing.balancers.edit"}}{{else}}{{.T "routing.balancers.add"}}{{end}}{{end}}
 {{define "content"}}
 {{$f := .Data.Form}}
-<div class="form-page premium-form-page routing-page">
-  <div class="page-head page-head--hero">
-    <div class="page-title-cluster">
-      <span class="page-title-icon" aria-hidden="true">{{.Icon "shuffle"}}</span>
-      <div>
-        <span class="eyebrow">{{.T "routing.balancers"}}</span>
-        <h1>{{if .Data.B}}<bdi>{{.Data.B.Name}}</bdi>{{else}}{{.T "routing.balancers.add"}}{{end}}</h1>
-        <p>{{.T "routing.balancers.form_intro"}}</p>
+{{$title := .T "routing.balancers.add"}}{{if .Data.B}}{{$title = .Data.B.Name}}{{end}}
+{{template "routing_form_header" (dict "v" . "title" $title "description" (.T "routing.balancers.form_intro") "back" "/routing/balancers")}}
+<form method="post" action="{{if .Data.B}}/routing/balancers/{{.Data.B.ID}}/edit{{else}}/routing/balancers{{end}}" class="stack-lg" novalidate>
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  {{template "form_feedback" .}}
+  <section class="card">
+    <div class="card-content field-grid">
+      <div class="field">
+        <label class="field-label" for="b-name">{{.T "routing.form.name"}}</label>
+        <input class="input" id="b-name" name="name" type="text" dir="auto" maxlength="48" required value="{{$f.V "name"}}" placeholder="{{.T "routing.balancers.name_placeholder"}}"{{if $f.Invalid "name"}} aria-invalid="true" aria-describedby="err-name"{{end}}>
+        {{if $f.Invalid "name"}}<span class="field-error" id="err-name">{{index $f.Fields "name"}}</span>{{end}}
+      </div>
+      <div class="field">
+        <label class="field-label" for="b-enabled">{{.T "forms.availability"}}</label>
+        <select class="select" id="b-enabled" name="enabled">
+          <option value="1"{{if ne ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.enabled"}}</option>
+          <option value="0"{{if eq ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.disabled"}}</option>
+        </select>
       </div>
     </div>
-    <a class="btn btn--ghost" href="/routing/balancers">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
-  </div>
-  <form method="post" action="{{if .Data.B}}/routing/balancers/{{.Data.B.ID}}/edit{{else}}/routing/balancers{{end}}" class="form-stack" novalidate>
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    {{template "form_feedback" .}}
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="cyan">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "shuffle"}}</span><span>{{.T "routing.form.basics"}}</span></legend>
-      <div class="field-row">
-        <div class="field">
-          <label for="b-name">{{.T "routing.form.name"}}</label>
-          <input class="input" id="b-name" name="name" type="text" dir="auto" maxlength="48" required value="{{$f.V "name"}}" placeholder="{{.T "routing.balancers.name_placeholder"}}"{{if $f.Invalid "name"}} aria-invalid="true" aria-describedby="err-name"{{end}}>
-          {{if $f.Invalid "name"}}<span class="field-error" id="err-name">{{index $f.Fields "name"}}</span>{{end}}
-        </div>
-        <div class="field">
-          <label for="b-enabled">{{.T "forms.availability"}}</label>
-          <select class="select" id="b-enabled" name="enabled">
-            <option value="1"{{if ne ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.enabled"}}</option>
-            <option value="0"{{if eq ($f.V "enabled") "0"}} selected{{end}}>{{.T "routing.disabled"}}</option>
-          </select>
-        </div>
-      </div>
-    </fieldset>
+  </section>
 
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="violet">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "gauge"}}</span><span>{{.T "routing.balancers.strategy"}}</span></legend>
-      <div class="routing-choices" role="radiogroup" aria-label="{{.T "routing.balancers.strategy"}}">
+  <fieldset class="card strategy-section">
+    <legend class="sr-only">{{.T "routing.balancers.strategy"}}</legend>
+    <div class="card-header"><h2 class="card-title" aria-hidden="true">{{.T "routing.balancers.strategy"}}</h2></div>
+    <div class="card-content stack">
+      <div class="choice-grid" role="radiogroup" aria-label="{{.T "routing.balancers.strategy"}}">
         {{range list "sticky" "round_robin" "random" "least_conn" "failover"}}
-        <label class="routing-choice">
-          <input type="radio" name="strategy" value="{{.}}"{{if eq ($f.V "strategy") .}} checked{{end}}>
-          <span class="routing-choice-body"><strong>{{$.T (printf "routing.strategy.%s" .)}}{{if eq . "sticky"}} <span class="badge badge--ok">{{$.T "routing.kind.recommended"}}</span>{{end}}</strong><small>{{$.T (printf "routing.strategy.%s_desc" .)}}</small></span>
+        <label class="choice-card">
+          <input class="radio" type="radio" name="strategy" value="{{.}}"{{if eq ($f.V "strategy") .}} checked{{end}}>
+          <span class="choice-card-body"><span class="choice-card-title">{{$.T (printf "routing.strategy.%s" .)}}{{if eq . "sticky"}}<span class="badge badge--success">{{$.T "routing.kind.recommended"}}</span>{{end}}</span><span class="choice-card-description">{{$.T (printf "routing.strategy.%s_desc" .)}}</span></span>
         </label>
         {{end}}
       </div>
-      <p class="callout callout--warn routing-callout routing-per-connection">{{.IconS "alert-triangle"}}<span>{{.T "routing.strategy.per_connection_note"}}</span></p>
+      <div class="alert alert--warning routing-per-connection">{{.Icon "alert-triangle"}}<p class="alert-title">{{.T "routing.strategy.per_connection_note"}}</p></div>
       {{if $f.Invalid "strategy"}}<span class="field-error">{{index $f.Fields "strategy"}}</span>{{end}}
-    </fieldset>
+    </div>
+  </fieldset>
 
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="emerald">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "route"}}</span><span>{{.T "routing.balancers.members"}}</span></legend>
-      <p class="section-description">{{.T "routing.balancers.members_hint"}}</p>
+  <fieldset class="card">
+    <legend class="sr-only">{{.T "routing.balancers.members"}}</legend>
+    <div class="card-header"><h2 class="card-title" aria-hidden="true">{{.T "routing.balancers.members"}}</h2><p class="card-description">{{.T "routing.balancers.members_hint"}}</p></div>
+    <div class="card-content">
       {{if .Data.Members}}
-      <ul class="routing-member-list">
+      <ul class="item-group">
         {{range .Data.Members}}
-        <li class="routing-member">
-          <label class="check-label"><input type="checkbox" class="checkbox" name="member" value="{{.ID}}"{{if .Checked}} checked{{end}}> <bdi>{{.Name}}</bdi> <small class="text-subtle">{{$.T .Kind}}{{if not .Enabled}} · {{$.T "routing.disabled"}}{{end}}</small></label>
-          <label class="routing-weight"><span>{{$.T "routing.balancers.weight"}}</span><input class="input ltr-data" name="weight_{{.ID}}" type="text" dir="ltr" inputmode="numeric" maxlength="2" value="{{.Weight}}" aria-label="{{$.T "routing.balancers.weight"}}: {{.Name}}"></label>
+        <li class="item member-row">
+          <label class="choice flex-1 min-w-0"><input type="checkbox" class="checkbox" name="member" value="{{.ID}}"{{if .Checked}} checked{{end}}><span class="choice-text"><bdi class="font-medium">{{.Name}}</bdi><span class="choice-description">{{$.T .Kind}}{{if not .Enabled}} · {{$.T "routing.disabled"}}{{end}}</span></span></label>
+          <label class="row text-xs text-muted"><span>{{$.T "routing.balancers.weight"}}</span><input class="input input--sm input--tech" name="weight_{{.ID}}" type="text" dir="ltr" inputmode="numeric" maxlength="2" value="{{.Weight}}" aria-label="{{$.T "routing.balancers.weight"}}: {{.Name}}"></label>
         </li>
         {{end}}
       </ul>
       {{else}}
-      <p class="callout callout--info">{{.IconS "info"}}<span>{{.T "routing.balancers.empty.need_outbounds"}}</span></p>
+      <div class="alert alert--info">{{.Icon "info"}}<p class="alert-title">{{.T "routing.balancers.empty.need_outbounds"}}</p></div>
       {{end}}
       {{if $f.Invalid "members"}}<span class="field-error">{{index $f.Fields "members"}}</span>{{end}}
-    </fieldset>
-
-    <fieldset class="form-section card card--pad premium-form-section" data-section-tone="amber">
-      <legend><span class="section-icon" aria-hidden="true">{{.IconS "alert-triangle"}}</span><span>{{.T "routing.balancers.fallback"}}</span></legend>
-      <div class="routing-choices" role="radiogroup" aria-label="{{.T "routing.balancers.fallback"}}">
-        {{range list "direct" "block"}}
-        <label class="routing-choice">
-          <input type="radio" name="fallback" value="{{.}}"{{if eq ($f.V "fallback") .}} checked{{end}}>
-          <span class="routing-choice-body"><strong>{{$.T (printf "routing.fallback.%s" .)}}</strong><small>{{$.T (printf "routing.fallback.%s_desc" .)}}</small></span>
-        </label>
-        {{end}}
-      </div>
-    </fieldset>
-
-    <div class="form-actions">
-      <a class="btn btn--ghost" href="/routing/balancers">{{.T "common.cancel"}}</a>
-      <button type="submit" class="btn btn--primary"{{if not .Data.Members}} disabled{{end}}>{{.IconS "check"}}{{.T "common.save"}}</button>
     </div>
-  </form>
-</div>
+  </fieldset>
+
+  <fieldset class="card">
+    <legend class="sr-only">{{.T "routing.balancers.fallback"}}</legend>
+    <div class="card-header"><h2 class="card-title" aria-hidden="true">{{.T "routing.balancers.fallback"}}</h2></div>
+    <div class="card-content choice-grid" role="radiogroup" aria-label="{{.T "routing.balancers.fallback"}}">
+      {{range list "direct" "block"}}
+      <label class="choice-card">
+        <input class="radio" type="radio" name="fallback" value="{{.}}"{{if eq ($f.V "fallback") .}} checked{{end}}>
+        <span class="choice-card-body"><span class="choice-card-title">{{$.T (printf "routing.fallback.%s" .)}}</span><span class="choice-card-description">{{$.T (printf "routing.fallback.%s_desc" .)}}</span></span>
+      </label>
+      {{end}}
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <a class="btn btn--ghost" href="/routing/balancers">{{.T "common.cancel"}}</a>
+    <button type="submit" class="btn btn--primary"{{if not .Data.Members}} disabled{{end}}>{{.T "common.save"}}</button>
+  </div>
+</form>
 {{end}}

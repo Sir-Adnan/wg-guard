@@ -1,0 +1,145 @@
+/* Structural tokens. Color, type, radius, shadow and spacing base come from
+ * the preset (generated rules precede this file); everything here derives
+ * from them, so a preset's --radius or --spacing reshapes every component.
+ * Layout axes are attributes on <html>: data-density, data-sidebar,
+ * data-tabs and data-surface (see docs/product/design-system.md). */
+@layer tokens {
+  /* Fallbacks for presets that omit WG-Guard extensions. :where() keeps
+   * them below every generated preset rule regardless of file order. */
+  :where(:root) {
+    --primary-text: var(--primary);
+    --destructive-text: var(--destructive);
+    --destructive-foreground: #fff;
+    --success: #18794e; --success-foreground: #fff;
+    --warning: #a35200; --warning-foreground: #fff;
+    --info: #0064d6; --info-foreground: #fff;
+    --tracking-normal: 0em;
+    --spacing: .25rem;
+  }
+
+  :root {
+    --radius-xs: max(2px, calc(var(--radius) - 6px));
+    --radius-sm: max(3px, calc(var(--radius) - 4px));
+    --radius-md: max(4px, calc(var(--radius) - 2px));
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --radius-full: 9999px;
+
+    /* Spacing follows the preset's base unit (Tailwind's --spacing). */
+    --s-0_5: calc(var(--spacing) * .5);
+    --s-1: var(--spacing);
+    --s-1_5: calc(var(--spacing) * 1.5);
+    --s-2: calc(var(--spacing) * 2);
+    --s-2_5: calc(var(--spacing) * 2.5);
+    --s-3: calc(var(--spacing) * 3);
+    --s-4: calc(var(--spacing) * 4);
+    --s-5: calc(var(--spacing) * 5);
+    --s-6: calc(var(--spacing) * 6);
+    --s-8: calc(var(--spacing) * 8);
+    --s-10: calc(var(--spacing) * 10);
+    --s-12: calc(var(--spacing) * 12);
+    --s-16: calc(var(--spacing) * 16);
+
+    --text-2xs: .6875rem;
+    --text-xs: .75rem;
+    --text-sm: .8125rem;
+    --text-base: .875rem;
+    --text-md: .9375rem;
+    --text-lg: 1.0625rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+    --leading: 1.5;
+    --leading-tight: 1.25;
+
+    --font-ui: "Vazirmatn", var(--font-sans);
+    --font-code: var(--font-mono);
+
+    /* Density: default (shadcn). */
+    --control-h: calc(var(--spacing) * 9);
+    --control-h-sm: calc(var(--spacing) * 8);
+    --control-h-lg: calc(var(--spacing) * 10);
+    --control-px: var(--s-3);
+    --control-text: var(--text-base);
+    --card-p: var(--s-6);
+    --card-gap: var(--s-6);
+    --section-gap: var(--s-8);
+    --page-px: var(--s-6);
+    --page-py: var(--s-6);
+    --row-py: var(--s-3);
+    --cell-px: var(--s-3);
+    --header-h: calc(var(--spacing) * 14);
+    --sidebar-w: 16rem;
+    --sidebar-w-rail: calc(var(--spacing) * 12);
+    --icon: 1rem;
+    --icon-sm: .875rem;
+    --hit: 2.75rem;
+
+    --ease: cubic-bezier(.2, 0, 0, 1);
+    --dur-fast: 120ms;
+    --dur: 180ms;
+    --dur-slow: 240ms;
+
+    --z-sticky: 20;
+    --z-sidebar: 30;
+    --z-overlay: 40;
+    --z-popover: 50;
+    --z-toast: 60;
+    --z-tooltip: 70;
+
+    --overlay: color-mix(in srgb, #000 50%, transparent);
+    --hover: color-mix(in srgb, var(--accent) 70%, transparent);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent);
+    --focus-ring-danger: 0 0 0 3px color-mix(in srgb, var(--destructive) 25%, transparent);
+    --card-shadow: var(--shadow-sm);
+    --surface-border: var(--border);
+
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] { color-scheme: dark; --overlay: color-mix(in srgb, #000 70%, transparent); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme]) { color-scheme: dark; --overlay: color-mix(in srgb, #000 70%, transparent); } }
+
+  /* Vercel/Linear density: tighter controls and padding. */
+  :root[data-density="compact"] {
+    --control-h: calc(var(--spacing) * 8);
+    --control-h-sm: calc(var(--spacing) * 7);
+    --control-h-lg: calc(var(--spacing) * 9);
+    --control-px: var(--s-2_5);
+    --card-p: var(--s-4);
+    --card-gap: var(--s-4);
+    --section-gap: var(--s-6);
+    --page-px: var(--s-6);
+    --page-py: var(--s-5);
+    --row-py: var(--s-2_5);
+    --header-h: calc(var(--spacing) * 12);
+    --sidebar-w: 15rem;
+  }
+  :root[data-density="comfortable"] {
+    --control-h: calc(var(--spacing) * 10);
+    --control-h-sm: calc(var(--spacing) * 9);
+    --control-h-lg: calc(var(--spacing) * 11);
+    --control-px: var(--s-4);
+    --card-p: var(--s-8);
+    --card-gap: var(--s-6);
+    --section-gap: var(--s-10);
+    --page-px: var(--s-8);
+    --page-py: var(--s-8);
+    --row-py: var(--s-4);
+    --header-h: calc(var(--spacing) * 16);
+    --sidebar-w: 17rem;
+  }
+  :root[data-surface="flat"] { --card-shadow: none; }
+
+  /* Touch: controls stay at least 40px and keep a 44px hit area (::after). The
+   * [data-density] selector outranks the density rules above, which <html> always carries. */
+  @media (pointer: coarse) {
+    :root, :root[data-density] {
+      --control-h: max(2.5rem, calc(var(--spacing) * 10));
+      --control-h-sm: 2.25rem;
+      --control-h-lg: 2.75rem;
+    }
+  }
+  @media (max-width: 640px) {
+    :root { --page-px: var(--s-4); --page-py: var(--s-4); --card-p: var(--s-4); --section-gap: var(--s-6); }
+  }
+}

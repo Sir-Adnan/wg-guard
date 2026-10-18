@@ -17,7 +17,7 @@ async function disclose(details) {
 }
 
 async function userMenu(page) {
-  const trigger = page.locator('.page-head .menu-anchor > button[aria-haspopup="menu"]').first();
+  const trigger = page.locator('.page-header .menu-anchor > button[aria-haspopup="menu"]').first();
   if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
 }
 
@@ -30,7 +30,7 @@ async function cancelRestore(page) {
   const cancel = page.locator('form[action="/backups/restore/cancel"]');
   if (await cancel.count()) {
     await submit(page, cancel.first());
-    if (await page.locator('.backup-review,.backup-pending').count()) throw new Error('restore state was not cleared');
+    if (await page.locator('#restore-review,#backup-pending').count()) throw new Error('restore state was not cleared');
   }
 }
 
@@ -65,7 +65,7 @@ async function prepare(page, state, label) {
 
       case 'destructive-dialog':
         await userMenu(page);
-        await page.locator('.page-head form[action^="/users/"][action$="/delete"] button[type="submit"]').click();
+        await page.locator('.page-header form[action^="/users/"][action$="/delete"] button[type="submit"]').click();
         await page.locator('#confirm-dialog[open]').waitFor();
         cleanup = () => closeDialog(page, 'confirm-dialog');
         break;
@@ -183,16 +183,16 @@ async function prepare(page, state, label) {
       case 'restore-pending':
         await Promise.all([
           page.waitForNavigation(),
-          page.locator('.backup-archives a[href*="restore="]').first().click(),
+          page.locator('#backup-archives a[href*="restore="]').first().click(),
         ]);
         stage = 'restore preview submit';
         cleanup = () => cancelRestore(page);
         await submit(page, page.locator('form[action="/backups/restore"]'));
-        await page.locator('.backup-review').waitFor();
+        await page.locator('#restore-review').waitFor();
         if (mode === 'restore-pending') {
           stage = 'restore pending confirmation';
           await submit(page, page.locator('form[action="/backups/restore/confirm"]'));
-          await page.locator('.backup-pending').waitFor();
+          await page.locator('#backup-pending').waitFor();
         }
         break;
 

@@ -1,25 +1,26 @@
 {{define "title"}}{{if .Data.IsBulk}}{{.T "users.bulk.title"}}{{else if .Data.IsEdit}}{{.T "users.form.edit_title"}}{{else}}{{.T "users.form.new_title"}}{{end}}{{end}}
 {{define "content"}}
-<div class="form-page premium-form-page user-form-page">
-  <div class="page-head page-head--hero">
-    <div class="page-title-cluster">
-      <span class="page-title-icon" aria-hidden="true">{{if .Data.IsBulk}}{{.Icon "users"}}{{else if .Data.IsEdit}}{{.Icon "pencil"}}{{else}}{{.Icon "user-plus"}}{{end}}</span>
-      <div>
-      <span class="eyebrow">{{.T "users.form.workspace"}}</span>
-      <h1>{{if .Data.IsBulk}}{{.T "users.bulk.title"}}{{else if .Data.IsEdit}}{{.T "users.form.edit_title"}}{{else}}{{.T "users.form.new_title"}}{{end}}</h1>
-      <p>{{.T "users.form.intro"}}</p>
-      </div>
+<div class="stack-lg">
+  <header class="page-header">
+    <div class="page-heading">
+      <ol class="breadcrumb">
+        <li>{{if .Can "users.read"}}<a href="/users">{{.T "users.title"}}</a>{{else}}{{.T "users.title"}}{{end}}</li>
+        {{if .Data.IsEdit}}<li>{{if .Can "users.read"}}<a href="/users/{{.Data.User.ID}}"><bdi class="tech">{{.Data.User.Username}}</bdi></a>{{else}}<bdi class="tech">{{.Data.User.Username}}</bdi>{{end}}</li>{{end}}
+      </ol>
+      <h1 class="page-title">{{template "title" .}}</h1>
+      <p class="page-description">{{.T "users.form.intro"}}</p>
     </div>
-    <a class="btn btn--ghost" href="{{if .Can "users.read"}}/users{{else}}/{{end}}">{{.IconS "arrow-left"}}{{.T "common.back"}}</a>
-  </div>
-  <form method="post" action="{{if .Data.IsBulk}}/users/bulk{{else if .Data.IsEdit}}/users/{{.Data.User.ID}}/edit{{else}}/users{{end}}" class="form-stack operational-form" novalidate>
+  </header>
+  <form method="post" action="{{if .Data.IsBulk}}/users/bulk{{else if .Data.IsEdit}}/users/{{.Data.User.ID}}/edit{{else}}/users{{end}}" class="stack" novalidate>
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     {{template "form_feedback" .}}
-    {{if .Data.IsEdit}}<nav class="form-progress" aria-label="{{.T "users.form.sections"}}"><a href="#user-account"><i>1</i>{{.T "users.form.section_account"}}</a><a href="#user-limits"><i>2</i>{{.T "users.form.section_limits"}}</a><a href="#user-timing"><i>3</i>{{.T "users.form.section_timing"}}</a></nav>{{end}}
     {{template "user_create_fields" dict "v" . "d" .Data "edit" .Data.IsEdit "bulk" .Data.IsBulk}}
-    <div class="form-actions form-actions--sticky">
-      <a class="btn btn--ghost" href="{{if .Can "users.read"}}/users{{else}}/{{end}}">{{.T "common.cancel"}}</a>
-      <button type="submit" class="btn btn--primary">{{if .Data.IsEdit}}{{.T "common.save"}}{{else if .Data.IsBulk}}{{.T "users.bulk_create"}}{{else}}{{.T "common.create"}}{{end}}</button>
+    <div class="savebar">
+      <span class="savebar-status">{{if .Data.IsEdit}}<bdi class="tech">{{.Data.User.Username}}</bdi>{{end}}</span>
+      <div class="cluster">
+        <a class="btn" href="{{if .Can "users.read"}}/users{{else}}/{{end}}">{{.T "common.cancel"}}</a>
+        <button type="submit" class="btn btn--primary">{{if .Data.IsEdit}}{{.T "common.save"}}{{else if .Data.IsBulk}}{{.T "users.bulk_create"}}{{else}}{{.T "common.create"}}{{end}}</button>
+      </div>
     </div>
   </form>
 </div>

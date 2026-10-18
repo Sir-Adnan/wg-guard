@@ -444,6 +444,20 @@ DNS resolver are implemented; see [egress routing](../architecture/egress-routin
 | Real host (first pass) | Ubuntu 24.04 Docker test node at `d87fe1f`: WARP registration succeeded, but `wgoN` creation failed because the userspace socket-name guard accepted only `awgN`, the failed link's route then failed the whole policy pass, and free WARP accounts were labeled WARP+. All three are fixed with regression tests; traffic is not yet re-verified |
 | Not verified | Real-host client traffic through `wgoN`, AmneziaVPN `vpn://` import on a device, element-timeout refresh on older kernels, interaction with UFW/Docker forward chains under load |
 
+## Design system redesign
+
+**shadcn-anatomy design system and visual presets (2026-10-18; branch source, unreleased).** Every
+panel, auth and public subscription surface is rebuilt on `web/styles`; 29 presets in `web/themes`
+drive colors, fonts, radius, shadows, spacing and four layout axes; the subscription page has its
+own owner default and a visitor choice. See the [design system](../product/design-system.md) and
+[ADR-0017](../decisions/ADR-0017-design-system-and-presets.md).
+
+| Level | Evidence |
+|---|---|
+| Unit / integration | Preset schema, value safety, WCAG AA contrast in both modes, CSS generation and import (`internal/web/theme`); appearance precedence, owner boundaries, subscription defaults and visitor cookie; every page's handler/markup tests; full `go test ./...`, `go vet ./...` and race tests for `internal/web/...`, `internal/i18n`, `internal/database` |
+| Browser (Chromium, local) | 24 panel routes × 3 presets (WG-Guard, Linear, shadcn Zinc) × fa-light-390 / en-dark-390 / fa-dark-1440 with no horizontal overflow or console errors; per-area screenshots in fa/en, light/dark, 390/1440; live-preview checks. On the final tree every opt-in driver passed fresh: `TestBrowserFoundation`, `TestBrowserGuidanceLayout`, `TestBrowserBackupWorkbench`, `TestBrowserCleanup`, `TestBrowserDomains`, `TestBrowserMaintenance`, `TestBrowserOperationalJourney`, `TestBrowserPresentation`, `TestBrowserSystemHealth`, and `TestBrowserPhase10` suites `10.2`, `10.3`, `10.4`, `appearance` (every preset), `10.5` (auth/public, 56 cells; subscription at 320–1440 px for the pass, split, compact and portal layouts) and groups `states` (122 cells), `interactions` and `calendar` |
+| Not verified | WebKit/Firefox, physical phones and touch hardware (coarse-pointer sizing is emulated), assistive technology, the `final` 16-width matrix and the axe scan (`WG_TEST_AXE` not installed) |
+
 ## Release-critical workflows
 
 | Workflow | Verification level and lasting result |

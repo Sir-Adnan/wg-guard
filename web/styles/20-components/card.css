@@ -1,0 +1,43 @@
+/* Card — the one surface primitive. data-surface (flat|raised) on <html>
+ * decides elevation; cards never nest visually (an inner card is a .panel). */
+@layer components {
+  .card {
+    display: flex; flex-direction: column; gap: var(--card-gap);
+    padding-block: var(--card-p);
+    min-width: 0;
+    background: var(--card); color: var(--card-foreground);
+    border: 1px solid var(--surface-border); border-radius: var(--radius-xl);
+    box-shadow: var(--card-shadow);
+  }
+  .card-header {
+    display: grid; grid-template-columns: 1fr auto; align-items: start; gap: var(--s-1_5) var(--s-4);
+    padding-inline: var(--card-p);
+  }
+  .card-header:has(+ .card-content > .table-wrap:first-child) { padding-bottom: 0; }
+  .card-header > :not(.card-action) { grid-column: 1; }
+  .card-title { font-size: var(--text-md); font-weight: 600; line-height: var(--leading-tight); display: flex; align-items: center; gap: var(--s-2); }
+  .card-title > .icon { color: var(--muted-foreground); }
+  .card-description { font-size: var(--text-sm); color: var(--muted-foreground); line-height: 1.5; }
+  .card-action { grid-column: 2; grid-row: 1 / span 2; align-self: start; display: flex; align-items: center; gap: var(--s-2); }
+  .card-content { padding-inline: var(--card-p); min-width: 0; }
+  .card-content--flush { padding-inline: 0; }
+  .card-footer {
+    display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap;
+    padding-inline: var(--card-p);
+  }
+  .card-footer--bordered { border-top: 1px solid var(--border); padding-top: var(--card-p); margin-top: calc(var(--card-gap) * -0.25); }
+  .card-footer--end { justify-content: flex-end; }
+  .card--flush { padding-block: 0; gap: 0; overflow: hidden; }
+  .card--flush > .card-header { padding-block: var(--card-p); }
+  .card--flush > .card-header + .card-content { border-top: 1px solid var(--border); }
+  .card--interactive { transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+  .card--interactive:hover { border-color: color-mix(in srgb, var(--foreground) 20%, var(--border)); }
+  .card--muted { background: var(--muted); box-shadow: none; }
+  .card--danger { border-color: color-mix(in srgb, var(--destructive) 35%, var(--border)); }
+  a.card { color: inherit; }
+  a.card:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--ring); }
+
+  /* Panel: an inner region inside a card (no second elevation). */
+  .panel { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--background); padding: var(--s-4); min-width: 0; }
+  .panel--muted { background: var(--muted); border-color: transparent; }
+}

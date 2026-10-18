@@ -1,0 +1,24 @@
+/* Access surfaces: sign-in, first-run owner setup and error pages. */
+@layer pages {
+  .auth-card { gap: var(--s-5); }
+  .auth-heading > .badge { margin-bottom: var(--s-1); }
+  .auth-panel { box-shadow: var(--shadow-sm); }
+  .auth-form { display: flex; flex-direction: column; gap: var(--s-4); }
+  .auth-form > .btn--block { margin-top: var(--s-1); }
+  .auth-optional > summary { min-height: var(--control-h); padding-block: var(--s-2); font-size: var(--text-sm); }
+  .auth-optional > .collapsible-content { padding-top: 0; }
+  .auth-note { text-align: center; font-size: var(--text-xs); color: var(--muted-foreground); text-wrap: balance; }
+
+  /* Password reveal: one eye glyph at a time, following aria-pressed. */
+  [data-toggle-password] > .icon + .icon { display: none; }
+  [data-toggle-password][aria-pressed="true"] > .icon:first-child { display: none; }
+  [data-toggle-password][aria-pressed="true"] > .icon + .icon { display: block; }
+  .password-field > .btn--sm { top: calc((var(--control-h) - var(--control-h-sm)) / 2); inset-inline-end: calc((var(--control-h) - var(--control-h-sm)) / 2); width: var(--control-h-sm); height: var(--control-h-sm); }
+
+  /* Error surface: an empty-state composition in every layout. */
+  .surface-error { min-height: min(24rem, 60dvh); }
+  .surface-error:focus { outline: none; }
+  .surface-error > .badge { margin-bottom: var(--s-1); }
+  .surface-error > .empty-title { font-size: var(--text-xl); }
+  :root:not([lang="fa"]) .surface-error > .empty-title { letter-spacing: -0.02em; }
+}

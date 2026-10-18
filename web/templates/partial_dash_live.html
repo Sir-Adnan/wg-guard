@@ -1,55 +1,69 @@
 {{define "dash_live"}}
-<div id="live" data-pause-hidden hx-get="/dashboard/live" hx-trigger="every 10s" hx-swap="outerHTML">
-  <div class="metric-grid dashboard-summary">
-    <div class="metric metric--cyan"><span class="metric-icon" aria-hidden="true">{{.IconS "users"}}</span><div><span class="label">{{.T "dash.users_total"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Total}}{{else}}—{{end}}</strong></div></div>
-    <div class="metric metric--violet"><span class="metric-icon" aria-hidden="true">{{.IconS "activity"}}</span><div><span class="label">{{.T "dash.users_active"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Active}}{{else}}—{{end}}</strong><span class="meta">{{if .Data.Live.CountersAvailable}}{{.N .Data.Live.Waiting}} · {{.T "status.waiting_first_connection"}}{{end}}</span></div></div>
-    <div class="metric metric--emerald"><span class="metric-icon" aria-hidden="true">{{.IconS "wifi"}}</span><div><span class="label">{{.T "dash.users_online"}}</span><strong class="value ltr-data">{{if .Data.Live.OnlineAvailable}}{{.N .Data.Live.Online}}{{else}}—{{end}}</strong><span class="meta">{{.T "dash.online_window" .Data.Live.OnlineWindow}}</span></div></div>
-    <div class="metric metric--amber"><span class="metric-icon" aria-hidden="true">{{.IconS "zap"}}</span><div><span class="label">{{.T "dash.traffic_total"}}</span><strong class="value ltr-data">{{if .Data.Live.CountersAvailable}}{{.B .Data.Live.TrafficTotal}}{{else}}—{{end}}</strong></div></div>
-  </div>
-  {{if .Data.Live.CountersAvailable}}
-  <div class="dashboard-statuses">
-    <span>{{.T "dash.users_expiring"}} <strong>{{.N .Data.Live.Expiring}}</strong></span>
-    <span>{{.T "dash.users_expired"}} <strong>{{.N .Data.Live.Expired}}</strong></span>
-    <span>{{.T "dash.users_exceeded"}} <strong>{{.N .Data.Live.Exceeded}}</strong></span>
-  </div>
-  {{else}}<p class="callout callout--warn">{{.T "dash.counters_unavailable"}}</p>{{end}}
-  {{$t := .Data.Live.Telemetry}}
-  <section class="live-overview card" id="telemetry-card" data-health="{{$t.HealthCode}}" aria-labelledby="live-title">
-    <div class="section-head">
-      <div><h2 id="live-title">{{.T "dash.live_health"}}</h2><p>{{.T "dash.live_source"}}</p></div>
-      <span class="badge {{$t.HealthClass}}"><span class="dot"></span>{{$t.HealthLabel}}</span>
+<div id="live" class="stack-lg" data-pause-hidden hx-get="/dashboard/live" hx-trigger="every 10s" hx-swap="outerHTML">
+  {{$l := .Data.Live}}
+  <div class="stat-grid" role="group" aria-label="{{.T "dash.overview"}}">
+    <a class="stat" href="/users">
+      <span class="stat-label">{{.IconS "users"}}{{.T "dash.users_total"}}</span>
+      <span class="stat-value num">{{if $l.CountersAvailable}}{{.N $l.Total}}{{else}}—{{end}}</span>
+      <span class="stat-meta">{{if $l.CountersAvailable}}<span class="dot dot--success"></span>{{.N $l.Active}} {{.T "dash.users_active"}} · {{.N $l.Waiting}} {{.T "status.waiting_first_connection"}}{{end}}</span>
+    </a>
+    <div class="stat">
+      <span class="stat-label">{{.IconS "wifi"}}{{.T "dash.users_online"}}</span>
+      <span class="stat-value num">{{if $l.OnlineAvailable}}{{.N $l.Online}}{{else}}—{{end}}</span>
+      <span class="stat-meta">{{.T "dash.online_window" $l.OnlineWindow}}</span>
     </div>
-    {{if $t.Updated}}<p class="sample-time">{{$t.Updated}}</p>{{end}}
-    {{if $t.Issues}}<ul class="ops-issues">{{range $t.Issues}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    <div class="stat">
+      <span class="stat-label">{{.IconS "zap"}}{{.T "dash.traffic_total"}}</span>
+      {{$tb := .BParts $l.TrafficTotal}}
+      <span class="stat-value">{{if $l.CountersAvailable}}<span class="num">{{$tb.Number}}</span><span class="stat-unit">{{$tb.Unit}}</span>{{else}}—{{end}}</span>
+      <span class="stat-meta">{{.T "dash.rollup_source"}}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">{{.IconS "alert-triangle"}}{{.T "dash.attention"}}</span>
+      <span class="stat-value num">{{if $l.CountersAvailable}}{{.N (add $l.Expiring $l.Expired $l.Exceeded)}}{{else}}—{{end}}</span>
+      <span class="stat-meta">{{if $l.CountersAvailable}}<span{{if $l.Expiring}} class="is-warn"{{end}}>{{.N $l.Expiring}} {{.T "dash.users_expiring"}}</span> · <span>{{.N $l.Expired}} {{.T "dash.users_expired"}}</span> · <span{{if $l.Exceeded}} class="is-danger"{{end}}>{{.N $l.Exceeded}} {{.T "dash.users_exceeded"}}</span>{{end}}</span>
+    </div>
+  </div>
+  {{if not $l.CountersAvailable}}<div class="alert alert--warning" role="status">{{.Icon "alert-triangle"}}<p class="alert-title">{{.T "dash.counters_unavailable"}}</p></div>{{end}}
+  {{$t := $l.Telemetry}}
+  <section class="section" id="telemetry-card" data-health="{{$t.HealthCode}}" aria-labelledby="live-title">
+    <div class="section-header">
+      <div class="section-heading">
+        <h2 class="section-title" id="live-title">{{.T "dash.live_health"}} <span class="badge {{$t.HealthClass}}"><span class="dot"></span>{{$t.HealthLabel}}</span></h2>
+        <p class="section-description">{{.T "dash.live_source"}}{{if $t.Updated}} · <span class="sample-time">{{$t.Updated}}</span>{{end}}</p>
+      </div>
+    </div>
+    {{if $t.Issues}}<div class="alert alert--warning">{{.Icon "alert-triangle"}}<div class="alert-description"><ul class="stack-xs">{{range $t.Issues}}<li>{{.}}</li>{{end}}</ul></div></div>{{end}}
     {{if $t.Has}}
-    <div class="resource-grid">
+    <div class="stat-grid resource-grid">
       {{range $t.Charts}}
-      <section class="card resource-card">
-    <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{if eq .TitleKey "dash.cpu"}}{{$.IconS "cpu"}}{{else if eq .TitleKey "dash.memory"}}{{$.IconS "memory-stick"}}{{else if eq .TitleKey "dash.activity"}}{{$.IconS "users"}}{{else}}{{$.IconS "activity"}}{{end}}</span><h3>{{$.T .TitleKey}}</h3></div>
+      <div class="stat resource-card">
+        <span class="stat-label">{{if eq .TitleKey "dash.cpu"}}{{$.IconS "cpu"}}{{else if eq .TitleKey "dash.memory"}}{{$.IconS "memory-stick"}}{{else if eq .TitleKey "dash.activity"}}{{$.IconS "users"}}{{else}}{{$.IconS "activity"}}{{end}}{{$.T .TitleKey}}</span>
         {{if or (eq .TitleKey "dash.host_network") (eq .TitleKey "dash.vpn_live") (eq .TitleKey "dash.activity")}}
         <div class="resource-pair">
-          <div><span class="legend-item"><span class="swatch"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.users_online"}}{{else}}{{$.T "dash.rx"}}{{end}}</span><strong class="ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong></div>
-          <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.active_peers"}}{{else}}{{$.T "dash.tx"}}{{end}}</span><strong class="ltr-data">{{if .Second}}{{$.Human .Second}}{{else}}—{{end}}</strong></div>
+          <div><span class="legend-item"><span class="swatch"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.users_online"}}{{else}}{{$.T "dash.rx"}}{{end}}</span><strong class="num">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong></div>
+          <div><span class="legend-item"><span class="swatch swatch--tx"></span>{{if eq .TitleKey "dash.activity"}}{{$.T "dash.active_peers"}}{{else}}{{$.T "dash.tx"}}{{end}}</span><strong class="num">{{if .Second}}{{$.Human .Second}}{{else}}—{{end}}</strong></div>
         </div>
-        {{else}}<div class="resource-value-row"><strong class="resource-value ltr-data">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</strong>{{.Gauge}}</div>{{end}}
-        <p class="resource-meta">{{if .Meta}}<bdi>{{.Meta}}</bdi>{{else if .Percent}}{{$.T "dash.percent_scale"}}{{else}}{{$.T "dash.live_window"}}{{end}}</p>
-    {{if .SVG}}<div class="spark-wrap interactive-chart">{{.SVG}}</div>{{else}}<div class="spark-empty">{{$.T "dash.metric_unavailable"}}</div>{{end}}
-        <p class="chart-period ltr-data">{{$t.Window}}</p>
-      </section>
+        {{else}}<div class="resource-value-row"><span class="stat-value num">{{if .Value}}{{$.Human .Value}}{{else}}—{{end}}</span>{{.Gauge}}</div>{{end}}
+        <span class="stat-meta">{{if .Meta}}<bdi>{{.Meta}}</bdi>{{else if .Percent}}{{$.T "dash.percent_scale"}}{{else}}{{$.T "dash.live_window"}}{{end}}</span>
+        {{if .SVG}}<div class="spark-wrap interactive-chart">{{.SVG}}</div>{{else}}<div class="spark-empty">{{$.T "dash.metric_unavailable"}}</div>{{end}}
+        <span class="chart-period">{{$t.Window}}</span>
+      </div>
       {{end}}
-      <section class="card resource-card resource-disk">
-    <div class="resource-card-head"><span class="resource-icon" aria-hidden="true">{{.IconS "hard-drive"}}</span><h3>{{.T "dash.disk"}}</h3></div><div class="resource-value-row"><strong class="resource-value ltr-data">{{if $t.DiskValue}}{{.Human $t.DiskValue}}{{else}}—{{end}}</strong>{{$t.DiskGauge}}</div>
-        {{if $t.DiskFree}}<p class="resource-meta"><bdi>{{.T "dash.disk_free" $t.DiskFree}}</bdi></p><div class="meter {{$t.DiskClass}}" aria-hidden="true"><span class="bar"><span></span></span></div>{{else}}<p class="resource-meta">{{.T "dash.metric_unavailable"}}</p>{{end}}
-        <dl class="resource-facts">
-          <dt>{{.T "dash.uptime"}}</dt><dd><bdi>{{if $t.Uptime}}{{$t.Uptime}}{{else}}—{{end}}</bdi></dd>
-          <dt>{{.T "dash.load_1"}}</dt><dd><bdi>{{if $t.Load}}{{$t.Load}}{{else}}—{{end}}</bdi></dd>
-          <dt>{{.T "dash.process_rss"}}</dt><dd><bdi>{{if $t.ProcessRSS}}{{$t.ProcessRSS}}{{else}}—{{end}}</bdi></dd>
-          <dt>{{.T "dash.process_heap"}}</dt><dd><bdi>{{if $t.ProcessHeap}}{{$t.ProcessHeap}}{{else}}—{{end}}</bdi></dd>
-        </dl>
-      </section>
+      <div class="stat resource-card resource-disk">
+        <span class="stat-label">{{.IconS "hard-drive"}}{{.T "dash.disk"}}</span>
+        <div class="resource-value-row"><span class="stat-value num">{{if $t.DiskValue}}{{.Human $t.DiskValue}}{{else}}—{{end}}</span>{{$t.DiskGauge}}</div>
+        {{if $t.DiskFree}}<span class="stat-meta"><bdi>{{.T "dash.disk_free" $t.DiskFree}}</bdi></span><div class="progress {{$t.DiskClass}}" aria-hidden="true"><span class="progress-bar"></span></div>{{else}}<span class="stat-meta">{{.T "dash.metric_unavailable"}}</span>{{end}}
+        <div class="kv resource-facts">
+          <div class="kv-row"><span class="kv-label">{{.T "dash.uptime"}}</span><span class="kv-value num">{{if $t.Uptime}}{{$t.Uptime}}{{else}}—{{end}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{.T "dash.load_1"}}</span><span class="kv-value num">{{if $t.Load}}{{$t.Load}}{{else}}—{{end}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{.T "dash.process_rss"}}</span><span class="kv-value num">{{if $t.ProcessRSS}}{{$t.ProcessRSS}}{{else}}—{{end}}</span></div>
+          <div class="kv-row"><span class="kv-label">{{.T "dash.process_heap"}}</span><span class="kv-value num">{{if $t.ProcessHeap}}{{$t.ProcessHeap}}{{else}}—{{end}}</span></div>
+        </div>
+      </div>
     </div>
     {{else}}
-    <div class="card empty telemetry-empty"><span class="empty-icon">{{.Icon "activity"}}</span><h3>{{.T "dash.health_unavailable"}}</h3><p>{{.T "dash.telemetry_unavailable"}}</p></div>
+    <div class="empty empty--bordered telemetry-empty"><span class="empty-icon">{{.Icon "activity"}}</span><h3 class="empty-title">{{.T "dash.health_unavailable"}}</h3><p class="empty-description">{{.T "dash.telemetry_unavailable"}}</p></div>
     {{end}}
   </section>
 </div>

@@ -150,6 +150,7 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Platforms = subPlatforms
 	data.usageAndTime(time.Now())
+	data.Attention = data.attention()
 	setSubscriptionUserinfo(w, u.TrafficUsedRX, u.TrafficUsedTX, u.TrafficLimitBytes, u.ExpiresAt)
 	s.renderSub(w, r, "sub", data)
 }
@@ -164,6 +165,32 @@ func validSubLayout(layout string) bool {
 		}
 	}
 	return false
+}
+
+// Thresholds for the public page's "running low" notice. They only warn: the
+// enforced limits stay in accounting.
+const (
+	subLowDataPercent = 90 // quota used, inclusive
+	subLowDays        = 3  // whole days left, inclusive
+)
+
+// attention names the renewal notice for a usable subscription that is about
+// to run out: "data_low", "time_low", "both_low" or "" (nothing to say).
+func (d *subPageData) attention() string {
+	if d.U == nil || !d.U.Status.PeerWanted() {
+		return ""
+	}
+	data := d.Remaining != nil && d.UsagePercent >= subLowDataPercent
+	days := d.DaysLeft != nil && *d.DaysLeft <= subLowDays
+	switch {
+	case data && days:
+		return "both_low"
+	case data:
+		return "data_low"
+	case days:
+		return "time_low"
+	}
+	return ""
 }
 
 // usageAndTime derives the meters: data used of the quota and time elapsed
@@ -462,6 +489,7 @@ type subPageData struct {
 	TimePercent  int    // 0–100 of the subscription period elapsed
 	TimeKnown    bool
 	TimeMeter    string // meter width/tone class for the time bar
+	Attention    string // renewal notice key suffix; see attention
 }
 
 // subDevice is one device card on the public page.

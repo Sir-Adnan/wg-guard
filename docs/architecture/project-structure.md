@@ -125,7 +125,12 @@ internal/
   web/                   admin UI: session auth + CSRF, handlers, i18n/theme middleware,
                          templates, CSP-safe SVG charts; public rate-limited /sub/{token}
                          pages (Phase 5 ✅)
-web/                     templates/, static/ (embedded via go:embed; prebuilt, no Node runtime)
+  web/theme/             visual preset registry: JSON validation, contrast checks/fixes,
+                         CSS and swatch generation, tweakcn import
+web/                     embedded via go:embed; prebuilt, no Node runtime:
+                         templates/ (html/template), styles/ (design-system CSS, layered and
+                         concatenated at startup), themes/ (preset JSON), static/ (JS, fonts, icons)
+tools/theme-import/      developer CLI: tweakcn export → reviewed preset JSON
 migrations/              numbered SQL migrations (embedded; 0004 sub_links,
                          0005 gated interface obfuscation parameters,
                          0006 backup schedules, 0007 lossless H1–H4 ranges)
@@ -159,7 +164,8 @@ docs/                    this documentation tree
 `internal/web` keeps typed view models and calls existing services. Shared `partial_shell.html`
 owns head/preferences/feedback; app/auth/sub layouts compose it. `web/static/js/ui.js` owns shared
 navigation/overlay/theme/request lifecycle; `app.js` imports its cache-busted URL for page-specific
-forms. CSS tokens/primitives are shared, with page migrations tracked in `phase10.md`. No new
+forms. CSS lives in `web/styles` (tokens → base → components → layout → pages → utilities, see
+the [design system](../product/design-system.md)); presets in `web/themes` are data only. No new
 frontend runtime or REST request path is introduced. Settings batch writes reuse registry
 validation/encryption and commit all submitted overrides in one SQLite transaction.
 Operational forms reuse `operational_forms.go` and `partial_form_feedback.html` for allowlisted

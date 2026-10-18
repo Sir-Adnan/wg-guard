@@ -1,19 +1,58 @@
 {{define "maintenance-overview"}}
-<section class="maintenance-summary card card--pad" aria-labelledby="maintenance-summary-title">
-  <span class="entity-symbol" aria-hidden="true">{{.Icon "refresh-cw"}}</span><div><h2 id="maintenance-summary-title">{{if .Data.Inventory.Recovery}}{{.T "updates.attention"}}{{else if .Data.NewVersion}}{{.T "updates.available"}}{{else}}{{.T "updates.current_versions"}}{{end}}</h2><p class="hint">{{.T "updates.installed"}}: <bdi class="ltr-data">{{.Data.PanelVersion}}</bdi>{{if not .Data.CatalogAt.IsZero}} · {{.T "updates.last_check"}}: <bdi class="ltr-data">{{.OpsTimestamp .Data.CatalogAt}}</bdi>{{end}}</p></div><a class="btn btn--primary" href="/updates?tab={{if .Data.Inventory.Recovery}}recovery{{else}}versions{{end}}">{{.T "updates.review_versions"}}{{.IconS "arrow-left"}}</a>
+{{$tone := "alert alert--success"}}{{$icon := "check"}}{{if .Data.Inventory.Recovery}}{{$tone = "alert alert--warning"}}{{$icon = "alert-triangle"}}{{else if .Data.NewVersion}}{{$tone = "alert alert--info"}}{{$icon = "arrow-up"}}{{end}}
+<section class="{{$tone}}" aria-labelledby="maintenance-summary-title">
+  {{.IconS $icon}}
+  <h2 class="alert-title" id="maintenance-summary-title">{{if .Data.Inventory.Recovery}}{{.T "updates.attention"}}{{else if .Data.NewVersion}}{{.T "updates.available"}}{{else}}{{.T "updates.current_versions"}}{{end}}</h2>
+  <p class="alert-description">{{.T "updates.installed"}} <span class="tech">{{.Data.PanelVersion}}</span>{{if not .Data.CatalogAt.IsZero}} · {{.T "updates.last_check"}} <span class="tech">{{.OpsTimestamp .Data.CatalogAt}}</span>{{end}}</p>
+  <div class="alert-action cluster">
+    {{if .UpdateNotice}}<form method="post" action="/updates/snooze"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--ghost btn--sm" type="submit">{{.T "updates.snooze"}}</button></form>{{end}}
+    <a class="btn btn--primary btn--sm" href="/updates?tab={{if .Data.Inventory.Recovery}}recovery{{else}}versions{{end}}">{{.T "updates.review_versions"}}{{.IconS "arrow-right"}}</a>
+  </div>
 </section>
-{{if .UpdateNotice}}<form method="post" action="/updates/snooze"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--ghost" type="submit">{{.T "updates.snooze"}}</button></form>{{end}}
-<section class="inventory-grid" aria-label="{{.T "updates.current_versions"}}">
-  <article class="card card--pad inventory-card"><span class="entity-symbol" aria-hidden="true">{{.IconS "layout-dashboard"}}</span><span class="hint">{{.T "updates.panel_version"}}</span><strong class="ltr-data">{{.Data.PanelVersion}}</strong><span class="cell-sub">{{if .Data.Inventory.PanelCommit}}<bdi class="ltr-data">{{.Data.Inventory.PanelCommit}}</bdi>{{else}}{{.T "updates.identity_unknown"}}{{end}}</span></article>
-  <article class="card card--pad inventory-card"><span class="entity-symbol" aria-hidden="true">{{.IconS "settings-2"}}</span><span class="hint">{{.T "updates.manager"}}</span><strong class="ltr-data">{{if .Data.Inventory.ManagerVersion}}{{.Data.Inventory.ManagerVersion}}{{else}}—{{end}}</strong><span class="cell-sub">{{.T "updates.manager_hint"}}</span></article>
-  <article class="card card--pad inventory-card"><span class="entity-symbol" aria-hidden="true">{{.IconS "server"}}</span><span class="hint">{{.T "updates.tools_version"}}</span><strong class="ltr-data">{{if .Data.Inventory.ToolsVersion}}{{.Data.Inventory.ToolsVersion}}{{else if .Data.ToolsVersion}}{{.Data.ToolsVersion}}{{else}}—{{end}}</strong><span class="cell-sub">{{.T "updates.tools_hint"}}</span></article>
-  <article class="card card--pad inventory-card"><span class="entity-symbol" aria-hidden="true">{{.IconS "cpu"}}</span><span class="hint">{{.T "updates.bundle"}}</span><strong class="ltr-data">{{if .Data.Inventory.Bundle}}{{.Data.Inventory.Bundle}}{{else}}—{{end}}</strong><span class="cell-sub">{{if .Data.Inventory.RebootRequired}}{{.T "updates.reboot_required"}}{{else if .Data.Inventory.ModuleLoaded}}{{.T (printf "updates.identity.%s" .Data.Inventory.ModuleIdentity)}}{{else}}{{.T "updates.identity_unknown"}}{{end}}</span></article>
-</section>
-<div class="maintenance-columns"><section class="card card--pad"><div class="section-head"><div><h2>{{.T "updates.runtime"}}</h2><p>{{.T "updates.runtime_hint"}}</p></div></div>
-  {{if not .Data.InventoryKnown}}<p class="hint">{{.T "updates.inventory_missing"}}</p>{{else}}
-  <dl class="detail-list"><dt>{{.T "updates.observed_at"}}</dt><dd><bdi class="ltr-data">{{.OpsTimestamp .Data.Inventory.ObservedAt}}</bdi></dd><dt>{{.T "updates.mode"}}</dt><dd><bdi class="ltr-data">{{.Data.Inventory.Mode}}</bdi></dd><dt>{{.T "updates.host"}}</dt><dd><bdi class="ltr-data">{{.Data.Inventory.OS}} {{.Data.Inventory.OSVersion}} · {{.Data.Inventory.Architecture}}</bdi></dd><dt>{{.T "updates.kernel"}}</dt><dd><bdi class="ltr-data">{{.Data.Inventory.Kernel}}</bdi></dd><dt>{{.T "updates.module_identity"}}</dt><dd>{{.T (printf "updates.identity.%s" .Data.Inventory.ModuleIdentity)}}</dd><dt>{{.T "updates.userspace"}}</dt><dd>{{.T (printf "updates.userspace.%s" .Data.Inventory.Userspace)}}</dd><dt>{{.T "updates.bridge"}}</dt><dd>{{.T (printf "updates.bridge.%s" .Data.Inventory.Bridge)}}</dd><dt>{{.T "updates.backends"}}</dt><dd><bdi class="ltr-data">Kernel: {{.Data.KernelProfiles}} · Go: {{.Data.UserspaceProfiles}}</bdi></dd></dl>
-  <details class="technical-disclosure"><summary>{{.T "updates.build_details"}}</summary><dl class="detail-list"><dt>{{.T "updates.module_version"}}</dt><dd class="ltr-data">{{if .Data.Inventory.ModuleVersion}}{{.Data.Inventory.ModuleVersion}}{{else}}—{{end}}</dd><dt>DKMS</dt><dd class="ltr-data">{{if .Data.Inventory.DKMS}}{{.Data.Inventory.DKMS}}{{else}}—{{end}}</dd><dt>{{.T "updates.tools_location"}}</dt><dd class="ltr-data">{{.Data.Inventory.ToolsLocation}}</dd><dt>{{.T "updates.manager_commit"}}</dt><dd class="ltr-data">{{.Data.Inventory.ManagerCommit}}</dd><dt>{{.T "updates.userspace_commit"}}</dt><dd class="ltr-data">{{.Data.Inventory.UserspaceCommit}}</dd><dt>{{.T "updates.free_space"}}</dt><dd>{{.B (i64u .Data.Inventory.DiskFreeBytes)}}</dd></dl></details>
-  {{if .Data.InventoryStale}}<p class="hint">{{.T "updates.inventory_stale"}}</p>{{end}}{{end}}
-  {{if and .Data.CanManage .Data.Enhanced}}<form method="post" action="/updates/request"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--outline" name="operation" value="inspect" {{if .Data.Active}}disabled{{end}}>{{.IconS "refresh-cw"}}{{.T "updates.inspect"}}</button></form>{{end}}
-</section><aside class="card card--pad"><h2>{{.T "updates.maintenance_rules"}}</h2><ul class="guidance-list"><li>{{.T "updates.rule.backup"}}</li><li>{{.T "updates.rule.core"}}</li><li>{{.T "updates.rule.reconnect"}}</li></ul><a href="https://github.com/Sir-Adnan/wg-guard/blob/main/docs/operations/lifecycle-recovery.md" target="_blank" rel="noopener noreferrer" class="btn btn--ghost">{{.T "updates.recovery_guide"}}{{.IconS "external-link"}}</a></aside></div>
+<div class="stat-grid" role="group" aria-label="{{.T "updates.current_versions"}}">
+  <div class="stat"><span class="stat-label">{{.IconS "layout-dashboard"}}{{.T "updates.panel_version"}}</span><span class="stat-value tech ops-version">{{.Data.PanelVersion}}</span><span class="stat-meta">{{if .Data.Inventory.PanelCommit}}<span class="tech truncate">{{.Data.Inventory.PanelCommit}}</span>{{else}}{{.T "updates.identity_unknown"}}{{end}}</span></div>
+  <div class="stat"><span class="stat-label">{{.IconS "settings-2"}}{{.T "updates.manager"}}</span><span class="stat-value tech ops-version">{{if .Data.Inventory.ManagerVersion}}{{.Data.Inventory.ManagerVersion}}{{else}}—{{end}}</span><span class="stat-meta">{{.T "updates.manager_hint"}}</span></div>
+  <div class="stat"><span class="stat-label">{{.IconS "server"}}{{.T "updates.tools_version"}}</span><span class="stat-value tech ops-version">{{if .Data.Inventory.ToolsVersion}}{{.Data.Inventory.ToolsVersion}}{{else if .Data.ToolsVersion}}{{.Data.ToolsVersion}}{{else}}—{{end}}</span><span class="stat-meta">{{.T "updates.tools_hint"}}</span></div>
+  <div class="stat"><span class="stat-label">{{.IconS "cpu"}}{{.T "updates.bundle"}}</span><span class="stat-value tech ops-version">{{if .Data.Inventory.Bundle}}{{.Data.Inventory.Bundle}}{{else}}—{{end}}</span><span class="stat-meta">{{if .Data.Inventory.RebootRequired}}<span class="is-warn">{{.T "updates.reboot_required"}}</span>{{else if .Data.Inventory.ModuleLoaded}}{{.T (printf "updates.identity.%s" .Data.Inventory.ModuleIdentity)}}{{else}}{{.T "updates.identity_unknown"}}{{end}}</span></div>
+</div>
+<div class="split">
+  <section class="card" aria-labelledby="maintenance-runtime-title">
+    <div class="card-header"><h2 class="card-title" id="maintenance-runtime-title">{{.IconS "activity"}}{{.T "updates.runtime"}}</h2><p class="card-description">{{.T "updates.runtime_hint"}}</p>
+    </div>
+    <div class="card-content stack">
+      {{if not .Data.InventoryKnown}}<div class="alert">{{.IconS "info"}}<p class="alert-title">{{.T "updates.inventory_missing"}}</p></div>{{else}}
+      <div class="kv">
+        <div class="kv-row"><span class="kv-label">{{.T "updates.observed_at"}}</span><span class="kv-value tech">{{.OpsTimestamp .Data.Inventory.ObservedAt}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.mode"}}</span><span class="kv-value tech">{{.Data.Inventory.Mode}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.host"}}</span><span class="kv-value tech">{{.Data.Inventory.OS}} {{.Data.Inventory.OSVersion}} · {{.Data.Inventory.Architecture}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.kernel"}}</span><span class="kv-value tech">{{.Data.Inventory.Kernel}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.module_identity"}}</span><span class="kv-value">{{.T (printf "updates.identity.%s" .Data.Inventory.ModuleIdentity)}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.userspace"}}</span><span class="kv-value">{{.T (printf "updates.userspace.%s" .Data.Inventory.Userspace)}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.bridge"}}</span><span class="kv-value">{{.T (printf "updates.bridge.%s" .Data.Inventory.Bridge)}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "updates.backends"}}</span><span class="kv-value tech">Kernel: {{.Data.KernelProfiles}} · Go: {{.Data.UserspaceProfiles}}</span></div>
+      </div>
+      <details class="collapsible">
+        <summary>{{.T "updates.build_details"}}</summary>
+        <div class="collapsible-content"><dl class="dl">
+          <dt>{{.T "updates.module_version"}}</dt><dd><span class="tech">{{if .Data.Inventory.ModuleVersion}}{{.Data.Inventory.ModuleVersion}}{{else}}—{{end}}</span></dd>
+          <dt class="tech">DKMS</dt><dd><span class="tech">{{if .Data.Inventory.DKMS}}{{.Data.Inventory.DKMS}}{{else}}—{{end}}</span></dd>
+          <dt>{{.T "updates.tools_location"}}</dt><dd><span class="tech">{{.Data.Inventory.ToolsLocation}}</span></dd>
+          <dt>{{.T "updates.manager_commit"}}</dt><dd><span class="tech break">{{.Data.Inventory.ManagerCommit}}</span></dd>
+          <dt>{{.T "updates.userspace_commit"}}</dt><dd><span class="tech break">{{.Data.Inventory.UserspaceCommit}}</span></dd>
+          <dt>{{.T "updates.free_space"}}</dt><dd><span class="num">{{.B (i64u .Data.Inventory.DiskFreeBytes)}}</span></dd>
+        </dl></div>
+      </details>
+      {{if .Data.InventoryStale}}<div class="alert alert--warning">{{.IconS "clock"}}<p class="alert-title">{{.T "updates.inventory_stale"}}</p></div>{{end}}
+      {{end}}
+    </div>
+    {{if and .Data.CanManage .Data.Enhanced}}<div class="card-footer card-footer--bordered"><form method="post" action="/updates/request"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn--sm" name="operation" value="inspect" {{if .Data.Active}}disabled{{end}}>{{.IconS "refresh-cw"}}{{.T "updates.inspect"}}</button></form></div>{{end}}
+  </section>
+  <aside class="split-aside">
+    <section class="card" aria-labelledby="maintenance-rules-title">
+      <div class="card-header"><h2 class="card-title" id="maintenance-rules-title">{{.IconS "shield-check"}}{{.T "updates.maintenance_rules"}}</h2></div>
+      <div class="card-content"><ol class="ops-steps"><li>{{.T "updates.rule.backup"}}</li><li>{{.T "updates.rule.core"}}</li><li>{{.T "updates.rule.reconnect"}}</li></ol></div>
+      <div class="card-footer card-footer--bordered"><a href="https://github.com/Sir-Adnan/wg-guard/blob/main/docs/operations/lifecycle-recovery.md" target="_blank" rel="noopener noreferrer" class="btn btn--ghost btn--sm">{{.T "updates.recovery_guide"}}{{.IconS "external-link"}}</a></div>
+    </section>
+  </aside>
+</div>
 {{end}}

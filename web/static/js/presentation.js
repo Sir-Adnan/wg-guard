@@ -42,11 +42,11 @@ function showHelp(help) {
 }
 let guidanceSequence = 0;
 function guidanceHeading(host) {
-  return host.querySelector(':scope > .form-section-head > h2, :scope > .settings-section-head > h2') ||
+  return host.querySelector(':scope > .card-title, :scope > .form-section-head > h2, :scope > .settings-section-head > h2') ||
     host.querySelector(':scope > label[for]:not(.check-row):not(.switch-card), :scope > legend, :scope > h2, :scope > h3');
 }
 export function enhanceGuidance(root = document) {
-  const selectors = '.field > .hint, .form-section > p.hint, .form-section > span.hint, form .section-description, .section-head .hint, [data-guidance]';
+  const selectors = '.field > .hint, .card-header > .hint, .form-section > p.hint, .form-section > span.hint, .section-head .hint, [data-guidance]';
   root.querySelectorAll(selectors).forEach(copy => {
     if (copy.closest('.field-help,.field-help-content') || !copy.textContent.trim()) return;
     const host = copy.closest('.field') || copy.parentElement;
@@ -69,6 +69,8 @@ export function enhanceGuidance(root = document) {
     // content. Its help button is valid; the popover belongs outside the legend.
     if (title.tagName === 'LEGEND') {
       title.append(help); host.append(content);
+    } else if (title.matches('.card-title')) {
+      title.append(help); title.parentElement.append(content);
     } else if (title.parentElement.classList.contains('form-section-head')) {
       title.parentElement.append(help, content);
     } else {
@@ -178,6 +180,53 @@ export function enhanceChoiceMenus(root = document) {
       else return;
       event.preventDefault(); inputs[next].focus();
     });
+  });
+}
+// In-page section navigation: `nav[data-scrollspy]` of `a[href="#id"]` links marks the section
+// being read with aria-current="true". The reading line sits below the sticky header (and the
+// sticky nav itself on phones); the last section wins at the page bottom. A clicked link stays
+// current while its section is on screen, so short trailing sections remain selectable.
+export function enhanceScrollSpy(root = document) {
+  root.querySelectorAll('nav[data-scrollspy]').forEach(nav => {
+    if (nav.dataset.scrollspyReady) return;
+    nav.dataset.scrollspyReady = 'true';
+    const entries = [...nav.querySelectorAll('a[href^="#"]')]
+      .map(link => ({ link, section: document.getElementById(decodeURIComponent(link.hash.slice(1))) }))
+      .filter(entry => entry.section);
+    if (!entries.length) return;
+    let current = null, pinned = null, frame = 0;
+    const mark = entry => {
+      if (entry === current) return;
+      current?.link.removeAttribute('aria-current');
+      current = entry;
+      entry.link.setAttribute('aria-current', 'true');
+      // Horizontal phone nav: keep the current link visible without moving the page.
+      if (nav.scrollWidth > nav.clientWidth) {
+        const box = nav.getBoundingClientRect(), item = entry.link.getBoundingClientRect();
+        if (item.left < box.left || item.right > box.right) nav.scrollLeft += item.left - box.left - (box.width - item.width) / 2;
+      }
+    };
+    const measure = () => {
+      frame = 0;
+      if (pinned) {
+        const box = pinned.section.getBoundingClientRect();
+        if (box.bottom > 0 && box.top < innerHeight) return mark(pinned);
+        pinned = null;
+      }
+      const header = document.querySelector('.app-header')?.getBoundingClientRect().bottom || 0;
+      const line = Math.max(header, getComputedStyle(nav).position === 'sticky' && nav.scrollWidth > nav.clientWidth ? nav.getBoundingClientRect().bottom : 0) + 24;
+      const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+      mark(atEnd ? entries[entries.length - 1] : entries.findLast(entry => entry.section.getBoundingClientRect().top <= line) || entries[0]);
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    nav.addEventListener('click', event => {
+      const entry = entries.find(item => item.link === event.target.closest('a'));
+      if (entry) { pinned = entry; mark(entry); }
+    });
+    addEventListener('scroll', schedule, { passive: true });
+    addEventListener('resize', schedule, { passive: true });
+    pinned = entries.find(entry => '#' + entry.section.id === location.hash) || null;
+    measure();
   });
 }
 export function closePresentationOverlays() { closeHelp(); closeChoiceMenu(); }

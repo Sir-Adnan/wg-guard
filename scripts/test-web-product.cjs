@@ -152,8 +152,8 @@ let stage = 'launch';
               const layout = await page.evaluate(() => ({
                 fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
                 rowHeight: document.querySelector('.users-table tbody tr')?.getBoundingClientRect().height || 0,
-                kpiColumns: document.querySelector('.user-kpi-grid') &&
-                  getComputedStyle(document.querySelector('.user-kpi-grid')).gridTemplateColumns.split(' ').length,
+                kpiColumns: document.querySelector('.user-stats') &&
+                  getComputedStyle(document.querySelector('.user-stats')).gridTemplateColumns.split(' ').length,
               }));
               assert(layout.fits, 'user workspace must fit ' + route + ' ' + lang + ' ' + width + ' ' + mode);
               if (route === '/users' && width < 800) {
@@ -164,7 +164,7 @@ let stage = 'launch';
               }
               if (route !== '/users' && width < 600) {
                 assert(layout.kpiColumns === 2, 'phone user summary uses two columns');
-                assert(await page.locator('.user-action-bar form[action$="/traffic/reset"]').count() === 1,
+                assert(await page.locator('[data-user-actions] form[action$="/traffic/reset"]').count() === 1,
                   'Reset Usage is visible in the action bar');
               }
               if (process.env.WG_UI_SCREENSHOT_DIR && lang === 'fa' && mode === 'light' &&
@@ -185,9 +185,9 @@ let stage = 'launch';
       const row = page.locator('.users-table tbody tr').first();
       for (const action of ['renew', 'traffic']) {
         stage = 'user workspace quick ' + action + ' open menu';
-        await row.locator('.users-col--actions .menu-anchor').last().locator(':scope > button').click();
+        await row.locator('.col-actions .menu-anchor').last().locator(':scope > button').click();
         stage = 'user workspace quick ' + action + ' select';
-        const menuState = await row.locator('.users-col--actions .menu-anchor').last().evaluate(el => ({
+        const menuState = await row.locator('.col-actions .menu-anchor').last().evaluate(el => ({
           open: el.querySelector('.menu')?.classList.contains('is-open'),
           expanded: el.querySelector(':scope > button')?.getAttribute('aria-expanded'),
           shown: getComputedStyle(el.querySelector('.menu')).display,
@@ -210,7 +210,7 @@ let stage = 'launch';
       }
       await goto('/tokens');
       stage = 'user workspace token shortcuts';
-      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('.page-actions a[href="#token-create"]').click();
       await page.locator('#token-create [data-scope-preset="operator"]').click();
       assert(await page.locator('#token-create input[value="purchases.create"]').isChecked() &&
         await page.locator('#token-create input[value="next_plans.write"]').isChecked() &&
@@ -222,7 +222,7 @@ let stage = 'launch';
         'Full access selects exact scopes without future-widening wildcards');
       await goto('/resellers');
       stage = 'user workspace reseller shortcuts';
-      await page.locator('.ops-hero a[href="#reseller-create"]').click();
+      await page.locator('.page-actions a[href="#reseller-create"]').click();
       await page.locator('#reseller-create [data-scope-preset="operator"]').click();
       assert(await page.locator('#reseller-create input[value="purchases.create"]').isChecked() &&
         !await page.locator('#reseller-create input[value="webhooks.write"]').isChecked(),
@@ -245,7 +245,7 @@ let stage = 'launch';
             for (const path of ['/reseller/webhooks', '/reseller/webhooks/' + seed.resellerWebhookID]) {
               await goto(path);
               await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
-              const geometry = await page.locator('.webhook-page').evaluate(root => {
+              const geometry = await page.locator('#main').evaluate(root => {
                 const viewport = document.documentElement.clientWidth;
                 const controls = [...root.querySelectorAll('input, button, a.btn')].filter(el => getComputedStyle(el).display !== 'none');
                 return { pageFits: document.documentElement.scrollWidth <= viewport,
@@ -285,13 +285,13 @@ let stage = 'launch';
           for (const mode of ['light', 'dark']) {
             await goto('/users/' + seed.user);
             await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
-            assert(await page.locator('.user-next-plan-card').count() === 1, 'next-plan card renders');
-            assert(await page.locator('.user-next-plan-card strong').filter({ hasText: 'Monthly / ماهانه' }).count() === 1,
+            assert(await page.locator('#user-next-plan').count() === 1, 'next-plan card renders');
+            assert(await page.locator('#user-next-plan .alert-title').filter({ hasText: 'Monthly / ماهانه' }).count() === 1,
               'queued plan is visible');
-            const layout = await page.locator('.user-next-plan-card').evaluate(card => {
+            const layout = await page.locator('#user-next-plan').evaluate(card => {
               const controls = [...card.querySelectorAll('select, input:not([type="hidden"]), button')];
               const viewport = document.documentElement.clientWidth;
-              const actions = [...card.querySelectorAll('.next-plan-actions .btn')].map(button => button.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+              const actions = [...card.querySelectorAll('[data-next-plan-actions] .btn')].map(button => button.getBoundingClientRect()).sort((a, b) => a.left - b.left);
               return { pageFits: document.documentElement.scrollWidth <= viewport,
                 controlsFit: controls.every(control => {
                   const box = control.getBoundingClientRect();
@@ -313,7 +313,8 @@ let stage = 'launch';
     if (suite === 'appearance') {
       stage = 'visual preset preview';
       await goto('/appearance');
-      const ids = ['claude-plus','light-green','astrovista','tiesen','minimal-neutral','whatsapp','qrafthive','designbyte','resolveai-app','enterprise-blue'];
+      const ids = await page.locator('.preset-card[data-choice]').evaluateAll(cards => cards.map(card => card.dataset.choice));
+      assert(ids.length >= 10 && ids.includes('wg-guard-neutral'), 'the gallery offers every registered preset');
       let cells = 0;
       for (const lang of ['fa','en']) {
         await locale(lang);
@@ -323,72 +324,79 @@ let stage = 'launch';
           for (const mode of ['light','dark']) {
             await page.evaluate(value => { document.documentElement.dataset.theme = value; }, mode);
             for (const id of ids) {
-              await page.locator('.visual-preset-choice[data-choice="' + id + '"]').click();
-              assert(await page.locator('html').getAttribute('data-visual-preset') === id, 'preset preview changes the root visual selection');
-              assert(await page.locator('.visual-preset-choice[data-choice="' + id + '"] input').isChecked(), 'selected preview is announced by its radio');
+              stage = 'visual preset preview ' + id + ' ' + lang + '/' + mode + '/' + width;
+              await page.locator('.preset-card[data-choice="' + id + '"]').click();
+              await page.waitForFunction(value => (document.documentElement.dataset.visualPreset || 'wg-guard-neutral') === value, id);
+              assert(await page.locator('.preset-card[data-choice="' + id + '"] input').isChecked(), 'selected preview is announced by its radio');
               const sample = await page.evaluate(() => {
-                const style = getComputedStyle(document.documentElement);
-                const button = getComputedStyle(document.querySelector('.appearance-actions .btn--primary'));
-                const secondary = getComputedStyle(document.querySelector('.appearance-panel-action .btn--secondary'));
-                const sidebar = getComputedStyle(document.querySelector('.nav a[aria-current="page"]'));
-                const body = getComputedStyle(document.body);
-                const dangerButton = document.createElement('button');
-                dangerButton.className = 'btn btn--danger';
-                document.body.append(dangerButton);
-                const dangerStyle = getComputedStyle(dangerButton);
-                const dangerButtonColors = [dangerStyle.color, dangerStyle.backgroundColor];
-                dangerButton.remove();
-                const probe = document.createElement('span');
-                probe.style.cssText = 'position:absolute;pointer-events:none;color:var(--brand);background:var(--bg-elev)';
-                document.body.append(probe);
-                const accent = getComputedStyle(probe);
-                const accentColors = [accent.color, accent.backgroundColor];
-                probe.style.color = 'var(--fg-muted)';
-                const muted = getComputedStyle(probe);
-                const mutedColors = [muted.color, muted.backgroundColor];
-                probe.style.color = 'var(--danger)';
-                const dangerText = getComputedStyle(probe);
-                const dangerTextColors = [dangerText.color, dangerText.backgroundColor];
-                probe.remove();
                 const canvas = document.createElement('canvas');
                 canvas.width = canvas.height = 1;
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                const luminance = color => {
-                  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1, 1);
-                  ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
-                  const rgb = ctx.getImageData(0, 0, 1, 1).data;
-                  return [0,1,2].reduce((sum, i) => {
-                    const channel = rgb[i] / 255;
-                    return sum + [0.2126,0.7152,0.0722][i] * (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
-                  }, 0);
+                const opaque = color => {
+                  ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+                  return ctx.getImageData(0, 0, 1, 1).data[3] > 0;
                 };
-                const contrast = (first, second) => {
-                  const a = luminance(first), b = luminance(second);
+                // Paint every background from the page root down, so translucent
+                // fills are measured over the surface they actually sit on.
+                const paint = (el, text) => {
+                  const chain = [];
+                  for (let node = el; node; node = node.parentElement) {
+                    const fill = getComputedStyle(node).backgroundColor;
+                    if (opaque(fill)) chain.unshift(fill);
+                  }
+                  ctx.globalCompositeOperation = 'source-over';
+                  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1, 1);
+                  for (const fill of chain) { ctx.fillStyle = fill; ctx.fillRect(0, 0, 1, 1); }
+                  const background = [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+                  ctx.fillStyle = text; ctx.fillRect(0, 0, 1, 1);
+                  return [[...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)], background];
+                };
+                const luminance = rgb => [0,1,2].reduce((sum, i) => {
+                  const channel = rgb[i] / 255;
+                  return sum + [0.2126,0.7152,0.0722][i] * (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+                }, 0);
+                const ratio = ([fg, bg]) => {
+                  const a = luminance(fg), b = luminance(bg);
                   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
                 };
+                const element = el => ratio(paint(el, getComputedStyle(el).color));
+                const card = document.querySelector('.preset-card');
+                const probe = (className, color) => {
+                  const node = document.createElement(color ? 'span' : 'button');
+                  node.className = className;
+                  if (color) node.style.setProperty('color', color);
+                  (color ? card : document.body).append(node);
+                  const result = element(node);
+                  node.remove();
+                  return result;
+                };
+                const style = getComputedStyle(document.documentElement);
+                const primary = document.querySelector('[data-appearance-savebar] .btn--primary');
+                const button = getComputedStyle(primary);
                 return {
-                  tokens: ['--bg','--brand','--sidebar-bg','--chart-first','--r-md','--icon-size'].map(key => style.getPropertyValue(key).trim()),
-                  buttonForeground: button.color,
+                  tokens: ['--background','--primary','--sidebar','--chart-1','--radius','--icon'].map(key => style.getPropertyValue(key).trim()),
                   buttonBackground: button.backgroundColor,
                   buttonImage: button.backgroundImage,
                   contrast: {
-                    body: contrast(body.color, body.backgroundColor), button: contrast(button.color, button.backgroundColor),
-                    accent: contrast(...accentColors), muted: contrast(...mutedColors),
-                    sidebar: contrast(sidebar.color, sidebar.backgroundColor), secondary: contrast(secondary.color, secondary.backgroundColor),
-                    dangerButton: contrast(...dangerButtonColors), dangerText: contrast(...dangerTextColors),
+                    body: element(document.body), button: element(primary),
+                    accent: probe('', 'var(--primary-text)'), muted: probe('', 'var(--muted-foreground)'),
+                    sidebar: element(document.querySelector('.sidebar-item[aria-current="page"]')),
+                    secondary: probe('btn btn--secondary'), dangerButton: probe('btn btn--destructive'),
+                    dangerText: probe('', 'var(--destructive-text)'),
                   },
                   fits: document.documentElement.scrollWidth <= innerWidth,
                 };
               });
               assert(sample.tokens.every(Boolean), 'preset owns surface, action, sidebar, chart, radius and icon tokens');
               assert(sample.buttonImage === 'none' && sample.buttonBackground !== 'rgba(0, 0, 0, 0)', 'preset primary action uses the source solid color');
-              for (const [part, ratio] of Object.entries(sample.contrast)) assert(ratio >= 4.5, id + ' ' + mode + ' ' + lang + ' ' + part + ' contrast ' + ratio.toFixed(2));
+              for (const [part, value] of Object.entries(sample.contrast)) assert(value >= 4.5, id + ' ' + mode + ' ' + lang + ' ' + part + ' contrast ' + value.toFixed(2));
               assert(sample.fits, 'appearance screen fits each locale and viewport');
               cells++;
             }
           }
         }
         if (lang === 'en') {
+          stage = 'preset fonts';
           const faces = ['Outfit','Inter','Geist','DM Sans','Plus Jakarta Sans'];
           const faceCounts = await page.evaluate(async names => Promise.all(names.map(async name =>
             (await document.fonts.load('400 16px "' + name + '"')).length)), faces);
@@ -404,14 +412,15 @@ let stage = 'launch';
       await locale('fa');
       await goto('/appearance');
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.locator('.visual-preset-choice[data-choice="claude-plus"]').click();
+      await page.locator('.preset-card[data-choice="claude-plus"]').click();
+      await page.waitForFunction(() => document.documentElement.dataset.visualPreset === 'claude-plus');
       if (process.env.WG_UI_SCREENSHOT_DIR) {
         const fs = require('node:fs'), path = require('node:path');
         fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
         await page.evaluate(() => scrollTo(0, 0));
         await page.screenshot({ path: path.join(process.env.WG_UI_SCREENSHOT_DIR, 'appearance-desktop.png'), fullPage: true });
       }
-      await Promise.all([page.waitForNavigation(), page.locator('form[data-appearance-form] button[type="submit"]').first().click()]);
+      await Promise.all([page.waitForNavigation(), page.locator('[data-appearance-savebar] button[type="submit"]').click()]);
       assert(await page.locator('html').getAttribute('data-visual-preset') === 'claude-plus', 'personal preset survives reload');
       await page.setViewportSize({ width: 390, height: 844 });
       if (process.env.WG_UI_SCREENSHOT_DIR) {
@@ -430,12 +439,17 @@ let stage = 'launch';
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'preset settings forms fit LTR desktop');
       stage = 'panel default confirmation and public surface';
       await goto('/appearance');
-      await page.locator('.visual-preset-choice[data-choice="enterprise-blue"]').click();
-      await page.locator('.appearance-default-disclosure > summary').click();
+      await page.locator('.preset-card[data-choice="enterprise-blue"]').click();
       await page.locator('#appearance-panel-mode').selectOption('light');
-      await page.locator('.appearance-panel-action input[name="confirm"]').check();
+      const confirmDefault = page.locator('#appearance-panel-default input[name="confirm"]');
+      await page.locator('[data-panel-default-submit]').click();
+      assert(await confirmDefault.evaluate(el => el.required && el.validity.valueMissing && el === document.activeElement), 'panel default requires explicit confirmation');
+      await confirmDefault.check();
       await Promise.all([page.waitForNavigation(), page.locator('[data-panel-default-submit]').click()]);
       assert(await page.locator('html').getAttribute('data-visual-preset') === 'claude-plus', 'panel default does not overwrite personal choice');
+      // The all-device QR viewer is offered only for two or more devices.
+      const secondDevice = await page.request.post(seed.url + '/users/' + seed.user + '/devices', { form: { name: 'tablet', _csrf: seed.csrf } });
+      assert(secondDevice.ok(), 'second fixture device is created');
       await goto(seed.sub + '?lang=fa');
       assert(await page.locator('html').getAttribute('data-visual-preset') === 'enterprise-blue', 'public access ignores the signed-in admin preset');
       const publicContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
@@ -448,13 +462,15 @@ let stage = 'launch';
       await publicPage.locator('[data-qr-all]').click();
       await publicPage.waitForFunction(() => [...document.querySelectorAll('#qr-modal [data-qr-all-grid] img')].every(img => img.naturalWidth > 0));
       assert(await publicPage.locator('#qr-modal [data-qr-single]').evaluate(el => el.hidden && getComputedStyle(el).display === 'none'), 'hidden single QR cannot appear as a broken card');
-      assert(await publicPage.locator('#qr-modal [data-qr-all-grid] img').count() === await publicPage.locator('.publicsub-device').count(), 'all-device QR count matches actual devices');
+      assert(await publicPage.locator('#qr-modal [data-qr-all-grid] img').count() === await publicPage.locator('[data-sub-device]').count(), 'all-device QR count matches actual devices');
       await publicContext.close();
       assert(runtimeErrors === 0, 'appearance JavaScript has no runtime errors');
-      const visualCSSBytes = await page.evaluate(async () =>
-        (await (await fetch('/assets/css/visual-presets.css')).arrayBuffer()).byteLength);
+      await goto('/appearance');
+      const visualCSSBytes = await page.locator('.preset-card input[data-css]').evaluateAll(async inputs =>
+        (await Promise.all([...new Set(inputs.map(input => input.dataset.css).filter(Boolean))].map(async href =>
+          (await (await fetch(href)).arrayBuffer()).byteLength))).reduce((sum, bytes) => sum + bytes, 0));
       await context.close();
-      console.log('PASS ' + engine + ' appearance: ' + cells + ' locale/viewport/mode/preset cells, personal/default persistence and mobile public QR; generated CSS ' + visualCSSBytes + ' B');
+      console.log('PASS ' + engine + ' appearance: ' + cells + ' locale/viewport/mode/preset cells, personal/default persistence and mobile public QR; generated preset CSS ' + visualCSSBytes + ' B');
       return;
     }
     if ((suite === '10.5' || suite === '10.6' || suite === 'final') && (group==='all' || group==='public')) {
@@ -525,6 +541,7 @@ let stage = 'launch';
     assert(await page.locator('#awg-advanced').getAttribute('open') !== null, 'default expert profile opens advanced parameters');
     assert(await page.locator('[name="obf_random_trailers"]').isChecked() && await page.locator('[name="obf_disable_cookies"]').isChecked(), 'generated profile enables approved advanced flags');
       await page.locator('[name="name"]').fill('awg7');
+    await page.locator('#iface-tab-profile').click();
     await page.locator('[data-generate-obf="performance"]').click();
     await page.waitForFunction(() => document.querySelector('[data-profile-policy]').value === 'performance');
       const headers = await page.locator('[name^="obf_h"]').evaluateAll(inputs => inputs.filter(el => /^obf_h[1-4]$/.test(el.name)).map(el => [el.name, el.value]));
@@ -549,6 +566,7 @@ let stage = 'launch';
       await nativePage.goto(editURL);
       stage = 'native interface header edit';
       const changedHeader = String(Number(headers.find(([name]) => name === 'obf_h1')[1]) + 1);
+      await nativePage.locator('#obf-fields > summary').click();
       await nativePage.locator('[name="obf_h1"]').fill(changedHeader);
       stage = 'native interface header submit';
       await submitNativeInterface();
@@ -595,10 +613,11 @@ let stage = 'launch';
       stage = 'interface profile layout and scroll stability';
       await page.setViewportSize({ width: 1440, height: 700 });
       await goto('/interfaces/new');
+      await page.locator('#iface-tab-profile').click();
       const balancedProfile = page.locator('[data-generate-obf="balanced"]');
       await balancedProfile.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'auto' }));
-      const switchGeometry = await page.locator('.switch-card').evaluate(el => {
-        const track = el.querySelector('.switch-track').getBoundingClientRect();
+      const switchGeometry = await page.locator('.obf-switch').evaluate(el => {
+        const track = el.querySelector('.switch').getBoundingClientRect();
         const label = el.querySelector('span:last-child').getBoundingClientRect();
         return { track, label, overlap: !(track.right <= label.left || label.right <= track.left) };
       });
@@ -613,6 +632,7 @@ let stage = 'launch';
       stage = 'create-user drawer geometry';
       await goto('/users');
       await page.locator('[data-open-modal="create-drawer"]').click();
+      await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
       if (process.env.WG_UI_SCREENSHOT_DIR) {
         const fs = require('node:fs'), path = require('node:path');
         fs.mkdirSync(process.env.WG_UI_SCREENSHOT_DIR, { recursive: true });
@@ -620,9 +640,9 @@ let stage = 'launch';
       }
       const desktopDrawer = await page.locator('#create-drawer').evaluate(dialog => {
         const rect = dialog.getBoundingClientRect();
-        const foot = dialog.querySelector('.modal-foot').getBoundingClientRect();
-        const body = dialog.querySelector('.drawer-body');
-        const sections = [...body.querySelectorAll('.form-section')].map(section => {
+        const foot = dialog.querySelector('.sheet-footer').getBoundingClientRect();
+        const body = dialog.querySelector('.sheet-body');
+        const sections = [...body.querySelectorAll('.users-form-section')].filter(section => !section.closest('[hidden]')).map(section => {
           const sectionRect = section.getBoundingClientRect();
           return {
             height: sectionRect.height,
@@ -644,10 +664,11 @@ let stage = 'launch';
       await page.locator('#create-drawer [data-close-modal]').first().click();
       await page.setViewportSize({ width: 390, height: 700 });
       await page.locator('[data-open-modal="create-drawer"]').click();
+      await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
       assert(await page.locator('#create-drawer').evaluate(dialog => {
         const rect = dialog.getBoundingClientRect();
         return rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth &&
-          dialog.querySelector('.modal-foot').getBoundingClientRect().bottom <= rect.bottom;
+          dialog.querySelector('.sheet-footer').getBoundingClientRect().bottom <= rect.bottom;
       }), 'create-user drawer fits a phone viewport');
       const drawer = page.locator('#create-drawer');
       await drawer.locator('[name="username"]').fill('drawer-user');
@@ -657,7 +678,7 @@ let stage = 'launch';
       await page.evaluate(() => new Promise(requestAnimationFrame));
       const noteGeometry = await drawer.locator('[name="note"]').evaluate(el => {
         const dialog = el.closest('dialog').getBoundingClientRect(), field = el.getBoundingClientRect();
-        const body = el.closest('.drawer-body');
+        const body = el.closest('.sheet-body');
         return {ok: field.top >= dialog.top && field.bottom <= dialog.bottom,
           dialogTop: dialog.top, dialogBottom: dialog.bottom, fieldTop: field.top, fieldBottom: field.bottom,
           scrollTop: body?.scrollTop, scrollHeight: body?.scrollHeight, clientHeight: body?.clientHeight};
@@ -690,9 +711,9 @@ let stage = 'launch';
       await submit(page.locator('form[action="/users"]'));
       assert(await page.locator('main h1').innerText() === 'browser-user', 'created user detail');
       const detailURL = page.url();
-      assert(await page.locator('.subscription-access-card').evaluate(el => getComputedStyle(el).position === 'static'), 'subscription access card is not sticky');
-      if (await page.locator('.subscription-url .input-adj').count()) {
-        assert(await page.locator('.subscription-url .input-adj').evaluate(el => {
+      assert(await page.locator('#user-subscription').evaluate(el => getComputedStyle(el).position === 'static'), 'subscription access card is not sticky');
+      if (await page.locator('#user-subscription .input-group').count()) {
+        assert(await page.locator('#user-subscription .input-group').evaluate(el => {
           const input = el.querySelector('input').getBoundingClientRect(), button = el.querySelector('button').getBoundingClientRect();
           return input.right <= button.left || button.right <= input.left;
         }), 'subscription copy action does not overlap its value');
@@ -812,12 +833,10 @@ let stage = 'launch';
       await goto('/dashboard');
       assert(await page.locator('#telemetry-card').getAttribute('data-health') === 'healthy', 'normal dashboard fixture stays healthy');
       const dashboardFlow = await page.evaluate(() => {
-        const recovery = document.querySelector('#dashboard-recovery');
-        const summary = document.querySelector('.dashboard-summary');
-        const statuses = document.querySelector('.dashboard-statuses');
-        const overview = document.querySelector('#telemetry-card');
-        const gap = (a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().bottom;
-        return { recovery: gap(recovery, summary), summary: gap(summary, statuses), statuses: gap(statuses, overview) };
+        const surface = selector => document.querySelector(selector);
+        const gap = (a, b) => surface(b).getBoundingClientRect().top - surface(a).getBoundingClientRect().bottom;
+        return { overview: gap('#live > .stat-grid', '#telemetry-card'), telemetry: gap('#telemetry-card', '#chart-card'),
+          chart: gap('#chart-card', '#live-data'), recovery: gap('#dashboard-recovery', '#node-software') };
       });
       assert(Object.values(dashboardFlow).every(gap => gap >= 12), 'dashboard surfaces keep distinct vertical spacing');
       assert(await page.locator('html').getAttribute('data-theme') === 'light', 'unsaved theme stays light on a dark OS');
@@ -831,12 +850,12 @@ let stage = 'launch';
       await liveChart.focus();
       await page.keyboard.press('ArrowLeft');
       assert(await page.locator('.resource-card .chart-tooltip.is-visible').count() === 1, 'live chart supports keyboard inspection');
-      await page.locator('.live-data > summary').click();
-      await page.locator('.live-data a[hx-get]').click();
-      await page.waitForFunction(() => document.querySelectorAll('.sample-data-table tbody tr').length > 0);
-      const sampleRows = await page.locator('.sample-data-table tbody tr').count();
+      await page.locator('#live-data > summary').click();
+      await page.locator('#live-data a[hx-get]').click();
+      await page.waitForFunction(() => document.querySelectorAll('#telemetry-history tbody tr').length > 0);
+      const sampleRows = await page.locator('#telemetry-history tbody tr').count();
       assert(sampleRows >= Number(seed.samples || 24) && sampleRows <= 180, 'on-demand bounded live samples');
-      await page.locator('.live-data > summary').click();
+      await page.locator('#live-data > summary').click();
       await page.locator('#traffic-range-7d').focus();
       await page.keyboard.press('Enter');
       await page.waitForFunction(() => document.querySelector('#traffic-range-7d')?.getAttribute('aria-current') === 'true');
@@ -854,7 +873,7 @@ let stage = 'launch';
       await goto('/backups?create=1');
       assert(await page.locator('[data-telegram-ready="true"]').count() === 0, 'unconfigured Telegram is not ready');
       await submit(page.locator('form[action="/backups/create"]'));
-      const archive = page.locator('.backup-archives tbody tr').first();
+      const archive = page.locator('#backup-archives tbody tr').first();
       assert(await archive.count() === 1, 'created archive is listed');
       const archiveDownload = await archive.locator('a[download]').getAttribute('href');
       const archiveResponse = await page.request.get(seed.url + archiveDownload);
@@ -867,9 +886,9 @@ let stage = 'launch';
       assert(new URL(page.url()).searchParams.has('restore'), 'imported archive is selected for restore');
       assert(await page.locator('#restore-archive option').count() === 2, 'imported archive is kept as a distinct private copy');
       await submit(page.locator('form[action="/backups/restore"]'));
-      assert(await page.locator('.backup-review').count() === 1, 'restore requires review');
+      assert(await page.locator('#restore-review').count() === 1, 'restore requires review');
       await submit(page.locator('form[action="/backups/restore/cancel"]'));
-      assert(await page.locator('.backup-pending').count() === 0, 'cancelled preview is not a pending restore');
+      assert(await page.locator('#backup-pending').count() === 0, 'cancelled preview is not a pending restore');
       stage = 'schedule validation and disabled edit';
       await goto('/backups?schedule=new');
       await page.locator('#sch-name').fill('Browser schedule');
@@ -958,7 +977,7 @@ let stage = 'launch';
     if (['10.4', '10.4-admin', 'final'].includes(suite)) {
       stage = 'administrator create and wildcard permissions';
       await goto('/admins');
-      await page.locator('.ops-hero a[href="#admin-create"]').click();
+      await page.locator('.page-actions a[href="#admin-create"]').click();
       assert(await page.locator('#admin-create').evaluate(el => el.open), 'administrator header action opens its form');
       await page.locator('#ops-username').fill('browser-admin');
       await page.locator('#ops-password').fill(require('node:crypto').randomBytes(24).toString('hex'));
@@ -970,7 +989,7 @@ let stage = 'launch';
       await family.locator('summary').click();
       await family.locator('input[value="users.*"]').check();
       await submit(page.locator('form[action="/admins/create"]'));
-      await page.locator('.admin-table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').click();
+      await page.locator('.table tr').filter({ hasText: 'browser-admin' }).locator('a[href*="?edit="]').first().click();
       const adminEdit = new URL(page.url()).pathname + new URL(page.url()).search;
       assert(await page.locator('input[value="users.*"]').isChecked(), 'stored family wildcard remains selected');
       await submit(page.locator('form[action$="/permissions"]'));
@@ -979,7 +998,7 @@ let stage = 'launch';
       adminRoutes.push(adminEdit);
       stage = 'token invalid expiry and one-time result';
       await goto('/tokens');
-      await page.locator('.ops-hero a[href="#token-create"]').click();
+      await page.locator('.page-actions a[href="#token-create"]').click();
       assert(await page.locator('#token-create').evaluate(el => el.open), 'token header action opens its form');
       await page.locator('#ops-name').fill('Browser token');
       await page.locator('#ops-expires_days').fill('invalid-days');
@@ -999,7 +1018,7 @@ let stage = 'launch';
       assert(await page.locator('#token-once').count() === 0, 'token secret is not redisplayed');
       stage = 'webhook create and disabled edit';
       await goto('/webhooks');
-      await page.locator('.ops-hero a[href="#webhook-create"]').click();
+      await page.locator('.page-actions a[href="#webhook-create"]').click();
       assert(await page.locator('#webhook-create').evaluate(el => el.open), 'webhook header action opens its form');
       await page.locator('#ops-url').fill('https://example.com/events');
       await page.locator('#webhook-create [data-event-preset="all"]').click();
@@ -1010,7 +1029,7 @@ let stage = 'launch';
       await submit(page.locator('form[action="/webhooks/create"]'));
       assert((await page.locator('#hook-secret').inputValue()).length > 0, 'webhook signing secret appears once');
       await goto('/webhooks');
-      const hookLink = page.locator('.webhook-card a[href^="/webhooks/"]').first();
+      const hookLink = page.locator('.table a[href^="/webhooks/"]').first();
       const hookPath = await hookLink.getAttribute('href');
       await hookLink.click();
       await page.locator('input[name="enabled"]').uncheck();
@@ -1022,19 +1041,27 @@ let stage = 'launch';
       stage = 'audit filtering';
       await goto('/audit');
       await page.locator('#audit-action').fill('admins.');
-      await Promise.all([page.waitForNavigation(), page.locator('.audit-filter-form button[type="submit"]').click()]);
+      await Promise.all([page.waitForNavigation(), page.locator('form.audit-filters button[type="submit"]').click()]);
       assert(await page.locator('#audit-action').inputValue() === 'admins.', 'audit retains filter');
       stage = 'verified update selection confirmation';
       await goto('/updates');
-      assert(await page.locator('.software-version-card').count() === 2, 'installed panel and core identities are visible');
-      assert(await page.locator('.core-release').count() >= 2, 'reviewed core versions are listed');
-      await page.locator('.core-release button[type="submit"]').first().click();
-      assert(await page.locator('#confirm-dialog').getAttribute('open') !== null, 'software transition requires confirmation');
-      await page.locator('#confirm-dialog [data-close-modal]').last().click();
-      assert(await page.locator('#confirm-dialog').getAttribute('open') === null, 'software transition can be cancelled');
-      await page.locator('.update-release button[type="submit"]').first().click();
-      await Promise.all([page.waitForNavigation(), page.locator('#confirm-dialog [data-confirm-ok]').click()]);
-      assert(await page.locator('[data-update-state="queued"]').count() === 1, 'confirmed stable panel transition enters the host queue');
+      assert(await page.locator('[data-maintenance-page] .stat-grid .stat-value.ops-version').count() === 4, 'installed panel and core identities are visible');
+      await goto('/updates?tab=versions&component=core');
+      const cores = page.locator('.ops-core-option');
+      assert(await cores.count() >= 2, 'reviewed core versions are listed');
+      await cores.first().click();
+      await page.waitForURL(/[?&]core=/);
+      await page.waitForFunction(() => document.documentElement.dataset.ui === 'ready');
+      const coreSelection = page.locator('[data-maintenance-selection]');
+      assert(await coreSelection.locator('input[name="target"][value="core"]').count() === 1, 'core selection targets only the reviewed bundle');
+      assert(await coreSelection.locator('button[value="execute"]').isDisabled(), 'core transition requires a verified preflight first');
+      assert(await coreSelection.locator('button[value="preflight"]').isEnabled(), 'core transition offers its preflight');
+      await goto('/updates?tab=versions&version=v1.2.3');
+      const panelSelection = page.locator('[data-maintenance-selection]');
+      assert(await panelSelection.getAttribute('data-confirm-submitters') === 'execute', 'software transition requires confirmation');
+      assert(await panelSelection.locator('button[value="execute"]').isDisabled(), 'stable panel transition requires a verified preflight first');
+      await Promise.all([page.waitForNavigation(), panelSelection.locator('button[value="preflight"]').click()]);
+      assert(await page.locator('#update-status-region [data-operation-state="queued"]').count() === 1, 'stable panel preflight enters the host queue');
       assert((await page.locator('#update-status-region').getAttribute('hx-get') || '').includes('state=queued'), 'queued software status polls by identity and state');
     }
     if (suite === 'final') {
@@ -1077,8 +1104,13 @@ let stage = 'launch';
                 'Persian numeric and date controls align at the RTL edge while preserving LTR input order');
             }
             if (lang === 'fa' && routes[index] === '/users/' + seed.user) {
-              assert(await page.locator('.user-kpi strong.ltr-data').evaluateAll(elements =>
-                elements.length > 0 && elements.every(el => getComputedStyle(el).textAlign === 'right')),
+              assert(await page.locator('.user-stats .stat-value.num').evaluateAll(elements =>
+                elements.length > 0 && elements.every(el => {
+                  const style = getComputedStyle(el), range = document.createRange();
+                  range.selectNodeContents(el);
+                  const box = el.getBoundingClientRect(), content = range.getBoundingClientRect();
+                  return style.unicodeBidi === 'isolate' && Math.abs(box.right - parseFloat(style.paddingRight) - content.right) <= 1;
+                })),
                 'Persian user metrics align at the RTL edge while their digits remain isolated');
             }
             const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);

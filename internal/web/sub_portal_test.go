@@ -80,7 +80,7 @@ func TestSubscriptionMachineEndpointsAndGuide(t *testing.T) {
 	if err := e.reg.Set(context.Background(), "subscription.layout", "portal"); err != nil {
 		t.Fatal(err)
 	}
-	if body := e.get(sub, nil).Body.String(); !strings.Contains(body, `data-sub-layout="portal"`) || !strings.Contains(body, "/css/subscription.css") {
+	if body := e.get(sub, nil).Body.String(); !strings.Contains(body, `data-sub-layout="portal"`) || !strings.Contains(body, "/css/app.css") {
 		t.Fatal("portal layout not applied")
 	}
 }

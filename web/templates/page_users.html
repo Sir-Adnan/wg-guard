@@ -1,137 +1,139 @@
 {{define "title"}}{{.T "users.title"}}{{end}}
 {{define "content"}}
-<div class="page-head page-head--hero users-hero">
-  <div class="page-title-cluster">
-    <span class="page-title-icon" aria-hidden="true">{{.Icon "users"}}</span>
-    <div>
-    <span class="eyebrow">{{.T "users.workspace"}}</span>
-    <h1>{{.T "users.title"}}</h1>
-    <p>{{.T "users.subtitle"}}</p>
-    </div>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "users.title"}}</h1>
+    <p class="page-description">{{.T "users.subtitle"}}</p>
   </div>
-  <div class="actions">
-    {{if .Can "users.bulk"}}<a class="btn" href="/users/bulk">{{.IconS "user-plus"}}<span>{{.T "users.bulk_create"}}</span></a>{{end}}
-    {{if .Can "users.create"}}<a class="btn btn--primary" href="/users/new" data-open-modal="create-drawer">{{.IconS "plus"}}<span>{{.T "users.new"}}</span></a>{{end}}
+  <div class="page-actions">
+    {{if .Can "users.bulk"}}<a class="btn btn--sm" href="/users/bulk">{{.IconS "user-plus"}}<span>{{.T "users.bulk_create"}}</span></a>{{end}}
+    {{if .Can "users.create"}}<a class="btn btn--sm btn--primary" href="/users/new" data-open-modal="create-drawer">{{.IconS "plus"}}<span>{{.T "users.new"}}</span></a>{{end}}
   </div>
-</div>
+</header>
 
-<form class="toolbar user-filters card card--pad" method="get" action="/users" data-user-filters
+<form class="toolbar users-toolbar" method="get" action="/users" role="search" data-user-filters
       hx-get="/users" hx-trigger="input changed delay:250ms from:#users-search, change from:#users-status, change from:#users-sort"
       hx-target="#users-results" hx-select="#users-results" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#users-search-progress">
-  <div class="field"><label for="users-search">{{.T "users.username"}}</label><div class="search-box">
-    {{.Icon "search"}}
-    <input class="input" type="search" id="users-search" name="q" value="{{.Data.Search}}" placeholder="{{.T "users.search_hint"}}">
+  <div class="input-group toolbar-search">
+    <span class="input-group-addon" aria-hidden="true">{{.IconS "search"}}</span>
+    <label class="sr-only" for="users-search">{{.T "users.username"}}</label>
+    <input class="input" type="search" id="users-search" name="q" value="{{.Data.Search}}" placeholder="{{.T "users.search_hint"}}" autocomplete="off" spellcheck="false">
+    <span id="users-search-progress" class="input-group-addon htmx-indicator" role="status"><span class="spinner" aria-hidden="true"></span><span class="sr-only">{{.T "common.loading"}}</span></span>
   </div>
-  <span id="users-search-progress" class="search-progress htmx-indicator" role="status"><span class="spinner" aria-hidden="true"></span><span class="sr-only">{{.T "common.loading"}}</span></span>
-  </div>
-  <details class="user-filter-more" data-user-filter-more open><summary>{{.IconS "filter"}}<span>{{.T "common.filter"}}</span><span class="user-filter-chevron" aria-hidden="true">{{.IconS "chevron-down"}}</span></summary><div class="user-filter-grid">
-  <div class="field"><label for="users-status">{{.T "common.status"}}</label>
-  <select class="select" id="users-status" name="status" aria-label="{{.T "common.status"}}">
-    <option value="all">{{.T "common.all"}}</option>
-    {{$st := .Data.Status}}
-    {{range $s := list "active" "waiting_first_connection" "expired" "traffic_exceeded" "suspended" "disabled"}}
-    <option value="{{$s}}" {{if eq $st $s}}selected{{end}}>{{$.St $s}}</option>
-    {{end}}
-  </select>
-  </div>
-  <div class="field"><label for="users-sort">{{.T "users.sort"}}</label>
-  {{$sort := .Data.Sort}}
-  <select class="select" id="users-sort" name="sort" aria-label="{{.T "users.sort"}}">
-    <option value="created_new" {{if eq $sort "created_new"}}selected{{end}}>{{.T "users.sort.created_new"}}</option>
-    <option value="created_old" {{if eq $sort "created_old"}}selected{{end}}>{{.T "users.sort.created_old"}}</option>
-    <option value="username" {{if eq $sort "username"}}selected{{end}}>{{.T "users.sort.username"}}</option>
-    <option value="expires" {{if eq $sort "expires"}}selected{{end}}>{{.T "users.sort.expires"}}</option>
-    <option value="used" {{if eq $sort "used"}}selected{{end}}>{{.T "users.sort.used"}}</option>
-  </select>
-  </div>
-  <noscript><button type="submit" class="btn">{{.T "common.filter"}}</button></noscript>
-  {{if .Data.HasFilters}}<a class="btn btn--ghost" href="/users">{{.T "common.clear_filters"}}</a>{{end}}
-  </div></details>
+  <details class="users-filters" data-user-filter-more open>
+    <summary class="btn users-filters-toggle">{{.IconS "list-filter"}}<span>{{.T "users.ui.filters"}}</span>{{if .Data.HasFilters}}<span class="dot dot--info" aria-hidden="true"></span>{{end}}</summary>
+    <div class="users-filter-fields">
+    <div class="input-group users-filter">
+      <label class="input-group-addon" for="users-status">{{.T "common.status"}}</label>
+      {{$st := .Data.Status}}
+      <select class="select" id="users-status" name="status">
+        <option value="all">{{.T "common.all"}}</option>
+        {{range $s := list "active" "waiting_first_connection" "expired" "traffic_exceeded" "suspended" "disabled"}}
+        <option value="{{$s}}" {{if eq $st $s}}selected{{end}}>{{$.St $s}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="input-group users-filter">
+      <label class="input-group-addon" for="users-sort">{{.T "users.sort"}}</label>
+      {{$sort := .Data.Sort}}
+      <select class="select" id="users-sort" name="sort">
+        <option value="created_new" {{if eq $sort "created_new"}}selected{{end}}>{{.T "users.sort.created_new"}}</option>
+        <option value="created_old" {{if eq $sort "created_old"}}selected{{end}}>{{.T "users.sort.created_old"}}</option>
+        <option value="username" {{if eq $sort "username"}}selected{{end}}>{{.T "users.sort.username"}}</option>
+        <option value="expires" {{if eq $sort "expires"}}selected{{end}}>{{.T "users.sort.expires"}}</option>
+        <option value="used" {{if eq $sort "used"}}selected{{end}}>{{.T "users.sort.used"}}</option>
+      </select>
+    </div>
+    </div>
+  </details>
+  <noscript><button type="submit" class="btn">{{.IconS "filter"}}{{.T "common.filter"}}</button></noscript>
+  {{if .Data.HasFilters}}<a class="btn btn--ghost" href="/users">{{.IconS "x"}}{{.T "common.clear_filters"}}</a>{{end}}
 </form>
 
-<div id="users-results" class="users-selection-scope" aria-live="polite" aria-atomic="false">
-{{if and .Data.Items (.Can "users.bulk")}}{{template "users_bulkbar" .}}{{end}}
-
+<div id="users-results" class="stack" aria-live="polite" aria-atomic="false">
 {{if .Data.Items}}
-<div class="collection-head"><h2>{{$.N (i64u (len .Data.Items))}} <span>{{.T "users.page_scope"}}</span></h2></div>
-<div class="table-wrap collection users-collection">
-  <table class="table table--cards entity-table users-table">
-    <thead>
-      <tr>
-        {{if .Can "users.bulk"}}<th class="card-hide users-col--select"><label class="selection-hit"><input type="checkbox" class="checkbox" id="sel-all"><span class="sr-only">{{.T "users.selection_page"}}</span></label></th>{{end}}
-        <th class="users-col--identity">{{.T "users.username"}}</th>
-        <th class="users-col--status">{{.T "common.status"}}</th>
-        {{if .Can "traffic.read"}}<th class="users-col--traffic">{{.T "users.traffic"}}</th>{{end}}
-        <th class="users-col--expiry">{{.T "users.expires"}}</th>
-        {{if .Can "devices.read"}}<th class="users-col--devices">{{.T "users.devices"}}</th>{{end}}
-        <th class="users-col--activity">{{.T "users.last_activity"}}</th>
-        <th class="text-end users-col--actions">{{.T "common.actions"}}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Data.Items}}{{template "users_row" (dict "row" . "v" $)}}{{end}}
-    </tbody>
-  </table>
+<div class="table-frame">
+  <div class="table-wrap">
+    <table class="table table--cards users-table">
+      <thead>
+        <tr>
+          {{if .Can "users.bulk"}}<th scope="col" class="col-check"><input type="checkbox" class="checkbox" id="sel-all" aria-label="{{.T "users.selection_page"}}"></th>{{end}}
+          <th scope="col">{{.T "users.username"}}</th>
+          <th scope="col">{{.T "common.status"}}</th>
+          {{if .Can "traffic.read"}}<th scope="col">{{.T "users.traffic"}}</th>{{end}}
+          <th scope="col">{{.T "users.expires"}}</th>
+          {{if .Can "devices.read"}}<th scope="col">{{.T "users.devices"}}</th>{{end}}
+          <th scope="col">{{.T "users.last_activity"}}</th>
+          <th scope="col" class="col-actions"><span class="sr-only">{{.T "common.actions"}}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Items}}{{template "users_row" (dict "row" . "v" $)}}{{end}}
+      </tbody>
+    </table>
+  </div>
+  <div class="users-table-foot">
+    <span class="text-sm text-muted"><span class="num">{{$.N (i64u (len .Data.Items))}}</span> {{.T "users.ui.count_unit"}}</span>
+    {{if .Data.NextCursor}}<nav aria-label="{{.T "common.pagination"}}"><a class="btn btn--sm" href="/users?cursor={{.Data.NextCursor}}&q={{.Data.Search}}&status={{.Data.Status}}&sort={{.Data.Sort}}">{{.T "common.next"}}{{.IconS "chevron-right"}}</a></nav>{{end}}
+  </div>
 </div>
-{{if .Data.NextCursor}}
-<nav class="pagination" aria-label="{{.T "common.page"}}">
-  <span></span>
-  <div class="links">
-    <a href="/users?cursor={{.Data.NextCursor}}&q={{.Data.Search}}&status={{.Data.Status}}&sort={{.Data.Sort}}">{{.T "common.next"}} {{.IconS "chevron-right"}}</a>
-  </div>
-</nav>
-{{end}}
+{{if .Can "users.bulk"}}{{template "users_bulkbar" .}}{{end}}
 {{else if .Data.HasFilters}}
-<div class="table-wrap collection empty-collection">
-  <div class="empty empty-stage">
-    <span class="empty-visual" aria-hidden="true">{{.Icon "inbox"}}</span>
-    <h3>{{.T "users.empty_filtered_title"}}</h3>
-    <p>{{.T "users.empty_filtered_desc"}}</p>
-    <a class="btn" href="/users">{{.T "common.clear_filters"}}</a>
-  </div>
+<div class="empty empty--bordered">
+  <span class="empty-icon" aria-hidden="true">{{.Icon "search"}}</span>
+  <h2 class="empty-title">{{.T "users.empty_filtered_title"}}</h2>
+  <p class="empty-description">{{.T "users.empty_filtered_desc"}}</p>
+  <div class="empty-actions"><a class="btn btn--sm" href="/users">{{.T "common.clear_filters"}}</a></div>
 </div>
 {{else}}
-<div class="table-wrap collection empty-collection">
-  <div class="empty empty-stage">
-    <span class="empty-visual" aria-hidden="true">{{.Icon "users"}}</span>
-    <h3>{{.T "users.empty.title"}}</h3>
-    <p>{{.T "users.empty.desc"}}</p>
-    {{if .Can "users.create"}}<a class="btn btn--primary" href="/users/new">{{.IconS "plus"}}<span>{{.T "users.empty.cta"}}</span></a>{{end}}
-  </div>
+<div class="empty empty--bordered">
+  <span class="empty-icon" aria-hidden="true">{{.Icon "users"}}</span>
+  <h2 class="empty-title">{{.T "users.empty.title"}}</h2>
+  <p class="empty-description">{{.T "users.empty.desc"}}</p>
+  {{if .Can "users.create"}}<div class="empty-actions"><a class="btn btn--sm btn--primary" href="/users/new">{{.IconS "plus"}}<span>{{.T "users.empty.cta"}}</span></a></div>{{end}}
 </div>
 {{end}}
 </div>
 
 {{if .Can "configs.read"}}{{template "device_qr_dialog" .}}{{end}}
 
-{{if .Can "users.update"}}<dialog class="modal user-quick-modal" id="users-quick-renew" aria-labelledby="users-quick-renew-title">
-  <div class="modal-head"><div><h2 id="users-quick-renew-title">{{.T "users.action.renew"}}</h2><bdi class="text-muted ltr-data" data-quick-user></bdi></div><button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button></div>
-  <form method="post" data-user-quick-form="renew" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="modal-body form-stack">{{template "user_renew_fields" (dict "v" . "f" .Data.ActionForm "suffix" "-quick")}}</div>
-    <div class="modal-foot"><button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button><button type="submit" class="btn btn--primary">{{.T "users.action.renew"}}</button></div>
+{{if .Can "users.update"}}<dialog class="dialog dialog--sm" id="users-quick-renew" aria-labelledby="users-quick-renew-title">
+  <div class="dialog-header">
+    <div class="dialog-heading"><h2 class="dialog-title" id="users-quick-renew-title">{{.T "users.action.renew"}}</h2><p class="dialog-description"><bdi class="tech" data-quick-user></bdi></p></div>
+    <button type="button" class="btn btn--ghost btn--icon btn--sm" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form class="users-dialog-form" method="post" data-user-quick-form="renew" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="dialog-body">{{template "user_renew_fields" (dict "v" . "f" .Data.ActionForm "suffix" "-quick")}}</div>
+    <div class="dialog-footer"><button type="button" class="btn" data-close-modal>{{.T "common.cancel"}}</button><button type="submit" class="btn btn--primary">{{.T "users.action.renew"}}</button></div>
   </form>
-</dialog>{{end}}
-{{if .Can "users.update"}}<dialog class="modal user-quick-modal" id="users-quick-traffic" aria-labelledby="users-quick-traffic-title">
-  <div class="modal-head"><div><h2 id="users-quick-traffic-title">{{.T "users.action.add_traffic"}}</h2><bdi class="text-muted ltr-data" data-quick-user></bdi></div><button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button></div>
-  <form method="post" data-user-quick-form="traffic" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="modal-body form-stack">{{template "user_traffic_fields" (dict "v" . "f" .Data.ActionForm "suffix" "-quick")}}</div>
-    <div class="modal-foot"><button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button><button type="submit" class="btn btn--primary">{{.T "users.action.add_traffic"}}</button></div>
+</dialog>
+<dialog class="dialog dialog--sm" id="users-quick-traffic" aria-labelledby="users-quick-traffic-title">
+  <div class="dialog-header">
+    <div class="dialog-heading"><h2 class="dialog-title" id="users-quick-traffic-title">{{.T "users.action.add_traffic"}}</h2><p class="dialog-description"><bdi class="tech" data-quick-user></bdi></p></div>
+    <button type="button" class="btn btn--ghost btn--icon btn--sm" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+  </div>
+  <form class="users-dialog-form" method="post" data-user-quick-form="traffic" novalidate><input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="dialog-body">{{template "user_traffic_fields" (dict "v" . "f" .Data.ActionForm "suffix" "-quick")}}</div>
+    <div class="dialog-footer"><button type="button" class="btn" data-close-modal>{{.T "common.cancel"}}</button><button type="submit" class="btn btn--primary">{{.T "users.action.add_traffic"}}</button></div>
   </form>
 </dialog>{{end}}
 
 {{if .Can "users.create"}}
-<dialog id="create-drawer" class="drawer drawer--form" aria-labelledby="create-drawer-title">
-  <div class="modal-head">
-    <h2 id="create-drawer-title">{{.T "users.form.new_title"}}</h2>
-    <button type="button" class="icon-btn" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
+<dialog id="create-drawer" class="sheet sheet--lg" aria-labelledby="create-drawer-title" aria-describedby="create-drawer-description">
+  <div class="sheet-header">
+    <div class="dialog-heading">
+      <h2 class="dialog-title" id="create-drawer-title">{{.T "users.form.new_title"}}</h2>
+      <p class="dialog-description" id="create-drawer-description">{{.T "users.ui.create_hint"}}</p>
+    </div>
+    <button type="button" class="btn btn--ghost btn--icon btn--sm" data-close-modal aria-label="{{.T "common.close"}}">{{.IconS "x"}}</button>
   </div>
-  <form method="post" action="/users" class="drawer-form" novalidate>
+  <form method="post" action="/users" class="users-sheet-form" novalidate>
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="drawer-body form-stack">
+    <div class="sheet-body">
       {{template "user_create_fields" dict "v" . "d" .Data}}
     </div>
-    <div class="modal-foot">
-      <button type="button" class="btn btn--ghost" data-close-modal>{{.T "common.cancel"}}</button>
+    <div class="sheet-footer">
+      <button type="button" class="btn" data-close-modal>{{.T "common.cancel"}}</button>
       <button type="submit" class="btn btn--primary">{{.T "common.create"}}</button>
     </div>
   </form>
@@ -140,17 +142,19 @@
 {{end}}
 
 {{define "users_bulkbar"}}
-<div class="selection-toolbar hidden" data-bulk-bar>
-  <div><strong role="status"><span data-sel-count>0</span> {{.T "common.selected"}}</strong><p class="hint">{{.T "users.selection_hint"}}</p></div>
-  <form id="users-selection" method="post" action="/users/bulk-action" class="inline-actions" data-bulk-action data-bulk-confirm-msg="{{.T "users.bulk.confirm_count"}}" data-confirm data-confirm-title="{{.T "common.confirm"}}" data-confirm-message="{{.T "users.bulk.review"}}" data-confirm-label="{{.T "common.apply"}}">
+<div class="bulk-bar" data-bulk-bar hidden>
+  <strong class="nowrap" role="status"><span class="num" data-sel-count>0</span> {{.T "common.selected"}}</strong>
+  <button type="button" class="btn btn--ghost btn--icon btn--xs" data-tip="{{.T "users.selection_hint"}}" aria-label="{{.T "users.ui.selection_help"}}: {{.T "users.selection_hint"}}">{{.IconS "info"}}</button>
+  <span class="separator separator--vertical" aria-hidden="true"></span>
+  <form id="users-selection" method="post" action="/users/bulk-action" class="cluster" data-bulk-action data-bulk-confirm-msg="{{.T "users.bulk.confirm_count"}}" data-confirm data-confirm-title="{{.T "common.confirm"}}" data-confirm-message="{{.T "users.bulk.review"}}" data-confirm-label="{{.T "common.apply"}}">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <label class="sr-only" for="bulk-action">{{.T "common.actions"}}</label>
-    <select class="select" name="action" id="bulk-action">
+    <label class="sr-only" for="bulk-action">{{.T "users.bulk.actions_title"}}</label>
+    <select class="select select--sm select--auto" name="action" id="bulk-action">
       <option value="enable">{{.T "users.action.enable"}}</option>
       <option value="disable">{{.T "users.action.disable"}}</option>
       <option value="delete">{{.T "users.action.delete"}}</option>
     </select>
-    <button type="submit" class="btn">{{.T "common.apply"}}</button>
+    <button type="submit" class="btn btn--sm btn--primary">{{.T "common.apply"}}</button>
   </form>
 </div>
 {{end}}
@@ -158,79 +162,69 @@
 {{define "users_row"}}
 {{$row := .row}}{{$u := $row.U}}{{$v := .v}}
 <tr data-qr-group>
-  {{if $v.Can "users.bulk"}}<td class="selection-cell" data-label="{{$v.T "common.selected"}}"><label class="selection-hit"><input type="checkbox" class="checkbox js-sel" name="ids" form="users-selection" value="{{$u.ID}}"><span class="sr-only"><bdi>{{$u.Username}}</bdi></span></label></td>{{end}}
-  <td class="card-title users-col--identity" data-label="{{$v.T "users.username"}}">
-    <div class="id-cell">
-      <span class="avatar" aria-hidden="true">{{slice $u.Username 0 1}}</span>
-      <span class="id-text">
-        <a class="row-link" href="/users/{{$u.ID}}"><span class="cell-main ltr-data">{{$u.Username}}</span></a>
-      </span>
-      {{if $row.PlanName}}<span class="chip">{{$row.PlanName}}</span>{{end}}
+  {{if $v.Can "users.bulk"}}<td class="col-check"><input type="checkbox" class="checkbox js-sel" name="ids" form="users-selection" value="{{$u.ID}}" aria-label="{{$v.T "common.selected"}}: {{$u.Username}}"></td>{{end}}
+  <td class="cell-primary">
+    <div class="cell-identity">
+      <span class="avatar avatar--sm" aria-hidden="true">{{$v.Initial $u.Username}}</span>
+      <div>
+        <a href="/users/{{$u.ID}}" dir="ltr" class="tech cell-main">{{$u.Username}}</a>
+        {{if $row.PlanName}}<span class="cell-sub truncate">{{$row.PlanName}}</span>{{end}}
+      </div>
     </div>
   </td>
-  <td class="users-col--status" data-label="{{$v.T "common.status"}}">
+  <td data-label="{{$v.T "common.status"}}">
     <span class="badge {{$v.StClass (printf "%v" $u.Status)}}"><span class="dot"></span>{{$v.St (printf "%v" $u.Status)}}</span>
   </td>
-  {{if $v.Can "traffic.read"}}<td class="users-col--traffic" data-label="{{$v.T "users.traffic"}}">
-    <div class="meter {{$v.MeterClass $row.Used $u.TrafficLimitBytes}}">
-      <span class="bar"><span></span></span>
-      <span class="num">{{$v.B $row.Used}}{{if $u.TrafficLimitBytes}} / {{$v.BLim $u.TrafficLimitBytes}}{{end}}</span>
+  {{if $v.Can "traffic.read"}}<td class="cell-wide" data-label="{{$v.T "users.traffic"}}">
+    <div class="cell-meter">
+      <div class="cell-meter-text"><span class="num text-foreground">{{$v.B $row.Used}}</span><span class="num">{{if $u.TrafficLimitBytes}}{{$v.T "users.ui.of_limit" ($v.BLim $u.TrafficLimitBytes)}}{{else}}{{$v.T "common.unlimited"}}{{end}}</span></div>
+      {{if $u.TrafficLimitBytes}}<div class="progress progress--sm {{$v.MeterClass $row.Used $u.TrafficLimitBytes}}"><div class="progress-bar"></div></div>{{end}}
     </div>
+  </td>{{end}}
+  <td data-label="{{$v.T "users.expires"}}">
+    {{if $u.ExpiresAt}}<span class="num nowrap {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span><span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{else}}<span class="text-muted">{{$v.T "users.ui.no_expiry"}}</span>{{end}}
   </td>
-  {{end}}
-  <td class="users-col--expiry" data-label="{{$v.T "users.expires"}}">
-    <span class="users-mobile-meta-label">{{$v.T "users.expires"}}</span><span class="id-text">
-      <span class="ltr-data {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span>
-      {{if $u.ExpiresAt}}<span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{end}}
-    </span>
-  </td>
-  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}" class="users-col--devices"><span class="users-mobile-meta-label">{{$v.T "users.devices"}}</span><span class="ltr-data">{{if $row.DevicesKnown}}{{$v.N (i64u $row.DeviceCount)}}{{else}}{{$v.T "forms.unavailable"}}{{end}}</span></td>{{end}}
-  <td data-label="{{$v.T "users.last_activity"}}" class="card-hide text-subtle users-col--activity">{{$v.Rel $u.LastActivityAt}}</td>
-  <td class="text-end card-actions users-col--actions" data-label="{{$v.T "common.actions"}}">
-    <div class="inline-actions">
-      {{if $row.SubURL}}
-      <button type="button" class="icon-btn" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "copy"}}</button>
-      {{end}}
+  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}">{{if $row.DevicesKnown}}<span class="num">{{$v.N (i64u $row.DeviceCount)}}{{if $u.DeviceLimit}}<span class="text-muted"> / {{$v.Human ($v.KD $u.DeviceLimit)}}</span>{{end}}</span>{{else}}<span class="text-muted">{{$v.T "forms.unavailable"}}</span>{{end}}</td>{{end}}
+  <td class="text-muted nowrap users-col-activity" data-label="{{$v.T "users.last_activity"}}">{{$v.Rel $u.LastActivityAt}}</td>
+  <td class="col-actions">
+    <div class="row-actions">
+      {{if $row.SubURL}}<button type="button" class="btn btn--ghost btn--icon btn--sm" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "copy"}}</button>{{end}}
       {{if and $row.Devices ($v.Can "configs.read")}}
       <div class="menu-anchor" data-device-menu="qr">
-        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.qr"}}" aria-label="{{$v.T "devices.qr"}}">{{$v.IconS "qr-code"}}</button>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.qr"}}" aria-label="{{$v.T "devices.qr"}}: {{$u.Username}}">{{$v.IconS "qr-code"}}</button>
         <div class="menu" role="menu" aria-label="{{$v.T "devices.qr"}}">
           <button type="button" role="menuitem" data-qr-all data-qr-all-title="{{$v.T "devices.qr_all"}}">{{$v.IconS "layout-grid"}}<span>{{$v.T "devices.qr_all"}}</span></button>
           <hr>
           {{range $row.Devices}}
-          <a role="menuitem" href="/devices/{{.ID}}/qr" data-qr="/devices/{{.ID}}/qr" data-qr-name="{{.Name}}">{{$v.IconS "qr-code"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "devices.qr"}}</a>
+          <a role="menuitem" href="/devices/{{.ID}}/qr" data-qr="/devices/{{.ID}}/qr" data-qr-name="{{.Name}}">{{$v.IconS "qr-code"}}<bdi>{{.Name}}</bdi></a>
           {{end}}
         </div>
       </div>
       <div class="menu-anchor" data-device-menu="download">
-        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.download_config"}}" aria-label="{{$v.T "devices.download_config"}}">{{$v.IconS "download"}}</button>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.download_config"}}" aria-label="{{$v.T "devices.download_config"}}: {{$u.Username}}">{{$v.IconS "download"}}</button>
         <div class="menu" role="menu" aria-label="{{$v.T "devices.download_config"}}">
           <a role="menuitem" href="/users/{{$u.ID}}/configs.zip" download data-download-all>{{$v.IconS "archive"}}<span>{{$v.T "devices.download_all"}}</span></a>
           <hr>
           {{range $row.Devices}}
-          <a role="menuitem" href="/devices/{{.ID}}/config" download>{{$v.IconS "download"}}<span class="ltr-data">{{.Name}}</span> · {{$v.T "sub.download"}}</a>
+          <a role="menuitem" href="/devices/{{.ID}}/config" download>{{$v.IconS "download"}}<bdi>{{.Name}}</bdi></a>
           {{end}}
         </div>
       </div>
       {{end}}
       <div class="menu-anchor">
-        <button type="button" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}">{{$v.IconS "more-vertical"}}</button>
-        <div class="menu" role="menu">
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "users.ui.more_actions"}}: {{$u.Username}}">{{$v.IconS "more-vertical"}}</button>
+        <div class="menu" role="menu" aria-label="{{$v.T "users.ui.more_actions"}}">
           <a role="menuitem" href="/users/{{$u.ID}}">{{$v.IconS "eye"}}<span>{{$v.T "common.details"}}</span></a>
-          {{if $v.Can "users.update"}}<a role="menuitem" href="/users/{{$u.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a><a role="menuitem" href="/users/{{$u.ID}}#renew-action" data-user-quick-action="renew" data-user-id="{{$u.ID}}" data-user-name="{{$u.Username}}">{{$v.IconS "calendar"}}<span>{{$v.T "users.quick.renew"}}</span></a>{{end}}
+          {{if $v.Can "users.update"}}<a role="menuitem" href="/users/{{$u.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
+          <hr>
+          <a role="menuitem" href="/users/{{$u.ID}}#renew-action" data-user-quick-action="renew" data-user-id="{{$u.ID}}" data-user-name="{{$u.Username}}">{{$v.IconS "calendar"}}<span>{{$v.T "users.quick.renew"}}</span></a>{{end}}
           {{if and ($v.Can "users.update") $u.TrafficLimitBytes}}<a role="menuitem" href="/users/{{$u.ID}}#traffic-action" data-user-quick-action="traffic" data-user-id="{{$u.ID}}" data-user-name="{{$u.Username}}">{{$v.IconS "plus"}}<span>{{$v.T "users.action.add_traffic"}}</span></a>{{end}}
           {{if $v.Can "traffic.update"}}<form role="none" method="post" action="/users/{{$u.ID}}/traffic/reset" data-confirm data-confirm-title="{{$v.T "users.traffic_reset.title" $u.Username}}" data-confirm-message="{{$v.T "users.traffic_reset.confirm"}}" data-confirm-label="{{$v.T "users.action.reset_traffic"}}"><input type="hidden" name="_csrf" value="{{$v.CSRF}}"><button type="submit" role="menuitem">{{$v.IconS "refresh-cw"}}<span>{{$v.T "users.action.reset_traffic"}}</span></button></form>{{end}}
           {{if $v.Can "users.update"}}
           {{if eq (printf "%v" $u.Status) "active"}}
-          <form role="none" method="post" action="/users/{{$u.ID}}/disable">
-            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.disable"}}</span></button>
-          </form>
+          <form role="none" method="post" action="/users/{{$u.ID}}/disable"><input type="hidden" name="_csrf" value="{{$v.CSRF}}"><button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.disable"}}</span></button></form>
           {{else}}
-          <form role="none" method="post" action="/users/{{$u.ID}}/enable">
-            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.enable"}}</span></button>
-          </form>
+          <form role="none" method="post" action="/users/{{$u.ID}}/enable"><input type="hidden" name="_csrf" value="{{$v.CSRF}}"><button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{$v.T "users.action.enable"}}</span></button></form>
           {{end}}
           {{end}}
           {{if $v.Can "users.delete"}}<hr>

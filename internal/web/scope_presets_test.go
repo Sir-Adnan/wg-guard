@@ -68,7 +68,7 @@ func TestResetUsageIsVisibleForAuthorizedUser(t *testing.T) {
 	owner := e.loginEN("owner")
 	id := createUserViaForm(t, e, owner, "reset-visible")
 	detail := e.get("/users/"+id, owner).Body.String()
-	_, actions, ok := strings.Cut(detail, `class="user-action-bar"`)
+	_, actions, ok := strings.Cut(detail, `data-user-actions>`)
 	if !ok {
 		t.Fatal("user detail action bar missing")
 	}

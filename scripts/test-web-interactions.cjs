@@ -39,7 +39,7 @@ module.exports = async ({ browser, seed, engine }) => {
         exposed: el === document.activeElement && r.top >= -1 && r.bottom <= innerHeight + 1 && (hit === el || el.contains(hit)),
         top: r.top, bottom: r.bottom, viewport: innerHeight,
         footerTop: footerRect?.top ?? null, footerBottom: footerRect?.bottom ?? null,
-        hitRegion: hit === el || el.contains(hit) ? 'control' : footer?.contains(hit) ? 'savebar' : hit?.closest('.topbar') ? 'topbar' : 'other',
+        hitRegion: hit === el || el.contains(hit) ? 'control' : footer?.contains(hit) ? 'savebar' : hit?.closest('.app-header') ? 'app-header' : 'other',
       };
     });
     const immediate = await geometry();
@@ -72,6 +72,10 @@ module.exports = async ({ browser, seed, engine }) => {
   // Effective target geometry uses a checkbox/radio's actual associated label,
   // never its non-clickable parent padding. Native modal background is excluded.
   const hitTargets = async (page, label, scope = 'body') => {
+    // Measure settled geometry: overlay entrances briefly scale their contents.
+    await page.evaluate(() => Promise.all(document.getAnimations()
+      .filter(animation => animation.effect?.getComputedTiming().endTime !== Infinity)
+      .map(animation => animation.finished.catch(() => {}))));
     const result = await page.locator(scope).evaluate(root => {
       const modal = document.querySelector('dialog:modal');
       const candidates = [...root.querySelectorAll('button,a[href],input:not([type="hidden"]),select,textarea,summary')];
@@ -83,7 +87,7 @@ module.exports = async ({ browser, seed, engine }) => {
           !el.closest('[inert]') && !el.disabled && el.getAttribute('aria-disabled') !== 'true' &&
           (!modal || modal.contains(el));
       };
-      const standalone = '.btn,.icon-btn,.row-link,.entity-link,.brand,.locale-choice';
+      const standalone = '.btn,.icon-btn,.cell-main,.sidebar-brand,.locale-choice';
       const isProseLink = el => el.tagName === 'A' && !el.matches(standalone) &&
         !el.closest('nav,.menu,.pagination,.toolbar,.inline-actions,.form-actions,.settings-nav') &&
         el.closest('p,.hint,.section-description,.callout,dd,li') && getComputedStyle(el).display === 'inline';
@@ -91,17 +95,17 @@ module.exports = async ({ browser, seed, engine }) => {
         // Only known static hook names are emitted; all attribute values are omitted.
         const hooks = [
           ['#btn-drawer', 'drawer-trigger'], ['[data-close-nav]', 'drawer-close'],
-          ['.nav a', 'navigation-link'], ['.brand', 'brand-link'],
+          ['.sidebar-item', 'navigation-link'], ['.sidebar-brand', 'brand-link'],
           ['.locale-choice', 'locale-control'], ['[data-theme-choice]', 'theme-choice'],
           ['[data-theme-menu] > button', 'theme-trigger'], ['[data-calendar]', 'calendar-trigger'],
           ['.cal-day', 'calendar-day'], ['[data-cal-prev]', 'calendar-previous'],
           ['[data-cal-next]', 'calendar-next'], ['[data-cal-clear]', 'calendar-clear'],
           ['[data-qr]', 'qr-trigger'], ['[data-close-modal]', 'dialog-close'],
-          ['.select-trigger', 'preset-picker'], ['.check-row input', 'form-check-row'],
-          ['.settings-secret-clear input', 'settings-secret-clear'],
-          ['.row-link', 'entity-row-link'], ['.entity-link', 'entity-name-link'],
+          ['.select-trigger', 'preset-picker'],
+          ['.settings-secret-clear input', 'settings-secret-clear'], ['.choice input', 'form-choice'],
+          ['a.cell-main', 'entity-name-link'], ['.breadcrumb a', 'breadcrumb-link'], ['.tab', 'tab'],
           ['.settings-savebar button', 'settings-save'], ['.settings-nav a', 'settings-section-link'],
-          ['.check-label input', 'labeled-checkbox'], ['.checkbox', 'checkbox'],
+          ['.checkbox', 'checkbox'], ['.input, .select', 'field'],
         ];
         const match = hooks.find(([selector]) => el.matches(selector));
         return (match ? match[1] : el.tagName.toLowerCase()) + '[' + index + ']';
@@ -113,7 +117,15 @@ module.exports = async ({ browser, seed, engine }) => {
         checked++;
         const areas = [el];
         if (el.matches('input[type="checkbox"],input[type="radio"]')) areas.push(...el.labels || []);
-        const rects = areas.filter(visible).map(area => area.getBoundingClientRect());
+        // The design system extends compact controls with an invisible, absolutely positioned
+        // ::after hit area (docs/product/ui-ux.md); count it only when it is really hit-testable.
+        const hitArea = area => {
+          const r = area.getBoundingClientRect(), after = getComputedStyle(area, '::after');
+          if (after.content === 'none' || after.position !== 'absolute' || after.pointerEvents === 'none' ||
+            getComputedStyle(area).position === 'static') return r;
+          return { width: Math.max(r.width, parseFloat(after.width) || 0), height: Math.max(r.height, parseFloat(after.height) || 0) };
+        };
+        const rects = areas.filter(visible).map(hitArea);
         if (rects.some(r => r.width >= 43.99 && r.height >= 43.99)) return;
         const best = rects.sort((a, b) => b.width * b.height - a.width * a.height)[0];
         short.push({ control: identify(el, index), width: Math.round(best?.width * 10) / 10 || 0, height: Math.round(best?.height * 10) / 10 || 0 });
@@ -148,15 +160,15 @@ module.exports = async ({ browser, seed, engine }) => {
             await hitTargets(page, cell + ' users');
             await page.locator('#btn-drawer').tap();
             assert(await page.locator('#sidebar').evaluate(el => el.classList.contains('is-open') && el.contains(document.activeElement)), step + ': open and focus');
-            assert(await page.locator('.main').evaluate(el => el.inert), step + ': inert background');
+            assert(await page.locator('#app-main').evaluate(el => el.inert), step + ': inert background');
             await hitTargets(page, cell + ' drawer', '#sidebar');
             await reducedMotion(page, '#sidebar');
             await page.locator('[data-close-nav]').tap();
             assert(await page.locator('#btn-drawer').evaluate(el => el === document.activeElement), step + ': close returns focus');
-            assert(!await page.locator('.main').evaluate(el => el.inert), step + ': close releases background');
+            assert(!await page.locator('#app-main').evaluate(el => el.inert), step + ': close releases background');
             await page.locator('#btn-drawer').tap();
             await page.setViewportSize({ width: 1440, height: 900 });
-            await page.waitForFunction(() => !document.querySelector('.main').inert && !document.querySelector('#sidebar').inert);
+            await page.waitForFunction(() => !document.querySelector('#app-main').inert && !document.querySelector('#sidebar').inert);
             assert(await page.evaluate(() => !document.body.classList.contains('nav-open') && !document.querySelector('#sidebar').hasAttribute('aria-modal') && !document.querySelector('#scrim').classList.contains('is-open')), step + ': resize clears modal state');
             await page.setViewportSize(viewport);
             await page.waitForFunction(() => document.querySelector('#sidebar').inert);

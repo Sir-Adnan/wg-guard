@@ -17,7 +17,9 @@ async function guidanceGeometry(page, scope, cell) {
       const a = title.getBoundingClientRect(), b = trigger.getBoundingClientRect();
       const gap = Math.max(b.left - a.right, a.left - b.right, 0);
       if (gap > 20 || b.top >= a.bottom || a.top >= b.bottom) faults.push('help separated from title');
-      if (b.width < 44 || b.height < 44) faults.push('help touch target');
+      // Compact glyph; its invisible hit area meets 24px (fine) or 44px (coarse pointer).
+      const hit = getComputedStyle(trigger, '::after'), min = matchMedia('(pointer: coarse)').matches ? 44 : 24;
+      if (Math.max(b.width, parseFloat(hit.width) || 0) < min || Math.max(b.height, parseFloat(hit.height) || 0) < min) faults.push('help touch target');
       if (!document.getElementById(trigger.getAttribute('aria-controls'))) faults.push('missing description');
     }
     for (const row of root.querySelectorAll('.field-row')) {
@@ -75,24 +77,31 @@ async function helpInteractions(page, selector, cell) {
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1), `overflow ${cell}/${route.split('/')[1]}`);
         await guidanceGeometry(page,'main',cell);
         await qa.scan(page,`guidance-${cell}-${route.split('/')[1]}`);
-        if (route === '/templates/new') await helpInteractions(page,'legend .field-help-trigger',cell);
+        if (route === '/templates/new') await helpInteractions(page,'.field-label-row .field-help-trigger',cell);
         if (route === '/backups') {
+          // Create now lives in the archives split aside: it fills its column, sits beside the
+          // collection on wide screens, stacks below it on narrow ones and never stretches.
           const layout = await page.locator('#new-backup').evaluate(card => {
-            const rect = card.getBoundingClientRect(), workspace = card.closest('.backup-workspace').getBoundingClientRect();
-            const header = card.querySelector('.section-head').getBoundingClientRect(), form = card.querySelector('form').getBoundingClientRect();
-            return {width:rect.width,workspace:workspace.width,headerBottom:header.bottom,formTop:form.top,sideBySide:header.right <= form.left || form.right <= header.left};
+            const rect = card.getBoundingClientRect(), column = card.closest('.split-aside').getBoundingClientRect();
+            const split = card.closest('.split'), list = split.firstElementChild.getBoundingClientRect(), workspace = split.getBoundingClientRect();
+            const header = card.querySelector('.card-header').getBoundingClientRect(), form = card.querySelector('form').getBoundingClientRect();
+            return {width:rect.width,column:column.width,workspace:workspace.width,beside:list.right <= column.left || column.right <= list.left,
+              below:column.top >= list.bottom,headerBottom:header.bottom,formTop:form.top,height:rect.height,content:form.bottom-header.top};
           });
-          assert(Math.abs(layout.width-layout.workspace) <= 1, `backup leaves half workspace blank ${cell}`);
-          assert(width >= 1440 ? layout.sideBySide : layout.formTop >= layout.headerBottom, `backup composition ${cell}`);
-          if (width >= 1440) assert((await page.locator('#new-backup').boundingBox()).height < 180,`backup wastes vertical space ${cell}`);
+          assert(Math.abs(layout.width-layout.column) <= 1, `backup leaves its column blank ${cell}`);
+          assert(layout.formTop >= layout.headerBottom, `backup composition ${cell}`);
+          assert(width >= 1440 ? layout.beside : layout.below && Math.abs(layout.column-layout.workspace) <= 1, `backup placement ${cell}`);
+          assert(layout.height <= layout.content + 80, `backup wastes vertical space ${cell}`);
         }
         if (route === '/users/new') { await creationModes(page,'main',cell); await presetLayout(page,'main',cell); }
         if (route === '/dashboard') await chartInspection(page,cell);
         if (route === '/appearance') {
           assert(await page.locator('#appearance-style').isVisible(),'appearance style tab absent '+cell);
-          await page.locator('.visual-preset-choice[data-choice="claude-plus"]').click();
-          assert.equal(await page.locator('[data-appearance-name]').textContent(),'Claude +','live appearance title '+cell);
-          await page.locator('.appearance-default-disclosure > summary').click();
+          const preset = page.locator('.preset-card[data-choice="claude-plus"]');
+          await preset.click();
+          assert.equal(await page.locator('[data-appearance-name]').textContent(),await preset.locator('.preset-name').textContent(),'live appearance title '+cell);
+          // Panel defaults are an always-open owner card (no disclosure) within the style tab.
+          await page.locator('#appearance-panel-mode').scrollIntoViewIfNeeded();
           assert(await page.locator('#appearance-panel-mode').isVisible(),'panel defaults not reachable '+cell);
           await page.locator('#appearance-numbers-tab').click();
           assert(await page.locator('#personal-digits').isVisible() && !await page.locator('#appearance-style').isVisible(),'numeral tab isolation '+cell);
@@ -103,18 +112,21 @@ async function helpInteractions(page, selector, cell) {
           assert.equal(await page.locator('.nav a[aria-current="page"]').count(),1,'domains current navigation duplicated '+cell);
           assert.equal(await page.locator('.nav a[aria-current="page"]').getAttribute('href'),'/settings/domains','domains navigation missing '+cell);
           if (width >= 1440) {
-            const group=page.locator('.nav-group').first(); await group.locator('summary').click();
+            // Sidebar groups are static now; the icon rail must keep every destination visible and named.
+            const users=page.locator('.sidebar a.sidebar-item[href="/users"]'), name=(await users.textContent()).trim();
             await page.locator('[data-toggle-rail]').click();
-            assert(await page.locator('.nav a[href="/users"]').isVisible(),'collapsed group hides rail destinations '+cell);
+            assert(await page.locator('#shell').evaluate(el=>el.hasAttribute('data-collapsed')),'rail did not collapse '+cell);
+            assert(await users.isVisible(),'collapsed rail hides destinations '+cell);
+            assert.equal(await page.locator('.sidebar').getByRole('link',{name,exact:true}).count(),1,'collapsed rail lost destination name '+cell);
             await page.locator('[data-toggle-rail]').click();
-            assert(!await group.evaluate(el=>el.open),'expanded rail lost disclosure choice '+cell);
+            assert(await users.locator('span').first().isVisible(),'expanded rail lost labels '+cell);
           }
         }
       }
       await page.goto(seed.url+'/interfaces');
       await page.evaluate(() => document.fonts.ready);
-      const pool = await page.locator('.iface-network').first().evaluate(network => {
-        const address = network.querySelector('bdi'), description = network.querySelector('.cell-sub');
+      const pool = await page.locator('.ifaces-table tbody td:nth-child(3)').first().evaluate(network => {
+        const address = network.querySelector('.iface-pools .tech'), description = network.querySelector('.cell-sub');
         return {addressBottom:address.getBoundingClientRect().bottom,descriptionTop:description.getBoundingClientRect().top,direction:getComputedStyle(address).direction,address:address.textContent};
       });
       assert(pool.descriptionTop >= pool.addressBottom && pool.direction === 'ltr' && /^[0-9./]+$/.test(pool.address), `CIDR/capacity collision ${cell}`);
@@ -130,11 +142,20 @@ async function helpInteractions(page, selector, cell) {
       await creationModes(page,'#create-drawer',`drawer/${cell}`);
       await presetLayout(page,'#create-drawer',`drawer/${cell}`);
       await guidanceGeometry(page,'#create-drawer',`drawer/${cell}`);
-      const accountHelp = page.locator('#create-drawer #user-account .form-section-head .field-help-trigger');
-      await accountHelp.click();
-      await page.locator('.field-help-content:popover-open').waitFor();
+      // Drawer section copy is inline now; a nested overlay (calendar popover) must own Escape.
+      const drawerHelp = page.locator('#create-drawer .field-help-trigger:visible');
+      if (await drawerHelp.count()) {
+        await drawerHelp.first().click();
+        await page.locator('.field-help-content:popover-open').waitFor();
+        await page.keyboard.press('Escape');
+        assert(await page.locator('#create-drawer').evaluate(el => el.open), `help Escape closed drawer ${cell}`);
+      }
+      const calendar = page.locator('#create-drawer [data-calendar]');
+      await calendar.click();
+      await page.locator('.calendar.is-open').waitFor();
       await page.keyboard.press('Escape');
-      assert(await page.locator('#create-drawer').evaluate(el => el.open), `help Escape closed drawer ${cell}`);
+      assert.equal(await page.locator('.calendar.is-open').count(), 0, `calendar Escape ${cell}`);
+      assert(await page.locator('#create-drawer').evaluate(el => el.open), `nested Escape closed drawer ${cell}`);
       await qa.scan(page,`create-drawer-${cell}`);
       if (process.env.WG_UI_SCREENSHOT_DIR) {
         await page.screenshot({path:path.join(process.env.WG_UI_SCREENSHOT_DIR,`user-drawer-${engine}-${lang}-${width}.png`),fullPage:true});
@@ -144,8 +165,9 @@ async function helpInteractions(page, selector, cell) {
       // A hint containing the server error must not disappear into hidden help.
       await page.goto(seed.url+'/users/new');
       await page.locator('#u-username').fill('x');
-      await Promise.all([page.waitForNavigation(),page.locator('.form-actions button[type="submit"]').click()]);
-      assert(await page.locator('#username-hint .field-error').isVisible(), `validation hidden ${cell}`);
+      await Promise.all([page.waitForNavigation(),page.locator('.savebar button[type="submit"]').click()]);
+      const usernameField = page.locator('.field').filter({has:page.locator('#u-username')});
+      assert(await usernameField.locator('.field-error').isVisible() && await page.locator('#u-username').getAttribute('aria-invalid') === 'true', `validation hidden ${cell}`);
       assert.equal(await page.locator('.field-help-content .field-error').count(),0,`error became help ${cell}`);
       assert.equal(runtimeErrors,0,`browser runtime error ${cell}`);
       cells++; await context.close();
@@ -158,7 +180,7 @@ async function helpInteractions(page, selector, cell) {
       assert(await page.locator('[data-fill-preset]').first().isHidden(),'inert native quick-fill shown');
       assert(await page.locator('#u-traffic').isVisible(),'native manual quota inaccessible');
       await page.goto(seed.url+'/templates/new?lang='+lang);
-      assert(await page.locator('form .section-description').first().isVisible(),'native instructions absent');
+      assert(await page.locator('form .card-description').first().isVisible(),'native instructions absent');
       await page.goto(seed.url+'/backups?lang='+lang);
       assert(await page.locator('#b-password-help').isVisible(),'native backup instructions absent');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1),'native backup overflow');
@@ -169,12 +191,12 @@ async function helpInteractions(page, selector, cell) {
     await touch.addInitScript(() => Object.defineProperty(HTMLElement.prototype,'showPopover',{value:undefined,configurable:true}));
     await touch.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);
     const page = await touch.newPage(); await page.goto(seed.url+'/templates/new?lang=fa');
-    await page.locator('legend .field-help-trigger').first().tap();
+    await page.locator('.field-label-row .field-help-trigger').first().tap();
     const help = page.locator('.field-help-content:not([hidden])');
     assert(await help.isVisible(),'touch fallback did not open');
     const rect = await help.boundingBox();
     assert(rect.x >= 0 && rect.y >= 0 && rect.x+rect.width <= 391 && rect.y+rect.height <= 801,'touch fallback outside viewport');
-    await page.locator('legend .field-help-trigger').first().tap();
+    await page.locator('.field-label-row .field-help-trigger').first().tap();
     assert.equal(await page.locator('.field-help-content:not([hidden])').count(),0,'touch fallback did not close');
     await page.goto(seed.url+'/users?lang=fa');
     await page.locator('[data-open-modal="create-drawer"]').tap();
@@ -220,10 +242,12 @@ async function creationModes(page, scope, cell) {
 }
 
 async function presetLayout(page,scope,cell) {
-  const root=page.locator(scope), groups=root.locator('.unit-group .select-trigger');
+  const root=page.locator(scope), groups=root.locator('.users-preset-row .select-trigger');
   assert.equal(await groups.count(),2,'duplicate or missing preset enhancement '+cell);
   const geometry=await groups.evaluateAll(nodes=>nodes.map(group=>{
-    const outer=group.getBoundingClientRect(); return {overflow:group.scrollWidth>group.clientWidth+1,inside:outer.width>=44&&outer.height>=44};
+    // Dense fine-pointer controls keep the WCAG 2.5.8 minimum; coarse pointers grow to 40px (ui-ux contract).
+    const outer=group.getBoundingClientRect(), min=matchMedia('(pointer: coarse)').matches?40:24;
+    return {overflow:group.scrollWidth>group.clientWidth+1,inside:outer.width>=min&&outer.height>=min};
   }));
   assert(geometry.every(g=>!g.overflow&&g.inside),'preset clipping or undersized targets '+cell);
   const quota=root.locator('#u-traffic');

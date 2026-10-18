@@ -1,15 +1,66 @@
 {{define "title"}}{{.T "system.title"}}{{end}}
 {{define "content"}}
-<div class="system-workspace">
-  <header class="workspace-head"><div><span class="eyebrow">{{.T "nav.group.system"}}</span><h1>{{.T "system.title"}}</h1><p>{{.T "system.subtitle"}}</p></div><a class="btn btn--outline" href="/system">{{.IconS "refresh-cw"}}{{.T "system.refresh"}}</a></header>
-  <p class="hint">{{.T "system.captured"}} <bdi dir="ltr">{{.DateTime .Data.Snapshot.CapturedAt}} UTC</bdi></p>
-  <div class="system-status-grid">
-    <section class="card card--pad" aria-labelledby="readiness-title"><div class="section-head"><div><h2 id="readiness-title">{{.IconS "server"}}{{.T "system.readiness"}}</h2><p data-guidance>{{.T "system.readiness_hint"}}</p></div><span class="badge {{.StatusTone .Data.Snapshot.Readiness}}" data-system-state="readiness">{{.T (printf "system.state.%s" .Data.Snapshot.Readiness)}}</span></div><p>{{.T "system.readiness_scope"}}</p></section>
-    <section class="card card--pad" aria-labelledby="runtime-title"><div class="section-head"><div><h2 id="runtime-title">{{.IconS "network"}}{{.T "system.runtime"}}</h2><p data-guidance>{{.T "system.runtime_hint"}}</p></div><span class="badge {{.StatusTone .Data.Snapshot.Runtime.State}}" data-system-state="runtime">{{.T (printf "system.state.%s" .Data.Snapshot.Runtime.State)}}</span></div><dl class="system-facts"><div><dt>{{.T "system.in_flight"}}</dt><dd>{{if .Data.Snapshot.Runtime.InFlight}}{{.T "system.running"}}{{else}}{{.T "system.idle"}}{{end}}</dd></div><div><dt>{{.T "system.last_completed"}}</dt><dd>{{if .Data.Snapshot.Runtime.LastCompletedAt}}<bdi dir="ltr">{{.DT .Data.Snapshot.Runtime.LastCompletedAt}} UTC</bdi>{{else}}—{{end}}</dd></div><div><dt>{{.T "system.last_result"}}</dt><dd>{{.T (printf "system.state.%s" .Data.Snapshot.Runtime.LastResult)}}</dd></div></dl></section>
-    <section class="card card--pad" aria-labelledby="accounting-title"><div class="section-head"><div><h2 id="accounting-title">{{.IconS "activity"}}{{.T "system.accounting"}}</h2><p data-guidance>{{.T "system.accounting_hint"}}</p></div><span class="badge {{.StatusTone .Data.Snapshot.Accounting.State}}" data-system-state="accounting">{{.T (printf "system.state.%s" .Data.Snapshot.Accounting.State)}}</span></div><dl class="system-facts"><div><dt>{{.T "system.last_observed"}}</dt><dd>{{if .Data.Snapshot.Accounting.ObservedAt}}<bdi dir="ltr">{{.DT .Data.Snapshot.Accounting.ObservedAt}} UTC</bdi>{{else}}—{{end}}</dd></div><div><dt>{{.T "system.freshness_window"}}</dt><dd>{{.Dur .Data.Snapshot.Accounting.MaxAgeSeconds}}</dd></div></dl></section>
-    <section class="card card--pad" aria-labelledby="telemetry-title"><div class="section-head"><div><h2 id="telemetry-title">{{.IconS "activity"}}{{.T "system.telemetry"}}</h2><p data-guidance>{{.T "system.telemetry_hint"}}</p></div><span class="badge {{.StatusTone .Data.Snapshot.Telemetry.State}}" data-system-state="telemetry">{{.T (printf "system.state.%s" .Data.Snapshot.Telemetry.State)}}</span></div><dl class="system-facts"><div><dt>{{.T "system.last_observed"}}</dt><dd>{{if .Data.Snapshot.Telemetry.ObservedAt}}<bdi dir="ltr">{{.DT .Data.Snapshot.Telemetry.ObservedAt}} UTC</bdi>{{else}}—{{end}}</dd></div><div><dt>{{.T "system.cadence"}}</dt><dd>{{if .Data.Snapshot.Telemetry.CadenceSeconds}}{{.Dur .Data.Snapshot.Telemetry.CadenceSeconds}}{{else}}—{{end}}</dd></div></dl>{{range .Data.Snapshot.Telemetry.Issues}}<p class="hint">{{$.T (printf "dash.issue.%s" .)}}</p>{{end}}</section>
+{{$s := .Data.Snapshot}}
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">{{.T "system.title"}}</h1>
+    <p class="page-description">{{.T "system.subtitle"}}</p>
   </div>
-  {{if .Data.Attention}}<section class="card card--pad"><div class="section-head"><div><h2>{{.T "system.attention"}}</h2><p>{{.T "system.attention_hint"}}</p></div>{{.Icon "alert-circle"}}</div><ul class="guidance-list">{{range .Data.Attention}}<li>{{$.T (printf "system.help.%s" .Code)}}</li>{{end}}</ul><div class="inline-actions">{{if or (.Can "update.read") (.Can "update.manage")}}<a class="btn btn--outline" href="/updates?tab=operations">{{.T "nav.updates"}}</a>{{end}}{{if .Can "interfaces.read"}}<a class="btn btn--outline" href="/interfaces">{{.T "nav.interfaces"}}</a>{{end}}{{if .Can "stats.read"}}<a class="btn btn--outline" href="/dashboard">{{.T "nav.dashboard"}}</a>{{end}}</div></section>{{end}}
-  <details class="card card--pad technical-disclosure"><summary>{{.IconS "settings-2"}}{{.T "system.technical"}}</summary><p data-guidance>{{.T "system.sequence_hint"}}</p><dl class="system-facts"><div><dt>{{.T "system.requested_sequence"}}</dt><dd>{{.N (i64u .Data.Snapshot.Runtime.RequestedSequence)}}</dd></div><div><dt>{{.T "system.applied_sequence"}}</dt><dd>{{.N (i64u .Data.Snapshot.Runtime.AppliedSequence)}}</dd></div></dl><p>{{.T "system.host_diagnostics"}}</p><code class="ltr-data">sudo wg-guard doctor</code></details>
+  <div class="page-actions">
+    <span class="text-xs text-muted">{{.T "system.captured"}} <span class="num ltr">{{.DateTime $s.CapturedAt}} UTC</span></span>
+    <a class="btn btn--sm" href="/system">{{.IconS "refresh-cw"}}{{.T "system.refresh"}}</a>
+  </div>
+</header>
+{{if .Data.Attention}}
+<section class="alert alert--warning" aria-labelledby="system-attention-title">
+  {{.IconS "alert-triangle"}}
+  <h2 class="alert-title" id="system-attention-title">{{.T "system.attention"}}</h2>
+  <div class="alert-description stack-sm">
+    <p>{{.T "system.attention_hint"}}</p>
+    <ul class="ops-bullets">{{range .Data.Attention}}<li>{{$.T (printf "system.help.%s" .Code)}}</li>{{end}}</ul>
+    <div class="cluster">{{if or (.Can "update.read") (.Can "update.manage")}}<a class="btn btn--sm" href="/updates?tab=operations">{{.T "nav.updates"}}</a>{{end}}{{if .Can "interfaces.read"}}<a class="btn btn--sm" href="/interfaces">{{.T "nav.interfaces"}}</a>{{end}}{{if .Can "stats.read"}}<a class="btn btn--sm" href="/dashboard">{{.T "nav.dashboard"}}</a>{{end}}</div>
+  </div>
+</section>
+{{end}}
+<div class="grid-2">
+  <section class="card" aria-labelledby="readiness-title">
+    <div class="card-header"><h2 class="card-title" id="readiness-title">{{.IconS "server"}}{{.T "system.readiness"}}</h2><p class="card-description" data-guidance>{{.T "system.readiness_hint"}}</p><div class="card-action"><span class="badge {{or (.StatusTone $s.Readiness) "badge--muted"}}" data-system-state="readiness"><span class="dot"></span>{{.T (printf "system.state.%s" $s.Readiness)}}</span></div></div>
+    <div class="card-content"><p class="text-sm text-muted">{{.T "system.readiness_scope"}}</p></div>
+  </section>
+  <section class="card" aria-labelledby="runtime-title">
+    <div class="card-header"><h2 class="card-title" id="runtime-title">{{.IconS "network"}}{{.T "system.runtime"}}</h2><p class="card-description" data-guidance>{{.T "system.runtime_hint"}}</p><div class="card-action"><span class="badge {{or (.StatusTone $s.Runtime.State) "badge--muted"}}" data-system-state="runtime"><span class="dot"></span>{{.T (printf "system.state.%s" $s.Runtime.State)}}</span></div></div>
+    <div class="card-content kv">
+      <div class="kv-row"><span class="kv-label">{{.T "system.in_flight"}}</span><span class="kv-value">{{if $s.Runtime.InFlight}}<span class="badge badge--info"><span class="spinner" aria-hidden="true"></span>{{.T "system.running"}}</span>{{else}}{{.T "system.idle"}}{{end}}</span></div>
+      <div class="kv-row"><span class="kv-label">{{.T "system.last_completed"}}</span><span class="kv-value">{{if $s.Runtime.LastCompletedAt}}<span class="num ltr">{{.DT $s.Runtime.LastCompletedAt}} UTC</span>{{else}}—{{end}}</span></div>
+      <div class="kv-row"><span class="kv-label">{{.T "system.last_result"}}</span><span class="kv-value">{{.T (printf "system.state.%s" $s.Runtime.LastResult)}}</span></div>
+    </div>
+  </section>
+  <section class="card" aria-labelledby="accounting-title">
+    <div class="card-header"><h2 class="card-title" id="accounting-title">{{.IconS "activity"}}{{.T "system.accounting"}}</h2><p class="card-description" data-guidance>{{.T "system.accounting_hint"}}</p><div class="card-action"><span class="badge {{or (.StatusTone $s.Accounting.State) "badge--muted"}}" data-system-state="accounting"><span class="dot"></span>{{.T (printf "system.state.%s" $s.Accounting.State)}}</span></div></div>
+    <div class="card-content kv">
+      <div class="kv-row"><span class="kv-label">{{.T "system.last_observed"}}</span><span class="kv-value">{{if $s.Accounting.ObservedAt}}<span class="num ltr">{{.DT $s.Accounting.ObservedAt}} UTC</span>{{else}}—{{end}}</span></div>
+      <div class="kv-row"><span class="kv-label">{{.T "system.freshness_window"}}</span><span class="kv-value num">{{.Dur $s.Accounting.MaxAgeSeconds}}</span></div>
+    </div>
+  </section>
+  <section class="card" aria-labelledby="telemetry-title">
+    <div class="card-header"><h2 class="card-title" id="telemetry-title">{{.IconS "gauge"}}{{.T "system.telemetry"}}</h2><p class="card-description" data-guidance>{{.T "system.telemetry_hint"}}</p><div class="card-action"><span class="badge {{or (.StatusTone $s.Telemetry.State) "badge--muted"}}" data-system-state="telemetry"><span class="dot"></span>{{.T (printf "system.state.%s" $s.Telemetry.State)}}</span></div></div>
+    <div class="card-content stack-sm">
+      <div class="kv">
+        <div class="kv-row"><span class="kv-label">{{.T "system.last_observed"}}</span><span class="kv-value">{{if $s.Telemetry.ObservedAt}}<span class="num ltr">{{.DT $s.Telemetry.ObservedAt}} UTC</span>{{else}}—{{end}}</span></div>
+        <div class="kv-row"><span class="kv-label">{{.T "system.cadence"}}</span><span class="kv-value num">{{if $s.Telemetry.CadenceSeconds}}{{.Dur $s.Telemetry.CadenceSeconds}}{{else}}—{{end}}</span></div>
+      </div>
+      {{range $s.Telemetry.Issues}}<p class="text-xs text-warning">{{$.T (printf "dash.issue.%s" .)}}</p>{{end}}
+    </div>
+  </section>
 </div>
+<details class="collapsible" id="system-technical">
+  <summary><span class="summary-text"><span>{{.T "system.technical"}}</span><span class="summary-hint">{{.T "system.sequence_hint"}}</span></span></summary>
+  <div class="collapsible-content">
+    <div class="kv">
+      <div class="kv-row"><span class="kv-label">{{.T "system.requested_sequence"}}</span><span class="kv-value num">{{.N (i64u $s.Runtime.RequestedSequence)}}</span></div>
+      <div class="kv-row"><span class="kv-label">{{.T "system.applied_sequence"}}</span><span class="kv-value num">{{.N (i64u $s.Runtime.AppliedSequence)}}</span></div>
+    </div>
+    <div class="stack-xs"><p class="text-sm text-muted">{{.T "system.host_diagnostics"}}</p><code class="code-block">sudo wg-guard doctor</code></div>
+  </div>
+</details>
 {{end}}

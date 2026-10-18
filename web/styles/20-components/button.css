@@ -1,0 +1,65 @@
+/* Button — shadcn variants: primary, secondary, outline (default), ghost,
+ * destructive, link; sizes sm, lg, icon. <a> and <button> look identical. */
+@layer components {
+  .btn {
+    --btn-bg: var(--background);
+    --btn-fg: var(--foreground);
+    --btn-border: var(--input);
+    --btn-hover: var(--accent);
+    --btn-hover-fg: var(--accent-foreground);
+    position: relative;
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+    flex-shrink: 0;
+    height: var(--control-h); padding-inline: var(--control-px);
+    border: 1px solid var(--btn-border); border-radius: var(--radius-md);
+    background: var(--btn-bg); color: var(--btn-fg);
+    font-size: var(--control-text); font-weight: 500; line-height: 1; white-space: nowrap;
+    box-shadow: var(--shadow-xs);
+    cursor: pointer; user-select: none;
+    transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .btn > .icon { width: var(--icon); height: var(--icon); }
+  .btn:hover { background: var(--btn-hover); color: var(--btn-hover-fg); }
+  .btn:focus-visible { outline: none; border-color: var(--ring); box-shadow: var(--focus-ring); }
+  .btn:active:not(:disabled, [aria-disabled="true"]) { transform: translateY(.5px); }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: .5; pointer-events: none; box-shadow: none; }
+  form[aria-busy="true"] .btn[type="submit"][aria-disabled="true"], .btn[aria-busy="true"] { opacity: .7; cursor: progress; }
+  :root[data-theme="dark"] .btn:not([class*="btn--"]),
+  :root[data-theme="dark"] .btn--outline { --btn-bg: color-mix(in srgb, var(--input) 30%, transparent); --btn-hover: color-mix(in srgb, var(--input) 55%, transparent); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .btn:not([class*="btn--"]),
+    :root:not([data-theme]) .btn--outline { --btn-bg: color-mix(in srgb, var(--input) 30%, transparent); --btn-hover: color-mix(in srgb, var(--input) 55%, transparent); }
+  }
+
+  .btn--primary { --btn-bg: var(--primary); --btn-fg: var(--primary-foreground); --btn-border: var(--primary); --btn-hover: color-mix(in srgb, var(--primary) 88%, var(--background)); --btn-hover-fg: var(--primary-foreground); }
+  .btn--secondary { --btn-bg: var(--secondary); --btn-fg: var(--secondary-foreground); --btn-border: transparent; --btn-hover: color-mix(in srgb, var(--secondary) 80%, var(--foreground) 8%); --btn-hover-fg: var(--secondary-foreground); box-shadow: none; }
+  .btn--ghost { --btn-bg: transparent; --btn-border: transparent; --btn-hover: var(--accent); box-shadow: none; }
+  .btn--destructive { --btn-bg: var(--destructive); --btn-fg: var(--destructive-foreground); --btn-border: var(--destructive); --btn-hover: color-mix(in srgb, var(--destructive) 88%, var(--background)); --btn-hover-fg: var(--destructive-foreground); }
+  .btn--destructive:focus-visible { box-shadow: var(--focus-ring-danger); }
+  .btn--danger-ghost { --btn-bg: transparent; --btn-fg: var(--destructive-text); --btn-border: transparent; --btn-hover: color-mix(in srgb, var(--destructive) 10%, transparent); --btn-hover-fg: var(--destructive-text); box-shadow: none; }
+  .btn--link { --btn-bg: transparent; --btn-fg: var(--primary-text); --btn-border: transparent; --btn-hover: transparent; --btn-hover-fg: var(--primary-text); box-shadow: none; height: auto; padding: 0; }
+  .btn--link:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+  .btn--sm { height: var(--control-h-sm); padding-inline: calc(var(--control-px) - var(--s-0_5)); gap: var(--s-1_5); font-size: var(--text-sm); }
+  .btn--xs { height: calc(var(--control-h-sm) - var(--s-1_5)); padding-inline: var(--s-2); gap: var(--s-1); font-size: var(--text-xs); border-radius: var(--radius-sm); }
+  .btn--lg { height: var(--control-h-lg); padding-inline: var(--s-6); }
+  .btn--block { width: 100%; }
+  .btn--icon { width: var(--control-h); padding: 0; }
+  .btn--icon.btn--sm { width: var(--control-h-sm); }
+  .btn--icon.btn--xs { width: calc(var(--control-h-sm) - var(--s-1_5)); }
+  .btn--icon > .icon { margin: 0; }
+  /* 44px hit area on touch without enlarging the visual control. */
+  @media (pointer: coarse) {
+    .btn::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: max(100%, var(--hit)); height: max(100%, var(--hit)); transform: translate(-50%, -50%); }
+  }
+  .btn .kbd { margin-inline-start: var(--s-1); }
+  .btn-count { font-size: var(--text-xs); color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+  /* Button group: joined controls with one outer radius. */
+  .btn-group { display: inline-flex; align-items: stretch; isolation: isolate; }
+  .btn-group > .btn { border-radius: 0; box-shadow: none; }
+  .btn-group > .btn:not(:first-child) { margin-inline-start: -1px; }
+  .btn-group > .btn:first-child { border-start-start-radius: var(--radius-md); border-end-start-radius: var(--radius-md); }
+  .btn-group > .btn:last-child { border-start-end-radius: var(--radius-md); border-end-end-radius: var(--radius-md); }
+  .btn-group > .btn:focus-visible { z-index: 1; }
+}

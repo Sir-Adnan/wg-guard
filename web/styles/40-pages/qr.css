@@ -1,0 +1,20 @@
+/* Device QR dialog — shared by the panel (users) and the public subscription
+ * page. qr.js toggles dialog--sm / dialog--lg and creates .qr-all-card. */
+@layer pages {
+  .qr-single { display: flex; flex-direction: column; align-items: center; gap: var(--s-3); }
+  .qr-frame {
+    position: relative; display: grid; place-items: center; gap: var(--s-2);
+    width: min(100%, 18rem); aspect-ratio: 1; padding: var(--s-3);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--muted);
+  }
+  .qr-frame > img { width: 100%; height: auto; border-radius: var(--radius-sm); }
+  .qr-state { font-size: var(--text-sm); color: var(--muted-foreground); text-align: center; }
+  .qr-state:empty { display: none; }
+  .qr-grid { display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
+  .qr-all-card {
+    display: flex; flex-direction: column; align-items: center; gap: var(--s-2); margin: 0;
+    padding: var(--s-3); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card);
+  }
+  .qr-all-card > figcaption { font-size: var(--text-sm); font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qr-all-card > img { width: 100%; height: auto; border-radius: var(--radius-sm); }
+}

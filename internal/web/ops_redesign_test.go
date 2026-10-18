@@ -155,7 +155,7 @@ func TestAuditPageUsesCompactEventWorkspace(t *testing.T) {
 	e.seedOwner()
 	cookie := e.loginEN("owner")
 	body := e.get("/audit", cookie).Body.String()
-	for _, contract := range []string{`audit-filter-panel`, `audit-event-card`, `audit-event-summary`} {
+	for _, contract := range []string{`class="audit-filters"`, `class="audit-entry"`, `class="audit-entry-summary"`} {
 		if !strings.Contains(body, contract) {
 			t.Errorf("audit redesign missing %s", contract)
 		}

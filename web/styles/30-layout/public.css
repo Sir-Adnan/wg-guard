@@ -1,0 +1,10 @@
+/* Public subscription layout: customer-facing, no admin chrome. */
+@layer layout {
+  .public { min-height: 100dvh; display: flex; flex-direction: column; background: var(--background); }
+  .public-header { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); height: var(--header-h); padding-inline: max(var(--s-4), calc((100vw - 46rem) / 2)); background: color-mix(in srgb, var(--background) 86%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  .public-brand { display: flex; align-items: center; gap: var(--s-2); font-weight: 600; min-width: 0; }
+  .public-brand .brand-mark { background: var(--primary); color: var(--primary-foreground); }
+  .public-main { flex: 1; width: 100%; max-width: 46rem; margin-inline: auto; padding: var(--s-6) var(--s-4) var(--s-12); display: flex; flex-direction: column; gap: var(--s-5); }
+  .public-main--wide { max-width: 64rem; }
+  .public-foot { padding: var(--s-6) var(--s-4); text-align: center; font-size: var(--text-xs); color: var(--muted-foreground); }
+}

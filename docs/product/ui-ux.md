@@ -27,12 +27,12 @@ constraints. Preserve proven backend semantics and security while replacing weak
 compositions. No page, workflow, dialog or state may remain visually legacy at closure.
 
 Premium means precise hierarchy, spacing, typography, consistency, usability and restraint.
-Shadcn-like neutral surfaces carry the product: cool white light and near-black dark, with a
-recognizable cyan-to-indigo accent, distinct semantic colors and readable contrast. Apple/iOS-like
-polish includes refined depth and responsive feedback. Glass, blur, gradients, shadows and
-highlights may support dashboard/status cards, operational forms, overlays, auth/onboarding, public
-surfaces and other useful focal points, with readable fallbacks. Effects enhance hierarchy; avoid
-neon, excessive glow/blur, decorative motion and continuously moving chrome.
+The 2026-10 redesign rebuilt every surface on shadcn/ui component anatomy with a Vercel/Linear
+default: compact density, hairline borders, monochrome surfaces, monospace technical values,
+underline tabs and little empty space, so important facts read first. Visual presets (below)
+restyle the whole product, including layout composition. Effects stay restrained: no neon,
+excessive glow/blur, decorative motion or continuously moving chrome. The
+[design system](design-system.md) defines files, tokens, components and the preset format.
 
 Three layers keep the system maintainable:
 
@@ -49,46 +49,50 @@ hooks; they use delegation or idempotent initialization and release stale refere
 Business-specific form code stays outside shared overlay/navigation behavior. Preserve strict
 CSP, same-origin assets, session/CSRF checks and no-store sensitive responses.
 
-## Visual presets (post-v0.1.0)
+## Visual presets
 
-`internal/web/visual_presets.json` is the reviewed local registry: WG-Guard Neutral remains the
-built-in fallback, and ten optional TweakCN exports each contain light/dark source values for
-semantic surfaces, foregrounds, actions, controls, sidebar, five chart colors, font families,
-radius, spacing, tracking and shadow ingredients. `internal/web/visual_presets.go` validates the
-allowlist and emits one cache-busted stylesheet, loaded on the Appearance screen or when a
-non-default preset is active. The source URLs and theme IDs stay with their
-values. No remote CSS, executable theme code, or production build tool is fetched at runtime.
-Shared components consume the semantic bridge; a new preset adds registry data, not conditions
-across feature pages. Hard-coded visual values that obstruct the bridge belong in shared tokens.
+Presets are reviewed JSON files in `web/themes` (format and importer in the
+[design system](design-system.md#visual-presets)): the built-in `wg-guard-neutral` ("WG-Guard",
+Vercel/Geist style), Linear, the official shadcn palettes and imports from tweakcn that name
+their source page. Each preset sets the shadcn tokens for light and dark, fonts, radius, shadows,
+spacing and four layout axes (density, sidebar composition, tab style, surface elevation), so a
+preset changes everything from control height to the shell; feature pages carry no preset
+conditions. `internal/web/theme` validates every file and generates CSS at startup: the built-in
+preset is part of `app.css`, other presets are separate cache-busted stylesheets loaded only
+while active. No remote CSS, executable theme code or build tool is used at runtime.
 
-TweakCN exports do not define WG-Guard's icon size/stroke/container or control height. Those
-project-authored metrics are separate `project_metrics` entries. The named Latin faces (Outfit,
-Inter, Geist, DM Sans and Plus Jakarta Sans) are self-hosted, Latin-only and load only when used;
-system faces stay as fallback, while Persian keeps self-hosted Vazirmatn. Technical data remains
-LTR-isolated and tabular. Project control metrics respect a 44px minimum touch target. Status
-meaning, readable contrast,
-focus visibility, accessibility, and reduced motion outrank literal source-theme fidelity.
-`project_contrast` stores project-authored text/action/destructive corrections needed when a source
-primary pair fails normal-text contrast; the original source value remains intact in `styles`.
+Status meaning, readable contrast, focus visibility, accessibility and reduced motion outrank
+source fidelity: the importer stores WCAG AA corrections (4.5:1 for every text pair, both modes)
+in the preset's `contrast` section and tests fail a preset below that. Fonts are self-hosted
+(THIRD_PARTY.md). Persian text always uses Vazirmatn (restricted to Arabic script), so a preset's
+Latin face never renders Persian, and technical data stays LTR-isolated and tabular.
 
 Appearance has distinct axes: visual preset, Light/Dark/System mode, and independent locale/
 direction/Latin technical digits. A preset changes none of the latter. The account's saved preset
-overrides the installation default; an unrecognized saved ID falls back safely. The existing
-browser theme cookie is the personal mode override; otherwise the installation mode applies,
-then built-in Light. Language remains the existing account preference; direction follows locale.
-Owner-only panel-default actions require confirmation and never rewrite personal choices. Reset
-my appearance clears the personal preset and mode override; reset panel default restores WG-Guard
-Neutral/Light. The public subscription page uses the panel preset, with its visitor's explicit
-browser mode preference still respected. The Appearance screen offers an immediate local preview
-and explicit apply/reset actions; the standard Settings page links to it.
+overrides the installation default; an unrecognized saved ID falls back safely. The browser theme
+cookie is the personal mode override; otherwise the installation mode applies, then Light.
+Owner-only panel-default actions require confirmation and never rewrite personal choices.
+
+The public subscription page has its own owner-set default preset and mode (blank follows the
+panel default). A visitor may pick another preset from the page; that choice is a browser cookie
+(`wg_sub_preset`) honored only for registered IDs, and their explicit mode choice still wins.
+Reset my appearance clears the personal preset and mode override; reset panel default restores
+the built-in preset, Light, Latin digits and the subscription defaults.
+
+The Appearance screen shows every preset as a miniature drawn from its own colors, radius, font
+and sidebar composition; selecting one previews it live across the whole page (layout axes
+included) without saving, and leaving restores the saved appearance. Explicit actions apply it to
+the account, set the panel default, or set the subscription page default.
 
 ## Layout and navigation
 
-Desktop uses a compact permission-aware sidebar: Manage (Dashboard, Users, Templates, Interfaces),
-System (Backups, Update Center, Administrators, API Tokens, Webhooks, Audit, Settings). Server authorization stays
-authoritative; unauthorized destinations are absent. The topbar supplies page context, including
-root/dashboard equivalence, and reachable language/theme controls. Collapsed navigation still
-has accessible names and current-location state.
+Desktop uses the shadcn Sidebar block: brand, a search button for the command palette, and
+permission-aware groups (Manage, System, Preferences) from one Go definition (`View.Nav`) shared
+with the palette. Server authorization stays authoritative; unauthorized destinations are absent.
+The header supplies the sidebar toggle, page context and language/theme controls. The desktop
+sidebar collapses to an icon rail with tooltips and keeps accessible names and current-location
+state. The command palette (⌘K / Ctrl+K / `/`) filters the same destinations plus quick actions
+and a user search; it is an enhancement, never the only path.
 
 Below 960px the sidebar becomes a modal navigation drawer: close button/Escape/backdrop, contained
 focus, inactive background, scroll containment and return to the trigger. Resizing across the
@@ -104,10 +108,11 @@ part of layout, not afterthoughts. The final viewport/browser matrix is owned by
 
 ## Typography, localization and technical data
 
-Persian uses self-hosted Vazirmatn, OFL, `font-display: swap`, Regular/400 and SemiBold/600 WOFF2.
-English uses the native system sans stack (SF/Segoe UI as available), with no additional font
-download. Judge weight, rhythm and mixed-script readability in both locales; a future subset
-change requires measurement and honest notices. Body/form text
+Persian uses self-hosted variable Vazirmatn (OFL, `font-display: swap`), restricted to the
+Arabic Unicode range so mixed text keeps the preset's Latin face for Latin runs. Latin UI and
+monospace faces come from the active preset (Geist and Geist Mono by default) and are self-hosted
+WOFF2 files loaded only when used, with system fallbacks. Persian text is never letter-spaced.
+Judge weight, rhythm and mixed-script readability in both locales. Body/form text
 must remain readable on phones; headings, metadata and numeric metrics have distinct hierarchy.
 
 All product copy, including dynamic JavaScript feedback and scope/event descriptions, comes from
@@ -135,7 +140,9 @@ and API; localized human labels/descriptions are primary UI text.
 Every component defines applicable default, hover, focus-visible, pressed, selected, disabled,
 loading, success, warning, error and destructive states. Hover only enhances interactive targets;
 keyboard/touch provide equivalent operations. Controls have accessible names, visible focus and
-44px touch targets. Use native HTML semantics first; adding ARIA roles requires implementing the
+44px touch targets: on coarse pointers buttons grow to 36-40px and an invisible hit area extends
+them to 44px, while text fields, selects, tabs, navigation rows and calendar days are 44px
+themselves, so dense desktop layouts stay compact. Use native HTML semantics first; adding ARIA roles requires implementing the
 matching keyboard behavior. Focus must not be hidden behind sticky chrome/overlays.
 Checkbox glyphs stay compact inside 44px hit areas; preset buttons and calendar days also meet
 the touch target. At 320px the calendar uses the available width with seven 44px columns.
@@ -159,7 +166,10 @@ with a useful next action. Destructive confirmation names the target, count and 
 
 Motion is short (120–240ms), purposeful, mainly opacity/transform; no idle pulse or decorative
 movement. Loading animation exists only while loading. `prefers-reduced-motion` disables overlay,
-skeleton, chart and other nonessential animation without hiding feedback. Both themes meet AA
+skeleton, chart and other nonessential animation without hiding feedback; it removes
+transitions outright (`transition: none`) rather than shortening them, because a near-zero `all`
+transition still leaves an inherited `visibility` change hidden for the first frame and loses
+synchronous focus into a just-opened drawer or dialog. Both themes meet AA
 contrast for text and controls; status/series never depend on color alone. Verify keyboard,
 screen-reader reading/announcements, zoom/reflow and touch, not only DOM attributes.
 
@@ -186,6 +196,9 @@ Snapshot reading and focus never trigger extra samplers or automatic table repla
 ## Settings and performance
 
 Settings uses grouped section navigation, progressive disclosure and one editor per setting;
+the section navigation (`nav[data-scrollspy]`, a shared presentation enhancement) marks the
+section being read with `aria-current="true"`, keeps a clicked short trailing section current
+while it is on screen, and on phones scrolls its horizontal row to the current link;
 operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
 consequences and external host ownership are explained. Save/validation/secret semantics are
 specified in [Phase 10](../development/phase10.md#settings-save-decision-100-prerequisite).
@@ -313,7 +326,13 @@ Every subscription layout shows the following:
   are shown;
 - official app links, in this order: AmneziaWG and WG Tunnel first, AmneziaVPN last (the most
   complex app), amneziawg-tools for Linux;
-- for each device, **Open in AmneziaVPN** (`vpn://`) and **Copy key**.
+- for each device, **Open in AmneziaVPN** (`vpn://`) and **Copy key**;
+- command-line steps (amneziawg-tools) as LTR copy fields for the config path and the
+  `awg-quick up` command; the copy button appears with JavaScript, falls back to selecting the
+  text, and announces the result in one polite status region;
+- a **running-low** warning in place of the ready notice while the subscription is usable but
+  has used at least 90% of its quota or has three or fewer days left (`data_low`, `time_low`,
+  `both_low`). It only informs; enforcement stays in accounting.
 
 The **Portal** layout is an app-style variant with conic usage/time rings, sized for phones.
 Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the

@@ -16,7 +16,7 @@ Driver: `modernc.org/sqlite` (pure Go). Explicit repository code — no ORM. All
 | `reseller_template_access` | reseller_id + template_id; owner-assigned technical templates permitted for tenant purchases, without changing existing subscriptions |
 | `admins` | id, username, argon2id hash, role (`owner\|admin`), permissions JSON, enabled, optional reseller_id and `appearance_preset` personal override |
 | `admin_sessions` | id, admin FK, token hash, created/last_seen/expires, source IP |
-| `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard Neutral/Light |
+| `appearance_defaults` | Singleton installation-wide visual preset and Light/Dark/System mode; missing or invalid values resolve to built-in WG-Guard (`wg-guard-neutral`)/Light |
 | `api_tokens` | id, name, prefix (indexed), hash, scopes JSON, expires_at, enabled, cidr allowlist, last_used_at, optional reseller_id and issuer admin ID |
 | `webhook_endpoints` | id, url, secret_encrypted, enabled, events JSON, optional reseller_id, owner-only include_reseller_events opt-in (legacy rows default off) |
 | `webhook_deliveries` | id, endpoint FK, event type, payload, status (`pending\|delivered\|dead`), attempts, next_attempt_at (indexed), last error |

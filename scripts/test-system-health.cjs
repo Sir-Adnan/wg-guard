@@ -19,7 +19,7 @@ const assert=(ok,message)=>{if(!ok)throw new Error(message);};
         assert(!await page.locator('main').innerText().then(t=>t.includes('system.state.')||t.includes('system.help.')),'localized state/guidance');
         assert(await page.locator('main form').count()===0,'read-only health has mutation forms');
         assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'responsive overflow');
-        await page.locator('.technical-disclosure > summary').click();
+        await page.locator('#system-technical > summary').click();
         assert(await page.locator('main code').innerText()==='sudo wg-guard doctor','bounded host diagnostic guidance');
         assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'expanded detail overflow');
         const refresh=page.locator('main header a');await refresh.focus();assert(await refresh.evaluate(el=>document.activeElement===el),'keyboard focus');
@@ -31,7 +31,7 @@ const assert=(ok,message)=>{if(!ok)throw new Error(message);};
     }
     for(const lang of ['fa','en']){
       const ctx=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:900}});await ctx.addCookies([{name:'wg_session',value:seed.session,url:seed.url}]);
-      const page=await ctx.newPage();await page.goto(seed.url+`/system?lang=${lang}&_qa_state=pending`);await page.locator('.technical-disclosure > summary').focus();await page.keyboard.press('Enter');assert(await page.locator('.technical-disclosure').getAttribute('open')!==null,'native disclosure');await ctx.close();
+      const page=await ctx.newPage();await page.goto(seed.url+`/system?lang=${lang}&_qa_state=pending`);await page.locator('#system-technical > summary').focus();await page.keyboard.press('Enter');assert(await page.locator('#system-technical').getAttribute('open')!==null,'native disclosure');await ctx.close();
     }
     assert(errors.length===0,'browser runtime errors');console.log(`System health passed: ${engine}, 64 fa/en light/dark responsive state cells, keyboard/details, read-only forms and 2 native fallback cells`);
   }catch(e){throw new Error(stage+': '+e.message);}finally{await browser.close();}

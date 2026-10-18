@@ -1,6 +1,9 @@
-{{define "operation-receipt"}}
-<div class="operation-receipt" data-operation-state="{{.r.State}}" data-tone="{{.r.Tone}}" role="status">
-  <span class="badge">{{.v.T .r.Label}}</span>
-  <p class="hint">{{.v.T .r.Next}}</p>
+{{define "operation-receipt"}}{{/* . = dict "v" View "r" receipt; the alert tone follows the receipt tone */}}
+{{$tone := "alert"}}{{if eq .r.Tone "info"}}{{$tone = "alert alert--info"}}{{else if eq .r.Tone "success"}}{{$tone = "alert alert--success"}}{{else if eq .r.Tone "warning"}}{{$tone = "alert alert--warning"}}{{else if eq .r.Tone "danger"}}{{$tone = "alert alert--destructive"}}{{end}}
+{{$state := printf "%s" .r.State}}
+<div class="{{$tone}} operation-receipt" data-operation-state="{{.r.State}}" data-tone="{{.r.Tone}}" role="status">
+  {{if or (eq $state "queued") (eq $state "running")}}<span class="spinner" aria-hidden="true"></span>{{else if eq $state "scheduled"}}{{.v.IconS "clock"}}{{else if eq .r.Tone "success"}}{{.v.IconS "check"}}{{else if eq .r.Tone "danger"}}{{.v.IconS "alert-circle"}}{{else if eq .r.Tone "warning"}}{{.v.IconS "alert-triangle"}}{{else}}{{.v.IconS "info"}}{{end}}
+  <p class="alert-title">{{.v.T .r.Label}}</p>
+  <p class="alert-description">{{.v.T .r.Next}}</p>
 </div>
 {{end}}
