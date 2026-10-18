@@ -122,7 +122,8 @@ func (s *Server) handleSubPage(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	data := subPageData{Lang: "fa", OnlineWindow: 180, PlanKnown: u.TemplateID == nil}
-	if lang := r.URL.Query().Get("lang"); lang == "en" {
+	// Same rule as the page locale, so links keep the language being read.
+	if i18n.Normalize(r.URL.Query().Get("lang")) == i18n.En {
 		data.Lang = "en"
 	}
 	if v, err := s.Settings.GetInt(ctx, "accounting.online_window_seconds"); err == nil && v > 0 {

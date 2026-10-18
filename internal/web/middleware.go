@@ -16,6 +16,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
 	"github.com/Sir-Adnan/wg-guard/internal/backup"
 	"github.com/Sir-Adnan/wg-guard/internal/config"
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/domaintls"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
 )
@@ -81,6 +82,12 @@ func (s *Server) sessionMiddleware(next http.Handler) http.Handler {
 				r = r.WithContext(context.WithValue(r.Context(), ctxSession, c.Value))
 				r = r.WithContext(context.WithValue(r.Context(), ctxCSRF, deriveCSRF(c.Value)))
 				w.Header().Add("Vary", "Cookie")
+			} else if domain.CodeOf(err) == domain.CodeInternal {
+				// A storage failure (busy or unreadable database) says nothing
+				// about the session: serve this request signed out but keep the
+				// cookie, so the next request after a transient error still
+				// has its session.
+				s.logError(r, "session lookup", err)
 			} else {
 				// Stale or revoked cookie: drop it so templates don't loop.
 				s.clearSessionCookie(w)

@@ -99,3 +99,25 @@ func TestFlashTextNeedsServerSignature(t *testing.T) {
 		t.Fatal("a plain catalog toast must still render")
 	}
 }
+
+// A storage failure while validating a session must not sign the visitor out.
+func TestSessionSurvivesTransientStorageError(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	if _, err := e.db.Exec(`ALTER TABLE admin_sessions RENAME TO admin_sessions_unavailable`); err != nil {
+		t.Fatal(err)
+	}
+	rec := e.get("/", cookie)
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == sessionCookie && c.MaxAge < 0 {
+			t.Fatal("a storage error must not clear the session cookie")
+		}
+	}
+	if _, err := e.db.Exec(`ALTER TABLE admin_sessions_unavailable RENAME TO admin_sessions`); err != nil {
+		t.Fatal(err)
+	}
+	if rec := e.get("/", cookie); rec.Code != http.StatusOK {
+		t.Fatalf("session after recovery: %d", rec.Code)
+	}
+}
