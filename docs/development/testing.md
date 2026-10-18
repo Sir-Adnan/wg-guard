@@ -238,7 +238,8 @@ system-theme and equivalent-zoom checks. Synthetic healthy telemetry stays fresh
 its own case. Virtual subscriber identities prevent matrix traffic from consuming one rate bucket;
 the production limit and a dedicated limited-state case remain enforced.
 
-Use `WG_TEST_UI_GROUP` (`main`, `public`, `states`, `interactions`), `WG_TEST_UI_STATE`,
+Use `WG_TEST_UI_GROUP` (`main`, `public`, `states`, `interactions`; `states` seeds its own state
+cases outside the `final` suite), `WG_TEST_UI_STATE`,
 `WG_TEST_UI_STATE_FROM` (resume an interrupted state matrix at one named case),
 `WG_TEST_UI_PUBLIC`, `WG_TEST_UI_LANG`, `WG_TEST_UI_THEME` and `WG_TEST_UI_WIDTH` for affected-cell
 reruns. Run full acceptance with these filters absent and a sufficient Go test timeout. No physical

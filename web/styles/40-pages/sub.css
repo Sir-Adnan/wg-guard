@@ -24,7 +24,7 @@
   .sub-stat > .progress { margin-block: var(--s-1); }
   .sub-meta { justify-content: space-between; gap: var(--s-1) var(--s-3); }
   .sub-transfer { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-5); margin-top: auto; padding-top: var(--s-2_5); border-top: 1px solid var(--border); font-size: var(--text-xs); }
-  .sub-transfer > div { display: flex; align-items: center; gap: var(--s-1_5); min-width: 0; }
+  .sub-transfer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-1_5); min-width: 0; }
   .sub-transfer dt { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--muted-foreground); }
   .sub-transfer dd { font-weight: 500; color: var(--foreground); }
   .sub-ring { display: none; }
@@ -33,6 +33,8 @@
   .sub-device { flex-wrap: wrap; row-gap: var(--s-2); }
   .sub-device > .sub-device-note, .sub-device > .sub-device-actions, .sub-device > .sub-device-state { flex-basis: 100%; margin-inline-start: calc(2rem + var(--s-3)); }
   .sub-device-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+  /* The customer's primary actions stay at least 36px under every density. */
+  .sub-device-actions > .btn { height: max(var(--control-h), 2.25rem); }
   .sub-device-note { display: flex; align-items: flex-start; gap: var(--s-1_5); font-size: var(--text-xs); color: var(--muted-foreground); }
   .sub-device-note > .icon { margin-top: 2px; }
   .sub-device-note--warning { color: var(--warning); }
@@ -143,5 +145,9 @@
   .sub-ring.w45 { --p: 45; } .sub-ring.w50 { --p: 50; } .sub-ring.w55 { --p: 55; } .sub-ring.w60 { --p: 60; }
   .sub-ring.w65 { --p: 65; } .sub-ring.w70 { --p: 70; } .sub-ring.w75 { --p: 75; } .sub-ring.w80 { --p: 80; }
   .sub-ring.w85 { --p: 85; } .sub-ring.w90 { --p: 90; } .sub-ring.w95 { --p: 95; } .sub-ring.w100 { --p: 100; }
-  @media (max-width: 400px) { [data-sub-layout="portal"] .sub-ring { width: 4.5rem; } }
+  @media (max-width: 400px) {
+    [data-sub-layout="portal"] .sub-ring { width: 4.5rem; }
+    /* Two half-width cards: stack the transfer pair instead of squeezing it. */
+    [data-sub-layout="portal"] .sub-transfer { flex-direction: column; align-items: center; }
+  }
 }

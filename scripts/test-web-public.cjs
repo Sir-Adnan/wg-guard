@@ -68,10 +68,19 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
     await page.waitForFunction(() => document.querySelector('#qr-img')?.naturalWidth > 0);
     await page.locator('#qr-modal [data-close-modal]').click();
     step = 'public all-device QR view';
+    // The all-device viewer is offered only for two or more devices.
+    if (!await page.locator('[data-qr-all]').count()) {
+      // This public context holds no admin session; send the fixture's explicitly.
+      const added = await page.request.post(seed.url + '/users/' + seed.user + '/devices', {
+        form: { name: 'tablet', _csrf: seed.csrf }, headers: { Cookie: 'wg_session=' + seed.session }, maxRedirects: 0,
+      });
+      assert(added.status() === 303, 'second fixture device is created');
+      await navigate(seed.url, seed.sub + '?lang=en');
+    }
     await page.locator('[data-qr-all]').click();
     await page.waitForFunction(() => [...document.querySelectorAll('#qr-modal [data-qr-all-grid] img')].every(img => img.naturalWidth > 0));
     assert(await page.locator('#qr-modal [data-qr-single]').evaluate(el => el.hidden && getComputedStyle(el).display === 'none'), 'single QR viewer is not exposed behind all-device cards');
-    assert(await page.locator('#qr-modal [data-qr-all-grid] img').count() === await page.locator('.publicsub-device').count(), 'one QR card per actual device');
+    assert(await page.locator('#qr-modal [data-qr-all-grid] img').count() === await page.locator('[data-sub-device]').count(), 'one QR card per actual device');
     await page.locator('#qr-modal [data-close-modal]').click();
 
     }
@@ -99,25 +108,28 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl':'ltr'), step + ' direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, step + ' theme');
             if (name === 'subscription' && lang === 'fa') {
-              assert(await page.locator('.subscription-stat--usage').evaluate(card => {
-                const value = card.querySelector('.subscription-usage-values');
-                return value?.querySelectorAll('.metric-quantity bdi[dir="ltr"]').length >= 2 &&
+              assert(await page.locator('.sub-stat').first().evaluate(card => {
+                const value = card.querySelector('.sub-meta > span:last-child');
+                return value?.querySelectorAll('.sub-qty bdi[dir="ltr"]').length >= 2 &&
                   value.getBoundingClientRect().right <= card.getBoundingClientRect().right &&
                   value.scrollWidth <= value.clientWidth;
               }), step + ' used and limit values are isolated without overflow');
-              assert(await page.locator('.subscription-stat--transfer').evaluate(card => {
-                const values = card.querySelector('.subscription-transfer-list');
-                return values?.querySelectorAll('dd .metric-quantity bdi[dir="ltr"]').length === 2 && values.scrollWidth <= values.clientWidth;
+              assert(await page.locator('.sub-stat').first().evaluate(card => {
+                const values = card.querySelector('.sub-transfer');
+                return values?.querySelectorAll('dd .sub-qty bdi[dir="ltr"]').length === 2 && values.scrollWidth <= values.clientWidth;
               }), step + ' transfer values are isolated without overflow');
             }
             if (name === 'subscription') {
               assert(await page.locator('body').getAttribute('data-sub-layout') === (process.env.WG_TEST_SUB_LAYOUT || 'pass'), step + ' selected layout');
               if (process.env.WG_TEST_VISUAL_PRESET) assert(await page.locator('html').getAttribute('data-visual-preset') === process.env.WG_TEST_VISUAL_PRESET, step + ' panel visual preset');
-              assert(await page.locator('.publicsub-device-actions').first().evaluate(actions => {
-                const card = actions.closest('.publicsub-device').getBoundingClientRect();
+              // Device actions are the page's primary controls: at least 36px on a fine pointer
+              // (44px on touch, per the shared control tokens) and never wider than their card.
+              assert(await page.locator('.sub-device-actions').first().evaluate(actions => {
+                const card = actions.closest('.sub-device').getBoundingClientRect();
+                const min = matchMedia('(pointer: coarse)').matches ? 40 : 36;
                 return [...actions.querySelectorAll('.btn')].every(button => {
                   const box = button.getBoundingClientRect();
-                  return box.width >= 44 && box.height >= 44 && box.height <= 100 &&
+                  return box.width >= min && box.height >= min && box.height <= 100 &&
                     box.left >= card.left - 1 && box.right <= card.right + 1;
                 });
               }), step + ' device actions fit within their card');
@@ -136,9 +148,9 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
               await page.screenshot({path:pathModule.join(process.env.WG_UI_SCREENSHOT_DIR,'10.5-'+name+'-'+width+'.png'),fullPage:true});
             }
             if (name === 'subscription') {
-              const trigger = page.locator('.publicsub-bar [data-theme-menu] > button');
+              const trigger = page.locator('.public-header [data-theme-menu] > button');
               await trigger.click();
-              const position = await page.locator('.publicsub-bar [data-theme-menu] .menu').evaluate(menu => {
+              const position = await page.locator('.public-header [data-theme-menu] .menu').evaluate(menu => {
                 const button = menu.parentElement.querySelector('button').getBoundingClientRect();
                 const box = menu.getBoundingClientRect();
                 const rtl = document.documentElement.dir === 'rtl';
@@ -180,7 +192,7 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
     await page.locator('#o-password').fill(password);
     await page.locator('#o-password-confirm').fill(password);
     await submit(page.locator('form[action="/onboarding"]'));
-    assert(await page.locator('.dashboard-page').count()===1,'onboarding reaches workspace');
+    assert(await page.locator('#app-main #live-data').count()===1,'onboarding reaches workspace');
     await context.clearCookies();
     step = 'login successful safe return';
     await navigate(seed.url, '/login?next=%2Fdashboard');

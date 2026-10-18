@@ -127,10 +127,10 @@
       {{if not .D.Enabled}}<span class="badge badge--muted"><span class="dot dot--muted"></span>{{$.T "status.disabled"}}</span>{{else if .Online}}<span class="badge badge--success"><span class="dot dot--live"></span>{{$.T "status.online"}}</span>{{else}}<span class="badge badge--muted"><span class="dot dot--muted"></span>{{$.T "status.offline"}}</span>{{end}}
       {{if not .D.Enabled}}<p class="sub-device-note sub-device-note--warning">{{$.IconS "alert-triangle"}}<span>{{$.T "publicsub.device_disabled"}}</span></p>{{else if not $.Data.U.Status.PeerWanted}}<p class="sub-device-note">{{$.IconS "info"}}<span>{{$.T "publicsub.connection_paused"}}</span></p>{{end}}
       <div class="sub-device-actions">
-        <a class="btn btn--primary btn--sm" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}" data-config-download>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a>
-        <a class="btn btn--sm" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}">{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a>
-        <a class="btn btn--sm sub-handoff" href="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?lang={{$.Data.Lang}}">{{$.IconS "zap"}}<span>{{$.T "publicsub.open_amneziavpn"}}</span></a>
-        <button type="button" class="btn btn--sm" data-amnezia-copy="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?format=text">{{$.IconS "copy"}}<span>{{$.T "publicsub.ui.copy_key"}}</span></button>
+        <a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}" data-config-download>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a>
+        <a class="btn" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}">{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a>
+        <a class="btn sub-handoff" href="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?lang={{$.Data.Lang}}">{{$.IconS "zap"}}<span>{{$.T "publicsub.open_amneziavpn"}}</span></a>
+        <button type="button" class="btn" data-amnezia-copy="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?format=text">{{$.IconS "copy"}}<span>{{$.T "publicsub.ui.copy_key"}}</span></button>
       </div>
       <p class="sub-device-state" data-download-state role="status" data-loading="{{$.T "common.loading"}}" data-error="{{$.T "publicsub.download_failed"}}" data-rate-limit="{{$.T "publicsub.rate_limited"}}" data-success="{{$.T "publicsub.download_started"}}" data-copied="{{$.T "publicsub.key_copied"}}"></p>
     </article>
