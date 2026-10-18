@@ -86,6 +86,10 @@ Migration `0009_visual_appearance.sql` adds the nullable admin preset override a
 installation default. Existing account locale and browser theme cookies remain independent;
 neither is rewritten by a visual preset migration or panel-default action.
 
+Migration `0019_subscription_layouts.sql` rewrites only the `subscription.layout` setting row from
+the retired public page layouts to their successors (`pass` and `split` to `ticket`, `compact` to
+`minimal`); an absent row keeps the registry default and other values are left unchanged.
+
 Migration `0010_reseller_ownership.sql` adds the reseller identity and nullable ownership
 references without reassigning existing users, accounts, tokens or webhook rows. NULL remains the
 existing node-wide operator namespace. The foreign keys prevent orphan assignments; reseller

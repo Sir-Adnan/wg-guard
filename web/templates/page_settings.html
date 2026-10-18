@@ -65,29 +65,6 @@
 {{define "settings-field"}}
 {{$v := .v}}{{$f := .f}}
 {{$describe := printf "s-%s-hint s-%s-meta" $f.Name $f.Name}}{{if $f.Invalid}}{{$describe = printf "%s s-%s-error" $describe $f.Name}}{{end}}{{if $f.Unavailable}}{{$describe = printf "%s s-%s-unavailable" $describe $f.Name}}{{end}}
-{{if eq $f.Name "sub_layout"}}
-<div class="setting-row setting-row--stack settings-field{{if $f.Invalid}} is-invalid{{end}}">
-  <div class="setting-label">
-    <span class="setting-title" id="s-{{$f.Name}}-label">{{$v.T $f.Label}}</span>
-    <p class="setting-description" id="s-{{$f.Name}}-hint">{{$v.T $f.Hint}}</p>
-  </div>
-  <div class="setting-control">
-    <div class="choice-grid settings-layout-choices" role="radiogroup" aria-labelledby="s-{{$f.Name}}-label" aria-describedby="{{$describe}}">
-      {{range $f.Options}}
-      <label class="choice-card">
-        <input class="radio" type="radio" name="{{$f.Name}}" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $f.Unavailable}} disabled{{end}}>
-        <span class="choice-card-body">
-          <span class="layout-preview" data-layout="{{.Value}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <span class="choice-card-title">{{.Label}}</span>
-          <span class="choice-card-description">{{if or (eq .Value "pass") (eq .Value "split") (eq .Value "compact") (eq .Value "portal")}}{{$v.T (printf "settings.sub_layout.%s_hint" .Value)}}{{else}}{{$v.T "settings.selection_unavailable"}}{{end}}</span>
-        </span>
-      </label>
-      {{end}}
-    </div>
-    {{template "settings-field-foot" .}}
-  </div>
-</div>
-{{else}}
 <div class="setting-row settings-field{{if $f.Invalid}} is-invalid{{end}}">
   <div class="setting-label">
     <label class="setting-title" for="s-{{$f.Name}}">{{$v.T $f.Label}}{{if $f.Secret}}{{if $f.Unavailable}}<span class="badge badge--muted">{{$v.T "settings.unavailable"}}</span>{{else if $f.SecretSet}}<span class="badge badge--success"><span class="dot"></span>{{$v.T "settings.secret_set"}}</span>{{else}}<span class="badge badge--muted">{{$v.T "settings.secret_unset"}}</span>{{end}}{{end}}</label>
@@ -112,7 +89,6 @@
     {{template "settings-field-foot" .}}
   </div>
 </div>
-{{end}}
 {{end}}
 
 {{define "settings-field-foot"}}

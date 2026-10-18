@@ -514,14 +514,14 @@ func TestSettingsRegistryCoverageAndUnavailableValues(t *testing.T) {
 		specs[spec.key] = spec.form
 	}
 	for _, def := range settings.Defaults() {
+		if def.Key == "subscription.layout" {
+			continue // edited with the page's theme under Appearance (TestSubscriptionLayoutPickerAndPreview)
+		}
 		name := specs[def.Key]
 		if name == "" {
 			t.Fatalf("no field for registry key %s", def.Key)
 		}
 		want := 1
-		if def.Key == "subscription.layout" {
-			want = len(def.Options) // one radio group with three layout choices
-		}
 		if got := strings.Count(body, `name="`+name+`"`); got != want {
 			t.Fatalf("%s has %d inputs, want %d", def.Key, got, want)
 		}

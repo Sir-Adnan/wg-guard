@@ -108,19 +108,28 @@ module.exports = async ({ browser, seed, final, compositionsOnly = false }) => {
             assert(await page.locator('html').getAttribute('dir') === (lang === 'fa' ? 'rtl':'ltr'), step + ' direction');
             assert(await page.locator('html').getAttribute('data-theme') === theme, step + ' theme');
             if (name === 'subscription' && lang === 'fa') {
-              assert(await page.locator('.sub-stat').first().evaluate(card => {
-                const value = card.querySelector('.sub-meta > span:last-child');
-                return value?.querySelectorAll('.sub-qty bdi[dir="ltr"]').length >= 2 &&
-                  value.getBoundingClientRect().right <= card.getBoundingClientRect().right &&
-                  value.scrollWidth <= value.clientWidth;
-              }), step + ' used and limit values are isolated without overflow');
-              assert(await page.locator('.sub-stat').first().evaluate(card => {
-                const values = card.querySelector('.sub-transfer');
-                return values?.querySelectorAll('dd .sub-qty bdi[dir="ltr"]').length === 2 && values.scrollWidth <= values.clientWidth;
-              }), step + ' transfer values are isolated without overflow');
+              assert(await page.locator('#subscription-name').evaluate(heading => {
+                const hero = heading.closest('section'), box = hero.getBoundingClientRect();
+                const values = [...hero.querySelectorAll('.sub-qty bdi[dir="ltr"]')];
+                // Values must sit inside the hero (decorative ticket notches are clipped, not content).
+                return values.length >= 1 && values.every(value => {
+                  const r = value.getBoundingClientRect();
+                  return r.left >= box.left - 1 && r.right <= box.right + 1;
+                });
+              }), step + ' hero quantities are isolated without overflow');
+              await page.locator('label[for="sub-tab-details"]').click();
+              assert(await page.locator('[data-panel="details"] .sub-detail-list').first().evaluate(list =>
+                list.querySelectorAll('dd .sub-qty bdi[dir="ltr"]').length >= 4 && list.scrollWidth <= list.clientWidth + 1), step + ' detail quantities are isolated without overflow');
+              assert(await page.locator('[data-panel="connect"]').evaluate(panel => getComputedStyle(panel).display === 'none'), step + ' one section shows at a time');
+              await page.locator('label[for="sub-tab-guide"]').click();
+              const apps = page.locator('.sub-os-panel:visible details.sub-app');
+              assert(await apps.first().evaluate(el => el.open), step + ' recommended app guide starts open');
+              await apps.nth(1).locator('summary').click();
+              assert(await apps.nth(1).evaluate(el => el.open) && !await apps.first().evaluate(el => el.open), step + ' app guides open one at a time');
+              await page.locator('label[for="sub-tab-connect"]').click();
             }
             if (name === 'subscription') {
-              assert(await page.locator('body').getAttribute('data-sub-layout') === (process.env.WG_TEST_SUB_LAYOUT || 'pass'), step + ' selected layout');
+              assert(await page.locator('body').getAttribute('data-sub-layout') === (process.env.WG_TEST_SUB_LAYOUT || 'ticket'), step + ' selected layout');
               if (process.env.WG_TEST_VISUAL_PRESET) assert(await page.locator('html').getAttribute('data-visual-preset') === process.env.WG_TEST_VISUAL_PRESET, step + ' panel visual preset');
               // Device actions are the page's primary controls: at least 36px on a fine pointer
               // (44px on touch, per the shared control tokens) and never wider than their card.

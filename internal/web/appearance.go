@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/auth"
+	"github.com/Sir-Adnan/wg-guard/internal/domain"
 	"github.com/Sir-Adnan/wg-guard/internal/i18n"
 	"github.com/Sir-Adnan/wg-guard/internal/web/theme"
 )
@@ -26,6 +28,8 @@ type appearancePageData struct {
 	PanelDefault   appearanceSelection
 	SubPreset      string // blank follows the panel default
 	SubMode        string // blank follows the panel default
+	SubLayouts     []string
+	SubLayout      string // the saved public page design
 	Personal       string
 	IsOwner        bool
 	ModeIsPersonal bool
@@ -121,6 +125,7 @@ func (s *Server) appearancePageData(r *http.Request) appearancePageData {
 	data := appearancePageData{
 		Choices: s.presetChoices(), Effective: s.appearanceFor(r), PanelDefault: defaults.appearanceSelection,
 		SubPreset: defaults.SubPreset, SubMode: defaults.SubMode,
+		SubLayouts: subLayouts, SubLayout: s.subLayout(r.Context()),
 		ModeIsPersonal: themeCookieChoice(r) != "", IsOwner: a != nil && a.Role == auth.RoleOwner,
 	}
 	if a != nil && s.themes.Known(a.AppearancePreset) {
@@ -133,22 +138,30 @@ func (s *Server) appearancePageData(r *http.Request) appearancePageData {
 	return data
 }
 
-// handleAppearanceSubscription sets the subscription page's preset and mode.
-// Blank values follow the panel default.
+// handleAppearanceSubscription sets the subscription page's design, preset
+// and mode. Blank preset and mode follow the panel default; an absent design
+// keeps the saved one. Everything is validated before anything is written.
 func (s *Server) handleAppearanceSubscription(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAppearanceOwner(w, r) {
 		return
 	}
 	preset, mode := strings.TrimSpace(r.PostFormValue("sub_preset")), r.PostFormValue("sub_mode")
-	if (preset != "" && !s.themes.Known(preset)) || (mode != "" && !validAppearanceMode(mode)) {
+	layout := r.PostFormValue("sub_layout")
+	if (preset != "" && !s.themes.Known(preset)) || (mode != "" && !validAppearanceMode(mode)) || (layout != "" && !validSubLayout(layout)) {
 		s.surfaceError(w, r, http.StatusBadRequest, "appearance.invalid", "app")
 		return
+	}
+	if layout != "" {
+		if err := s.Settings.Set(r.Context(), "subscription.layout", layout); err != nil {
+			s.actionFailed(w, r, err)
+			return
+		}
 	}
 	if _, err := s.DB.ExecContext(r.Context(), `UPDATE appearance_defaults SET sub_preset_id = ?, sub_mode = ? WHERE id = 1`, preset, mode); err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	s.audit(r, "appearance.subscription_changed", "panel", map[string]any{"preset": preset, "mode": mode})
+	s.audit(r, "appearance.subscription_changed", "panel", map[string]any{"layout": layout, "preset": preset, "mode": mode})
 	s.redirectToast(w, r, "/appearance#appearance-subscription", "appearance.sub.saved")
 }
 
@@ -234,6 +247,10 @@ func (s *Server) handleAppearanceDefaultReset(w http.ResponseWriter, r *http.Req
 		s.actionFailed(w, r, err)
 		return
 	}
+	if err := s.Settings.Set(r.Context(), "subscription.layout", subLayouts[0]); err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
 	s.audit(r, "appearance.default_reset", "panel", nil)
 	s.redirectToast(w, r, "/appearance", "appearance.default_reset_done")
 }
@@ -245,4 +262,68 @@ func (s *Server) requireAppearanceOwner(w http.ResponseWriter, r *http.Request) 
 		return false
 	}
 	return true
+}
+
+// handleAppearanceSubscriptionPreview renders the public page with sample data
+// so the owner can compare designs before saving. Query values (layout, preset,
+// mode) preview unsaved choices; absent or unknown ones use the saved
+// subscription defaults.
+// Nothing about real users or devices is read.
+func (s *Server) handleAppearanceSubscriptionPreview(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAppearanceOwner(w, r) {
+		return
+	}
+	q := r.URL.Query()
+	defaults := s.installationAppearance(r.Context())
+	selection := defaults.appearanceSelection
+	if defaults.SubPreset != "" {
+		selection.Preset = defaults.SubPreset
+	}
+	if defaults.SubMode != "" {
+		selection.Mode = defaults.SubMode
+	}
+	// A present but blank value previews "follow the panel default".
+	if q.Has("preset") {
+		if preset := q.Get("preset"); preset == "" {
+			selection.Preset = defaults.Preset
+		} else if s.themes.Known(preset) {
+			selection.Preset = preset
+		}
+	}
+	if q.Has("mode") {
+		if mode := q.Get("mode"); mode == "" {
+			selection.Mode = defaults.Mode
+		} else if validAppearanceMode(mode) {
+			selection.Mode = mode
+		}
+	}
+	data := sampleSubPage(i18n.Normalize(q.Get("lang")), time.Now())
+	data.Layout = s.subLayout(r.Context())
+	if layout := q.Get("layout"); validSubLayout(layout) {
+		data.Layout = layout
+	}
+	s.renderSubWith(w, r, "sub", data, &selection)
+}
+
+// sampleSubPage is a plausible, clearly fictional subscription: an active plan
+// partly used, two devices (one online) and every setup guide.
+func sampleSubPage(locale i18n.Locale, now time.Time) subPageData {
+	const gb = int64(1_000_000_000)
+	limit, duration := 50*gb, int64(30*24*3600)
+	expires := now.Add(19 * 24 * time.Hour)
+	data := subPageData{
+		Lang: string(locale), Base: "#", Preview: true, DevicesKnown: true, PlanKnown: true, OnlineWindow: 180,
+		PlanName:  i18n.T(locale, "appearance.sub.sample_plan"),
+		Platforms: subPlatforms,
+		U: &subUserView{Username: "sara", Status: domain.UserActive, TrafficLimitBytes: &limit,
+			TrafficUsedRX: 3_100_000_000, TrafficUsedTX: 15_300_000_000, ExpiresAt: &expires, DurationSeconds: &duration},
+		Devices: []subDevice{
+			{D: &deviceView{ID: "sample-phone", Name: "iPhone", IPv4: "10.8.0.2/32", Enabled: true}, Online: true},
+			{D: &deviceView{ID: "sample-laptop", Name: "Laptop", IPv4: "10.8.0.3/32", Enabled: true}},
+		},
+	}
+	data.Used = data.U.TrafficUsedRX + data.U.TrafficUsedTX
+	data.usageAndTime(now)
+	data.Attention = data.attention()
+	return data
 }

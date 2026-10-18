@@ -162,7 +162,8 @@ docs/                    this documentation tree
 ## Web presentation boundary (Phase 10)
 
 `internal/web` keeps typed view models and calls existing services. Shared `partial_shell.html`
-owns head/preferences/feedback; app/auth/sub layouts compose it. `web/static/js/ui.js` owns shared
+owns head/preferences/feedback; app/auth/sub layouts compose it. The public subscription page keeps
+its shared body in `page_sub.html` and one hero per design in `partial_sub_heroes.html`. `web/static/js/ui.js` owns shared
 navigation/overlay/theme/request lifecycle; `app.js` imports its cache-busted URL for page-specific
 forms. CSS lives in `web/styles` (tokens → base → components → layout → pages → utilities, see
 the [design system](../product/design-system.md)); presets in `web/themes` are data only. No new

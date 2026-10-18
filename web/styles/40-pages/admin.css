@@ -39,24 +39,6 @@
   .is-dirty .settings-save-dot { color: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent); }
   .is-dirty .settings-savebar { border-color: color-mix(in srgb, var(--foreground) 25%, var(--border)); }
 
-  /* Subscription layout choice: a schematic of each public page arrangement. */
-  .settings-layout-choices { grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
-  .settings-layout-choices .choice-card { flex-direction: column-reverse; gap: var(--s-2); padding: var(--s-3); }
-  .settings-layout-choices .choice-card > .radio { position: absolute; top: var(--s-3); inset-inline-end: var(--s-3); margin: 0; }
-  .settings-layout-choices .choice-card-title { padding-inline-end: var(--s-6); font-size: var(--text-sm); }
-  .layout-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; height: 3.5rem; padding: var(--s-1_5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--muted); margin-bottom: var(--s-1); }
-  .layout-preview > i { display: block; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--foreground) 12%, transparent); }
-  .layout-preview > i:first-child { grid-column: 1 / -1; background: color-mix(in srgb, var(--foreground) 32%, transparent); }
-  .layout-preview[data-layout="split"] { grid-template-columns: 1fr 1fr 1fr; }
-  .layout-preview[data-layout="split"] > i:first-child { grid-column: 1; grid-row: 1 / span 2; }
-  .layout-preview[data-layout="compact"] { grid-template-columns: 1fr 1fr 1fr; }
-  .layout-preview[data-layout="compact"] > i:nth-child(n+2) { background: var(--background); border: 1px solid var(--border); }
-  .layout-preview[data-layout="portal"] { justify-items: center; }
-  .layout-preview[data-layout="portal"] > i:first-child { width: 55%; border-radius: var(--radius-full); }
-  .layout-preview[data-layout="portal"] > i:nth-child(n+2) { width: 100%; }
-  .layout-preview[data-layout="portal"] > i:last-child { grid-column: 1 / -1; }
-  .choice-card:has(input:checked) .layout-preview > i:first-child { background: var(--primary); }
-
   @media (max-width: 960px) {
     .settings-layout { grid-template-columns: 1fr; gap: var(--s-4); }
     .settings-nav { top: var(--header-h); z-index: var(--z-sticky); flex-direction: row; overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--page-px) * -1); padding: var(--s-2) var(--page-px); background: var(--background); border-bottom: 1px solid var(--border); }

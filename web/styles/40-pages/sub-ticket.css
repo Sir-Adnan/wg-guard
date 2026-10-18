@@ -1,0 +1,64 @@
+/* Subscription design "ticket": a boarding pass. The status stub sits beside the
+ * pass on wide screens and below it on phones, joined by a dashed perforation
+ * with a notch at each end. Notches are circles in the page color centred on
+ * the edge; the ticket clips their outer half, so the edge reads as cut. */
+@layer pages {
+  .ticket {
+    --notch: 1.25rem;
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 10.5rem;
+    border: 1px solid var(--border); border-radius: calc(var(--radius-xl) + .25rem);
+    background: var(--card); color: var(--card-foreground); box-shadow: var(--shadow-md); overflow: clip;
+  }
+  .ticket-main { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; padding: var(--s-6); }
+  .ticket-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+  .ticket-kind { display: inline-flex; align-items: center; gap: var(--s-1_5); font-size: var(--text-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); }
+  .ticket-holder { display: flex; flex-direction: column; gap: var(--s-0_5); min-width: 0; }
+  .ticket-label, .ticket-fields dt { font-size: var(--text-2xs); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); }
+  :root[lang="fa"] :is(.ticket-kind, .ticket-label, .ticket-fields dt) { letter-spacing: 0; font-size: var(--text-xs); }
+  .ticket-name { font-size: var(--text-3xl); font-weight: 700; letter-spacing: -0.03em; line-height: var(--leading-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ticket-plan { font-size: var(--text-sm); color: var(--muted-foreground); }
+  .ticket-fields { display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between; gap: var(--s-4); padding-top: var(--s-4); border-top: 1px dashed var(--border); }
+  .ticket-fields > div { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+  .ticket-fields dd { font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-tight); white-space: nowrap; }
+  .ticket-fields dd .sub-value-text { font-size: var(--text-sm); white-space: normal; }
+
+  .ticket-stub {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-3);
+    padding: var(--s-6) var(--s-4); text-align: center;
+    border-inline-start: 2px dashed var(--border);
+    background: color-mix(in srgb, var(--status-tone) 7%, var(--card));
+    border-start-end-radius: inherit; border-end-end-radius: inherit;
+  }
+  .ticket-stub::before, .ticket-stub::after {
+    content: ""; position: absolute; inset-inline-start: calc(var(--notch) / -2 - 1px);
+    width: var(--notch); height: var(--notch); border-radius: 50%;
+    background: var(--background); border: 1px solid var(--border);
+  }
+  .ticket-stub::before { top: calc(var(--notch) / -2 - 1px); }
+  .ticket-stub::after { bottom: calc(var(--notch) / -2 - 1px); }
+  .ticket-seal { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: var(--radius-full); background: color-mix(in srgb, var(--status-tone) 16%, transparent); color: var(--status-tone); }
+  .ticket-seal > .icon { width: 1.5rem; height: 1.5rem; }
+  .ticket-stub-title { font-size: var(--text-sm); font-weight: 600; }
+  .ticket-barcode {
+    width: 100%; max-width: 7.5rem; height: 2.25rem; border-radius: 2px; opacity: .55;
+    background: repeating-linear-gradient(90deg, var(--foreground) 0 2px, transparent 2px 4px, var(--foreground) 4px 5px, transparent 5px 7px, var(--foreground) 7px 10px, transparent 10px 12px, var(--foreground) 12px 13px, transparent 13px 16px);
+  }
+
+  /* Phones: the stub tears off below; notches move to the side edges. */
+  @media (max-width: 640px) {
+    .ticket { grid-template-columns: minmax(0, 1fr); }
+    .ticket-main { padding: var(--s-5) var(--s-4); gap: var(--s-4); }
+    .ticket-name { font-size: var(--text-2xl); }
+    .ticket-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ticket-stub {
+      flex-direction: row; justify-content: flex-start; gap: var(--s-3); padding: var(--s-4); text-align: start;
+      border-inline-start: 0; border-top: 2px dashed var(--border);
+      border-radius: 0 0 calc(var(--radius-xl) + .25rem) calc(var(--radius-xl) + .25rem);
+    }
+    .ticket-stub::before, .ticket-stub::after { inset-inline-start: auto; top: calc(var(--notch) / -2 - 1px); bottom: auto; }
+    .ticket-stub::before { left: calc(var(--notch) / -2 - 1px); }
+    .ticket-stub::after { right: calc(var(--notch) / -2 - 1px); }
+    .ticket-seal { width: 2.75rem; height: 2.75rem; }
+    .ticket-barcode { margin-inline-start: auto; max-width: 5.5rem; height: 1.75rem; }
+  }
+}

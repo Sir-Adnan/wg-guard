@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Rewrite the subscription page around four designs the owner picks under **Appearance →
+  Subscription page**: Ticket (the new default, a boarding pass with a tear-off status stub),
+  Membership card, Minimal and App (usage rings and a bottom tab bar on phones). Every design
+  shares Connect, Setup guide and Details tabs; the guide lists each app as an accordion item and
+  ends with common questions. **Preview** shows unsaved choices with sample data. The layout
+  setting moved from Settings to Appearance, and migration `0019_subscription_layouts.sql` maps
+  the retired layouts (pass and split to Ticket, compact to Minimal; Portal is now App).
 - Redesign every panel, sign-in and subscription page on a new design system: shadcn/ui
   component anatomy in plain CSS (`web/styles`, cascade layers, concatenated at startup; no build
   tool) with a Vercel/Linear default — compact density, hairline borders, monospace technical
