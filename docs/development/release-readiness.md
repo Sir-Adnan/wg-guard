@@ -25,7 +25,7 @@ No release blocker is open. These cells stay unverified and are not implied by a
 | Area | Missing evidence |
 |---|---|
 | Egress routing | Real-host client traffic through outbounds (chained, failover), IPv6 site bridge with real clients and WARP IPv6, live site test verdicts, WARP renewal against the live API ([status](status.md#egress-routing)) |
-| Client apps | AmneziaVPN import on devices; physical phones; WebKit and Firefox for the v0.2.0 UI ([status](status.md#design-system-redesign)) |
+| Client apps | AmneziaVPN import on devices; physical phones; WebKit and Firefox for the v0.2 UI ([status](status.md#design-system-redesign)) |
 | Hosts | Ubuntu newer than 24.04 (including kernel `7.0.0-38` module load), active firewalld, non-amd64 |
 | Scale and time | 1000 simultaneous handshakes, multi-day soak, an observed long-interval certificate renewal, DNS-01 real issuance |
 
@@ -43,6 +43,7 @@ residual risk.
 
 | Version | Date | Exact source | Highlights |
 |---|---|---|---|
+| [v0.2.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.2.1) | 2026-10-19 | `3471f97` | Tests tab with IP version choice, speed and bulk outbound tests, Claude and custom-URL verdict fixes; Outbounds and Rules redesign |
 | [v0.2.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.2.0) | 2026-10-19 | `2a5255a` | Egress routing, IPv6 site bridge and site test; design system, 29 themes, four subscription designs |
 | [v0.1.11](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.11) | 2026-10-08 | `228e2a5` | Containerd image-store admission; bundle `awg-2026-10` |
 | [v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) | 2026-10-06 | `4f78adc` | Docker-only runtime, domains and TLS, installer UX (Phases 16–20) |
