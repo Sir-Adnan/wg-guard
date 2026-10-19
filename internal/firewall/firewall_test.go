@@ -242,7 +242,8 @@ func TestEnsureUfwRoutes(t *testing.T) {
 		}
 		if !strings.Contains(f.callsJoined(), "ufw route allow in on awg0") ||
 			!strings.Contains(f.callsJoined(), "ufw route allow in on awg1") ||
-			!strings.Contains(f.callsJoined(), "ufw allow in on awg1 to any port 53") {
+			!strings.Contains(f.callsJoined(), "ufw allow in on awg1 to any port 53") ||
+			!strings.Contains(f.callsJoined(), "ufw allow in on awg1 to any port 51801:51863 proto tcp") {
 			t.Fatalf("argv:\n%s", f.callsJoined())
 		}
 	})

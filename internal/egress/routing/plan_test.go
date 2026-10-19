@@ -352,3 +352,49 @@ func TestCompileChainedOutbound(t *testing.T) {
 		t.Fatalf("warnings: %+v", plan.Warnings)
 	}
 }
+
+// A bridged outbound: its link carries IPv6, it has IPv6 routes and a
+// bridge spec, an unbridged link keeps its hash, and the redirect and QUIC
+// refusal load in the real nft.
+func TestBridgedOutboundPlanAndRender(t *testing.T) {
+	snap := scenario()
+	var before string
+	for i, o := range snap.Outbounds {
+		if o.ID == "o-warp" {
+			before = linkSpec(o, 0).Hash
+			t2 := *o.Tunnel
+			t2.Address6, t2.IPv6Sites = "2606:4700:110:8a36::2/128", true
+			o.Outbound = &egress.Outbound{ID: o.ID, Name: o.Name, Kind: o.Kind, Slot: o.Slot, Enabled: true, Tunnel: &t2}
+			snap.Outbounds[i] = o
+		}
+	}
+	p := Compile(snap, ifaces, Inputs{Health: Health{}}, geo)
+	if len(p.Bridges) != 1 || p.Bridges[0].OutboundID != "o-warp" || len(p.Routes6) != 1 {
+		t.Fatalf("bridges %+v routes6 %+v", p.Bridges, p.Routes6)
+	}
+	for _, l := range p.Links {
+		if l.OutboundID != "o-warp" {
+			continue
+		}
+		if l.Address6 == "" || len(l.Config.Peers[0].AllowedIPs) != 2 || l.Hash == before {
+			t.Fatalf("bridged link: %+v", l)
+		}
+	}
+	unbridged := tunnelOutbound("x", 9, true)
+	if linkSpec(unbridged, 0).Hash != linkSpec(tunnelOutbound("x", 9, true), 0).Hash {
+		t.Fatal("hash not stable")
+	}
+	script := RenderTable(p, Inventory{}, true)
+	if !strings.Contains(string(script), "chain ip "+TableName+" site_bridge") {
+		t.Fatalf("no bridge chain:\n%s", script)
+	}
+	run := nftNamespace(t)
+	path := filepath.Join(t.TempDir(), "b.nft")
+	if err := os.WriteFile(path, script, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := run("nft -f " + path + "\nnft list table ip " + TableName + "\n")
+	if !strings.Contains(out, "redirect to :") || !strings.Contains(out, "udp dport 443 reject") {
+		t.Fatalf("bridge rules not loaded:\n%s", out)
+	}
+}

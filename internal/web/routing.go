@@ -127,6 +127,12 @@ type outboundCard struct {
 	Colo       string // Cloudflare data centre that served the probe
 	WARPState  string // on | plus | off, from the probe (WARP kind only)
 	Via        string // name of the outbound this one is chained through
+	// Bridge is the IPv6 site bridge state (routing.OutboundStatus.Bridge,
+	// or "pending" before the first apply); ExitIP6 the probed IPv6 exit.
+	Bridge   string
+	ExitIP6  string
+	Bridged  routing.BridgeStats
+	HasStats bool
 }
 
 type outboundsData struct {
@@ -135,6 +141,7 @@ type outboundsData struct {
 	Healthy  int
 	Problems int
 	Warnings []routing.Warning
+	Site     siteTestData
 }
 
 // outboundKindKey labels the transport precisely (WARP vs WARP+, WireGuard
@@ -178,8 +185,10 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 		return nil, routing.Status{}, err
 	}
 	var st routing.Status
+	var bridged map[string]routing.BridgeStats
 	if s.EgressRuntime != nil {
 		st = s.EgressRuntime.Status()
+		bridged = s.EgressRuntime.BridgeStats()
 	}
 	usage := s.outboundUsage(r)
 	names := map[string]string{}
@@ -197,6 +206,15 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 		}
 		obs, known := st.Outbounds[o.ID]
 		c.Status = obs
+		if o.Tunnel.Bridges() && o.Enabled {
+			c.Bridge = obs.Bridge
+			if c.Bridge == "" {
+				c.Bridge = "pending"
+			}
+			if b, ok := bridged[o.ID]; ok {
+				c.Bridged, c.HasStats = b, true
+			}
+		}
 		switch {
 		case !o.Enabled:
 			c.State = "disabled"
@@ -215,7 +233,7 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 			if obs.Probe.OK {
 				c.Latency = strconv.FormatInt(obs.Probe.Latency.Milliseconds(), 10)
 				c.ExitIP, c.Country, c.Flag = obs.Probe.ExitIP, obs.Probe.Country, countryFlag(obs.Probe.Country)
-				c.Colo = obs.Probe.Colo
+				c.Colo, c.ExitIP6 = obs.Probe.Colo, obs.Probe.ExitIP6
 				if o.Kind == egress.KindWARP {
 					c.WARPState = obs.Probe.WARP
 				}
@@ -277,7 +295,7 @@ func (s *Server) handleOutbounds(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	d := outboundsData{Tabs: s.loadRoutingTabs(r, "outbounds"), Cards: cards, Warnings: st.Warnings}
+	d := outboundsData{Tabs: s.loadRoutingTabs(r, "outbounds"), Cards: cards, Warnings: st.Warnings, Site: s.siteTestForm(r)}
 	for _, c := range cards {
 		switch c.State {
 		case "healthy":
@@ -333,6 +351,10 @@ type outboundFormData struct {
 	Chained bool
 	// AccountKey labels the WARP account type ("" when unknown).
 	AccountKey string
+	// IPv6Capable reports that the IPv6 site bridge can be turned on: a WARP
+	// outbound (its address is fetched when missing), a config not imported
+	// yet, or an imported config with an IPv6 address.
+	IPv6Capable bool
 }
 
 // warpAccountKey is the catalog key of a WARP account type, or "" for a type
@@ -363,6 +385,7 @@ func (s *Server) outboundForm(r *http.Request, kind egress.Kind, o *egress.Outbo
 	if !kind.Tunneled() {
 		return d
 	}
+	d.IPv6Capable = kind == egress.KindWARP || o == nil || (o.Tunnel != nil && o.Tunnel.Address6 != "")
 	all, err := s.Egress.ListOutbounds(r.Context())
 	if err != nil {
 		return d
@@ -384,7 +407,7 @@ func outboundFormDefaults(kind egress.Kind) map[string]string {
 	if kind == egress.KindWARP {
 		name = "WARP"
 	}
-	return map[string]string{"kind": string(kind), "name": name, "enabled": "1", "endpoint": "", "mtu": "", "source_ip": "", "config": "", "license": "", "via": ""}
+	return map[string]string{"kind": string(kind), "name": name, "enabled": "1", "endpoint": "", "mtu": "", "source_ip": "", "config": "", "license": "", "via": "", "ipv6_sites": ""}
 }
 
 func (s *Server) handleOutboundNew(w http.ResponseWriter, r *http.Request) {
@@ -448,10 +471,11 @@ func (s *Server) handleOutboundCreate(w http.ResponseWriter, r *http.Request) {
 		s.outboundFormError(w, r, kind, nil, err)
 		return
 	}
-	if via := strings.TrimSpace(r.PostFormValue("via")); via != "" && kind.Tunneled() {
+	if after := createExtras(r, kind); after != nil {
 		// The outbound exists now; a chain that no longer validates (its hop
-		// was removed meanwhile) is reported on the edit form.
-		if _, err := s.Egress.UpdateOutbound(r.Context(), o.ID, egress.OutboundInput{Via: &via}); err != nil {
+		// was removed meanwhile) or an IPv6 bridge without an IPv6 address
+		// is reported on the edit form.
+		if _, err := s.Egress.UpdateOutbound(r.Context(), o.ID, *after); err != nil {
 			s.audit(r, "egress.outbound_created", o.ID, map[string]any{"name": o.Name, "kind": string(o.Kind)})
 			_ = s.egressApply(r)
 			s.outboundFormError(w, r, kind, o, err)
@@ -460,6 +484,26 @@ func (s *Server) handleOutboundCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "egress.outbound_created", o.ID, map[string]any{"name": o.Name, "kind": string(o.Kind)})
 	s.routingDone(w, r, "/routing/outbounds", "routing.toast.outbound_created", o.Name)
+}
+
+// createExtras are the settings applied right after an outbound is created
+// (they need its ID): the chain and the IPv6 site bridge. nil when none.
+func createExtras(r *http.Request, kind egress.Kind) *egress.OutboundInput {
+	if !kind.Tunneled() {
+		return nil
+	}
+	var in egress.OutboundInput
+	if via := strings.TrimSpace(r.PostFormValue("via")); via != "" {
+		in.Via = &via
+	}
+	if r.PostFormValue("ipv6_sites") == "1" {
+		on := true
+		in.IPv6Sites = &on
+	}
+	if in.Via == nil && in.IPv6Sites == nil {
+		return nil
+	}
+	return &in
 }
 
 func (s *Server) outboundFormError(w http.ResponseWriter, r *http.Request, kind egress.Kind, o *egress.Outbound, err error) {
@@ -497,6 +541,9 @@ func outboundEditValues(o *egress.Outbound) map[string]string {
 	}
 	if o.Tunnel != nil {
 		v["endpoint"], v["mtu"], v["via"] = o.Tunnel.Endpoint, strconv.Itoa(o.Tunnel.MTU), o.Tunnel.Via
+		if o.Tunnel.IPv6Sites {
+			v["ipv6_sites"] = "1"
+		}
 	}
 	v["source_ip"] = o.SourceIP
 	return v
@@ -527,6 +574,10 @@ func (s *Server) handleOutboundUpdate(w http.ResponseWriter, r *http.Request) {
 	if o.Kind.Tunneled() && r.PostForm.Has("via") {
 		via := r.PostFormValue("via")
 		in.Via = &via
+	}
+	if o.Kind.Tunneled() && r.PostForm.Has("ipv6_sites_form") {
+		on := r.PostFormValue("ipv6_sites") == "1"
+		in.IPv6Sites = &on
 	}
 	if raw := strings.TrimSpace(r.PostFormValue("mtu")); raw != "" {
 		n, convErr := strconv.Atoi(raw)
@@ -601,21 +652,56 @@ func (s *Server) handleOutboundToggle(enable bool) http.HandlerFunc {
 
 // handleOutboundRenew registers a new WARP identity for a WARP outbound: new
 // keys and account, usually a new exit address (for example after sites
-// start blocking the current one).
+// start blocking the current one). With the routing runtime it keeps
+// re-registering, a few times at most, while the probed exit stays the same.
 func (s *Server) handleOutboundRenew(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	o, err := s.Egress.RenewWARP(r.Context(), id)
+	if s.EgressRuntime == nil {
+		o, err := s.Egress.RenewWARP(r.Context(), id)
+		if s.renewFailed(w, r, err) {
+			return
+		}
+		s.audit(r, "egress.outbound_renewed", id, map[string]any{"name": o.Name})
+		s.routingDone(w, r, "/routing/outbounds", "routing.toast.warp_renewed", o.Name)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), renewBudget)
+	defer cancel()
+	res, err := s.EgressRuntime.RotateWARP(ctx, id)
+	if s.renewFailed(w, r, err) {
+		return
+	}
+	s.audit(r, "egress.outbound_renewed", id, map[string]any{"name": res.Name, "attempts": res.Attempts, "exit_changed": res.Changed})
+	// RotateWARP already applied the new identity.
+	var msg string
+	switch {
+	case res.Changed && res.OldIP != "":
+		msg = s.t(r, "routing.toast.warp_rotated", res.Name, res.OldIP, res.NewIP)
+	case res.Changed:
+		msg = s.t(r, "routing.toast.warp_rotated_new", res.Name, res.NewIP)
+	case res.NewIP == "":
+		msg = s.t(r, "routing.toast.warp_renewed_unchecked", res.Name)
+	default:
+		msg = s.t(r, "routing.toast.warp_same_ip", res.Name, res.Attempts)
+	}
+	s.redirectToastRaw(w, r, "/routing/outbounds", msg)
+}
+
+// renewBudget bounds a rotation (a few registrations, applies and probes)
+// inside the panel server's 60-second write timeout.
+const renewBudget = 50 * time.Second
+
+func (s *Server) renewFailed(w http.ResponseWriter, r *http.Request, err error) bool {
 	if errors.Is(err, egress.ErrWARPUnavailable) {
 		s.logError(r, "warp renewal failed", err)
 		s.redirectToast(w, r, "/routing/outbounds", "routing.toast.warp_failed")
-		return
+		return true
 	}
 	if err != nil {
 		s.egressActionFailed(w, r, "/routing/outbounds", err)
-		return
+		return true
 	}
-	s.audit(r, "egress.outbound_renewed", id, map[string]any{"name": o.Name})
-	s.routingDone(w, r, "/routing/outbounds", "routing.toast.warp_renewed", o.Name)
+	return false
 }
 
 func (s *Server) handleOutboundDelete(w http.ResponseWriter, r *http.Request) {

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -36,6 +38,40 @@ type Resolver interface {
 	Forget(sets []string)
 }
 
+// Bridge is the IPv6 site bridge (sitebridge.Server). Configure starts,
+// reconfigures or stops its listeners and returns the outbounds whose
+// bridge listens on every gateway; only those get the redirect rules, so
+// client connections are never redirected to a port nobody serves.
+type Bridge interface {
+	Configure(ctx context.Context, cfg BridgeConfig) map[string]bool
+	// Stats counts bridged connections per outbound.
+	Stats() map[string]BridgeStats
+}
+
+// BridgeStats counts one outbound's bridged connections since the bridge
+// started.
+type BridgeStats struct {
+	IPv6     uint64 // re-originated over IPv6
+	IPv4     uint64 // carried over IPv4 (no IPv6 address, or IPv6 failed)
+	Failed   uint64 // neither family connected
+	Refused  uint64 // over the connection budget, or not a bridgeable flow
+	Inflight int64
+}
+
+// BridgeStats returns the bridge counters (nil without a bridge).
+func (m *Manager) BridgeStats() map[string]BridgeStats {
+	if m.Bridge == nil {
+		return nil
+	}
+	return m.Bridge.Stats()
+}
+
+// BridgeConfig is what the bridge needs from one plan.
+type BridgeConfig struct {
+	Gateways []netip.Addr
+	Bridges  []BridgeSpec
+}
+
 // Health thresholds: an outbound is down after this many consecutive failed
 // probes and up again after one success.
 const failuresDown = 2
@@ -45,15 +81,22 @@ const ProbeConcurrency = 4
 
 // OutboundStatus is the observed state of one outbound.
 type OutboundStatus struct {
-	ID            string
-	Kind          egress.Kind
-	Enabled       bool
-	SourceIP      string // source_ip: the address the exit must show
-	Link          string
-	Mark          uint32
-	LinkUp        bool
-	Mode          string // kernel | userspace (tunneled kinds)
-	LinkError     string // fixed category
+	ID        string
+	Kind      egress.Kind
+	Enabled   bool
+	SourceIP  string // source_ip: the address the exit must show
+	Link      string
+	Mark      uint32
+	LinkUp    bool
+	Mode      string // kernel | userspace (tunneled kinds)
+	LinkError string // fixed category
+	Endpoint  string // configured endpoint (tunneled kinds)
+	// IPv6 reports that the link carries IPv6 (bridge on, address and
+	// routes installed); Bridge is the IPv6 site bridge state: "" (off),
+	// active, idle (no client tunnel to serve, or the listener failed) or
+	// no_ipv6 (the host refused the IPv6 address or route).
+	IPv6          bool
+	Bridge        string
 	Healthy       bool
 	Probed        bool
 	Failures      int
@@ -88,7 +131,20 @@ type Manager struct {
 	// Counter counts active flows per outbound mark (least_conn); nil
 	// disables counting and least_conn balances by weight only.
 	Counter func(mark uint32) (int64, error)
-	Log     *slog.Logger
+	// Drain deletes the tracked connections of an outbound mark; nil keeps
+	// them. When an exit stops carrying traffic (down, disabled, deleted),
+	// its connections would otherwise hang until each application gives up;
+	// drained, their next packet is classified again and the application
+	// reconnects through the new route at once.
+	Drain func(mark uint32) error
+	// Bridge is the IPv6 site bridge; nil disables it.
+	Bridge Bridge
+	// Sites runs site tests; nil reports them unsupported.
+	Sites *SiteTester
+	// Lookup resolves endpoint names for re-resolution (nil: the node's
+	// resolver).
+	Lookup Lookup
+	Log    *slog.Logger
 
 	mu      sync.Mutex // serializes applies; guards applied, modes, ifaces, idle
 	applied map[string]string
@@ -97,6 +153,11 @@ type Manager struct {
 	// idle records that an empty desired state was fully converged, so later
 	// passes with nothing configured cost no subprocess.
 	idle bool
+	// routed is the mark of every outbound that carried traffic after the
+	// last apply (the drain baseline).
+	routed map[string]uint32
+	// v6Clean records that no IPv6 policy state is left to remove.
+	v6Clean bool
 
 	stateMu sync.RWMutex // guards health, healthDirty, load and status
 	health  map[string]*healthEntry
@@ -109,6 +170,8 @@ type Manager struct {
 	// that did not fully converge (a link, the policy or the table failed).
 	retryAt    time.Time
 	retryDelay time.Duration
+	// reresolveAt paces endpoint re-resolution per outbound.
+	reresolveAt map[string]time.Time
 }
 
 type healthEntry struct {
@@ -173,12 +236,15 @@ func (m *Manager) apply(ctx context.Context) error {
 		plan = Compile(snap, m.ifaces, in, m.Geo)
 	}
 	var errs []error
+	noIPv6 := map[string]bool{}
 	if m.Run != nil {
 		if err := syncPolicy(ctx, m.Run, liveRoutes(plan, linkErrs)); err != nil {
 			st.Error = "policy"
 			errs = append(errs, err)
 		}
+		noIPv6 = m.syncIPv6(ctx, plan, linkErrs)
 	}
+	m.configureBridge(ctx, plan, linkErrs, noIPv6)
 	resolverOK := false
 	if m.Resolver != nil {
 		cfg := ResolverConfig{BlockEncryptedDNS: plan.BlockEncryptedDNS}
@@ -213,12 +279,30 @@ func (m *Manager) apply(ctx context.Context) error {
 	for _, l := range plan.Links {
 		linked[l.OutboundID] = l
 	}
+	bridged := map[string]bool{}
+	for _, b := range plan.Bridges {
+		bridged[b.OutboundID] = true
+	}
 	m.stateMu.RLock()
 	for _, o := range snap.Outbounds {
 		cur := OutboundStatus{ID: o.ID, Kind: o.Kind, Enabled: o.Enabled, SourceIP: o.SourceIP, Mark: SlotMark(o.Slot)}
+		if o.Tunnel != nil {
+			cur.Endpoint = o.Tunnel.Endpoint
+		}
 		if l, ok := linked[o.ID]; ok {
 			cur.Link, cur.Mode = l.Name, m.modes[l.Name]
 			cur.LinkUp = linkErrs[o.ID] == ""
+			if l.Address6 != "" && cur.LinkUp {
+				cur.IPv6 = !noIPv6[o.ID]
+				switch {
+				case !cur.IPv6:
+					cur.Bridge = "no_ipv6"
+				case bridged[o.ID]:
+					cur.Bridge = "active"
+				default:
+					cur.Bridge = "idle"
+				}
+			}
 		}
 		cur.LinkError = linkErrs[o.ID]
 		if h := m.health[o.ID]; h != nil {
@@ -232,8 +316,97 @@ func (m *Manager) apply(ctx context.Context) error {
 	}
 	m.stateMu.RUnlock()
 	m.setStatus(st)
+	m.drain(st)
 	m.idle = snap.Empty() && len(errs) == 0 && len(linkErrs) == 0
 	return errors.Join(errs...)
+}
+
+// drain deletes the connections of every outbound that carried traffic after
+// the previous apply and no longer does. It runs after the table is applied,
+// so the drained flows are classified against the new routes.
+func (m *Manager) drain(st Status) {
+	now := map[string]uint32{}
+	for id, o := range st.Outbounds {
+		if o.Healthy {
+			now[id] = o.Mark
+		}
+	}
+	if m.Drain != nil && m.routed != nil {
+		for id, mark := range m.routed {
+			if _, still := now[id]; still {
+				continue
+			}
+			if err := m.Drain(mark); err != nil {
+				m.logger().Warn("egress: connection drain failed", "outbound", id, "err", err)
+			} else {
+				m.logger().Info("egress: drained connections of an exit that stopped carrying traffic", "outbound", id)
+			}
+		}
+	}
+	m.routed = now
+}
+
+// syncIPv6 installs the IPv6 address and policy routes of bridged links. It
+// returns the outbounds whose IPv6 path could not be installed; their bridge
+// stays off and their IPv4 path is unaffected.
+func (m *Manager) syncIPv6(ctx context.Context, plan *Plan, linkErrs map[string]string) map[string]bool {
+	failed := map[string]bool{}
+	byLink := map[string]string{}
+	var routes []RouteSpec
+	for _, l := range plan.Links {
+		if l.Address6 == "" || linkErrs[l.OutboundID] != "" {
+			continue
+		}
+		byLink[l.Name] = l.OutboundID
+		if _, err := m.Run.Run(ctx, []string{"ip", "-6", "addr", "replace", l.Address6, "dev", l.Name}); err != nil {
+			m.logger().Warn("egress: IPv6 address not set; the IPv6 site bridge stays off", "link", l.Name, "err", err)
+			failed[l.OutboundID] = true
+		}
+	}
+	for _, r := range plan.Routes6 {
+		if id, ok := byLink[r.Link]; ok && !failed[id] {
+			routes = append(routes, r)
+		}
+	}
+	if len(routes) == 0 && m.v6Clean {
+		return failed
+	}
+	bad, err := syncPolicy6(ctx, m.Run, routes)
+	for link := range bad {
+		failed[byLink[link]] = true
+	}
+	if err != nil && len(routes) > 0 {
+		m.logger().Warn("egress: IPv6 policy routing incomplete", "err", err)
+	}
+	// With nothing wanted, a host without IPv6 policy routing has nothing
+	// left to remove either.
+	m.v6Clean = len(routes) == 0
+	return failed
+}
+
+// configureBridge starts the bridge for usable bridged outbounds and narrows
+// plan.Bridges to the ones that listen.
+func (m *Manager) configureBridge(ctx context.Context, plan *Plan, linkErrs map[string]string, noIPv6 map[string]bool) {
+	var want []BridgeSpec
+	for _, b := range plan.Bridges {
+		if linkErrs[b.OutboundID] == "" && !noIPv6[b.OutboundID] {
+			want = append(want, b)
+		}
+	}
+	plan.Bridges = nil
+	if m.Bridge == nil {
+		return
+	}
+	cfg := BridgeConfig{}
+	if len(plan.Ifaces) > 0 && len(want) > 0 {
+		cfg = BridgeConfig{Gateways: plan.Gateways, Bridges: want}
+	}
+	active := m.Bridge.Configure(ctx, cfg)
+	for _, b := range cfg.Bridges {
+		if active[b.OutboundID] {
+			plan.Bridges = append(plan.Bridges, b)
+		}
+	}
 }
 
 // liveRoutes drops routes whose link failed to apply: a route to a missing or
@@ -628,6 +801,7 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 		id   string
 		mark uint32
 		link string
+		ipv6 bool
 	}
 	var targets []target
 	for id, o := range st.Outbounds {
@@ -635,7 +809,7 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 			continue
 		}
 		if o.Link != "" || o.Kind == egress.KindSourceIP {
-			targets = append(targets, target{id: id, mark: o.Mark, link: o.Link})
+			targets = append(targets, target{id: id, mark: o.Mark, link: o.Link, ipv6: o.IPv6})
 		}
 	}
 	sem := make(chan struct{}, ProbeConcurrency)
@@ -648,7 +822,7 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			res := m.Prober.Probe(ctx, t.mark)
+			res := m.probe(ctx, t.mark, t.ipv6)
 			if ctx.Err() != nil {
 				// Cut off by the pass deadline: says nothing about the exit.
 				return
@@ -670,6 +844,9 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 		}()
 	}
 	wg.Wait()
+	if m.reresolve(ctx, time.Now()) {
+		changed = true
+	}
 	if m.countLoads(m.Status()) {
 		changed = true
 	}
@@ -680,6 +857,90 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 		return m.Reapply(ctx)
 	}
 	return nil
+}
+
+// probe observes one outbound; a link that carries IPv6 also reports its
+// IPv6 exit (informational: it never fails the probe, since the bridge falls
+// back to IPv4).
+func (m *Manager) probe(ctx context.Context, mark uint32, ipv6 bool) ProbeResult {
+	res := m.Prober.Probe(ctx, mark)
+	if p, ok := m.Prober.(IPv6Prober); ok && ipv6 && res.OK && ctx.Err() == nil {
+		res.ExitIP6 = p.ProbeIPv6(ctx, mark)
+	}
+	return res
+}
+
+// Endpoint re-resolution: WireGuard resolves an endpoint name once, when the
+// peer is set. A down link whose endpoint is a name (a dynamic-DNS server,
+// a provider that moved) is checked against a fresh lookup at most every
+// reresolveEvery; when the name now points elsewhere the link's peers are
+// set again, which resolves the name anew without replacing the link.
+const (
+	reresolveEvery   = 5 * time.Minute
+	reresolveTimeout = 3 * time.Second
+)
+
+func (m *Manager) reresolve(ctx context.Context, now time.Time) bool {
+	if m.Backend == nil {
+		return false
+	}
+	lookup := m.Lookup
+	if lookup == nil {
+		lookup = DefaultLookup
+	}
+	changed := false
+	for id, o := range m.Status().Outbounds {
+		if o.Link == "" || o.LinkError != "" || !o.Enabled || o.Failures < failuresDown {
+			continue
+		}
+		host, _, err := net.SplitHostPort(o.Endpoint)
+		if err != nil {
+			continue
+		}
+		if _, err := netip.ParseAddr(host); err == nil {
+			continue // a literal address never changes by itself
+		}
+		m.stateMu.Lock()
+		if m.reresolveAt == nil {
+			m.reresolveAt = map[string]time.Time{}
+		}
+		due := now.After(m.reresolveAt[id])
+		if due {
+			m.reresolveAt[id] = now.Add(reresolveEvery)
+		}
+		m.stateMu.Unlock()
+		if !due {
+			continue
+		}
+		dump, err := m.Backend.Dump(ctx, o.Link)
+		if err != nil || len(dump.Peers) != 1 {
+			continue
+		}
+		live, err := netip.ParseAddrPort(dump.Peers[0].Endpoint)
+		if err != nil {
+			continue
+		}
+		lctx, cancel := context.WithTimeout(ctx, reresolveTimeout)
+		addrs, err := lookup(lctx, "ip4", host)
+		cancel()
+		if err != nil || len(addrs) == 0 {
+			continue
+		}
+		moved := true
+		for _, a := range addrs {
+			if a.Unmap() == live.Addr().Unmap() {
+				moved = false
+			}
+		}
+		if moved {
+			m.logger().Info("egress: endpoint name points to a new address; setting the peer again", "link", o.Link)
+			m.mu.Lock()
+			delete(m.applied, o.Link) // the next apply adopts the link and re-sets its peer
+			m.mu.Unlock()
+			changed = true
+		}
+	}
+	return changed
 }
 
 // verifyExit fails a source_ip probe that did not leave from the configured
@@ -739,13 +1000,90 @@ func (m *Manager) Test(ctx context.Context, id string) (ProbeResult, error) {
 	if o.LinkError != "" || (o.Link == "" && o.Kind != egress.KindSourceIP) || m.Prober == nil {
 		return ProbeResult{Error: "unreachable", At: time.Now().UTC()}, nil
 	}
-	res := verifyExit(o, m.Prober.Probe(ctx, o.Mark))
+	res := verifyExit(o, m.probe(ctx, o.Mark, o.IPv6))
 	if m.record(id, res) {
 		m.stateMu.Lock()
 		m.healthDirty = true
 		m.stateMu.Unlock()
 	}
 	return res, nil
+}
+
+// DirectSite names the node's own route in site tests.
+const DirectSite = "direct"
+
+// TestSite opens a site through one outbound (or the node's own route, for
+// DirectSite) the way client traffic would: an outbound whose link carries
+// IPv6 is tested IPv6 first, like the bridge. It never touches the kernel.
+func (m *Manager) TestSite(ctx context.Context, id string, u *url.URL, svc *SiteService) (SiteResult, error) {
+	if m.Sites == nil {
+		return SiteResult{Verdict: SiteFailed, Error: "unsupported", TestedAt: time.Now().UTC()}, nil
+	}
+	if id == DirectSite {
+		return m.Sites.Test(ctx, 0, false, u, svc), nil
+	}
+	o, ok := m.Status().Outbounds[id]
+	if !ok {
+		return SiteResult{}, egress.ErrNotFound
+	}
+	if !o.Enabled || o.LinkError != "" || (o.Link == "" && o.Kind != egress.KindSourceIP) {
+		return SiteResult{Verdict: SiteFailed, Error: "unreachable", TestedAt: time.Now().UTC()}, nil
+	}
+	return m.Sites.Test(ctx, o.Mark, o.IPv6, u, svc), nil
+}
+
+// WARP rotation: a new identity usually brings a new exit address, but
+// Cloudflare may hand out the same one again. RotateWARP re-registers until
+// the probed exit changes, at most rotateAttempts times (registrations are
+// rate-limited, so the bound is small).
+const rotateAttempts = 3
+
+// RotateResult reports a WARP rotation.
+type RotateResult struct {
+	Name     string
+	OldIP    string // "" when the exit was unknown
+	NewIP    string // "" when the new identity did not answer a probe
+	OldIP6   string
+	NewIP6   string
+	Attempts int
+	Changed  bool
+}
+
+// RotateWARP gives a WARP outbound a new identity and keeps trying while the
+// exit address stays the same.
+func (m *Manager) RotateWARP(ctx context.Context, id string) (RotateResult, error) {
+	var out RotateResult
+	if o, ok := m.Status().Outbounds[id]; ok && o.Probed && o.Probe.OK {
+		out.OldIP, out.OldIP6 = o.Probe.ExitIP, o.Probe.ExitIP6
+	}
+	for out.Attempts < rotateAttempts {
+		o, err := m.Store.RenewWARP(ctx, id)
+		if err != nil {
+			if out.Attempts == 0 {
+				return out, err
+			}
+			break // keep the identity that was already applied
+		}
+		out.Attempts++
+		out.Name = o.Name
+		if err := m.Reapply(ctx); err != nil {
+			m.logger().Warn("egress: apply after WARP renewal incomplete", "err", err)
+		}
+		res, err := m.Test(ctx, id)
+		if err != nil || !res.OK {
+			out.NewIP, out.NewIP6 = "", ""
+			break // the new identity is applied; health shows its state
+		}
+		out.NewIP, out.NewIP6 = res.ExitIP, res.ExitIP6
+		if out.OldIP == "" || res.ExitIP != out.OldIP {
+			break
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	out.Changed = out.NewIP != "" && out.NewIP != out.OldIP
+	return out, nil
 }
 
 // LinkCounters reads cumulative link byte counters from sysfs (no subprocess).
@@ -766,22 +1104,26 @@ func LinkCounters(link string) (rx, tx uint64, ok bool) {
 	return rx, tx, ok1 && ok2
 }
 
-// ReleaseDNS stops redirecting client DNS to the built-in resolver. It runs
-// when the panel stops: without it, clients keep being redirected to a
-// resolver that no longer listens and lose DNS until the next start. The next
-// apply re-adds the redirect rules. A crash still leaves them in place until
-// the panel restarts.
-func (m *Manager) ReleaseDNS(ctx context.Context) error {
+// ReleaseRedirects stops redirecting client DNS to the built-in resolver and
+// client web connections to the IPv6 site bridge. It runs when the panel
+// stops: without it, clients keep being redirected to listeners that no
+// longer exist and lose DNS (or the bridged sites) until the next start. The
+// next apply re-adds the redirect rules. A crash still leaves them in place
+// until the panel restarts.
+func (m *Manager) ReleaseRedirects(ctx context.Context) error {
 	if m.Run == nil {
 		return nil
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	res, err := m.Run.Run(ctx, []string{"nft", "flush", "chain", "ip", TableName, chainDNS})
-	if err != nil && !objectMissing(res, err) {
-		return fmt.Errorf("routing: release DNS redirect: %w", err)
+	var errs []error
+	for _, chain := range []string{chainDNS, chainBridge} {
+		res, err := m.Run.Run(ctx, []string{"nft", "flush", "chain", "ip", TableName, chain})
+		if err != nil && !objectMissing(res, err) {
+			errs = append(errs, fmt.Errorf("routing: release %s: %w", chain, err))
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // Teardown removes every egress-owned kernel object: the nftables table, the
@@ -792,15 +1134,23 @@ func Teardown(ctx context.Context, run subprocess.Runner, links []string) error 
 	if res, err := run.Run(ctx, []string{"nft", "delete", "table", "ip", TableName}); err != nil && !objectMissing(res, err) {
 		errs = append(errs, fmt.Errorf("routing: remove table: %w", err))
 	}
-	if res, err := run.Run(ctx, []string{"ip", "-j", "-4", "rule", "show"}); err != nil {
-		errs = append(errs, fmt.Errorf("routing: list policy rules: %w", err))
-	} else if strings.TrimSpace(string(res.Stdout)) != "" {
+	for _, family := range []string{"-4", "-6"} {
+		res, err := run.Run(ctx, []string{"ip", "-j", family, "rule", "show"})
+		if err != nil {
+			if family == "-4" { // a host without IPv6 has no IPv6 rules to remove
+				errs = append(errs, fmt.Errorf("routing: list policy rules: %w", err))
+			}
+			continue
+		}
+		if strings.TrimSpace(string(res.Stdout)) == "" {
+			continue
+		}
 		live, err := ownedRules(res.Stdout)
 		if err != nil {
 			errs = append(errs, err)
 		}
 		for mark, table := range live {
-			if _, err := run.Run(ctx, ruleArgs("del", mark, table)); err != nil {
+			if _, err := run.Run(ctx, familyRuleArgs(family, "del", mark, table)); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -817,6 +1167,7 @@ func Teardown(ctx context.Context, run subprocess.Runner, links []string) error 
 	// gone. Flushing an empty table is harmless, so every slot is cleared.
 	for slot := 1; slot <= egress.MaxSlots; slot++ {
 		_, _ = run.Run(ctx, []string{"ip", "-4", "route", "flush", "table", strconv.Itoa(tableBase + slot)})
+		_, _ = run.Run(ctx, []string{"ip", "-6", "route", "flush", "table", strconv.Itoa(tableBase + slot)})
 	}
 	return errors.Join(errs...)
 }

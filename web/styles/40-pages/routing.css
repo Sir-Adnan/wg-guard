@@ -54,3 +54,12 @@
   .outbound-card > .card-content.kv { flex: 1; }
   .balancer-card > ol.card-content { flex: 1; }
 }
+@layer pages {
+  /* Site test: service picker, optional URL (custom only), run. */
+  .site-test-form { display: flex; align-items: flex-end; gap: var(--s-3); flex-wrap: wrap; }
+  .site-test-form > .field { flex: 1 1 12rem; min-width: 0; }
+  .site-test-url { display: none; }
+  .site-test-form:has(select[name=service] option[value=url]:checked) .site-test-url { display: grid; }
+  .site-test-detail { flex-wrap: wrap; gap: var(--s-1_5) var(--s-2); min-width: 0; }
+  .site-test-detail > bdi { max-width: 16rem; }
+}

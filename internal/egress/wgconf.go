@@ -105,6 +105,10 @@ func ParseClientConfig(text string) (ParsedConfig, error) {
 			return out, invalidDetail("config", "config_missing", need.name)
 		}
 	}
+	if out.Tunnel.Address == "" {
+		// Client traffic is IPv4: an IPv6-only tunnel cannot carry it.
+		return out, invalid("config", "config_address")
+	}
 	if out.Tunnel.MTU == 0 {
 		out.Tunnel.MTU = DefaultTunnelMTU
 	}
@@ -211,8 +215,9 @@ func (p *configParser) interfaceKey(key, value string) error {
 	return nil
 }
 
-// address keeps the first IPv4 address; IPv6 is outside the egress scope. A
-// config may list addresses on one line or repeat the key.
+// address keeps the first IPv4 address and the first IPv6 address (used only
+// by the IPv6 site bridge; client traffic stays IPv4). A config may list
+// addresses on one line or repeat the key.
 func (p *configParser) address(value string) error {
 	for _, part := range strings.Split(value, ",") {
 		if part == "" {
@@ -226,12 +231,12 @@ func (p *configParser) address(value string) error {
 			}
 			prefix = netip.PrefixFrom(a, a.BitLen())
 		}
-		if prefix.Addr().Is4() && p.out.Tunnel.Address == "" {
-			p.out.Tunnel.Address = netip.PrefixFrom(prefix.Addr(), 32).String()
+		switch a := prefix.Addr(); {
+		case a.Is4() && p.out.Tunnel.Address == "":
+			p.out.Tunnel.Address = netip.PrefixFrom(a, 32).String()
+		case a.Is6() && !a.Is4In6() && p.out.Tunnel.Address6 == "":
+			p.out.Tunnel.Address6 = netip.PrefixFrom(a, 128).String()
 		}
-	}
-	if p.out.Tunnel.Address == "" {
-		return invalid("config", "config_address")
 	}
 	return nil
 }

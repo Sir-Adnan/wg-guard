@@ -69,6 +69,18 @@
       </div>
       {{end}}
 
+      {{if ne $kind "source_ip"}}
+      <div class="field">
+        <input type="hidden" name="ipv6_sites_form" value="1">
+        <label class="choice">
+          <input class="switch" type="checkbox" role="switch" id="ob-ipv6" name="ipv6_sites" value="1" aria-describedby="ob-ipv6-hint{{if $f.Invalid "ipv6_sites"}} err-ipv6{{end}}"{{if eq ($f.V "ipv6_sites") "1"}} checked{{end}}{{if not .Data.IPv6Capable}} disabled{{end}}{{if $f.Invalid "ipv6_sites"}} aria-invalid="true"{{end}}>
+          <span class="choice-text">{{.T "routing.form.ipv6_sites"}} <span class="badge badge--outline">{{.T "routing.form.ipv6_sites_badge"}}</span></span>
+        </label>
+        {{if $f.Invalid "ipv6_sites"}}<span class="field-error" id="err-ipv6">{{index $f.Fields "ipv6_sites"}}</span>{{end}}
+        <p class="field-description" id="ob-ipv6-hint">{{if .Data.IPv6Capable}}{{.T "routing.form.ipv6_sites_hint"}}{{else}}{{.T "routing.form.ipv6_sites_no_address"}}{{end}}</p>
+      </div>
+      {{end}}
+
       {{if eq $kind "source_ip"}}
       <div class="field">
         <label class="field-label" for="ob-ip">{{.T "routing.fact.source_ip"}}</label>

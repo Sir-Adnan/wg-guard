@@ -107,7 +107,17 @@ type TunnelConfig struct {
 	// tunnel's own packets leave through that outbound, so the exit appears
 	// next to that outbound's server. One level only.
 	Via string `json:"via,omitempty"`
+	// Address6 is the tunnel's IPv6 address (/128), when the remote side
+	// assigned one. Only the IPv6 site bridge uses it.
+	Address6 string `json:"address6,omitempty"`
+	// IPv6Sites turns on the IPv6 site bridge: client TCP connections to web
+	// ports that this outbound carries are re-originated over the tunnel's
+	// IPv6 when the site has an IPv6 address (ADR-0018).
+	IPv6Sites bool `json:"ipv6_sites,omitempty"`
 }
+
+// Bridges reports whether the IPv6 site bridge is on and usable.
+func (t *TunnelConfig) Bridges() bool { return t != nil && t.IPv6Sites && t.Address6 != "" }
 
 // WARPAccount is non-secret WARP registration metadata.
 type WARPAccount struct {

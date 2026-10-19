@@ -60,6 +60,7 @@ Integrated panel/subscription certificate management is specified in
 | Docker-only runtime, verified artifacts and separated host authority | [0015](../decisions/ADR-0015-docker-only-runtime.md) |
 | Kernel-native egress routing (policy routing + nftables + resolver), no proxy engine | [0016](../decisions/ADR-0016-kernel-egress-routing.md) |
 | shadcn-anatomy design system with data-only visual presets | [0017](../decisions/ADR-0017-design-system-and-presets.md) |
+| Opt-in IPv6 site bridge: an outbound's web connections re-originated over its IPv6 | [0018](../decisions/ADR-0018-ipv6-site-bridge.md) |
 
 ## Runtime (`serve`)
 
@@ -89,8 +90,10 @@ Egress routing ([egress-routing.md](egress-routing.md)) adds a third fixed slow 
 `egress-health`, which the scheduler signals every 30 s. It runs at most four outbound probes
 at a time, refreshes least-connection shares and repairs a missing table. While domain rules
 exist, a gateway-only DNS resolver runs bounded UDP/TCP listener goroutines: 512 queries in
-flight and 128 TCP sessions, with one batched set feeder. Boot applies egress after the
-client interfaces exist. An egress failure is a non-fatal boot finding and does not change
+flight and 128 TCP sessions, with one batched set feeder. An outbound with the IPv6 site bridge
+on adds one gateway listener per tunnel gateway and at most 1024 bridged connections node-wide,
+two relay goroutines each. Operator site tests run at most four at a time. Boot applies egress
+after the client interfaces exist. An egress failure is a non-fatal boot finding and does not change
 client-tunnel readiness.
 Explicit userspace profiles use one pin-checked foreground daemon per interface under the node;
 the scheduler checks the bounded process/socket set and retries failed members through the same

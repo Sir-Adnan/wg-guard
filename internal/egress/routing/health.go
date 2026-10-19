@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"syscall"
 	"time"
@@ -26,6 +27,9 @@ type ProbeResult struct {
 	OK      bool
 	Latency time.Duration
 	ExitIP  string
+	// ExitIP6 is the IPv6 exit, probed only for outbounds with the IPv6
+	// site bridge on ("" when not probed or unreachable over IPv6).
+	ExitIP6 string
 	Country string
 	Colo    string // Cloudflare data centre (IATA code) that served the probe
 	WARP    string // trace "warp" field: on | plus | off ("" when absent)
@@ -46,22 +50,38 @@ type HTTPProber struct {
 }
 
 func (p HTTPProber) Probe(ctx context.Context, mark uint32) ProbeResult {
-	start := time.Now()
-	res := ProbeResult{At: start.UTC()}
 	url := p.URL
 	if url == "" {
 		url = ProbeURL
 	}
-	dialer := &net.Dialer{
-		Timeout: ProbeTimeout,
-		Control: func(_, _ string, c syscall.RawConn) error {
-			var serr error
-			if err := c.Control(func(fd uintptr) { serr = setMark(int(fd), int(mark)) }); err != nil {
-				return err
-			}
-			return serr
-		},
+	return fetchTrace(ctx, mark, url)
+}
+
+// ProbeURL6 is the trace endpoint on Cloudflare's IPv6 resolver address.
+const ProbeURL6 = "https://[2606:4700:4700::1111]/cdn-cgi/trace"
+
+// ProbeIPv6 returns the outbound's IPv6 exit address, or "" when IPv6 does
+// not leave through it.
+func (p HTTPProber) ProbeIPv6(ctx context.Context, mark uint32) string {
+	res := fetchTrace(ctx, mark, ProbeURL6)
+	if !res.OK {
+		return ""
 	}
+	if a, err := netip.ParseAddr(res.ExitIP); err == nil && a.Is6() && !a.Is4In6() {
+		return a.String()
+	}
+	return ""
+}
+
+// IPv6Prober is implemented by probers that can observe the IPv6 exit.
+type IPv6Prober interface {
+	ProbeIPv6(ctx context.Context, mark uint32) string
+}
+
+func fetchTrace(ctx context.Context, mark uint32, url string) ProbeResult {
+	start := time.Now()
+	res := ProbeResult{At: start.UTC()}
+	dialer := MarkedDialer(mark, ProbeTimeout)
 	transport := &http.Transport{
 		DialContext:           dialer.DialContext,
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},

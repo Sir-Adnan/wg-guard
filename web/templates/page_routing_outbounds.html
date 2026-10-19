@@ -12,6 +12,7 @@
 <div class="grid-auto outbound-grid">
   {{range .Data.Cards}}{{template "outbound_card" (dict "c" . "v" $)}}{{end}}
 </div>
+{{template "site_test" (dict "v" . "d" .Data.Site)}}
 {{else}}
 <div class="empty empty--bordered">
   <span class="empty-icon">{{.Icon "route"}}</span>
@@ -44,6 +45,8 @@
     {{if $c.Via}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.via"}}</span><span class="kv-value row">{{$v.IconS "route"}}<bdi>{{$c.Via}}</bdi></span></div>{{end}}
     {{end}}
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.exit"}}</span><span class="kv-value">{{if $c.ExitIP}}{{if $c.Country}}<span title="{{$c.Country}}" aria-label="{{$c.Country}}">{{$c.Flag}}</span>{{end}}<span class="tech">{{$c.ExitIP}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
+    {{if $c.Bridge}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.ipv6"}}</span><span class="kv-value row min-w-0">{{if eq $c.Bridge "active"}}{{if $c.ExitIP6}}<span class="tech truncate" title="{{$c.ExitIP6}}">{{$c.ExitIP6}}</span>{{else}}<span class="text-sm">{{$v.T "routing.bridge.active"}}</span>{{end}}{{else if eq $c.Bridge "no_ipv6"}}<span class="text-danger text-sm">{{$v.T "routing.bridge.no_ipv6"}}</span>{{else}}<span class="text-muted text-sm">{{$v.T (printf "routing.bridge.%s" $c.Bridge)}}</span>{{end}}</span></div>
+    {{if and $c.HasStats (or $c.Bridged.IPv6 $c.Bridged.IPv4)}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.bridged"}}</span><span class="kv-value text-sm"><bdi class="num">{{$v.N (i64u $c.Bridged.IPv6)}}</bdi> IPv6 · <bdi class="num">{{$v.N (i64u $c.Bridged.IPv4)}}</bdi> IPv4</span></div>{{end}}{{end}}
     {{if $c.WARPState}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.warp"}}</span><span class="kv-value row">{{if eq $c.WARPState "off"}}<span class="text-danger text-sm">{{$v.T "routing.warp_state.off"}}</span>{{else}}<span>{{$v.T (printf "routing.warp_state.%s" $c.WARPState)}}</span>{{end}}{{if $c.Colo}}<span class="badge badge--outline tech" title="{{$v.T "routing.fact.colo"}}">{{$c.Colo}}</span>{{end}}</span></div>{{end}}
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.latency"}}</span><span class="kv-value">{{if $c.Latency}}<span class="tech">{{$v.Human $c.Latency}} ms</span>{{else if $c.ProbeError}}<span class="text-danger text-sm">{{$v.T (printf "routing.probe.%s" $c.ProbeError)}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
     {{if ne $kind "source_ip"}}
@@ -94,3 +97,55 @@
 {{end}}
 
 {{define "outbound_card_partial"}}{{template "outbound_card" (dict "c" .Data "v" .)}}{{end}}
+
+{{define "site_test"}}{{$v := .v}}{{$d := .d}}
+<section class="card site-test" id="site-test" aria-labelledby="site-test-heading">
+  <div class="card-header">
+    <div class="stack-xs">
+      <h2 class="card-title" id="site-test-heading">{{$v.IconS "globe"}}{{$v.T "routing.site.title"}}</h2>
+      <p class="card-description">{{$v.T "routing.site.description"}}</p>
+    </div>
+  </div>
+  <div class="card-content stack">
+    <form method="post" action="/routing/outbounds/site-test#site-test" hx-post="/routing/outbounds/site-test" hx-target="#site-test-result" hx-swap="innerHTML" hx-disabled-elt="find button" class="site-test-form">
+      <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+      <div class="field">
+        <label class="field-label" for="site-service">{{$v.T "routing.site.service"}}</label>
+        <select class="select" id="site-service" name="service">
+          {{range $d.Services}}<option value="{{.ID}}"{{if eq $d.Service .ID}} selected{{end}}>{{.Name}}</option>{{end}}
+          <option value="url"{{if eq $d.Service "url"}} selected{{end}}>{{$v.T "routing.site.custom"}}</option>
+        </select>
+      </div>
+      <div class="field site-test-url">
+        <label class="field-label" for="site-url">{{$v.T "routing.site.url"}}</label>
+        <input class="input input--tech" id="site-url" name="url" type="text" dir="ltr" spellcheck="false" autocomplete="off" inputmode="url" placeholder="https://example.com" value="{{$d.URL}}">
+      </div>
+      <button type="submit" class="btn btn--sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>{{$v.IconS "activity"}}{{$v.T "routing.site.run"}}</button>
+    </form>
+    <div id="site-test-result" aria-live="polite">{{if $d.Ran}}{{template "site_test_result" (dict "v" $v "d" $d)}}{{end}}</div>
+    <p class="text-xs text-muted">{{$v.T "routing.site.footnote"}}</p>
+  </div>
+</section>
+{{end}}
+
+{{define "site_test_result"}}{{$v := .v}}{{$d := .d}}
+{{if $d.Invalid}}<div class="alert alert--destructive" role="status">{{$v.Icon "alert-circle"}}<p class="alert-title">{{$v.T "routing.site.invalid"}}</p></div>
+{{else if not $d.Rows}}<div class="alert" role="status">{{$v.Icon "info"}}<p class="alert-title">{{$v.T "routing.site.unavailable"}}</p></div>
+{{else}}
+<div class="table-frame"><div class="table-wrap">
+  <table class="table table--cards site-test-table">
+    <caption class="sr-only">{{$v.T "routing.site.caption" $d.Label}}</caption>
+    <thead><tr><th scope="col">{{$v.T "routing.site.col_exit"}}</th><th scope="col">{{$v.T "routing.site.col_result"}}</th><th scope="col">{{$v.T "routing.site.col_detail"}}</th></tr></thead>
+    <tbody>{{range $d.Rows}}{{$res := .Result}}
+      <tr>
+        <td class="cell-primary">{{if .Direct}}<span class="row">{{$v.IconS "server"}}<span>{{$v.T "routing.site.direct"}}</span></span>{{else}}<span class="row min-w-0">{{template "routing_kind_icon" (dict "v" $v "kind" .Kind)}}<bdi class="truncate">{{.Name}}</bdi></span>{{end}}</td>
+        <td data-label="{{$v.T "routing.site.col_result"}}"><span class="badge badge--{{.Tone}}"><span class="dot"></span>{{$v.T (printf "routing.site.verdict.%s" $res.Verdict)}}</span>{{if $res.Region}} <span class="badge badge--outline tech">{{$res.Region}}</span>{{end}}</td>
+        <td data-label="{{$v.T "routing.site.col_detail"}}" class="text-sm">{{if eq $res.Verdict "failed"}}<span class="text-danger">{{$v.T (printf "routing.site.error.%s" $res.Error)}}</span>{{else}}<span class="row site-test-detail"><span class="tech">HTTP {{$res.Status}}</span>{{if $res.Family}}<span class="badge badge--muted tech">{{if eq $res.Family "ip6"}}IPv6{{else}}IPv4{{end}}</span>{{end}}{{if .Latency}}<span class="tech">{{$v.Human .Latency}} ms</span>{{end}}{{if $res.Final}}<bdi class="tech text-muted truncate" title="{{$res.Final}}">{{$res.Final}}</bdi>{{end}}</span>{{end}}</td>
+      </tr>
+    {{end}}</tbody>
+  </table>
+</div></div>
+{{end}}
+{{end}}
+
+{{define "site_test_result_partial"}}{{template "site_test_result" (dict "v" . "d" .Data)}}{{end}}

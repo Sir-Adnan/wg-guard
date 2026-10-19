@@ -4,7 +4,10 @@ Egress routing decides where traffic from tunnel clients leaves the node. It cov
 (for example only Gemini, or only `geosite:google-deepmind` plus `ipdata.co`) and the default
 route. It uses the kernel only: policy routing, nftables and extra AmneziaWG/WireGuard links. It
 does not use a proxy engine (no Xray, sing-box or tun2socks). See
-[ADR-0016](../decisions/ADR-0016-kernel-egress-routing.md) for the decision.
+[ADR-0016](../decisions/ADR-0016-kernel-egress-routing.md) for the decision. The one exception
+is the opt-in [IPv6 site bridge](#ipv6-site-bridge)
+([ADR-0018](../decisions/ADR-0018-ipv6-site-bridge.md)), which re-originates an outbound's web
+connections over its IPv6 exit.
 
 Status: implemented and covered by unit, namespace and web tests. It has **not** been verified
 on a real host; see [status](../development/status.md#egress-routing).
@@ -48,6 +51,8 @@ does ([amneziawg.md](../integrations/amneziawg.md)):
   `Jmin ≤ Jmax` while junk is sent, `Jc ≤ 128`, u16 bounds for `S1`–`S4` and the ranges, and
   `S1`–`S4 ≥ 12` with a header-protection key. `Jc = 0` with padding or headers is valid.
   I1–I5 must be single-line `<tag value>` sequences of the tags either runtime builds.
+- `Address` keeps the first IPv4 address (required: client traffic is IPv4) and the first IPv6
+  address, which only the [IPv6 site bridge](#ipv6-site-bridge) uses.
 - A junk-only config without H lines gets the stock headers 1–4. A set that changes nothing on
   the wire is plain WireGuard.
 - Errors name the key (`Jc`, `Endpoint`, `[Peer]` …), never a value. The pasted text is never
@@ -144,6 +149,13 @@ mark 0x7ff… (block)   → block_forward drops (TCP gets a reset)
 
   Resolver-fed timeout sets keep their elements across edits. When no egress feature is active,
   the table is deleted.
+- **Connection drain.** When an exit stops carrying traffic (down, disabled, deleted, or its
+  link failed), the apply that moves its traffic elsewhere also deletes the conntrack entries
+  carrying its mark (`NETLINK_NETFILTER` delete filtered by `CTA_MARK`/`CTA_MARK_MASK`, Linux
+  4.6+). Without this, connections pinned to a dead exit hang until each application gives up,
+  which takes minutes for long-lived connections such as messengers and HTTP/2. Drained, a
+  connection's next packet is classified again, the remote side resets it, and the application
+  reconnects through the new route at once. The first apply after a start drains nothing.
 
 ## Balancer strategies
 
@@ -169,6 +181,9 @@ single outbound that is unhealthy fails open to direct.
   (`on`, `plus` or `off`). A probe cut off by the pass deadline is not counted.
 - A `source_ip` probe that leaves from another address than the configured one fails
   (`wrong_exit`). Disabled outbounds are not probed.
+- An outbound whose link carries IPv6 (the IPv6 site bridge is on) also fetches
+  `https://[2606:4700:4700::1111]/cdn-cgi/trace` and reports its IPv6 exit. This is
+  informational: an IPv6 failure never fails the probe, because the bridge falls back to IPv4.
 - An outbound is marked down after 2 failures in a row and up after 1 success. A state change
   rebuilds the plan.
 - The panel **Test** button (`POST /routing/outbounds/{id}/test`, `interfaces.read`) probes
@@ -180,8 +195,83 @@ single outbound that is unhealthy fails open to direct.
 - An apply that did not converge (a failed link, policy or table step, for example an endpoint
   name that did not resolve at boot) is retried by the health pass: first after 30 seconds, then
   with doubling backoff up to 10 minutes. A converged apply resets the backoff.
+- **Endpoint re-resolution.** WireGuard resolves an endpoint name once, when the peer is set.
+  For a down link whose endpoint is a name (a dynamic-DNS server, a provider that moved
+  addresses), the health pass looks the name up again at most every 5 minutes. When the name no
+  longer includes the live endpoint address, the next apply sets the peer again in place, which
+  resolves the name anew without replacing the link.
 - Rules and the default route show **Going direct** while their single-outbound target is
   disabled, down or failed.
+
+## Site test
+
+The **Site test** card on the Outbounds page (`POST /routing/outbounds/site-test`,
+`interfaces.read`) opens one site through the node's own route and through every enabled outbound,
+four at a time. It uses the same socket mark as client traffic. An outbound with the IPv6 site
+bridge is tested IPv6 first, like the bridge. The test never changes the kernel.
+
+- **Services.** Google Gemini, Google Search, ChatGPT and Claude have detectors that follow the
+  markers of the open-source
+  [RegionRestrictionCheck](https://github.com/lmc999/RegionRestrictionCheck) script
+  (source-reviewed at `b6d4a6f`, 2026-10-19):
+  - Gemini: the app page's availability flag, and the region code when the page carries one.
+  - Google: the `/sorry/` CAPTCHA and the abuse texts.
+  - OpenAI: `unsupported_country`.
+  - Claude: the `app-unavailable-in-region` redirect.
+- **Custom URL.** Any other `http(s)` URL reports whether it opens, and calls the answer blocked
+  on 403, 451 or a common region or VPN refusal text.
+- **Verdicts.** Works, Blocked, CAPTCHA (IP flagged), Opens, Unknown or No answer. A page a
+  detector does not recognize is **Unknown**, never "works".
+- **Details.** Each result shows the HTTP status, the address family used, the time, the final
+  host and path, and the reported region.
+- **Bounds.** Up to five redirects; at most 2 MiB read per page; 12 seconds per exit.
+- **Destinations.** Only public addresses are dialed. Private, loopback, link-local, ULA and the
+  node's own addresses are refused.
+- **From the Rules page.** The site check there links to the test with the domain filled in.
+
+## IPv6 site bridge
+
+Client tunnels and egress routing are IPv4-only. Google often refuses WARP's shared IPv4 exits
+(search CAPTCHA; Gemini "not available") but accepts the same tunnel's IPv6 exit. **Open websites
+over IPv6** (outbound form, off by default) bridges that gap for one outbound
+([ADR-0018](../decisions/ADR-0018-ipv6-site-bridge.md)):
+
+- **Availability.** An outbound with an IPv6 tunnel address can use it:
+  - WARP registrations store the address Cloudflare assigns.
+  - WARP outbounds registered earlier fetch it with `GET /reg/{id}` the first time the bridge is
+    turned on.
+  - Imported configs need an IPv6 `Address`; re-importing a config without one turns the bridge
+    off.
+- **Link.** The peer's AllowedIPs gain `::/0`. The link gets the IPv6 address
+  (`ip -6 addr replace`). The slot's table gets the same IPv6 rule and routes as IPv4: `ip -6
+  rule fwmark … table 51800+slot priority 5180`, `default dev wgoN` and the unreachable guard.
+  If the host refuses IPv6 on the link, the card says so and the outbound keeps working over
+  IPv4 without the bridge.
+- **Redirect.** The `site_bridge` chain (nat prerouting) redirects client TCP connections to
+  ports 80 and 443 that carry the outbound's mark to `<gateway>:51800+slot`. `block_forward`
+  refuses UDP 443 with that mark (ICMP port unreachable), so browsers fall back from QUIC to TCP.
+  The redirect is rendered only while the bridge listens on every gateway. A clean shutdown
+  flushes it with `dns_redirect`.
+- **Relay** (`internal/egress/sitebridge`):
+  1. Read the original destination (`SO_ORIGINAL_DST`).
+  2. Read the site name from the TLS client hello or the HTTP `Host` header. Nothing is
+     decrypted, and the bridge never answers the handshake.
+  3. Connect through the outbound's mark to the name's IPv6 address, then replay the bytes read.
+  4. Relay both directions unchanged, passing half-closes on.
+
+  Without a usable IPv6 address or name, the bridge connects to the client's original IPv4
+  destination through the same outbound, so a bridged connection never changes exit.
+- **Refused.** Destinations that are not public unicast, ports other than 80 and 443, and
+  connections made straight to the listener.
+- **Bounds.** 1024 concurrent bridged connections; excess connections are refused.
+- **Firewall.** With ufw, boot adds `ufw allow in on awgN to any port 51801:51863 proto tcp`
+  next to the DNS rule. Other INPUT firewalls must accept TCP 51801–51863 on the tunnel
+  interfaces.
+- **Card.** The outbound card shows the bridge state (active, waiting for a device tunnel, IPv6
+  refused by the host), the probed IPv6 exit and the bridged connection counts, split into IPv6
+  and IPv4 fallback.
+- **Limits.** QUIC/HTTP/3 is unavailable through a bridged outbound. Non-web ports keep IPv4.
+  Web traffic of that outbound takes one userspace relay hop.
 
 ## Domain rules and the built-in resolver
 
@@ -252,16 +342,24 @@ calls that [wgcf](https://github.com/ViRb3/wgcf) uses. Reviewed at wgcf `de6bba7
 - **Verification.** Registration succeeded against the live API on the Ubuntu 24.04 test node.
   If it fails, a wgcf-generated profile can be imported as a `wireguard` outbound instead.
 - **New identity.** **New WARP identity** (`POST /routing/outbounds/{id}/renew`) registers a
-  fresh device with new keys for an existing WARP outbound. The outbound keeps its ID, slot,
-  references, MTU, chain and a chosen endpoint; a stored WARP+ license is bound to the new device
-  when Cloudflare accepts it. The new device usually gets another exit address, which helps when
-  sites block the current one.
+  fresh device with new keys for an existing WARP outbound.
+  - The outbound keeps its ID, slot, references, MTU, chain, IPv6 site bridge and a chosen
+    endpoint. A stored WARP+ license is bound to the new device when Cloudflare accepts it.
+  - The panel applies the new identity and probes the exit. While Cloudflare hands out the same
+    exit IPv4 address, it registers again, up to 3 registrations in total (registrations are
+    rate-limited).
+  - The toast names the old and new exit, or says that the address stayed the same.
+  - The exit stays in the same country, because the country follows the entry data centre.
 - **Endpoints.** The endpoint field suggests known WARP endpoints: `engage.cloudflareclient.com`
   and addresses in `162.159.192.0/24`, `162.159.193.0/24`, `162.159.195.0/24` and
   `188.114.96.0/22`, on 2408 and the alternative ports 500, 1701, 4500, 854, 894 and 8854.
 - **Exit country.** Cloudflare chooses the WARP exit from the data centre where the tunnel
-  enters its network, normally next to this server. WARP has no country setting. To exit in
-  another country, chain the WARP outbound through an outbound in that country.
+  enters its network, normally next to this server. Neither the client API nor the WARP+ account
+  has a country or exit-address setting; dedicated egress addresses exist only on Cloudflare's
+  paid Zero Trust plans, outside this API. To exit in another country, chain the WARP outbound
+  through an outbound in that country. To get another address in the same country, use **New
+  WARP identity**. For Google services, the IPv6 site bridge usually helps more than a new IPv4
+  address.
 
 ## Chained outbounds
 
@@ -285,6 +383,7 @@ the link), so the existing policy rule sends them through that outbound's tunnel
   is a non-fatal finding (`egress`). Every routing change calls the same `Apply`.
 - **Saved but not applied.** If applying fails, the panel says so in an error toast, and the
   health pass retries with backoff (see [Health](#health)).
-- **Uninstall** deletes `table ip wgguard_egress`, the owned `ip rule` entries and tables, and
+- **Uninstall** deletes `table ip wgguard_egress`, the owned IPv4 and IPv6 `ip rule` entries
+  and tables, and
   every `wgoN` link recorded in the database. Unattributed `wgo*` links block uninstall the same
   way unattributed `awg*` links do.

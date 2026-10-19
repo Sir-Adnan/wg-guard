@@ -43,6 +43,7 @@ import (
 	"github.com/Sir-Adnan/wg-guard/internal/egress/dnsrouter"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/geodata"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/sitebridge"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/warp"
 	"github.com/Sir-Adnan/wg-guard/internal/hoststats"
 	"github.com/Sir-Adnan/wg-guard/internal/iface"
@@ -133,6 +134,7 @@ type Node struct {
 	runtimePolicyHealthy func(context.Context) (bool, error)
 	egress               *routing.Manager
 	resolver             *dnsrouter.Server
+	bridge               *sitebridge.Server
 
 	booted       atomic.Bool
 	networkReady atomic.Bool
@@ -270,8 +272,10 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 			servers, _ := n.reg.GetStringList(ctx, "network.dns_servers")
 			return servers
 		}, runner, logs.network)
+		n.bridge = sitebridge.New(logs.network)
 		n.egress.Run, n.egress.Resolver, n.egress.Prober = runner, n.resolver, routing.HTTPProber{}
-		n.egress.Counter = routing.CountConnections
+		n.egress.Counter, n.egress.Drain, n.egress.Bridge = routing.CountConnections, routing.FlushConnections, n.bridge
+		n.egress.Sites = &routing.SiteTester{}
 	}
 	bootDeps := boot.Deps{
 		DB: db, Ring: n.ring, Settings: n.reg, Backend: backend,
@@ -800,11 +804,16 @@ func (n *Node) Shutdown(ctx context.Context) error {
 	}
 	if n.resolver != nil {
 		if n.egress != nil {
-			if err := n.egress.ReleaseDNS(ctx); err != nil {
+			if err := n.egress.ReleaseRedirects(ctx); err != nil {
 				errs = append(errs, err)
 			}
 		}
 		if err := n.resolver.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if n.bridge != nil {
+		if err := n.bridge.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}

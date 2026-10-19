@@ -66,8 +66,11 @@ internal/
   egress/                outbounds/balancers/rules model, store (sealed secrets), matcher
                          parser, curated presets, WireGuard/AmneziaWG client-config import
     routing/             plan compiler, nftables/ip-rule rendering, link lifecycle, health
-                         probes, conntrack counting, teardown (see egress-routing.md)
+                         probes, site tests, conntrack counting and drain, teardown
+                         (see egress-routing.md)
     dnsrouter/           gateway-only forwarding resolver feeding per-rule nft sets
+    sitebridge/          opt-in IPv6 site bridge: redirected web connections re-originated
+                         over an outbound's IPv6 (ADR-0018)
     match/               compiled domain matcher (full/suffix/keyword/regexp)
     geodata/             dependency-free geosite.dat/geoip.dat reader and file store
     warp/                minimal Cloudflare WARP registration client

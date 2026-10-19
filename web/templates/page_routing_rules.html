@@ -20,6 +20,7 @@
   {{else}}{{$.Icon "route"}}
   <p class="alert-title row"><bdi class="tech">{{.Query}}</bdi><span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>{{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}</p>
   <p class="alert-description">{{if .Matched}}{{$.T "routing.check.matched"}} <strong><bdi>{{.RuleName}}</bdi></strong>{{else}}{{$.T "routing.check.default"}}{{end}}{{if .Note}} · {{$.T .Note}}{{end}}</p>
+  <p class="alert-description"><a class="link" href="/routing/outbounds?site={{.Query}}#site-test">{{$.T "routing.check.site_test"}}</a></p>
   {{end}}
 </div>
 {{end}}

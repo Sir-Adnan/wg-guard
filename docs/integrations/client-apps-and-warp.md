@@ -55,7 +55,9 @@ as the one-app option for every OS.
   - `POST /{ver}/reg` with a fresh X25519 public key, install ID, `tos` timestamp, model and
     locale; it returns the account ID, token, license and the peer/interface configuration;
   - `PUT /{ver}/reg/{id}/account` with `{license}` to apply a WARP+ key;
-  - `GET /{ver}/reg/{id}/account` to read the account type.
+  - `GET /{ver}/reg/{id}/account` to read the account type;
+  - `GET /{ver}/reg/{id}` (wgcf's device read) only to fetch the tunnel's IPv6 address for a
+    device registered before WG-Guard stored it, when the IPv6 site bridge is turned on.
 - Request format: Android-style `CF-Client-Version` and `User-Agent` headers, pinned to TLS 1.2,
   as wgcf does. There is no uTLS dependency.
 - Storage: the token, private key and license are sealed in the outbound's secret.
@@ -65,7 +67,15 @@ as the one-app option for every OS.
   host, generate a profile with wgcf and import it as a WireGuard outbound.
 - New identity: the panel repeats `POST /reg` with a fresh key for an existing outbound and,
   when one is stored, re-applies the WARP+ license with `PUT /reg/{id}/account`. No other call is
-  added: wgcf has no device removal, so the previous registration is left to expire.
+  added: wgcf has no device removal, so the previous registration is left to expire. When the
+  probed exit IPv4 address does not change, the panel registers again, up to 3 registrations
+  per request.
+- Addresses: registration stores `config.interface.addresses.v4` and `.v6`. The IPv6 address
+  is used only by the IPv6 site bridge
+  ([egress routing](../architecture/egress-routing.md#ipv6-site-bridge)).
+- Exit location: neither the client API nor the account has a country or exit-address choice.
+  The exit follows the Cloudflare data centre that the tunnel enters, so chaining through an
+  outbound in another country is the supported way to change the country.
 - Health probe: the trace at `https://1.1.1.1/cdn-cgi/trace` reports `warp=on|plus|off` and the
   serving data centre (`colo`); the panel shows both. `warp=off` means the probe did not travel
   through WARP. Not verified on a live host since this change.

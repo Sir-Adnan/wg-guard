@@ -34,6 +34,24 @@ type WARPRegistration struct {
 	PeerPublicKey string
 	Endpoint      string // host:port
 	AddressV4     string // bare IPv4
+	AddressV6     string // bare IPv6 ("" when the response had none)
+}
+
+// WARPAddressReader reads the tunnel addresses of a registered device. The
+// production registrar implements it; registrars without it cannot supply an
+// IPv6 address to devices registered before it was stored.
+type WARPAddressReader interface {
+	Addresses(ctx context.Context, deviceID, token string) (v4, v6 string, err error)
+}
+
+// warpAddress6 is the stored form of a registration's IPv6 address ("" when
+// absent or malformed: the bridge then stays unavailable, nothing fails).
+func warpAddress6(v6 string) string {
+	a, err := netip.ParseAddr(strings.TrimSpace(v6))
+	if err != nil || !a.Is6() || a.Is4In6() {
+		return ""
+	}
+	return netip.PrefixFrom(a, 128).String()
 }
 
 // WARPRegistrar talks to the Cloudflare client API (internal/egress/warp).
@@ -192,6 +210,8 @@ type OutboundInput struct {
 	// Via chains a tunneled outbound through another one (its ID); nil
 	// keeps the current chain and "" removes it.
 	Via *string
+	// IPv6Sites turns the IPv6 site bridge on or off; nil keeps it.
+	IPv6Sites *bool
 }
 
 // CreateWireGuard imports a WireGuard/AmneziaWG client config as an outbound.
@@ -272,7 +292,7 @@ func (s *Service) CreateWARP(ctx context.Context, name, license, endpoint string
 		endpoint = reg.Endpoint
 	}
 	cfg := &TunnelConfig{
-		Address: netip.PrefixFrom(addr, 32).String(), MTU: DefaultTunnelMTU,
+		Address: netip.PrefixFrom(addr, 32).String(), Address6: warpAddress6(reg.AddressV6), MTU: DefaultTunnelMTU,
 		PeerPublicKey: reg.PeerPublicKey, Endpoint: endpoint, Keepalive: 25,
 	}
 	return s.insertOutbound(ctx, &Outbound{Name: strings.TrimSpace(name), Kind: KindWARP, Enabled: true, Tunnel: cfg, WARP: account}, secret)
@@ -322,6 +342,7 @@ func (s *Service) RenewWARP(ctx context.Context, id string) (*Outbound, error) {
 	}
 	t := *o.Tunnel
 	t.Address, t.PeerPublicKey = netip.PrefixFrom(addr, 32).String(), reg.PeerPublicKey
+	t.Address6 = warpAddress6(reg.AddressV6)
 	// An endpoint the operator chose (a port or address that works on this
 	// network) is kept; the advertised default follows the new registration.
 	if isWARPDefaultEndpoint(t.Endpoint) {
@@ -507,6 +528,14 @@ func (s *Service) UpdateOutbound(ctx context.Context, id string, in OutboundInpu
 			}
 			o.Tunnel.Via = via
 		}
+		if in.IPv6Sites != nil {
+			if *in.IPv6Sites && o.Tunnel.Address6 == "" {
+				if err := s.fetchAddress6(ctx, o); err != nil {
+					return nil, err
+				}
+			}
+			o.Tunnel.IPv6Sites = *in.IPv6Sites
+		}
 	}
 	if o.Kind == KindSourceIP && strings.TrimSpace(in.SourceIP) != "" {
 		ip, err := validSourceIP(in.SourceIP)
@@ -519,6 +548,27 @@ func (s *Service) UpdateOutbound(ctx context.Context, id string, in OutboundInpu
 		return nil, err
 	}
 	return s.GetOutbound(ctx, id)
+}
+
+// fetchAddress6 obtains the IPv6 address of a WARP device registered before
+// WG-Guard stored it. Other outbounds get theirs only from their config.
+func (s *Service) fetchAddress6(ctx context.Context, o *Outbound) error {
+	reader, ok := s.WARP.(WARPAddressReader)
+	if o.Kind != KindWARP || o.WARP == nil || !ok {
+		return invalid("ipv6_sites", "ipv6_address_missing")
+	}
+	sec, err := s.OutboundSecret(ctx, o.ID)
+	if err != nil {
+		return err
+	}
+	_, v6, err := reader.Addresses(ctx, o.WARP.DeviceID, sec.WARPToken)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrWARPUnavailable, err)
+	}
+	if o.Tunnel.Address6 = warpAddress6(v6); o.Tunnel.Address6 == "" {
+		return invalid("ipv6_sites", "ipv6_address_missing")
+	}
+	return nil
 }
 
 // ReplaceWireGuardConfig re-imports the client config of a wireguard outbound
@@ -537,6 +587,8 @@ func (s *Service) ReplaceWireGuardConfig(ctx context.Context, id, config string)
 	}
 	if o.Tunnel != nil {
 		parsed.Tunnel.Via = o.Tunnel.Via
+		// The bridge stays on only while the new config still has IPv6.
+		parsed.Tunnel.IPv6Sites = o.Tunnel.IPv6Sites && parsed.Tunnel.Address6 != ""
 	}
 	o.Tunnel = &parsed.Tunnel
 	if err := s.updateOutboundRow(ctx, o, &parsed.Secret); err != nil {
