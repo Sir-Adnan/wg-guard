@@ -189,7 +189,8 @@ single outbound that is unhealthy fails open to direct.
 - The panel **Test** button (`POST /routing/outbounds/{id}/test`, `interfaces.read`) probes
   once and records the result, but never changes the kernel itself. If the result flips the
   health state, the next health pass rebuilds the plan. Health of deleted outbounds is
-  dropped on the next apply.
+  dropped on the next apply. **Test all** (`POST /routing/outbounds/test-all`,
+  `interfaces.read`) does the same for every enabled outbound, 4 at a time.
 - The same pass recreates the table if something removed it, and refreshes the least-connection
   shares.
 - An apply that did not converge (a failed link, policy or table step, for example an endpoint
@@ -203,31 +204,72 @@ single outbound that is unhealthy fails open to direct.
 - Rules and the default route show **Going direct** while their single-outbound target is
   disabled, down or failed.
 
+## Speed test
+
+The **Speed test** row action (`POST /routing/outbounds/{id}/speed`, `interfaces.write`) measures
+one exit against Cloudflare's speed test endpoints (`speed.cloudflare.com/__down` and `/__up`)
+through the outbound's mark, IPv6 first when its link carries IPv6:
+
+- **Round trip.** The best of four small requests on a warm connection.
+- **Download and upload.** Up to 25 MiB down and 10 MiB up, each phase bounded to 8 seconds; the
+  rate counts what moved in that time. The whole test is bounded to 25 seconds.
+- **One at a time.** The node runs one speed test at a time; a second request is answered at
+  once with "another speed test is running". **Speed test all** (JavaScript) queues the visible
+  outbounds one after another and can be stopped.
+- **Results.** The last result per outbound is kept in memory (dropped with the outbound, lost on
+  restart) and shown in the list as download/upload Mbit/s, with the round trip in the details.
+
 ## Site test
 
-The **Site test** card on the Outbounds page (`POST /routing/outbounds/site-test`,
-`interfaces.read`) opens one site through the node's own route and through every enabled outbound,
-four at a time. It uses the same socket mark as client traffic. An outbound with the IPv6 site
-bridge is tested IPv6 first, like the bridge. The test never changes the kernel.
+The **Tests** tab (`/routing/tests`, `interfaces.read`) opens one service, every service, or any
+URL through the node's own route and every enabled outbound. It uses the same socket mark as
+client traffic; an outbound with the IPv6 site bridge is tested IPv6 first, like the bridge. The
+test never changes the kernel.
 
-- **Services.** Google Gemini, Google Search, ChatGPT and Claude have detectors that follow the
-  markers of the open-source
+- **Grid.** One row per exit, one column per service. With HTMX the grid renders at once and
+  each cell loads itself (`POST /routing/tests/cell`), so results appear as exits answer; each
+  cell can be run again. A plain post runs the whole grid (bounded to 2 minutes) before
+  answering.
+- **Bounds.** At most 6 site tests run at once on the node (`routing.SiteTestSlots`), whatever
+  the number of open panels; the rest wait their turn. One test is bounded to 15 seconds,
+  redirects (up to five), the second page and the region lookup included; at most 2 MiB is read
+  per page. An IPv6-first dial gives IPv6 4 seconds before falling back to IPv4. A failed attempt
+  (not a DNS failure) is retried once while at least 5 seconds remain.
+- **Requests.** A current desktop Chrome user agent with its `Sec-Ch-Ua` and `Sec-Fetch-*`
+  headers. The client is still a script: a site's bot protection can answer it differently than a
+  browser.
+- **Services.** Detectors follow the open-source
   [RegionRestrictionCheck](https://github.com/lmc999/RegionRestrictionCheck) script
-  (source-reviewed at `b6d4a6f`, 2026-10-19):
+  (source-reviewed at `b6d4a6f`, 2026-10-19) where it still matches the live pages
+  (`internal/egress/routing/sitejudge.go`; region lists in `siteregions.go`):
   - Gemini: the region code the app page reports, judged against Google's list of supported
     countries (reviewed 2026-10-19; unsupported: AFG, BLR, CHN, CUB, IRN, PRK, RUS, SYR). The
     page no longer carries the availability flag the script reads; a page without a region is
     Unknown.
-  - Google: the `/sorry/` CAPTCHA and the abuse texts.
-  - OpenAI: `unsupported_country`.
-  - Claude: the `app-unavailable-in-region` redirect.
-- **Custom URL.** Any other `http(s)` URL reports whether it opens, and calls the answer blocked
-  on 403, 451 or a common region or VPN refusal text.
-- **Verdicts.** Works, Blocked, CAPTCHA (IP flagged), Opens, Unknown or No answer. A page a
-  detector does not recognize is **Unknown**, never "works".
-- **Details.** Each result shows the HTTP status, the address family used, the time, the final
-  host and path, and the reported region.
-- **Bounds.** Up to five redirects; at most 2 MiB read per page; 12 seconds per exit.
+  - ChatGPT: `unsupported_country` from the compliance endpoint.
+  - Claude: `claude.ai` answers every non-browser client with a Cloudflare challenge, so the test
+    reads the country Cloudflare places the exit in from `claude.ai/cdn-cgi/trace` and checks it
+    against Anthropic's Supported Regions Policy (reviewed 2026-10-19, the version effective
+    2026-11-12, plus the territories of listed countries).
+  - Google Search: the `/sorry/` CAPTCHA and the abuse texts.
+  - Netflix: a licensed title and an original; neither available is **Limited** (originals
+    only), otherwise the catalog region.
+  - IP location: the country and network owner `ipinfo.io` reports for the exit, the view many
+    "VPN" checks use.
+- **Custom URL.** Any other `http(s)` URL: an explicit region refusal (HTTP 451 or a "not
+  available in your country" text) is **Blocked**; HTTP 401, 403 or 429 without a reason is
+  **Refused**, since site firewalls often refuse scripted clients that browsers pass; any other
+  answer **Opens**.
+- **Bot checks.** A challenge page (Cloudflare's `cf-mitigated: challenge` header, "Just a
+  moment", the challenge platform, other vendors' interstitials) is **Bot check** for every
+  service: the site is up and a browser normally passes it.
+- **Region.** A service that reports where it places the exit shows that code. For a
+  Cloudflare-served site without one, the test reads `/cdn-cgi/trace` on the same host.
+- **Verdicts.** Works, Opens, Limited, Bot check, Refused, Blocked, CAPTCHA (IP flagged), No
+  answer or Unknown; the page explains each one. A page a detector does not recognize is
+  **Unknown**, never "works".
+- **Details.** Each cell shows the address family and time; the single-service grid adds the
+  HTTP status, the final host and path and the detector's note.
 - **Destinations.** Only public addresses are dialed. Private, loopback, link-local, ULA and the
   node's own addresses are refused.
 - **From the Rules page.** The site check there links to the test with the domain filled in.

@@ -7,28 +7,6 @@
   .routing-target[data-target="balancer"] { background: color-mix(in srgb, var(--info) 10%, transparent); color: var(--info); }
   .routing-arrow { display: inline-flex; color: var(--muted-foreground); }
 
-  .rule-list { counter-reset: none; }
-  .rule-row { align-items: center; }
-  .rule-index { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: var(--radius-md); border: 1px solid var(--border); color: var(--muted-foreground); font-size: var(--text-xs); }
-  .rule-flow { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; margin-top: var(--s-1); min-width: 0; }
-  .rule-match { display: inline-flex; align-items: center; gap: var(--s-1); flex-wrap: wrap; min-width: 0; }
-  .rule-default { background: color-mix(in srgb, var(--muted) 60%, transparent); }
-  .rule-default-form { display: flex; align-items: center; gap: var(--s-3); width: 100%; flex-wrap: wrap; }
-  .rule-default-form > .item-content { flex: 1 1 14rem; }
-  .rule-default-controls { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
-  .rule-default-controls > .select { width: auto; min-width: 12rem; max-width: 100%; }
-  .rule-empty { justify-content: center; }
-  .rule-empty > .empty { width: 100%; }
-  @media (max-width: 640px) {
-    .rule-row { align-items: flex-start; }
-    .rule-row > .item-actions { width: 100%; justify-content: flex-end; border-top: 1px dashed var(--border); padding-top: var(--s-2); }
-    .rule-default-controls { width: 100%; }
-    .rule-default-controls > .select { flex: 1 1 10rem; min-width: 0; }
-  }
-
-  .outbound-card.is-disabled { opacity: .7; }
-  .outbound-card .card-footer { justify-content: space-between; }
-  .outbound-card .card-footer > p { flex: 1; }
   .routing-check { align-items: center; }
 
   .member-row .input { width: 4.5rem; }
@@ -51,15 +29,5 @@
   .routing-category-cloud { display: flex; flex-wrap: wrap; gap: var(--s-1); max-height: 14rem; overflow: auto; }
 }
 @layer pages {
-  .outbound-card > .card-content.kv { flex: 1; }
   .balancer-card > ol.card-content { flex: 1; }
-}
-@layer pages {
-  /* Site test: service picker, optional URL (custom only), run. */
-  .site-test-form { display: flex; align-items: flex-end; gap: var(--s-3); flex-wrap: wrap; }
-  .site-test-form > .field { flex: 1 1 12rem; min-width: 0; }
-  .site-test-url { display: none; }
-  .site-test-form:has(select[name=service] option[value=url]:checked) .site-test-url { display: grid; }
-  .site-test-detail { flex-wrap: wrap; gap: var(--s-1_5) var(--s-2); min-width: 0; }
-  .site-test-detail > bdi { max-width: 16rem; }
 }

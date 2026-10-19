@@ -173,6 +173,23 @@ func (e *env) post(path string, form url.Values, cookie *http.Cookie, csrf strin
 	return rec
 }
 
+// postHX posts the way HTMX does (HX-Request set).
+func (e *env) postHX(path string, form url.Values, cookie *http.Cookie, csrf string) *httptest.ResponseRecorder {
+	e.t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	if csrf != "" {
+		req.Header.Set(csrfHeader, csrf)
+	}
+	rec := httptest.NewRecorder()
+	e.handler.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestAnonymousRedirectsToLogin(t *testing.T) {
 	e := newEnv(t)
 	e.seedOwner()

@@ -58,11 +58,12 @@ func TestTemplatesUseKnownI18nKeys(t *testing.T) {
 		// Parse through text/template (same custom funcs initTemplates
 		// registers) so the builtins are present and the trees are walkable.
 		tt := template.New(path.Base(f)).Funcs(template.FuncMap{
-			"list":    func(items ...string) []string { return items },
-			"add":     func(values ...int64) int64 { return 0 },
-			"dict":    func(kvs ...any) map[string]any { return nil },
-			"i64u":    func(v any) int64 { return 0 },
-			"timePtr": func(t time.Time) *time.Time { return nil },
+			"list":     func(items ...string) []string { return items },
+			"add":      func(values ...int64) int64 { return 0 },
+			"dict":     func(kvs ...any) map[string]any { return nil },
+			"i64u":     func(v any) int64 { return 0 },
+			"timePtr":  func(t time.Time) *time.Time { return nil },
+			"siteTone": func(string) string { return "" },
 		})
 		if _, err := tt.Parse(string(raw)); err != nil {
 			t.Fatalf("%s: parse: %v", f, err)

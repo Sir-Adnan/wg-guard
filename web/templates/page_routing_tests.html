@@ -1,0 +1,94 @@
+{{define "title"}}{{.T "routing.tests"}}{{end}}
+{{define "routing_actions"}}{{end}}
+{{define "content"}}
+{{template "routing_header" .}}
+{{$d := .Data}}
+<section class="card site-test" id="site-test" aria-labelledby="site-test-heading">
+  <div class="card-header">
+    <div class="stack-xs">
+      <h2 class="card-title" id="site-test-heading">{{.T "routing.site.title"}}</h2>
+      <p class="card-description">{{.T "routing.site.description"}}</p>
+    </div>
+  </div>
+  <div class="card-content stack">
+    <form method="post" action="/routing/tests#site-test-result" hx-post="/routing/tests" hx-target="#site-test-result" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]" class="site-test-form">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field site-test-service">
+        <label class="field-label" for="site-service">{{.T "routing.site.service"}}</label>
+        <select class="select" id="site-service" name="service">
+          <option value="all"{{if eq $d.Service "all"}} selected{{end}}>{{.T "routing.site.all"}}</option>
+          {{range $d.Groups}}<optgroup label="{{$.T (printf "routing.site.group.%s" .Key)}}">{{range .Services}}<option value="{{.ID}}"{{if eq $d.Service .ID}} selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+          <option value="url"{{if eq $d.Service "url"}} selected{{end}}>{{.T "routing.site.custom"}}</option>
+        </select>
+      </div>
+      <div class="field site-test-url">
+        <label class="field-label" for="site-url">{{.T "routing.site.url"}}</label>
+        <input class="input input--tech" id="site-url" name="url" type="text" dir="ltr" spellcheck="false" autocomplete="off" inputmode="url" placeholder="https://example.com" value="{{$d.URL}}">
+      </div>
+      <button type="submit" class="btn btn--primary site-test-run"><span class="spinner htmx-indicator" aria-hidden="true"></span>{{.IconS "activity"}}{{.T "routing.site.run"}}</button>
+    </form>
+    <div id="site-test-result" class="site-test-result" aria-live="polite">{{if $d.Ran}}{{template "site_test_result" (dict "v" . "d" $d)}}{{end}}</div>
+  </div>
+</section>
+
+<details class="collapsible site-legend">
+  <summary><span class="summary-text"><span>{{.T "routing.site.legend"}}</span><span class="summary-hint">{{.T "routing.site.legend_hint"}}</span></span></summary>
+  <div class="collapsible-content">
+    <dl class="site-legend-list">
+      {{range $verdict := (list "available" "reachable" "limited" "challenge" "refused" "blocked" "captcha" "failed" "unknown")}}
+      <div><dt><span class="badge badge--{{siteTone $verdict}}"><span class="dot"></span>{{$.T (printf "routing.site.verdict.%s" $verdict)}}</span></dt><dd>{{$.T (printf "routing.site.means.%s" $verdict)}}</dd></div>
+      {{end}}
+    </dl>
+    <p class="text-xs text-muted">{{.T "routing.site.footnote"}}</p>
+  </div>
+</details>
+{{end}}
+
+{{define "site_test_result"}}{{$v := .v}}{{$d := .d}}
+{{if $d.Invalid}}<div class="alert alert--destructive" role="status">{{$v.Icon "alert-circle"}}<p class="alert-title">{{$v.T "routing.site.invalid"}}</p></div>
+{{else if $d.Unavailable}}<div class="alert" role="status">{{$v.Icon "info"}}<p class="alert-title">{{$v.T "routing.site.unavailable"}}</p></div>
+{{else}}
+{{$label := $d.Label}}{{if eq $d.Label "all"}}{{$label = $v.T "routing.site.all"}}{{end}}
+<p class="site-test-caption text-sm text-muted">{{$v.T "routing.site.caption" $label}} · {{$v.T "routing.site.exits" ($v.N (i64u (len $d.Rows)))}}</p>
+<div class="table-frame"><div class="table-wrap">
+  <table class="table table--cards site-grid{{if eq (len $d.Columns) 1}} site-grid--single{{end}}">
+    <caption class="sr-only">{{$v.T "routing.site.caption" $label}}</caption>
+    <thead><tr>
+      <th scope="col">{{$v.T "routing.site.col_exit"}}</th>
+      {{if eq (len $d.Columns) 1}}<th scope="col">{{$v.T "routing.site.col_result"}}</th>{{else}}{{range $d.Columns}}<th scope="col">{{.Name}}</th>{{end}}{{end}}
+    </tr></thead>
+    <tbody>{{range $d.Rows}}
+      <tr>
+        <td class="cell-primary">{{if .Direct}}<span class="row min-w-0">{{$v.IconS "server"}}<span>{{$v.T "routing.site.direct"}}</span></span>{{else}}<span class="row min-w-0">{{template "routing_kind_icon" (dict "v" $v "kind" .Kind)}}<bdi class="truncate">{{.Name}}</bdi></span>{{end}}</td>
+        {{range .Cells}}{{template "site_cell" (dict "v" $v "c" . "lazy" $d.Lazy)}}{{end}}
+      </tr>
+    {{end}}</tbody>
+  </table>
+</div></div>
+{{end}}
+{{end}}
+
+{{define "site_test_result_partial"}}{{template "site_test_result" (dict "v" . "d" .Data)}}{{end}}
+
+{{define "site_cell"}}{{$v := .v}}{{$c := .c}}{{$res := $c.Result}}
+{{if and .lazy (not $c.Done)}}
+<td class="site-cell" data-label="{{$c.Column}}" data-verdict="pending" hx-post="/routing/tests/cell" hx-trigger="load" hx-vals="{{$c.Vals}}" hx-swap="outerHTML">
+  <span class="site-pending"><span class="spinner" aria-hidden="true"></span><span class="text-sm text-muted">{{$v.T "routing.site.testing"}}</span></span>
+</td>
+{{else}}
+<td class="site-cell" data-label="{{$c.Column}}" data-verdict="{{$res.Verdict}}"{{if and (not $c.Wide) $res.Status}} title="HTTP {{$res.Status}}{{if $res.Final}} · {{$res.Final}}{{end}}"{{end}}>
+  <div class="site-verdict">
+    <span class="badge badge--{{$c.Tone}}"><span class="dot"></span>{{$v.T (printf "routing.site.verdict.%s" $res.Verdict)}}</span>
+    {{if $res.Region}}<span class="site-region" title="{{$v.T "routing.site.region"}}">{{if $c.Flag}}<span aria-hidden="true">{{$c.Flag}}</span>{{end}}<span class="tech">{{$res.Region}}</span></span>{{end}}
+    <button type="button" class="btn btn--ghost btn--icon btn--xs site-retry" hx-post="/routing/tests/cell" hx-vals="{{$c.Vals}}" hx-target="closest td" hx-swap="outerHTML" aria-label="{{$v.T "routing.site.retry"}}" data-tip="{{$v.T "routing.site.retry"}}">{{$v.IconS "rotate-ccw"}}</button>
+  </div>
+  <div class="site-meta">
+    {{if eq $res.Verdict "failed"}}<span class="text-danger">{{$v.T (printf "routing.site.error.%s" $res.Error)}}</span>
+    {{else}}{{if $c.Wide}}<span class="tech">HTTP {{$res.Status}}</span>{{end}}{{if $res.Family}}<span class="tech">{{if eq $res.Family "ip6"}}IPv6{{else}}IPv4{{end}}</span>{{end}}{{if $c.Latency}}<span class="tech">{{$v.Human $c.Latency}} ms</span>{{end}}{{if $res.Note}}<bdi class="tech truncate" title="{{$res.Note}}">{{$res.Note}}</bdi>{{end}}{{if and $c.Wide $res.Final}}<bdi class="tech truncate" title="{{$res.Final}}">{{$res.Final}}</bdi>{{end}}{{end}}
+    {{if gt $res.Attempts 1}}<span class="text-muted" title="{{$v.T "routing.site.retried"}}">↻</span>{{end}}
+  </div>
+</td>
+{{end}}
+{{end}}
+
+{{define "site_test_cell_partial"}}{{template "site_cell" (dict "v" . "c" .Data "lazy" false)}}{{end}}

@@ -275,7 +275,7 @@ func Start(ctx context.Context, o Options) (*Node, error) {
 		n.bridge = sitebridge.New(logs.network)
 		n.egress.Run, n.egress.Resolver, n.egress.Prober = runner, n.resolver, routing.HTTPProber{}
 		n.egress.Counter, n.egress.Drain, n.egress.Bridge = routing.CountConnections, routing.FlushConnections, n.bridge
-		n.egress.Sites = &routing.SiteTester{}
+		n.egress.Sites, n.egress.Speeds = &routing.SiteTester{}, &routing.SpeedTester{}
 	}
 	bootDeps := boot.Deps{
 		DB: db, Ring: n.ring, Settings: n.reg, Backend: backend,

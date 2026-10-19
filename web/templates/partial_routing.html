@@ -11,6 +11,7 @@
   <a class="tab" href="/routing/outbounds"{{if eq $t.Active "outbounds"}} aria-current="page"{{end}}>{{.IconS "route"}}{{.T "routing.outbounds"}}<span class="tab-count">{{.N (i64u $t.Outbounds)}}</span></a>
   <a class="tab" href="/routing/rules"{{if eq $t.Active "rules"}} aria-current="page"{{end}}>{{.IconS "list-filter"}}{{.T "routing.rules"}}<span class="tab-count">{{.N (i64u $t.Rules)}}</span></a>
   <a class="tab" href="/routing/balancers"{{if eq $t.Active "balancers"}} aria-current="page"{{end}}>{{.IconS "shuffle"}}{{.T "routing.balancers"}}<span class="tab-count">{{.N (i64u $t.Balancers)}}</span></a>
+  <a class="tab" href="/routing/tests"{{if eq $t.Active "tests"}} aria-current="page"{{end}}>{{.IconS "globe"}}{{.T "routing.tests"}}</a>
 </nav>
 {{end}}
 

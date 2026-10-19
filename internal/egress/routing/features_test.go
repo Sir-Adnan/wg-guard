@@ -3,6 +3,7 @@ package routing
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"path/filepath"
@@ -251,39 +252,94 @@ func TestRotateWARPRetriesUntilExitChanges(t *testing.T) {
 }
 
 func TestSiteJudges(t *testing.T) {
-	u := func(s string) *url.URL { v, _ := url.Parse(s); return v }
-	gemini, _ := SiteServiceByID("gemini")
-	if v, r := gemini.judge(u("https://gemini.google.com/app"), 200, []byte(`x WIZ_global_data 45631641,null,true ,2,1,200,"DEU"`)); v != SiteAvailable || r != "DEU" {
-		t.Fatalf("gemini available: %s %s", v, r)
+	page := func(status int, rawURL, body string, header ...string) *SitePage {
+		u, _ := url.Parse(rawURL)
+		h := http.Header{}
+		for i := 0; i+1 < len(header); i += 2 {
+			h.Set(header[i], header[i+1])
+		}
+		return &SitePage{Status: status, Host: u.Host, Path: u.Path, Header: h, Body: []byte(body)}
+	}
+	judge := func(id string, main, second *SitePage) SiteJudgement {
+		svc, ok := SiteServiceByID(id)
+		if !ok {
+			t.Fatalf("no service %s", id)
+		}
+		return svc.judge(main, second)
+	}
+	if j := judge("gemini", page(200, "https://gemini.google.com/app", `x WIZ_global_data 45631641,null,true ,2,1,200,"DEU"`), nil); j.Verdict != SiteAvailable || j.Region != "DEU" {
+		t.Fatalf("gemini available: %+v", j)
 	}
 	// The current page: the flag is gone and the region decides.
-	page := `WIZ_global_data {\"45631641\":false} "",2,1,200,"%s",null`
-	if v, r := gemini.judge(u("https://gemini.google.com/"), 200, []byte(fmt.Sprintf(page, "USA"))); v != SiteAvailable || r != "USA" {
-		t.Fatalf("gemini supported region: %s %s", v, r)
+	gem := `WIZ_global_data {\"45631641\":false} "",2,1,200,"%s",null`
+	if j := judge("gemini", page(200, "https://gemini.google.com/", fmt.Sprintf(gem, "USA")), nil); j.Verdict != SiteAvailable || j.Region != "USA" {
+		t.Fatalf("gemini supported region: %+v", j)
 	}
-	if v, r := gemini.judge(u("https://gemini.google.com/"), 200, []byte(fmt.Sprintf(page, "IRN"))); v != SiteBlocked || r != "IRN" {
-		t.Fatalf("gemini unsupported region: %s %s", v, r)
+	if j := judge("gemini", page(200, "https://gemini.google.com/", fmt.Sprintf(gem, "IRN")), nil); j.Verdict != SiteBlocked || j.Region != "IRN" {
+		t.Fatalf("gemini unsupported region: %+v", j)
 	}
-	if v, _ := gemini.judge(u("https://gemini.google.com/"), 200, []byte(`WIZ_global_data`)); v != SiteUnknown {
-		t.Fatalf("gemini without flag or region: %s", v)
+	if j := judge("gemini", page(200, "https://gemini.google.com/", `WIZ_global_data`), nil); j.Verdict != SiteUnknown {
+		t.Fatalf("gemini without flag or region: %+v", j)
 	}
-	if v, _ := gemini.judge(u("https://gemini.google.com/"), 200, []byte(`<html>maintenance</html>`)); v != SiteUnknown {
-		t.Fatalf("unrecognized page must not be judged: %s", v)
+	if j := judge("gemini", page(200, "https://gemini.google.com/", `<html>maintenance</html>`), nil); j.Verdict != SiteUnknown {
+		t.Fatalf("unrecognized page must not be judged: %+v", j)
 	}
-	google, _ := SiteServiceByID("google")
-	if v, _ := google.judge(u("https://www.google.com/sorry/index"), 429, nil); v != SiteCaptcha {
-		t.Fatalf("google sorry page: %s", v)
+	if j := judge("google", page(429, "https://www.google.com/sorry/index", ""), nil); j.Verdict != SiteCaptcha {
+		t.Fatalf("google sorry page: %+v", j)
 	}
-	claude, _ := SiteServiceByID("claude")
-	if v, _ := claude.judge(u("https://www.anthropic.com/app-unavailable-in-region"), 200, nil); v != SiteBlocked {
-		t.Fatalf("claude region: %s", v)
+	// Claude reads Cloudflare's country from the trace endpoint.
+	trace := "fl=1\nh=claude.ai\nip=203.0.113.9\nloc=%s\nwarp=off\n"
+	if j := judge("claude", page(200, "https://claude.ai/cdn-cgi/trace", fmt.Sprintf(trace, "DE")), nil); j.Verdict != SiteAvailable || j.Region != "DE" {
+		t.Fatalf("claude supported: %+v", j)
 	}
-	chatgpt, _ := SiteServiceByID("chatgpt")
-	if v, _ := chatgpt.judge(u("https://api.openai.com/"), 403, []byte(`{"error":{"code":"unsupported_country"}}`)); v != SiteBlocked {
-		t.Fatalf("openai region: %s", v)
+	if j := judge("claude", page(200, "https://claude.ai/cdn-cgi/trace", fmt.Sprintf(trace, "IR")), nil); j.Verdict != SiteBlocked || j.Region != "IR" {
+		t.Fatalf("claude unsupported: %+v", j)
 	}
-	if v, _ := judgeCustom(u("https://example.com/"), 451, nil); v != SiteBlocked {
-		t.Fatalf("451: %s", v)
+	if j := judge("claude", page(200, "https://claude.ai/cdn-cgi/trace", fmt.Sprintf(trace, "PR")), nil); j.Verdict != SiteAvailable {
+		t.Fatalf("claude territory of a listed country: %+v", j)
+	}
+	if j := judge("claude", page(403, "https://claude.ai/cdn-cgi/trace", "<html>"), nil); j.Verdict != SiteUnknown {
+		t.Fatalf("claude without trace: %+v", j)
+	}
+	if j := judge("chatgpt", page(403, "https://api.openai.com/", `{"error":{"code":"unsupported_country"}}`), nil); j.Verdict != SiteBlocked {
+		t.Fatalf("openai region: %+v", j)
+	}
+	licensed := page(200, "https://www.netflix.com/title/81280792", `"id":"US","countryName":"United States"`)
+	original := page(200, "https://www.netflix.com/title/70143836", `ok`)
+	if j := judge("netflix", licensed, original); j.Verdict != SiteAvailable || j.Region != "US" {
+		t.Fatalf("netflix full: %+v", j)
+	}
+	if j := judge("netflix", page(200, licensed.Host, "Oh no!"), page(200, original.Host, "Oh no!")); j.Verdict != SiteLimited {
+		t.Fatalf("netflix originals only: %+v", j)
+	}
+	if j := judge("iplocation", page(200, "https://ipinfo.io/json", `{"country":"de","city":"Frankfurt","org":"AS13335 Cloudflare"}`), nil); j.Verdict != SiteAvailable || j.Region != "DE" || j.Note != "AS13335 Cloudflare · Frankfurt" {
+		t.Fatalf("ipinfo: %+v", j)
+	}
+	// Custom URLs: an explicit region refusal is Blocked, a bare 403 is the
+	// site firewall refusing the client, and a challenge page is a bot check.
+	if j := judgeCustom(page(451, "https://example.com/", ""), nil); j.Verdict != SiteBlocked {
+		t.Fatalf("451: %+v", j)
+	}
+	if j := judgeCustom(page(200, "https://example.com/", "This service is not available in your country"), nil); j.Verdict != SiteBlocked {
+		t.Fatalf("region phrase: %+v", j)
+	}
+	if j := judgeCustom(page(403, "https://example.com/", "Access denied"), nil); j.Verdict != SiteRefused {
+		t.Fatalf("bare 403: %+v", j)
+	}
+	if j := judgeCustom(page(404, "https://example.com/x", ""), nil); j.Verdict != SiteReachable {
+		t.Fatalf("404 still answers: %+v", j)
+	}
+	if !botCheck(page(403, "https://claude.ai/", "<title>Just a moment...</title>", "Cf-Mitigated", "challenge")) {
+		t.Fatal("cloudflare challenge header")
+	}
+	if !botCheck(page(503, "https://example.com/", `<script src="/cdn-cgi/challenge-platform/h/b/orchestrate"></script>`)) {
+		t.Fatal("challenge platform marker")
+	}
+	if botCheck(page(403, "https://example.com/", "Access denied")) {
+		t.Fatal("plain 403 is not a challenge")
+	}
+	if !cloudflareServed(page(200, "https://example.com/", "", "Server", "cloudflare")) {
+		t.Fatal("cloudflare server header")
 	}
 	for _, bad := range []string{"", "ftp://x", "https://user:pw@example.com/", "https://"} {
 		if _, err := ParseSiteURL(bad); err == nil {

@@ -172,26 +172,26 @@
       </div>
     </div>
   </td>
-  <td data-label="{{$v.T "common.status"}}">
+  <td class="users-col-status" data-label="{{$v.T "common.status"}}">
     <span class="badge {{$v.StClass (printf "%v" $u.Status)}}"><span class="dot"></span>{{$v.St (printf "%v" $u.Status)}}</span>
   </td>
-  {{if $v.Can "traffic.read"}}<td class="cell-wide" data-label="{{$v.T "users.traffic"}}">
+  {{if $v.Can "traffic.read"}}<td class="cell-wide users-col-traffic" data-label="{{$v.T "users.traffic"}}">
     <div class="cell-meter">
       <div class="cell-meter-text"><span class="num text-foreground">{{$v.B $row.Used}}</span><span class="num">{{if $u.TrafficLimitBytes}}{{$v.T "users.ui.of_limit" ($v.BLim $u.TrafficLimitBytes)}}{{else}}{{$v.T "common.unlimited"}}{{end}}</span></div>
       {{if $u.TrafficLimitBytes}}<div class="progress progress--sm {{$v.MeterClass $row.Used $u.TrafficLimitBytes}}"><div class="progress-bar"></div></div>{{end}}
     </div>
   </td>{{end}}
-  <td data-label="{{$v.T "users.expires"}}">
+  <td class="users-col-expiry" data-label="{{$v.T "users.expires"}}">
     {{if $u.ExpiresAt}}<span class="num nowrap {{$v.ExpiryClass $u.ExpiresAt}}">{{$v.D $u.ExpiresAt}}</span><span class="cell-sub">{{$v.RelIn $u.ExpiresAt}}</span>{{else}}<span class="text-muted">{{$v.T "users.ui.no_expiry"}}</span>{{end}}
   </td>
-  {{if $v.Can "devices.read"}}<td data-label="{{$v.T "users.devices"}}">{{if $row.DevicesKnown}}<span class="num">{{$v.N (i64u $row.DeviceCount)}}{{if $u.DeviceLimit}}<span class="text-muted"> / {{$v.Human ($v.KD $u.DeviceLimit)}}</span>{{end}}</span>{{else}}<span class="text-muted">{{$v.T "forms.unavailable"}}</span>{{end}}</td>{{end}}
+  {{if $v.Can "devices.read"}}<td class="users-col-devices" data-label="{{$v.T "users.devices"}}">{{if $row.DevicesKnown}}<span class="num">{{$v.N (i64u $row.DeviceCount)}}{{if $u.DeviceLimit}}<span class="text-muted"> / {{$v.Human ($v.KD $u.DeviceLimit)}}</span>{{end}}</span>{{else}}<span class="text-muted">{{$v.T "forms.unavailable"}}</span>{{end}}</td>{{end}}
   <td class="text-muted nowrap users-col-activity" data-label="{{$v.T "users.last_activity"}}">{{$v.Rel $u.LastActivityAt}}</td>
   <td class="col-actions">
     <div class="row-actions">
-      {{if $row.SubURL}}<button type="button" class="btn btn--ghost btn--icon btn--sm" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "copy"}}</button>{{end}}
+      {{if $row.SubURL}}<button type="button" class="btn btn--ghost btn--icon btn--sm" data-copy-value="{{$row.SubURL}}" data-copied-msg="{{$v.T "common.copied"}}" data-tip="{{$v.T "sub.card.copy"}}" aria-label="{{$v.T "sub.card.copy"}}">{{$v.IconS "copy"}}<span class="row-action-label" aria-hidden="true">{{$v.T "users.ui.act_link"}}</span></button>{{end}}
       {{if and $row.Devices ($v.Can "configs.read")}}
       <div class="menu-anchor" data-device-menu="qr">
-        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.qr"}}" aria-label="{{$v.T "devices.qr"}}: {{$u.Username}}">{{$v.IconS "qr-code"}}</button>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.qr"}}" aria-label="{{$v.T "devices.qr"}}: {{$u.Username}}">{{$v.IconS "qr-code"}}<span class="row-action-label" aria-hidden="true">{{$v.T "users.ui.act_qr"}}</span></button>
         <div class="menu" role="menu" aria-label="{{$v.T "devices.qr"}}">
           <button type="button" role="menuitem" data-qr-all data-qr-all-title="{{$v.T "devices.qr_all"}}">{{$v.IconS "layout-grid"}}<span>{{$v.T "devices.qr_all"}}</span></button>
           <hr>
@@ -201,7 +201,7 @@
         </div>
       </div>
       <div class="menu-anchor" data-device-menu="download">
-        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.download_config"}}" aria-label="{{$v.T "devices.download_config"}}: {{$u.Username}}">{{$v.IconS "download"}}</button>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-haspopup="menu" aria-expanded="false" data-tip="{{$v.T "devices.download_config"}}" aria-label="{{$v.T "devices.download_config"}}: {{$u.Username}}">{{$v.IconS "download"}}<span class="row-action-label" aria-hidden="true">{{$v.T "users.ui.act_config"}}</span></button>
         <div class="menu" role="menu" aria-label="{{$v.T "devices.download_config"}}">
           <a role="menuitem" href="/users/{{$u.ID}}/configs.zip" download data-download-all>{{$v.IconS "archive"}}<span>{{$v.T "devices.download_all"}}</span></a>
           <hr>

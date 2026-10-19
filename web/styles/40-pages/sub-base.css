@@ -43,7 +43,27 @@
   @supports not selector(:has(*)) { .sub-tabs-picker { display: none; } }
 
   /* Devices */
-  .sub-device-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: var(--s-3); }
+  /* Large screens give the page more room; a lone device spans the row
+     and lays out side by side (facts, then actions) once it is wide. */
+  @media (min-width: 1280px) {
+    .public-main:has(> .sub) { max-width: 58rem; }
+    .public:has(.sub) > .public-header { padding-inline: max(var(--s-4), calc((100vw - 58rem) / 2 + var(--s-4))); }
+  }
+  .sub-device-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: var(--s-3); container-type: inline-size; }
+  /* A lone device: one row of actions under its name, then, with room,
+     the name and the actions side by side, so the card never holds a
+     half-empty column. */
+  @container (min-width: 34rem) {
+    .sub-device:only-child > .sub-device-actions { grid-template-columns: repeat(3, minmax(0, auto)) minmax(0, 1fr); }
+    .sub-device:only-child > .sub-device-actions > :is(.btn--primary, .sub-handoff) { grid-column: auto; }
+    .sub-device:only-child > .sub-device-actions > .sub-handoff { order: 4; }
+  }
+  @container (min-width: 54rem) {
+    .sub-device:only-child { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-2) var(--s-6); padding: var(--s-4) var(--s-5); }
+    .sub-device:only-child > :not(.sub-device-actions) { grid-column: 1; }
+    .sub-device:only-child > .sub-device-actions { grid-column: 2; grid-row: 1 / span 4; display: flex; align-items: center; }
+    .sub-device:only-child > .sub-device-actions > .btn { width: auto; flex: 0 0 auto; }
+  }
   .sub-device { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; padding: var(--s-4); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); box-shadow: var(--card-shadow); }
   .sub-device-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s-3); }
   .sub-device-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: var(--radius-lg); background: var(--muted); color: var(--foreground); }
@@ -57,7 +77,9 @@
   .sub-device-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--s-2); }
   .sub-device-actions > .sub-handoff { grid-column: 1 / -1; }
   .sub-device-actions > .btn { width: 100%; min-width: 0; height: max(var(--control-h), 2.25rem); }
-  .sub-device-actions > .btn > span { overflow: hidden; text-overflow: ellipsis; }
+  /* Clip only sideways: hidden overflow on both axes cut Persian dots below
+     the baseline (the "ی" of کپی). */
+  .sub-device-actions > .btn > span { overflow-x: clip; overflow-y: visible; text-overflow: ellipsis; white-space: nowrap; }
   .sub-device-actions > .btn--primary { grid-column: 1 / -1; }
   .sub-device-note { display: flex; align-items: flex-start; gap: var(--s-1_5); font-size: var(--text-xs); color: var(--muted-foreground); }
   .sub-device-note > .icon { margin-top: 2px; }

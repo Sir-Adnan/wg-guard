@@ -54,6 +54,10 @@ type HostDialer struct {
 	PreferIPv6 bool
 	Timeout    time.Duration
 	Lookup     Lookup
+	// FirstFamilyBudget, when set, bounds the time spent on the preferred
+	// family before falling back to the other one (the site test sets it so
+	// a broken IPv6 path still reaches IPv4 in time; the bridge does not).
+	FirstFamilyBudget time.Duration
 }
 
 // Dial connects to host:port and reports the address family used.
@@ -75,18 +79,27 @@ func (h HostDialer) Dial(ctx context.Context, host string, port uint16) (net.Con
 	}
 	dialer := MarkedDialer(h.Mark, timeout)
 	var errs []error
-	for _, family := range families {
-		addrs, err := resolveFamily(ctx, lookup, family, host)
+	for i, family := range families {
+		fctx := ctx
+		if h.FirstFamilyBudget > 0 && i == 0 && len(families) > 1 {
+			var cancel context.CancelFunc
+			fctx, cancel = context.WithTimeout(ctx, h.FirstFamilyBudget)
+			defer cancel()
+		}
+		addrs, err := resolveFamily(fctx, lookup, family, host)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		for _, a := range addrs {
-			conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(a.String(), strconv.Itoa(int(port))))
+			conn, err := dialer.DialContext(fctx, "tcp", net.JoinHostPort(a.String(), strconv.Itoa(int(port))))
 			if err == nil {
 				return conn, family, nil
 			}
 			errs = append(errs, err)
+			if fctx.Err() != nil {
+				break
+			}
 			if ctx.Err() != nil {
 				return nil, "", errors.Join(errs...)
 			}

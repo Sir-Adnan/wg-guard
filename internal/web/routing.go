@@ -133,6 +133,11 @@ type outboundCard struct {
 	ExitIP6  string
 	Bridged  routing.BridgeStats
 	HasStats bool
+	// Speed is the last speed test (nil: never tested since start);
+	// SpeedDown/SpeedUp are Mbit/s and SpeedPing milliseconds, formatted.
+	Speed                         *routing.SpeedResult
+	SpeedDown, SpeedUp, SpeedPing string
+	SpeedAt                       *time.Time
 }
 
 type outboundsData struct {
@@ -140,8 +145,19 @@ type outboundsData struct {
 	Cards    []outboundCard
 	Healthy  int
 	Problems int
+	Disabled int
 	Warnings []routing.Warning
-	Site     siteTestData
+}
+
+// formatMbps keeps three significant figures: 0.84, 12.5, 940.
+func formatMbps(v float64) string {
+	switch {
+	case v >= 100:
+		return strconv.FormatFloat(v, 'f', 0, 64)
+	case v >= 10:
+		return strconv.FormatFloat(v, 'f', 1, 64)
+	}
+	return strconv.FormatFloat(v, 'f', 2, 64)
 }
 
 // outboundKindKey labels the transport precisely (WARP vs WARP+, WireGuard
@@ -186,9 +202,11 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 	}
 	var st routing.Status
 	var bridged map[string]routing.BridgeStats
+	var speeds map[string]routing.SpeedResult
 	if s.EgressRuntime != nil {
 		st = s.EgressRuntime.Status()
 		bridged = s.EgressRuntime.BridgeStats()
+		speeds = s.EgressRuntime.SpeedResults()
 	}
 	usage := s.outboundUsage(r)
 	names := map[string]string{}
@@ -252,6 +270,13 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 				c.RX, c.TX, c.Counters = int64(rx), int64(tx), true
 			}
 		}
+		if sp, ok := speeds[o.ID]; ok {
+			c.Speed, c.SpeedAt = &sp, &sp.TestedAt
+			if sp.OK {
+				c.SpeedDown, c.SpeedUp = formatMbps(sp.Down), formatMbps(sp.Up)
+				c.SpeedPing = strconv.FormatInt(sp.Ping.Milliseconds(), 10)
+			}
+		}
 		cards = append(cards, c)
 	}
 	return cards, st, nil
@@ -290,24 +315,34 @@ func (s *Server) outboundUsage(r *http.Request) map[string][]string {
 }
 
 func (s *Server) handleOutbounds(w http.ResponseWriter, r *http.Request) {
-	cards, st, err := s.outboundCards(r)
+	d, err := s.outboundsPage(r)
 	if err != nil {
 		s.actionFailed(w, r, err)
 		return
 	}
-	d := outboundsData{Tabs: s.loadRoutingTabs(r, "outbounds"), Cards: cards, Warnings: st.Warnings, Site: s.siteTestForm(r)}
+	_ = s.render(w, r, "routing_outbounds", "app", d)
+}
+
+func (s *Server) outboundsPage(r *http.Request) (outboundsData, error) {
+	cards, st, err := s.outboundCards(r)
+	if err != nil {
+		return outboundsData{}, err
+	}
+	d := outboundsData{Tabs: s.loadRoutingTabs(r, "outbounds"), Cards: cards, Warnings: st.Warnings}
 	for _, c := range cards {
 		switch c.State {
 		case "healthy":
 			d.Healthy++
 		case "down", "error":
 			d.Problems++
+		case "disabled":
+			d.Disabled++
 		}
 	}
-	_ = s.render(w, r, "routing_outbounds", "app", d)
+	return d, nil
 }
 
-// handleOutboundTest probes one outbound now. HTMX swaps the refreshed card;
+// handleOutboundTest probes one outbound now. HTMX swaps the refreshed row;
 // a plain form post returns to the list with a toast.
 func (s *Server) handleOutboundTest(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -319,8 +354,56 @@ func (s *Server) handleOutboundTest(w http.ResponseWriter, r *http.Request) {
 			s.logError(r, "egress test failed", err)
 		}
 	}
+	s.outboundRowDone(w, r, id, "routing.toast.tested")
+}
+
+// handleOutboundTestAll probes every enabled outbound now. HTMX swaps the
+// whole list; a plain post returns with a toast.
+func (s *Server) handleOutboundTestAll(w http.ResponseWriter, r *http.Request) {
+	if s.EgressRuntime != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 4*routing.ProbeTimeout)
+		s.EgressRuntime.TestAll(ctx)
+		cancel()
+	}
 	if !isHX(r) {
-		s.redirectToast(w, r, "/routing/outbounds", "routing.toast.tested")
+		s.redirectToast(w, r, "/routing/outbounds", "routing.toast.tested_all")
+		return
+	}
+	d, err := s.outboundsPage(r)
+	if err != nil {
+		s.actionFailed(w, r, err)
+		return
+	}
+	_ = s.partial(w, r, "routing_outbounds", "outbound_list_partial", d)
+}
+
+// handleOutboundSpeed runs a speed test through one outbound (one at a time
+// per node; see routing.Manager.SpeedTest).
+func (s *Server) handleOutboundSpeed(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	toast := "routing.toast.speed_done"
+	var busy *routing.SpeedResult
+	if s.EgressRuntime != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), routing.SpeedTimeout+5*time.Second)
+		res, err := s.EgressRuntime.SpeedTest(ctx, id)
+		cancel()
+		switch {
+		case errors.Is(err, routing.ErrSpeedBusy):
+			// Not recorded: the row shows it once, the stored result stays.
+			toast, busy = "routing.toast.speed_busy", &res
+		case err != nil && !errors.Is(err, egress.ErrNotFound):
+			s.logError(r, "egress speed test failed", err)
+		}
+	}
+	s.outboundRowDone(w, r, id, toast, busy)
+}
+
+// outboundRowDone answers a row action: HTMX gets the refreshed row, a
+// plain post goes back to the list with a toast. speed, when set, replaces
+// the row's speed result for this answer only.
+func (s *Server) outboundRowDone(w http.ResponseWriter, r *http.Request, id, toast string, speed ...*routing.SpeedResult) {
+	if !isHX(r) {
+		s.redirectToast(w, r, "/routing/outbounds", toast)
 		return
 	}
 	cards, _, err := s.outboundCards(r)
@@ -330,6 +413,9 @@ func (s *Server) handleOutboundTest(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, c := range cards {
 		if c.O.ID == id {
+			if len(speed) > 0 && speed[0] != nil {
+				c.Speed, c.SpeedAt = speed[0], &speed[0].TestedAt
+			}
 			_ = s.partial(w, r, "routing_outbounds", "outbound_card_partial", c)
 			return
 		}

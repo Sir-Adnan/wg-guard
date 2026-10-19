@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -139,8 +138,10 @@ type Manager struct {
 	Drain func(mark uint32) error
 	// Bridge is the IPv6 site bridge; nil disables it.
 	Bridge Bridge
-	// Sites runs site tests; nil reports them unsupported.
-	Sites *SiteTester
+	// Sites runs site tests and Speeds speed tests; nil reports them
+	// unsupported.
+	Sites  *SiteTester
+	Speeds *SpeedTester
 	// Lookup resolves endpoint names for re-resolution (nil: the node's
 	// resolver).
 	Lookup Lookup
@@ -172,6 +173,8 @@ type Manager struct {
 	retryDelay time.Duration
 	// reresolveAt paces endpoint re-resolution per outbound.
 	reresolveAt map[string]time.Time
+
+	diag diagnostics // site and speed test bounds and results
 }
 
 type healthEntry struct {
@@ -1007,29 +1010,6 @@ func (m *Manager) Test(ctx context.Context, id string) (ProbeResult, error) {
 		m.stateMu.Unlock()
 	}
 	return res, nil
-}
-
-// DirectSite names the node's own route in site tests.
-const DirectSite = "direct"
-
-// TestSite opens a site through one outbound (or the node's own route, for
-// DirectSite) the way client traffic would: an outbound whose link carries
-// IPv6 is tested IPv6 first, like the bridge. It never touches the kernel.
-func (m *Manager) TestSite(ctx context.Context, id string, u *url.URL, svc *SiteService) (SiteResult, error) {
-	if m.Sites == nil {
-		return SiteResult{Verdict: SiteFailed, Error: "unsupported", TestedAt: time.Now().UTC()}, nil
-	}
-	if id == DirectSite {
-		return m.Sites.Test(ctx, 0, false, u, svc), nil
-	}
-	o, ok := m.Status().Outbounds[id]
-	if !ok {
-		return SiteResult{}, egress.ErrNotFound
-	}
-	if !o.Enabled || o.LinkError != "" || (o.Link == "" && o.Kind != egress.KindSourceIP) {
-		return SiteResult{Verdict: SiteFailed, Error: "unreachable", TestedAt: time.Now().UTC()}, nil
-	}
-	return m.Sites.Test(ctx, o.Mark, o.IPv6, u, svc), nil
 }
 
 // WARP rotation: a new identity usually brings a new exit address, but

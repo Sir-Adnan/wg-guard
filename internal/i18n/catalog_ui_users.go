@@ -4,6 +4,9 @@ package i18n
 // Rows are {key, English, Persian}; parity is enforced by the catalog tests.
 func init() {
 	rows := [][3]string{
+		{"users.ui.act_link", "Link", "لینک ساب"},
+		{"users.ui.act_qr", "QR", "QR"},
+		{"users.ui.act_config", "Config", "کانفیگ"},
 		{"users.ui.count_unit", "users", "کاربر"},
 		{"users.ui.of_limit", "of %s", "از %s"},
 		{"users.ui.terms", "Subscription terms", "شرایط اشتراک"},
