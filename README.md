@@ -20,7 +20,7 @@ recovery without turning the server into a large application stack.
 | | Built for operators |
 |---|---|
 | 🛡️ | **AmneziaWG control** — interfaces with ordered IPv4 pools and capacity snapshots, generated anti-DPI profiles, peers, and guarded host reconciliation |
-| 🧭 | **Egress routing (unreleased)** — outbounds through WARP, imported WireGuard/AmneziaWG or a source IP, balancers, and ordered rules with presets and geodata |
+| 🧭 | **Egress routing** — outbounds through WARP, imported WireGuard/AmneziaWG or a source IP, balancers, ordered rules with presets and geodata, a per-exit site test and an opt-in IPv6 site bridge |
 | 👥 | **Subscriber lifecycle** — optional technical templates, quota top-ups, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
 | 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a public subscription page with four selectable designs and per-app setup guides |
 | 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
@@ -42,9 +42,11 @@ listed Ubuntu 24.04 generic kernels; later Ubuntu kernels are not inferred as su
 The installer checks and can provision its catalogued prerequisites. Keep access to the
 server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
 
-> **v0.1.11** fixes fresh installs on Ubuntu 24.04's current `docker.io` 29.x (containerd image
-> store), where v0.1.10 stopped with `runtime: image inspection failed`. To finish an
-> interrupted v0.1.10 setup, see the
+> **v0.2.0** adds egress routing (WARP and imported WireGuard/AmneziaWG outbounds, balancers
+> and rules), the site test and IPv6 site bridge, a new design system with 29 themes and four
+> subscription page designs. Egress routing is automated-tested and not yet verified with real
+> client traffic; see the [changelog](CHANGELOG.md) and [status](docs/development/status.md#egress-routing).
+> To finish an interrupted v0.1.10 setup, see the
 > [recovery guide](docs/operations/lifecycle-recovery.md#runtime-image-inspection-failed-on-the-containerd-image-store).
 
 **Latest published stable release:**

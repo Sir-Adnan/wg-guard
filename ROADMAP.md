@@ -32,8 +32,8 @@ unverified work. Detailed release-readiness tracking lives in
 | **18 — Integrated domains and HTTPS** | Panel/subscription domain roles, automatic/manual certificate management from panel and CLI, SNI and public-route isolation | ✅ Complete; HTTP-01 host-verified; shipped in v0.1.10 |
 | **19 — Installer and operational UX** | Install-from-backup, common operation status/recovery, domain/TLS UI and terminal simplification | ✅ Complete; shipped in v0.1.10 |
 | **20 — Refactor certification and publication** | Actual migrated restore/client traffic, reboot/renewal, resource and failure drills, exact artifact acceptance | ✅ Complete for Ubuntu 24.04 amd64 Docker scope; v0.1.10 published |
-| **21 — Egress routing and client portal** | Kernel-native outbounds (WARP, WireGuard/AmneziaWG, source IP), balancers, ordered rules with presets/geodata and a routing resolver; subscription portal, app guide, AmneziaVPN `vpn://` and machine-readable info | 🚧 On main, unreleased; automated-tested; real-host verification pending ([status](docs/development/status.md#egress-routing)) |
-| **22 — Design system and subscription designs** | shadcn-anatomy CSS design system, 29 themes, Appearance gallery and four selectable subscription page designs | 🚧 On main, unreleased; Go + Chromium browser suites; WebKit/Firefox/physical phones unverified ([status](docs/development/status.md#design-system-redesign)) |
+| **21 — Egress routing and client portal** | Kernel-native outbounds (WARP, WireGuard/AmneziaWG, source IP), balancers, ordered rules with presets/geodata and a routing resolver; subscription portal, app guide, AmneziaVPN `vpn://` and machine-readable info | 🚀 Shipped in v0.2.0; automated-tested; real-host verification pending ([status](docs/development/status.md#egress-routing)) |
+| **22 — Design system and subscription designs** | shadcn-anatomy CSS design system, 29 themes, Appearance gallery and four selectable subscription page designs | 🚀 Shipped in v0.2.0; Go + Chromium browser suites; WebKit/Firefox/physical phones unverified ([status](docs/development/status.md#design-system-redesign)) |
 
 The [refactor program](docs/development/refactor-program.md) defines Phase 15–20
 milestones, dependencies and exit evidence. Historical Phases 0–14 remain complete
@@ -314,7 +314,7 @@ main CI, the release workflow and independent public-asset verification. Detaile
 Kernel-native outbounds (WARP, imported WireGuard/AmneziaWG, source IP), balancers, ordered
 rules with presets and geodata, and a built-in DNS resolver, without a proxy engine; the
 subscription portal adds per-app guides, AmneziaVPN `vpn://` keys and machine-readable info.
-Merged to main (PR #5) and unreleased. Unit, integration and namespace `nft` tests pass; the
+Merged to main (PR #5, follow-ups in PRs #8, #10 and #11) and shipped in v0.2.0. Unit, integration and namespace `nft` tests pass; the
 first real-host pass found three defects, now fixed with regression tests, and client traffic
 through an outbound is not yet re-verified. Design: [egress routing](docs/architecture/egress-routing.md)
 and [ADR-0016](docs/decisions/ADR-0016-kernel-egress-routing.md); evidence:
@@ -325,16 +325,22 @@ and [ADR-0016](docs/decisions/ADR-0016-kernel-egress-routing.md); evidence:
 Every panel, auth and public surface is rebuilt on the `web/styles` shadcn-anatomy layers; 29
 data-only themes in `web/themes` are chosen in the Appearance gallery, and the public subscription
 page offers four owner-selectable designs (Ticket, Membership card, Minimal, App) with
-Connect / Setup guide / Details tabs. Merged to main on 2026-10-18 (PRs #6 and #7) and
-unreleased. Go tests and the opt-in Chromium browser suites passed locally; WebKit, Firefox,
+Connect / Setup guide / Details tabs. Merged to main on 2026-10-18 (PRs #6, #7 and #9) and
+shipped in v0.2.0. Go tests and the opt-in Chromium browser suites passed locally; WebKit, Firefox,
 physical phones and real hosts are unverified. Design: [design system](docs/product/design-system.md)
 and [ADR-0017](docs/decisions/ADR-0017-design-system-and-presets.md); evidence:
 [status](docs/development/status.md#design-system-redesign).
 
 ## Next scope and open items
 
-Phases 21–22 are on main and unreleased; nothing beyond them is scheduled. Each item below needs
-its own owner decision, scope and evidence; none is implied by the v0.1.10/v0.1.11 support claims.
+Phases 21–22 shipped in v0.2.0; nothing beyond them is scheduled. Each item below needs its own
+owner decision, scope and evidence; none is implied by the v0.1.10, v0.1.11 or v0.2.0 support
+claims.
+
+- **Egress routing on a real host:** client traffic through `wgoN` links (chained and failover
+  included), the IPv6 site bridge with real clients and WARP IPv6, site test verdicts against the
+  live services, WARP renewal/rotation against the live API and AmneziaVPN import on devices
+  ([status](docs/development/status.md#egress-routing)).
 
 - **Ubuntu 26.04 / kernel `7.0.0-38` (compile fix shipped in v0.1.11 as bundle `awg-2026-10`; real-host load unverified):** the pinned kernel module fails to build there
   ([upstream issue 259](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/259));

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [v0.2.0] — 2026-10-19
+
+WG-Guard 0.2 adds egress routing (outbounds, balancers and rules, without a proxy engine), the
+IPv6 site bridge and site test, a rebuilt design system with 29 themes, and a subscription
+portal with four designs. Every new routing feature is off until an operator creates an
+outbound, so an updated node keeps sending traffic directly.
+
 ### Added
 - Add **Open websites over IPv6** for WARP and imported outbounds with an IPv6 address
   ([ADR-0018](docs/decisions/ADR-0018-ipv6-site-bridge.md)). Web connections (ports 80 and 443)
@@ -114,7 +121,6 @@
   instead of following the list order. Rules show **Going direct** when their outbound cannot
   carry traffic. The encrypted-DNS switch has its own card, live state and visible warning about
   strict Private DNS. Source-IP outbounds that leave from another address fail their check.
-
 - The mobile navigation drawer never appeared under themes with a floating sidebar (most
   tweakcn imports): the desktop composition outranked its open state.
 - The sidebar account menu opened as an empty strip, so its ⋮ button seemed to do nothing.
@@ -126,7 +132,6 @@
   tile, card actions squeezed headings into one-word lines, the users table pushed its actions
   out of view at 1024px, Persian placeholders lost letter joining in technical fields, the
   user edit page showed empty quick-preset selects and audit rows truncated their target.
-
 - Development installs (`--commit`) failed outright when the newest Go toolchain archive could
   not be downloaded (for example an HTTP 404 from a mirror); the bootstrap now falls back to the
   next compatible stable Go release, reports the failing host and status instead of raw curl
@@ -161,6 +166,22 @@
   and free text needs a server signature.
 - Behind the managed reverse proxy every visitor shared one login and subscription rate-limit
   bucket, so a few failed logins locked out every administrator.
+
+Verification: `go test ./...` (including real `nft` and network-namespace checks for the
+routing table, the site bridge redirect and the conntrack drain), the Linux race jobs, the
+runtime image job and the opt-in Chromium browser suites passed on the released source. The
+first real-host pass of egress routing found three defects, fixed here. Client traffic through
+an outbound, the IPv6 site bridge with real clients and WARP IPv6, site test verdicts against
+the live services, WARP renewal against the live API, AmneziaVPN import on devices, WebKit,
+Firefox and physical phones are not yet verified; see
+[status](docs/development/status.md#egress-routing).
+
+Upgrade note: update from the panel or `sudo wg-guard` as usual. Migrations
+`0017_egress_routing.sql`, `0018_subscription_appearance.sql` and `0019_subscription_layouts.sql`
+run on start; retired subscription layouts map to Ticket or Minimal. Devices keep their configs.
+With ufw active, the node adds `allow in on awgN` rules for UDP/TCP 53 (the routing resolver)
+and TCP 51801–51863 (the site bridge) on its own tunnel interfaces; nothing listens there until
+a domain rule or a bridge is in use. Other firewalls need those ports accepted on `awg*` input.
 
 ## [v0.1.11] — 2026-10-08
 

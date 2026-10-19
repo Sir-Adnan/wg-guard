@@ -136,8 +136,13 @@ install failure and its correction. Exact released source
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37776439694) and the
 [manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37777778448). All seven
 public assets were independently downloaded and their checksums, tag→commit and attestations
-verified; see [status](status.md). v0.1.11 is Latest stable. This authorization covers v0.1.11 only;
+verified; see [status](status.md). This authorization covers v0.1.11 only;
 later versions and registry images need their own scope.
+On 2026-10-19 the owner explicitly requested v0.2.0 for Phases 21–22 and their follow-ups. It is
+cut from the exact main commit that records the request, after that commit's main CI and the
+manual release workflow pass; the published assets are then downloaded and checked
+independently. This authorization covers v0.2.0 only; later versions and registry images need
+their own scope.
 
 Keep commits coherent and imperative (`feat(user): …`, `fix(api): …`, `docs: …`, `build: …`). Do not
 knowingly deliver broken code, but an extra full local build/test cycle is not required for every

@@ -15,9 +15,10 @@ v0.1.11 (2026-10-08, exact `228e2a5`) corrects release-image admission on Docker
 image store and ships bundle `awg-2026-10`. Main CI, the release workflow and independent
 asset/attestation checks passed; its real-host fresh release install is recorded in
 [status](status.md) when observed. Phases 21–22 (egress routing and client portal; design
-system and subscription designs) are on main after v0.1.11 and unreleased.
+system and subscription designs) and their follow-ups ship in v0.2.0 (2026-10-19), with the
+real-host and device cells recorded in [status](status.md#egress-routing) still unverified.
 
-Last updated: 2026-10-18. Phases 8–12 and corrective 8.1–8.3 are complete within their
+Last updated: 2026-10-19. Phases 8–12 and corrective 8.1–8.3 are complete within their
 documented scopes. Phase 10 passed the three-engine route/state matrix and
 relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
 Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
@@ -80,8 +81,8 @@ further release authorization.
 | 18 — Domains/TLS | listed Phase 20 HTTP-01/SNI/renewal/replacement host gates passed; v0.1.10 public | Unobserved external/DNS-01/long-interval renewal cells excluded |
 | 19 — Operational UX | corrected fresh archive host acceptance passed; v0.1.10 public | Documented supported matrix |
 | 20 — Refactor certification | complete; v0.1.10 public | Exact main/release CI and independently checked public assets passed; unsupported cells excluded |
-| 21 — Egress routing and client portal | on main, unreleased; real-host/Firefox/WebKit unverified | Real-host client traffic through an outbound and device import of AmneziaVPN keys ([status](status.md#egress-routing)) |
-| 22 — Design system and subscription designs | on main, unreleased; real-host/Firefox/WebKit unverified | Go and local Chromium suites passed; other engines, physical phones and real hosts remain ([status](status.md#design-system-redesign)) |
+| 21 — Egress routing and client portal | shipped in v0.2.0; real-host/Firefox/WebKit unverified | Real-host client traffic through an outbound and device import of AmneziaVPN keys ([status](status.md#egress-routing)) |
+| 22 — Design system and subscription designs | shipped in v0.2.0; real-host/Firefox/WebKit unverified | Go and local Chromium suites passed; other engines, physical phones and real hosts remain ([status](status.md#design-system-redesign)) |
 
 ### Refactor entry findings
 
