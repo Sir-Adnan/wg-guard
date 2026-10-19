@@ -153,10 +153,10 @@
     <div class="sub-device-actions">
       <a class="btn btn--primary" href="{{$.Data.Base}}/devices/{{.D.ID}}/config?lang={{$.Data.Lang}}"{{if not $.Data.Preview}} data-config-download{{end}}>{{$.IconS "download"}}<span>{{$.T "sub.download"}}</span></a>
       <a class="btn" href="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}"{{if not $.Data.Preview}} data-qr="{{$.Data.Base}}/devices/{{.D.ID}}/qr?lang={{$.Data.Lang}}" data-qr-name="{{.D.Name}}"{{end}}>{{$.IconS "qr-code"}}<span>{{$.T "devices.qr"}}</span></a>
-      <a class="btn sub-handoff" href="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?lang={{$.Data.Lang}}">{{$.IconS "zap"}}<span>{{$.T "publicsub.open_amneziavpn"}}</span></a>
+      <a class="btn sub-handoff" href="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?lang={{$.Data.Lang}}"{{if not $.Data.Preview}} data-amnezia-open="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?format=file"{{end}}>{{$.IconS "zap"}}<span>{{$.T "publicsub.open_amneziavpn"}}</span></a>
       <button type="button" class="btn"{{if not $.Data.Preview}} data-amnezia-copy="{{$.Data.Base}}/devices/{{.D.ID}}/amneziavpn?format=text"{{end}}>{{$.IconS "copy"}}<span>{{$.T "publicsub.ui.copy_key"}}</span></button>
     </div>
-    <p class="sub-device-state" data-download-state role="status" data-loading="{{$.T "common.loading"}}" data-error="{{$.T "publicsub.download_failed"}}" data-rate-limit="{{$.T "publicsub.rate_limited"}}" data-success="{{$.T "publicsub.download_started"}}" data-copied="{{$.T "publicsub.key_copied"}}"></p>
+    <p class="sub-device-state" data-download-state role="status" data-loading="{{$.T "common.loading"}}" data-error="{{$.T "publicsub.download_failed"}}" data-rate-limit="{{$.T "publicsub.rate_limited"}}" data-success="{{$.T "publicsub.download_started"}}" data-copied="{{$.T "publicsub.key_copied"}}" data-amnezia-ios="{{$.T "publicsub.amnezia_file_ios"}}" data-amnezia-desktop="{{$.T "publicsub.amnezia_file_desktop"}}" data-amnezia-again="{{$.T "publicsub.amnezia_tap_again"}}"></p>
   </article>
   {{end}}
 </div>

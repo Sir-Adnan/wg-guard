@@ -799,6 +799,11 @@ func (n *Node) Shutdown(ctx context.Context) error {
 		return errors.Join(append(errs, workErrors...)...)
 	}
 	if n.resolver != nil {
+		if n.egress != nil {
+			if err := n.egress.ReleaseDNS(ctx); err != nil {
+				errs = append(errs, err)
+			}
+		}
 		if err := n.resolver.Close(); err != nil {
 			errs = append(errs, err)
 		}

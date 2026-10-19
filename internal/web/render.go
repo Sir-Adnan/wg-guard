@@ -519,7 +519,10 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page, layout str
 func (s *Server) applyFlash(r *http.Request, v *View) {
 	q := r.URL.Query()
 	if raw := q.Get("rawmsg"); raw != "" {
-		if flashSigned(q.Get("fsig"), "raw", raw) {
+		switch {
+		case q.Get("rawerr") == "1" && flashSigned(q.Get("fsig"), "rawerr", raw):
+			v.ToastMsg, v.ToastError = raw, true
+		case flashSigned(q.Get("fsig"), "raw", raw):
 			v.ToastMsg = raw
 		}
 		return
@@ -532,12 +535,20 @@ func (s *Server) applyFlash(r *http.Request, v *View) {
 	if targ != "" && !flashSigned(q.Get("fsig"), "targ", key, targ) {
 		return
 	}
-	v.ToastError = key == "common.denied" || key == "onboard.endpoint_pending"
+	v.ToastError = errorToasts[key]
 	if targ != "" {
 		v.ToastMsg = v.T(key, targ)
 	} else {
 		v.ToastMsg = v.T(key)
 	}
+}
+
+// errorToasts are the flash keys that report a failure; they render as an
+// error, not as a confirmation.
+var errorToasts = map[string]bool{
+	"common.denied": true, "onboard.endpoint_pending": true, "common.error_generic": true,
+	"common.error_not_found": true, "routing.toast.saved_pending": true, "routing.toast.geo_invalid": true,
+	"routing.toast.geo_download_failed": true, "routing.toast.warp_failed": true,
 }
 
 // flashKey signs PRG flash text for this process only: a flash is consumed

@@ -30,6 +30,20 @@ type ruleRow struct {
 	Categories  int
 	Addresses   int
 	First, Last bool
+	// Fallback: the target is a single outbound that cannot carry traffic
+	// now (disabled, down or failed), so its traffic takes the direct route.
+	Fallback bool
+}
+
+// fallsBack reports whether a single-outbound target currently sends its
+// traffic direct: the outbound is disabled or missing from the applied
+// state, its link failed, or its health check is failing.
+func fallsBack(t egress.Target, st routing.Status) bool {
+	if t.Kind != egress.TargetOutbound {
+		return false
+	}
+	o, ok := st.Outbounds[t.ID]
+	return !ok || !o.Enabled || o.LinkError != "" || (o.Probed && !o.Healthy)
 }
 
 type geoInfo struct {
@@ -63,10 +77,12 @@ type rulesData struct {
 	Warnings       []routing.Warning
 	ResolverWanted bool
 	ResolverActive bool
-	Check          *siteCheck
-	GeositeURL     string
-	GeoIPURL       string
-	CanWrite       bool
+	// DefaultFallback: the default route's outbound is not usable now.
+	DefaultFallback bool
+	Check           *siteCheck
+	GeositeURL      string
+	GeoIPURL        string
+	CanWrite        bool
 }
 
 func matcherCounts(r *egress.Rule) (domains, categories, addresses int) {
@@ -100,6 +116,10 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	names := s.targetNames(r)
+	var st routing.Status
+	if s.EgressRuntime != nil {
+		st = s.EgressRuntime.Status()
+	}
 	d := rulesData{
 		Tabs: s.loadRoutingTabs(r, "rules"), BlockDNS: settings.BlockEncryptedDNS,
 		DefaultOptions: s.targetOptions(r, settings.DefaultTarget, false),
@@ -117,12 +137,11 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		row.Domains, row.Categories, row.Addresses = matcherCounts(rule)
+		row.Fallback = rule.Enabled && s.EgressRuntime != nil && fallsBack(rule.Target, st)
 		d.Rows = append(d.Rows, row)
 	}
-	if s.EgressRuntime != nil {
-		st := s.EgressRuntime.Status()
-		d.Warnings, d.ResolverWanted, d.ResolverActive = st.Warnings, st.ResolverWanted, st.ResolverActive
-	}
+	d.DefaultFallback = s.EgressRuntime != nil && fallsBack(settings.DefaultTarget, st)
+	d.Warnings, d.ResolverWanted, d.ResolverActive = st.Warnings, st.ResolverWanted, st.ResolverActive
 	if s.GeoData != nil {
 		urls := map[geodata.Kind]string{geodata.KindGeosite: settings.GeositeURL, geodata.KindGeoIP: settings.GeoIPURL}
 		for _, info := range s.GeoData.Info() {
@@ -218,19 +237,26 @@ func (s *Server) handleRoutingDefault(w http.ResponseWriter, r *http.Request) {
 		s.actionFailed(w, r, err)
 		return
 	}
-	target, err := egress.ParseTarget(r.PostFormValue("default_target"))
-	if err != nil {
-		s.egressActionFailed(w, r, "/routing/rules", err)
-		return
+	// The default route and the encrypted-DNS switch are separate forms;
+	// each changes only what it submits.
+	path := "/routing/rules#encrypted-dns"
+	if r.PostForm.Has("default_target") {
+		target, err := egress.ParseTarget(r.PostFormValue("default_target"))
+		if err != nil {
+			s.egressActionFailed(w, r, "/routing/rules", err)
+			return
+		}
+		current.DefaultTarget, path = target, "/routing/rules"
 	}
-	current.DefaultTarget = target
-	current.BlockEncryptedDNS = r.PostFormValue("block_dns") == "1"
+	if r.PostForm.Has("dns_form") {
+		current.BlockEncryptedDNS = r.PostFormValue("block_dns") == "1"
+	}
 	if err := s.Egress.UpdateSettings(r.Context(), current); err != nil {
 		s.egressActionFailed(w, r, "/routing/rules", err)
 		return
 	}
-	s.audit(r, "egress.settings_updated", "egress", map[string]any{"default_target": target.String(), "block_encrypted_dns": current.BlockEncryptedDNS})
-	s.routingDone(w, r, "/routing/rules", "routing.toast.saved")
+	s.audit(r, "egress.settings_updated", "egress", map[string]any{"default_target": current.DefaultTarget.String(), "block_encrypted_dns": current.BlockEncryptedDNS})
+	s.routingDone(w, r, path, "routing.toast.saved")
 }
 
 func (s *Server) handleRuleToggle(enable bool) http.HandlerFunc {
@@ -253,7 +279,7 @@ func (s *Server) handleRuleMove(delta int) http.HandlerFunc {
 			return
 		}
 		s.audit(r, "egress.rule_moved", id, map[string]any{"delta": delta})
-		s.routingDone(w, r, "/routing/rules", "routing.toast.reordered")
+		s.routingDone(w, r, "/routing/rules#rule-"+id, "routing.toast.reordered")
 	}
 }
 

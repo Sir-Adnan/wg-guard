@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Sir-Adnan/wg-guard/internal/database"
 	"github.com/Sir-Adnan/wg-guard/internal/egress"
@@ -239,8 +240,7 @@ func TestManagerSkipsRouteForFailedLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	host := &hostRunner{rules: map[string]bool{}}
-	backend := fake.New()
-	backend.FailOn[fake.OpApply] = errors.New("apply refused")
+	backend := &refusingBackend{Backend: fake.New(), refuse: true}
 	m := &Manager{Store: store, Backend: backend, Run: host, Resolver: &nullResolver{}, Prober: &fixedProber{ok: map[uint32]bool{}}}
 	if err := m.Apply(ctx, []Interface{{Name: "awg0", Pools: []string{"10.8.0.0/24"}}}); err != nil {
 		t.Fatalf("a failed link must not fail the pass: %v", err)
@@ -257,6 +257,7 @@ func TestManagerSkipsRouteForFailedLink(t *testing.T) {
 		t.Fatalf("status: %+v", o)
 	}
 	// The next pass retries and the link comes up.
+	backend.refuse = false
 	if err := m.Reapply(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -392,4 +393,74 @@ func tunnelPublicKey(t *testing.T, priv string) string {
 		t.Fatal(err)
 	}
 	return pub
+}
+
+// refusingBackend rejects every configuration, on both runtimes, while
+// refuse is set.
+type refusingBackend struct {
+	*fake.Backend
+	refuse bool
+}
+
+func (b *refusingBackend) ApplyInterfaceConfig(ctx context.Context, name string, cfg tunnel.InterfaceConfig) error {
+	if b.refuse {
+		return errors.New("apply refused")
+	}
+	return b.Backend.ApplyInterfaceConfig(ctx, name, cfg)
+}
+
+// A configuration the kernel module rejects (for example a signature tag only
+// the userspace daemon builds) is retried on the userspace runtime.
+func TestManagerFallsBackToUserspaceWhenKernelRejectsConfig(t *testing.T) {
+	dir := t.TempDir()
+	db, err := database.Open(filepath.Join(dir, "e.db"), database.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := db.Migrate(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	ring, err := secrets.LoadKeyRing(filepath.Join(dir, "master.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := egress.NewService(db, ring)
+	conf := "[Interface]\nPrivateKey = " + keyA + "\nAddress = 10.7.0.2/32\nJc = 4\nJmin = 10\nJmax = 50\nI1 = <b 0x01><ds 4>\n[Peer]\nPublicKey = " + keyB + "\nEndpoint = 198.51.100.4:51820\n"
+	if _, err := store.CreateWireGuard(ctx, "NL", conf); err != nil {
+		t.Fatal(err)
+	}
+	backend := fake.New()
+	backend.FailOn[fake.OpApply] = errors.New("kernel: unknown tag")
+	m := &Manager{Store: store, Backend: backend, Run: &hostRunner{rules: map[string]bool{}}, Resolver: &nullResolver{}, Prober: &fixedProber{ok: map[uint32]bool{}}}
+	if err := m.Apply(ctx, []Interface{{Name: "awg0", Pools: []string{"10.8.0.0/24"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.modes["wgo1"]; got != "userspace" {
+		t.Fatalf("link mode %q, want userspace after the kernel refused the config", got)
+	}
+}
+
+// The health pass retries an apply that left work undone, with doubling
+// backoff, and stops once it converges. A broken chain is not retried.
+func TestRetryDueBacksOff(t *testing.T) {
+	m := &Manager{}
+	at := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	failed := Status{AppliedAt: at, Outbounds: map[string]OutboundStatus{"o": {LinkError: "create"}}}
+	if m.retryDue(failed, at.Add(10*time.Second)) {
+		t.Fatal("retried before the first backoff")
+	}
+	if !m.retryDue(failed, at.Add(31*time.Second)) {
+		t.Fatal("first retry after 30 s")
+	}
+	if m.retryDue(failed, at.Add(80*time.Second)) || !m.retryDue(failed, at.Add(92*time.Second)) {
+		t.Fatal("second retry after 60 s more")
+	}
+	if m.retryDue(Status{AppliedAt: at, Outbounds: map[string]OutboundStatus{"o": {}}}, at.Add(time.Hour)) {
+		t.Fatal("a converged apply is not retried")
+	}
+	if m.retryDue(Status{AppliedAt: at, Outbounds: map[string]OutboundStatus{"o": {LinkError: "via"}}}, at.Add(time.Hour)) {
+		t.Fatal("a broken chain is configuration, not a transient failure")
+	}
 }

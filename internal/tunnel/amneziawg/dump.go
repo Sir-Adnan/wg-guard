@@ -67,8 +67,15 @@ func parseDump(name string, data []byte) (tunnel.InterfaceState, error) {
 		return tunnel.InterfaceState{}, err
 	}
 	st.Obfuscation = obf
-	// fwmark (f[28]) stays unused: WG-Guard pins an explicit listen port and
-	// does not manage fwmark.
+	// fwmark (f[28]): "off" or the mark. Client interfaces never set it;
+	// egress outbounds chained through another outbound do.
+	if f := fields[28]; f != "off" {
+		mark, err := strconv.ParseUint(f, 0, 32)
+		if err != nil {
+			return tunnel.InterfaceState{}, parseErr(name, "fwmark", f, err)
+		}
+		st.Fwmark = uint32(mark)
+	}
 
 	for _, ln := range lines {
 		ln = strings.TrimRight(ln, "\r")
@@ -110,7 +117,7 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 	if err != nil {
 		return invalid("S2", f[7], err)
 	}
-	o := tunnel.Obfuscation{Enabled: jc != 0, Jc: jc, Jmin: jmin, Jmax: jmax, S1: s1, S2: s2}
+	o := tunnel.Obfuscation{Jc: jc, Jmin: jmin, Jmax: jmax, S1: s1, S2: s2}
 	for i := 0; i < 4; i++ {
 		v, err := parseHeaderField(f[10+i])
 		if err != nil {
@@ -126,15 +133,6 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 		case 3:
 			o.H4 = v
 		}
-	}
-	if jc == 0 {
-		// Kernel-module baseline: a fresh plain interface dumps
-		// H1..H4 = 1,2,3,4 — inert defaults that vanish the moment junk
-		// packets are configured. The userspace daemon dumps zeros. Normalize
-		// so the verify-after-apply gate and drift comparison compare the
-		// applied plain profile against an equivalent observation (captured
-		// on the VPS kernel, 2026-08-31; docs/integrations/amneziawg.md).
-		o.H1, o.H2, o.H3, o.H4 = awgparam.U32Range{}, awgparam.U32Range{}, awgparam.U32Range{}, awgparam.U32Range{}
 	}
 	// I1–I5: hex blob or literal "(null)".
 	is := [5]*string{&o.I1, &o.I2, &o.I3, &o.I4, &o.I5}
@@ -176,6 +174,17 @@ func parseInterfaceObfuscation(name string, f []string) (tunnel.Obfuscation, err
 	}
 	o.RandomTrailers = f[26] == "on"
 	o.DisableCookies = f[27] == "on"
+	// Kernel-module baseline: a fresh plain interface dumps H1..H4 = 1,2,3,4
+	// and the userspace daemon dumps zeros. A set that changes nothing on the
+	// wire is reported as plain, so the verify-after-apply gate and drift
+	// comparison see the applied plain profile (captured on the VPS kernel,
+	// 2026-08-31; docs/integrations/amneziawg.md). Anything else, including
+	// Jc = 0 with padding or custom headers (valid in imported configs), is an
+	// obfuscated set.
+	if o.PlainEquivalent() {
+		return tunnel.Obfuscation{}, nil
+	}
+	o.Enabled = true
 	return o, nil
 }
 

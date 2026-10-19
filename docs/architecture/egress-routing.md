@@ -13,7 +13,7 @@ on a real host; see [status](../development/status.md#egress-routing).
 
 | Object | Purpose | Panel page |
 |---|---|---|
-| Outbound | An exit. `warp` (Cloudflare WARP account registered by the panel), `wireguard` (imported WireGuard/AmneziaWG client config, e.g. a wgcf or provider profile) or `source_ip` (leave directly from another local IPv4 via SNAT). | `/routing/outbounds` |
+| Outbound | An exit. `warp` (Cloudflare WARP account registered by the panel), `wireguard` (imported WireGuard/AmneziaWG client config, e.g. a wgcf or provider profile) or `source_ip` (leave directly from another local IPv4 via SNAT). A `warp` or `wireguard` outbound can be chained through another one (see [Chained outbounds](#chained-outbounds)). | `/routing/outbounds` |
 | Balancer | Optional group of outbounds, with a strategy, per-member weight 1–10 and a fallback for when every member is down. | `/routing/balancers` |
 | Rule | An ordered list of presets and/or matchers that sends matching traffic to direct, block, an outbound or a balancer. The first match wins. | `/routing/rules` |
 | Default route | Where unmatched traffic goes: direct, an outbound or a balancer (never block). | `/routing/rules` |
@@ -25,8 +25,33 @@ Data lives in migration `0017_egress_routing.sql`:
   key and the WARP token/license are sealed in `secret_encrypted` with the node secret ring.
 - `egress_balancers`, `egress_rules`, and the `egress_settings` singleton.
 
-An outbound or balancer cannot be deleted while a rule, a balancer or the default route uses it.
-The error lists those users by name.
+An outbound or balancer cannot be deleted while a rule, a balancer, an outbound chained through it
+or the default route uses it. The card lists those users and offers no Delete; a refused request
+is reported as an error that names them.
+
+## Imported configs
+
+`internal/egress/wgconf.go` reads a client config the way the pinned `amneziawg-tools` parser
+does ([amneziawg.md](../integrations/amneziawg.md)):
+
+- `#` starts a comment anywhere on a line, keys are case-insensitive and whitespace is
+  insignificant except inside I1–I5. A UTF-8 BOM and CRLF line ends are accepted.
+- Every key the pinned runtime knows is imported: `Jc`, `Jmin`, `Jmax`, `S1`–`S4`, `H1`–`H4`
+  (scalars or ranges), `I1`–`I5`, `HeaderProtectionKey`, `ContentPaddingAddition`,
+  `RekeyAfterTime`, `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`,
+  `MaxHandshakeAttempts`, `RandomTrailers`, `DisableCookies` and a `PersistentKeepalive` range.
+- Understood and not used: `DNS`, `ListenPort`, `Table`, `FwMark`, scripts, `SaveConfig`,
+  `AllowedIPs`, the tools-only `AdvancedSecurity` flag and the AmneziaWG 1.5 sender-side keys
+  `J1`–`J3` and `Itime`, which the pinned 2.x runtime no longer has.
+- Validation is what the runtimes themselves enforce, not WG-Guard's policy for the profiles it
+  generates: an imported config was written for someone else's server. H1–H4 must not overlap,
+  `Jmin ≤ Jmax` while junk is sent, `Jc ≤ 128`, u16 bounds for `S1`–`S4` and the ranges, and
+  `S1`–`S4 ≥ 12` with a header-protection key. `Jc = 0` with padding or headers is valid.
+  I1–I5 must be single-line `<tag value>` sequences of the tags either runtime builds.
+- A junk-only config without H lines gets the stock headers 1–4. A set that changes nothing on
+  the wire is plain WireGuard.
+- Errors name the key (`Jc`, `Endpoint`, `[Peer]` …), never a value. The pasted text is never
+  shown back, so the form asks for it again.
 
 ## Matchers
 
@@ -88,7 +113,10 @@ mark 0x7ff… (block)   → block_forward drops (TCP gets a reset)
   not). nft cannot OR two runtime values on supported kernels, hence the map. Flows that existed
   before a table rebuild go to direct. A flow never changes exits mid-connection.
 - **Policy routing.** There is one `ip rule fwmark <mark>/0x7ff00000 table <51800+slot>
-  priority 5180` per tunneled outbound, and the table holds `default dev wgoN`.
+  priority 5180` per tunneled outbound, and the table holds `default dev wgoN` plus
+  `unreachable default metric 4294967295`. The kernel deletes the link route when the link goes
+  down or away; the unreachable route keeps marked traffic from falling through to the main
+  table and leaving from the node's own address. Uninstall flushes all 63 slot tables.
   `source_ip` outbounds need no table; `source_nat` (postrouting priority 99) changes the
   source address to the chosen local IPv4.
 - **Tunnel links.** Links are named `wgo1…wgo63` and created through the same `tunnel.Backend`
@@ -97,7 +125,9 @@ mark 0x7ff… (block)   → block_forward drops (TCP gets a reset)
   - AmneziaWG obfuscation parameters are passed through unchanged.
   - Each link gets `rp_filter=2` and MSS clamping (`mss_clamp`, link MTU − 40).
   - The default MTU is 1280.
-  - Links are adopted after a panel restart when the keys and obfuscation match. Peer settings
+  - The kernel module and the userspace daemon accept different I1–I5 tags. When the kernel
+    module rejects a configuration, the link is retried on the userspace runtime.
+  - Links are adopted after a panel restart when the keys, obfuscation and socket mark match. Peer settings
     (endpoint, preshared key, keepalive) are then converged in place with `syncconf`, the MTU
     with `ip link set mtu` and the address with the backend, so changes saved but not applied
     before the restart still land without a session reset. If any of those steps fails, the
@@ -119,11 +149,11 @@ mark 0x7ff… (block)   → block_forward drops (TCP gets a reset)
 
 | Strategy | Unit | nftables | Notes |
 |---|---|---|---|
-| `sticky` (default) | device | `jhash ip saddr mod N` vmap over weighted buckets | Each device keeps one exit IP. This is the safest choice for Google, AI and banking sites that tie a session to an IP. |
+| `sticky` (default) | device | `jhash ip saddr mod N seed 0x57474744` vmap over weighted buckets | Each device keeps one exit IP. This is the safest choice for Google, AI and banking sites that tie a session to an IP. The fixed seed keeps the mapping across rule reloads; without it the kernel drew a new seed on every apply. |
 | `round_robin` | connection | `numgen inc mod N` | Even rotation. |
 | `random` | connection | `numgen random mod N` | Weighted random. |
 | `least_conn` | connection | `numgen random` over 20 adaptive buckets | Every health pass counts conntrack flows per outbound mark (`NETLINK_NETFILTER` dump filtered by `CTA_MARK`/`CTA_MARK_MASK`) and gives new flows to the members carrying fewer. If counting is unavailable, it falls back to the weights. |
-| `failover` | — | single jump | Uses the first healthy member in the order listed. |
+| `failover` | — | single jump | Uses the first healthy member by priority (the form's Priority field; 1 first). |
 
 Strategies that change exit per connection can change the visible IP mid-session; the form warns
 about this. When no member is healthy, the balancer uses its fallback (`direct` or `block`). A
@@ -135,7 +165,10 @@ single outbound that is unhealthy fails open to direct.
   outbound by fetching `https://1.1.1.1/cdn-cgi/trace` from a socket with `SO_MARK` set to that
   outbound's mark.
 - Each probe has a 6-second timeout, and at most 4 probes run at once. A probe reports latency,
-  exit IP and country.
+  exit IP, country, the Cloudflare data centre (`colo`) and, for WARP, the trace's `warp` field
+  (`on`, `plus` or `off`). A probe cut off by the pass deadline is not counted.
+- A `source_ip` probe that leaves from another address than the configured one fails
+  (`wrong_exit`). Disabled outbounds are not probed.
 - An outbound is marked down after 2 failures in a row and up after 1 success. A state change
   rebuilds the plan.
 - The panel **Test** button (`POST /routing/outbounds/{id}/test`, `interfaces.read`) probes
@@ -144,6 +177,11 @@ single outbound that is unhealthy fails open to direct.
   dropped on the next apply.
 - The same pass recreates the table if something removed it, and refreshes the least-connection
   shares.
+- An apply that did not converge (a failed link, policy or table step, for example an endpoint
+  name that did not resolve at boot) is retried by the health pass: first after 30 seconds, then
+  with doubling backoff up to 10 minutes. A converged apply resets the backoff.
+- Rules and the default route show **Going direct** while their single-outbound target is
+  disabled, down or failed.
 
 ## Domain rules and the built-in resolver
 
@@ -153,6 +191,12 @@ Domain matching needs the names clients look up, so a small forwarding resolver
 - **Listeners.** It listens on UDP and TCP port 53 of each tunnel gateway IP (IP_FREEBIND).
   `dns_redirect` (nat prerouting) sends any tunnel client's port-53 traffic to it, so clients
   with a hard-coded DNS server are also covered.
+  - A redirected query is local input, not forwarded traffic. With ufw active, boot adds
+    `ufw allow in on awgN to any port 53` next to the forwarding rule
+    ([networking](networking.md)); other INPUT firewalls must allow it themselves.
+  - A clean shutdown flushes `dns_redirect` before the resolver closes, so clients are not
+    redirected to a resolver that no longer listens. After a crash the rules stay until the
+    panel starts again.
 - **Upstreams.** It forwards to `network.dns_servers` and never to itself or loopback. If none
   are set, it uses 1.1.1.1 and 1.0.0.1.
 - **Matching names.** For A records of matching names, the answer addresses are added to that
@@ -174,14 +218,23 @@ Domain matching needs the names clients look up, so a small forwarding resolver
     re-adds the addresses. Clients that still have the name cached take the default route
     until they query again. A set emptied externally while the table stays in place is not
     detected; its addresses return with the first query after their half-life.
-  - AAAA queries for matching names get an empty answer, so dual-stack clients use IPv4, which
-    the rule can steer.
+  - AAAA, SVCB and HTTPS queries for matching names get an empty answer, so dual-stack clients
+    use IPv4, which the rule can steer, and connection hints (`ipv4hint`/`ipv6hint`) cannot
+    bypass the A answer the rule learns from.
 - **Bounds.** At most 512 queries in flight, 128 TCP sessions with 32 queries each, 65 536
   elements per set, and no cache.
-- **Encrypted DNS** (on by default): to stop DNS from bypassing domain rules, the resolver
-  answers NXDOMAIN for DoH and canary names (`use-application-dns.net`, `mask.icloud.com`,
-  well-known DoH hosts). Known public DoH/DoT addresses on 443/853 and all port-853 traffic are
-  blocked.
+- **Encrypted DNS** (on by default, its own card on the Rules page with a live state): to stop
+  DNS from bypassing domain rules, the resolver answers NXDOMAIN for DoH and canary names
+  (`use-application-dns.net`, iCloud Private Relay, the DoH hosts of Google, Cloudflare, Quad9,
+  OpenDNS, AdGuard, NextDNS, CleanBrowsing, Control D, Mullvad and others). Known public DoH
+  addresses on 443 and all port-853 traffic (DoT, DoQ) are blocked.
+  - It acts only while at least one enabled domain rule exists; the card says "Waiting for a
+    domain rule" otherwise.
+  - A device set to a fixed private DNS provider (Android "Private DNS provider hostname",
+    Firefox "Max protection") has no DNS while it is active, because strict modes do not fall
+    back. The card says so in visible text.
+  - Encrypted DNS sessions opened before it became active keep their conntrack entry until they
+    close.
   - If you turn it off, encrypted DNS bypasses domain rules; IP and geoip rules still apply.
   - Apps with hard-coded encrypted resolvers that are not on the list can still bypass domain
     rules.
@@ -198,13 +251,40 @@ calls that [wgcf](https://github.com/ViRb3/wgcf) uses. Reviewed at wgcf `de6bba7
 - **Secrets.** The account token, private key and license are sealed and never logged.
 - **Verification.** Registration succeeded against the live API on the Ubuntu 24.04 test node.
   If it fails, a wgcf-generated profile can be imported as a `wireguard` outbound instead.
+- **New identity.** **New WARP identity** (`POST /routing/outbounds/{id}/renew`) registers a
+  fresh device with new keys for an existing WARP outbound. The outbound keeps its ID, slot,
+  references, MTU, chain and a chosen endpoint; a stored WARP+ license is bound to the new device
+  when Cloudflare accepts it. The new device usually gets another exit address, which helps when
+  sites block the current one.
+- **Endpoints.** The endpoint field suggests known WARP endpoints: `engage.cloudflareclient.com`
+  and addresses in `162.159.192.0/24`, `162.159.193.0/24`, `162.159.195.0/24` and
+  `188.114.96.0/22`, on 2408 and the alternative ports 500, 1701, 4500, 854, 894 and 8854.
+- **Exit country.** Cloudflare chooses the WARP exit from the data centre where the tunnel
+  enters its network, normally next to this server. WARP has no country setting. To exit in
+  another country, chain the WARP outbound through an outbound in that country.
+
+## Chained outbounds
+
+A `warp` or `wireguard` outbound can go **through** another one (`Via`, stored in the tunnel
+config). The chained link's own encrypted packets carry the other outbound's mark (`FwMark` on
+the link), so the existing policy rule sends them through that outbound's tunnel.
+
+- Use: WARP chained through a server in Germany exits from a Cloudflare data centre in Germany,
+  with a WARP address. A provider server the node cannot reach directly can be reached through
+  another exit.
+- One level only: the hop must be a tunneled outbound that is not chained itself, and an
+  outbound others go through cannot be chained. An outbound cannot go through itself.
+- If the hop is disabled or removed, the chained outbound gets no link (`LinkError` `via`, plan
+  warning `via_unavailable`) and its traffic takes the direct route. It never leaves through the
+  main route with the tunnel unchained, which would change its exit silently.
+- The hop is listed in the chained outbound's "Used by" and cannot be deleted while chained.
 
 ## Lifecycle
 
 - **Boot and changes.** Boot step 4b applies egress after the client interfaces exist; a failure
   is a non-fatal finding (`egress`). Every routing change calls the same `Apply`.
-- **Saved but not applied.** If applying fails, the panel says the change is saved but not
-  applied, and the health pass retries.
+- **Saved but not applied.** If applying fails, the panel says so in an error toast, and the
+  health pass retries with backoff (see [Health](#health)).
 - **Uninstall** deletes `table ip wgguard_egress`, the owned `ip rule` entries and tables, and
   every `wgoN` link recorded in the database. Unattributed `wgo*` links block uninstall the same
   way unattributed `awg*` links do.

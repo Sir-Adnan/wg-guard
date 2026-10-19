@@ -35,7 +35,7 @@
         <label class="field-label" for="ob-license">{{.T "routing.form.license"}} <span class="field-optional">{{.T "forms.optional"}}</span></label>
         <input class="input input--tech" id="ob-license" name="license" type="text" dir="ltr" autocomplete="off" spellcheck="false" maxlength="26" placeholder="xxxxxxxx-xxxxxxxx-xxxxxxxx"{{if $f.Invalid "license"}} aria-invalid="true" aria-describedby="err-license"{{end}}>
         {{if $f.Invalid "license"}}<span class="field-error" id="err-license">{{index $f.Fields "license"}}</span>{{end}}
-        <p class="field-description">{{if and .Data.O .Data.O.WARP .Data.O.WARP.Plus}}{{.T "routing.form.warp_plus_active"}}{{else}}{{.T "routing.form.warp_plus_hint"}}{{end}}{{if and .Data.O .Data.O.WARP}} · {{.T "routing.form.warp_account"}} <bdi class="tech">{{.Data.O.WARP.AccountType}}</bdi>{{end}}</p>
+        <p class="field-description">{{if and .Data.O .Data.O.WARP .Data.O.WARP.Plus}}{{.T "routing.form.warp_plus_active"}}{{else}}{{.T "routing.form.warp_plus_hint"}}{{end}}{{if and .Data.O .Data.O.WARP}} · {{.T "routing.form.warp_account"}} {{if .Data.AccountKey}}{{.T .Data.AccountKey}}{{else}}<bdi class="tech">{{.Data.O.WARP.AccountType}}</bdi>{{end}}{{end}}</p>
       </div>
       {{end}}
 
@@ -43,13 +43,29 @@
       <div class="field">
         <label class="field-label" for="ob-config">{{.T "routing.form.config_paste"}}</label>
         <textarea class="textarea textarea--tech" id="ob-config" name="config" dir="ltr" rows="9" spellcheck="false" autocomplete="off" placeholder="[Interface]&#10;PrivateKey = …&#10;Address = 10.0.0.2/32&#10;&#10;[Peer]&#10;PublicKey = …&#10;Endpoint = vpn.example.com:51820"{{if $f.Invalid "config"}} aria-invalid="true" aria-describedby="err-config"{{end}}></textarea>
-        {{if $f.Invalid "config"}}<span class="field-error" id="err-config">{{index $f.Fields "config"}}</span>{{end}}
+        {{if $f.Invalid "config"}}<span class="field-error" id="err-config">{{index $f.Fields "config"}} {{.T "routing.form.config_repaste"}}</span>{{end}}
         <p class="field-description">{{if .Data.O}}{{.T "routing.form.config_replace_hint"}}{{else}}{{.T "routing.form.config_hint"}}{{end}}</p>
       </div>
       <div class="field">
         <label class="field-label" for="ob-file">{{.T "routing.form.config_file"}}</label>
         <input class="input" id="ob-file" name="config_file" type="file" accept=".conf,text/plain">
         <p class="field-description">{{.T "routing.form.config_secret_note"}}</p>
+      </div>
+      {{end}}
+
+      {{if ne $kind "source_ip"}}
+      <div class="field">
+        <label class="field-label" for="ob-via">{{.T "routing.form.via"}}</label>
+        {{if .Data.Chained}}
+        <p class="field-description">{{.T "routing.form.via_locked"}}</p>
+        {{else}}
+        <select class="select" id="ob-via" name="via"{{if $f.Invalid "via"}} aria-invalid="true" aria-describedby="err-via"{{end}}>
+          <option value=""{{if eq ($f.V "via") ""}} selected{{end}}>{{.T "routing.form.via_none"}}</option>
+          {{range .Data.Via}}<option value="{{.ID}}"{{if eq ($f.V "via") .ID}} selected{{end}}>{{.Name}}{{if .Off}} · {{$.T "routing.disabled"}}{{end}}</option>{{end}}
+        </select>
+        {{if $f.Invalid "via"}}<span class="field-error" id="err-via">{{index $f.Fields "via"}}</span>{{end}}
+        <p class="field-description">{{if eq $kind "warp"}}{{.T "routing.form.via_hint_warp"}}{{else}}{{.T "routing.form.via_hint"}}{{end}}</p>
+        {{end}}
       </div>
       {{end}}
 
@@ -65,13 +81,14 @@
   </section>
 
   {{if ne $kind "source_ip"}}
-  <details class="collapsible"{{if or ($f.Invalid "endpoint") ($f.Invalid "mtu")}} open{{end}}>
+  <details class="collapsible"{{if or ($f.Invalid "endpoint") ($f.Invalid "mtu") (and (eq $kind "warp") ($f.V "endpoint"))}} open{{end}}>
     <summary>{{.T "settings.advanced"}}</summary>
     <div class="collapsible-content">
       <div class="field-grid">
         <div class="field">
           <label class="field-label" for="ob-endpoint">{{.T "routing.fact.endpoint"}}</label>
-          <input class="input input--tech" id="ob-endpoint" name="endpoint" type="text" dir="ltr" spellcheck="false" value="{{$f.V "endpoint"}}" placeholder="{{if eq $kind "warp"}}engage.cloudflareclient.com:2408{{else}}host:port{{end}}"{{if $f.Invalid "endpoint"}} aria-invalid="true" aria-describedby="err-endpoint"{{end}}>
+          <input class="input input--tech" id="ob-endpoint" name="endpoint" type="text" dir="ltr" spellcheck="false" value="{{$f.V "endpoint"}}" placeholder="{{if eq $kind "warp"}}engage.cloudflareclient.com:2408{{else}}host:port{{end}}"{{if .Data.Endpoints}} list="warp-endpoints" autocomplete="off"{{end}}{{if $f.Invalid "endpoint"}} aria-invalid="true" aria-describedby="err-endpoint"{{end}}>
+          {{if .Data.Endpoints}}<datalist id="warp-endpoints">{{range .Data.Endpoints}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
           {{if $f.Invalid "endpoint"}}<span class="field-error" id="err-endpoint">{{index $f.Fields "endpoint"}}</span>{{end}}
           <p class="field-description">{{if eq $kind "warp"}}{{.T "routing.form.warp_endpoint_hint"}}{{else}}{{.T "routing.form.endpoint_hint"}}{{end}}</p>
         </div>
@@ -80,7 +97,7 @@
           <label class="field-label" for="ob-mtu">MTU</label>
           <input class="input input--tech" id="ob-mtu" name="mtu" type="text" dir="ltr" inputmode="numeric" value="{{$f.V "mtu"}}"{{if $f.Invalid "mtu"}} aria-invalid="true" aria-describedby="err-mtu"{{end}}>
           {{if $f.Invalid "mtu"}}<span class="field-error" id="err-mtu">{{index $f.Fields "mtu"}}</span>{{end}}
-          <p class="field-description">{{.T "routing.form.mtu_hint"}}</p>
+          <p class="field-description">{{if eq $kind "warp"}}{{.T "routing.form.mtu_hint"}}{{else}}{{.T "routing.form.mtu_hint_config"}}{{end}}</p>
         </div>
         {{end}}
       </div>

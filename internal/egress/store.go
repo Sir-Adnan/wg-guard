@@ -189,6 +189,9 @@ type OutboundInput struct {
 	Endpoint string // tunneled kinds: replacement endpoint; "" keeps
 	MTU      int    // tunneled kinds: 0 keeps
 	SourceIP string // source_ip: replacement; "" keeps
+	// Via chains a tunneled outbound through another one (its ID); nil
+	// keeps the current chain and "" removes it.
+	Via *string
 }
 
 // CreateWireGuard imports a WireGuard/AmneziaWG client config as an outbound.
@@ -273,6 +276,81 @@ func (s *Service) CreateWARP(ctx context.Context, name, license, endpoint string
 		PeerPublicKey: reg.PeerPublicKey, Endpoint: endpoint, Keepalive: 25,
 	}
 	return s.insertOutbound(ctx, &Outbound{Name: strings.TrimSpace(name), Kind: KindWARP, Enabled: true, Tunnel: cfg, WARP: account}, secret)
+}
+
+// RenewWARP registers a fresh WARP device (new keys, new account, usually a
+// new exit address) for an existing WARP outbound, keeping its name, slot,
+// references, MTU, chain and an endpoint the operator chose. A stored WARP+
+// license is bound to the new device. The previous device is left to expire
+// on Cloudflare's side: the client API offers no documented removal call.
+func (s *Service) RenewWARP(ctx context.Context, id string) (*Outbound, error) {
+	o, err := s.GetOutbound(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if o.Kind != KindWARP || o.WARP == nil || o.Tunnel == nil {
+		return nil, invalid("warp", "warp_not_warp")
+	}
+	if s.WARP == nil {
+		return nil, ErrWARPUnavailable
+	}
+	old, err := s.OutboundSecret(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	keys, err := tunnel.GenerateKeyPair()
+	if err != nil {
+		return nil, err
+	}
+	reg, err := s.WARP.Register(ctx, keys.Public)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrWARPUnavailable, err)
+	}
+	addr, err := netip.ParseAddr(reg.AddressV4)
+	if err != nil || !addr.Is4() || tunnel.ValidatePublicKey(reg.PeerPublicKey) != nil || validEndpoint(reg.Endpoint) != nil {
+		return nil, fmt.Errorf("%w: unexpected registration response", ErrWARPUnavailable)
+	}
+	account := &WARPAccount{DeviceID: reg.DeviceID, AccountType: reg.AccountType, Plus: reg.Plus, RegisteredAt: s.now().UTC()}
+	secret := Secret{PrivateKey: keys.Private, WARPToken: reg.Token}
+	if old.WARPLicense != "" {
+		// A license that no longer binds (device limit reached) leaves a free
+		// account rather than failing the renewal.
+		if accountType, plus, err := s.WARP.ApplyLicense(ctx, reg.DeviceID, reg.Token, old.WARPLicense); err == nil {
+			account.AccountType, account.Plus = accountType, plus
+			secret.WARPLicense = old.WARPLicense
+		}
+	}
+	t := *o.Tunnel
+	t.Address, t.PeerPublicKey = netip.PrefixFrom(addr, 32).String(), reg.PeerPublicKey
+	// An endpoint the operator chose (a port or address that works on this
+	// network) is kept; the advertised default follows the new registration.
+	if isWARPDefaultEndpoint(t.Endpoint) {
+		t.Endpoint = reg.Endpoint
+	}
+	o.Tunnel, o.WARP = &t, account
+	if err := s.updateOutboundRow(ctx, o, &secret); err != nil {
+		return nil, err
+	}
+	return s.GetOutbound(ctx, id)
+}
+
+// WARPEndpoints are Cloudflare WARP endpoints known to accept the WireGuard
+// handshake; the panel offers them as suggestions. Any address in the WARP
+// ranges answers on the same ports, which helps on networks that block the
+// default endpoint or port 2408.
+var WARPEndpoints = []string{
+	"engage.cloudflareclient.com:2408",
+	"162.159.192.1:2408", "162.159.193.1:2408", "162.159.195.1:2408",
+	"188.114.96.1:2408", "188.114.97.1:2408", "188.114.98.1:2408", "188.114.99.1:2408",
+	"162.159.192.1:500", "162.159.192.1:1701", "162.159.192.1:4500",
+	"162.159.192.1:854", "162.159.192.1:894", "162.159.192.1:8854",
+}
+
+// isWARPDefaultEndpoint reports whether an endpoint is the advertised default
+// (the API's engage host on 2408), which a renewal replaces with the newly
+// advertised one.
+func isWARPDefaultEndpoint(endpoint string) bool {
+	return endpoint == "" || strings.HasPrefix(endpoint, "engage.cloudflareclient.com:")
 }
 
 // UpdateWARPLicense binds (or replaces) the WARP+ license of a WARP outbound.
@@ -422,6 +500,13 @@ func (s *Service) UpdateOutbound(ctx context.Context, id string, in OutboundInpu
 			}
 			o.Tunnel.MTU = in.MTU
 		}
+		if in.Via != nil {
+			via := strings.TrimSpace(*in.Via)
+			if err := s.validateVia(ctx, o.ID, via); err != nil {
+				return nil, err
+			}
+			o.Tunnel.Via = via
+		}
 	}
 	if o.Kind == KindSourceIP && strings.TrimSpace(in.SourceIP) != "" {
 		ip, err := validSourceIP(in.SourceIP)
@@ -449,6 +534,9 @@ func (s *Service) ReplaceWireGuardConfig(ctx context.Context, id, config string)
 	parsed, err := ParseClientConfig(config)
 	if err != nil {
 		return nil, err
+	}
+	if o.Tunnel != nil {
+		parsed.Tunnel.Via = o.Tunnel.Via
 	}
 	o.Tunnel = &parsed.Tunnel
 	if err := s.updateOutboundRow(ctx, o, &parsed.Secret); err != nil {
@@ -514,8 +602,55 @@ func (s *Service) DeleteOutbound(ctx context.Context, id string) error {
 }
 
 // references names the rules, balancers and default route that use target.
+// validateVia checks a chain: the outbound it goes through must be another
+// tunneled outbound that is not chained itself, and an outbound others are
+// chained through cannot be chained (one level keeps the path predictable
+// and loop-free).
+func (s *Service) validateVia(ctx context.Context, id, via string) error {
+	if via == "" {
+		return nil
+	}
+	if via == id {
+		return invalid("via", "via_self")
+	}
+	v, err := s.GetOutbound(ctx, via)
+	if errors.Is(err, ErrNotFound) {
+		return invalid("via", "via_unknown")
+	}
+	if err != nil {
+		return err
+	}
+	if !v.Kind.Tunneled() || v.Tunnel == nil {
+		return invalid("via", "via_not_tunnel")
+	}
+	if v.Tunnel.Via != "" {
+		return invalid("via", "via_chained")
+	}
+	all, err := s.ListOutbounds(ctx)
+	if err != nil {
+		return err
+	}
+	for _, other := range all {
+		if other.Tunnel != nil && other.Tunnel.Via == id {
+			return invalidDetail("via", "via_in_use", other.Name)
+		}
+	}
+	return nil
+}
+
 func (s *Service) references(ctx context.Context, target Target) ([]string, error) {
 	var refs []string
+	if target.Kind == TargetOutbound {
+		all, err := s.ListOutbounds(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range all {
+			if o.Tunnel != nil && o.Tunnel.Via == target.ID {
+				refs = append(refs, o.Name)
+			}
+		}
+	}
 	rules, err := s.ListRules(ctx)
 	if err != nil {
 		return nil, err

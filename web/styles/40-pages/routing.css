@@ -32,6 +32,11 @@
   .routing-check { align-items: center; }
 
   .member-row .input { width: 4.5rem; }
+  /* Failover uses the priority order and ignores weights; every other
+     strategy uses weights. */
+  .member-order { display: none; }
+  form:has(input[name=strategy][value=failover]:checked) .member-order { display: flex; }
+  form:has(input[name=strategy][value=failover]:checked) .member-weight { display: none; }
 }
 @layer pages {
   /* The per-connection note only matters for strategies that rotate exits. */

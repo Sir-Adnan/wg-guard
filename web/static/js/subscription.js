@@ -35,19 +35,96 @@ document.addEventListener('click', async event => {
   }
 });
 
-/* Copy the AmneziaVPN key for apps without the vpn:// handler (desktop, iOS). */
+/* AmneziaVPN handoff. Only the Android app registers vpn://, so Android keeps
+ * the native link (the server redirects it to the key). iOS imports a .vpn
+ * file from the share sheet; desktop imports it with Add → File. Without
+ * JavaScript the same link downloads the file on every non-Android platform. */
+const platform = (() => {
+  const ua = navigator.userAgent || '';
+  if (/Android/i.test(ua)) return 'android';
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'ios' : 'desktop';
+})();
+
+const announce = (node, text, alert = false) => {
+  const state = node.closest('[data-sub-device]')?.querySelector('[data-download-state]');
+  if (!state) return;
+  state.setAttribute('role', alert ? 'alert' : 'status');
+  state.textContent = alert ? state.dataset.error : state.dataset[text] || text;
+};
+
+async function amneziaFile(link) {
+  const response = await fetch(link.dataset.amneziaOpen, { cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
+  const disposition = response.headers.get('content-disposition') || '';
+  if (!response.ok || !disposition.startsWith('attachment;')) throw new Error(String(response.status));
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] || 'wg-guard.vpn';
+  return new File([await response.blob()], name, { type: 'text/plain' });
+}
+
+function saveFile(file) {
+  const url = URL.createObjectURL(file);
+  const anchor = Object.assign(document.createElement('a'), { href: url, download: file.name });
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// iOS shares only from a user gesture. The file is fetched on the first touch;
+// when the fetch outlives the gesture, the next tap shares the cached file.
+const prepared = new WeakMap();
+const prepare = link => {
+  if (!prepared.has(link)) prepared.set(link, amneziaFile(link).catch(error => { prepared.delete(link); throw error; }));
+  return prepared.get(link);
+};
+document.addEventListener('pointerdown', event => {
+  const link = event.target.closest('[data-amnezia-open]');
+  if (link && platform === 'ios') prepare(link).catch(() => {});
+});
+
+document.addEventListener('click', async event => {
+  const link = event.target.closest('[data-amnezia-open]');
+  if (!link || platform === 'android' || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  let file;
+  try {
+    file = await (platform === 'ios' ? prepare(link) : amneziaFile(link));
+  } catch {
+    announce(link, 'error', true);
+    return;
+  }
+  if (platform === 'ios' && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+    } catch (error) {
+      if (error?.name === 'NotAllowedError') announce(link, 'amneziaAgain');
+    }
+    return;
+  }
+  saveFile(file);
+  announce(link, platform === 'ios' ? 'amneziaIos' : 'amneziaDesktop');
+});
+
+/* Copy the AmneziaVPN key (Add → Insert key). Safari keeps the clipboard
+ * permission of the tap only when the pending text is handed over at once, so
+ * the fetch goes inside a ClipboardItem where supported. */
 document.addEventListener('click', async event => {
   const button = event.target.closest('[data-amnezia-copy]');
   if (!button) return;
-  const state = button.closest('[data-sub-device]')?.querySelector('[data-download-state]');
+  const key = fetch(button.dataset.amneziaCopy, { cache: 'no-store', credentials: 'same-origin', redirect: 'error' })
+    .then(async response => {
+      const text = (await response.text()).trim();
+      if (!response.ok || !text.startsWith('vpn://')) throw new Error('unavailable');
+      return text;
+    });
   try {
-    const response = await fetch(button.dataset.amneziaCopy, { cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
-    const key = (await response.text()).trim();
-    if (!response.ok || !key.startsWith('vpn://')) throw new Error('unavailable');
-    await navigator.clipboard.writeText(key);
-    if (state) { state.setAttribute('role', 'status'); state.textContent = state.dataset.copied; }
+    if (window.ClipboardItem && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': key.then(text => new Blob([text], { type: 'text/plain' })) })]);
+    } else {
+      await navigator.clipboard.writeText(await key);
+    }
+    announce(button, 'copied');
   } catch {
-    if (state) { state.setAttribute('role', 'alert'); state.textContent = state.dataset.error; }
+    announce(button, 'error', true);
   }
 });
 

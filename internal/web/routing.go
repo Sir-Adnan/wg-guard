@@ -95,7 +95,7 @@ func (s *Server) egressActionFailed(w http.ResponseWriter, r *http.Request, path
 		if v.Detail != "" {
 			msg += " " + s.t(r, "egress.error.detail", v.Detail)
 		}
-		s.redirectToastRaw(w, r, path, msg)
+		s.redirectErrorRaw(w, r, path, msg)
 		return
 	}
 	s.logError(r, "egress action failed", err)
@@ -124,6 +124,9 @@ type outboundCard struct {
 	UsedBy     []string
 	ProbedAt   *time.Time
 	ProbeError string
+	Colo       string // Cloudflare data centre that served the probe
+	WARPState  string // on | plus | off, from the probe (WARP kind only)
+	Via        string // name of the outbound this one is chained through
 }
 
 type outboundsData struct {
@@ -179,11 +182,18 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 		st = s.EgressRuntime.Status()
 	}
 	usage := s.outboundUsage(r)
+	names := map[string]string{}
+	for _, o := range outbounds {
+		names[o.ID] = o.Name
+	}
 	cards := make([]outboundCard, 0, len(outbounds))
 	for _, o := range outbounds {
 		c := outboundCard{O: o, KindKey: outboundKindKey(o), UsedBy: usage[o.ID]}
 		if o.Tunnel != nil {
 			c.Endpoint = o.Tunnel.Endpoint
+			if o.Tunnel.Via != "" {
+				c.Via = names[o.Tunnel.Via]
+			}
 		}
 		obs, known := st.Outbounds[o.ID]
 		c.Status = obs
@@ -205,6 +215,10 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 			if obs.Probe.OK {
 				c.Latency = strconv.FormatInt(obs.Probe.Latency.Milliseconds(), 10)
 				c.ExitIP, c.Country, c.Flag = obs.Probe.ExitIP, obs.Probe.Country, countryFlag(obs.Probe.Country)
+				c.Colo = obs.Probe.Colo
+				if o.Kind == egress.KindWARP {
+					c.WARPState = obs.Probe.WARP
+				}
 			} else {
 				c.ProbeError = obs.Probe.Error
 			}
@@ -225,9 +239,18 @@ func (s *Server) outboundCards(r *http.Request) ([]outboundCard, routing.Status,
 	return cards, st, nil
 }
 
-// outboundUsage names the rules and balancers that reference each outbound.
+// outboundUsage names everything that references each outbound: rules,
+// balancers, outbounds chained through it and the default route. These are
+// exactly the references that block deletion.
 func (s *Server) outboundUsage(r *http.Request) map[string][]string {
 	usage := map[string][]string{}
+	if outbounds, err := s.Egress.ListOutbounds(r.Context()); err == nil {
+		for _, o := range outbounds {
+			if o.Tunnel != nil && o.Tunnel.Via != "" {
+				usage[o.Tunnel.Via] = append(usage[o.Tunnel.Via], o.Name)
+			}
+		}
+	}
 	if rules, err := s.Egress.ListRules(r.Context()); err == nil {
 		for _, rule := range rules {
 			if rule.Target.Kind == egress.TargetOutbound {
@@ -241,6 +264,9 @@ func (s *Server) outboundUsage(r *http.Request) map[string][]string {
 				usage[m.OutboundID] = append(usage[m.OutboundID], b.Name)
 			}
 		}
+	}
+	if st, err := s.Egress.GetSettings(r.Context()); err == nil && st.DefaultTarget.Kind == egress.TargetOutbound {
+		usage[st.DefaultTarget.ID] = append(usage[st.DefaultTarget.ID], s.t(r, "routing.rules.default"))
 	}
 	return usage
 }
@@ -298,6 +324,59 @@ type outboundFormData struct {
 	Kind egress.Kind
 	O    *egress.Outbound // nil on create
 	Form operationalForm
+	// Via lists the outbounds this one can be chained through.
+	Via []viaOption
+	// Endpoints are suggested WARP endpoints.
+	Endpoints []string
+	// Chained is set when other outbounds go through this one (it cannot be
+	// chained itself).
+	Chained bool
+	// AccountKey labels the WARP account type ("" when unknown).
+	AccountKey string
+}
+
+// warpAccountKey is the catalog key of a WARP account type, or "" for a type
+// this version does not know (shown verbatim).
+func warpAccountKey(accountType string) string {
+	switch accountType {
+	case "free", "limited", "unlimited", "team":
+		return "routing.warp_account." + accountType
+	}
+	return ""
+}
+
+type viaOption struct {
+	ID, Name string
+	Off      bool
+}
+
+// outboundForm completes the form data with the chain choices: tunneled
+// outbounds other than this one that are not chained themselves.
+func (s *Server) outboundForm(r *http.Request, kind egress.Kind, o *egress.Outbound, f operationalForm) outboundFormData {
+	d := outboundFormData{Tabs: s.loadRoutingTabs(r, "outbounds"), Kind: kind, O: o, Form: f}
+	if kind == egress.KindWARP {
+		d.Endpoints = egress.WARPEndpoints
+		if o != nil && o.WARP != nil {
+			d.AccountKey = warpAccountKey(o.WARP.AccountType)
+		}
+	}
+	if !kind.Tunneled() {
+		return d
+	}
+	all, err := s.Egress.ListOutbounds(r.Context())
+	if err != nil {
+		return d
+	}
+	for _, other := range all {
+		if o != nil && other.Tunnel != nil && other.Tunnel.Via == o.ID {
+			d.Chained = true
+		}
+		if (o != nil && other.ID == o.ID) || !other.Kind.Tunneled() || other.Tunnel == nil || other.Tunnel.Via != "" {
+			continue
+		}
+		d.Via = append(d.Via, viaOption{ID: other.ID, Name: other.Name, Off: !other.Enabled})
+	}
+	return d
 }
 
 func outboundFormDefaults(kind egress.Kind) map[string]string {
@@ -305,7 +384,7 @@ func outboundFormDefaults(kind egress.Kind) map[string]string {
 	if kind == egress.KindWARP {
 		name = "WARP"
 	}
-	return map[string]string{"kind": string(kind), "name": name, "enabled": "1", "endpoint": "", "mtu": "", "source_ip": "", "config": "", "license": ""}
+	return map[string]string{"kind": string(kind), "name": name, "enabled": "1", "endpoint": "", "mtu": "", "source_ip": "", "config": "", "license": "", "via": ""}
 }
 
 func (s *Server) handleOutboundNew(w http.ResponseWriter, r *http.Request) {
@@ -314,9 +393,7 @@ func (s *Server) handleOutboundNew(w http.ResponseWriter, r *http.Request) {
 		_ = s.render(w, r, "routing_outbound_kind", "app", struct{ Tabs routingTabs }{s.loadRoutingTabs(r, "outbounds")})
 		return
 	}
-	_ = s.render(w, r, "routing_outbound_form", "app", outboundFormData{
-		Tabs: s.loadRoutingTabs(r, "outbounds"), Kind: kind, Form: operationalForm{Values: outboundFormDefaults(kind), Fields: map[string]string{}},
-	})
+	_ = s.render(w, r, "routing_outbound_form", "app", s.outboundForm(r, kind, nil, operationalForm{Values: outboundFormDefaults(kind), Fields: map[string]string{}}))
 }
 
 // readConfigField returns the pasted config or, when a file was chosen, the
@@ -371,6 +448,16 @@ func (s *Server) handleOutboundCreate(w http.ResponseWriter, r *http.Request) {
 		s.outboundFormError(w, r, kind, nil, err)
 		return
 	}
+	if via := strings.TrimSpace(r.PostFormValue("via")); via != "" && kind.Tunneled() {
+		// The outbound exists now; a chain that no longer validates (its hop
+		// was removed meanwhile) is reported on the edit form.
+		if _, err := s.Egress.UpdateOutbound(r.Context(), o.ID, egress.OutboundInput{Via: &via}); err != nil {
+			s.audit(r, "egress.outbound_created", o.ID, map[string]any{"name": o.Name, "kind": string(o.Kind)})
+			_ = s.egressApply(r)
+			s.outboundFormError(w, r, kind, o, err)
+			return
+		}
+	}
 	s.audit(r, "egress.outbound_created", o.ID, map[string]any{"name": o.Name, "kind": string(o.Kind)})
 	s.routingDone(w, r, "/routing/outbounds", "routing.toast.outbound_created", o.Name)
 }
@@ -399,7 +486,7 @@ func (s *Server) outboundFormError(w http.ResponseWriter, r *http.Request, kind 
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	_ = s.render(w, r, "routing_outbound_form", "app", outboundFormData{Tabs: s.loadRoutingTabs(r, "outbounds"), Kind: kind, O: o, Form: f})
+	_ = s.render(w, r, "routing_outbound_form", "app", s.outboundForm(r, kind, o, f))
 }
 
 func outboundEditValues(o *egress.Outbound) map[string]string {
@@ -409,7 +496,7 @@ func outboundEditValues(o *egress.Outbound) map[string]string {
 		v["enabled"] = "0"
 	}
 	if o.Tunnel != nil {
-		v["endpoint"], v["mtu"] = o.Tunnel.Endpoint, strconv.Itoa(o.Tunnel.MTU)
+		v["endpoint"], v["mtu"], v["via"] = o.Tunnel.Endpoint, strconv.Itoa(o.Tunnel.MTU), o.Tunnel.Via
 	}
 	v["source_ip"] = o.SourceIP
 	return v
@@ -421,9 +508,7 @@ func (s *Server) handleOutboundEditPage(w http.ResponseWriter, r *http.Request) 
 		s.egressActionFailed(w, r, "/routing/outbounds", err)
 		return
 	}
-	_ = s.render(w, r, "routing_outbound_form", "app", outboundFormData{
-		Tabs: s.loadRoutingTabs(r, "outbounds"), Kind: o.Kind, O: o, Form: operationalForm{Values: outboundEditValues(o), Fields: map[string]string{}},
-	})
+	_ = s.render(w, r, "routing_outbound_form", "app", s.outboundForm(r, o.Kind, o, operationalForm{Values: outboundEditValues(o), Fields: map[string]string{}}))
 }
 
 func (s *Server) handleOutboundUpdate(w http.ResponseWriter, r *http.Request) {
@@ -439,6 +524,10 @@ func (s *Server) handleOutboundUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	enabled := r.PostFormValue("enabled") != "0"
 	in := egress.OutboundInput{Name: r.PostFormValue("name"), Enabled: &enabled, Endpoint: r.PostFormValue("endpoint"), SourceIP: r.PostFormValue("source_ip")}
+	if o.Kind.Tunneled() && r.PostForm.Has("via") {
+		via := r.PostFormValue("via")
+		in.Via = &via
+	}
 	if raw := strings.TrimSpace(r.PostFormValue("mtu")); raw != "" {
 		n, convErr := strconv.Atoi(raw)
 		if convErr != nil {
@@ -508,6 +597,25 @@ func (s *Server) handleOutboundToggle(enable bool) http.HandlerFunc {
 		s.audit(r, "egress.outbound_updated", id, map[string]any{"enabled": enable})
 		s.routingDone(w, r, "/routing/outbounds", "routing.toast.saved")
 	}
+}
+
+// handleOutboundRenew registers a new WARP identity for a WARP outbound: new
+// keys and account, usually a new exit address (for example after sites
+// start blocking the current one).
+func (s *Server) handleOutboundRenew(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	o, err := s.Egress.RenewWARP(r.Context(), id)
+	if errors.Is(err, egress.ErrWARPUnavailable) {
+		s.logError(r, "warp renewal failed", err)
+		s.redirectToast(w, r, "/routing/outbounds", "routing.toast.warp_failed")
+		return
+	}
+	if err != nil {
+		s.egressActionFailed(w, r, "/routing/outbounds", err)
+		return
+	}
+	s.audit(r, "egress.outbound_renewed", id, map[string]any{"name": o.Name})
+	s.routingDone(w, r, "/routing/outbounds", "routing.toast.warp_renewed", o.Name)
 }
 
 func (s *Server) handleOutboundDelete(w http.ResponseWriter, r *http.Request) {

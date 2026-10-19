@@ -51,9 +51,19 @@ var encryptedDNSNames = []string{
 	"use-application-dns.net", "mask.icloud.com", "mask-h2.icloud.com", "mask-api.icloud.com",
 	"cloudflare-dns.com", "dns.google", "dns.google.com", "dns64.dns.google",
 	"dns.quad9.net", "dns9.quad9.net", "dns10.quad9.net", "dns11.quad9.net",
-	"doh.opendns.com", "doh.familyshield.opendns.com", "dns.adguard-dns.com", "dns.adguard.com",
-	"dns.nextdns.io", "doh.cleanbrowsing.org", "doh.dns.sb", "dns.controld.com",
+	"doh.opendns.com", "doh.familyshield.opendns.com", "doh.sandbox.opendns.com",
+	"adguard-dns.com", "dns.adguard.com", "dns.nextdns.io", "doh.cleanbrowsing.org", "doh.dns.sb",
+	"dns.controld.com", "freedns.controld.com", "dns.mullvad.net", "dns.alidns.com", "doh.pub",
+	"doh.xfinity.com",
 }
+
+// Record types that carry addresses or connection hints for a name: AAAA,
+// SVCB (64) and HTTPS (65). Their ipv4hint/ipv6hint parameters let a client
+// connect without the A answer the rule learns from.
+const (
+	typeSVCB  dnsmessage.Type = 64
+	typeHTTPS dnsmessage.Type = 65
+)
 
 type state struct {
 	rules          *match.Ruleset
@@ -353,9 +363,10 @@ func (s *Server) handle(ctx context.Context, network string, query []byte) []byt
 		return reply(hdr, &q, dnsmessage.RCodeNameError)
 	}
 	entry, matched := st.rules.Lookup(name)
-	if matched && q.Type == dnsmessage.TypeAAAA && q.Class == dnsmessage.ClassINET {
-		// Matched services must resolve to IPv4 so the client uses the
-		// tunnel (client configs route IPv4 only).
+	if matched && q.Class == dnsmessage.ClassINET && (q.Type == dnsmessage.TypeAAAA || q.Type == typeSVCB || q.Type == typeHTTPS) {
+		// Matched services must resolve to IPv4 through the A answer so the
+		// client uses the tunnel (client configs route IPv4 only) and the
+		// rule learns the address first; the client then falls back to A.
 		return reply(hdr, &q, dnsmessage.RCodeSuccess)
 	}
 	resp, err := s.forward(ctx, network, query, st)

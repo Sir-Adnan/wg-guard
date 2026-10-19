@@ -44,3 +44,11 @@
 </div>
 {{end}}
 
+
+{{define "routing_target_options"}}{{/* . = dict "v" View "opts" []targetOption: direct/block first, then outbounds and balancers in groups */}}{{$v := .v}}
+{{range .opts}}{{if or (eq .Group "direct") (eq .Group "block")}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}{{end}}
+{{$any := false}}{{range .opts}}{{if eq .Group "outbound"}}{{$any = true}}{{end}}{{end}}
+{{if $any}}<optgroup label="{{$v.T "routing.outbounds"}}">{{range .opts}}{{if eq .Group "outbound"}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}{{if .Off}} · {{$v.T "routing.disabled"}}{{end}}</option>{{end}}{{end}}</optgroup>{{end}}
+{{$any = false}}{{range .opts}}{{if eq .Group "balancer"}}{{$any = true}}{{end}}{{end}}
+{{if $any}}<optgroup label="{{$v.T "routing.balancers"}}">{{range .opts}}{{if eq .Group "balancer"}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}{{if .Off}} · {{$v.T "routing.disabled"}}{{end}}</option>{{end}}{{end}}</optgroup>{{end}}
+{{end}}

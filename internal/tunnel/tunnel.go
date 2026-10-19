@@ -49,6 +49,31 @@ type Obfuscation struct {
 	DisableCookies         bool // rendered as "on" (security implications — default off)
 }
 
+// stockHeaders are the H1–H4 values every runtime starts with (the plain
+// WireGuard message types 1–4).
+var stockHeaders = [4]awgparam.U32Range{awgparam.ScalarU32(1), awgparam.ScalarU32(2), awgparam.ScalarU32(3), awgparam.ScalarU32(4)}
+
+// StockHeaders reports whether H1–H4 hold the runtime defaults: all unset or
+// the plain message types 1–4.
+func (o Obfuscation) StockHeaders() bool {
+	hs := [4]awgparam.U32Range{o.H1, o.H2, o.H3, o.H4}
+	return hs == [4]awgparam.U32Range{} || hs == stockHeaders
+}
+
+// PlainEquivalent reports whether the parameters change nothing on the wire:
+// no junk, padding, custom headers, signature packets, header protection,
+// timing or flags. Such a set behaves exactly like plain WireGuard, and a
+// runtime dump of it is indistinguishable from a plain interface.
+func (o Obfuscation) PlainEquivalent() bool {
+	rest := o
+	rest.Enabled, rest.H1, rest.H2, rest.H3, rest.H4 = false, awgparam.U32Range{}, awgparam.U32Range{}, awgparam.U32Range{}, awgparam.U32Range{}
+	// Jmin/Jmax only matter while junk packets are sent.
+	if rest.Jc == 0 {
+		rest.Jmin, rest.Jmax = 0, 0
+	}
+	return rest == Obfuscation{} && o.StockHeaders()
+}
+
 // InterfaceSpec is the identity-level configuration of a backend interface.
 // Address was added in Phase 2: a backend that creates the link (kernel path)
 // must assign the interface gateway address at bring-up, and the spec is the
@@ -102,6 +127,7 @@ type InterfaceState struct {
 	BackendMode string // observed mode when the real backend can identify it
 	PublicKey   string
 	ListenPort  int
+	Fwmark      uint32 // socket mark of the encrypted packets, 0 = off
 	Obfuscation Obfuscation
 	Peers       []PeerState
 }

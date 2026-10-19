@@ -31,8 +31,20 @@ as the one-app option for every OS.
 - WG-Guard encodes the canonical client config text unchanged. The importer recognizes a native
   AmneziaWG/WireGuard config by its `[Interface]` and `[Peer]` sections. Implementation:
   `internal/clientconf/amneziavpn.go`; a round-trip test decodes the key back to the exact bytes.
-- Android registers the `vpn` URL scheme, so **Open in AmneziaVPN** opens the app directly.
-  Desktop and iOS users paste the copied key using Add → Insert key.
+- Hand-off, re-reviewed at `amnezia-client` `ddde436`:
+  - **Android** registers the `vpn` URL scheme (`AndroidManifest.xml`), so **Open in AmneziaVPN**
+    redirects to the `vpn://` key and the app opens directly.
+  - **iOS and iPadOS** register no URL scheme. The app imports documents instead: `.vpn` (the key
+    as text), `.conf` and `.ovpn` (`Info.plist` document types; the scene delegate reads the file
+    and runs the same importer). The button fetches `<name>.vpn` and opens the share sheet
+    (Web Share with a file), where AmneziaVPN is listed. If Safari drops the tap before the file
+    has arrived, the button asks for a second tap, which shares the already fetched file. Without
+    Web Share the file downloads and is opened from Files.
+  - **Windows, macOS and Linux** register no URL scheme either. The button downloads the `.vpn`
+    file, which the app imports with Add → File with connection settings (its picker accepts
+    `*.vpn`). **Copy key** remains for Add → Insert key.
+  - Without JavaScript, `GET …/amneziavpn` redirects Android to the key and returns the file
+    everywhere else; `?format=file` and `?format=text` force one form.
 - Not verified: an import on a physical device.
 
 ## Cloudflare WARP registration
@@ -51,3 +63,9 @@ as the one-app option for every OS.
   only for the paid `limited` and `unlimited` account types.
 - Live registration succeeded on the Ubuntu 24.04 test node (2026-10-16). If it fails on a
   host, generate a profile with wgcf and import it as a WireGuard outbound.
+- New identity: the panel repeats `POST /reg` with a fresh key for an existing outbound and,
+  when one is stored, re-applies the WARP+ license with `PUT /reg/{id}/account`. No other call is
+  added: wgcf has no device removal, so the previous registration is left to expire.
+- Health probe: the trace at `https://1.1.1.1/cdn-cgi/trace` reports `warp=on|plus|off` and the
+  serving data centre (`colo`); the panel shows both. `warp=off` means the probe did not travel
+  through WARP. Not verified on a live host since this change.

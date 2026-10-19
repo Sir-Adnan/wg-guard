@@ -993,6 +993,13 @@ func (s *Server) redirectToastRaw(w http.ResponseWriter, r *http.Request, path, 
 	http.Redirect(w, r, flashLocation(path, q), http.StatusSeeOther)
 }
 
+// redirectErrorRaw is redirectToastRaw for a failure: the toast renders as
+// an error.
+func (s *Server) redirectErrorRaw(w http.ResponseWriter, r *http.Request, path, msg string) {
+	q := url.Values{"rawmsg": {msg}, "rawerr": {"1"}, "fsig": {flashSignature("rawerr", msg)}}
+	http.Redirect(w, r, flashLocation(path, q), http.StatusSeeOther)
+}
+
 // Compose flash queries without losing workspace selection, filters or anchors.
 func flashLocation(path string, flash url.Values) string {
 	target, err := url.Parse(path)

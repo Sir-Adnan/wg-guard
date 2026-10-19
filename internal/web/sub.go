@@ -340,9 +340,16 @@ func writeSubJSONError(w http.ResponseWriter, status int) {
 	_, _ = w.Write([]byte(`{"error":"unavailable"}` + "\n"))
 }
 
-// handleSubDeviceAmnezia hands one device to AmneziaVPN: a redirect to the
-// vpn:// key (opens the app where the scheme is registered, e.g. Android), or
-// the key as text with ?format=text for the copy button and for apps.
+// handleSubDeviceAmnezia hands one device to AmneziaVPN. The app registers
+// the vpn:// URL scheme only on Android; the iOS and desktop builds import a
+// .vpn file instead: the iOS share sheet's "Open in AmneziaVPN" and the
+// desktop "File with connection settings" (amnezia-client ddde436,
+// docs/integrations/client-apps-and-warp.md). So:
+//
+//   - ?format=text: the key as text, for the copy button and for apps;
+//   - ?format=file: the key as a <name>.vpn attachment;
+//   - otherwise: Android is redirected to the vpn:// key, every other
+//     platform gets the file. This is also the no-JavaScript path.
 func (s *Server) handleSubDeviceAmnezia(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	if s.subRateLimited(w, r) {
@@ -362,13 +369,20 @@ func (s *Server) handleSubDeviceAmnezia(w http.ResponseWriter, r *http.Request) 
 		s.surfaceError(w, r, http.StatusNotFound, "publicsub.download_unavailable", "sub")
 		return
 	}
-	if r.URL.Query().Get("format") == "text" {
+	format := r.URL.Query().Get("format")
+	switch {
+	case format == "text":
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte(key))
-		return
+	case format == "" && strings.Contains(r.UserAgent(), "Android"):
+		w.Header().Set("Location", key)
+		w.WriteHeader(http.StatusSeeOther)
+	default:
+		name := strings.TrimSuffix(s.configFilename(r, d), ".conf") + ".vpn"
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+		_, _ = w.Write([]byte(key))
 	}
-	w.Header().Set("Location", key)
-	w.WriteHeader(http.StatusSeeOther)
 }
 
 // handleSubDeviceQR streams one device's client config as a PNG, gated by

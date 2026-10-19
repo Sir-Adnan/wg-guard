@@ -99,7 +99,7 @@ func TestCompileScenario(t *testing.T) {
 		t.Fatalf("classify:\n%v\nwant\n%v", got, want)
 	}
 	bal := p.Chains["t_b0000000000007000800000000000000b"]
-	if bal != "jhash ip saddr mod 3 vmap { 0 : goto t_o1, 1 : goto t_o1, 2 : goto t_o2 }" {
+	if bal != "jhash ip saddr mod 3 seed 0x57474744 vmap { 0 : goto t_o1, 1 : goto t_o1, 2 : goto t_o2 }" {
 		t.Fatalf("weighted sticky balancer: %q (disabled member must be excluded)", bal)
 	}
 	if e, ok := p.Ruleset.Lookup("gemini.google.com"); !ok || e.RuleID != "00000000-0000-7000-8000-000000000002" {
@@ -253,7 +253,7 @@ func TestBalancerStrategiesRender(t *testing.T) {
 		strategy egress.Strategy
 		want     string
 	}{
-		{egress.StrategySticky, "jhash ip saddr mod 3 vmap"},
+		{egress.StrategySticky, "jhash ip saddr mod 3 seed 0x57474744 vmap"},
 		{egress.StrategyRoundRobin, "numgen inc mod 3 vmap"},
 		{egress.StrategyRandom, "numgen random mod 3 vmap"},
 		{egress.StrategyLeastConn, "numgen random mod "},
@@ -314,5 +314,41 @@ func TestMarkRulesKeepForeignBits(t *testing.T) {
 	}
 	if strings.Contains(table, "k_o4") || strings.Contains(table, "meta mark set ct mark") {
 		t.Fatalf("disabled outbound restored or foreign bits overwritten:\n%s", table)
+	}
+}
+
+// A chained outbound's link carries the mark of the outbound it goes
+// through; a broken chain gets no link and its traffic is not sent to it.
+func TestCompileChainedOutbound(t *testing.T) {
+	warp := tunnelOutbound("o-warp", 1, true)
+	warp.Tunnel.Via = "o-de"
+	de := tunnelOutbound("o-de", 2, true)
+	snap := &egress.Snapshot{
+		Outbounds: []egress.OutboundState{warp, de},
+		Settings:  egress.Settings{DefaultTarget: egress.Target{Kind: egress.TargetOutbound, ID: "o-warp"}},
+	}
+	plan := Compile(snap, ifaces, Inputs{}, fakeGeo{})
+	var link LinkSpec
+	for _, l := range plan.Links {
+		if l.OutboundID == "o-warp" {
+			link = l
+		}
+	}
+	if link.Config.Fwmark != "0x200000" || link.fwmark() != SlotMark(2) || plan.DefaultChain != "t_o1" {
+		t.Fatalf("chained link: %+v default %s", link.Config, plan.DefaultChain)
+	}
+	plain := linkSpec(tunnelOutbound("o-warp", 1, true), 0)
+	if plain.Hash == link.Hash {
+		t.Fatal("the chain must change the link hash")
+	}
+
+	de.Enabled = false
+	snap.Outbounds = []egress.OutboundState{warp, de}
+	plan = Compile(snap, ifaces, Inputs{}, fakeGeo{})
+	if len(plan.Links) != 0 || plan.Unlinked["o-warp"] != "via" || plan.DefaultChain != chainDirect {
+		t.Fatalf("broken chain: links %v unlinked %v default %s", plan.Links, plan.Unlinked, plan.DefaultChain)
+	}
+	if len(plan.Warnings) != 1 || plan.Warnings[0].Kind != "via_unavailable" || plan.Warnings[0].Detail != "o-warp" {
+		t.Fatalf("warnings: %+v", plan.Warnings)
 	}
 }

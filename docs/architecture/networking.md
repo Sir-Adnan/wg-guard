@@ -46,8 +46,9 @@ creation skips occupied/host-conflicting defaults. See
   wg-quick); per-profile isolation stays a possible future setting.
 - **Firewall coexistence**: doctor/installer detect ufw/firewalld. With ufw's default forward
   DROP policy, forwarded tunnel traffic dies before our accept rules run — so bring-up adds the
-  required allow rule *through that framework* (`ufw route allow in on awgN`, idempotent) and
-  reports findings. An active firewalld can add independent zone-level terminal verdicts;
+  required allow rules *through that framework* (`ufw route allow in on awgN` for forwarding and
+  `ufw allow in on awgN to any port 53` for the domain-routing resolver, whose redirected client
+  DNS is local input; both idempotent) and reports findings. An active firewalld can add independent zone-level terminal verdicts;
   WG-Guard has no certified firewalld allow path, so boot, runtime readiness and doctor fail
   closed for enabled tunnels until firewalld is disabled. `iptables FORWARD ACCEPT` alone is
   not evidence of firewalld forwarding.

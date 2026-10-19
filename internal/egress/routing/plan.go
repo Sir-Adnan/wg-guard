@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/awgparam"
@@ -78,6 +79,15 @@ type LinkSpec struct {
 	Hash       string // change detection over every applied field
 }
 
+// fwmark is the link's socket mark (0 when the link is not chained).
+func (l LinkSpec) fwmark() uint32 {
+	mark, err := strconv.ParseUint(l.Config.Fwmark, 0, 32)
+	if err != nil {
+		return 0
+	}
+	return uint32(mark)
+}
+
 // RouteSpec is one policy route: mark → table → link.
 type RouteSpec struct {
 	Mark  uint32
@@ -93,7 +103,7 @@ type SNATSpec struct {
 
 // Warning is a non-fatal planning finding shown in the panel.
 type Warning struct {
-	Kind   string // geosite_missing | geoip_missing | geodata_unavailable
+	Kind   string // geosite_missing | geoip_missing | geodata_unavailable | via_unavailable
 	Detail string // category name; safe to display
 }
 
@@ -120,6 +130,10 @@ type Plan struct {
 	BlockEncryptedDNS bool
 	MSS               map[string]int // link → MSS for inbound SYN/ACK
 	Warnings          []Warning
+	// Unlinked lists enabled tunneled outbounds that get no link, by fixed
+	// reason: "via" when the outbound they are chained through is missing,
+	// disabled or itself chained.
+	Unlinked map[string]string
 }
 
 // Classifies reports whether the nftables table is needed.
@@ -233,7 +247,11 @@ func (c *compiler) outboundState() {
 		mark := SlotMark(o.Slot)
 		switch {
 		case o.Kind.Tunneled() && o.Tunnel != nil:
-			spec := linkSpec(o)
+			fwmark, ok := c.chainMark(o)
+			if !ok {
+				continue
+			}
+			spec := linkSpec(o, fwmark)
 			c.plan.Links = append(c.plan.Links, spec)
 			c.plan.Routes = append(c.plan.Routes, RouteSpec{Mark: mark, Table: SlotTable(o.Slot), Link: spec.Name})
 			if o.Tunnel.MTU > 0 {
@@ -245,7 +263,7 @@ func (c *compiler) outboundState() {
 	}
 }
 
-func linkSpec(o egress.OutboundState) LinkSpec {
+func linkSpec(o egress.OutboundState, fwmark uint32) LinkSpec {
 	t := o.Tunnel
 	peer := tunnel.PeerConfig{
 		PublicKey:    t.PeerPublicKey,
@@ -253,27 +271,53 @@ func linkSpec(o egress.OutboundState) LinkSpec {
 		AllowedIPs:   []string{"0.0.0.0/0"},
 		Endpoint:     t.Endpoint,
 	}
-	if t.Keepalive > 0 && t.Keepalive <= 65535 {
-		peer.PersistentKeepalive = keepalive(t.Keepalive)
-	}
+	peer.PersistentKeepalive = keepalive(t.Keepalive, t.KeepaliveMax)
 	cfg := tunnel.InterfaceConfig{
 		PrivateKey:  o.Secret.PrivateKey,
 		Obfuscation: t.Obfuscation.Tunnel(),
 		Peers:       []tunnel.PeerConfig{peer},
 	}
+	if fwmark != 0 {
+		cfg.Fwmark = fmt.Sprintf("0x%x", fwmark)
+	}
 	h := sha256.New()
-	fmt.Fprintf(h, "%s|%d|%s|%s|%s|%s|%s|%d|%+v", o.LinkName(), t.MTU, t.Address, cfg.PrivateKey,
-		peer.PublicKey, peer.PresharedKey, peer.Endpoint, t.Keepalive, cfg.Obfuscation)
+	fmt.Fprintf(h, "%s|%d|%s|%s|%s|%s|%s|%s|%+v", o.LinkName(), t.MTU, t.Address, cfg.PrivateKey,
+		peer.PublicKey, peer.PresharedKey, peer.Endpoint, peer.PersistentKeepalive, cfg.Obfuscation)
+	if fwmark != 0 {
+		// Appended only when set, so unchained links keep their hash.
+		fmt.Fprintf(h, "|fwmark=%d", fwmark)
+	}
 	return LinkSpec{
 		OutboundID: o.ID, Name: o.LinkName(), Slot: o.Slot, MTU: t.MTU, Address: t.Address,
 		Config: cfg, Hash: hex.EncodeToString(h.Sum(nil))[:24],
 	}
 }
 
+// chainMark returns the socket mark of an outbound chained through another
+// one: the link's own encrypted packets carry the other outbound's mark, so
+// policy routing sends the tunnel through it (WARP then exits next to that
+// outbound's server). An outbound whose chain is broken gets no link at all:
+// leaving through the main route instead would silently change its exit.
+func (c *compiler) chainMark(o egress.OutboundState) (uint32, bool) {
+	if o.Tunnel.Via == "" {
+		return 0, true
+	}
+	v, ok := c.outbounds[o.Tunnel.Via]
+	if !ok || !v.Enabled || !v.Kind.Tunneled() || v.Tunnel == nil || v.Tunnel.Via != "" || v.ID == o.ID {
+		if c.plan.Unlinked == nil {
+			c.plan.Unlinked = map[string]string{}
+		}
+		c.plan.Unlinked[o.ID] = "via"
+		c.plan.Warnings = append(c.plan.Warnings, Warning{Kind: "via_unavailable", Detail: o.Name})
+		return 0, false
+	}
+	return SlotMark(v.Slot), true
+}
+
 // usable reports whether traffic may be sent to the outbound now.
 func (c *compiler) usable(id string) (egress.OutboundState, bool) {
 	o, ok := c.outbounds[id]
-	if !ok || !o.Enabled || c.down[id] {
+	if !ok || !o.Enabled || c.down[id] || c.plan.Unlinked[id] != "" {
 		return o, false
 	}
 	if healthy, probed := c.health[id]; probed && !healthy {
@@ -364,17 +408,24 @@ func (c *compiler) balancerTarget(id string) string {
 	}
 	// Sticky hashes the client tunnel address (one exit per device); the
 	// per-connection strategies draw a counter or random number per new flow.
-	selector := "jhash ip saddr"
+	// The sticky hash has a fixed seed: without one the kernel draws a new
+	// seed every time the rule is loaded, and every apply would move devices
+	// to another exit.
+	selector := fmt.Sprintf("jhash ip saddr mod %d seed 0x%x", len(buckets), stickySeed)
 	switch b.Strategy {
 	case egress.StrategyRoundRobin:
-		selector = "numgen inc"
+		selector = fmt.Sprintf("numgen inc mod %d", len(buckets))
 	case egress.StrategyRandom, egress.StrategyLeastConn:
-		selector = "numgen random"
+		selector = fmt.Sprintf("numgen random mod %d", len(buckets))
 	}
 	name := balancerChain(b.ID)
-	c.plan.Chains[name] = fmt.Sprintf("%s mod %d vmap { %s }", selector, len(buckets), strings.Join(entries, ", "))
+	c.plan.Chains[name] = fmt.Sprintf("%s vmap { %s }", selector, strings.Join(entries, ", "))
 	return name
 }
+
+// stickySeed keeps the sticky balancer's device-to-bucket mapping stable
+// across rule reloads and restarts.
+const stickySeed = 0x5747_4744
 
 // leastConnBuckets bounds the least-connections bucket map.
 const leastConnBuckets = 20
@@ -514,4 +565,16 @@ func (c *compiler) pruneChains() {
 	}
 }
 
-func keepalive(seconds int) awgparam.U16Range { return awgparam.ScalarU16(uint16(seconds)) }
+// keepalive is the peer interval: off, a fixed number of seconds, or an
+// AmneziaWG random interval low–high.
+func keepalive(low, high int) awgparam.U16Range {
+	if low <= 0 || low > 65535 {
+		return awgparam.U16Range{}
+	}
+	if high > low && high <= 65535 {
+		if r, err := awgparam.NewU16Range(uint16(low), uint16(high)); err == nil {
+			return r
+		}
+	}
+	return awgparam.ScalarU16(uint16(low))
+}

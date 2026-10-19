@@ -57,7 +57,8 @@ func (m *Manager) FirewalldActive(ctx context.Context) (bool, error) {
 	return active, err
 }
 
-// EnsureUfwRoutes adds the ufw forward-allow rule for each managed interface
+// EnsureUfwRoutes adds the ufw forward-allow rule and the DNS input-allow rule
+// (port 53, the resolver used by domain routing) for each managed interface
 // when ufw is active (idempotent: `ufw route allow` on an existing rule
 // exits 0 with "Skipping adding existing rule"). The rule is additive and
 // scoped to WG-Guard's own interfaces, so applying it unconditionally when
@@ -76,6 +77,13 @@ func (m *Manager) EnsureUfwRoutes(ctx context.Context, ifaces []Interface) (appl
 		seen[ifc.Name] = true
 		if _, err := m.Run.Run(ctx, []string{"ufw", "route", "allow", "in", "on", ifc.Name}); err != nil {
 			return applied, fmt.Errorf("firewall: ufw route allow for %s: %w", ifc.Name, err)
+		}
+		// Domain routing redirects client DNS to the built-in resolver on
+		// the gateway address. A redirected packet is local input, not
+		// forwarded traffic, and ufw's usual "deny (incoming)" would drop
+		// every client lookup the moment the first domain rule is enabled.
+		if _, err := m.Run.Run(ctx, []string{"ufw", "allow", "in", "on", ifc.Name, "to", "any", "port", "53"}); err != nil {
+			return applied, fmt.Errorf("firewall: ufw allow DNS on %s: %w", ifc.Name, err)
 		}
 		applied = append(applied, ifc.Name)
 	}

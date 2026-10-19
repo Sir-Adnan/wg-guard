@@ -99,9 +99,14 @@ type TunnelConfig struct {
 	Address       string            `json:"address"` // local IPv4 CIDR inside the tunnel, e.g. 172.16.0.2/32
 	MTU           int               `json:"mtu"`
 	PeerPublicKey string            `json:"peer_public_key"`
-	Endpoint      string            `json:"endpoint"` // host:port
-	Keepalive     int               `json:"keepalive"`
+	Endpoint      string            `json:"endpoint"`                // host:port
+	Keepalive     int               `json:"keepalive"`               // seconds, 0 = off
+	KeepaliveMax  int               `json:"keepalive_max,omitempty"` // >Keepalive: AmneziaWG random interval
 	Obfuscation   iface.Obfuscation `json:"obfuscation"`
+	// Via chains the tunnel through another tunneled outbound (its ID): the
+	// tunnel's own packets leave through that outbound, so the exit appears
+	// next to that outbound's server. One level only.
+	Via string `json:"via,omitempty"`
 }
 
 // WARPAccount is non-secret WARP registration metadata.
