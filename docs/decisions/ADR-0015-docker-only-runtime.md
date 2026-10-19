@@ -66,4 +66,4 @@ Secrets remain in private files/stdin or encrypted node storage, never deploymen
   public release, registry publication or mutation of the owner's only host.
 
 Follow [Phase 17](../archive/development/phase17.md), [deployment](../operations/deployment.md) and
-[migration preparation](../operations/migration-preparation.md).
+[migration preparation](../archive/operations/migration-preparation.md).

@@ -54,7 +54,7 @@ evidence; no universal latency or memory promise is inferred.
 
 Owner workflow is release → update existing server → download encrypted backup →
 independent verification → later approved rebuild/fresh install/restore. The
-[preparation drill](../../operations/migration-preparation.md) covers password recovery,
+[preparation drill](../operations/migration-preparation.md) covers password recovery,
 checksums, inventory and target TLS/core/network review. The owner's off-host copy
 is a post-publication checkpoint and remains mandatory before rebuilding the only server.
 

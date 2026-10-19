@@ -78,16 +78,6 @@ less wg-guard-install.sh && bash wg-guard-install.sh
 
 </details>
 
-<details>
-<summary><strong>ارتقای نودی که پیش از v0.1.10 نصب شده</strong></summary>
-
-از نسخهٔ v0.1.10 استقرار فقط با Docker و با چیدمان تازهٔ میزبان است و نصب‌های قدیمی native در
-جا تبدیل نمی‌شوند. با مدیر قبلی یک پشتیبان بیرون از سرور بگیرید و درستی‌اش را بررسی کنید، سپس
-نصب تازه انجام دهید و پشتیبان را بازگردانید. [راهنمای آماده‌سازی مهاجرت](docs/operations/migration-preparation.md)
-را ببینید.
-
-</details>
-
 ## گام‌های اول
 
 1. داشبورد را ببینید یا `sudo wg-guard doctor` را اجرا کنید.

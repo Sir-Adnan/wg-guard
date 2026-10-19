@@ -35,8 +35,7 @@ touches; this map is a route, not a checklist. Code and tests must back every cl
 [terminal management](operations/terminal-management.md) ·
 [Update Center](operations/update-center.md) · [backup and restore](operations/backup-restore.md) ·
 [lifecycle recovery](operations/lifecycle-recovery.md) · [cleanup](operations/cleanup.md) ·
-[runbook](operations/runbook.md) · [security](operations/security.md) ·
-[migration from pre-v0.1.10 nodes](operations/migration-preparation.md)
+[runbook](operations/runbook.md) · [security](operations/security.md)
 
 **Development:** [workflow](development/workflow.md) · [testing](development/testing.md) ·
 [status](development/status.md) · [release readiness](development/release-readiness.md)

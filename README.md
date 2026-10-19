@@ -78,15 +78,6 @@ Unattended setup, exact commits and integrity details are in the
 
 </details>
 
-<details>
-<summary><strong>Upgrading a node installed before v0.1.10</strong></summary>
-
-v0.1.10 moved to a Docker-only runtime and a new host layout, and older native deployments are
-not converted in place. Export and verify an off-host backup with the original manager, then
-install fresh and restore it. See [migration preparation](docs/operations/migration-preparation.md).
-
-</details>
-
 ## First steps
 
 1. Check the dashboard, or run `sudo wg-guard doctor`.

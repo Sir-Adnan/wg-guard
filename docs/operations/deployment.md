@@ -1,10 +1,7 @@
 # Deployment
 
-v0.1.10 and later implement the Docker-only deployment contract; v0.1.9 and earlier
-retain their previous deployment/layout. The [Phase 20](../archive/development/phase20.md)
-record holds the corrected Ubuntu 24.04 host acceptance and v0.1.10 publication evidence. Existing installations
-must export and independently verify their backup using the original manager, then use the
-approved fresh-install/restore route. This is not an in-place layout converter.
+WG-Guard runs only as a Docker runtime on the host it manages. The Ubuntu 24.04 host acceptance
+for this layout is recorded in [Phase 20](../archive/development/phase20.md).
 
 ## Docker production runtime
 
@@ -37,7 +34,7 @@ approved fresh-install/restore route. This is not an in-place layout converter.
   they are not universal workload budgets.
 - The host owns kernel/DKMS, headers, module load/persistence, diagnostic/network utilities,
   certificate/proxy tasks, the narrow update broker, acquisition and recovery. AWG tools and
-  the explicit userspace daemon live in the image; native WG-Guard server execution is removed.
+  the explicit userspace daemon live in the image.
 - Deployments pin immutable local image IDs and use `pull_policy: never`. Acquisition/verification
   occurs before stopping an existing service; backup, stop, deploy, readiness/TLS proof and state
   commit share one coordinator. Retained images can be inspected without a running container.

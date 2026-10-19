@@ -224,7 +224,7 @@ func LoadState(h Host) (*State, error) {
 }
 
 func legacyDeploymentError() error {
-	return fmt.Errorf("install: legacy deployment state requires the original manager; export and independently verify a backup, then perform a fresh Docker install and restore (docs/operations/migration-preparation.md)")
+	return fmt.Errorf("install: legacy deployment state requires the original manager; export and independently verify a backup, then perform a fresh Docker install and restore (docs/operations/backup-restore.md)")
 }
 
 // readBootConfig parses the live boot config (update paths use its TLS

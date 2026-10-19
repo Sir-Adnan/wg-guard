@@ -108,7 +108,7 @@ No dates, performance promises, release numbers or completion percentages are in
   installation, module/daemon provenance, networking and clients remain host gates.
 - [x] Review export encryption, bounded memory/disk and off-host password recovery.
   Keep local pre-update recovery policy distinct from downloadable/off-host archives.
-  The [preparation drill](../../operations/migration-preparation.md) records optional
+  The [preparation drill](../operations/migration-preparation.md) records optional
   age export encryption, the independent password-recovery requirement, streaming/
   admission limits, transient KDF memory and remaining real-host resource gates.
 - [x] Produce an owner-usable backup/export/verify/recovery drill linked above.

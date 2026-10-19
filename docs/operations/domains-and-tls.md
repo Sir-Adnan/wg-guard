@@ -156,7 +156,7 @@ Portable archives retain the established DB/master-key/account contract. Host
 certificates, CA credentials, policy and queue imports are host authority, not
 portable customer backup contents. Preserve/provision target HTTPS independently
 when rebuilding; restore customer records using the verified migration procedure.
-See [backup/restore](backup-restore.md) and [migration preparation](migration-preparation.md).
+See [backup/restore](backup-restore.md).
 
 [Go TLS callbacks](https://pkg.go.dev/crypto/tls#Config) and
 [Certbot challenge/renewal documentation](https://eff-certbot.readthedocs.io/en/stable/using.html)

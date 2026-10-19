@@ -24,7 +24,8 @@ govern new work. Links and paths inside these files are left as they were record
 
 The Phase 15–20 [refactor program](development/refactor-program.md), its
 [architecture target](architecture/deployment-refactor.md) and the
-[Docker-only cleanup](architecture/docker-only-cleanup.md) shipped in v0.1.10.
+[Docker-only cleanup](architecture/docker-only-cleanup.md) shipped in v0.1.10, with the
+[migration drill](operations/migration-preparation.md) for nodes that predated it.
 
 Follow-up records from 2026-10-05: [presentation layout](development/presentation-layout.md) ·
 [acquisition staging](development/acquisition-staging.md) ·

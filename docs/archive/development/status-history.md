@@ -294,7 +294,7 @@ unchanged-package results reused Go cache. Exact follow-up source
 `7c9d1908dedfb04dec55239b3a5db44d67f0a558` passed
 [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37202081662), including both
 Linux race jobs, build, fixtures and vulnerability scan. API/OpenAPI
-and archive schema remain unchanged. The [owner preparation drill](../../operations/migration-preparation.md)
+and archive schema remain unchanged. The [owner preparation drill](../operations/migration-preparation.md)
 reviews export/password recovery and memory/disk limits. Restored domain/core semantics,
 actual host lag/resource measurement and the owner's off-host backup still gate the rest
 of Phase 15.

@@ -20,10 +20,9 @@ The configured mode is reported via `/api/v1/node`; `doctor` compares it with ob
 Phase 11 implements one foreground daemon per userspace interface under the node process. The
 supervisor verifies the pinned daemon identity, owns its child and UAPI socket, notices failure,
 repairs through canonical reconciliation, and stops it on removal/shutdown. A pre-existing active
-unowned daemon fails closed. The exact pinned source passed WSL TUN/UAPI integration; Docker and
-native real-host certification is still required before this mode is production-certified.
-Native installs need the separately installed reviewed daemon; the managed installer continues
-to require the kernel module by default. Automatic selection on DKMS failure is not implemented.
+unowned daemon fails closed. The pinned daemon ships in the Docker runtime image, and userspace
+profiles passed real Ubuntu 24.04 client traffic and recovery in Phase 20. The managed installer
+still prefers the kernel module. Automatic selection on DKMS failure is not implemented.
 
 ## Consequences
 

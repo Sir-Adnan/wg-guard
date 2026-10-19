@@ -10,8 +10,8 @@ Module: `github.com/Sir-Adnan/wg-guard` (Go ≥ 1.25, `CGO_ENABLED=0`).
 
 ## Layout
 
-v0.1.10 removes the native production lifecycle. Docker execution retains one host
-coordinator and narrow fault seams; host CLI, DKMS, broker tasks and fake development remain.
+The Docker runtime keeps one host coordinator and narrow fault seams beside the host CLI, DKMS,
+broker tasks and a fake backend for development.
 The canonical recipe and bounded release loader are in `internal/install`; immutable image
 metadata/acquisition are in `internal/distribution`. `layout` separates deployment/configuration,
 node data and private host authority. See [Phase 17 evidence](../archive/development/phase17.md).

@@ -1,6 +1,7 @@
 # ADR-0013 — Scheduler telemetry and mode-native log retention
 
-Status: accepted · Date: 2026-09-05
+Status: accepted · Date: 2026-09-05 · Amended by: [ADR-0015](ADR-0015-docker-only-runtime.md)
+(the systemd journal-namespace branch left with the native runtime; Docker logging remains)
 
 ## Context
 

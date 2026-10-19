@@ -2,14 +2,14 @@
 
 This is the owner's preparation drill for one existing node, not authorization to
 rebuild a host. The Docker-only layout is published in v0.1.10 with the Ubuntu 24.04 host scope
-recorded in [Phase 20](../archive/development/phase20.md). Use the current
-[status](../development/status.md) and [refactor gates](../archive/development/refactor-program.md);
+recorded in [Phase 20](../development/phase20.md). Use the current
+[status](../../development/status.md) and [refactor gates](../development/refactor-program.md);
 do not rebuild until the target release, data verification and acceptance are ready.
 The independent `backup verify` and safety corrections are published in v0.1.9.
 Use that preparation release to export/verify the existing server before any rebuild;
 new target publication still needs its own authorization and acceptance gate.
 
-v0.1.10 also offers a [panel verification workbench](backup-restore.md#panel-workbench-v0110),
+v0.1.10 also offers a [panel verification workbench](../../operations/backup-restore.md#panel-workbench-v0110),
 saved restore reports and source-owner preflight. Verifying the copy retained on the
 server does not replace step 5's independent verification of the downloaded off-host
 copy.
@@ -47,7 +47,7 @@ copy.
    Enter the saved password, not a newly generated one. Verification needs no
    installed state, running container, AWG or host network changes. A successful
    report covers supported archived data, references and all encrypted fields.
-   It also checks the documented [stored-domain contract](backup-restore.md), including
+   It also checks the documented [stored-domain contract](../../operations/backup-restore.md), including
    key-pair identity, IP assignments, pinned AWG parameter relationships, subscription/
    accounting state, critical dates, customer hashes and known settings. Kernel/userspace
    inventory describes target requirements; it does not prove they are installed there.
@@ -66,7 +66,7 @@ carry TLS certificates/private certificate keys, ACME cache, DKMS/module package
 Docker images, OS routes/firewall configuration or host lifecycle state. Preserve
 manual certificate files privately or plan fresh issuance; preserve DNS/proxy/tunnel
 requirements separately. Keep endpoint routing and subscription/admin hostname
-roles explicit. The [domain/TLS guide](domains-and-tls.md) describes current limits
+roles explicit. The [domain/TLS guide](../../operations/domains-and-tls.md) describes current limits
 and the v0.1.10 management workflow.
 
 Review the target release's supported OS/core/backend requirements, installation
@@ -78,8 +78,8 @@ Once the preparation/target gates pass and the owner separately authorizes the
 rebuild, install the approved target on the fresh host. v0.1.10 can use `install --from-backup ARCHIVE` before
 listener start, preserving source owners/settings while reviewing target HTTPS
 separately. Otherwise use the supported restore
-workflow from [backup/restore](backup-restore.md) and
-[lifecycle recovery](lifecycle-recovery.md); do not copy live SQLite/WAL or replace
+workflow from [backup/restore](../../operations/backup-restore.md) and
+[lifecycle recovery](../../operations/lifecycle-recovery.md); do not copy live SQLite/WAL or replace
 only the database without its matching key. Review settings/endpoints before apply.
 
 Verify the actual restored node: owner login, account/device totals, unchanged

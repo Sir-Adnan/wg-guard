@@ -158,7 +158,7 @@ peers, rebuild nft/tc, repair supported Docker/UFW forwarding, enable IP forward
 same orchestration as `serve`, then re-checks the affected areas. In Docker mode the explicit fix
 performs the lifecycle-locked, health-checked managed restart; container startup owns the canonical
 reconciliation, and the host then runs the read-only verification pass. Do not stop the container
-first. Read-only doctor is safe anytime; no native production repair path remains.
+first. Read-only doctor is safe anytime.
 
 ## Incident playbook (first responses)
 
@@ -177,4 +177,4 @@ first. Read-only doctor is safe anytime; no native production repair path remain
 
 Historical Phase 6/7 drills are recorded in [../development/phase7.md](../archive/development/phase7.md).
 The Phase 8.1 lifecycle changes have host-seam/fault tests, Linux process-death lock and atomic
-filesystem tests, and executable bootstrap fixtures. Historical Docker/native certification does not certify the new Phase 17 layout/hardening. Current certification is tracked in [../development/status.md](../development/status.md).
+filesystem tests, and executable bootstrap fixtures. Current certification is tracked in [../development/status.md](../development/status.md).

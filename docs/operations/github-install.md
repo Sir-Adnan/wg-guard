@@ -321,7 +321,7 @@ and real script logic for release/list/source/toolchain paths, integrity refusal
 cleanup, candidate checksums, archive content and SBOM. Linux CI runs those fixtures. Fixtures
 and cross-compilation do not prove clean-host source/DKMS provisioning on every later Ubuntu
 release; the exact published-artifact drill is recorded in [Phase 12](../archive/development/phase12.md).
-Separate real Docker/native evidence is linked from [Phase 8.1](../archive/development/phase8.1.md).
+Real-host install evidence is in [Phase 20](../archive/development/phase20.md).
 
 The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly
 matches the selected full SHA. Other global metadata and all links, devices, traversal, duplicate

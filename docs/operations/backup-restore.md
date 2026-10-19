@@ -416,9 +416,8 @@ deliberate cleanup; they may contain unencrypted keys and WAL data.
 
 ## Server migration & disaster recovery
 
-To move a pre-v0.1.10 node to the Docker-only layout, follow the [owner preparation drill](migration-preparation.md)
-before any rebuild. A downloaded archive, saved off-host password and independent verification
-are prerequisites.
+To move a node to a new server, take an encrypted backup, download it with its password kept
+off-host, verify it independently, then install fresh on the target and restore it.
 
 Migrating = fresh install on the new server + restore + environment review. Because client
 configs are generated on demand from current settings, confirming the public endpoint during
