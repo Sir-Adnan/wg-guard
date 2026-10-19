@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- Add **Open websites over IPv6** for WARP and imported outbounds with an IPv6 address
+  ([ADR-0018](docs/decisions/ADR-0018-ipv6-site-bridge.md)). Web connections (ports 80 and 443)
+  sent through such an outbound go out over its IPv6 exit when the site has an IPv6 address,
+  which Google and Gemini usually accept where they refuse shared WARP IPv4. Otherwise they go
+  over IPv4 through the same outbound. Devices need no new config. QUIC is turned off for that
+  outbound so browsers use TCP.
+- Add **Site test** on the Outbounds page: it opens Gemini, Google Search, ChatGPT, Claude or any
+  URL through this server and every enabled outbound and shows whether each exit works, is
+  blocked or gets a CAPTCHA. The Rules page site check links to it.
+- **New WARP identity** now applies the new device, checks the exit and registers again (up to 3
+  times) while Cloudflare keeps the same exit IP; the toast shows the old and new address.
+- When an exit stops carrying traffic, its open connections are dropped so apps reconnect
+  through the new route at once instead of hanging. Down links whose endpoint is a host name are
+  re-resolved every 5 minutes and pick up a moved address without being recreated.
 - Add chained outbounds: a WARP or WireGuard outbound can route its tunnel through another
   outbound, which is how WARP gets an exit in another country (WARP itself has no country
   setting). Add **New WARP identity** to register a fresh WARP device for an outbound (new keys,

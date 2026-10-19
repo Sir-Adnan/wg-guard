@@ -316,3 +316,57 @@ func TestRoutingChainPriorityAndDNSForms(t *testing.T) {
 	}
 	assertNoRawKeys(t, body)
 }
+
+// The IPv6 site bridge is a switch on the outbound form: refused for a config
+// without IPv6, stored for one with it. The site test runs for the node's
+// own route and every enabled outbound.
+func TestRoutingIPv6SitesAndSiteTest(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	csrf := deriveCSRF(cookie.Value)
+	ctx := context.Background()
+	plain, err := e.egress.CreateWireGuard(ctx, "Plain", routingConf())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := e.get("/routing/outbounds/"+plain.ID+"/edit", cookie).Body.String()
+	if !strings.Contains(body, `name="ipv6_sites"`) || !strings.Contains(body, "has no IPv6 Address") {
+		t.Fatal("IPv6 switch on a v4-only config")
+	}
+	dual := strings.Replace(routingConf(), "Address = 10.7.0.2/32", "Address = 10.7.0.2/32, 2606:4700:110:8a36::9/128", 1)
+	ob, err := e.egress.CreateWireGuard(ctx, "Dual", dual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := e.post("/routing/outbounds/"+ob.ID+"/edit", url.Values{"name": {"Dual"}, "ipv6_sites_form": {"1"}, "ipv6_sites": {"1"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("enable bridge: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, _ := e.egress.GetOutbound(ctx, ob.ID); !got.Tunnel.Bridges() {
+		t.Fatalf("bridge not stored: %+v", got.Tunnel)
+	}
+	if body := e.get("/routing/outbounds", cookie).Body.String(); !strings.Contains(body, "IPv6 exit") || !strings.Contains(body, `id="site-test"`) {
+		t.Fatal("bridge row or site test panel missing")
+	}
+	// Saving the form without the switch turns the bridge off.
+	if rec := e.post("/routing/outbounds/"+ob.ID+"/edit", url.Values{"name": {"Dual"}, "ipv6_sites_form": {"1"}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("disable bridge: %d", rec.Code)
+	}
+	if got, _ := e.egress.GetOutbound(ctx, ob.ID); got.Tunnel.IPv6Sites {
+		t.Fatal("bridge still on")
+	}
+
+	rec = e.post("/routing/outbounds/site-test", url.Values{"service": {"gemini"}}, cookie, csrf)
+	body = rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(body, "This server (direct)") || !strings.Contains(body, "Dual") || !strings.Contains(body, "Test not supported") {
+		t.Fatalf("site test: %d %s", rec.Code, body)
+	}
+	rec = e.post("/routing/outbounds/site-test", url.Values{"service": {"url"}, "url": {"ftp://x"}}, cookie, csrf)
+	if !strings.Contains(rec.Body.String(), "Enter a site address") {
+		t.Fatal("invalid URL not reported")
+	}
+	if body := e.get("/routing/outbounds?site=gemini.google.com", cookie).Body.String(); !strings.Contains(body, `value="gemini.google.com"`) {
+		t.Fatal("site prefill")
+	}
+}

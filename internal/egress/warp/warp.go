@@ -88,6 +88,7 @@ type registerResponse struct {
 		Interface struct {
 			Addresses struct {
 				V4 string `json:"v4"`
+				V6 string `json:"v6"`
 			} `json:"addresses"`
 		} `json:"interface"`
 	} `json:"config"`
@@ -161,7 +162,22 @@ func (c *Client) Register(ctx context.Context, publicKey string) (egress.WARPReg
 	return egress.WARPRegistration{
 		DeviceID: r.ID, Token: r.Token, AccountType: r.Account.AccountType, Plus: r.Account.WarpPlus,
 		PeerPublicKey: peer.PublicKey, Endpoint: ep, AddressV4: r.Config.Interface.Addresses.V4,
+		AddressV6: r.Config.Interface.Addresses.V6,
 	}, nil
+}
+
+// Addresses reads a registered device's tunnel addresses (GET /reg/{id},
+// as wgcf does for an existing device). Devices registered before WG-Guard
+// stored the IPv6 address get it from here.
+func (c *Client) Addresses(ctx context.Context, deviceID, token string) (v4, v6 string, err error) {
+	if deviceID == "" || token == "" {
+		return "", "", errors.New("warp: missing device credentials")
+	}
+	var r registerResponse
+	if err := c.do(ctx, http.MethodGet, "/reg/"+deviceID, token, nil, &r); err != nil {
+		return "", "", err
+	}
+	return r.Config.Interface.Addresses.V4, r.Config.Interface.Addresses.V6, nil
 }
 
 // endpointString mirrors wgcf's selection: the advertised host, else the v4

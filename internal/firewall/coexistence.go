@@ -57,8 +57,13 @@ func (m *Manager) FirewalldActive(ctx context.Context) (bool, error) {
 	return active, err
 }
 
-// EnsureUfwRoutes adds the ufw forward-allow rule and the DNS input-allow rule
-// (port 53, the resolver used by domain routing) for each managed interface
+// BridgePortRange is the IPv6 site bridge's listener range (egress routing
+// BridgePortBase+1 … +MaxSlots, docs/architecture/egress-routing.md).
+const BridgePortRange = "51801:51863"
+
+// EnsureUfwRoutes adds the ufw forward-allow rule and the input-allow rules
+// for the DNS resolver (port 53) and the IPv6 site bridge (BridgePortRange,
+// TCP) used by egress routing for each managed interface
 // when ufw is active (idempotent: `ufw route allow` on an existing rule
 // exits 0 with "Skipping adding existing rule"). The rule is additive and
 // scoped to WG-Guard's own interfaces, so applying it unconditionally when
@@ -84,6 +89,11 @@ func (m *Manager) EnsureUfwRoutes(ctx context.Context, ifaces []Interface) (appl
 		// every client lookup the moment the first domain rule is enabled.
 		if _, err := m.Run.Run(ctx, []string{"ufw", "allow", "in", "on", ifc.Name, "to", "any", "port", "53"}); err != nil {
 			return applied, fmt.Errorf("firewall: ufw allow DNS on %s: %w", ifc.Name, err)
+		}
+		// The IPv6 site bridge receives redirected web connections the same
+		// way, on one TCP port per outbound slot.
+		if _, err := m.Run.Run(ctx, []string{"ufw", "allow", "in", "on", ifc.Name, "to", "any", "port", BridgePortRange, "proto", "tcp"}); err != nil {
+			return applied, fmt.Errorf("firewall: ufw allow site bridge on %s: %w", ifc.Name, err)
 		}
 		applied = append(applied, ifc.Name)
 	}

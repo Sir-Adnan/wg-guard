@@ -48,7 +48,9 @@ creation skips occupied/host-conflicting defaults. See
   DROP policy, forwarded tunnel traffic dies before our accept rules run — so bring-up adds the
   required allow rules *through that framework* (`ufw route allow in on awgN` for forwarding and
   `ufw allow in on awgN to any port 53` for the domain-routing resolver, whose redirected client
-  DNS is local input; both idempotent) and reports findings. An active firewalld can add independent zone-level terminal verdicts;
+  DNS is local input, and `ufw allow in on awgN to any port 51801:51863 proto tcp` for the egress
+  IPv6 site bridge, which receives redirected web connections the same way; all idempotent) and
+  reports findings. An active firewalld can add independent zone-level terminal verdicts;
   WG-Guard has no certified firewalld allow path, so boot, runtime readiness and doctor fail
   closed for enabled tunnels until firewalld is disabled. `iptables FORWARD ACCEPT` alone is
   not evidence of firewalld forwarding.
@@ -77,13 +79,18 @@ exits are WARP, imported WireGuard/AmneziaWG servers or another local IPv4. The 
 kernel-only and owns its own objects:
 
 - links `wgo1…wgo63`;
-- `ip rule` entries at priority 5180 with tables `51800+slot`;
+- `ip rule` entries at priority 5180 with tables `51800+slot` (IPv6 rules and routes too, for
+  outbounds with the IPv6 site bridge on);
 - marks in the field `0x7ff00000` only;
 - the separate `table ip wgguard_egress`, which never edits `inet wgguard`.
 
 Client interfaces and their masquerade are unchanged. Traffic marked direct uses the existing
 path. A built-in resolver on the tunnel gateways serves domain rules, and port-53 traffic from
-tunnel clients is redirected to it. Uninstall removes all of these objects. Full contract:
+tunnel clients is redirected to it. For outbounds with the opt-in IPv6 site bridge, web
+connections (TCP 80/443) are redirected to a bridge listener on the gateways, which re-originates
+them over the outbound's IPv6 ([ADR-0018](../decisions/ADR-0018-ipv6-site-bridge.md)). When an
+exit stops carrying traffic, its tracked connections are deleted so applications reconnect at
+once. Uninstall removes all of these objects. Full contract:
 [egress-routing.md](egress-routing.md).
 
 ## Sysctls & system state

@@ -368,13 +368,20 @@ strict CSP holds.
   last checked, exit IP with a country flag, for WARP the WARP state and Cloudflare data centre,
   the outbound a chained one goes through, traffic and everything that uses it (full list on
   hover). An outbound in use offers no Delete. WARP cards have **New WARP identity** behind a
-  confirmation. The form has **Route the tunnel through** for WARP and WireGuard outbounds (it
-  explains that this is how WARP gets another country) and suggests WARP endpoints.
+  confirmation; its toast reports the old and new exit IP. The form has **Route the tunnel
+  through** for WARP and WireGuard outbounds (it explains that this is how WARP gets another
+  country), suggests WARP endpoints and has the **Open websites over IPv6** switch. The switch is
+  disabled with an explanation for a config without an IPv6 address. Cards of bridged outbounds
+  show the IPv6 exit, the bridge state and the bridged IPv6/IPv4 connection counts. Below the
+  cards, **Site test** picks a known service or a URL (the URL field appears only for a custom
+  site) and shows a result table for this server and every enabled outbound: verdict badge,
+  reported region, HTTP status, address family, time and final host. The table becomes cards on
+  phones; HTMX swaps only the results.
 - **Balancers**: radio cards for the strategies. A warning appears when a per-connection
   strategy is chosen. Members show a weight, or a Priority for failover.
 - **Rules**: an ordered list with up/down moves (the page returns to the moved rule), a
   **Going direct** badge on rules whose outbound is not usable, the default route, a site check
-  and geodata management. Encrypted DNS is its own card with a live state (Active, Waiting for
+  (linking to the site test with the name filled in) and geodata management. Encrypted DNS is its own card with a live state (Active, Waiting for
   a domain rule, Off), visible help and the strict Private DNS warning. The rule form groups
   presets by category as multi-select chips. It has a matcher textarea with syntax help and
   geosite suggestions. Target selects list direct and block, then outbounds and balancers in

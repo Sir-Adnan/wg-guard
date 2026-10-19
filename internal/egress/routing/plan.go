@@ -75,8 +75,11 @@ type LinkSpec struct {
 	Slot       int
 	MTU        int
 	Address    string
-	Config     tunnel.InterfaceConfig
-	Hash       string // change detection over every applied field
+	// Address6 is set when the IPv6 site bridge is on: the link carries the
+	// tunnel's IPv6 address and IPv6 routes, for the bridge only.
+	Address6 string
+	Config   tunnel.InterfaceConfig
+	Hash     string // change detection over every applied field
 }
 
 // fwmark is the link's socket mark (0 when the link is not chained).
@@ -94,6 +97,27 @@ type RouteSpec struct {
 	Table int
 	Link  string
 }
+
+// BridgeSpec is one outbound with the IPv6 site bridge on: client TCP
+// connections to web ports marked for it are redirected to Port on the
+// tunnel gateways, where the bridge re-originates them through the link,
+// over IPv6 when the site has an IPv6 address.
+type BridgeSpec struct {
+	OutboundID string
+	Mark       uint32
+	Port       uint16
+}
+
+// BridgePortBase is the first bridge port; an outbound listens on
+// BridgePortBase+slot (TCP, tunnel gateway addresses only).
+const BridgePortBase = 51800
+
+// BridgePorts are the client destination ports the bridge carries. Other
+// ports keep the kernel path over IPv4.
+var BridgePorts = []uint16{80, 443}
+
+// BridgePort is an outbound's bridge listener port.
+func BridgePort(slot int) uint16 { return uint16(BridgePortBase + slot) }
 
 // SNATSpec rewrites the source address of marked traffic.
 type SNATSpec struct {
@@ -116,10 +140,16 @@ type ClassifyRule struct {
 
 // Plan is the complete desired kernel state.
 type Plan struct {
-	Ifaces            []string // client tunnel names (classification inputs)
-	Gateways          []netip.Addr
-	Links             []LinkSpec
-	Routes            []RouteSpec
+	Ifaces   []string // client tunnel names (classification inputs)
+	Gateways []netip.Addr
+	Links    []LinkSpec
+	Routes   []RouteSpec
+	// Routes6 are the IPv6 policy routes of bridged links. Only the bridge's
+	// own sockets carry IPv6 through them.
+	Routes6 []RouteSpec
+	// Bridges lists the outbounds with the IPv6 site bridge on. The manager
+	// narrows it to the bridges that are listening before rendering.
+	Bridges           []BridgeSpec
 	SNAT              []SNATSpec
 	Chains            map[string]string // target chain name → statements
 	Classify          []ClassifyRule
@@ -254,6 +284,10 @@ func (c *compiler) outboundState() {
 			spec := linkSpec(o, fwmark)
 			c.plan.Links = append(c.plan.Links, spec)
 			c.plan.Routes = append(c.plan.Routes, RouteSpec{Mark: mark, Table: SlotTable(o.Slot), Link: spec.Name})
+			if spec.Address6 != "" {
+				c.plan.Routes6 = append(c.plan.Routes6, RouteSpec{Mark: mark, Table: SlotTable(o.Slot), Link: spec.Name})
+				c.plan.Bridges = append(c.plan.Bridges, BridgeSpec{OutboundID: o.ID, Mark: mark, Port: BridgePort(o.Slot)})
+			}
 			if o.Tunnel.MTU > 0 {
 				c.plan.MSS[spec.Name] = o.Tunnel.MTU - 40
 			}
@@ -272,6 +306,11 @@ func linkSpec(o egress.OutboundState, fwmark uint32) LinkSpec {
 		Endpoint:     t.Endpoint,
 	}
 	peer.PersistentKeepalive = keepalive(t.Keepalive, t.KeepaliveMax)
+	address6 := ""
+	if t.Bridges() {
+		address6 = t.Address6
+		peer.AllowedIPs = append(peer.AllowedIPs, "::/0")
+	}
 	cfg := tunnel.InterfaceConfig{
 		PrivateKey:  o.Secret.PrivateKey,
 		Obfuscation: t.Obfuscation.Tunnel(),
@@ -287,8 +326,11 @@ func linkSpec(o egress.OutboundState, fwmark uint32) LinkSpec {
 		// Appended only when set, so unchained links keep their hash.
 		fmt.Fprintf(h, "|fwmark=%d", fwmark)
 	}
+	if address6 != "" {
+		fmt.Fprintf(h, "|v6=%s", address6)
+	}
 	return LinkSpec{
-		OutboundID: o.ID, Name: o.LinkName(), Slot: o.Slot, MTU: t.MTU, Address: t.Address,
+		OutboundID: o.ID, Name: o.LinkName(), Slot: o.Slot, MTU: t.MTU, Address: t.Address, Address6: address6,
 		Config: cfg, Hash: hex.EncodeToString(h.Sum(nil))[:24],
 	}
 }

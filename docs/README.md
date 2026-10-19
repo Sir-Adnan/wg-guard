@@ -13,7 +13,7 @@ Implementation and test evidence must support any claimed behavior.
 | Architecture or data change | [Overview](architecture/overview.md), [project structure](architecture/project-structure.md), [database](architecture/database.md) |
 | AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
 | Subscription page designs | [Design system: subscription page designs](product/design-system.md#subscription-page-designs) |
-| Outbounds, balancers, routing rules or subscription client formats | [Egress routing](architecture/egress-routing.md), [ADR-0016](decisions/ADR-0016-kernel-egress-routing.md), [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
+| Outbounds, balancers, routing rules or subscription client formats | [Egress routing](architecture/egress-routing.md), [ADR-0016](decisions/ADR-0016-kernel-egress-routing.md), [ADR-0018](decisions/ADR-0018-ipv6-site-bridge.md), [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
 | Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
 | Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
 | Refactor phases, scope and acceptance | [Refactor program, Phases 15–20](development/refactor-program.md); [architecture target](architecture/deployment-refactor.md) |

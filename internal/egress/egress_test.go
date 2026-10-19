@@ -403,3 +403,47 @@ func TestOutboundChainValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// addressWARP also answers the device address lookup.
+type addressWARP struct{ sequenceWARP }
+
+func (addressWARP) Addresses(context.Context, string, string) (string, string, error) {
+	return "172.16.0.2", "2606:4700:110:8a36::2", nil
+}
+
+// The IPv6 site bridge needs an IPv6 address: imported configs keep theirs,
+// a WARP device registered without one gets it from Cloudflare, and a config
+// without one is refused.
+func TestIPv6SitesNeedsAnAddress(t *testing.T) {
+	svc := newService(t)
+	n := 0
+	svc.WARP = addressWARP{sequenceWARP{n: &n}}
+	ctx := context.Background()
+	on := true
+	v4only := "[Interface]\nPrivateKey = " + testPriv + "\nAddress = 10.7.0.2/32\n[Peer]\nPublicKey = " + testPub + "\nEndpoint = 198.51.100.4:51820\n"
+	plain, err := svc.CreateWireGuard(ctx, "Plain", v4only)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UpdateOutbound(ctx, plain.ID, OutboundInput{IPv6Sites: &on}); reason(t, err) != "ipv6_address_missing" {
+		t.Fatalf("v4-only config: %v", err)
+	}
+	dual := strings.Replace(v4only, "Address = 10.7.0.2/32", "Address = 2606:4700:110:8a36::9/128\nAddress = 10.7.0.2/32", 1)
+	ob, err := svc.CreateWireGuard(ctx, "Dual", dual)
+	if err != nil || ob.Tunnel.Address != "10.7.0.2/32" || ob.Tunnel.Address6 != "2606:4700:110:8a36::9/128" {
+		t.Fatalf("dual-stack import: %+v %v", ob, err)
+	}
+	if ob, err = svc.UpdateOutbound(ctx, ob.ID, OutboundInput{IPv6Sites: &on}); err != nil || !ob.Tunnel.Bridges() {
+		t.Fatalf("bridge on: %+v %v", ob, err)
+	}
+	warp, err := svc.CreateWARP(ctx, "WARP", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warp.Tunnel.Address6 != "" {
+		t.Fatalf("registration without IPv6 stored %q", warp.Tunnel.Address6)
+	}
+	if warp, err = svc.UpdateOutbound(ctx, warp.ID, OutboundInput{IPv6Sites: &on}); err != nil || warp.Tunnel.Address6 != "2606:4700:110:8a36::2/128" {
+		t.Fatalf("WARP address fetch: %+v %v", warp, err)
+	}
+}

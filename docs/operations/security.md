@@ -194,12 +194,27 @@ reconciliation fails, rather than reviving old credentials.
   `NET_ADMIN` covers `wgoN` links, `ip rule`/routes, the `ip wgguard_egress` table and the
   conntrack count, and `NET_BIND_SERVICE` covers the gateway-only resolver on port 53. The
   resolver listens only on tunnel gateway addresses, forwards to configured upstreams and keeps
-  no cache or query log. Its concurrency and TCP sessions are bounded.
+  no cache or query log. Its concurrency and TCP sessions are bounded. The opt-in IPv6 site
+  bridge ([ADR-0018](../decisions/ADR-0018-ipv6-site-bridge.md)) also listens only on tunnel
+  gateways (TCP 51801–51863):
+  - It accepts only kernel-redirected web flows to public unicast destinations.
+  - It reads only the TLS server name or HTTP Host, never decrypts, and logs no destinations.
+  - It refuses names that resolve to private, loopback, link-local, ULA or node addresses.
+  - It is bounded to 1024 connections.
+
+  Conntrack drain deletes only entries whose mark is in the egress field and refuses a zero
+  mark.
 - Outbound network calls made by the panel for egress are limited to these:
-  - the WARP client API (`api.cloudflareclient.com`), only when an operator creates or relicenses
-    a WARP outbound;
+  - the WARP client API (`api.cloudflareclient.com`), only when an operator creates, renews or
+    relicenses a WARP outbound, or turns on the IPv6 site bridge for a WARP device registered
+    before IPv6 addresses were stored;
   - geodata downloads, which must be HTTPS (redirects included) and are capped at 48 MiB;
-  - the health probe to `1.1.1.1` through each outbound.
+  - the health probe to `1.1.1.1` (and `2606:4700:4700::1111` for bridged outbounds) through
+    each outbound;
+  - site tests an operator starts, to the chosen service or URL, through this node and each
+    enabled outbound;
+  - bridged client connections, to the names the clients asked for;
+  - endpoint name lookups for down links (at most every 5 minutes per outbound).
 
   Uploaded geodata is parsed with a bounded reader; a parse failure discards the file.
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -37,6 +38,7 @@ const (
 	chainBlockFwd   = "block_forward"
 	chainMSS        = "mss_clamp"
 	chainDNS        = "dns_redirect"
+	chainBridge     = "site_bridge"
 	chainSourceNAT  = "source_nat"
 	chainKeepPrefix = "k_"
 	dynamicSetSize  = 65536
@@ -48,6 +50,7 @@ var baseChains = map[string]string{
 	chainBlockFwd:   "type filter hook forward priority -10; policy accept;",
 	chainMSS:        "type filter hook forward priority mangle; policy accept;",
 	chainDNS:        "type nat hook prerouting priority dstnat; policy accept;",
+	chainBridge:     "type nat hook prerouting priority dstnat; policy accept;",
 	chainSourceNAT:  "type nat hook postrouting priority 99; policy accept;",
 }
 
@@ -116,6 +119,7 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 
 	classifying := len(p.Ifaces) > 0 && (len(p.Classify) > 0 || p.DefaultChain != chainDirect || p.BlockEncryptedDNS)
 	redirect := resolver && len(p.Ifaces) > 0 && p.Resolves()
+	bridge := classifying && len(p.Bridges) > 0
 
 	chains := map[string]string{} // name → base spec ("" for regular)
 	sets := map[string]string{}   // name → definition
@@ -145,6 +149,9 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 	}
 	if redirect {
 		chains[chainDNS] = baseChains[chainDNS]
+	}
+	if bridge {
+		chains[chainBridge] = baseChains[chainBridge]
 	}
 	if len(p.SNAT) > 0 {
 		chains[chainSourceNAT] = baseChains[chainSourceNAT]
@@ -233,6 +240,13 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 		block := fmt.Sprintf("0x%08x", MarkBlock)
 		line("add rule %s %s meta mark and %s == %s meta l4proto tcp reject with tcp reset", t, chainBlockFwd, mask, block)
 		line("add rule %s %s meta mark and %s == %s reject with icmp type admin-prohibited", t, chainBlockFwd, mask, block)
+		if bridge {
+			// QUIC cannot be bridged: refusing it makes browsers retry the
+			// site over TCP, which the bridge carries.
+			for _, br := range p.Bridges {
+				line("add rule %s %s meta mark and %s == 0x%08x udp dport 443 reject with icmp type port-unreachable", t, chainBlockFwd, mask, br.Mark)
+			}
+		}
 	}
 	for _, link := range sortedKeys(p.MSS) {
 		line("add rule %s %s oifname %q tcp flags syn / syn,rst tcp option maxseg size set rt mtu", t, chainMSS, link)
@@ -240,6 +254,16 @@ func RenderTable(p *Plan, inv Inventory, resolver bool) []byte {
 	}
 	if redirect {
 		line("add rule %s %s iifname %s meta l4proto { tcp, udp } th dport 53 redirect to :53", t, chainDNS, ifaces)
+	}
+	if bridge {
+		ports := make([]string, len(BridgePorts))
+		for i, port := range BridgePorts {
+			ports[i] = strconv.Itoa(int(port))
+		}
+		for _, br := range p.Bridges {
+			line("add rule %s %s iifname %s meta mark and 0x%08x == 0x%08x meta l4proto tcp th dport { %s } redirect to :%d",
+				t, chainBridge, ifaces, MarkMask, br.Mark, strings.Join(ports, ", "), br.Port)
+		}
 	}
 	for _, s := range p.SNAT {
 		line("add rule %s %s meta mark and 0x%08x == 0x%08x snat to %s", t, chainSourceNAT, MarkMask, s.Mark, s.Address)

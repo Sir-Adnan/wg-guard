@@ -307,6 +307,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("POST /routing/outbounds/{id}/delete", write(s.handleOutboundDelete))
 		mux.HandleFunc("POST /routing/outbounds/{id}/renew", write(s.handleOutboundRenew))
 		mux.HandleFunc("POST /routing/outbounds/{id}/test", read(s.handleOutboundTest))
+		mux.HandleFunc("POST /routing/outbounds/site-test", read(s.handleSiteTest))
 		mux.HandleFunc("GET /routing/balancers", read(s.handleBalancers))
 		mux.HandleFunc("GET /routing/balancers/new", write(s.handleBalancerNew))
 		mux.HandleFunc("POST /routing/balancers", write(s.handleBalancerSave))
