@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- Add chained outbounds: a WARP or WireGuard outbound can route its tunnel through another
+  outbound, which is how WARP gets an exit in another country (WARP itself has no country
+  setting). Add **New WARP identity** to register a fresh WARP device for an outbound (new keys,
+  usually a new exit IP) while keeping its rules, chain, MTU, license and endpoint, and suggest
+  known WARP endpoints and ports. Outbound cards show the WARP state, Cloudflare data centre and
+  last check time.
 - Add egress routing under **Routing** (`/routing/outbounds`, `/routing/balancers`,
   `/routing/rules`). Outbounds are Cloudflare WARP (registered from the panel), imported
   WireGuard/AmneziaWG client configs or another local IPv4. Balancers group outbounds with the
@@ -69,6 +75,31 @@
   help text), 22 functions nothing called and 193 catalog strings nothing referenced.
 
 ### Fixed
+- Accept AmneziaWG and WireGuard configs as the official tools read them. Imports failed for
+  inline comments, `HeaderProtectionKey`, padding and timing ranges, `RandomTrailers`,
+  `DisableCookies`, `PersistentKeepalive` ranges, `AdvancedSecurity`, AmneziaWG 1.5 keys
+  (`J1`–`J3`, `Itime`), junk-only configs without H lines, `Jc = 0` with padding, and values
+  outside WG-Guard's own server-profile policy. Errors now name the key. A link the kernel
+  module rejects (for example a userspace-only signature tag) is retried in userspace.
+- Fix **Open in AmneziaVPN** on iPhone, iPad and desktop, where the app registers no `vpn://`
+  handler: they now get a `.vpn` file through the share sheet or a download. Fix **Copy key** on
+  Safari.
+- Keep sticky balancing sticky: the hash seed was random on every apply, so devices changed exit
+  IPs after any edit or health change.
+- Stop marked traffic from leaving directly from the node, reported as healthy, when an outbound
+  link went down; each outbound table now has an unreachable fallback route.
+- Retry routing applies that did not converge (for example a WARP endpoint name that did not
+  resolve at boot) with backoff instead of waiting for an unrelated edit.
+- Allow redirected client DNS through ufw (`ufw allow in on awgN to any port 53`); with ufw's
+  usual incoming policy every client lost DNS once a domain rule existed. Stop redirecting DNS
+  when the panel shuts down.
+- Blank HTTPS/SVCB answers for routed names like AAAA, and block more encrypted-DNS providers
+  (AdGuard variants, Quad9 ECS, Control D, Mullvad, OpenDNS sandbox and others).
+- Routing failure toasts (refused delete, apply pending, geodata errors) are shown as errors.
+  The default route now counts as a use of an outbound. Failover members have a Priority field
+  instead of following the list order. Rules show **Going direct** when their outbound cannot
+  carry traffic. The encrypted-DNS switch has its own card, live state and visible warning about
+  strict Private DNS. Source-IP outbounds that leave from another address fail their check.
 
 - The mobile navigation drawer never appeared under themes with a floating sidebar (most
   tweakcn imports): the desktop composition outranked its open state.

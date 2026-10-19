@@ -442,7 +442,8 @@ DNS resolver are implemented; see [egress routing](../architecture/egress-routin
 | Namespace | `nft -f` transactions inside `unshare -rn`: table creation, incremental edit keeping resolver-fed timeout elements, teardown; conntrack mark-filtered netlink dump |
 | Browser | Routing pages and subscription portal screenshots in fa/en, light/dark, 390 and 1440 px |
 | Real host (first pass) | Ubuntu 24.04 Docker test node at `d87fe1f`: WARP registration succeeded, but `wgoN` creation failed because the userspace socket-name guard accepted only `awgN`, the failed link's route then failed the whole policy pass, and free WARP accounts were labeled WARP+. All three are fixed with regression tests; traffic is not yet re-verified |
-| Not verified | Real-host client traffic through `wgoN`, AmneziaVPN `vpn://` import on a device, element-timeout refresh on older kernels, interaction with UFW/Docker forward chains under load |
+| Second pass (2026-10-19, unit and namespace only) | Import parser against `amneziawg-tools` `ee0f0a9` key list and runtime constraints of `amneziawg-go` `b5928ef` and the kernel module `4569c4c`; kernel-to-userspace link fallback; sticky seed rendered and loaded by real `nft`; unreachable guard routes, apply retry, chained outbounds (`FwMark`), WARP renewal, HTTPS/SVCB blanking, UFW DNS rule and DNS release at shutdown |
+| Not verified | Real-host client traffic through `wgoN` (including chained links and the unreachable guard route), WARP renewal against the live API, AmneziaVPN import on a device (Android `vpn://`, iOS share sheet, desktop `.vpn` file), element-timeout refresh on older kernels, interaction with UFW/Docker forward chains under load |
 
 ## Design system redesign
 

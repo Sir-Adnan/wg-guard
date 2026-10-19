@@ -41,17 +41,21 @@
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.source_ip"}}</span><span class="kv-value tech">{{$o.SourceIP}}</span></div>
     {{else}}
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.endpoint"}}</span><span class="kv-value tech truncate" title="{{$c.Endpoint}}">{{$c.Endpoint}}</span></div>
+    {{if $c.Via}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.via"}}</span><span class="kv-value row">{{$v.IconS "route"}}<bdi>{{$c.Via}}</bdi></span></div>{{end}}
     {{end}}
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.exit"}}</span><span class="kv-value">{{if $c.ExitIP}}{{if $c.Country}}<span title="{{$c.Country}}" aria-label="{{$c.Country}}">{{$c.Flag}}</span>{{end}}<span class="tech">{{$c.ExitIP}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
+    {{if $c.WARPState}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.warp"}}</span><span class="kv-value row">{{if eq $c.WARPState "off"}}<span class="text-danger text-sm">{{$v.T "routing.warp_state.off"}}</span>{{else}}<span>{{$v.T (printf "routing.warp_state.%s" $c.WARPState)}}</span>{{end}}{{if $c.Colo}}<span class="badge badge--outline tech" title="{{$v.T "routing.fact.colo"}}">{{$c.Colo}}</span>{{end}}</span></div>{{end}}
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.latency"}}</span><span class="kv-value">{{if $c.Latency}}<span class="tech">{{$v.Human $c.Latency}} ms</span>{{else if $c.ProbeError}}<span class="text-danger text-sm">{{$v.T (printf "routing.probe.%s" $c.ProbeError)}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
     {{if ne $kind "source_ip"}}
+    {{if $c.ProbedAt}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.checked"}}</span><span class="kv-value text-sm">{{$v.Rel $c.ProbedAt}}</span></div>{{end}}
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.handshake"}}</span><span class="kv-value">{{if $c.Handshake}}{{$v.Rel $c.Handshake}}{{else}}<span class="text-muted">{{$v.T "common.never"}}</span>{{end}}</span></div>
     <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.traffic"}}</span><span class="kv-value">{{if $c.Counters}}<span class="row text-sm"><span class="row">{{$v.IconS "download"}}<bdi class="num">{{$v.B $c.RX}}</bdi></span><span class="row">{{$v.IconS "upload"}}<bdi class="num">{{$v.B $c.TX}}</bdi></span></span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
     {{end}}
   </div>
   {{if eq $c.State "error"}}<div class="card-content"><div class="alert alert--destructive">{{$v.Icon "alert-circle"}}<p class="alert-title">{{$v.T (printf "routing.link_error.%s" $c.Status.LinkError)}}</p></div></div>{{end}}
   <div class="card-footer card-footer--bordered row-between">
-    <p class="text-xs text-muted truncate">{{if $c.UsedBy}}{{$v.T "routing.used_by"}}: <bdi>{{range $i, $n := $c.UsedBy}}{{if $i}}، {{end}}{{$n}}{{end}}</bdi>{{else}}{{$v.T "routing.unused"}}{{end}}</p>
+    {{$used := ""}}{{range $i, $n := $c.UsedBy}}{{if $i}}{{$used = printf "%s، %s" $used $n}}{{else}}{{$used = $n}}{{end}}{{end}}
+    <p class="text-xs text-muted truncate"{{if $used}} title="{{$used}}"{{end}}>{{if $c.UsedBy}}{{$v.T "routing.used_by"}}: <bdi>{{$used}}</bdi>{{else}}{{$v.T "routing.unused"}}{{end}}</p>
     <div class="row">
       <form method="post" action="/routing/outbounds/{{$o.ID}}/test" hx-post="/routing/outbounds/{{$o.ID}}/test" hx-target="#ob-{{$o.ID}}" hx-swap="outerHTML" hx-disabled-elt="find button">
         <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
@@ -66,11 +70,21 @@
             <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
             <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{if $o.Enabled}}{{$v.T "routing.disable"}}{{else}}{{$v.T "routing.enable"}}{{end}}</span></button>
           </form>
+          {{if eq $kind "warp"}}
+          <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/renew" data-confirm data-confirm-title="{{$v.T "routing.outbounds.renew_confirm_title"}}" data-confirm-message="{{$v.T "routing.outbounds.renew_confirm" $o.Name}}" data-confirm-label="{{$v.T "routing.outbounds.renew_label"}}">
+            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+            <button type="submit" role="menuitem">{{$v.IconS "refresh-cw"}}<span>{{$v.T "routing.outbounds.renew"}}</span></button>
+          </form>
+          {{end}}
           <hr>
+          {{if $c.UsedBy}}
+          <button type="button" role="menuitem" class="is-danger" disabled title="{{$v.T "routing.outbounds.delete_blocked"}}">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+          {{else}}
           <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/delete" data-confirm data-confirm-title="{{$v.T "common.confirm_delete"}}" data-confirm-message="{{$v.T "routing.outbounds.delete_confirm" $o.Name}}" data-confirm-label="{{$v.T "common.delete"}}">
             <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
             <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
           </form>
+          {{end}}
         </div>
       </div>
       {{end}}

@@ -53,7 +53,8 @@ func TestRoutingWorkspaceEndToEnd(t *testing.T) {
 
 	// A broken config is rejected in place, without echoing secrets.
 	rec := e.post("/routing/outbounds", url.Values{"kind": {"wireguard"}, "name": {"NL"}, "config": {"[Interface]\nPrivateKey = " + routingTestPriv + "\n"}}, cookie, csrf)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "PrivateKey, Address, PublicKey and Endpoint") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "missing a required part") ||
+		!strings.Contains(rec.Body.String(), "Paste the config again") {
 		t.Fatalf("invalid config: %d %s", rec.Code, rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), routingTestPriv) {
@@ -243,4 +244,75 @@ func TestOutboundEditRejectsBadConfigBeforeSaving(t *testing.T) {
 	if got.Name != "Netherlands" || got.Tunnel.MTU != nl.Tunnel.MTU {
 		t.Fatalf("a rejected edit must not save its other fields: %q mtu %d", got.Name, got.Tunnel.MTU)
 	}
+}
+
+// Chaining, failover priority, the separate encrypted-DNS form, in-use
+// delete blocking and error toasts.
+func TestRoutingChainPriorityAndDNSForms(t *testing.T) {
+	e := newEnv(t)
+	e.seedOwner()
+	cookie := e.loginEN("owner")
+	csrf := deriveCSRF(cookie.Value)
+	ctx := context.Background()
+	de, err := e.egress.CreateWireGuard(ctx, "Germany", routingConf())
+	if err != nil {
+		t.Fatal(err)
+	}
+	nl, err := e.egress.CreateWireGuard(ctx, "Netherlands", routingConf())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The edit form offers the other tunneled outbound as a hop.
+	body := e.get("/routing/outbounds/"+nl.ID+"/edit", cookie).Body.String()
+	if !strings.Contains(body, `name="via"`) || !strings.Contains(body, `value="`+de.ID+`"`) || strings.Contains(body, `value="`+nl.ID+`"`) {
+		t.Fatal("chain choices")
+	}
+	if rec := e.post("/routing/outbounds/"+nl.ID+"/edit", url.Values{"name": {"Netherlands"}, "via": {de.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("chain: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, _ := e.egress.GetOutbound(ctx, nl.ID); got.Tunnel.Via != de.ID {
+		t.Fatalf("via not stored: %+v", got.Tunnel)
+	}
+	// The hop is in use: its card shows who uses it and offers no delete.
+	body = e.get("/routing/outbounds", cookie).Body.String()
+	if !strings.Contains(body, "Goes through") || !strings.Contains(body, "In use. Remove it") {
+		t.Fatal("chain on cards")
+	}
+	rec := e.post("/routing/outbounds/"+de.ID+"/delete", nil, cookie, csrf)
+	loc := rec.Header().Get("Location")
+	if !strings.Contains(loc, "rawerr=1") {
+		t.Fatalf("a refused delete must flash an error: %q", loc)
+	}
+	if body := e.get(loc, cookie).Body.String(); !strings.Contains(body, `alert--destructive" role="alert"><svg`) || !strings.Contains(body, "It is still used") {
+		t.Fatal("a refused delete must render as an error")
+	}
+
+	// Failover priority orders members regardless of the list order.
+	rec = e.post("/routing/balancers", url.Values{"name": {"Backup"}, "strategy": {"failover"}, "fallback": {"block"}, "enabled": {"1"},
+		"member": {de.ID, nl.ID}, "order_" + de.ID: {"2"}, "order_" + nl.ID: {"1"}}, cookie, csrf)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("balancer: %d %s", rec.Code, rec.Body.String())
+	}
+	balancers, _ := e.egress.ListBalancers(ctx)
+	if len(balancers) != 1 || balancers[0].Members[0].OutboundID != nl.ID {
+		t.Fatalf("failover priority: %+v", balancers[0].Members)
+	}
+
+	// The encrypted-DNS form leaves the default route alone and vice versa.
+	if rec := e.post("/routing/rules/default", url.Values{"default_target": {"outbound:" + de.ID}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("default: %d", rec.Code)
+	}
+	if rec := e.post("/routing/rules/default", url.Values{"dns_form": {"1"}}, cookie, csrf); rec.Code != http.StatusSeeOther {
+		t.Fatalf("dns: %d", rec.Code)
+	}
+	st, _ := e.egress.GetSettings(ctx)
+	if st.BlockEncryptedDNS || st.DefaultTarget.ID != de.ID {
+		t.Fatalf("settings: %+v", st)
+	}
+	body = e.get("/routing/rules", cookie).Body.String()
+	if !strings.Contains(body, `id="encrypted-dns"`) || !strings.Contains(body, "Private DNS provider hostname") || !strings.Contains(body, "<optgroup") {
+		t.Fatal("rules page DNS card")
+	}
+	assertNoRawKeys(t, body)
 }

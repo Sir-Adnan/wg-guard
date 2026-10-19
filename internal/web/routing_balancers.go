@@ -3,7 +3,9 @@ package web
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/Sir-Adnan/wg-guard/internal/egress"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
@@ -104,6 +106,7 @@ type memberOption struct {
 	ID, Name, Kind string
 	Checked        bool
 	Weight         string
+	Order          int // failover priority shown in the form (1 = first)
 	Enabled        bool
 }
 
@@ -144,6 +147,9 @@ func (s *Server) balancerFormData(r *http.Request, b *egress.Balancer, form oper
 			d.Members = append(d.Members, option(o))
 		}
 	}
+	for i := range d.Members {
+		d.Members[i].Order = i + 1
+	}
 	return d
 }
 
@@ -178,14 +184,21 @@ func balancerInputFromForm(r *http.Request) (egress.BalancerInput, map[string]in
 		Fallback: egress.Fallback(r.PostFormValue("fallback")), Enabled: r.PostFormValue("enabled") != "0",
 	}
 	chosen := map[string]int{}
-	for _, id := range r.Form["member"] {
+	order := map[string]int{}
+	for i, id := range r.Form["member"] {
 		weight, err := strconv.Atoi(r.PostFormValue("weight_" + id))
 		if err != nil {
 			weight = 1
 		}
 		in.Members = append(in.Members, egress.Member{OutboundID: id, Weight: weight})
 		chosen[id] = weight
+		// Failover priority: the number typed, else the position shown.
+		order[id] = i + 1
+		if n, err := strconv.Atoi(strings.TrimSpace(r.PostFormValue("order_" + id))); err == nil && n > 0 {
+			order[id] = n
+		}
 	}
+	sort.SliceStable(in.Members, func(i, j int) bool { return order[in.Members[i].OutboundID] < order[in.Members[j].OutboundID] })
 	return in, chosen
 }
 

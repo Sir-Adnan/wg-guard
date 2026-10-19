@@ -3,6 +3,7 @@ package egress
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -132,8 +133,8 @@ func TestParseClientConfig(t *testing.T) {
 	for conf, r := range map[string]string{
 		"[Interface]\nPrivateKey = nope\n":                                            "config_key",
 		plain + "[Peer]\nPublicKey = " + testPub + "\n":                               "config_multiple_peers",
-		"[Interface]\nPrivateKey = " + testPriv + "\n":                                "config_incomplete",
-		strings.Replace(plain, "Endpoint = 162.159.192.1:2408", "Endpoint = host", 1): "endpoint_invalid",
+		"[Interface]\nPrivateKey = " + testPriv + "\n":                                "config_missing",
+		strings.Replace(plain, "Endpoint = 162.159.192.1:2408", "Endpoint = host", 1): "config_value",
 		plain + "[Interface]\nPostUp = x\nBogus = 1\n":                                "config_unsupported_key",
 		strings.Replace(plain, "Address = 172.16.0.2/32", "Address = fd00::2/128", 1): "config_address",
 	} {
@@ -302,5 +303,103 @@ func TestLinkNames(t *testing.T) {
 		if _, err := ParseTarget(s); err == nil {
 			t.Fatalf("accepted target %q", s)
 		}
+	}
+}
+
+// sequenceWARP hands out a new device on every registration.
+type sequenceWARP struct{ n *int }
+
+func (f sequenceWARP) Register(context.Context, string) (WARPRegistration, error) {
+	*f.n++
+	return WARPRegistration{DeviceID: fmt.Sprintf("dev%d", *f.n), Token: fmt.Sprintf("tok%d", *f.n), AccountType: "free",
+		PeerPublicKey: testPub, Endpoint: "engage.cloudflareclient.com:2408", AddressV4: fmt.Sprintf("172.16.0.%d", 1+*f.n)}, nil
+}
+
+func (f sequenceWARP) ApplyLicense(context.Context, string, string, string) (string, bool, error) {
+	return "limited", true, nil
+}
+
+// Renewing a WARP outbound replaces the device and keys but keeps the
+// outbound's identity, chain, MTU, license and a chosen endpoint.
+func TestRenewWARPKeepsIdentity(t *testing.T) {
+	svc := newService(t)
+	n := 0
+	svc.WARP = sequenceWARP{n: &n}
+	ctx := context.Background()
+	conf := "[Interface]\nPrivateKey = " + testPriv + "\nAddress = 10.7.0.2/32\n[Peer]\nPublicKey = " + testPub + "\nEndpoint = 198.51.100.4:51820\n"
+	de, err := svc.CreateWireGuard(ctx, "Germany", conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := svc.CreateWARP(ctx, "WARP", "a1b2c3d4-e5f6a7b8-c9d0e1f2", "162.159.192.1:4500")
+	if err != nil {
+		t.Fatal(err)
+	}
+	via := de.ID
+	if _, err := svc.UpdateOutbound(ctx, w.ID, OutboundInput{Via: &via, MTU: 1300}); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := svc.OutboundSecret(ctx, w.ID)
+	renewed, err := svc.RenewWARP(ctx, w.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _ := svc.OutboundSecret(ctx, w.ID)
+	if renewed.ID != w.ID || renewed.Slot != w.Slot || renewed.WARP.DeviceID != "dev2" || renewed.Tunnel.Address != "172.16.0.3/32" ||
+		renewed.Tunnel.Endpoint != "162.159.192.1:4500" || renewed.Tunnel.Via != de.ID || renewed.Tunnel.MTU != 1300 || !renewed.WARP.Plus {
+		t.Fatalf("renewed: %+v %+v", renewed, renewed.Tunnel)
+	}
+	if after.PrivateKey == before.PrivateKey || after.WARPToken != "tok2" || after.WARPLicense == "" {
+		t.Fatal("renewal must replace the keys and token and keep the license")
+	}
+	if _, err := svc.RenewWARP(ctx, de.ID); reason(t, err) != "warp_not_warp" {
+		t.Fatal("only WARP outbounds renew")
+	}
+}
+
+// Chains are one level deep, between tunneled outbounds, and block deleting
+// the outbound they go through.
+func TestOutboundChainValidation(t *testing.T) {
+	svc := newService(t)
+	svc.WARP = fakeWARP{}
+	ctx := context.Background()
+	conf := "[Interface]\nPrivateKey = " + testPriv + "\nAddress = 10.7.0.2/32\n[Peer]\nPublicKey = " + testPub + "\nEndpoint = 198.51.100.4:51820\n"
+	de, _ := svc.CreateWireGuard(ctx, "Germany", conf)
+	nl, _ := svc.CreateWireGuard(ctx, "Netherlands", conf)
+	src, _ := svc.CreateSourceIP(ctx, "Second IP", "203.0.113.7")
+	w, err := svc.CreateWARP(ctx, "WARP", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := func(id, via string) error {
+		_, err := svc.UpdateOutbound(ctx, id, OutboundInput{Via: &via})
+		return err
+	}
+	if err := set(w.ID, w.ID); reason(t, err) != "via_self" {
+		t.Fatalf("self: %v", err)
+	}
+	if err := set(w.ID, src.ID); reason(t, err) != "via_not_tunnel" {
+		t.Fatalf("source_ip: %v", err)
+	}
+	if err := set(w.ID, "missing"); reason(t, err) != "via_unknown" {
+		t.Fatalf("unknown: %v", err)
+	}
+	if err := set(w.ID, de.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := set(nl.ID, w.ID); reason(t, err) != "via_chained" {
+		t.Fatalf("two levels: %v", err)
+	}
+	if err := set(de.ID, nl.ID); reason(t, err) != "via_in_use" {
+		t.Fatalf("an outbound others go through cannot be chained: %v", err)
+	}
+	if err := svc.DeleteOutbound(ctx, de.ID); reason(t, err) != "in_use" {
+		t.Fatalf("delete of a chain hop: %v", err)
+	}
+	if err := set(w.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.DeleteOutbound(ctx, de.ID); err != nil {
+		t.Fatal(err)
 	}
 }

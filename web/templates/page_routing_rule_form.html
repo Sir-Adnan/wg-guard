@@ -75,7 +75,7 @@
     <div class="card-header"><h2 class="card-title"><span class="step">2</span><label for="r-target">{{.T "routing.rules.target"}}</label></h2><p class="card-description" id="hint-target">{{.T "routing.rules.target_hint"}}</p></div>
     <div class="card-content field">
       <select class="select" id="r-target" name="target" aria-describedby="hint-target"{{if $f.Invalid "target"}} aria-invalid="true"{{end}}>
-        {{range .Data.Targets}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{if eq .Group "outbound"}}{{$.T "routing.group.outbound"}}: {{else if eq .Group "balancer"}}{{$.T "routing.group.balancer"}}: {{end}}{{.Label}}{{if .Off}} ({{$.T "routing.disabled"}}){{end}}</option>{{end}}
+        {{template "routing_target_options" (dict "v" . "opts" .Data.Targets)}}
       </select>
       {{if $f.Invalid "target"}}<span class="field-error">{{index $f.Fields "target"}}</span>{{end}}
     </div>

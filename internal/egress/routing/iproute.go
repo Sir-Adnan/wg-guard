@@ -62,10 +62,21 @@ func ruleArgs(op string, mark uint32, table int) []string {
 // replaced (idempotent); rules are added before stale ones are removed. A
 // route that fails does not stop the others, and its rule is left out so the
 // mark falls through to the main table instead of an empty one.
+// fallthroughMetric is the lowest priority, so the link route always wins
+// while the link exists.
+const fallthroughMetric = 4294967295
+
 func syncPolicy(ctx context.Context, run subprocess.Runner, routes []RouteSpec) error {
 	var errs []error
 	want := map[uint32]int{}
 	for _, r := range routes {
+		// The kernel deletes the link route when the link goes down or away;
+		// the unreachable route behind it stops marked traffic from falling
+		// through to the main table and leaving directly from this node.
+		if _, err := run.Run(ctx, []string{"ip", "-4", "route", "replace", "unreachable", "default", "metric", strconv.Itoa(fallthroughMetric), "table", strconv.Itoa(r.Table)}); err != nil {
+			errs = append(errs, fmt.Errorf("routing: route table %d guard: %w", r.Table, err))
+			continue
+		}
 		if _, err := run.Run(ctx, []string{"ip", "-4", "route", "replace", "default", "dev", r.Link, "table", strconv.Itoa(r.Table)}); err != nil {
 			errs = append(errs, fmt.Errorf("routing: route table %d: %w", r.Table, err))
 			continue

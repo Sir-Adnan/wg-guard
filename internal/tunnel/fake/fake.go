@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -47,6 +48,7 @@ type fakeInterface struct {
 	cfg       tunnel.InterfaceConfig
 	publicKey string
 	peers     map[string]tunnel.PeerState
+	fwmark    uint32
 }
 
 // New returns an empty fake backend.
@@ -158,6 +160,12 @@ func (b *Backend) ApplyInterfaceConfig(_ context.Context, name string, cfg tunne
 		ifc.spec.ListenPort = cfg.ListenPort
 	}
 	ifc.spec.Obfuscation = cfg.Obfuscation
+	ifc.fwmark = 0
+	if cfg.Fwmark != "" {
+		if mark, err := strconv.ParseUint(cfg.Fwmark, 0, 32); err == nil {
+			ifc.fwmark = uint32(mark)
+		}
+	}
 	// setconf replaces the peer set entirely; counters/handshakes of
 	// surviving peers are kept so accounting tests stay deterministic.
 	peers := make(map[string]tunnel.PeerState, len(cfg.Peers))
@@ -238,6 +246,7 @@ func (b *Backend) Dump(_ context.Context, name string) (tunnel.InterfaceState, e
 		Name:        name,
 		PublicKey:   ifc.publicKey,
 		ListenPort:  ifc.spec.ListenPort,
+		Fwmark:      ifc.fwmark,
 		Obfuscation: ifc.spec.Obfuscation,
 	}
 	for _, p := range ifc.peers {

@@ -315,6 +315,26 @@ minimum; the 2.0/3.x set stays capability-gated off by default where client supp
 clearing HPK/S3/S4 on a live interface requires recreation. `AdvancedSecurity` is not modeled,
 rendered, or advertised.
 
+## Imported egress configs
+
+Egress outbounds import client configs written for other servers
+([egress routing](../architecture/egress-routing.md#imported-configs)). They are checked against
+what the pinned runtimes enforce, re-read from source on 2026-10-19 at the pinned commits:
+
+- `amneziawg-tools` `config.c` strips `#` comments and all whitespace except inside I1–I5, and
+  knows the keys listed in the egress document; `J1`–`J3`/`Itime` are not among them.
+- The userspace daemon (`b5928ef`) rejects only overlapping H ranges and S values below 12 with
+  header protection. With `Jmin > Jmax` its junk size subtraction would underflow, and the
+  kernel's `get_random_u32_inclusive` needs `jmin ≤ jmax`, so WG-Guard rejects it.
+- I1–I5 tags: the kernel module (`4569c4c`) builds `b c t r rc rd`; the userspace daemon builds
+  `b t r rc rd d ds dz`. An egress link the kernel rejects is retried in userspace.
+- A dump reports Enabled when any value changes the wire (padding, non-stock headers, signature
+  packets, header protection, timings or flags), not only when `Jc ≠ 0`. Server profiles always
+  have `Jc ≥ 1`, so their classification is unchanged; an imported `Jc = 0` set with padding
+  now round-trips through verify-after-apply.
+- The dump's `fwmark` field (f[28], `off` or a mark) is parsed; chained egress links set it and
+  adoption after a restart compares it.
+
 ## Interface naming
 
 AWG interface names follow the same 15-char kernel limit as WireGuard (an `awg-…` filename over

@@ -47,6 +47,8 @@ const ProbeConcurrency = 4
 type OutboundStatus struct {
 	ID            string
 	Kind          egress.Kind
+	Enabled       bool
+	SourceIP      string // source_ip: the address the exit must show
 	Link          string
 	Mark          uint32
 	LinkUp        bool
@@ -103,6 +105,10 @@ type Manager struct {
 	healthDirty bool
 	load        map[string]int64
 	status      Status
+	// retryAt and retryDelay pace the health pass's retries of an apply
+	// that did not fully converge (a link, the policy or the table failed).
+	retryAt    time.Time
+	retryDelay time.Duration
 }
 
 type healthEntry struct {
@@ -156,6 +162,9 @@ func (m *Manager) apply(ctx context.Context) error {
 	in := Inputs{Health: m.healthSnapshot(), Load: m.loadSnapshot()}
 	plan := Compile(snap, m.ifaces, in, m.Geo)
 	linkErrs := m.syncLinks(ctx, plan)
+	for id, reason := range plan.Unlinked {
+		linkErrs[id] = reason
+	}
 	if len(linkErrs) > 0 {
 		in.Down = map[string]bool{}
 		for id := range linkErrs {
@@ -206,12 +215,12 @@ func (m *Manager) apply(ctx context.Context) error {
 	}
 	m.stateMu.RLock()
 	for _, o := range snap.Outbounds {
-		cur := OutboundStatus{ID: o.ID, Kind: o.Kind, Mark: SlotMark(o.Slot)}
+		cur := OutboundStatus{ID: o.ID, Kind: o.Kind, Enabled: o.Enabled, SourceIP: o.SourceIP, Mark: SlotMark(o.Slot)}
 		if l, ok := linked[o.ID]; ok {
 			cur.Link, cur.Mode = l.Name, m.modes[l.Name]
 			cur.LinkUp = linkErrs[o.ID] == ""
-			cur.LinkError = linkErrs[o.ID]
 		}
+		cur.LinkError = linkErrs[o.ID]
 		if h := m.health[o.ID]; h != nil {
 			cur.Probed, cur.Failures, cur.Probe = h.probed, h.failures, h.last
 		}
@@ -328,7 +337,7 @@ func (m *Manager) adopt(ctx context.Context, l LinkSpec) bool {
 	}
 	pub, err := tunnel.PublicKeyFromPrivate(l.Config.PrivateKey)
 	if err != nil || st.PublicKey != pub || st.Peers[0].PublicKey != l.Config.Peers[0].PublicKey ||
-		st.Obfuscation != l.Config.Obfuscation {
+		st.Obfuscation != l.Config.Obfuscation || st.Fwmark != l.fwmark() {
 		return false
 	}
 	adder, ok := m.Backend.(interface {
@@ -353,21 +362,36 @@ func (m *Manager) adopt(ctx context.Context, l LinkSpec) bool {
 	return true
 }
 
+// bringUp creates the link on the kernel module and falls back to the
+// userspace daemon, both when the module is missing and when it rejects the
+// imported parameters: the two pinned runtimes accept different signature
+// packet tags (docs/integrations/amneziawg.md), and an imported config was
+// written for whichever runtime the remote side expected.
+func (m *Manager) bringUp(ctx context.Context, spec tunnel.InterfaceSpec, l LinkSpec) (string, error) {
+	var errs []error
+	for _, mode := range []string{"kernel", "userspace"} {
+		spec.BackendMode = mode
+		if err := m.Backend.CreateInterface(ctx, spec); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", mode, err))
+			continue
+		}
+		err := m.Backend.ApplyInterfaceConfig(ctx, l.Name, l.Config)
+		if err == nil {
+			return mode, nil
+		}
+		_ = m.Backend.RemoveInterface(ctx, l.Name)
+		errs = append(errs, fmt.Errorf("%s: %w", mode, err))
+	}
+	return "", errors.Join(errs...)
+}
+
 func (m *Manager) createLink(ctx context.Context, l LinkSpec) (string, error) {
 	spec := tunnel.InterfaceSpec{
 		Name: l.Name, BackendMode: "kernel", PrivateKey: l.Config.PrivateKey, MTU: l.MTU,
 		Addresses: []string{l.Address}, Obfuscation: l.Config.Obfuscation,
 	}
-	mode := "kernel"
-	if err := m.Backend.CreateInterface(ctx, spec); err != nil {
-		// Hosts without the kernel module run AmneziaWG in userspace.
-		spec.BackendMode, mode = "userspace", "userspace"
-		if uerr := m.Backend.CreateInterface(ctx, spec); uerr != nil {
-			return "", err
-		}
-	}
-	if err := m.Backend.ApplyInterfaceConfig(ctx, l.Name, l.Config); err != nil {
-		_ = m.Backend.RemoveInterface(ctx, l.Name)
+	mode, err := m.bringUp(ctx, spec, l)
+	if err != nil {
 		return "", err
 	}
 	// Replies from the outbound arrive from Internet sources whose main-table
@@ -574,7 +598,17 @@ func (m *Manager) record(id string, res ProbeResult) bool {
 // pass; the scheduler only signals it.
 func (m *Manager) ProbeAll(ctx context.Context) error {
 	st := m.Status()
-	// Repair: something outside WG-Guard removed the classification table.
+	// Retry: an apply that did not converge (an endpoint name that did not
+	// resolve at boot, a transient nft or ip failure) is retried with backoff
+	// instead of waiting for an unrelated edit.
+	if m.retryDue(st, time.Now()) {
+		m.logger().Info("egress: retrying an apply that did not converge")
+		if err := m.Reapply(ctx); err != nil {
+			m.logger().Warn("egress: retry failed", "err", err)
+		}
+		st = m.Status()
+	}
+	// Repair: something outside WG-Guard removed the routing table.
 	if st.Classifying && m.Run != nil && st.Error == "" {
 		if inv, err := m.inventory(ctx); err == nil && !inv.Present {
 			m.logger().Warn("egress: routing table missing; reapplying")
@@ -597,7 +631,7 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 	}
 	var targets []target
 	for id, o := range st.Outbounds {
-		if o.LinkError != "" {
+		if o.LinkError != "" || !o.Enabled {
 			continue
 		}
 		if o.Link != "" || o.Kind == egress.KindSourceIP {
@@ -615,6 +649,11 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 			defer wg.Done()
 			defer func() { <-sem }()
 			res := m.Prober.Probe(ctx, t.mark)
+			if ctx.Err() != nil {
+				// Cut off by the pass deadline: says nothing about the exit.
+				return
+			}
+			res = verifyExit(st.Outbounds[t.id], res)
 			if m.record(t.id, res) {
 				flipped.Do(func() { changed = true })
 			}
@@ -643,6 +682,50 @@ func (m *Manager) ProbeAll(ctx context.Context) error {
 	return nil
 }
 
+// verifyExit fails a source_ip probe that did not leave from the configured
+// address: the request went out, but through the wrong source (the SNAT rule
+// is missing, or the address is not on the uplink).
+func verifyExit(o OutboundStatus, res ProbeResult) ProbeResult {
+	if o.Kind == egress.KindSourceIP && res.OK && res.ExitIP != "" && o.SourceIP != "" && res.ExitIP != o.SourceIP {
+		res.OK, res.Error = false, "wrong_exit"
+	}
+	return res
+}
+
+// Retry backoff for an apply that did not converge.
+const (
+	retryFirst = 30 * time.Second
+	retryMax   = 10 * time.Minute
+)
+
+// retryDue reports whether the last apply left work undone and its backoff
+// has elapsed. A converged state resets the backoff.
+func (m *Manager) retryDue(st Status, now time.Time) bool {
+	pending := st.Error != ""
+	for _, o := range st.Outbounds {
+		// A broken chain is a configuration state, not a transient failure.
+		if o.LinkError != "" && o.LinkError != "via" {
+			pending = true
+		}
+	}
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	if !pending || st.AppliedAt.IsZero() {
+		m.retryAt, m.retryDelay = time.Time{}, 0
+		return false
+	}
+	if m.retryAt.IsZero() {
+		m.retryDelay = retryFirst
+		m.retryAt = st.AppliedAt.Add(m.retryDelay)
+	}
+	if now.Before(m.retryAt) {
+		return false
+	}
+	m.retryDelay = min(2*m.retryDelay, retryMax)
+	m.retryAt = now.Add(m.retryDelay)
+	return true
+}
+
 // Test probes one outbound now (panel "Test" action) and records the result.
 // It never touches the kernel, so a read-only viewer can run it: a health
 // flip is rendered by the next health pass (ProbeAll), like a scheduled probe
@@ -656,7 +739,7 @@ func (m *Manager) Test(ctx context.Context, id string) (ProbeResult, error) {
 	if o.LinkError != "" || (o.Link == "" && o.Kind != egress.KindSourceIP) || m.Prober == nil {
 		return ProbeResult{Error: "unreachable", At: time.Now().UTC()}, nil
 	}
-	res := m.Prober.Probe(ctx, o.Mark)
+	res := verifyExit(o, m.Prober.Probe(ctx, o.Mark))
 	if m.record(id, res) {
 		m.stateMu.Lock()
 		m.healthDirty = true
@@ -681,6 +764,24 @@ func LinkCounters(link string) (rx, tx uint64, ok bool) {
 	rx, ok1 := read("rx_bytes")
 	tx, ok2 := read("tx_bytes")
 	return rx, tx, ok1 && ok2
+}
+
+// ReleaseDNS stops redirecting client DNS to the built-in resolver. It runs
+// when the panel stops: without it, clients keep being redirected to a
+// resolver that no longer listens and lose DNS until the next start. The next
+// apply re-adds the redirect rules. A crash still leaves them in place until
+// the panel restarts.
+func (m *Manager) ReleaseDNS(ctx context.Context) error {
+	if m.Run == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	res, err := m.Run.Run(ctx, []string{"nft", "flush", "chain", "ip", TableName, chainDNS})
+	if err != nil && !objectMissing(res, err) {
+		return fmt.Errorf("routing: release DNS redirect: %w", err)
+	}
+	return nil
 }
 
 // Teardown removes every egress-owned kernel object: the nftables table, the
@@ -711,6 +812,11 @@ func Teardown(ctx context.Context, run subprocess.Runner, links []string) error 
 		if res, err := run.Run(ctx, []string{"ip", "link", "del", "dev", link}); err != nil && !objectMissing(res, err) {
 			errs = append(errs, fmt.Errorf("routing: remove %s: %w", link, err))
 		}
+	}
+	// The slot tables keep their unreachable guard route after the links are
+	// gone. Flushing an empty table is harmless, so every slot is cleared.
+	for slot := 1; slot <= egress.MaxSlots; slot++ {
+		_, _ = run.Run(ctx, []string{"ip", "-4", "route", "flush", "table", strconv.Itoa(tableBase + slot)})
 	}
 	return errors.Join(errs...)
 }

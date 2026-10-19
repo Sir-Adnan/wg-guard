@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -51,12 +52,24 @@ func TestSubscriptionMachineEndpointsAndGuide(t *testing.T) {
 		t.Fatal("info must not carry key material")
 	}
 
-	redirect := e.get(sub+"/devices/"+deviceID+"/amneziavpn", nil)
+	// Only Android registers vpn://; iOS and desktop import a .vpn file.
+	android := httptest.NewRequest(http.MethodGet, sub+"/devices/"+deviceID+"/amneziavpn", nil)
+	android.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36")
+	redirect := httptest.NewRecorder()
+	e.handler.ServeHTTP(redirect, android)
 	if redirect.Code != http.StatusSeeOther || !strings.HasPrefix(redirect.Header().Get("Location"), "vpn://") {
 		t.Fatalf("amneziavpn redirect: %d %q", redirect.Code, redirect.Header().Get("Location"))
 	}
 	text := e.get(sub+"/devices/"+deviceID+"/amneziavpn?format=text", nil)
 	key := text.Body.String()
+	iphone := httptest.NewRequest(http.MethodGet, sub+"/devices/"+deviceID+"/amneziavpn", nil)
+	iphone.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 Version/19.0 Mobile/15E148 Safari/604.1")
+	file := httptest.NewRecorder()
+	e.handler.ServeHTTP(file, iphone)
+	if file.Code != http.StatusOK || !strings.HasPrefix(file.Header().Get("Content-Disposition"), "attachment;") ||
+		!strings.HasSuffix(file.Header().Get("Content-Disposition"), `.vpn"`) || file.Body.String() != key {
+		t.Fatalf("iOS gets the .vpn file: %d %v", file.Code, file.Header())
+	}
 	raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(key, "vpn://"))
 	if err != nil || len(raw) < 5 {
 		t.Fatalf("key encoding: %v", err)

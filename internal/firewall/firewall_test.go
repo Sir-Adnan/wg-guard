@@ -230,8 +230,9 @@ func TestEnsureUfwRoutes(t *testing.T) {
 		f := &fakeRunner{}
 		m := &Manager{Run: f}
 		f.run("Status: active\n")
-		f.run("Rule added\n")
-		f.run("Rule added\n")
+		for range 4 {
+			f.run("Rule added\n")
+		}
 		applied, err := m.EnsureUfwRoutes(ctx, []Interface{{Name: "awg0"}, {Name: "awg1"}})
 		if err != nil {
 			t.Fatal(err)
@@ -240,7 +241,8 @@ func TestEnsureUfwRoutes(t *testing.T) {
 			t.Fatalf("applied = %v", applied)
 		}
 		if !strings.Contains(f.callsJoined(), "ufw route allow in on awg0") ||
-			!strings.Contains(f.callsJoined(), "ufw route allow in on awg1") {
+			!strings.Contains(f.callsJoined(), "ufw route allow in on awg1") ||
+			!strings.Contains(f.callsJoined(), "ufw allow in on awg1 to any port 53") {
 			t.Fatalf("argv:\n%s", f.callsJoined())
 		}
 	})

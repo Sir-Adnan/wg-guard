@@ -9,7 +9,7 @@
   <label class="sr-only" for="check-q">{{.T "routing.check.title"}}</label>
   <div class="input-group toolbar-search">
     <span class="input-group-addon">{{.IconS "search"}}</span>
-    <input class="input input--tech" id="check-q" name="check" type="text" dir="ltr" spellcheck="false" autocomplete="off" placeholder="{{.T "routing.check.title"}} — gemini.google.com" value="{{if .Data.Check}}{{.Data.Check.Query}}{{end}}">
+    <input class="input input--tech" id="check-q" name="check" type="text" dir="ltr" spellcheck="false" autocomplete="off" placeholder="gemini.google.com" value="{{if .Data.Check}}{{.Data.Check.Query}}{{end}}">
   </div>
   <button type="submit" class="btn btn--sm">{{.T "routing.check.run"}}</button>
   <span class="text-xs text-muted hide-sm">{{.T "routing.check.hint"}}</span>
@@ -30,7 +30,7 @@
   </div>
   <ol class="item-group rule-list">
     {{range .Data.Rows}}{{$r := .R}}
-    <li class="item rule-row{{if not $r.Enabled}} item--muted{{end}}" data-enabled="{{$r.Enabled}}">
+    <li class="item rule-row{{if not $r.Enabled}} item--muted{{end}}" id="rule-{{$r.ID}}" data-enabled="{{$r.Enabled}}">
       <span class="rule-index tech" aria-label="{{$.T "routing.rules.order"}}">{{$.N (i64u .Index)}}</span>
       <div class="item-content">
         <div class="item-title"><bdi>{{$r.Name}}</bdi>{{if not $r.Enabled}}<span class="badge badge--muted">{{$.T "routing.disabled"}}</span>{{end}}</div>
@@ -43,6 +43,7 @@
           </span>
           <span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>
           {{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}
+          {{if .Fallback}}<span class="badge badge--warning" title="{{$.T "routing.rules.fallback_hint"}}"><span class="dot"></span>{{$.T "routing.rules.fallback"}}</span>{{end}}
         </div>
       </div>
       {{if $.Data.CanWrite}}
@@ -91,21 +92,46 @@
         <div class="item-content">
           <div class="item-title">{{.T "routing.rules.default"}}</div>
           <p class="item-description">{{.T "routing.rules.default_hint"}}</p>
+          {{if .Data.DefaultFallback}}<p class="text-sm text-warning row">{{.IconS "alert-triangle"}}<span>{{.T "routing.rules.fallback_hint"}}</span></p>{{end}}
         </div>
         <div class="rule-default-controls">
           <label class="sr-only" for="default-target">{{.T "routing.rules.default_target"}}</label>
           <select class="select select--sm" id="default-target" name="default_target"{{if not .Data.CanWrite}} disabled{{end}}>
-            {{range .Data.DefaultOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{if eq .Group "outbound"}}{{$.T "routing.group.outbound"}}: {{else if eq .Group "balancer"}}{{$.T "routing.group.balancer"}}: {{end}}{{.Label}}{{if .Off}} ({{$.T "routing.disabled"}}){{end}}</option>{{end}}
+            {{template "routing_target_options" (dict "v" . "opts" .Data.DefaultOptions)}}
           </select>
-          <label class="choice text-sm" data-tip="{{.T "routing.rules.block_dns_hint"}}">
-            <input class="switch" type="checkbox" role="switch" name="block_dns" value="1"{{if .Data.BlockDNS}} checked{{end}}{{if not .Data.CanWrite}} disabled{{end}}>
-            <span>{{.T "routing.rules.block_dns"}}</span>
-          </label>
           {{if .Data.CanWrite}}<button type="submit" class="btn btn--sm">{{.T "common.save"}}</button>{{end}}
         </div>
       </form>
     </li>
   </ol>
+</section>
+
+<section class="card routing-dns" id="encrypted-dns" aria-labelledby="dns-heading">
+  <form method="post" action="/routing/rules/default">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="dns_form" value="1">
+    <div class="card-header">
+      <div class="stack-xs">
+        <h2 class="card-title" id="dns-heading">{{.IconS "shield-check"}}{{.T "routing.rules.block_dns"}}</h2>
+        <p class="card-description">{{.T "routing.rules.block_dns_hint"}}</p>
+      </div>
+      <div class="card-action">
+        {{if not .Data.BlockDNS}}<span class="badge badge--muted"><span class="dot"></span>{{.T "routing.dns.off"}}</span>
+        {{else if .Data.ResolverWanted}}<span class="badge badge--success"><span class="dot"></span>{{.T "routing.dns.active"}}</span>
+        {{else}}<span class="badge badge--outline"><span class="dot"></span>{{.T "routing.dns.waiting"}}</span>{{end}}
+      </div>
+    </div>
+    <div class="card-content stack">
+      <div class="alert alert--warning">{{.Icon "alert-triangle"}}<p class="alert-description">{{.T "routing.dns.strict_warning"}}</p></div>
+      <div class="row-between">
+        <label class="choice">
+          <input class="switch" type="checkbox" role="switch" name="block_dns" value="1"{{if .Data.BlockDNS}} checked{{end}}{{if not .Data.CanWrite}} disabled{{end}}>
+          <span>{{.T "routing.dns.switch"}}</span>
+        </label>
+        {{if .Data.CanWrite}}<button type="submit" class="btn btn--sm">{{.T "common.save"}}</button>{{end}}
+      </div>
+    </div>
+  </form>
 </section>
 
 <details class="collapsible routing-geo" id="geodata">

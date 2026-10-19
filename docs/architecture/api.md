@@ -549,9 +549,11 @@ apps and bots. They are outside `/api/v1` and do not change OpenAPI:
   An unknown token returns the same 404 page as the subscription link, so token
   validity is not distinguishable. A user removed after token resolution returns a JSON 404,
   and a storage failure a JSON 503 (`{"error": ...}`).
-- `GET /sub/{token}/devices/{deviceID}/amneziavpn` redirects (303) to the AmneziaVPN key
-  `vpn://<base64url(qCompress(conf))>`. With `?format=text` it returns the key as `text/plain`
-  instead. The configuration bytes are the canonical renderer's output.
+- `GET /sub/{token}/devices/{deviceID}/amneziavpn` hands the device to AmneziaVPN as the key
+  `vpn://<base64url(qCompress(conf))>`. For an Android user agent it redirects (303) to the key;
+  for every other client it returns the key as a `<name>.vpn` attachment, which the iOS and
+  desktop apps import. `?format=text` returns the key as `text/plain` and `?format=file` always
+  returns the attachment. The configuration bytes are the canonical renderer's output.
   - Format: qCompress is a 4-byte big-endian length followed by zlib data.
   - The format was reviewed against the amnezia-client import controller at `30ff345`; the
     client detects a native AmneziaWG config by its `[Interface]`/`[Peer]` sections.

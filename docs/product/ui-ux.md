@@ -351,24 +351,35 @@ Every subscription design shows the following:
   link private, re-importing after a change);
 - for each device, its usage ("2 GB used") and, while it is enabled but offline, "Last connected
   3h ago" or "Not connected yet", then its IPv4;
-- for each device, **Download config**, **QR code**, **Copy key** and **Open in AmneziaVPN**
-  (`vpn://`), at least 36px under every density, in a two-column grid: Download spans the row,
+- for each device, **Download config**, **QR code**, **Copy key** and **Open in AmneziaVPN**,
+  at least 36px under every density, in a two-column grid: Download spans the row,
   QR code and Copy key share one, and Open in AmneziaVPN takes its own, so nothing clips
-  horizontally on phones.
+  horizontally on phones. Open in AmneziaVPN follows the platform: the `vpn://` link on Android,
+  the share sheet with a `.vpn` file on iPhone and iPad (a second tap if Safari drops the first),
+  and a `.vpn` download with import instructions on desktop. Copy key hands the pending text to
+  the clipboard inside the tap, which Safari requires.
 
 Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the
 strict CSP holds.
 
 **Routing** (`/routing/*`) has three tabbed pages, each doing one job:
 
-- **Outbounds**: kind picker, then a form for that kind. Cards show health, latency, exit IP
-  with a country flag, live connections and usage.
+- **Outbounds**: kind picker, then a form for that kind. Cards show health, latency, when it was
+  last checked, exit IP with a country flag, for WARP the WARP state and Cloudflare data centre,
+  the outbound a chained one goes through, traffic and everything that uses it (full list on
+  hover). An outbound in use offers no Delete. WARP cards have **New WARP identity** behind a
+  confirmation. The form has **Route the tunnel through** for WARP and WireGuard outbounds (it
+  explains that this is how WARP gets another country) and suggests WARP endpoints.
 - **Balancers**: radio cards for the strategies. A warning appears when a per-connection
-  strategy is chosen. Members have weights and are kept in the order given.
-- **Rules**: an ordered list with up/down moves, the default route, a site check and geodata
-  management. The rule form groups presets by category as multi-select chips. It has a
-  matcher textarea with syntax help and geosite suggestions, and a target select listing
-  direct, block, outbounds and balancers.
+  strategy is chosen. Members show a weight, or a Priority for failover.
+- **Rules**: an ordered list with up/down moves (the page returns to the moved rule), a
+  **Going direct** badge on rules whose outbound is not usable, the default route, a site check
+  and geodata management. Encrypted DNS is its own card with a live state (Active, Waiting for
+  a domain rule, Off), visible help and the strict Private DNS warning. The rule form groups
+  presets by category as multi-select chips. It has a matcher textarea with syntax help and
+  geosite suggestions. Target selects list direct and block, then outbounds and balancers in
+  option groups.
+- Failure flashes (refused delete, apply pending, geodata errors) render as error alerts.
 
 Technical values (matchers, IPs, endpoints, marks) are isolated as LTR in both locales.
 

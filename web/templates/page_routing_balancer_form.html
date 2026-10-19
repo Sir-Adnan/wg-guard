@@ -49,7 +49,8 @@
         {{range .Data.Members}}
         <li class="item member-row">
           <label class="choice flex-1 min-w-0"><input type="checkbox" class="checkbox" name="member" value="{{.ID}}"{{if .Checked}} checked{{end}}><span class="choice-text"><bdi class="font-medium">{{.Name}}</bdi><span class="choice-description">{{$.T .Kind}}{{if not .Enabled}} · {{$.T "routing.disabled"}}{{end}}</span></span></label>
-          <label class="row text-xs text-muted"><span>{{$.T "routing.balancers.weight"}}</span><input class="input input--sm input--tech" name="weight_{{.ID}}" type="text" dir="ltr" inputmode="numeric" maxlength="2" value="{{.Weight}}" aria-label="{{$.T "routing.balancers.weight"}}: {{.Name}}"></label>
+          <label class="row text-xs text-muted member-weight"><span>{{$.T "routing.balancers.weight"}}</span><input class="input input--sm input--tech" name="weight_{{.ID}}" type="text" dir="ltr" inputmode="numeric" maxlength="2" value="{{.Weight}}" aria-label="{{$.T "routing.balancers.weight"}}: {{.Name}}"></label>
+          <label class="row text-xs text-muted member-order"><span>{{$.T "routing.balancers.priority"}}</span><input class="input input--sm input--tech" name="order_{{.ID}}" type="text" dir="ltr" inputmode="numeric" maxlength="2" value="{{.Order}}" aria-label="{{$.T "routing.balancers.priority"}}: {{.Name}}"></label>
         </li>
         {{end}}
       </ul>

@@ -27,7 +27,9 @@ type ProbeResult struct {
 	Latency time.Duration
 	ExitIP  string
 	Country string
-	Error   string // fixed category: timeout | unreachable | tls | http | unsupported
+	Colo    string // Cloudflare data centre (IATA code) that served the probe
+	WARP    string // trace "warp" field: on | plus | off ("" when absent)
+	Error   string // fixed category: timeout | unreachable | tls | http | unsupported | wrong_exit
 	At      time.Time
 }
 
@@ -102,6 +104,14 @@ func (p HTTPProber) Probe(ctx context.Context, mark uint32) ProbeResult {
 			if len(v) == 2 {
 				res.Country = strings.ToUpper(v)
 			}
+		case "colo":
+			if len(v) >= 3 && len(v) <= 4 && isAlpha(v) {
+				res.Colo = strings.ToUpper(v)
+			}
+		case "warp":
+			if v == "on" || v == "plus" || v == "off" {
+				res.WARP = v
+			}
 		}
 	}
 	res.OK = true
@@ -120,4 +130,13 @@ func classifyProbeError(err error) string {
 		return "unsupported"
 	}
 	return "unreachable"
+}
+
+func isAlpha(s string) bool {
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+			return false
+		}
+	}
+	return true
 }
