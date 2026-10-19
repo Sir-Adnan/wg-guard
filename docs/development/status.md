@@ -6,10 +6,15 @@ earlier passes are in the [status history](../archive/development/status-history
 
 ## Current release
 
-**v0.2.0 (2026-10-19)** ships egress routing (Phase 21) and the design system with subscription
-designs (Phase 22), with their follow-ups. Main CI and the release workflow gate the exact
-source; the published assets are downloaded and checked independently. No registry image is
-published. The [changelog](../../CHANGELOG.md) lists every change.
+**v0.2.0 (published 2026-10-19, Latest)** ships egress routing (Phase 21) and the design system
+with subscription designs (Phase 22), with their follow-ups, built with Go 1.27.2. Exact source
+`2a5255a` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/39297366895) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/39299359481). The seven public
+assets were downloaded independently: all six checksums matched, the tag resolves to `2a5255a`,
+and the binary reports v0.2.0 at that commit (SHA-256 `04ca895c…`; runtime image
+`sha256:1a0018e2…`). A first attempt at `c3a628e` stopped at the release govulncheck gate on Go
+1.27.1 standard-library advisories and published nothing. No registry image is published; the
+[changelog](../../CHANGELOG.md) lists every change.
 
 | Area | State |
 |---|---|

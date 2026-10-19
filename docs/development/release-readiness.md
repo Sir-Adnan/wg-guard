@@ -43,7 +43,7 @@ residual risk.
 
 | Version | Date | Exact source | Highlights |
 |---|---|---|---|
-| v0.2.0 | 2026-10-19 | pending | Egress routing, IPv6 site bridge and site test; design system, 29 themes, four subscription designs |
+| [v0.2.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.2.0) | 2026-10-19 | `2a5255a` | Egress routing, IPv6 site bridge and site test; design system, 29 themes, four subscription designs |
 | [v0.1.11](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.11) | 2026-10-08 | `228e2a5` | Containerd image-store admission; bundle `awg-2026-10` |
 | [v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) | 2026-10-06 | `4f78adc` | Docker-only runtime, domains and TLS, installer UX (Phases 16–20) |
 | [v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9) | 2026-10-04 | `dd034fe` | Backup verification and migration preparation (Phase 15) |
