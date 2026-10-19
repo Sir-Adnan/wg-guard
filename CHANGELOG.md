@@ -21,8 +21,8 @@ and traffic as they are.
   explains every result.
 - Add **Speed test** to each outbound (round trip, download and upload through that exit, one
   test at a time per node) and **Speed test all**, plus **Test all** for health checks.
-- Show what every ready-made service adds: rule editor tiles list their domains, and rule chips
-  show their first entries on hover.
+- Show what every ready-made service adds: the rule editor lists each chosen service's domains,
+  and rule chips show their first entries on hover.
 
 ### Changed
 
@@ -48,7 +48,6 @@ and traffic as they are.
   each exit now has its own time budget.
 - Fix the brand mark spilling out of the collapsed desktop sidebar.
 - Fix the dots of Persian letters being cut off in subscription page buttons.
-
 - Fix the **Site test** reporting Google Gemini as blocked from every exit. Gemini's page no
   longer carries the availability flag the test read, so the verdict now follows the region
   Google reports for the exit, checked against Google's list of supported countries.

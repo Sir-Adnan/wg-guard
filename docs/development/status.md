@@ -6,15 +6,16 @@ earlier passes are in the [status history](../archive/development/status-history
 
 ## Current release
 
-**v0.2.0 (published 2026-10-19, Latest)** ships egress routing (Phase 21) and the design system
-with subscription designs (Phase 22), with their follow-ups, built with Go 1.27.2. Exact source
-`2a5255a` passed [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/39297366895) and the
-[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/39299359481). The seven public
-assets were downloaded independently: all six checksums matched, the tag resolves to `2a5255a`,
-and the binary reports v0.2.0 at that commit (SHA-256 `04ca895c…`; runtime image
-`sha256:1a0018e2…`). A first attempt at `c3a628e` stopped at the release govulncheck gate on Go
-1.27.1 standard-library advisories and published nothing. No registry image is published; the
-[changelog](../../CHANGELOG.md) lists every change.
+**v0.2.1 (published 2026-10-19, Latest)** reworks routing diagnostics (the Tests tab with an IP
+version choice, speed and bulk outbound tests, corrected Claude and custom-URL verdicts) and
+redesigns the Outbounds and Rules pages, built with Go 1.27.2. Exact source `3471f97` passed
+[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/39330435263) and the
+[release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/39332188040). The seven public
+assets were downloaded independently: all six checksums matched, the tag resolves to `3471f97`,
+and the binary reports v0.2.1 at that commit (SHA-256 `2cd5c12d…`; runtime image
+`sha256:6ed66fd2…`). The previous release, v0.2.0 at `2a5255a`, shipped egress routing (Phase
+21) and the design system with subscription designs (Phase 22). No registry image is published;
+the [changelog](../../CHANGELOG.md) lists every change.
 
 | Area | State |
 |---|---|
