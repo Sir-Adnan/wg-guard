@@ -168,7 +168,7 @@ and runtime config.
 - The dedicated Ubuntu 24.04.4 amd64 Docker drill passed legacy-state migration, private access,
   real Nginx/webroot domain issuance, occupied-port no-mutation refusal, renewal/deploy-hook,
   staging and production short-lived public-IP issuance, 40-column manager QA and complete
-  cleanup/restoration. [Sanitized evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
+  cleanup/restoration. [Sanitized evidence](../../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
 - No scoped Cloudflare token was available. DNS-01 token handling and command/plugin behavior are
   automated-test verified, but real Cloudflare mutation/issuance is explicitly unverified.
   Native secure-exposure real-host recertification remains a Phase 11 matrix cell; unchanged

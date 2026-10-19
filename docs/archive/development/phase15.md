@@ -9,8 +9,8 @@ v0.1.9; publication follows exact main CI and the release workflow.
 ## Engineering closure
 
 Implemented source gates and exact CI for archive/migration/readiness/worker,
-secret-storage and domain-admission changes are recorded in [status](status.md) and
-[release readiness](release-readiness.md). Current source additionally corrects
+secret-storage and domain-admission changes are recorded in [status](../../development/status.md) and
+[release readiness](../../development/release-readiness.md). Current source additionally corrects
 accounting freshness: unknown, stale, future or zero-window observations are unavailable.
 The freshness window is at least five minutes and at least two configured accounting
 cadences. Active-interface telemetry reports `accounting_unavailable`; an empty private

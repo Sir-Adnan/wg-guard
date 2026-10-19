@@ -15,7 +15,7 @@ no shared mutable compiler cache, root mount change or foreign `/tmp` deletion i
 Source failure messages keep a sanitized bounded suffix and preserve typed exit causes.
 Acquisition failures also reach the existing private bounded installer log without
 stdout, arguments or source content. REST/OpenAPI, install-state and data contracts
-are unchanged. The [operator guide](../operations/github-install.md) records the old
+are unchanged. The [operator guide](../../operations/github-install.md) records the old
 manager's explicit disk-backed temporary-root workaround.
 
 Focused Windows CLI/distribution/install/logsafe/layout checks and vet passed.

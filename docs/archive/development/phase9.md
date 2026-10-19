@@ -109,7 +109,7 @@ idle overhead, missing-interface health, authenticated dashboard output, AWG/net
 classification, actual-secret absence, and Docker update/rollback failure recovery. The final
 Docker run also verifies the corrected single redirectable output stream for container stdout and
 stderr. Measured results, exact revision, cleanup and honest limits are recorded in the
-[sanitized evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
+[sanitized evidence](../../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
 
 ## Documentation
 

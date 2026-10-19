@@ -1,0 +1,290 @@
+# Roadmap phase gates (Phases 8–22)
+
+Archived from `ROADMAP.md` on 2026-10-19: the scope and exit evidence of each completed phase.
+The [roadmap](../../ROADMAP.md) keeps the phase table and the open items.
+
+### Phase 8 — Audit & configuration integrity
+
+Eliminate the release-blocking QR and client-configuration defects before later UI work builds on
+their models. Preserve every supported AmneziaWG value losslessly across database, API/OpenAPI,
+forms, backend apply/dump, reconciliation, downloads, subscriptions, QR, and backup/restore.
+Complete only with decoded QR equality and real default/randomized client handshake plus traffic
+evidence. Completed 2026-09-05 with the exact commit-stamped dedicated-VPS gate, browser QA, and
+sanitized evidence linked from [docs/development/phase8.md](development/phase8.md).
+
+### Phase 8.1 — GitHub delivery & lifecycle
+
+Inserted after completed Phase 8 by the 2026-09-05 installer request. Extend Phase 7's engine
+with a GitHub bootstrap and cohesive terminal management, source/version provenance, prerequisite
+and AWG compatibility checks, safe update/rollback, and backup/restore scheduling. This is an
+independent delivery phase, not a reopening of Phase 8; Phase 9 metrics/log-retention implementation
+remains separate and has not started. Artifact acquisition contracts move
+forward from Phase 12; public publication still requires owner approval. Complete only with
+automated failure tests, terminal QA, and Docker/native lifecycle evidence on the dedicated VPS.
+Completed 2026-09-09. M1–M6 are implemented, reviewed and documented. Dedicated Ubuntu 24.04
+evidence covers real GitHub source acquisition, terminal modes, Telegram scheduling, native and
+Docker install/update/rollback/recovery, coordinated restore, fresh ACME, and original-node
+restoration. The PAX codeload metadata correction passed the exact-revision CI gate. Published
+release artifacts, the broader compatibility matrix and public publication remain Phases 11–12.
+Detailed gate and limits: [docs/development/phase8.1.md](development/phase8.1.md).
+
+### Phase 8.2 — Secure access & persistent manager
+
+Inserted before Phase 9 by the 2026-09-09 secure-installer request. Persist the first verified
+GitHub acquisition as the local manager, make its menu state-aware, and let operators configure
+or later change private, direct HTTPS, standard-Nginx, Cloudflare DNS-01, public-IP certificate,
+and manual/external certificate paths without exposing public plaintext or stealing foreign
+ports. Complete only when local retry needs no network, GitHub entry checks avoid repeat builds,
+proxy/certificate changes roll back
+safely, short-lived IP renewal works, and the targeted Ubuntu 24.04 amd64 VPS matrix passes.
+Completed 2026-09-09. The persistent manager, state migration, safe access models, protected
+certificate workflows and rollback/diagnostics are automated-test verified. The dedicated Docker
+VPS gate passed real Nginx/webroot domain and short-lived public-IP issuance, renewal hooks,
+occupied-port refusal, narrow SSH QA and original-node restoration. Cloudflare DNS-01 is
+implemented and test-verified but not real-issued because no scoped test token was available;
+Native secure-exposure recertification remains Phase 11. Detailed results and evidence:
+[docs/development/phase8.2.md](development/phase8.2.md).
+
+Corrective acceptance on 2026-09-09 also closed the fresh-install blocker caused by the retired
+PPA package pin: the recommended `awg-2026-09` bundle now builds exact reviewed upstream source,
+APT lock contention waits safely, interrupted prerequisite ownership carries into retry, Docker
+service/socket recovery is automatic, and install/purge passed on Ubuntu 24.04.4 amd64. Phase 9
+remains the next phase; this correction added no Phase 9 or REST/OpenAPI work.
+
+A post-completion maintenance correction makes the one-line entry resolve its selected GitHub
+revision before opening management. An unchanged revision uses the verified manager cache; a
+changed revision atomically refreshes the independent manager without touching the active service.
+The same manager now exposes component-scoped manager, panel, compatible AmneziaWG and ordered
+all-component updates. That maintenance did not alter the then-planned Phase 9 or REST/OpenAPI contract.
+
+The final terminal-maintenance correction removes the redundant `q` shortcut, makes `0` the sole
+menu navigation key, and gives interrupted uninstall its own config-independent recovery view.
+Installed and recovery flows now expose an explicit data-preserving removal or confirmed full
+WG-Guard reset without touching unrelated host resources. At that checkpoint Phase 9 was unchanged
+and unstarted.
+
+A final account-provisioning correction before Phase 9 makes the interactive username explicit
+(`admin` on Enter), retries invalid passwords before leaving the wizard, and offers a
+cryptographically generated password with a show-once post-health credential card. Interrupted
+initial setup now opens guided reset choices, and uninstall distinguishes recoverable node reset
+from complete removal of the local manager/cache/logs. Private loopback installation also uses the
+correct non-proxy transport so SSH-tunnel login can retain its session cookie. This remains Phase
+8.2 maintenance; it does not add Phase 9 or API/OpenAPI scope.
+
+### Phase 9 — Operational observability
+
+Add one bounded scheduler-driven telemetry pipeline and a mode-aware diagnostic log workflow.
+Complete only when live metrics and Docker/native logs are useful under real failures, secrets
+remain absent, retention is bounded, and measured overhead stays within documented budgets.
+Completed 2026-09-10. Native and Docker retention/log/failure drills, real AmneziaWG traffic,
+dashboard/API telemetry, resource measurements, secret scanning, lifecycle recovery and full
+cleanup passed on Ubuntu 24.04.4 amd64. Detailed gate and evidence:
+[docs/development/phase9.md](development/phase9.md).
+
+### Phase 8.3 — Data-plane forwarding integrity
+
+Inserted as a corrective release blocker after Phase 9 when real clients could handshake but
+could not reach routed networks on a Docker host. Preserve the namespaced nftables NAT model,
+integrate only through a firewall manager's supported extension point, fail readiness when an
+earlier forwarding DROP remains unresolved, and extend the real-host gate through public DNS and
+HTTPS rather than stopping at the tunnel gateway. Completed 2026-09-10: the exact Ubuntu 24.04
+amd64 Docker candidate passed fresh install, post-start interface creation, plain/recommended/
+randomized public egress, DNS, HTTPS, counters, doctor, restart/idempotency and owned-rule cleanup.
+Phase 10 then resumed at milestone 10.0. Detailed gate and evidence:
+[docs/development/phase8.3.md](development/phase8.3.md).
+
+A bounded post-completion diagnostic correction also made host-owned Docker `doctor` inspect AWG
+inside the runtime container without moving kernel/firewall checks off the host. Exact candidate
+verification covered healthy, unavailable-container, recovered and managed missing-link repair
+states; that maintenance did not alter the Phase 10 scope.
+
+### Phase 10 — Product UI/UX redesign
+
+Migrate the complete panel and public subscription experience to one accessible shadcn-style
+component system without adding a production SPA runtime. Complete only after every route and
+state passes fa/en, RTL/LTR, light/dark, keyboard/touch, and 320px-through-ultrawide browser QA.
+Completed 2026-09-13. The full Chromium/Firefox/WebKit route and state matrix, relevant exact-code
+Ubuntu 24.04 amd64 Docker/TLS workflows, decoded QR/config equality, repository gates and main CI
+passed. Physical-device runs were unavailable and are not claimed. Phase 11 started afterward;
+public release remains owner-approval gated. Detailed gate:
+[docs/development/phase10.md](development/phase10.md).
+
+### Phase 11 — Production certification
+
+Feature-freeze the product, close material security/audit findings, and test the exact release
+candidate under realistic load, networking, recovery, supported-Ubuntu, backend, and deployment
+conditions. Unsupported and unavailable matrix cells must be labeled honestly, never inferred.
+Completed 2026-09-28 for the documented Ubuntu 24.04 amd64 Docker/native kernel/userspace paths:
+real client, reboot, recovery, TLS, update/rollback, disk pressure, full cleanup, race/fuzz and
+0/100/1000 resource/shaping gates passed. Later Ubuntu releases, active firewalld, real-host UFW
+and 1000 simultaneous handshakes are not certified. Phase 12 subsequently published the
+owner-approved v0.1.0. Detailed gate:
+[docs/development/phase11.md](development/phase11.md).
+
+### Phase 12 — Release candidate
+
+Completed 2026-09-28: the exact `fb38c1f` source passed main CI and manual release gates;
+checksummed Linux/amd64 assets, metadata, notices and attestations were published as
+[v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0). The public latest-release
+bootstrap installed a healthy Docker node on the dedicated Ubuntu 24.04 amd64 VPS. Future
+versions and official registry images remain approval-gated; the certified host matrix is
+unchanged. Detailed gate:
+[docs/development/phase12.md](development/phase12.md).
+
+### Phase 13 — Appearance and subscription follow-up
+
+13.0 verifies the reported public QR and mixed-direction metrics against the actual web code and
+reviews the ten named TweakCN light/dark exports. 13.1 introduces the local preset registry,
+semantic CSS bridge, independent appearance preference scopes and source-aware Settings UI.
+13.2 repairs the public QR state and redesigns the subscription composition for desktop/phone.
+13.3 requires focused service/security tests, representative browser states for every preset in
+fa/en and light/dark, subscription QR/config checks, accessible contrast/focus and responsive
+review; changed cells are retested after fixes. Record any unavailable browser/physical-device
+cell honestly. This is new post-release work, not a retroactive Phase 10 or v0.1.0 claim.
+
+Completed 2026-09-28: [v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1)
+publishes `91f0cad` after [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430328644)
+and the [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36430987412).
+Local Chromium/WebKit and Go checks passed; new Firefox, physical-device and VPS cells were
+not verified for this follow-up.
+
+### Phase 14 — Integration API for automation
+
+The owner chose separate reseller accounts with configurable permissions. Owner integrations may
+see the whole node; reseller panel sessions and API tokens must see only that reseller's customers.
+The later owner clarification drops four combined renewal policies in favor of independent usage
+reset and one queued successor plan. A successor is an explicitly authorized entitlement, not an
+automatic purchase: the first time or quota boundary activates it once, starts a new period with
+fresh charged usage, and never overrides a manual disable or suspension. Optional unused-volume
+carry applies only when time ends first; time never carries. Plan terms are frozen when queued.
+
+1. **14.0 — Contract and security:** close the idempotency replay authorization defect; specify
+   principal ownership, least-privilege grants, purchase/result identity, successor activation and
+   failure behavior before exposing new integration routes.
+2. **14.1 — Reseller boundary:** add owner-managed reseller accounts and permission selection,
+   principal-bound tokens, row ownership and denial tests across panel, API, subscriptions,
+   statistics and webhook delivery. Do not expose a reseller login until every reachable route
+   enforces the boundary.
+3. **14.2 — Purchase delivery:** atomically provision a user and initial device, persist an
+   inspectable operation result with its mutation, and add principal-scoped customer-link delivery
+   and rotation. A lost HTTP response must not require guessing whether a purchase succeeded.
+4. **14.3 — Entitlement lifecycle:** preserve the existing time-only renewal and independent
+   Reset Usage. Add one owner/reseller-scoped Next Plan queue per customer, immutable plan terms,
+   bounded scheduler activation after metering and before expiry, a transactional activation
+   record, cancellation before activation and review state for incompatible account/device edits.
+   A separate immediate plan-replacement and conditional correction API is considered only if
+   integration use cases still require it; never infer payment from queueing.
+5. **14.4 — Integration completeness:** type webhook event payloads and delivery guarantees,
+   expose safe delivery/reconciliation lookup where needed, add bounded batch reads if justified,
+   complete OpenAPI examples and contract tests, then run one focused compatibility/security gate.
+
+The v0.1.3 source scopes webhook creation, management, fanout, worker delivery and
+non-secret receipt lookup to owner, node operator or reseller authority. Owner-wide reseller
+event fanout requires an explicit opt-in; legacy endpoints migrate with it off. A reseller
+destination uses checked public HTTPS egress, without redirects. The typed OpenAPI webhook catalog and
+at-least-once/retry/ordering contract are complete. A batch-by-ID read is not added: the existing
+bounded user cursor (up to 500 per page), opaque resource IDs and purchase operation journal cover
+the evidenced sync/recovery workflows without a second bulk lookup contract. Immediate plan
+replacement or reversal after activation remains a separate product decision; cancel-before-
+activation and current-state reconciliation are implemented, and no financial rollback guarantee
+is implied.
+
+The v0.1.4 pre-installation cleanup makes technical templates canonical: `/templates`,
+`template_id` and `templates.read/write` replace plan-named catalog identifiers without aliases.
+The owner can provision direct finite terms atomically while external products/prices stay in
+the bot; reseller-bound purchases still use owner-assigned templates. Panel, REST single-create
+and bulk-create paths share one template-to-user entitlement mapping. Ordinary quota top-up and
+Reset Usage remain independent, optional lifecycle actions. Opaque IDs are not usernames;
+private configs and capability links must not enter logs, audit metadata or operation journals.
+[v0.1.4 main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/36703931653) and the
+[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36704785746) certify the
+listed source/artifact checks; no new physical-device or VPS cell is inferred from them.
+Future public releases still require owner approval.
+
+### Maintenance releases v0.1.5–v0.1.8
+
+Separately authorized post-Phase-14 maintenance releases, each published after exact-source main
+CI and the release workflow; none adds a new real-host certification cell:
+[v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) (staged install/update
+progress, separated logs, batch purchases),
+[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) (stored-webhook key validation
+and blocked-upgrade backup correction),
+[v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) (Update Center redesign and
+maintenance permission separation) and
+[v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) (numeral presentation, shared
+guidance/forms, interface editor and combined cleanup). Details are in [CHANGELOG.md](../../CHANGELOG.md).
+
+### Phase 15 — Operational safety and migration preparation
+
+Reliable portable archives, fail-closed automatic migration, lifecycle readiness, bounded
+slow-work isolation, resumable secret rotation and an owner export/verify drill. Completed
+2026-10-04 and published as the preparation release
+[v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9); measured crypto/slow-delivery
+isolation is local, and host resource/kernel/client acceptance moved to Phase 20. Detailed gate:
+[docs/development/phase15.md](development/phase15.md).
+
+### Phase 16 — Modular responsibility boundaries
+
+Behavior-preserving refactor: shared node-data sessions, one runtime-apply coordinator with
+desired/applied observations, sealed device-key provisioning, centralized managed paths and
+separate deployment/diagnostic adapters. Completed 2026-10-05 within its source scope with exact
+CI; shipped in v0.1.10. Detailed record: [docs/development/phase16.md](development/phase16.md).
+
+### Phase 17 — Docker-only distribution and native cleanup
+
+One verified Docker runtime recipe, strict schema-4 deployment state, separated private host
+authority, exact image/binary/core provenance and offline image assets; native production
+deployment is removed. Exact image/fake-container CI passed on 2026-10-05; host acceptance passed
+in Phase 20 and the result shipped in v0.1.10. Existing older layouts move only by verified
+off-host backup and fresh install/restore. Detailed record:
+[docs/development/phase17.md](development/phase17.md).
+
+### Phase 18 — Integrated domains and HTTPS
+
+Independent panel/public subscription origins, SNI and resumed TLS admission, an owner-authorized
+certificate mailbox, versioned imports, CA renewal/retirement and snapshot recovery, managed from
+the panel and the terminal. Real HTTP-01 issuance, scoped renewal/replacement, origin isolation
+and reboot passed in Phase 20; shipped in v0.1.10. DNS-01, external proxies and an observed
+long-interval renewal are not certified. Detailed record:
+[docs/development/phase18.md](development/phase18.md).
+
+### Phase 19 — Installer and operational UX
+
+Archive initialization before managed listener start, shared safe CLI/panel operation states with
+explicit review/restart/recovery actions, the domain/TLS workspace, system health and the backup
+workbench. Source owners/settings/keys/usage survive the verified archive path; the corrected
+fresh-target install passed in Phase 20 and shipped in v0.1.10. Detailed record:
+[docs/development/phase19.md](development/phase19.md).
+
+### Phase 20 — Refactor certification and publication
+
+Completed 2026-10-06 on an explicitly authorized isolated Ubuntu 24.04.4 amd64 VPS: fresh and
+archive install, kernel and explicit userspace client DNS/HTTPS/NAT and shaping, restore
+equivalence, CA issuance/renewal/replacement, update/interrupted recovery, offline image restart,
+corrected reboot and measured resources. Phases 16–20 were published as
+[v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) from exact `4f78adc` after
+main CI, the release workflow and independent public-asset verification. Detailed gate:
+[docs/development/phase20.md](development/phase20.md).
+
+### Phase 21 — Egress routing and client portal
+
+Kernel-native outbounds (WARP, imported WireGuard/AmneziaWG, source IP), balancers, ordered
+rules with presets and geodata, and a built-in DNS resolver, without a proxy engine; the
+subscription portal adds per-app guides, AmneziaVPN `vpn://` keys and machine-readable info.
+Merged to main (PR #5, follow-ups in PRs #8, #10 and #11) and shipped in v0.2.0. Unit, integration and namespace `nft` tests pass; the
+first real-host pass found three defects, now fixed with regression tests, and client traffic
+through an outbound is not yet re-verified. Design: [egress routing](../architecture/egress-routing.md)
+and [ADR-0016](../decisions/ADR-0016-kernel-egress-routing.md); evidence:
+[status](../development/status.md#egress-routing).
+
+### Phase 22 — Design system and subscription designs
+
+Every panel, auth and public surface is rebuilt on the `web/styles` shadcn-anatomy layers; 29
+data-only themes in `web/themes` are chosen in the Appearance gallery, and the public subscription
+page offers four owner-selectable designs (Ticket, Membership card, Minimal, App) with
+Connect / Setup guide / Details tabs. Merged to main on 2026-10-18 (PRs #6, #7 and #9) and
+shipped in v0.2.0. Go tests and the opt-in Chromium browser suites passed locally; WebKit, Firefox,
+physical phones and real hosts are unverified. Design: [design system](../product/design-system.md)
+and [ADR-0017](../decisions/ADR-0017-design-system-and-presets.md); evidence:
+[status](../development/status.md#design-system-redesign).
+

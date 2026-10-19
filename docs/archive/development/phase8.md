@@ -5,7 +5,7 @@ closed with local, integration, browser, and dedicated real-VPS evidence. Phase 
 completed; corrective Phase 8.3 subsequently closed the routed-data-plane gap and Phase 10 is
 active at milestone 10.0.
 Cross-phase blockers and findings are tracked in
-[release-readiness.md](release-readiness.md).
+[release-readiness.md](../../development/release-readiness.md).
 
 ## Objective
 
@@ -125,7 +125,7 @@ normalized API/database/runtime/config/decoded-QR state, tests all delivery surf
 bidirectional UDP/TCP traffic, scans diagnostics for the run's actual secrets, and can hold the
 panel for browser QA. The exact commit-stamped run passed on the dedicated VPS; sanitized evidence
 is recorded in
-[`../integrations/fixtures/verify-phase8-vps-2026-09-05.txt`](../integrations/fixtures/verify-phase8-vps-2026-09-05.txt).
+[`../integrations/fixtures/verify-phase8-vps-2026-09-05.txt`](../../integrations/fixtures/verify-phase8-vps-2026-09-05.txt).
 
 Exit: both profile classes establish real traffic; discrepancies are fixed and regression-tested.
 

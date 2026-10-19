@@ -59,7 +59,7 @@ contract used by WG-Guard is unchanged. The userspace daemon remains an explicit
 integration target, not the managed Ubuntu default.
 
 `wg-guard core installed` reports tools from the running container; kernel observations always
-come from the host. Host-located tools appear only in historical pre-v0.1.10 native reports. Requested source/package pins,
+come from the host. Requested source/package pins,
 installed packages, loaded module version and loaded/disk `srcversion` are separate facts.
 Equal module version strings do not prove equal builds: this source revision still reports
 `3.1.20260812`. A differing `srcversion` requires an operator maintenance reboot; unavailable
@@ -71,10 +71,8 @@ apply/dump and peer reconciliation, failure detection/restart, and owned teardow
 active unowned userspace socket. The repository Docker image and v0.1.7 installer-generated
 runtime include the exact reviewed source build and
 maps `/dev/net/tun`. No automatic kernel-to-userspace selection on module failure is implied.
-Before v0.1.10, managed Docker and the since-removed native userspace profiles passed real
-Ubuntu 24.04 client HTTPS traffic, service recovery and reboot drills; that evidence is
-historical and does not certify the current Docker-only layout (ADR-0015). Later Ubuntu
-releases remain unverified.
+Userspace profiles passed real Ubuntu 24.04 client HTTPS traffic, service recovery and reboot
+drills in [Phase 20](../archive/development/phase20.md). Later Ubuntu releases remain unverified.
 At this pinned commit, the daemon's `--version` still prints `0.0.20250522`; it is not a
 reliable source identity. WG-Guard checks the Go build metadata for module path,
 `vcs.revision=b5928ef…` and `vcs.modified=false`; builds without that provenance fail closed.

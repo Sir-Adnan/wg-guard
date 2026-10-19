@@ -2,7 +2,7 @@
 
 Planning baseline: 2026-10-04. This program follows completed Phases 0–14 and the
 critical architecture review. All six phases are complete within their recorded
-evidence and shipped in v0.1.10; current support remains in [status](status.md) and
+evidence and shipped in v0.1.10; current support remains in [status](../../development/status.md) and
 the host matrix in [Phase 20](phase20.md).
 
 ## Scope and decisions
@@ -28,7 +28,7 @@ or recovery requirement justifies a move. Host lifecycle state/artifacts must be
 outside writable node mounts. Centralized validated paths matter more than renaming
 directories. Phase 17 now separates Compose under `/opt/wg-guard` and mutable private host authority under
 `/var/lib/wg-guard-host`. Legacy state is explicitly refused; node configuration/data paths remain
-stable. [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md) explains ownership and the `.env` decision.
+stable. [ADR-0015](../../decisions/ADR-0015-docker-only-runtime.md) explains ownership and the `.env` decision.
 
 ## Dependency and completion rules
 
@@ -226,7 +226,7 @@ or shared-image pruning is not automatic; current/previous file recovery identit
 
 ## Phase 18 — Domains and TLS inside the panel
 
-Specification: [domains and certificates](../operations/domains-and-tls.md).
+Specification: [domains and certificates](../../operations/domains-and-tls.md).
 
 - [x] Model panel origin, public subscription origin and VPN endpoint independently.
   Manage one panel hostname and at most one distinct subscription hostname initially.

@@ -90,59 +90,10 @@ will run; inspect its result for the exact revision before claiming CI passed.
 The [manual release workflow](../../.github/workflows/release.yml) takes an exact verified `main`
 SHA and version, reruns source gates, builds/checksums the binary and bundle, checks image/binary
 identity, attests the binary and SBOM, verifies downloaded draft assets, then publishes. A new
-public version or official registry image needs its own owner approval. Existing v0.1.0 evidence
-is in [phase12.md](phase12.md); v0.1.1 through v0.1.5 were separately authorized and published.
-The owner explicitly authorized v0.1.5 on 2026-10-01; its
-[exact-source release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36782237324) passed.
-That approval covered v0.1.5 only.
-The owner separately authorized the v0.1.6 backup/startup correction on 2026-10-01; its
-[exact-source release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/36786717685) passed
-and the release is public. This does not authorize a later version or registry image.
-The owner explicitly authorized v0.1.7 on 2026-10-03. Its maintenance implementation and UI
-refinement passed exact main CI; the release-preparation revision must pass its own main CI
-and the manual release workflow before publication. Both gates passed at
-`f166360a799268a18a0449e485fbb619b9c37d27` and v0.1.7 is public. This approval covers v0.1.7 only;
-later versions and official registry images still need separate owner authorization.
-The owner explicitly requested v0.1.8 on 2026-10-04. Exact released source
-`cf718a926f81202b7ed8060cac27bb5322dbba82` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
-[manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37158268158).
-All public assets were independently downloaded and verified, and v0.1.8 is Latest stable.
-This authorization covers v0.1.8 only; it does not authorize a later version or registry publication.
-On 2026-10-04 the owner explicitly authorized the next Phase 15 preparation release, v0.1.9,
-after its source/artifact gates, then full Phase 16 on main without another release. This
-authorizes that preparation publication only; no live-host rebuild or registry publication,
-and no post-Phase-16 release, is included. The owner takes/verifies the off-host copy after
-updating to the preparation release and before any rebuild.
-For local immutable candidate
-artifacts and acquisition limits, use the [GitHub installation guide](../operations/github-install.md).
-
-On 2026-10-05 the owner conditionally requested v0.1.10 after remaining work and
-acceptance gates are complete. This overrides the earlier no-further-release scope
-for v0.1.10 only. Their subsequent fresh-install/restore/client report and the
-remaining physical boundaries are recorded in [Phase 20](phase20.md).
-Exact released source `4f78adcc4add323035e43f5404f75392938207ee` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37460729245) and the
-[manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37461855976). All seven public
-assets were independently downloaded: tag→commit, six checksums, release/runtime metadata,
-SBOM root and runtime image config identity matched; binary SHA-256
-`53675169480beb3ff41b7b8d43f5a76be1c9553643834e263a06e59dcf845e9b`, image
-`sha256:d3645ff85c36d62efd0d99fddf4c908f4b54894798664e517b399a586476bff6`.
-v0.1.10 is Latest stable (published 2026-10-06). No registry image was published.
-This authorization covers v0.1.10 only; later versions and registry images need their own scope.
-On 2026-10-08 the owner explicitly requested v0.1.11 after the Ubuntu 24.04 containerd-store
-install failure and its correction. Exact released source
-`228e2a5e012963f9b096e76f9f28b1ea0bd5379c` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37776439694) and the
-[manual release workflow](https://github.com/Sir-Adnan/wg-guard/actions/runs/37777778448). All seven
-public assets were independently downloaded and their checksums, tag→commit and attestations
-verified; see [status](status.md). This authorization covers v0.1.11 only;
-later versions and registry images need their own scope.
-On 2026-10-19 the owner explicitly requested v0.2.0 for Phases 21–22 and their follow-ups. It is
-cut from the exact main commit that records the request, after that commit's main CI and the
-manual release workflow pass; the published assets are then downloaded and checked
-independently. This authorization covers v0.2.0 only; later versions and registry images need
-their own scope.
+public version or official registry image needs its own owner approval, scoped to that
+version. Published versions, their exact source and gate runs are listed in
+[release readiness](release-readiness.md#published-releases); earlier per-release authorization
+records are in the [release history](../archive/development/release-readiness-history.md).
 
 Keep commits coherent and imperative (`feat(user): …`, `fix(api): …`, `docs: …`, `build: …`). Do not
 knowingly deliver broken code, but an extra full local build/test cycle is not required for every
@@ -152,10 +103,7 @@ in the same change; edit OpenAPI only if its contract changes. Internal refactor
 do not require touching unrelated status, phase or release documents. Frontend assets are
 prebuilt/embedded; dependency notices remain in [THIRD_PARTY.md](../../THIRD_PARTY.md).
 
-
-Phase 17 source adds an unpublished runtime CI job: exact immutable-HEAD manager assets,
-one embedded recipe, image/binary/engine provenance and fake-node persistence/hardening smoke.
-Candidates are GitHub Actions artifacts retained for seven days, not a public release/registry.
-The release workflow includes offline image metadata/archive in its checksums and attestations;
-publication remains subject to the owner's current version-specific request and gates. Physical host/client acceptance is
-not inferred from this container fixture.
+The `runtime` CI job builds the exact-HEAD manager assets and runtime image, checks image, binary
+and engine provenance, and runs a fake-node persistence and hardening smoke test. Its candidates
+are GitHub Actions artifacts kept for seven days, not a release. A container fixture does not
+stand in for physical host or client acceptance.

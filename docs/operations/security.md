@@ -242,8 +242,8 @@ including existing connections after retirement. Enrollment is not hostname
 approval. Replaced/removed owned CA lineages stop renewing; unreferenced immutable
 pairs are pruned only after terminal recovery. External gateway TLS is explicitly
 unverified and operator-owned. These rights ship in v0.1.10 (not v0.1.9). Source/browser
-proof is in [Phase 18](../development/phase18.md); real HTTP-01 CA, SNI/route isolation,
-renewal/replacement and reboot acceptance are in [Phase 20](../development/phase20.md).
+proof is in [Phase 18](../archive/development/phase18.md); real HTTP-01 CA, SNI/route isolation,
+renewal/replacement and reboot acceptance are in [Phase 20](../archive/development/phase20.md).
 
 ## Dependency discipline
 

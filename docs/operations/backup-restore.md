@@ -90,7 +90,7 @@ rows are included. Temporary files are removed on success or ordinary failure.
 
 Success covers portable data, not the target kernel/TLS/network or client traffic.
 Certificates, DKMS and Docker images are not archive members. The
-[deployment target](../architecture/deployment-refactor.md) describes the v0.1.10 packaging.
+[deployment target](../archive/architecture/deployment-refactor.md) describes the v0.1.10 packaging.
 
 - **Manual** — Dashboard can create and download a fresh archive in one action; the Backups page
   also creates local archives. CLI equivalent: `wg-guard backup create [--password] [--output …]`.
@@ -316,7 +316,7 @@ ownership. Private approval/cancellation, offline apply and interrupted recovery
 an additional work-byte claim. Purge excludes both inspection and review work and
 post-admission tombstones are checked; no lock inode is replaced or removed.
 These are source/local-test guarantees; the corrected fresh-target and coordinated
-restore host scope is recorded in [Phase 20](../development/phase20.md).
+restore host scope is recorded in [Phase 20](../archive/development/phase20.md).
 
 The panel accepts a downloaded `.wgg` file from another node. The authenticated `backup.manage`
 form validates CSRF before reading the file, streams it into the private local sink under a fresh
@@ -385,7 +385,7 @@ unrelated foreign-key data. The environment review reads its interface inventory
 The panel restart path has separate coverage proving that `restore.pending` is consumed before
 the database is opened, the staged values replace later live mutations, and exactly one
 `backup.restored` audit event is written. Phase 11 added real-host restore, disk-pressure and
-recovery drills; their scope is recorded in [phase11.md](../development/phase11.md).
+recovery drills; their scope is recorded in [phase11.md](../archive/development/phase11.md).
 
 ### Interrupted lifecycle recovery
 
@@ -416,9 +416,8 @@ deliberate cleanup; they may contain unencrypted keys and WAL data.
 
 ## Server migration & disaster recovery
 
-To move a pre-v0.1.10 node to the Docker-only layout, follow the [owner preparation drill](migration-preparation.md)
-before any rebuild. A downloaded archive, saved off-host password and independent verification
-are prerequisites.
+To move a node to a new server, take an encrypted backup, download it with its password kept
+off-host, verify it independently, then install fresh on the target and restore it.
 
 Migrating = fresh install on the new server + restore + environment review. Because client
 configs are generated on demand from current settings, confirming the public endpoint during
@@ -452,4 +451,4 @@ review. Private staging keeps no password and is removed on ordinary completion/
 failure; interrupted staging remains private for operator inspection. No archive
 schema or public REST endpoint changes. Tests cover preserved device/customer/
 usage/access data; the corrected Ubuntu 24.04 target-host/client acceptance is in
-[Phase 20](../development/phase20.md).
+[Phase 20](../archive/development/phase20.md).

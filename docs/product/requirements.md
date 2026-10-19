@@ -126,7 +126,7 @@ customer namespace. Owner integrations remain node-wide; a reseller's panel sess
 tokens may act only within that reseller's granted scope and customer set. Neither a global
 admin permission nor a URL/ID supplied by the caller may bypass ownership checks. The Phase 14
 implementation shipped in v0.1.3 within the documented source/artifact scope; see
-[Roadmap](../../ROADMAP.md#phase-14--integration-api-for-automation).
+[Roadmap](../archive/roadmap-phases.md#phase-14--integration-api-for-automation).
 
 ## Bilingual product
 

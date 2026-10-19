@@ -90,7 +90,7 @@ automatic deletion is claimed.
 
 The owner still needs the independently verified off-host v0.1.9 backup before any rebuild.
 Next source work is integrated domain/TLS ownership (Phase 18), then operational UX (19).
-No later release is authorized by this record. Design rationale: [ADR-0015](../decisions/ADR-0015-docker-only-runtime.md).
+No later release is authorized by this record. Design rationale: [ADR-0015](../../decisions/ADR-0015-docker-only-runtime.md).
 
 
 ## Exact delivery result

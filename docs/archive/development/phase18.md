@@ -81,8 +81,8 @@ Physical two-hostname CA issuance/renewal/import/replacement, reboot, remote
 forwarding and unchanged client access remain Phase 20 gates. Publication and
 the owner's verified off-host backup/rebuild checkpoint remain separate.
 
-Contracts: [domains and TLS](../operations/domains-and-tls.md),
-[security](../operations/security.md), [recovery](../operations/lifecycle-recovery.md),
+Contracts: [domains and TLS](../../operations/domains-and-tls.md),
+[security](../../operations/security.md), [recovery](../../operations/lifecycle-recovery.md),
 [execution program](refactor-program.md).
 
 

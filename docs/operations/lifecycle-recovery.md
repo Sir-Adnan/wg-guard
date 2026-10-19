@@ -325,11 +325,9 @@ handles interrupted or failed state/journal writes; another pending operation is
 overwritten. `update --recover` points core/restart/restore operators to their own recovery
 commands rather than treating those records as updates.
 
-Phase 8.1 certified the base transaction paths on the dedicated Docker/native VPS. Phase 8.2
-added automated exposure/certificate failure coverage and a real Docker state-migration,
-Nginx/webroot, public-IP renewal and restoration drill. Phase 11 native direct ACME issued a
-trusted domain certificate, reused its protected cache after restart and rejected an invalid
-manual-certificate change while preserving healthy HTTPS.
+The transaction paths have automated failure coverage, and Phase 20 exercised update,
+interrupted recovery, certificate issuance, renewal and replacement on a real Ubuntu 24.04
+Docker host ([Phase 20](../archive/development/phase20.md)).
 
 
 ## Independent domain recovery (v0.1.10+)

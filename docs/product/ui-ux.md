@@ -1,13 +1,13 @@
 # UI/UX design system
 
 Phase 10 design contract, approved 2026-09-10. Implementation/verification status and requirement
-ownership live in [phase10.md](../development/phase10.md). Every inventoried panel, authentication
+ownership live in [phase10.md](../archive/development/phase10.md). Every inventoried panel, authentication
 and public-subscription surface adopts this contract; Phase 10 acceptance is complete.
 The post-v0.1.0 appearance extension below adds visual presets without reopening that acceptance.
 
 ## Architecture and visual direction
 
-The [refactor program](../development/refactor-program.md) preserves this design
+The [refactor program](../archive/development/refactor-program.md) preserves this design
 system. The Domains and HTTPS workspace is specified in the
 [domain/TLS contract](../operations/domains-and-tls.md#settings--domains-and-https).
 
@@ -201,7 +201,7 @@ Settings uses grouped section navigation that marks the section being read
 ([section navigation](presentation-system.md#section-navigation)), progressive disclosure and one
 editor per setting; operations remain in their dedicated screens. Defaults, runtime/next-use effects, destructive
 consequences and external host ownership are explained. Save/validation/secret semantics are
-specified in [Phase 10](../development/phase10.md#settings-save-decision-100-prerequisite).
+specified in [Phase 10](../archive/development/phase10.md#settings-save-decision-100-prerequisite).
 Its separate lightweight `settings.js` module tracks dirty state without repeated announcements;
 keyboard focus clears the sticky Save bar. Native focus/anchor scrolling is immediate so pointer
 actions do not race page movement. Session TTL and drift-policy saves require a service restart;

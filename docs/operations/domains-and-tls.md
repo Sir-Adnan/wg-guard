@@ -1,8 +1,8 @@
 # Panel, subscription domains and certificates
 
 v0.1.10 and later implement independent domains; v0.1.9 retains its original
-single-domain flow. [Phase 18](../development/phase18.md) records source/browser
-checks; [Phase 20](../development/phase20.md) records real HTTP-01 issuance,
+single-domain flow. [Phase 18](../archive/development/phase18.md) records source/browser
+checks; [Phase 20](../archive/development/phase20.md) records real HTTP-01 issuance,
 scoped live renewal/replacement, SNI/role isolation, reboot and client forwarding.
 Unobserved DNS-01/external-proxy and long-interval renewal cells remain distinct.
 
@@ -156,7 +156,7 @@ Portable archives retain the established DB/master-key/account contract. Host
 certificates, CA credentials, policy and queue imports are host authority, not
 portable customer backup contents. Preserve/provision target HTTPS independently
 when rebuilding; restore customer records using the verified migration procedure.
-See [backup/restore](backup-restore.md) and [migration preparation](migration-preparation.md).
+See [backup/restore](backup-restore.md).
 
 [Go TLS callbacks](https://pkg.go.dev/crypto/tls#Config) and
 [Certbot challenge/renewal documentation](https://eff-certbot.readthedocs.io/en/stable/using.html)

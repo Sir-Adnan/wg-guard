@@ -72,7 +72,7 @@ this ordering.
   and one tagged jump. `doctor` reported interfaces, nftables, forwarding and sysctl as pass.
   Uninstall removed the table, child chain and jump while preserving Docker's DROP policy; test
   namespaces, links, container and secret-bearing files were removed. Sanitized evidence:
-  [verify-phase8.3-vps-2026-09-10.txt](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
+  [verify-phase8.3-vps-2026-09-10.txt](../../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
 - Closing fail-safe regressions reject an unparseable effective policy, unexpected rules inside
   WG-Guard's owned child chain and nftables permission failures. They do not change the verified
   normal data path and are covered by the final automated gate.

@@ -3,8 +3,8 @@
 Status: **complete** (2026-08-31). Scope per the then-current ROADMAP.md: deployment image, compose,
 interactive installer (Docker default, native secondary), host shim, built-in ACME (ADR-0011),
 update/rollback, uninstall. This file is the verification record; user-facing behavior is
-documented in [../operations/deployment.md](../operations/deployment.md) and
-[../operations/runbook.md](../operations/runbook.md).
+documented in [../operations/deployment.md](../../operations/deployment.md) and
+[../operations/runbook.md](../../operations/runbook.md).
 
 The Phase 8.1 support amendment supersedes the original experimental architecture breadth: the
 managed product and release pipeline target Ubuntu 24.04+ on amd64 only.

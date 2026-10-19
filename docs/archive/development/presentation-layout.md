@@ -1,14 +1,14 @@
 # Presentation layout follow-up — 2026-10-05
 
-> Superseded in part by [ADR-0017](../decisions/ADR-0017-design-system-and-presets.md)
+> Superseded in part by [ADR-0017](../../decisions/ADR-0017-design-system-and-presets.md)
 > (2026-10-17/18): sidebar groups and the Appearance layout changed. This file is a dated
-> verification record; the [presentation contract](../product/presentation-system.md) is current.
+> verification record; the [presentation contract](../../product/presentation-system.md) is current.
 
 Implementation source: `76776bebaa39d12f424f7138180410937f02187e`.
 
 The owner supplied regressions in help placement, interface metadata/capacity,
 desktop backup creation, and chart inspection, then requested Standard/From template
-creation tabs. The shared [presentation contract](../product/presentation-system.md)
+creation tabs. The shared [presentation contract](../../product/presentation-system.md)
 describes the implemented behavior; this record separates local evidence from host
 and full-product certification.
 
@@ -69,7 +69,7 @@ Domains/HTTPS remains gated by `server.view` and absent from reseller navigation
 Appearance separates style, numerals and reset, presents the gallery beside live
 preview/application controls on desktop, and keeps personal and owner-default
 actions distinct. Numeral submissions return to their own tab. See the updated
-[presentation contract](../product/presentation-system.md) for these behaviors.
+[presentation contract](../../product/presentation-system.md) for these behaviors.
 
 Fresh Chromium and WebKit focused runs cover the real create page/drawer, manual
 editing, preset selection/typeahead/keyboard scrolling, disabled-mode transitions,

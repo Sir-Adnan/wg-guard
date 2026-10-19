@@ -14,21 +14,18 @@ separate archive inspector [`phase20-stage.go`](../integrations/fixtures/phase20
 They require explicit owner authorization, private work/password/token files and
 an ordinary managed installation. Secrets/configs remain private; reports expose
 only counts, equality results and measured resources. The recorded correction/drill
-sequence, exact revisions and excluded physical cells are in [Phase 20](phase20.md).
+sequence, exact revisions and excluded physical cells are in [Phase 20](../archive/development/phase20.md).
 
-For Phase 15–20 changes, the [refactor program](refactor-program.md) supplies the
+For Phase 15–20 changes, the [refactor program](../archive/development/refactor-program.md) supplies the
 specific exit evidence: migration refusal and readiness, slow-worker isolation,
 data/runtime state equivalence, artifact/host ownership, two-domain TLS and route
 boundaries, affected browser/terminal flows and final real-host migration/resource
 drills. Apply those gates when implementing the phase; do not run them to certify
 a prose-only planning change. Historical results never certify a new layout or TLS role model.
 
-The [native cleanup inventory](../architecture/docker-only-cleanup.md) requires
-replacing current native-only/mode-cross-product tests with equivalent Docker
-failure acceptance, while retaining shared data/lease/security, kernel/userspace,
-host broker and fake-backend coverage. A smaller test matrix is not permission to
-remove failure checks. Historical captured native fixtures are evidence, not a
-second supported implementation in the new product.
+Tests cover the Docker runtime only, with shared data/lease/security, kernel/userspace, host
+broker and fake-backend coverage. A smaller test matrix is not permission to remove failure
+checks. Captured fixtures from older layouts are evidence, not a supported implementation.
 
 Start with the affected behavior and its dependencies, then extend to the failure mode that
 matters. These are starting points, not automatic checklists:
@@ -50,34 +47,34 @@ the specific risk; do not execute their entire historical sequence for an unrela
 
 ## Phase 8.1 installer verification
 
-[Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
+[Phase 8.1](../archive/development/phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
 host-operation failure injection, narrow/wide English terminal checks, and dedicated Ubuntu
-24.04 Docker/native lifecycle drills. The evidence levels are separate:
+24.04 lifecycle drills. The evidence levels are separate:
 
 | Area | Recorded Phase 8.1 evidence | Later-phase limit |
 |---|---|---|
 | GitHub delivery | Real source acquisition/build/help, executable release/error fixtures and exact one-command management. `d30894a` passed source install/update through strict commit-bound PAX handling and [exact-revision CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/34252238598) | Phase 12 subsequently verified a fresh v0.1.0 published-asset install on Ubuntu 24.04 amd64 |
 | Terminal | Final real Linux acceptance passed 17 PTY plus three nonTTY cases across 48/80/120 columns and no-color/dumb modes. Follow-up regressions verify the current English-only contract, compact recommended path, Enter defaults and installed-node fast path | Feature-frozen terminal regression is repeated in Phase 11 |
 | Runtime image | Builder/image/binary/AWG identity, real Docker deployment and fresh ACME passed on Ubuntu 24.04 amd64 | Later supported Ubuntu amd64 cells remain Phase 11 |
-| Backup/recovery | Encrypted Telegram/scheduler, sequential native and final Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
+| Backup/recovery | Encrypted Telegram/scheduler, Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
 
 Exact revisions and sanitized records live in [status.md](status.md) and
-[phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
+[phase8.1.md](../archive/development/phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
 code. Historical checks do not replace Phase 11's supported-Ubuntu/backend certification or
-[Phase 12's final published-artifact gate](phase12.md).
+[Phase 12's final published-artifact gate](../archive/development/phase12.md).
 
 ## Phase 8.2 secure-access verification
 
 Test-first Go coverage owns exposure derivation, state-schema migration, secret transport,
 certificate identity/expiry, deterministic renewal lineages, Nginx rendering/reload rollback,
-Docker/native runtime rewrites, post-install rollback and HSTS/proxy trust. Bootstrap fixtures
+runtime rewrites, post-install rollback and HSTS/proxy trust. Bootstrap fixtures
 cover atomic manager/receipt persistence and zero-network retry; PTY tests cover 40/48/80-column
 English menus. The [dedicated Ubuntu 24.04.4 amd64 Docker record](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt)
 adds real webroot-domain and short-lived-IP issuance, renewal hooks, occupied-port refusal,
 state migration and cleanup. Its corrective addendum also records an exact GitHub-source
 AWG/DKMS Docker install, real APT-lock failure/retry, Docker socket repair, cached 40-column rerun,
 identity checks and explicit source/package purge. Cloudflare DNS-01 is automated-test verified only because no scoped
-test token was available; Native secure-exposure recertification stays in Phase 11.
+test token was available.
 
 The repeatable
 [`verify-phase8.1-synthetic-backup.py`](../integrations/fixtures/verify-phase8.1-synthetic-backup.py)
@@ -90,7 +87,7 @@ cleanup and capture redaction. Root/same-UID compromise is outside the documente
 A candidate run covers
 encrypted create/list/retention and schedule CRUD plus an accelerated actual central-scheduler
 tick. Without the explicit private-credential opt-in it records Telegram as **unverified**; even
-with that opt-in it remains synthetic fixture evidence rather than native/Docker or restore
+with that opt-in it remains synthetic fixture evidence rather than deployment or restore
 acceptance. See [backup and restore](../operations/backup-restore.md#isolated-acceptance-helper)
 for the bounded invocation and evidence limits.
 
@@ -101,10 +98,10 @@ bounds, log retention and operation outcomes. Text/JSON secret corpora cover the
 handler; the install Host seam covers exact Docker argv, split/oversized lines, broken
 output, cancellation, policy ownership and transactional update rollback.
 
-The historical [Phase 9 fixture](../integrations/fixtures/verify-phase9-vps.sh) (pre-v0.1.10;
-it requires `--mode native|docker` and does not run against the Docker-only layout) and its
+The historical [Phase 9 fixture](../integrations/fixtures/verify-phase9-vps.sh) (it predates
+the current layout and does not run against it) and its
 [sanitized acceptance record](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) add
-sequential Native/Docker Ubuntu 24.04.4 amd64 evidence: platform policy inspection, bounded/follow
+Ubuntu 24.04.4 amd64 evidence: platform policy inspection, bounded/follow
 CLI behavior, process crash recovery, real kernel AmneziaWG traffic, telemetry under load,
 authenticated live-dashboard output, AWG/network faults, actual-secret scans, Docker lifecycle
 failure recovery and full cleanup. Long soak, 1,000 peers and later supported Ubuntu amd64 cells
@@ -194,7 +191,7 @@ recorded in [status.md](status.md); regressions are treated as bugs.
 
 ## Phase 10 UI verification
 
-[Phase 10](phase10.md) owns route/state/milestone coverage and the final browser matrix. During
+[Phase 10](../archive/development/phase10.md) owns route/state/milestone coverage and the final browser matrix. During
 implementation use targeted settings/web/i18n tests and changed interaction checks. Coherent
 commits still require build/unit success; the full Phase 10 QA matrix runs at 10.7, not per edit.
 
@@ -275,5 +272,5 @@ seams are synthetic, not a real issuance/renewal claim. Root lifecycle failure,
 owner/lease, controlled source and queue publication checks belong to this boundary.
 
 `TestBrowserDomains` (see [opt-in browser tests](#opt-in-browser-tests)) covers the domains panel;
-there is no production browser runtime. See [Phase 18 evidence](phase18.md) and the Phase 20
+there is no production browser runtime. See [Phase 18 evidence](../archive/development/phase18.md) and the Phase 20
 physical gate.
