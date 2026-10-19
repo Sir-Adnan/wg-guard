@@ -160,6 +160,8 @@ func (s *Server) initTemplates() error {
 			return 0
 		},
 		"timePtr": func(t time.Time) *time.Time { return &t },
+		// siteTone is the badge tone of a site test verdict.
+		"siteTone": siteVerdictTone,
 		// add sums counters for compact summaries (e.g. users needing attention).
 		"add": func(values ...int64) int64 {
 			var total int64

@@ -1,7 +1,6 @@
 package routing
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -9,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,16 +15,22 @@ import (
 
 // Site tests open a real site through one outbound and judge whether the
 // service works from that exit (an AI service limited by region, Google's
-// abuse CAPTCHA). The service detectors follow the markers of the open source
-// RegionRestrictionCheck script (source-reviewed at lmc999/RegionRestrictionCheck
-// b6d4a6f, 2026-10-19); sites change their pages, so a detector that no longer
-// recognizes the page reports "unknown", never a false "available".
+// abuse CAPTCHA, a site's firewall). The service detectors live in
+// sitejudge.go and the region lists in siteregions.go.
 
-// SiteTimeout bounds one site test (redirects included).
-const SiteTimeout = 12 * time.Second
+// SiteTimeout bounds one site test (redirects, the second page and the
+// region lookup included).
+const SiteTimeout = 15 * time.Second
 
 // maxSiteBody bounds the bytes read from one page.
 const maxSiteBody = 2 << 20
+
+// siteFirstFamilyBudget bounds the IPv6 attempt of an IPv6-first dial, so a
+// broken IPv6 path still leaves time to fall back to IPv4 within SiteTimeout.
+const siteFirstFamilyBudget = 4 * time.Second
+
+// siteRetryFloor is the time a failed attempt must leave for one retry.
+const siteRetryFloor = 5 * time.Second
 
 // siteUserAgent is a current desktop browser: several services answer
 // non-browser agents with a different page.
@@ -35,115 +39,15 @@ const siteUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537
 // Site verdicts.
 const (
 	SiteAvailable = "available" // the service works from this exit
+	SiteLimited   = "limited"   // the service works partly (Netflix: originals only)
 	SiteBlocked   = "blocked"   // the service refuses this exit (region, VPN)
 	SiteCaptcha   = "captcha"   // Google treats the exit as abusive
+	SiteChallenge = "challenge" // a bot check answered: the site is up, a browser passes
+	SiteRefused   = "refused"   // the site's firewall refused the test client (401/403/429)
 	SiteReachable = "reachable" // a custom URL answered (no service detector)
 	SiteUnknown   = "unknown"   // the page did not match a known answer
 	SiteFailed    = "failed"    // no answer: see Error
 )
-
-// SiteService is one known service check.
-type SiteService struct {
-	ID   string
-	Name string
-	URL  string
-	// judge reads the final response; body is at most maxSiteBody bytes.
-	judge func(final *url.URL, status int, body []byte) (verdict, region string)
-}
-
-var geminiRegion = regexp.MustCompile(`,2,1,200,"([A-Z]{3})"`)
-
-// SiteServices is the display order.
-var SiteServices = []SiteService{
-	{ID: "gemini", Name: "Google Gemini", URL: "https://gemini.google.com/", judge: judgeGemini},
-	{ID: "google", Name: "Google Search", URL: "https://www.google.com/search?q=wg-guard&hl=en", judge: judgeGoogleSearch},
-	{ID: "chatgpt", Name: "ChatGPT", URL: "https://api.openai.com/compliance/cookie_requirements", judge: judgeOpenAI},
-	{ID: "claude", Name: "Claude", URL: "https://claude.ai/", judge: judgeClaude},
-}
-
-// SiteServiceByID returns a known service.
-func SiteServiceByID(id string) (SiteService, bool) {
-	for _, s := range SiteServices {
-		if s.ID == id {
-			return s, true
-		}
-	}
-	return SiteService{}, false
-}
-
-// geminiUnsupported are the countries (ISO 3166 alpha-3, as the app page
-// reports them) missing from Google's "Where you can use the Gemini web app"
-// list, reviewed 2026-10-19. Mainland China is listed for Workspace only.
-var geminiUnsupported = map[string]bool{
-	"AFG": true, "BLR": true, "CHN": true, "CUB": true, "IRN": true, "PRK": true, "RUS": true, "SYR": true,
-}
-
-func judgeGemini(_ *url.URL, status int, body []byte) (string, string) {
-	if status != http.StatusOK || !bytes.Contains(body, []byte("WIZ_global_data")) {
-		return SiteUnknown, ""
-	}
-	region := ""
-	if m := geminiRegion.FindSubmatch(body); m != nil {
-		region = string(m[1])
-	}
-	// The app page no longer carries the availability flag the reviewed
-	// script reads (45631641,null,true), so the verdict follows the region
-	// Google places the exit in. The page is the same in every country.
-	switch {
-	case region != "" && geminiUnsupported[region]:
-		return SiteBlocked, region
-	case region != "":
-		return SiteAvailable, region
-	case bytes.Contains(body, []byte("45631641,null,true")):
-		return SiteAvailable, ""
-	}
-	return SiteUnknown, ""
-}
-
-var googleAbuse = regexp.MustCompile(`(?i)unusual traffic from|is blocked|unaddressed abuse`)
-
-func judgeGoogleSearch(final *url.URL, status int, body []byte) (string, string) {
-	if strings.HasPrefix(final.Path, "/sorry/") || status == http.StatusTooManyRequests || googleAbuse.Match(body) {
-		return SiteCaptcha, ""
-	}
-	if status == http.StatusOK && bytes.Contains(body, []byte("wg-guard")) {
-		return SiteAvailable, ""
-	}
-	return SiteUnknown, ""
-}
-
-func judgeOpenAI(_ *url.URL, status int, body []byte) (string, string) {
-	if bytes.Contains(bytes.ToLower(body), []byte("unsupported_country")) {
-		return SiteBlocked, ""
-	}
-	if status >= 200 && status < 500 && status != http.StatusForbidden {
-		return SiteAvailable, ""
-	}
-	return SiteUnknown, ""
-}
-
-func judgeClaude(final *url.URL, status int, _ []byte) (string, string) {
-	switch {
-	case strings.Contains(final.Path, "app-unavailable-in-region"):
-		return SiteBlocked, ""
-	case final.Host == "claude.ai" && status < 400:
-		return SiteAvailable, ""
-	}
-	return SiteUnknown, ""
-}
-
-// Phrases of common region and VPN refusals, matched in a custom URL's page.
-var blockedPhrases = regexp.MustCompile(`(?i)not available in your (country|region)|isn't (available|supported) in your (country|region)|unsupported_country|app-unavailable-in-region|unusual traffic from|access denied|you have been blocked`)
-
-func judgeCustom(_ *url.URL, status int, body []byte) (string, string) {
-	if status == http.StatusForbidden || status == http.StatusUnavailableForLegalReasons || blockedPhrases.Match(body) {
-		return SiteBlocked, ""
-	}
-	if status < 500 {
-		return SiteReachable, ""
-	}
-	return SiteUnknown, ""
-}
 
 // ErrSiteURL rejects a custom URL that is not an http(s) URL with a public
 // host name or address.
@@ -172,13 +76,29 @@ func ParseSiteURL(raw string) (*url.URL, error) {
 // SiteResult is one site test.
 type SiteResult struct {
 	Verdict  string
-	Status   int    // final HTTP status (0 without an answer)
-	Region   string // region the service reported, when it does
-	Final    string // final host and path after redirects
-	Family   string // ip4 | ip6: the family the final request used
-	Latency  time.Duration
-	Error    string // fixed category when Verdict is failed: timeout | unreachable | tls | unsupported
+	Status   int           // final HTTP status (0 without an answer)
+	Region   string        // country the service (or Cloudflare, for a custom URL) placed the exit in
+	Note     string        // short technical detail from the detector
+	Final    string        // final host and path after redirects
+	Family   string        // ip4 | ip6: the family the final request used
+	Latency  time.Duration // time to the first page's answer
+	Attempts int           // 2 when the first attempt failed and was retried
+	Error    string        // fixed category when Verdict is failed: timeout | unreachable | tls | dns | unsupported
 	TestedAt time.Time
+}
+
+// Site test address families: FamilyAuto dials the way client traffic
+// leaves (IPv6 first through an outbound whose link carries IPv6, else
+// IPv4); FamilyIPv4 and FamilyIPv6 force one family.
+const (
+	FamilyAuto = "auto"
+	FamilyIPv4 = "ip4"
+	FamilyIPv6 = "ip6"
+)
+
+// ValidFamily reports whether f is a site test family.
+func ValidFamily(f string) bool {
+	return f == FamilyAuto || f == FamilyIPv4 || f == FamilyIPv6
 }
 
 // SiteTester runs site tests through outbound marks.
@@ -187,13 +107,76 @@ type SiteTester struct {
 }
 
 // Test fetches u (following up to five redirects) through mark and judges
-// the final page with judge (nil: the generic custom-URL judge).
-func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, u *url.URL, svc *SiteService) SiteResult {
+// the answer with svc's detector (nil: the generic custom-URL judge).
+// family is FamilyAuto (IPv6 first when preferIPv6), FamilyIPv4 or
+// FamilyIPv6. A failed attempt is retried once while enough time is left: a
+// single lost handshake through a tunnel is not a verdict.
+func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, family string, u *url.URL, svc *SiteService) SiteResult {
 	start := time.Now()
-	res := SiteResult{TestedAt: start.UTC()}
 	ctx, cancel := context.WithTimeout(ctx, SiteTimeout)
 	defer cancel()
-	dialer := HostDialer{Mark: mark, PreferIPv6: preferIPv6, Timeout: ProbeTimeout, Lookup: t.Lookup}
+	var res SiteResult
+	for attempt := 1; attempt <= 2; attempt++ {
+		res = t.attempt(ctx, mark, preferIPv6, family, u, svc)
+		res.Attempts = attempt
+		deadline, _ := ctx.Deadline()
+		if res.Verdict != SiteFailed || res.Error == "dns" || res.Error == "unsupported" || time.Until(deadline) < siteRetryFloor {
+			break
+		}
+	}
+	res.TestedAt = start.UTC()
+	return res
+}
+
+func (t SiteTester) attempt(ctx context.Context, mark uint32, preferIPv6 bool, family string, u *url.URL, svc *SiteService) SiteResult {
+	var res SiteResult
+	client, closeIdle := t.client(mark, preferIPv6, family, &res.Family)
+	defer closeIdle()
+	began := time.Now()
+	main, err := fetchSitePage(ctx, client, u.String())
+	if err != nil {
+		res.Verdict, res.Error = SiteFailed, classifySiteError(err)
+		return res
+	}
+	res.Latency = time.Since(began)
+	res.Status, res.Final = main.Status, clipText(main.Host+main.Path, 120)
+	var second *SitePage
+	if svc != nil && svc.Second != "" {
+		if second, err = fetchSitePage(ctx, client, svc.Second); err != nil {
+			res.Verdict, res.Error = SiteFailed, classifySiteError(err)
+			return res
+		}
+	}
+	var j SiteJudgement
+	switch {
+	case botCheck(main):
+		j.Verdict = SiteChallenge
+	case svc != nil && svc.judge != nil:
+		j = svc.judge(main, second)
+	default:
+		j = judgeCustom(main, nil)
+	}
+	res.Verdict, res.Region, res.Note = j.Verdict, j.Region, j.Note
+	// A Cloudflare-served site reports the country it places the exit in on
+	// its own trace endpoint: the same view the site's rules see.
+	if res.Region == "" && cloudflareServed(main) && main.Path != "/cdn-cgi/trace" {
+		trace := &url.URL{Scheme: "https", Host: main.Host, Path: "/cdn-cgi/trace"}
+		if tp, err := fetchSitePage(ctx, client, trace.String()); err == nil && tp.Status == http.StatusOK {
+			if loc := parseTrace(tp.Body)["loc"]; len(loc) == 2 && isAlpha(loc) {
+				res.Region = strings.ToUpper(loc)
+			}
+		}
+	}
+	return res
+}
+
+// client builds a one-test HTTP client whose connections go through mark;
+// family records the address family of the last connection.
+func (t SiteTester) client(mark uint32, preferIPv6 bool, only string, family *string) (*http.Client, func()) {
+	if only == FamilyAuto {
+		only = ""
+	}
+	dialer := HostDialer{Mark: mark, PreferIPv6: preferIPv6, Only: only, Timeout: ProbeTimeout, FirstFamilyBudget: siteFirstFamilyBudget, Lookup: t.Lookup}
 	transport := &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
@@ -205,19 +188,19 @@ func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, u *u
 			if err != nil {
 				return nil, err
 			}
-			conn, family, err := dialer.Dial(ctx, host, uint16(port))
+			conn, fam, err := dialer.Dial(ctx, host, uint16(port))
 			if err == nil {
-				res.Family = family
+				*family = fam
 			}
 			return conn, err
 		},
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
 		TLSHandshakeTimeout:   ProbeTimeout,
 		ResponseHeaderTimeout: SiteTimeout,
-		DisableKeepAlives:     true,
+		MaxIdleConnsPerHost:   1,
+		IdleConnTimeout:       SiteTimeout,
 		ForceAttemptHTTP2:     true,
 	}
-	defer transport.CloseIdleConnections()
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -227,31 +210,35 @@ func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, u *u
 			return nil
 		},
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	return client, transport.CloseIdleConnections
+}
+
+// fetchSitePage GETs one page with a browser's request headers.
+func fetchSitePage(ctx context.Context, client *http.Client, target string) (*SitePage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		res.Verdict, res.Error = SiteFailed, "unsupported"
-		return res
+		return nil, err
 	}
-	req.Header.Set("User-Agent", siteUserAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	h := req.Header
+	h.Set("User-Agent", siteUserAgent)
+	h.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8")
+	h.Set("Accept-Language", "en-US,en;q=0.9")
+	h.Set("Sec-Ch-Ua", `"Chromium";v="141", "Not?A_Brand";v="8", "Google Chrome";v="141"`)
+	h.Set("Sec-Ch-Ua-Mobile", "?0")
+	h.Set("Sec-Ch-Ua-Platform", `"Windows"`)
+	h.Set("Sec-Fetch-Dest", "document")
+	h.Set("Sec-Fetch-Mode", "navigate")
+	h.Set("Sec-Fetch-Site", "none")
+	h.Set("Sec-Fetch-User", "?1")
+	h.Set("Upgrade-Insecure-Requests", "1")
 	resp, err := client.Do(req)
 	if err != nil {
-		res.Verdict, res.Error = SiteFailed, classifySiteError(err)
-		return res
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxSiteBody))
-	res.Latency = time.Since(start)
-	res.Status = resp.StatusCode
 	final := resp.Request.URL
-	res.Final = clipFinal(final.Host + final.Path)
-	judge := judgeCustom
-	if svc != nil && svc.judge != nil {
-		judge = svc.judge
-	}
-	res.Verdict, res.Region = judge(final, resp.StatusCode, body)
-	return res
+	return &SitePage{Status: resp.StatusCode, Host: final.Host, Path: final.Path, Header: resp.Header, Body: body}, nil
 }
 
 func classifySiteError(err error) string {
@@ -263,11 +250,4 @@ func classifySiteError(err error) string {
 		return "dns"
 	}
 	return classifyProbeError(err)
-}
-
-func clipFinal(s string) string {
-	if len(s) > 120 {
-		return s[:120] + "…"
-	}
-	return s
 }

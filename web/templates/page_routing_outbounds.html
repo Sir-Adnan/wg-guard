@@ -4,15 +4,30 @@
 {{template "routing_header" .}}
 {{template "routing_warnings" .}}
 {{if .Data.Cards}}
-<div class="cluster routing-summary" role="status">
-  <span class="badge badge--outline"><span class="num">{{.N (i64u (len .Data.Cards))}}</span> {{.T "routing.outbounds.total"}}</span>
-  <span class="badge badge--success"><span class="dot"></span><span class="num">{{.N (i64u .Data.Healthy)}}</span> {{.T "routing.state.healthy"}}</span>
-  {{if .Data.Problems}}<span class="badge badge--destructive"><span class="dot"></span><span class="num">{{.N (i64u .Data.Problems)}}</span> {{.T "routing.outbounds.problems"}}</span>{{end}}
-</div>
-<div class="grid-auto outbound-grid">
-  {{range .Data.Cards}}{{template "outbound_card" (dict "c" . "v" $)}}{{end}}
-</div>
-{{template "site_test" (dict "v" . "d" .Data.Site)}}
+<section class="ob-panel" aria-label="{{.T "routing.outbounds"}}">
+  <div class="ob-toolbar">
+    <div class="toggle-group ob-filter" role="radiogroup" aria-label="{{.T "routing.ob.filter"}}">
+      <label><input type="radio" name="ob-filter" value="all" checked>{{.T "routing.ob.filter.all"}}<span class="tab-count num">{{.N (i64u (len .Data.Cards))}}</span></label>
+      <label><input type="radio" name="ob-filter" value="healthy"><span class="ob-dot" data-tone="success" aria-hidden="true"></span>{{.T "routing.state.healthy"}}<span class="tab-count num">{{.N (i64u .Data.Healthy)}}</span></label>
+      <label><input type="radio" name="ob-filter" value="problems"><span class="ob-dot" data-tone="destructive" aria-hidden="true"></span>{{.T "routing.ob.filter.problems"}}<span class="tab-count num">{{.N (i64u .Data.Problems)}}</span></label>
+      {{if .Data.Disabled}}<label><input type="radio" name="ob-filter" value="disabled">{{.T "routing.state.disabled"}}<span class="tab-count num">{{.N (i64u .Data.Disabled)}}</span></label>{{end}}
+    </div>
+    <div class="input-group ob-search" data-ob-search hidden>
+      <span class="input-group-addon">{{.IconS "search"}}</span>
+      <input class="input input--sm" type="search" placeholder="{{.T "routing.ob.search"}}" aria-label="{{.T "routing.ob.search"}}" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="ob-toolbar-actions">
+      <form method="post" action="/routing/outbounds/test-all" hx-post="/routing/outbounds/test-all" hx-target="#ob-list" hx-swap="outerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>{{.IconS "activity"}}{{.T "routing.ob.test_all"}}</button>
+      </form>
+      {{if .Can "interfaces.write"}}<button type="button" class="btn btn--sm" data-speed-all hidden data-label-run="{{.T "routing.ob.speed_all"}}" data-label-stop="{{.T "routing.ob.speed_stop"}}">{{.IconS "gauge"}}<span>{{.T "routing.ob.speed_all"}}</span></button>{{end}}
+      <a class="btn btn--ghost btn--sm" href="/routing/tests">{{.IconS "globe"}}{{.T "routing.site.title"}}</a>
+    </div>
+  </div>
+  {{template "outbound_list" .}}
+  <p class="ob-no-match text-sm text-muted" hidden>{{.T "routing.ob.no_match"}}</p>
+</section>
 {{else}}
 <div class="empty empty--bordered">
   <span class="empty-icon">{{.Icon "route"}}</span>
@@ -22,130 +37,103 @@
 {{if .Can "interfaces.write"}}{{template "outbound_kinds" .}}{{end}}
 {{end}}
 <p class="text-xs text-muted row">{{.IconS "info"}}<span>{{.T "routing.outbounds.footnote"}}</span></p>
+<script type="module" src="{{.A "/js/routing.js"}}"></script>
 {{end}}
 
-{{define "outbound_card"}}
+{{define "outbound_list"}}
+<ol class="ob-list" id="ob-list" role="list">
+  <li class="ob-head" aria-hidden="true">
+    <span>{{.T "routing.ob.col.outbound"}}</span><span>{{.T "routing.ob.col.state"}}</span><span>{{.T "routing.fact.exit"}}</span><span>{{.T "routing.fact.latency"}}</span><span>{{.T "routing.ob.col.speed"}}</span><span></span>
+  </li>
+  {{range .Data.Cards}}{{template "outbound_row" (dict "c" . "v" $)}}{{end}}
+</ol>
+{{end}}
+
+{{define "outbound_list_partial"}}{{template "outbound_list" .}}{{end}}
+
+{{define "outbound_row"}}
 {{$c := .c}}{{$v := .v}}{{$o := $c.O}}{{$kind := printf "%v" $o.Kind}}
-<article class="card outbound-card{{if not $o.Enabled}} is-disabled{{end}}" id="ob-{{$o.ID}}" data-state="{{$c.State}}">
-  <div class="card-header">
-    <div class="row min-w-0">
-      <span class="item-media" aria-hidden="true">{{template "routing_kind_icon" (dict "v" $v "kind" $kind)}}</span>
-      <div class="stack-xs min-w-0">
-        <h3 class="card-title truncate"><bdi>{{$o.Name}}</bdi></h3>
-        <span class="text-xs text-muted">{{$v.T $c.KindKey}}</span>
-      </div>
+<li class="ob-row" id="ob-{{$o.ID}}" data-state="{{$c.State}}" data-search="{{$o.Name}} {{$c.Endpoint}} {{$c.ExitIP}} {{$c.Country}} {{$o.SourceIP}}">
+  <details class="ob-details">
+    <summary class="ob-summary">
+      <span class="ob-main">
+        <span class="ob-icon" data-state="{{$c.State}}" aria-hidden="true">{{template "routing_kind_icon" (dict "v" $v "kind" $kind)}}</span>
+        <span class="ob-id">
+          <span class="ob-name" dir="auto">{{$o.Name}}</span>
+          <span class="ob-sub"><span>{{$v.T $c.KindKey}}</span>{{if eq $kind "source_ip"}}<span class="tech">{{$o.SourceIP}}</span>{{else if $c.Via}}<span class="row">{{$v.IconS "route"}}<bdi>{{$c.Via}}</bdi></span>{{else if $c.Endpoint}}<span class="tech truncate">{{$c.Endpoint}}</span>{{end}}</span>
+        </span>
+      </span>
+      <span class="ob-state">{{template "routing_state" (dict "v" $v "state" $c.State)}}</span>
+      <span class="ob-exit" data-label="{{$v.T "routing.fact.exit"}}">{{if $c.ExitIP}}{{if $c.Flag}}<span class="ob-flag" title="{{$c.Country}}">{{$c.Flag}}</span>{{end}}<span class="tech truncate">{{$c.ExitIP}}</span>{{if $c.ExitIP6}}<span class="badge badge--muted tech" title="{{$c.ExitIP6}}">v6</span>{{end}}{{else}}<span class="text-muted">—</span>{{end}}</span>
+      <span class="ob-metric" data-label="{{$v.T "routing.fact.latency"}}">{{if $c.Latency}}<span class="tech" data-latency="{{$c.Latency}}">{{$v.Human $c.Latency}} ms</span>{{else if $c.ProbeError}}<span class="text-danger text-sm">{{$v.T (printf "routing.probe.%s" $c.ProbeError)}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span>
+      <span class="ob-metric ob-speed" data-label="{{$v.T "routing.ob.col.speed"}}">{{template "outbound_speed" (dict "v" $v "c" $c)}}</span>
+      <span class="ob-chevron" aria-hidden="true">{{$v.IconS "chevron-down"}}</span>
+    </summary>
+    <div class="ob-body">
+      <dl class="ob-facts">
+        {{if eq $kind "source_ip"}}<div><dt>{{$v.T "routing.fact.source_ip"}}</dt><dd class="tech">{{$o.SourceIP}}</dd></div>
+        {{else}}<div><dt>{{$v.T "routing.fact.endpoint"}}</dt><dd class="tech">{{if $c.Endpoint}}{{$c.Endpoint}}{{else}}—{{end}}</dd></div>
+        {{if $c.Via}}<div><dt>{{$v.T "routing.fact.via"}}</dt><dd><bdi>{{$c.Via}}</bdi></dd></div>{{end}}{{end}}
+        <div><dt>{{$v.T "routing.fact.exit"}}</dt><dd>{{if $c.ExitIP}}<span class="tech">{{$c.ExitIP}}</span>{{if $c.Country}} <span class="badge badge--outline tech">{{$c.Country}}</span>{{end}}{{else}}—{{end}}</dd></div>
+        {{if $c.Bridge}}<div><dt>{{$v.T "routing.fact.ipv6"}}</dt><dd>{{if eq $c.Bridge "active"}}{{if $c.ExitIP6}}<span class="tech">{{$c.ExitIP6}}</span>{{else}}{{$v.T "routing.bridge.active"}}{{end}}{{else if eq $c.Bridge "no_ipv6"}}<span class="text-danger">{{$v.T "routing.bridge.no_ipv6"}}</span>{{else}}<span class="text-muted">{{$v.T (printf "routing.bridge.%s" $c.Bridge)}}</span>{{end}}</dd></div>
+        {{if and $c.HasStats (or $c.Bridged.IPv6 $c.Bridged.IPv4)}}<div><dt>{{$v.T "routing.fact.bridged"}}</dt><dd><bdi class="num">{{$v.N (i64u $c.Bridged.IPv6)}}</bdi> IPv6 · <bdi class="num">{{$v.N (i64u $c.Bridged.IPv4)}}</bdi> IPv4</dd></div>{{end}}{{end}}
+        {{if $c.WARPState}}<div><dt>{{$v.T "routing.fact.warp"}}</dt><dd>{{if eq $c.WARPState "off"}}<span class="text-danger">{{$v.T "routing.warp_state.off"}}</span>{{else}}{{$v.T (printf "routing.warp_state.%s" $c.WARPState)}}{{end}}{{if $c.Colo}} <span class="badge badge--outline tech" title="{{$v.T "routing.fact.colo"}}">{{$c.Colo}}</span>{{end}}</dd></div>{{end}}
+        {{if ne $kind "source_ip"}}
+        <div><dt>{{$v.T "routing.fact.handshake"}}</dt><dd>{{if $c.Handshake}}{{$v.Rel $c.Handshake}}{{else}}<span class="text-muted">{{$v.T "common.never"}}</span>{{end}}</dd></div>
+        <div><dt>{{$v.T "routing.fact.traffic"}}</dt><dd>{{if $c.Counters}}<span class="row">{{$v.IconS "download"}}<bdi class="num">{{$v.B $c.RX}}</bdi> {{$v.IconS "upload"}}<bdi class="num">{{$v.B $c.TX}}</bdi></span>{{else}}—{{end}}</dd></div>
+        {{end}}
+        {{if $c.ProbedAt}}<div><dt>{{$v.T "routing.fact.checked"}}</dt><dd>{{$v.Rel $c.ProbedAt}}</dd></div>{{end}}
+        {{if $c.Speed}}<div><dt>{{$v.T "routing.ob.speed_tested"}}</dt><dd>{{if $c.Speed.OK}}<span class="tech">{{$c.SpeedPing}} ms</span> · {{end}}{{$v.Rel $c.SpeedAt}}</dd></div>{{end}}
+        {{$used := ""}}{{range $i, $n := $c.UsedBy}}{{if $i}}{{$used = printf "%s، %s" $used $n}}{{else}}{{$used = $n}}{{end}}{{end}}
+        <div class="ob-facts-wide"><dt>{{$v.T "routing.used_by"}}</dt><dd>{{if $c.UsedBy}}<bdi>{{$used}}</bdi>{{else}}<span class="text-muted">{{$v.T "routing.unused"}}</span>{{end}}</dd></div>
+      </dl>
+      {{if eq $c.State "error"}}<div class="alert alert--destructive">{{$v.Icon "alert-circle"}}<p class="alert-title">{{$v.T (printf "routing.link_error.%s" $c.Status.LinkError)}}</p></div>{{end}}
     </div>
-    <div class="card-action">{{template "routing_state" (dict "v" $v "state" $c.State)}}</div>
-  </div>
-  <div class="card-content kv">
-    {{if eq $kind "source_ip"}}
-    <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.source_ip"}}</span><span class="kv-value tech">{{$o.SourceIP}}</span></div>
-    {{else}}
-    <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.endpoint"}}</span><span class="kv-value tech truncate" title="{{$c.Endpoint}}">{{$c.Endpoint}}</span></div>
-    {{if $c.Via}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.via"}}</span><span class="kv-value row">{{$v.IconS "route"}}<bdi>{{$c.Via}}</bdi></span></div>{{end}}
-    {{end}}
-    <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.exit"}}</span><span class="kv-value">{{if $c.ExitIP}}{{if $c.Country}}<span title="{{$c.Country}}" aria-label="{{$c.Country}}">{{$c.Flag}}</span>{{end}}<span class="tech">{{$c.ExitIP}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
-    {{if $c.Bridge}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.ipv6"}}</span><span class="kv-value row min-w-0">{{if eq $c.Bridge "active"}}{{if $c.ExitIP6}}<span class="tech truncate" title="{{$c.ExitIP6}}">{{$c.ExitIP6}}</span>{{else}}<span class="text-sm">{{$v.T "routing.bridge.active"}}</span>{{end}}{{else if eq $c.Bridge "no_ipv6"}}<span class="text-danger text-sm">{{$v.T "routing.bridge.no_ipv6"}}</span>{{else}}<span class="text-muted text-sm">{{$v.T (printf "routing.bridge.%s" $c.Bridge)}}</span>{{end}}</span></div>
-    {{if and $c.HasStats (or $c.Bridged.IPv6 $c.Bridged.IPv4)}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.bridged"}}</span><span class="kv-value text-sm"><bdi class="num">{{$v.N (i64u $c.Bridged.IPv6)}}</bdi> IPv6 · <bdi class="num">{{$v.N (i64u $c.Bridged.IPv4)}}</bdi> IPv4</span></div>{{end}}{{end}}
-    {{if $c.WARPState}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.warp"}}</span><span class="kv-value row">{{if eq $c.WARPState "off"}}<span class="text-danger text-sm">{{$v.T "routing.warp_state.off"}}</span>{{else}}<span>{{$v.T (printf "routing.warp_state.%s" $c.WARPState)}}</span>{{end}}{{if $c.Colo}}<span class="badge badge--outline tech" title="{{$v.T "routing.fact.colo"}}">{{$c.Colo}}</span>{{end}}</span></div>{{end}}
-    <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.latency"}}</span><span class="kv-value">{{if $c.Latency}}<span class="tech">{{$v.Human $c.Latency}} ms</span>{{else if $c.ProbeError}}<span class="text-danger text-sm">{{$v.T (printf "routing.probe.%s" $c.ProbeError)}}</span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
-    {{if ne $kind "source_ip"}}
-    {{if $c.ProbedAt}}<div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.checked"}}</span><span class="kv-value text-sm">{{$v.Rel $c.ProbedAt}}</span></div>{{end}}
-    <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.handshake"}}</span><span class="kv-value">{{if $c.Handshake}}{{$v.Rel $c.Handshake}}{{else}}<span class="text-muted">{{$v.T "common.never"}}</span>{{end}}</span></div>
-    <div class="kv-row"><span class="kv-label">{{$v.T "routing.fact.traffic"}}</span><span class="kv-value">{{if $c.Counters}}<span class="row text-sm"><span class="row">{{$v.IconS "download"}}<bdi class="num">{{$v.B $c.RX}}</bdi></span><span class="row">{{$v.IconS "upload"}}<bdi class="num">{{$v.B $c.TX}}</bdi></span></span>{{else}}<span class="text-muted">—</span>{{end}}</span></div>
-    {{end}}
-  </div>
-  {{if eq $c.State "error"}}<div class="card-content"><div class="alert alert--destructive">{{$v.Icon "alert-circle"}}<p class="alert-title">{{$v.T (printf "routing.link_error.%s" $c.Status.LinkError)}}</p></div></div>{{end}}
-  <div class="card-footer card-footer--bordered row-between">
-    {{$used := ""}}{{range $i, $n := $c.UsedBy}}{{if $i}}{{$used = printf "%s، %s" $used $n}}{{else}}{{$used = $n}}{{end}}{{end}}
-    <p class="text-xs text-muted truncate"{{if $used}} title="{{$used}}"{{end}}>{{if $c.UsedBy}}{{$v.T "routing.used_by"}}: <bdi>{{$used}}</bdi>{{else}}{{$v.T "routing.unused"}}{{end}}</p>
-    <div class="row">
-      <form method="post" action="/routing/outbounds/{{$o.ID}}/test" hx-post="/routing/outbounds/{{$o.ID}}/test" hx-target="#ob-{{$o.ID}}" hx-swap="outerHTML" hx-disabled-elt="find button">
-        <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-        <button type="submit" class="btn btn--xs"{{if not $o.Enabled}} disabled{{end}}><span class="spinner htmx-indicator" aria-hidden="true"></span>{{$v.IconS "activity"}}{{$v.T "routing.test"}}</button>
-      </form>
-      {{if $v.Can "interfaces.write"}}
-      <a class="btn btn--ghost btn--xs" href="/routing/outbounds/{{$o.ID}}/edit">{{$v.T "common.edit"}}</a>
-      <div class="menu-anchor">
-        <button type="button" class="btn btn--ghost btn--icon btn--xs" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$o.Name}}">{{$v.IconS "more-vertical"}}</button>
-        <div class="menu" role="menu">
-          <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/{{if $o.Enabled}}disable{{else}}enable{{end}}">
-            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-            <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{if $o.Enabled}}{{$v.T "routing.disable"}}{{else}}{{$v.T "routing.enable"}}{{end}}</span></button>
-          </form>
-          {{if eq $kind "warp"}}
-          <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/renew" data-confirm data-confirm-title="{{$v.T "routing.outbounds.renew_confirm_title"}}" data-confirm-message="{{$v.T "routing.outbounds.renew_confirm" $o.Name}}" data-confirm-label="{{$v.T "routing.outbounds.renew_label"}}">
-            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-            <button type="submit" role="menuitem">{{$v.IconS "refresh-cw"}}<span>{{$v.T "routing.outbounds.renew"}}</span></button>
-          </form>
-          {{end}}
-          <hr>
-          {{if $c.UsedBy}}
-          <button type="button" role="menuitem" class="is-danger" disabled title="{{$v.T "routing.outbounds.delete_blocked"}}">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
-          {{else}}
-          <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/delete" data-confirm data-confirm-title="{{$v.T "common.confirm_delete"}}" data-confirm-message="{{$v.T "routing.outbounds.delete_confirm" $o.Name}}" data-confirm-label="{{$v.T "common.delete"}}">
-            <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-            <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
-          </form>
-          {{end}}
-        </div>
-      </div>
-      {{end}}
-    </div>
-  </div>
-</article>
-{{end}}
-
-{{define "outbound_card_partial"}}{{template "outbound_card" (dict "c" .Data "v" .)}}{{end}}
-
-{{define "site_test"}}{{$v := .v}}{{$d := .d}}
-<section class="card site-test" id="site-test" aria-labelledby="site-test-heading">
-  <div class="card-header">
-    <div class="stack-xs">
-      <h2 class="card-title" id="site-test-heading">{{$v.IconS "globe"}}{{$v.T "routing.site.title"}}</h2>
-      <p class="card-description">{{$v.T "routing.site.description"}}</p>
-    </div>
-  </div>
-  <div class="card-content stack">
-    <form method="post" action="/routing/outbounds/site-test#site-test" hx-post="/routing/outbounds/site-test" hx-target="#site-test-result" hx-swap="innerHTML" hx-disabled-elt="find button" class="site-test-form">
+  </details>
+  <div class="ob-actions">
+    <form method="post" action="/routing/outbounds/{{$o.ID}}/test" hx-post="/routing/outbounds/{{$o.ID}}/test" hx-target="#ob-{{$o.ID}}" hx-swap="outerHTML" hx-disabled-elt="find button">
       <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
-      <div class="field">
-        <label class="field-label" for="site-service">{{$v.T "routing.site.service"}}</label>
-        <select class="select" id="site-service" name="service">
-          {{range $d.Services}}<option value="{{.ID}}"{{if eq $d.Service .ID}} selected{{end}}>{{.Name}}</option>{{end}}
-          <option value="url"{{if eq $d.Service "url"}} selected{{end}}>{{$v.T "routing.site.custom"}}</option>
-        </select>
-      </div>
-      <div class="field site-test-url">
-        <label class="field-label" for="site-url">{{$v.T "routing.site.url"}}</label>
-        <input class="input input--tech" id="site-url" name="url" type="text" dir="ltr" spellcheck="false" autocomplete="off" inputmode="url" placeholder="https://example.com" value="{{$d.URL}}">
-      </div>
-      <button type="submit" class="btn btn--sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>{{$v.IconS "activity"}}{{$v.T "routing.site.run"}}</button>
+      <button type="submit" class="btn btn--ghost btn--icon btn--xs" aria-label="{{$v.T "routing.test"}}: {{$o.Name}}" data-tip="{{$v.T "routing.ob.test_tip"}}"{{if not $o.Enabled}} disabled{{end}}><span class="spinner htmx-indicator" aria-hidden="true"></span><span class="ob-action-icon">{{$v.IconS "activity"}}</span></button>
     </form>
-    <div id="site-test-result" aria-live="polite">{{if $d.Ran}}{{template "site_test_result" (dict "v" $v "d" $d)}}{{end}}</div>
-    <p class="text-xs text-muted">{{$v.T "routing.site.footnote"}}</p>
+    {{if $v.Can "interfaces.write"}}
+    <form method="post" action="/routing/outbounds/{{$o.ID}}/speed" hx-post="/routing/outbounds/{{$o.ID}}/speed" hx-target="#ob-{{$o.ID}}" hx-swap="outerHTML" hx-disabled-elt="find button" data-speed-form>
+      <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+      <button type="submit" class="btn btn--ghost btn--icon btn--xs" aria-label="{{$v.T "routing.ob.speed"}}: {{$o.Name}}" data-tip="{{$v.T "routing.ob.speed_tip"}}"{{if not $o.Enabled}} disabled{{end}}><span class="spinner htmx-indicator" aria-hidden="true"></span><span class="ob-action-icon">{{$v.IconS "gauge"}}</span></button>
+    </form>
+    <div class="menu-anchor">
+      <button type="button" class="btn btn--ghost btn--icon btn--xs" aria-haspopup="menu" aria-expanded="false" aria-label="{{$v.T "common.actions"}}: {{$o.Name}}">{{$v.IconS "more-vertical"}}</button>
+      <div class="menu" role="menu">
+        <a role="menuitem" href="/routing/outbounds/{{$o.ID}}/edit">{{$v.IconS "pencil"}}<span>{{$v.T "common.edit"}}</span></a>
+        <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/{{if $o.Enabled}}disable{{else}}enable{{end}}">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "power"}}<span>{{if $o.Enabled}}{{$v.T "routing.disable"}}{{else}}{{$v.T "routing.enable"}}{{end}}</span></button>
+        </form>
+        {{if eq $kind "warp"}}
+        <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/renew" data-confirm data-confirm-title="{{$v.T "routing.outbounds.renew_confirm_title"}}" data-confirm-message="{{$v.T "routing.outbounds.renew_confirm" $o.Name}}" data-confirm-label="{{$v.T "routing.outbounds.renew_label"}}">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem">{{$v.IconS "refresh-cw"}}<span>{{$v.T "routing.outbounds.renew"}}</span></button>
+        </form>
+        {{end}}
+        <hr>
+        {{if $c.UsedBy}}
+        <button type="button" role="menuitem" class="is-danger" disabled title="{{$v.T "routing.outbounds.delete_blocked"}}">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+        {{else}}
+        <form role="none" method="post" action="/routing/outbounds/{{$o.ID}}/delete" data-confirm data-confirm-title="{{$v.T "common.confirm_delete"}}" data-confirm-message="{{$v.T "routing.outbounds.delete_confirm" $o.Name}}" data-confirm-label="{{$v.T "common.delete"}}">
+          <input type="hidden" name="_csrf" value="{{$v.CSRF}}">
+          <button type="submit" role="menuitem" class="is-danger">{{$v.IconS "trash-2"}}<span>{{$v.T "common.delete"}}</span></button>
+        </form>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
   </div>
-</section>
+</li>
 {{end}}
 
-{{define "site_test_result"}}{{$v := .v}}{{$d := .d}}
-{{if $d.Invalid}}<div class="alert alert--destructive" role="status">{{$v.Icon "alert-circle"}}<p class="alert-title">{{$v.T "routing.site.invalid"}}</p></div>
-{{else if not $d.Rows}}<div class="alert" role="status">{{$v.Icon "info"}}<p class="alert-title">{{$v.T "routing.site.unavailable"}}</p></div>
-{{else}}
-<div class="table-frame"><div class="table-wrap">
-  <table class="table table--cards site-test-table">
-    <caption class="sr-only">{{$v.T "routing.site.caption" $d.Label}}</caption>
-    <thead><tr><th scope="col">{{$v.T "routing.site.col_exit"}}</th><th scope="col">{{$v.T "routing.site.col_result"}}</th><th scope="col">{{$v.T "routing.site.col_detail"}}</th></tr></thead>
-    <tbody>{{range $d.Rows}}{{$res := .Result}}
-      <tr>
-        <td class="cell-primary">{{if .Direct}}<span class="row">{{$v.IconS "server"}}<span>{{$v.T "routing.site.direct"}}</span></span>{{else}}<span class="row min-w-0">{{template "routing_kind_icon" (dict "v" $v "kind" .Kind)}}<bdi class="truncate">{{.Name}}</bdi></span>{{end}}</td>
-        <td data-label="{{$v.T "routing.site.col_result"}}"><span class="badge badge--{{.Tone}}"><span class="dot"></span>{{$v.T (printf "routing.site.verdict.%s" $res.Verdict)}}</span>{{if $res.Region}} <span class="badge badge--outline tech">{{$res.Region}}</span>{{end}}</td>
-        <td data-label="{{$v.T "routing.site.col_detail"}}" class="text-sm">{{if eq $res.Verdict "failed"}}<span class="text-danger">{{$v.T (printf "routing.site.error.%s" $res.Error)}}</span>{{else}}<span class="row site-test-detail"><span class="tech">HTTP {{$res.Status}}</span>{{if $res.Family}}<span class="badge badge--muted tech">{{if eq $res.Family "ip6"}}IPv6{{else}}IPv4{{end}}</span>{{end}}{{if .Latency}}<span class="tech">{{$v.Human .Latency}} ms</span>{{end}}{{if $res.Final}}<bdi class="tech text-muted truncate" title="{{$res.Final}}">{{$res.Final}}</bdi>{{end}}</span>{{end}}</td>
-      </tr>
-    {{end}}</tbody>
-  </table>
-</div></div>
-{{end}}
-{{end}}
+{{define "outbound_speed"}}{{$c := .c}}{{$v := .v}}
+{{- if not $c.Speed}}<span class="text-muted">—</span>
+{{- else if $c.Speed.OK}}<span class="ob-speed-value"><span class="row" title="{{$v.T "routing.ob.download"}}">{{$v.IconS "download"}}<bdi class="tech">{{$c.SpeedDown}}</bdi></span><span class="row" title="{{$v.T "routing.ob.upload"}}">{{$v.IconS "upload"}}<bdi class="tech">{{$c.SpeedUp}}</bdi></span><span class="text-xs text-muted">Mbps</span></span>
+{{- else}}<span class="text-danger text-sm">{{$v.T (printf "routing.speed.error.%s" $c.Speed.Error)}}</span>{{end}}
+{{- end}}
 
-{{define "site_test_result_partial"}}{{template "site_test_result" (dict "v" . "d" .Data)}}{{end}}
+{{define "outbound_card_partial"}}{{template "outbound_row" (dict "c" .Data "v" .)}}{{end}}

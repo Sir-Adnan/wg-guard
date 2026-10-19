@@ -73,7 +73,7 @@ func init() {
 		{"routing.outbounds.renew_confirm_title", "Register a new WARP identity?", "هویت تازهٔ WARP ثبت شود؟"},
 		{"routing.outbounds.renew_confirm", "“%s” gets new keys and a new Cloudflare account. If the exit IP stays the same, WG-Guard tries up to 3 times. This can take up to a minute. Connections through it restart; its rules and balancers stay as they are.", "«%s» کلید و حساب Cloudflare تازه می‌گیرد. اگر IP خروجی عوض نشود، WG-Guard تا ۳ بار دوباره تلاش می‌کند. این کار ممکن است تا یک دقیقه طول بکشد. اتصال‌هایی که از آن می‌گذرند از نو برقرار می‌شوند و قوانین و بالانسرهایش تغییری نمی‌کنند."},
 		{"routing.outbounds.renew_label", "Register", "ثبت"},
-		{"routing.outbounds.delete_blocked", "In use. Remove it from the items listed below the card first.", "در حال استفاده است. اول آن را از مواردی که زیر کارت آمده حذف کنید."},
+		{"routing.outbounds.delete_blocked", "In use. Remove it from the items listed under “Used by” first.", "در حال استفاده است. اول آن را از مواردی که در «استفاده در» آمده حذف کنید."},
 
 		{"routing.kind.warp", "Cloudflare WARP", "Cloudflare WARP"},
 		{"routing.kind.warp_plus", "WARP+", "WARP+"},
@@ -257,12 +257,12 @@ func init() {
 
 		// Site test.
 		{"routing.site.title", "Site test", "تست سایت"},
-		{"routing.site.description", "Open a site through this server and every enabled outbound to see which exit the service accepts.", "یک سایت را از مسیر همین سرور و از هر خروجی فعال باز کنید تا ببینید سرویس کدام خروجی را می‌پذیرد."},
+		{"routing.site.description", "Open a service or any site through this server and every enabled outbound. Each exit’s result appears as soon as it answers.", "یک سرویس یا هر سایتی را از مسیر همین سرور و همهٔ خروجی‌های فعال باز کنید. نتیجهٔ هر خروجی به‌محض پاسخ نمایش داده می‌شود."},
 		{"routing.site.service", "Service", "سرویس"},
 		{"routing.site.custom", "Another site (URL)", "سایت دیگر (URL)"},
 		{"routing.site.url", "Site address", "آدرس سایت"},
 		{"routing.site.run", "Run test", "اجرای تست"},
-		{"routing.site.footnote", "The test runs from this server, the same way device traffic would leave. Services change their pages, so “Unknown” means the answer was not recognized, not that the site is blocked.", "تست از همین سرور و از همان مسیری اجرا می‌شود که ترافیک دستگاه‌ها می‌رود. سرویس‌ها صفحه‌هایشان را تغییر می‌دهند؛ پس «نامشخص» یعنی پاسخ شناخته نشد، نه اینکه سایت مسدود است."},
+		{"routing.site.footnote", "The test runs on this server and leaves exactly like device traffic, but it is a script, not a browser: a site with bot protection can answer it differently than it answers your phone.", "تست روی همین سرور اجرا می‌شود و دقیقاً از مسیر ترافیک دستگاه‌ها خارج می‌شود؛ اما یک اسکریپت است، نه مرورگر. سایتی که محافظ ربات دارد ممکن است به آن پاسخی متفاوت از پاسخ به گوشی شما بدهد."},
 		{"routing.site.invalid", "Enter a site address such as example.com or https://example.com/page.", "یک آدرس سایت مثل example.com یا https://example.com/page وارد کنید."},
 		{"routing.site.unavailable", "Site tests are not available on this node.", "تست سایت روی این نود در دسترس نیست."},
 		{"routing.site.caption", "Site test results for %s", "نتیجهٔ تست سایت برای %s"},

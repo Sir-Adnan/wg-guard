@@ -81,7 +81,7 @@ permission-aware groups (Manage, System, Preferences) from one Go definition (`V
 with the palette. Server authorization stays authoritative; unauthorized destinations are absent.
 The header supplies the sidebar toggle, page context and language/theme controls. The desktop
 sidebar collapses to an icon rail with tooltips and keeps accessible names and current-location
-state. The command palette (⌘K / Ctrl+K / `/`) filters the same destinations plus quick actions
+state; the brand mark keeps its own width there, centered in the rail. The command palette (⌘K / Ctrl+K / `/`) filters the same destinations plus quick actions
 and a user search; it is an enhancement, never the only path.
 
 Below 960px the sidebar becomes a modal navigation drawer: close button/Escape/backdrop, contained
@@ -223,8 +223,10 @@ reseller token forms use the same shortcut classification within their allowable
 The user detail exposes Reset Usage as a confirmed visible action when `traffic.update` is
 granted, alongside renewal/add-time and Add data allowance. The user list offers those actions from each
 row; one pair of shared quick-action dialogs serves the paginated list, while native detail-page
-forms remain the no-JavaScript path. On narrow screens, user rows retain the key identity,
-status, usage and expiry in a compact card; search stays visible and additional filters collapse.
+forms remain the no-JavaScript path. On narrow screens, each user row is a compact card: identity
+and status on one line, the usage meter, expiry and devices, then a labeled bar of the everyday
+actions (subscription link, QR, config) with the rest in the ⋮ menu; search stays visible and
+additional filters collapse.
 The successor-plan editor collapses when no plan is queued, and the detail summary uses a two-column
 phone layout. API-token and webhook screens explain that bots authenticate with scoped Bearer
 tokens and that webhooks are optional notifications.
@@ -354,7 +356,9 @@ Every subscription design shows the following:
 - for each device, **Download config**, **QR code**, **Copy key** and **Open in AmneziaVPN**,
   at least 36px under every density, in a two-column grid: Download spans the row,
   QR code and Copy key share one, and Open in AmneziaVPN takes its own, so nothing clips
-  horizontally on phones. Open in AmneziaVPN follows the platform: the `vpn://` link on Android,
+  horizontally on phones. A lone device spans the row: from 34rem of width its actions form one
+  row under its name, from 54rem the name and the actions sit side by side, so the card never
+  holds a half-empty column. From 1280px the page column widens to 58rem. Open in AmneziaVPN follows the platform: the `vpn://` link on Android,
   the share sheet with a `.vpn` file on iPhone and iPad (a second tap if Safari drops the first),
   and a `.vpn` download with import instructions on desktop. Copy key hands the pending text to
   the clipboard inside the tap, which Safari requires.
@@ -362,30 +366,53 @@ Every subscription design shows the following:
 Meter widths and ring angles come from fixed classes (`w0…w100`), not inline styles, so the
 strict CSP holds.
 
-**Routing** (`/routing/*`) has three tabbed pages, each doing one job:
+**Routing** (`/routing/*`) has four tabbed pages, each doing one job:
 
-- **Outbounds**: kind picker, then a form for that kind. Cards show health, latency, when it was
-  last checked, exit IP with a country flag, for WARP the WARP state and Cloudflare data centre,
-  the outbound a chained one goes through, traffic and everything that uses it (full list on
-  hover). An outbound in use offers no Delete. WARP cards have **New WARP identity** behind a
-  confirmation; its toast reports the old and new exit IP. The form has **Route the tunnel
-  through** for WARP and WireGuard outbounds (it explains that this is how WARP gets another
-  country), suggests WARP endpoints and has the **Open websites over IPv6** switch. The switch is
-  disabled with an explanation for a config without an IPv6 address. Cards of bridged outbounds
-  show the IPv6 exit, the bridge state and the bridged IPv6/IPv4 connection counts. Below the
-  cards, **Site test** picks a known service or a URL (the URL field appears only for a custom
-  site) and shows a result table for this server and every enabled outbound: verdict badge,
-  reported region, HTTP status, address family, time and final host. The table becomes cards on
-  phones; HTMX swaps only the results.
+- **Outbounds**: kind picker, then a form for that kind. The list is one dense row per outbound
+  so dozens stay scannable: kind icon with a state pip, name with kind and endpoint (or the
+  outbound it is chained through), state badge, exit IP with a country flag (`v6` when an IPv6
+  exit was probed), latency and the last speed test. A row expands (native `details`) into its
+  facts: endpoint, exit and country, IPv6 exit and bridge state with the bridged IPv6/IPv4
+  connection counts, WARP state and Cloudflare data centre, last handshake, traffic, last check,
+  last speed test and everything that uses it. Row actions are **Test**, **Speed test** and a menu
+  with Edit, Enable/Disable, **New WARP identity** (behind a confirmation; its toast reports the
+  old and new exit IP) and Delete, which an outbound in use does not offer. The toolbar filters
+  by state (All / Healthy / Problems / Disabled, CSS radio segments that work without
+  JavaScript), searches name, IP or endpoint (JavaScript), runs **Test all** and **Speed test
+  all** (one outbound at a time, stoppable) and links to the site test. A swapped row keeps its
+  expanded state. Below 860px a row is two lines: name and actions, then state and measurements;
+  empty measurements are left out. The form has **Route the tunnel through** for WARP and
+  WireGuard outbounds (it explains that this is how WARP gets another country), suggests WARP
+  endpoints and has the **Open websites over IPv6** switch, disabled with an explanation for a
+  config without an IPv6 address.
 - **Balancers**: radio cards for the strategies. A warning appears when a per-connection
   strategy is chosen. Members show a weight, or a Priority for failover.
-- **Rules**: an ordered list with up/down moves (the page returns to the moved rule), a
-  **Going direct** badge on rules whose outbound is not usable, the default route, a site check
-  (linking to the site test with the name filled in) and geodata management. Encrypted DNS is its own card with a live state (Active, Waiting for
-  a domain rule, Off), visible help and the strict Private DNS warning. The rule form groups
-  presets by category as multi-select chips. It has a matcher textarea with syntax help and
-  geosite suggestions. Target selects list direct and block, then outbounds and balancers in
-  option groups.
+- **Rules**: one hairline list of index, rule (name linking to its editor, up to three preset
+  chips whose tooltip lists their first entries, then counts of domains, categories and IP
+  ranges), → target and actions (up/down moves, which return to the moved rule, and a menu). A
+  **Going direct** badge marks rules whose outbound is not usable; the default route closes the
+  list. A site check above it links to the site test with the name filled in. Encrypted DNS and
+  geo data sit side by side below; the DNS card keeps a live state (Active, Waiting for a domain
+  rule, Off) and folds the strict Private DNS warning into "Before you turn it on".
+- **Rule editor**: two steps. **Services and entries** opens with an **Add a service** dropdown
+  (a native disclosure holding the checkboxes, so it works without JavaScript): services grouped
+  by category, each with its entry count, and a search over names and domains. Each chosen
+  service appears in the box below as a row with its category, its entries (two lines, with a
+  CSS-only "Show all") and a remove button; the operator's own entries follow in the same box,
+  with syntax help and geosite suggestions. Escape or a click outside closes the dropdown.
+  **Destination and name** holds the target select (direct and block, then outbounds and
+  balancers in option groups), the name, which JavaScript suggests from the picked services
+  while it is untouched, and the on/off switch. A sticky save bar summarizes the selection.
+- **Tests**: the site test. Pick one service, **All services** or a custom URL (the URL field
+  appears only then), and the IP version: Automatic (like device traffic), IPv4 only, IPv6 only,
+  or both side by side, which stacks a `v4` and a `v6` result in each cell. The result grid has one row per exit (this server, then every enabled
+  outbound) and one column per service; cells load themselves as exits answer and each can be
+  run again. A cell shows the verdict badge, the region the service reported (flag for
+  two-letter codes) and the address family and time; a single-service grid adds the HTTP status
+  and final address. The exit column stays in view when many columns scroll; phones get one card
+  per exit with the services as labeled cells, verdict and region only for "All services". A
+  collapsible legend explains every verdict, including why a site that opens on a phone can show
+  **Bot check** or **Refused** here.
 - Failure flashes (refused delete, apply pending, geodata errors) render as error alerts.
 
 Technical values (matchers, IPs, endpoints, marks) are isolated as LTR in both locales.

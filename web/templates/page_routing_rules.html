@@ -20,7 +20,7 @@
   {{else}}{{$.Icon "route"}}
   <p class="alert-title row"><bdi class="tech">{{.Query}}</bdi><span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>{{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}</p>
   <p class="alert-description">{{if .Matched}}{{$.T "routing.check.matched"}} <strong><bdi>{{.RuleName}}</bdi></strong>{{else}}{{$.T "routing.check.default"}}{{end}}{{if .Note}} · {{$.T .Note}}{{end}}</p>
-  <p class="alert-description"><a class="link" href="/routing/outbounds?site={{.Query}}#site-test">{{$.T "routing.check.site_test"}}</a></p>
+  <p class="alert-description"><a class="link" href="/routing/tests?site={{.Query}}">{{$.T "routing.check.site_test"}}</a></p>
   {{end}}
 </div>
 {{end}}
@@ -29,32 +29,33 @@
   <div class="section-header">
     <div class="section-heading"><h2 class="section-title" id="rules-heading">{{.T "routing.rules"}}</h2><p class="section-description">{{.T "routing.rules.order_hint"}}</p></div>
   </div>
-  <ol class="item-group rule-list">
+  <ol class="rule-list" role="list">
     {{range .Data.Rows}}{{$r := .R}}
-    <li class="item rule-row{{if not $r.Enabled}} item--muted{{end}}" id="rule-{{$r.ID}}" data-enabled="{{$r.Enabled}}">
+    <li class="rule-row" id="rule-{{$r.ID}}" data-enabled="{{$r.Enabled}}">
       <span class="rule-index tech" aria-label="{{$.T "routing.rules.order"}}">{{$.N (i64u .Index)}}</span>
-      <div class="item-content">
-        <div class="item-title"><bdi>{{$r.Name}}</bdi>{{if not $r.Enabled}}<span class="badge badge--muted">{{$.T "routing.disabled"}}</span>{{end}}</div>
-        <div class="rule-flow">
-          <span class="rule-match">
-            {{range .Presets}}<span class="badge badge--outline">{{.Name}}</span>{{end}}
-            {{if .Domains}}<span class="badge badge--muted">{{$.T "routing.rules.count_domains" (.Domains)}}</span>{{end}}
-            {{if .Categories}}<span class="badge badge--muted">{{$.T "routing.rules.count_categories" (.Categories)}}</span>{{end}}
-            {{if .Addresses}}<span class="badge badge--muted">{{$.T "routing.rules.count_addresses" (.Addresses)}}</span>{{end}}
-          </span>
-          <span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>
-          {{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}
-          {{if .Fallback}}<span class="badge badge--warning" title="{{$.T "routing.rules.fallback_hint"}}"><span class="dot"></span>{{$.T "routing.rules.fallback"}}</span>{{end}}
+      <div class="rule-main">
+        <div class="rule-title">{{if $.Data.CanWrite}}<a class="rule-name" href="/routing/rules/{{$r.ID}}/edit"><bdi>{{$r.Name}}</bdi></a>{{else}}<span class="rule-name"><bdi>{{$r.Name}}</bdi></span>{{end}}{{if not $r.Enabled}}<span class="badge badge--muted">{{$.T "routing.disabled"}}</span>{{end}}</div>
+        <div class="rule-match">
+          {{range $i, $p := .Presets}}{{if lt $i 3}}<span class="badge badge--outline" data-tip="{{$p.Preview}}">{{$p.Name}}</span>{{end}}{{end}}
+          {{if .MoreCount}}<span class="badge badge--outline num" data-tip="{{.MorePresets}}">+{{$.N (i64u .MoreCount)}}</span>{{end}}
+          {{if .Domains}}<span class="rule-count">{{$.T "routing.rules.count_domains" (.Domains)}}</span>{{end}}
+          {{if .Categories}}<span class="rule-count">{{$.T "routing.rules.count_categories" (.Categories)}}</span>{{end}}
+          {{if .Addresses}}<span class="rule-count">{{$.T "routing.rules.count_addresses" (.Addresses)}}</span>{{end}}
         </div>
       </div>
+      <div class="rule-target">
+        <span class="routing-arrow" aria-hidden="true">{{$.IconS "arrow-right"}}</span>
+        {{template "routing_target" (dict "v" $ "kind" .TargetKind "label" .TargetLabel)}}
+        {{if .Fallback}}<span class="badge badge--warning" data-tip="{{$.T "routing.rules.fallback_hint"}}"><span class="dot"></span>{{$.T "routing.rules.fallback"}}</span>{{end}}
+      </div>
       {{if $.Data.CanWrite}}
-      <div class="item-actions">
+      <div class="rule-actions">
         <form method="post" action="/routing/rules/{{$r.ID}}/up"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--ghost btn--icon btn--xs" aria-label="{{$.T "routing.rules.move_up"}}: {{$r.Name}}" data-tip="{{$.T "routing.rules.move_up"}}"{{if .First}} disabled{{end}}>{{$.IconS "arrow-up"}}</button></form>
         <form method="post" action="/routing/rules/{{$r.ID}}/down"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn btn--ghost btn--icon btn--xs" aria-label="{{$.T "routing.rules.move_down"}}: {{$r.Name}}" data-tip="{{$.T "routing.rules.move_down"}}"{{if .Last}} disabled{{end}}>{{$.IconS "arrow-down"}}</button></form>
-        <a class="btn btn--ghost btn--xs" href="/routing/rules/{{$r.ID}}/edit">{{$.T "common.edit"}}</a>
         <div class="menu-anchor">
           <button type="button" class="btn btn--ghost btn--icon btn--xs" aria-haspopup="menu" aria-expanded="false" aria-label="{{$.T "common.actions"}}: {{$r.Name}}">{{$.IconS "more-vertical"}}</button>
           <div class="menu" role="menu">
+            <a role="menuitem" href="/routing/rules/{{$r.ID}}/edit">{{$.IconS "pencil"}}<span>{{$.T "common.edit"}}</span></a>
             <form role="none" method="post" action="/routing/rules/{{$r.ID}}/{{if $r.Enabled}}disable{{else}}enable{{end}}">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button type="submit" role="menuitem">{{$.IconS "power"}}<span>{{if $r.Enabled}}{{$.T "routing.disable"}}{{else}}{{$.T "routing.enable"}}{{end}}</span></button>
@@ -70,7 +71,7 @@
       {{end}}
     </li>
     {{else}}
-    <li class="item rule-empty">
+    <li class="rule-empty">
       <div class="empty empty--compact">
         <span class="empty-icon">{{.Icon "list-filter"}}</span>
         <h3 class="empty-title">{{.T "routing.rules.empty.title"}}</h3>
@@ -86,27 +87,27 @@
       </div>
     </li>
     {{end}}
-    <li class="item rule-row rule-default">
+    <li class="rule-row rule-default">
+      <span class="rule-index" aria-hidden="true">{{.IconS "globe"}}</span>
+      <div class="rule-main">
+        <div class="rule-title"><span class="rule-name">{{.T "routing.rules.default"}}</span></div>
+        <p class="rule-hint">{{.T "routing.rules.default_hint"}}</p>
+        {{if .Data.DefaultFallback}}<p class="text-sm text-warning row">{{.IconS "alert-triangle"}}<span>{{.T "routing.rules.fallback_hint"}}</span></p>{{end}}
+      </div>
       <form method="post" action="/routing/rules/default" class="rule-default-form">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <span class="rule-index" aria-hidden="true">{{.IconS "globe"}}</span>
-        <div class="item-content">
-          <div class="item-title">{{.T "routing.rules.default"}}</div>
-          <p class="item-description">{{.T "routing.rules.default_hint"}}</p>
-          {{if .Data.DefaultFallback}}<p class="text-sm text-warning row">{{.IconS "alert-triangle"}}<span>{{.T "routing.rules.fallback_hint"}}</span></p>{{end}}
-        </div>
-        <div class="rule-default-controls">
-          <label class="sr-only" for="default-target">{{.T "routing.rules.default_target"}}</label>
-          <select class="select select--sm" id="default-target" name="default_target"{{if not .Data.CanWrite}} disabled{{end}}>
-            {{template "routing_target_options" (dict "v" . "opts" .Data.DefaultOptions)}}
-          </select>
-          {{if .Data.CanWrite}}<button type="submit" class="btn btn--sm">{{.T "common.save"}}</button>{{end}}
-        </div>
+        <span class="routing-arrow" aria-hidden="true">{{.IconS "arrow-right"}}</span>
+        <label class="sr-only" for="default-target">{{.T "routing.rules.default_target"}}</label>
+        <select class="select select--sm" id="default-target" name="default_target"{{if not .Data.CanWrite}} disabled{{end}}>
+          {{template "routing_target_options" (dict "v" . "opts" .Data.DefaultOptions)}}
+        </select>
+        {{if .Data.CanWrite}}<button type="submit" class="btn btn--sm">{{.T "common.save"}}</button>{{end}}
       </form>
     </li>
   </ol>
 </section>
 
+<div class="routing-settings">
 <section class="card routing-dns" id="encrypted-dns" aria-labelledby="dns-heading">
   <form method="post" action="/routing/rules/default">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
@@ -123,7 +124,10 @@
       </div>
     </div>
     <div class="card-content stack">
-      <div class="alert alert--warning">{{.Icon "alert-triangle"}}<p class="alert-description">{{.T "routing.dns.strict_warning"}}</p></div>
+      <details class="collapsible collapsible--plain">
+        <summary class="text-sm">{{.T "routing.dns.before"}}</summary>
+        <div class="collapsible-content"><div class="alert alert--warning">{{.Icon "alert-triangle"}}<p class="alert-description">{{.T "routing.dns.strict_warning"}}</p></div></div>
+      </details>
       <div class="row-between">
         <label class="choice">
           <input class="switch" type="checkbox" role="switch" name="block_dns" value="1"{{if .Data.BlockDNS}} checked{{end}}{{if not .Data.CanWrite}} disabled{{end}}>
@@ -172,5 +176,6 @@
     {{end}}
   </div>
 </details>
+</div>
 <script type="module" src="{{.A "/js/routing.js"}}"></script>
 {{end}}

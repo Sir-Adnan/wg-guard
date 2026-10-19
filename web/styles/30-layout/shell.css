@@ -85,8 +85,10 @@
     .app[data-collapsed] :is(.brand-text, .sidebar-group-label, .sidebar-search > span, .sidebar-search > .kbd, .sidebar-user-text, .sidebar-user-chevron, .sidebar-marker) { display: none; }
     /* Rail links have no aria-label: their text stays in the accessibility tree. */
     .app[data-collapsed] .sidebar-item > span:not(.sidebar-marker) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    .app[data-collapsed] .sidebar-header { justify-content: center; padding-inline: var(--s-2); }
-    .app[data-collapsed] .sidebar-brand { flex: 0; }
+    /* The brand keeps its own width (flex-basis 0 would shrink it to
+       nothing and let the mark spill past the rail's edge). */
+    .app[data-collapsed] .sidebar-header { justify-content: center; padding-inline: 0; }
+    .app[data-collapsed] .sidebar-brand { flex: 0 0 auto; }
     .app[data-collapsed] .sidebar-item, .app[data-collapsed] .sidebar-user { justify-content: center; padding-inline: 0; }
     .app[data-collapsed] .sidebar-search { justify-content: center; margin-inline: var(--s-2); padding: 0; }
     .app[data-collapsed] .sidebar-group + .sidebar-group { border-top: 1px solid var(--sidebar-border); padding-top: var(--s-2); }

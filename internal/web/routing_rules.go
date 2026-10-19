@@ -18,7 +18,20 @@ import (
 
 type presetChip struct {
 	ID, Name string
+	Preview  string // the first entries the preset adds (chip tooltip)
 }
+
+// presetPreview lists a preset's first entries for a tooltip.
+func presetPreview(p egress.Preset) string {
+	const shown = 4
+	if len(p.Lines) <= shown {
+		return strings.Join(p.Lines, ", ")
+	}
+	return strings.Join(p.Lines[:shown], ", ") + ", …"
+}
+
+// shownPresetChips is how many preset chips a rule row shows.
+const shownPresetChips = 3
 
 type ruleRow struct {
 	R           *egress.Rule
@@ -26,6 +39,9 @@ type ruleRow struct {
 	TargetLabel string
 	TargetKind  string
 	Presets     []presetChip
+	// MoreCount and MorePresets cover the presets past the three chips.
+	MoreCount   int
+	MorePresets string
 	Domains     int
 	Categories  int
 	Addresses   int
@@ -133,8 +149,15 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			TargetLabel: s.targetLabel(r, rule.Target, names), TargetKind: string(rule.Target.Kind)}
 		for _, id := range rule.Presets {
 			if p, ok := egress.PresetByID(id); ok {
-				row.Presets = append(row.Presets, presetChip{ID: p.ID, Name: p.Name})
+				row.Presets = append(row.Presets, presetChip{ID: p.ID, Name: p.Name, Preview: presetPreview(p)})
 			}
+		}
+		if extra := len(row.Presets) - shownPresetChips; extra > 0 {
+			names := make([]string, 0, extra)
+			for _, p := range row.Presets[shownPresetChips:] {
+				names = append(names, p.Name)
+			}
+			row.MoreCount, row.MorePresets = extra, strings.Join(names, "، ")
 		}
 		row.Domains, row.Categories, row.Addresses = matcherCounts(rule)
 		row.Fallback = rule.Enabled && s.EgressRuntime != nil && fallsBack(rule.Target, st)
@@ -298,7 +321,7 @@ func (s *Server) handleRuleDelete(w http.ResponseWriter, r *http.Request) {
 type presetOption struct {
 	ID, Name string
 	Checked  bool
-	Lines    int
+	Lines    []string // what the preset adds, shown in the editor
 }
 
 type presetGroup struct {
@@ -333,7 +356,7 @@ func (s *Server) ruleFormData(r *http.Request, rule *egress.Rule, form operation
 			index[p.Category] = i
 			d.Groups = append(d.Groups, presetGroup{Category: string(p.Category)})
 		}
-		d.Groups[i].Presets = append(d.Groups[i].Presets, presetOption{ID: p.ID, Name: p.Name, Checked: checked[p.ID], Lines: len(p.Lines)})
+		d.Groups[i].Presets = append(d.Groups[i].Presets, presetOption{ID: p.ID, Name: p.Name, Checked: checked[p.ID], Lines: p.Lines})
 	}
 	if s.GeoData != nil {
 		if names, err := s.GeoData.Categories(geodata.KindGeosite); err == nil && len(names) > 0 {

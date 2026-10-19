@@ -2,7 +2,52 @@
 
 ## [Unreleased]
 
+## [v0.2.1] — 2026-10-19
+
+WG-Guard 0.2.1 reworks routing diagnostics and fixes site test verdicts that called working
+exits blocked. It adds a Tests tab (every service at once, IPv4 and IPv6 side by side), speed
+tests and bulk health tests for outbounds, and redesigns the Outbounds and Rules pages for many
+exits and rules. Nothing changes in routing itself: an updated node keeps its outbounds, rules
+and traffic as they are.
+
+### Added
+
+- Choose the IP version of a site test: automatic (like device traffic), IPv4 only, IPv6 only,
+  or both side by side in each cell.
+
+- Add a **Tests** tab to Routing. The site test can now check every service at once (Gemini,
+  ChatGPT, Claude, Google Search, Netflix and an IP location lookup) or any URL, in a grid of
+  exits × services whose cells fill in as each exit answers; any cell can be run again. A legend
+  explains every result.
+- Add **Speed test** to each outbound (round trip, download and upload through that exit, one
+  test at a time per node) and **Speed test all**, plus **Test all** for health checks.
+- Show what every ready-made service adds: rule editor tiles list their domains, and rule chips
+  show their first entries on hover.
+
+### Changed
+
+- Redesign the Outbounds page for many exits: one dense row per outbound with state, exit IP,
+  latency and speed, expandable for the details, with state filters and search.
+- Redesign the Rules page and the rule editor: a cleaner rule list; services are added from a
+  searchable dropdown into one box that shows what each adds, next to your own entries; a
+  suggested rule name and a summary save bar.
+- On phones, user cards show identity and status on one line and a labeled bar for the
+  subscription link, QR code and config.
+- The subscription page uses more of a wide screen, and a lone device's card no longer leaves
+  half of the row empty.
+- Custom URLs in the site test no longer call a bot check or a bare HTTP 403 "Blocked": a
+  challenge page is **Bot check** and an unexplained 401, 403 or 429 is **Refused**. A failed
+  attempt is retried once, and an IPv6-first exit falls back to IPv4 in time.
+
 ### Fixed
+
+- Fix the **Site test** reporting Claude as unknown or blocked from every exit: `claude.ai`
+  answers scripted clients with a Cloudflare challenge, so the test now checks the country
+  Cloudflare places the exit in against Anthropic's supported regions.
+- Fix tests near the end of a long site test reporting "No answer" when there are many outbounds;
+  each exit now has its own time budget.
+- Fix the brand mark spilling out of the collapsed desktop sidebar.
+- Fix the dots of Persian letters being cut off in subscription page buttons.
 
 - Fix the **Site test** reporting Google Gemini as blocked from every exit. Gemini's page no
   longer carries the availability flag the test read, so the verdict now follows the region

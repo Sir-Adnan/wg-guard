@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Sir-Adnan/wg-guard/internal/egress"
+	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
 )
 
 const (
@@ -93,14 +94,14 @@ func TestRoutingWorkspaceEndToEnd(t *testing.T) {
 		}
 	}
 
-	// HTMX test returns just the refreshed card.
+	// HTMX test returns just the refreshed row.
 	hx := httptest.NewRequest(http.MethodPost, "/routing/outbounds/"+nl.ID+"/test", strings.NewReader(url.Values{"_csrf": {csrf}}.Encode()))
 	hx.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	hx.Header.Set("HX-Request", "true")
 	hx.AddCookie(cookie)
 	hxRec := httptest.NewRecorder()
 	e.handler.ServeHTTP(hxRec, hx)
-	if hxRec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(hxRec.Body.String()), "<article") || strings.Contains(hxRec.Body.String(), "<html") {
+	if hxRec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(hxRec.Body.String()), "<li class=\"ob-row\"") || strings.Contains(hxRec.Body.String(), "<html") {
 		t.Fatalf("htmx card: %d %q", hxRec.Code, hxRec.Body.String())
 	}
 
@@ -127,9 +128,10 @@ func TestRoutingWorkspaceEndToEnd(t *testing.T) {
 		t.Fatalf("empty balancer: %d", rec.Code)
 	}
 
-	// Rule form shows the grouped presets; save a multi-source rule.
+	// Rule form shows the presets by category, each with what it adds;
+	// save a multi-source rule.
 	body = e.get("/routing/rules/new?preset=gemini", cookie).Body.String()
-	if !strings.Contains(body, `value="gemini" checked`) || !strings.Contains(body, "AI services") || !strings.Contains(body, "IP lookup services") {
+	if !strings.Contains(body, `value="gemini" checked`) || !strings.Contains(body, `class="svc-row" data-preset="gemini">`) || !strings.Contains(body, `data-preset="openai" hidden`) || !strings.Contains(body, "IP lookup services") || !strings.Contains(body, `<code class="tech">aistudio.google.com</code>`) {
 		t.Fatal("rule form presets")
 	}
 	rec = e.post("/routing/rules", url.Values{"name": {"Gemini"}, "enabled": {"1"}, "target": {"balancer:" + balancers[0].ID},
@@ -346,8 +348,8 @@ func TestRoutingIPv6SitesAndSiteTest(t *testing.T) {
 	if got, _ := e.egress.GetOutbound(ctx, ob.ID); !got.Tunnel.Bridges() {
 		t.Fatalf("bridge not stored: %+v", got.Tunnel)
 	}
-	if body := e.get("/routing/outbounds", cookie).Body.String(); !strings.Contains(body, "IPv6 exit") || !strings.Contains(body, `id="site-test"`) {
-		t.Fatal("bridge row or site test panel missing")
+	if body := e.get("/routing/outbounds", cookie).Body.String(); !strings.Contains(body, "IPv6 exit") || !strings.Contains(body, `href="/routing/tests"`) {
+		t.Fatal("bridge row or site test link missing")
 	}
 	// Saving the form without the switch turns the bridge off.
 	if rec := e.post("/routing/outbounds/"+ob.ID+"/edit", url.Values{"name": {"Dual"}, "ipv6_sites_form": {"1"}}, cookie, csrf); rec.Code != http.StatusSeeOther {
@@ -357,16 +359,52 @@ func TestRoutingIPv6SitesAndSiteTest(t *testing.T) {
 		t.Fatal("bridge still on")
 	}
 
-	rec = e.post("/routing/outbounds/site-test", url.Values{"service": {"gemini"}}, cookie, csrf)
+	// A plain post runs the whole grid before answering.
+	rec = e.post("/routing/tests", url.Values{"service": {"gemini"}}, cookie, csrf)
 	body = rec.Body.String()
 	if rec.Code != http.StatusOK || !strings.Contains(body, "This server (direct)") || !strings.Contains(body, "Dual") || !strings.Contains(body, "Test not supported") {
 		t.Fatalf("site test: %d %s", rec.Code, body)
 	}
-	rec = e.post("/routing/outbounds/site-test", url.Values{"service": {"url"}, "url": {"ftp://x"}}, cookie, csrf)
+	// With HTMX the grid comes back at once and each cell loads itself.
+	rec = e.postHX("/routing/tests", url.Values{"service": {"all"}}, cookie, csrf)
+	body = rec.Body.String()
+	if rec.Code != http.StatusOK || strings.Contains(body, "<html") || strings.Count(body, `hx-post="/routing/tests/cell" hx-trigger="load"`) != 3*len(routing.SiteServices) {
+		t.Fatalf("lazy grid: %d %s", rec.Code, body)
+	}
+	rec = e.postHX("/routing/tests/cell", url.Values{"exit": {ob.ID}, "service": {"claude"}}, cookie, csrf)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(body), "<td") || !strings.Contains(body, `data-verdict="failed"`) {
+		t.Fatalf("cell: %d %s", rec.Code, body)
+	}
+	// Both families: one cell, an IPv4 and an IPv6 outcome.
+	rec = e.postHX("/routing/tests/cell", url.Values{"exit": {routing.DirectSite}, "service": {"gemini"}, "family": {"both"}}, cookie, csrf)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, "site-cell--pair") || strings.Count(body, `class="site-outcome"`) != 2 || !strings.Contains(body, ">v6</span>") {
+		t.Fatalf("both families: %d %s", rec.Code, body)
+	}
+	if body := e.get("/routing/tests", cookie).Body.String(); !strings.Contains(body, `name="family"`) || !strings.Contains(body, "IPv4 and IPv6 side by side") {
+		t.Fatal("family choice missing")
+	}
+	// A removed exit still answers, so a lazy cell never stays pending.
+	if rec := e.postHX("/routing/tests/cell", url.Values{"exit": {"missing"}, "service": {"claude"}}, cookie, csrf); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Unreachable through this exit") {
+		t.Fatalf("cell for a removed exit: %d", rec.Code)
+	}
+	if rec := e.postHX("/routing/tests/cell", url.Values{"exit": {routing.DirectSite}, "service": {"url"}, "url": {"ftp://x"}}, cookie, csrf); rec.Code != http.StatusBadRequest {
+		t.Fatalf("cell with a bad URL: %d", rec.Code)
+	}
+	rec = e.post("/routing/tests", url.Values{"service": {"url"}, "url": {"ftp://x"}}, cookie, csrf)
 	if !strings.Contains(rec.Body.String(), "Enter a site address") {
 		t.Fatal("invalid URL not reported")
 	}
-	if body := e.get("/routing/outbounds?site=gemini.google.com", cookie).Body.String(); !strings.Contains(body, `value="gemini.google.com"`) {
+	if body := e.get("/routing/tests?site=gemini.google.com", cookie).Body.String(); !strings.Contains(body, `value="gemini.google.com"`) {
 		t.Fatal("site prefill")
+	}
+
+	// Test all swaps the list; a speed test answers with the refreshed row.
+	rec = e.postHX("/routing/outbounds/test-all", url.Values{}, cookie, csrf)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(body), `<ol class="ob-list"`) {
+		t.Fatalf("test all: %d %s", rec.Code, body)
+	}
+	rec = e.postHX("/routing/outbounds/"+ob.ID+"/speed", url.Values{}, cookie, csrf)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(body), `<li class="ob-row" id="ob-`+ob.ID) {
+		t.Fatalf("speed: %d %s", rec.Code, body)
 	}
 }

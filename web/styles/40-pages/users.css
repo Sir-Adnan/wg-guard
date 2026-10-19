@@ -24,14 +24,40 @@
   .users-table .cell-identity .cell-sub { max-width: 14rem; }
   .users-table-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 2.75rem; padding: var(--s-1_5) var(--cell-px); border-top: 1px solid var(--border); }
   @media (max-width: 1200px) and (min-width: 801px) { .users-table :is(th, td).users-col-activity { display: none; } }
+  .users-table .row-action-label { display: none; }
+  /* Phones: each user is a compact card — identity and status, the usage
+     meter, then expiry · devices with the row actions at the end. */
   @media (max-width: 800px) {
-    .users-table tr, .users-device-table tr { grid-auto-flow: row dense; }
-    .users-table .cell-meter { max-width: none; }
+    .users-device-table tr { grid-auto-flow: row dense; }
+    .users-table tr {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; grid-auto-flow: row;
+      grid-template-areas: "id id status" "meter meter meter" "exp dev ." "acts acts acts"; gap: var(--s-3) var(--s-4); align-items: center;
+    }
+    .users-table td.cell-primary { grid-area: id; padding-inline-end: 0; }
+    .users-table td.users-col-status { grid-area: status; align-items: flex-end; }
+    .users-table tr:has(> td.col-check) td.users-col-status { padding-inline-end: 2rem; }
+    .users-table tr:has(> td.col-check) td.cell-primary { padding-inline-end: 0; }
+    .users-table td.users-col-traffic { grid-area: meter; }
+    .users-table td.users-col-expiry { grid-area: exp; }
+    .users-table td.users-col-devices { grid-area: dev; }
+    .users-table :is(td.users-col-expiry, td.users-col-devices) { align-self: start; }
+    .users-table :is(td.users-col-status, td.users-col-traffic)::before { display: none; }
+    .users-table .cell-meter { max-width: none; min-width: 0; }
+    .users-table .cell-meter-text { font-size: var(--text-xs); }
+    .users-table td.users-col-expiry .cell-sub { font-size: var(--text-2xs); }
     .users-table .users-col-activity { display: none; }
-    /* Row actions share the devices row instead of a separate footer. */
-    .users-table td.col-actions { grid-column: 2; justify-content: flex-end; align-self: end; border-top: 0; padding-top: 0; }
-    .users-table td.col-actions .row-actions { justify-content: flex-end; }
+    /* The everyday actions get labels and their own bar; the rest stay in
+       the ⋮ menu. */
+    .users-table td.col-actions { grid-area: acts; border-top: 1px dashed var(--border); padding-top: var(--s-3); margin-top: 0; }
+    .users-table td.col-actions .row-actions { display: flex; justify-content: flex-start; flex-wrap: nowrap; gap: var(--s-2); width: 100%; }
+    .users-table td.col-actions .row-actions > .menu-anchor:last-child { margin-inline-start: auto; }
+    .users-table td.col-actions .btn:has(> .row-action-label) { width: auto; gap: var(--s-1_5); padding-inline: var(--s-2); border: 1px solid var(--border); background: var(--background); }
+    .users-table .row-action-label { display: inline; font-size: var(--text-xs); font-weight: 500; white-space: nowrap; }
     .users-table-foot { padding-inline: var(--s-1); border-top: 0; }
+  }
+  @media (max-width: 360px) {
+    .users-table tr { grid-template-areas: "id id status" "meter meter meter" "exp dev dev" "acts acts acts"; }
+    .users-table .row-action-label { display: none; }
   }
 
   /* Device table on phones: actions float in the card's top corner. */
