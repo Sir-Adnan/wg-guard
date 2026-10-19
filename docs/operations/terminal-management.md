@@ -316,4 +316,4 @@ Approved backup means **awaiting restart**, not restored. Use the shown supporte
 CLI restore completion follows readiness and journal completion. A failed operation
 requires status/receipt inspection; a recorded recovery must finish before a new
 operation. Prompt cancellation is neutral. No arbitrary Compose/Nginx editing is
-required for these supported workflows. See [Phase 19 evidence](../development/phase19.md).
+required for these supported workflows. See [Phase 19 evidence](../archive/development/phase19.md).

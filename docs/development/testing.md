@@ -14,16 +14,16 @@ separate archive inspector [`phase20-stage.go`](../integrations/fixtures/phase20
 They require explicit owner authorization, private work/password/token files and
 an ordinary managed installation. Secrets/configs remain private; reports expose
 only counts, equality results and measured resources. The recorded correction/drill
-sequence, exact revisions and excluded physical cells are in [Phase 20](phase20.md).
+sequence, exact revisions and excluded physical cells are in [Phase 20](../archive/development/phase20.md).
 
-For Phase 15–20 changes, the [refactor program](refactor-program.md) supplies the
+For Phase 15–20 changes, the [refactor program](../archive/development/refactor-program.md) supplies the
 specific exit evidence: migration refusal and readiness, slow-worker isolation,
 data/runtime state equivalence, artifact/host ownership, two-domain TLS and route
 boundaries, affected browser/terminal flows and final real-host migration/resource
 drills. Apply those gates when implementing the phase; do not run them to certify
 a prose-only planning change. Historical results never certify a new layout or TLS role model.
 
-The [native cleanup inventory](../architecture/docker-only-cleanup.md) requires
+The [native cleanup inventory](../archive/architecture/docker-only-cleanup.md) requires
 replacing current native-only/mode-cross-product tests with equivalent Docker
 failure acceptance, while retaining shared data/lease/security, kernel/userspace,
 host broker and fake-backend coverage. A smaller test matrix is not permission to
@@ -50,7 +50,7 @@ the specific risk; do not execute their entire historical sequence for an unrela
 
 ## Phase 8.1 installer verification
 
-[Phase 8.1](phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
+[Phase 8.1](../archive/development/phase8.1.md) adds GitHub acquisition/error fixtures, bootstrap execution tests,
 host-operation failure injection, narrow/wide English terminal checks, and dedicated Ubuntu
 24.04 Docker/native lifecycle drills. The evidence levels are separate:
 
@@ -62,9 +62,9 @@ host-operation failure injection, narrow/wide English terminal checks, and dedic
 | Backup/recovery | Encrypted Telegram/scheduler, sequential native and final Docker DB/key restore, legacy-schema recovery, update/rollback/failure recovery and original-node restoration passed | Feature-frozen matrix repetition remains Phase 11 |
 
 Exact revisions and sanitized records live in [status.md](status.md) and
-[phase8.1.md](phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
+[phase8.1.md](../archive/development/phase8.1.md). Earlier Phase 7/8 deployment evidence does not certify new lifecycle
 code. Historical checks do not replace Phase 11's supported-Ubuntu/backend certification or
-[Phase 12's final published-artifact gate](phase12.md).
+[Phase 12's final published-artifact gate](../archive/development/phase12.md).
 
 ## Phase 8.2 secure-access verification
 
@@ -194,7 +194,7 @@ recorded in [status.md](status.md); regressions are treated as bugs.
 
 ## Phase 10 UI verification
 
-[Phase 10](phase10.md) owns route/state/milestone coverage and the final browser matrix. During
+[Phase 10](../archive/development/phase10.md) owns route/state/milestone coverage and the final browser matrix. During
 implementation use targeted settings/web/i18n tests and changed interaction checks. Coherent
 commits still require build/unit success; the full Phase 10 QA matrix runs at 10.7, not per edit.
 
@@ -275,5 +275,5 @@ seams are synthetic, not a real issuance/renewal claim. Root lifecycle failure,
 owner/lease, controlled source and queue publication checks belong to this boundary.
 
 `TestBrowserDomains` (see [opt-in browser tests](#opt-in-browser-tests)) covers the domains panel;
-there is no production browser runtime. See [Phase 18 evidence](phase18.md) and the Phase 20
+there is no production browser runtime. See [Phase 18 evidence](../archive/development/phase18.md) and the Phase 20
 physical gate.

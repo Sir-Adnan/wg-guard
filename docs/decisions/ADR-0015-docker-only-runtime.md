@@ -65,5 +65,5 @@ Secrets remain in private files/stdin or encrypted node storage, never deploymen
   Docker/native drills cannot certify this layout/hardening, and source changes authorize no new
   public release, registry publication or mutation of the owner's only host.
 
-Follow [Phase 17](../development/phase17.md), [deployment](../operations/deployment.md) and
+Follow [Phase 17](../archive/development/phase17.md), [deployment](../operations/deployment.md) and
 [migration preparation](../operations/migration-preparation.md).

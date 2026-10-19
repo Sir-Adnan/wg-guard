@@ -1,326 +1,58 @@
-# Release-readiness program
+# Release readiness
 
-Living tracker for completed releases through Phase 14 and the completed
-[Phases 15–20 refactor](refactor-program.md) (v0.1.10). `ROADMAP.md` owns phase order and gates;
-this document owns cross-phase requirement coverage, release blockers, audit findings, and
-verification state. Phase execution details live in the corresponding phase document.
+How a WG-Guard version becomes public, what blocks the next one, and which versions are out.
+The [status matrix](status.md) owns support claims. Closed Phase 8–20 blockers, audit findings
+and per-release records are in the [release history](../archive/development/release-readiness-history.md).
 
-Current owner scope: [Phase 20](phase20.md) records the earlier Ubuntu 26.04 report
-and subsequent explicit authorization of a dedicated raw Ubuntu 24.04 VPS for
-installation, recovery, networking, TLS and resource testing. Corrected host
-acceptance is complete within its listed Docker/kernel/userspace matrix. v0.1.10
-is published from exact `4f78adc` with independently verified public assets; registry
-publication and unobserved host/client cells are not authorized/certified.
-v0.1.11 (2026-10-08, exact `228e2a5`) corrects release-image admission on Docker's containerd
-image store and ships bundle `awg-2026-10`. Main CI, the release workflow and independent
-asset/attestation checks passed; its real-host fresh release install is recorded in
-[status](status.md) when observed. Phases 21–22 (egress routing and client portal; design
-system and subscription designs) and their follow-ups ship in v0.2.0 (2026-10-19), with the
-real-host and device cells recorded in [status](status.md#egress-routing) still unverified.
+## Release gates
 
-Last updated: 2026-10-19. Phases 8–12 and corrective 8.1–8.3 are complete within their
-documented scopes. Phase 10 passed the three-engine route/state matrix and
-relevant real Docker/TLS checks; later follow-ups passed targeted client and revoke tests.
-Phase 11 certifies the listed Ubuntu 24.04 amd64 Docker/native kernel/userspace paths. Later
-Ubuntu, active firewalld and real-host UFW remain unverified/unsupported rather than inferred.
-The owner-approved v0.1.0 through v0.1.8 releases passed their respective gates and are public.
-The v0.1.7 `f166360a799268a18a0449e485fbb619b9c37d27` source passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132093645) and the
-[release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37132766994); its
-[public release](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) includes the checked
-amd64 bundle. Downloaded public metadata identifies that exact SHA and its checksum matches the
-published checksum file. Installer progress/logging, multi-device API provisioning and the webhook key-check/guarded
-backup-helper correction are source/artifact-gate verified; no new real-host or physical-device certification is claimed.
-Later versions and official registry images require separate approval.
-The owner authorized v0.1.7 on 2026-10-03. The maintenance workspace source at
-`0197f2d9c2e81594b5209e835e2284aabe8857e2` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37127008947), including both Linux
-race jobs. Chromium/WebKit checks and the stated real-host/Firefox limitations remain as recorded
-in [status](status.md). Release-preparation main CI and the public v0.1.7 release gate passed at
-`f166360a799268a18a0449e485fbb619b9c37d27`. Public metadata was independently downloaded and its
-SHA-256 matched the published manifest; new real-host certification remains unclaimed.
+A version is published only when all of these hold for one exact `main` commit:
 
-The owner authorized public v0.1.8 on 2026-10-04. It includes the account/address maintenance,
-combined cleanup and presentation follow-ups described in [status](status.md). Exact released
-source `cf718a926f81202b7ed8060cac27bb5322dbba82` passed
-[main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37157707988) and the
-[publication gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37158268158).
-All five public assets were independently downloaded and their four manifest entries checked;
-metadata, binary, SBOM and annotated tag matched the exact source. The public metadata SHA-256
-is `6713500f4eb5f6422e53616323104a5a3c8057e1cdc1c92b3a68d6d97fc71d41`.
-The browser matrix/fallback evidence from unchanged implementation `1e60dc4` remains applicable.
-[v0.1.8 is public](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8), and the approval
-covers this version only, not later versions or an official registry publication. New real-host
-multi-pool forwarding and production database compaction remain unclaimed.
+1. The owner has authorized that version (each authorization covers one version; registry images
+   need their own).
+2. [CI](../../.github/workflows/ci.yml) passed on that commit.
+3. The [release workflow](../../.github/workflows/release.yml) passed on that commit: source gates,
+   artifact build and checksums, binary and runtime-image identity, attestations, and the
+   downloaded draft check.
+4. The public assets were downloaded again and their checksums, tag→commit and attestations
+   verified.
+5. The [changelog](../../CHANGELOG.md), [status](status.md) and this page record the release.
 
-The owner-authorized preparation v0.1.9 is public at
-`dd034fe5aa1d2f327998bc88a6229756449077c2`. Its [main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37221761826)
-and [release gate](https://github.com/Sir-Adnan/wg-guard/actions/runs/37222439063) passed,
-including isolated encrypted-archive load, binary/image identity and downloaded assets.
-All five public files/four checksums, metadata/SBOM/binary and annotated tag were independently
-verified. Owner update/export follows publication and still gates rebuilding. Phase 16 has no
-further release authorization.
+## Open before a broader claim
 
-## Program status
+No release blocker is open. These cells stay unverified and are not implied by any release:
 
-| Phase | State | Exit dependency |
-|---|---|---|
-| 8 — Audit & configuration integrity | complete | Lossless config + decoded QR + real handshake/traffic evidence |
-| 8.1 — GitHub delivery & lifecycle | complete | One-command installation and safe lifecycle verified on the dedicated VPS |
-| 8.2 — Secure access & persistent manager | complete | Offline local retry, update-aware independent manager/Update Center, honest secure exposure, certificate renewal and proxy rollback verified |
-| 9 — Operational observability | complete | Useful live metrics/logs with bounded cost and retention |
-| 8.3 — Data-plane forwarding integrity | complete | Effective Docker forwarding plus public DNS/HTTPS egress on Ubuntu 24.04 amd64 |
-| 10 — Product UI/UX redesign | complete | Full redesign matrix plus exact continuation VPS/broker acceptance and coherent `main` integration |
-| 11 — Production certification | complete for documented Ubuntu 24.04 paths | Material findings closed; unsupported/unverified cells excluded from production claims |
-| 12 — Release candidate | complete | Checked amd64 assets, attestations, main/release CI and real public latest-release installation |
-| 13 — Appearance and subscription follow-up | complete within documented browser scope | Preset and public-subscription checks; Firefox/new real-host cells remain unverified |
-| 14 — Integration API for automation | complete for documented source/artifact scope | Tenant isolation, recoverable purchase/entitlement flows, typed webhook contract, v0.1.3 and v0.1.4 exact-source release gates; no new real-host claim |
-| 15 — Safety/migration preparation | engineering complete; v0.1.9 public | Owner update/export checkpoint; host resource/kernel/client acceptance completed in Phase 20 |
-| 16 — Modular boundaries | complete within documented source scope; shipped in v0.1.10 | Shared node sessions/runtime outcomes/key provisioning/layout and extracted lifecycle/diagnostic adapters; local equivalence/failure/load and exact CI passed |
-| 17 — Docker-only/native cleanup | source/image/CI and Phase 20 host gates passed; v0.1.10 public | Verified image/provenance, native branch/state/flag cleanup, Docker/shared failure coverage and independent host recovery |
-| 18 — Domains/TLS | listed Phase 20 HTTP-01/SNI/renewal/replacement host gates passed; v0.1.10 public | Unobserved external/DNS-01/long-interval renewal cells excluded |
-| 19 — Operational UX | corrected fresh archive host acceptance passed; v0.1.10 public | Documented supported matrix |
-| 20 — Refactor certification | complete; v0.1.10 public | Exact main/release CI and independently checked public assets passed; unsupported cells excluded |
-| 21 — Egress routing and client portal | shipped in v0.2.0; real-host/Firefox/WebKit unverified | Real-host client traffic through an outbound and device import of AmneziaVPN keys ([status](status.md#egress-routing)) |
-| 22 — Design system and subscription designs | shipped in v0.2.0; real-host/Firefox/WebKit unverified | Go and local Chromium suites passed; other engines, physical phones and real hosts remain ([status](status.md#design-system-redesign)) |
+| Area | Missing evidence |
+|---|---|
+| Egress routing | Real-host client traffic through outbounds (chained, failover), IPv6 site bridge with real clients and WARP IPv6, live site test verdicts, WARP renewal against the live API ([status](status.md#egress-routing)) |
+| Client apps | AmneziaVPN import on devices; physical phones; WebKit and Firefox for the v0.2.0 UI ([status](status.md#design-system-redesign)) |
+| Hosts | Ubuntu newer than 24.04 (including kernel `7.0.0-38` module load), active firewalld, non-amd64 |
+| Scale and time | 1000 simultaneous handshakes, multi-day soak, an observed long-interval certificate renewal, DNS-01 real issuance |
 
-### Refactor entry findings
+## Finding a defect
 
-Source-inspected on 2026-10-04; these findings do not invalidate unrelated historical
-results or claim a newly reproduced production incident. They are required work
-before claiming the preparation/migration workflow complete:
+1. Reproduce it or cite concrete evidence; never paste secrets or config contents.
+2. Record impact, severity and the affected surface.
+3. Add a regression test with the fix, and real-host evidence when the claim needs it.
+4. Update the status matrix and the behavior docs in the same change.
 
-| ID | Finding | Required resolution/evidence |
-|---|---|---|
-| RF-15-01 | Startup attempted pre-migration backup before its service was fully wired and continued when backup failed | Source corrected with a shared live migration gate; local tests cover original-schema archives, every automatic opener, inspection/backup failure and reader contention. Exact CI/host acceptance remain separate |
-| RF-15-02 | Lifecycle health probe used liveness/challenge response, which cannot prove network/data readiness | Source now requires bounded local readiness and separate TLS proof; local responding/unready, malformed/redirect and ACME fallback tests pass. New real-host acceptance remains open |
-| RF-15-03 | Scheduler directly ran slow backup/delivery passes | Source now uses two fixed coalescing workers and cross-process archive/scheduled-pass claims; local stalled-job, cancellation, edit/contention and shutdown tests pass. A two-account fake-backend fixture also proves quota/expiry transitions and peer removal within one 15 s cadence (1 ms locally). Actual production accounting/expiry lag and peak crypto costs remain unmeasured |
-| RF-15-04 | Master-key rotation omitted customer links/webhooks and could replace the required predecessor during an interrupted retry | Source now shares one field inventory, rotates bounded pages, reuses a retained dual-key window and verifies/checkpoints current-key values before dropping the predecessor. Local all-field, 129-device, mixed-key retry and portable-archive tests plus exact source CI pass; new real-host acceptance remains separate |
-| RF-15-05 | Correct checksums/decryption did not prove that stored keys, addresses, profiles or access/entitlement data were usable after restore | Shared immutable/version-aware domain checks now run during creation, stage, standalone verification and pre-replacement apply; local readable-but-invalid, legacy/current and old-approved-preview regressions plus exact source CI pass. Target host acceptance remains separate |
-| RF-15-06 | An old or future accounting observation could imply fresh successful enforcement | Freshness now preserves unavailable state with a cadence-aware window and `accounting_unavailable` telemetry; recent/stale/future and no-interface cases have focused tests. Real archive crypto/delayed delivery and quota/expiry/worker drain pass Linux integration, including race instrumentation |
-| RF-18-01 | Subscription URL setting has no independent certificate/enrollment/host-role lifecycle | Implement bounded approved domains, SNI, manual/automatic host operations, renewal/replacement and public-route isolation |
-| RF-17-01 | Native branches and artifacts multiply deployment execution/state/acceptance paths | Complete the [native cleanup inventory](../architecture/docker-only-cleanup.md), preserve shared host/data behavior and prove one Docker lifecycle |
+A blocker closes only with linked evidence, or with an explicit owner waiver that records the
+residual risk.
 
-The archive/data subset at `00c41618b4384b2ac60d297123d265955a292204` passed
-[exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37165992240).
-This is not whole-program acceptance, registry authorization or a new public release.
-The migration/readiness/worker safety subset at
-`39bfb0a4a5f27e4fc80bb27529cccd30d91cdaec` also passed
-[exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37200471956).
-The secret-storage follow-up at `7c9d1908dedfb04dec55239b3a5db44d67f0a558` passed
-local full Go tests/vet/build and
-[exact main CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37202081662), including
-both Linux race jobs, bootstrap/synthetic fixtures and vulnerability scan. These results do not
-close the restored-domain, actual host resource/lag or reviewed owner-backup gates.
-The stored-domain subset at `bb60bfd06696fcb3355debc76a0982bd39b22a1f` passed local full Go
-tests/vet/build and [exact CI](https://github.com/Sir-Adnan/wg-guard/actions/runs/37207442547),
-including both Linux race jobs. Actual host resource/lag and the reviewed owner-backup gates
-remain open; the target core/TLS/network/client requirements are not certified by offline data
-validation.
+## Published releases
 
-Phases execute sequentially. A discovery may be assigned to a future phase, but unrelated
-implementation does not cross the active phase boundary.
-
-## Requirement ownership
-
-| Requirement area | Owning phase | Verification gate |
-|---|---|---|
-| Comprehensive project audit and discoveries | 8 starts; all phases maintain; 12 closes | Every material finding resolved, assigned, or explicitly deferred with reason |
-| QR rendering and content identity | 8 | Decode generated PNG and byte-compare with downloadable config on every surface |
-| Client config correctness and AWG parity | 8 | DB/runtime/download/QR/subscription equality plus real handshake and traffic |
-| H1–H4 and other range semantics | 8 | Lossless migration, validation, API, setconf, dump, reconcile, and backup round trips |
-| Recommended and randomized profiles | 8 | Relationship-aware generation, property tests, runtime acceptance, client use |
-| GitHub bootstrap, release/commit selection, terminal installer/manager | 8.1 | Checksummed acquisition, exact source identity, English/narrow-width QA, real installation |
-| Prerequisites and compatible AWG bundle selection | 8.1; supported-Ubuntu matrix in 11 | Explicit supported combinations and real kernel/tools evidence |
-| Persistent manager, domain/IP TLS, DNS-01 and reverse-proxy coexistence | 8.2; certification repeated in 11 | Zero-network retry, protected DNS credential, certificate identity/renewal, rollback and real VPS evidence |
-| CLI backup/Telegram schedules and transactional lifecycle | 8.1; certification repeated in 11 | Failure injection, bounded restore, real update/rollback/backup/restore |
-| Live CPU/RAM/network/peer/node monitoring | 9; visual finish in 10 | Real-load graphs, hidden-tab pause, measured sampler overhead |
-| Unified CLI operational logs | 9 | Docker/native failure drills, follow/cancel behavior, no secret disclosure |
-| Seven-day log retention and disk bounds | 9; soak in 11 | Fake-clock tests, platform policy inspection, disk-growth drill |
-| Complete shadcn-style visual system | 10 | All routes and states migrated; no legacy visual surface |
-| Mobile, desktop, large-screen responsiveness | 10 | Browser matrix from ~320 px through ultrawide with no overflow |
-| Settings information architecture | 10 | Normal flow simplified; advanced controls remain reachable and explained |
-| fa/en localization and RTL/LTR | 10 | Catalog parity, no raw keys, copy review, correct technical-data direction |
-| Token scope, admin permission, webhook event wording | 10 | Localized human labels/descriptions; stable machine identifiers retained |
-| Security, race, soak, resource and performance hardening | 11 | Recorded tests/benchmarks with no unresolved critical/high finding |
-| Supported-Ubuntu/backend/deployment matrix | 11 | Real-host evidence per supported cell; unverified later Ubuntu releases not advertised |
-| Backup/update/rollback/recovery/ACME drills | 11 | Repeatable evidence using the feature-frozen candidate |
-| API/OpenAPI synchronization | Every affected phase; 12 final | Bidirectional route/schema coverage green |
-| Reseller integration isolation and recovery | 14 | Owner/operator/reseller denial and delivery tests; atomic purchase journal; successor activation; scoped webhook fanout and receipts |
-| Documentation and repository hygiene | Every phase; 12 final | Living docs agree; no secrets or inappropriate artifacts tracked |
-| Release artifacts and publication workflow | Acquisition contract/dry-run artifacts in 8.1; final workflow/freeze in 12 | Checksums and amd64 metadata verified; publication remains manually gated |
-
-## Release blockers
-
-| ID | Blocker | Owner | State | Evidence required to close |
-|---|---|---|---|---|
-| RB-001 | QR images do not reliably render/scan on panel and subscription surfaces | Phase 8 | verified | Direct/REST/admin/subscription PNGs independently decode to exact config bytes; real desktop/mobile fa/en light/dark presentation passed; those decoded bytes imported into real clients. Physical optical camera unavailable and explicitly unperformed. |
-| RB-002 | Generated client configuration has unverified/lossy parameter paths | Phase 8 | verified | Canonical typed paths and three delivery surfaces are unit tested; recommended and randomized decoded configs passed real kernel client handshake and bidirectional traffic. |
-| RB-003 | H1–H4 ranges are reduced to scalar integers in current models | Phase 8 | verified | Storage/apply/dump/drift/API/forms/config/QR/backup paths preserve both bounds; userspace integration and exact kernel runtime/client equality passed. |
-| RB-004 | Complete pinned-version parameter/client compatibility is not classified | Phase 8 | verified | Pinned source/runtime matrix is frozen; supported generated subsets passed real kernel clients, and the recommended subset passed the exact pinned userspace daemon. Unsupported/client-specific fields remain gated. |
-| RB-005 | Operational troubleshooting and log retention are incomplete | Phase 9 | verified | Unified log workflow, bounded retention, real traffic/load, failure recovery and secret scans passed in both modes; [evidence](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt) |
-| RB-006 | Existing UI is not the requested complete design and QA baseline | Phase 10 | verified | Full Chromium/Firefox/WebKit route/state matrix, bilingual responsive workflows, relevant live Ubuntu Docker/TLS checks and decoded QR/config equality passed |
-| RB-007 | Production compatibility and hardening matrix is incomplete | Phase 11 | verified for documented Ubuntu 24.04 amd64 scope | Docker/native kernel/userspace client, recovery, TLS, purge, race/fuzz/resource and shaping gates pass; later Ubuntu, active firewalld and real-host UFW are not claimed |
-| RB-008 | Versioned checksummed amd64 artifacts and official publication workflow are absent | Phase 12 | verified | [v0.1.0 assets](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) and [release run](https://github.com/Sir-Adnan/wg-guard/actions/runs/36372832174) passed checksum, image identity, attestation and draft-download checks; published latest bootstrap installed on Ubuntu 24.04 amd64 |
-| RB-009 | Installation lacks GitHub acquisition and a complete, reliably recoverable terminal lifecycle | Phase 8.1 | verified | Source/version integrity, terminal QA, Telegram/scheduler, and real Docker/native install/update/rollback/restore/recovery evidence are linked from [phase8.1.md](phase8.1.md) |
-| RB-010 | Busy public ports, IP-only HTTPS and post-install TLS changes lack one safe installer-owned workflow | Phase 8.2 | verified | Cached manager/zero-network retry and public-HTTP refusal pass automated gates; real Docker Nginx/webroot and short-lived IP issuance/renewal, occupied-port refusal, rollback-safe transitions and cleanup are recorded in [Phase 8.2 evidence](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt). Cloudflare DNS-01 is automated-test verified; real issuance awaits a scoped token and is not claimed |
-| RB-011 | Docker's earlier `FORWARD` DROP can allow AWG handshake while blocking all routed client traffic | Phase 8.3 | verified | Scoped `DOCKER-USER` coexistence, fail-closed readiness/doctor diagnostics, and exact data-plane candidate plain/recommended/randomized public-IP/DNS/HTTPS traffic with cleanup [evidence](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt) |
-
-No release blocker may be silently downgraded. A blocker can close only with linked evidence or
-be explicitly waived by the project owner with the residual risk recorded.
-
-Phase 8 completion (2026-09-05): the exact commit-stamped candidate passed the isolated Ubuntu
-24.04 kernel/userspace gate, three-surface QR/config equality, real client traffic, browser QA,
-actual-secret diagnostics scanning, and cleanup. Sanitized evidence:
-[`../integrations/fixtures/verify-phase8-vps-2026-09-05.txt`](../integrations/fixtures/verify-phase8-vps-2026-09-05.txt).
-
-Phase 8.2 completion (2026-09-09): the exact candidate passed the Ubuntu 24.04.4 amd64 Docker
-secure-exposure gate, including real domain and public-IP certificates, renewal hook, Nginx
-coexistence, state migration, narrow terminal QA and original-node restoration. Sanitized evidence:
-[`../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt`](../integrations/fixtures/verify-phase8.2-vps-2026-09-09.txt).
-The same record contains the corrective exact-source fresh-install drill: the vanished PPA pin,
-APT lock contention and stale Docker socket/retry ownership defects are closed without changing
-REST/OpenAPI.
-
-Phase 9 completion (2026-09-10): one bounded sampler fed the dashboard, metrics and the
-`stats.read` REST contract; central redaction, unified host logs and deployment-native retention
-passed real Native/Docker failure, traffic, resource and cleanup drills on Ubuntu 24.04.4 amd64.
-Sanitized evidence:
-[`../integrations/fixtures/verify-phase9-vps-2026-09-10.txt`](../integrations/fixtures/verify-phase9-vps-2026-09-10.txt).
-
-Phase 8.3 corrective completion (2026-09-10): runtime mutations now reconcile the complete
-network state and Docker's terminal `FORWARD DROP` is crossed only through its scoped user-policy
-extension point. The exact Ubuntu 24.04.4 amd64 Docker candidate passed post-start plain,
-recommended and randomized AWG clients through public IPv4, DNS and HTTPS, then restart,
-diagnostics and owned-rule cleanup while the global DROP remained unchanged. Sanitized evidence:
-[`../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt`](../integrations/fixtures/verify-phase8.3-vps-2026-09-10.txt).
-
-## Audit findings
-
-Severity: critical (secret loss/exposure or unusable release), high (major correctness/security),
-medium (material product/operations weakness), low (polish/maintainability). State values are
-`open`, `in progress`, `verified`, or `deferred`.
-
-| ID | Severity | Finding | Owner | State |
-|---|---|---|---|---|
-| AUD-001 | critical | QR raster path has no decode/content-equivalence test; current regression can pass an unusable image | Phase 8 | verified |
-| AUD-002 | critical | H1–H4 are stored as `uint32`; observed `low-high` values lose the upper bound during dump parsing | Phase 8 | verified |
-| AUD-003 | high | OpenAPI exposes only a subset of current AWG profile fields and models H1–H4 as integers | Phase 8 | verified |
-| AUD-004 | high | Random profile generation is split between browser and server paths, weakening canonical validation | Phase 8 | verified |
-| AUD-005 | high | No single CLI workflow aggregates operational logs across deployment modes | Phase 9 | verified: bounded Docker/native service and operation sources, component filtering and follow cancellation passed the real VPS gate; Docker stderr unification regression closed before final acceptance |
-| AUD-006 | high | Application/deployment log retention is not documented or enforced as one bounded policy | Phase 9 | verified: Docker 16 MiB × 8 compressed local rotation, scoped native 7-day/size policy, operation journal 7-day/8 MiB and real tmpfiles expiry passed on the VPS; Docker physical age deletion remains an explicit platform limitation |
-| AUD-007 | medium | Human-facing token scopes, admin permissions, and webhook events expose machine identifiers | Phase 10 | verified: localized human labels/descriptions passed the final bilingual route/state and live workflow gates while machine identifiers remained stable |
-| AUD-008 | low | `project-structure.md` said Go 1.22 while `go.mod`, workflow, and CI require 1.25 | Planning update | verified |
-| AUD-009 | high | Fixed preset headers and equality-only validation violate recommended/non-overlapping H semantics | Phase 8 | verified |
-| AUD-010 | high | Interface form numeric parse errors can silently become valid zero values | Phase 8 | verified |
-| AUD-011 | medium | API JSON decoding accepts unknown fields and trailing values, hiding configuration typos | Phase 8 | verified |
-| AUD-012 | high | Backup restore may allocate up to 4 GiB per allowlisted member instead of enforcing the product memory budget | Phase 8.1; recertify in 11 | M5 streaming/member/total bounds and unsafe archive regressions pass in `281b607`; independent review closed |
-| AUD-013 | medium | CLI `settings set ... -stdin` reads without a size bound | Phase 8.1 | M5 4096-byte stdin bound and secret-argv refusal regressions pass in `281b607`; independent review closed |
-| AUD-014 | medium | Direct-TLS HSTS and reverse-proxy ownership are not defined or tested | Phase 8.2 ownership/header implementation; recertify in 11 | verified; HSTS is emitted only for proven HTTPS, proxy metadata is trusted only from private/loopback peers, and real direct/Nginx HTTPS returned one canonical header |
-| AUD-015 | low | Third-party inventory still labels implemented age encryption as planned | Phase 8.1 inventory correction; full distribution review in 12 | verified: current transitive linked-Go, frontend and runtime notices ship in the v0.1.0 bundle; source obligations and SPDX inventory checked in the release gate |
-| AUD-016 | high | A successful kernel `setconf` had been treated as `AdvancedSecurity` support even though the pinned setter ignores it, userspace rejects it, ordinary dump cannot observe it, and kernel `showconf` synthesizes a phantom peer line | Phase 8 | verified |
-| AUD-017 | high | Client rendering placed AWG interface fields after `[Peer]`, ignored the selected interface MTU, silently omitted corrupt keepalive, and a REST test could print raw key-bearing configs | Phase 8 | verified |
-| AUD-018 | medium | Restore environment review queried a nonexistent `interfaces` table, silently omitting every staged tunnel interface from the operator report | Phase 8 | verified |
-| AUD-019 | high | `backend_mode="userspace"` was stored/reported but boot and reconciliation ignored it | Phase 11 | Verified: pin-checked service-owned daemon, exact Ubuntu 24.04 Docker/native client HTTPS, crash recovery and reboot passed. |
-| AUD-020 | medium | `awg show interfaces` space-separated multiple names were parsed as one combined name, producing false runtime/reconciliation state | Phase 8 | verified |
-| AUD-021 | high | Endpoint overrides and I1–I5 could contain line breaks/control text and inject extra directives into exported client configurations | Phase 8 | verified |
-| AUD-022 | high | Reconciliation neither loaded nor compared I1–I5, so configured signature packets were omitted from apply and their drift was invisible | Phase 8 | verified |
-| AUD-023 | medium | The panel trusted a hidden generated-profile label without proving values came from its preview; policy validation was broader than generation and S2 used an unbounded retry | Phase 8 | verified |
-| AUD-024 | medium | The first real-host harness draft could delete pre-existing resources after partial setup and compared only config shape, not exact config/API state | Phase 8 | verified |
-| AUD-025 | critical | Peer-only `awg syncconf` clears the live interface private key on the pinned kernel backend, preventing all client handshakes | Phase 8 | verified |
-| AUD-026 | high | Docker update treats failed pulls as success candidates and lacks automatic recovery on compose-up failure; native restart failure also bypasses rollback | Phase 8.1 | M3 implemented and fault-tested in `4b72243`, review closed after `fc2c537`; Docker/native rollback and failed-start recovery passed on the dedicated VPS |
-| AUD-027 | high | Installer assumes prerequisites; native installation never ensures AWG tools/module, and SkipModule is not consumed | Phase 8.1 + 8.2 correction | Exact source-backed tools/kernel/DKMS/runtime readiness and a later kernel-upgrade repair passed on Ubuntu 24.04 amd64. Later Ubuntu releases remain unverified, not advertised as supported. |
-| AUD-028 | medium | IP-only summary advertises a server URL although listener is loopback; explicit TLS port 8080 is overwritten by defaults | Phase 8.1 | M2 fixed, unit tested and reviewed; terminal and real domain/ACME deployment gates passed |
-| AUD-029 | medium | Backup schedule CLI can panic on missing flag values; installer rejects negative Telegram group IDs | Phase 8.1 | M2 installer parsing and M5 missing-flag/signed-chat/interval validation regressions pass; M5 independent review closed |
-| AUD-030 | high | Uninstall trusts unchecked state paths and continues removal after service-stop errors, risking deletion while the node is running | Phase 8.1 | M3 state/path, stop-failure and absent-unit retry regressions pass; review closed; safe uninstall and node recovery passed in both VPS deployment modes |
-| AUD-031 | high | Telegram delivery wraps HTTP transport errors containing the token-bearing request URL and echoes remote descriptions without token redaction | Phase 8.1 | M5 actual net/http URL-error/token-echo refusal regressions pass in `281b607`; independent review closed |
-| AUD-032 | high | Restore verification metadata is optional at apply; database/key replacement is not recovered as a pair on failure and boot may continue after partial apply | Phase 8.1 | M5 private preview/approval, complete hashes, recoverable pair and fail-closed boot regressions pass in `281b607`; review closed and coordinated real Docker/native recovery passed |
-| AUD-033 | high | Fresh public installation starts before an owner exists; anonymous onboarding can claim the node, and owner creation uses non-atomic count-then-insert | Phase 8.1 for installer/atomic creation; manual-deployment posture reviewed in 11 | M4 implemented and unit/PTY tested in `e21a87f`/`4c8f07e`; review closed and owner-before-start passed in both real deployment modes |
-| AUD-034 | high | Backup creation ignores stored-password read/decryption errors and may silently create a plaintext archive instead of the intended encrypted backup | Phase 8.1 M5 | Fail-closed secret loading with intentionally unset plaintext preserved; error-path regression passes in `281b607`, review closed |
-| AUD-035 | high | Pinned age reader defaults to accepting scrypt factor22 (~4 GiB transient memory), although WG-Guard writes factor18 (~256 MiB); an archive can request disproportionate KDF work before extraction limits apply | Phase 8.1 M5; resource certification in 11 | Pinned age v1.2.1 source verified; factor18 acceptance cap and specific early-refusal regression pass in `281b607`, review closed |
-| AUD-036 | medium | Two backups created in one second reuse the same archive name and can overwrite the previous archive | Phase 8.1 M5 | Nonce filenames and actual same-second preservation regression pass in `281b607`; independent review closed |
-| AUD-037 | medium | Legacy `secrets rotate --config` indexed a missing value and panicked before configuration/database access | Phase 11 legacy CLI hardening | Verified: bounded flag parsing, malformed-argument regression and full repository gate passed. |
-| AUD-038 | high | An already admitted native CLI retains its database/key across managed restore; resuming paused key rotation can make restored encrypted settings unreadable | Phase 8.1 final correction | Reproduced on `14d4a19`; persistent lifetime ownership, safe admission/initialization/shutdown and split-layout refusal implemented in `0578dcc`. Automated/review gates and real Docker lease/restore exclusion passed |
-| AUD-039 | medium | Core `recovery-required` remains blocked after a transient unknown module identity is repaired; the suggested update recovery also refuses core operations | Phase 8.1 final correction; Phase 8.2 update-center maintenance | Operation-specific retry, fresh observation and interrupted/state-write regressions pass. Recorded legacy-package to reviewed-source native transition is now automated-test covered; unknown/unowned combinations still fail closed and no real cross-bundle transition is claimed. The dedicated VPS reaffirmed the current source bundle as matches-disk |
-| AUD-040 | medium | Explicit destructive `uninstall --purge-data` removed the data directory without excluding independent admitted data commands | Phase 11 destructive maintenance certification | Verified: Windows/WSL lock regressions and exact-host concurrent rotation refusal at `prepared`, cancellation, full purge, lock tombstone and fresh reinstall passed. |
-| AUD-041 | high | Real Go-based GitHub source acquisition rejects codeload's standard PAX global metadata as an unsafe filesystem path | Phase 8.1 M6 acceptance correction | Fixed in `d30894a`: one exact commit-bound global metadata record is consumed without materialization while archive safety bounds remain enforced. Focused tests, exact-revision CI and real source install/update through the corrected extractor passed |
-| AUD-042 | high | A first interactive bootstrap keeps its verified build only in a temporary directory and immediately enters setup; cancellation/failure requires another acquisition instead of reopening a durable local manager | Phase 8.2 | verified; the checked build and bounded receipt are atomically persisted before the menu and failed/canceled setup resumes locally. The offline daily command makes no acquisition; the GitHub entry now performs a bounded identity check |
-| AUD-043 | high | Domain ACME currently fails whenever 80/443 are owned by another service, and no transactional standard-Nginx/shared-webroot or DNS-01 route exists | Phase 8.2 | verified; standard-Nginx/webroot passed real issuance and no-mutation conflict refusal; DNS-01 uses the protected official plugin path and passes automated secret/command tests, with real issuance unclaimed without a scoped token |
-| AUD-044 | high | Trusted public-IP certificates are now available but the installer exposes only private SSH/manual files; short-lived renewal and reload are absent | Phase 8.2 | verified; staging and production Certbot short-lived IP certificates, SAN/expiry diagnostics, automatic timer, deploy-hook Docker reload and trusted HTTPS passed on the dedicated VPS |
-| AUD-045 | high | Fresh installation depends on a retired PPA core package and retries can fail on Ubuntu maintenance locks or a stale Docker socket while losing package ownership | Phase 8.2 corrective hardening | verified; recommended exact GitHub-source tools/kernel bundle, APT lock wait, safe aborted-state ownership carry, Docker service/socket lifecycle regressions and Ubuntu 24.04.4 Docker install/purge acceptance passed |
-| AUD-046 | high | The installed-node bootstrap fast path opens `/usr/local/bin/wg-guard` before resolving `--commit main`, so a repeated one-line command can keep presenting an old manager after GitHub advances | Phase 8.2 maintenance | verified; simulated `main` advancement proves one build then metadata-only reuse, while real exact-commit Docker acceptance proved independent manager advancement with an unchanged service hash, heartbeat, current-build skip and full update backup/health/core closure. Invalid selection and strict refresh fail; only transport/compiler failure can use a verified cache. Phase 12 also proved latest stable selection and a fresh published-release Docker install; a live published-release-to-newer-release update remains unverified |
-| AUD-047 | high | An interrupted uninstall is presented as generic recovery, reads an already removed boot config, and dispatches `update --recover`, trapping the operator in a recovery loop | Phase 8.2 maintenance | fixed from the user-provided transcript: uninstall has a dedicated config-independent view and resumes its own removal with explicit keep-data/full-reset choices. Focused regressions and a real Ubuntu 24.04.4 amd64 synthetic-journal Full reset passed; API/OpenAPI is unchanged |
-| AUD-048 | high | Interactive install silently selects username `owner`; a short password is rejected only after deployment/data preparation, leaving an initial-install journal without a useful retry/reset path and causing apparent successful credentials to fail as `admin` | Phase 8.2 maintenance | verified: explicit `admin` default, shared backend validation with in-place retry, blank-password secure generation and post-completion show-once handoff, guided cleanup for every interrupted initial install, and distinct node-reset/complete-removal ownership pass automated gates. Real Docker confirmed default `admin`, short-password retry and complete removal; generated credentials were intentionally not captured |
-| AUD-049 | high | Recommended private Docker setup records loopback HTTP as proxy TLS, making the session cookie `Secure`; valid credentials are accepted but the browser cannot return the cookie over the documented SSH-tunnel HTTP URL and falls back to login | Phase 8.2 maintenance | verified: reproduced on Ubuntu 24.04.4 amd64, then fixed by resolving private exposure to loopback-only dev transport while retaining proxy mode for real HTTPS proxies. Exact final-candidate Docker login finished at `/` with HTTP 200 and one session cookie |
-| AUD-050 | high | Deleting a tunnel interface removed its DB ownership record before reconciliation, so the still-live kernel link was classified as foreign and could remain after apparent success | Phase 10 owner refinement | verified in `150a574`: delete disables the owned row, requires canonical runtime removal before final DB deletion, and restores retry state on failure; service/API/browser regressions and exact Ubuntu 24.04 amd64 Docker create/delete/cleanup passed |
-| AUD-051 | critical | Docker's iptables backend installs an earlier `FORWARD` policy DROP; WG-Guard's later nftables accept chain cannot override that terminal verdict, while prior real-host gates stopped at the tunnel gateway | Phase 8.3 | verified: scoped owned child chain and tagged `DOCKER-USER` jump preserve the global DROP; all supported generated profiles passed real public egress |
-| AUD-052 | critical | API/web runtime reconciliation updated interfaces and peers but not the firewall/NAT rendered state, so an interface created after startup could handshake without routed traffic | Phase 8.3 | verified: one serialized runtime reconciler now reapplies tunnel, firewall/NAT, coexistence and shaping; regression and exact fresh-install public-egress gate pass |
-| AUD-053 | high | Host-owned `doctor` used the host PATH for Docker AWG inspection; source-backed Docker installs therefore reported missing `awg` and falsely classified every enabled interface as absent even while client traffic worked; its direct offline fix path could not use container-only tools | Phase 8.3 maintenance | verified: Docker AWG probes/dumps use the runtime container, host system/network checks remain local, non-not-found errors cannot recommend recreation, and Docker fix uses managed restart/startup reconciliation; automated tests plus exact Ubuntu 24.04.4 amd64 healthy/unavailable/recovered and real missing-link repair acceptance pass |
-| AUD-054 | high | Changing a subscription token alone left issued device configs valid; rotating a device key under report drift could preserve its old runtime peer | Phase 10 owner follow-up | verified: atomic token/all-device key replacement, durable former-peer removal across failed sync/restart, default drift policy, and exact `9401937` Ubuntu Docker old-link 404 plus old peer absent/new peer present passed. |
-| AUD-055 | medium | A noninteractive two-character owner username was rejected after installation had written runtime artifacts, requiring guided reset instead of failing during preflight | Phase 11 lifecycle certification | Verified by no-mutation preflight regression and full repository gate; unrelated real install was not repeated solely for this validation path. |
-| AUD-056 | medium | Legacy token CLI flag loops indexed missing values and could panic before opening node data | Phase 11 security certification | Verified by malformed-command regressions and full repository gate. |
-| AUD-057 | medium | Host doctor inspected a Docker userspace socket in the host namespace and falsely reported a healthy TUN interface as kernel drift | Phase 11 backend certification | Verified: namespace-correct mode probe and exact Ubuntu Docker/native healthy doctor checks passed. |
-| AUD-058 | high | A generic-kernel VPS upgraded its image without corresponding headers; the managed DKMS module was unavailable after reboot | Phase 11 kernel lifecycle certification | Verified: generic header meta-package and running-kernel headers provisioned, DKMS rebuilt and loaded for upgraded kernel, then survived another real reboot. |
-| AUD-059 | high | Native boot with Docker also installed could lose the owned `DOCKER-USER` forwarding chain after Docker rebuilt host rules, while readiness still looked healthy | Phase 11 networking certification | Verified: native unit orders after Docker; scoped path repaired after deliberate tagged-jump loss and survived reboot with kernel client public HTTPS traffic. |
-| AUD-060 | high | A missing master key on an established node could be silently regenerated, orphaning encrypted interfaces, devices, links and credentials | Phase 11 recovery certification | Verified: exact-host missing-key CLI/startup refused replacement, restored matching key recovered two backend profiles, and key rotation preserved config bytes. |
-| AUD-061 | medium | A disk-full failure during SQLite `VACUUM INTO` left a partial backup snapshot in the chosen output directory | Phase 11 disk-pressure certification | Verified: exact-host 8 KiB tmpfs refusal left no partial snapshot and the node remained healthy. |
-| AUD-062 | high | Full uninstall stopped the service and purged data but left a recorded kernel AmneziaWG link and its peers alive until manual deletion or reboot | Phase 11 removal certification | Verified at `4a603bc`: exact Ubuntu 24.04 Docker node with a kernel `awg1` peer passed full purge; both `awg0` and `awg1`, container, CLI, owned firewall and config were absent, with only the data-lock tombstone retained. |
-| AUD-063 | high | An active firewalld could add zone-level forwarding drops while `iptables FORWARD ACCEPT` let boot/readiness and doctor report a healthy VPN | Phase 11 firewall certification | Verified fail-closed by focused tests and exact-host binary with a read-only simulated firewalld CLI; enabled tunnels refuse active firewalld before boot mutation, runtime readiness degrades, and Doctor fails explicitly. Real firewalld forwarding is not certified. |
-
-Detailed evidence and reviewed no-finding areas are in [phase8-audit.md](phase8-audit.md).
-Add only evidence-backed findings. Do not use this table as an idea backlog.
-
-## Compatibility certification
-
-Real-host certification claims below apply to Ubuntu 24.04 amd64 only; unavailable cells are not inferred.
-
-| OS | Arch | Docker | Native | Kernel backend | Userspace fallback | State |
-|---|---|---|---|---|---|---|
-| Ubuntu 24.04 | amd64 | managed userspace client/public HTTPS, restart, rollback, backup/restore, purge; Docker DROP path | managed kernel/userspace clients, reboot, rollback, key rotation, direct ACME, purge; scoped Docker coexistence | kernel client/public traffic and upgraded-kernel DKMS passed | managed daemon clients and recovery passed in both deployment modes | verified for the listed paths; active firewalld excluded |
-| Ubuntu >24.04 | amd64 | no genuine host | no genuine host | no genuine host | no genuine host | unverified; no production claim |
-
-Containers and emulation can validate packaging but do not upgrade a real-host Ubuntu release
-or backend cell to verified. Non-Ubuntu systems and non-amd64 architectures are out of scope.
-
-## Discovery workflow
-
-1. Reproduce or cite concrete evidence; do not log or paste secrets/config contents.
-2. Record impact, severity, affected surface, and likely owning phase.
-3. Fix critical/high findings in the earliest dependency-safe phase.
-4. Add a regression test before the fix and attach real-host evidence when required.
-5. Update this tracker, the current phase document, status matrix, and behavior documentation in
-   the same coherent change.
-
-## Publication boundary
-
-The owner-approved [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0),
-[v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1),
-[v0.1.2 security update](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) and
-[v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) and
-[v0.1.4](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4) and
-[v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) and
-[v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) and
-[v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7)
-and [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8),
-[v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9),
-[v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) and
-[v0.1.11](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.11)
-were published after their exact-source gates. Further tags, releases and official registry
-images require separate authorization. The support boundary remains as recorded in
-[phase12.md](phase12.md) and [status.md](status.md).
-
-
-### Phase 17 candidate gates
-
-See [the implementation record](phase17.md). Current source removes native server lifecycle and
-mode/unit artifacts, uses state 4/journal 2/installer 3, separates mutable host authority,
-loads new-format release images with binary/core/data/protocol/checksum bindings and retains
-one reviewed source recipe. Offline import/cache, Docker-only failure/recovery and private
-disk delivery have focused checks. A new CI job must verify the exact manager/image and fake
-container before source delivery is called verified. New physical Ubuntu kernel/userspace,
-reboot/TLS/restore/failure and resource acceptance remain Phase 20; historical evidence is not
-relabelled. No release, registry or live-host mutation is authorized here.
-
-The exact CI and unpublished-artifact result for `5952d97` (2026-10-05) is in
-[phase17.md](phase17.md#exact-delivery-result); Phase 20 completed host acceptance and
-v0.1.10 shipped it.
+| Version | Date | Exact source | Highlights |
+|---|---|---|---|
+| v0.2.0 | 2026-10-19 | pending | Egress routing, IPv6 site bridge and site test; design system, 29 themes, four subscription designs |
+| [v0.1.11](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.11) | 2026-10-08 | `228e2a5` | Containerd image-store admission; bundle `awg-2026-10` |
+| [v0.1.10](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.10) | 2026-10-06 | `4f78adc` | Docker-only runtime, domains and TLS, installer UX (Phases 16–20) |
+| [v0.1.9](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.9) | 2026-10-04 | `dd034fe` | Backup verification and migration preparation (Phase 15) |
+| [v0.1.8](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.8) | 2026-10-04 | `cf718a9` | Account and address maintenance, combined cleanup |
+| [v0.1.7](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.7) | 2026-10-03 | `f166360` | Installer progress, multi-device provisioning, webhook key check |
+| [v0.1.6](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.6) | 2026-10-01 | `ca0003e` | Backup and startup correction |
+| [v0.1.5](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.5) | 2026-10-01 | `0586931` | Maintenance release |
+| [v0.1.4](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.4) | 2026-09-30 | `314c94b` | Templates and direct entitlements for integrations |
+| [v0.1.3](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.3) | 2026-09-29 | `4177b28` | Integration API (Phase 14) |
+| [v0.1.2](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.2) | 2026-09-29 | `6eaa5ac` | Security update |
+| [v0.1.1](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.1) | 2026-09-28 | `91f0cad` | Appearance and subscription follow-up (Phase 13) |
+| [v0.1.0](https://github.com/Sir-Adnan/wg-guard/releases/tag/v0.1.0) | 2026-09-28 | `fb38c1f` | First public release (Phase 12) |

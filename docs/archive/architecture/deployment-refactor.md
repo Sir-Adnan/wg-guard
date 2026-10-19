@@ -174,11 +174,11 @@ The sequence above is subordinate to the detailed [phase gates](../development/r
 Phase 15 reliability/migration, 16 internal boundaries, 17 distribution/deployment,
 18 integrated domains/TLS, 19 operational UX and 20 real-host acceptance/publication.
 Certificate management in the web panel shipped in v0.1.10; its limits and behavior
-are in [domains and TLS](../operations/domains-and-tls.md).
+are in [domains and TLS](../../operations/domains-and-tls.md).
 
-References: [deployment](../operations/deployment.md),
-[recovery](../operations/lifecycle-recovery.md), [backup](../operations/backup-restore.md),
-[resources](overview.md#resources), [upstream](../integrations/amneziawg.md),
+References: [deployment](../../operations/deployment.md),
+[recovery](../../operations/lifecycle-recovery.md), [backup](../../operations/backup-restore.md),
+[resources](../../architecture/overview.md#resources), [upstream](../../integrations/amneziawg.md),
 [PasarGuard node API](https://docs.pasarguard.org/fa/node/api/),
 [Xray API](https://xtls.github.io/en/config/api.html),
 [FHS state directory](https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch05s08.html).

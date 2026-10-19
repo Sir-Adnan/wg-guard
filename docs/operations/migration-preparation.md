@@ -2,8 +2,8 @@
 
 This is the owner's preparation drill for one existing node, not authorization to
 rebuild a host. The Docker-only layout is published in v0.1.10 with the Ubuntu 24.04 host scope
-recorded in [Phase 20](../development/phase20.md). Use the current
-[status](../development/status.md) and [refactor gates](../development/refactor-program.md);
+recorded in [Phase 20](../archive/development/phase20.md). Use the current
+[status](../development/status.md) and [refactor gates](../archive/development/refactor-program.md);
 do not rebuild until the target release, data verification and acceptance are ready.
 The independent `backup verify` and safety corrections are published in v0.1.9.
 Use that preparation release to export/verify the existing server before any rebuild;

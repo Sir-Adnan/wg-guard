@@ -320,8 +320,8 @@ actual minimal source compilation. `bash scripts/test-bootstrap.sh` runs fake ex
 and real script logic for release/list/source/toolchain paths, integrity refusal, piped input,
 cleanup, candidate checksums, archive content and SBOM. Linux CI runs those fixtures. Fixtures
 and cross-compilation do not prove clean-host source/DKMS provisioning on every later Ubuntu
-release; the exact published-artifact drill is recorded in [Phase 12](../development/phase12.md).
-Separate real Docker/native evidence is linked from [Phase 8.1](../development/phase8.1.md).
+release; the exact published-artifact drill is recorded in [Phase 12](../archive/development/phase12.md).
+Separate real Docker/native evidence is linked from [Phase 8.1](../archive/development/phase8.1.md).
 
 The source extractor accepts only codeload's first-entry PAX global commit comment when it exactly
 matches the selected full SHA. Other global metadata and all links, devices, traversal, duplicate

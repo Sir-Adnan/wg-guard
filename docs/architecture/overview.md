@@ -32,8 +32,8 @@ Dependency direction: `api`/`web` → domain services → `tunnel`/`firewall`/`n
 No cycles; no `utils` packages. Package responsibilities:
 [project-structure.md](project-structure.md).
 
-The reviewed [refactor target](deployment-refactor.md) and
-[Phases 15–20](../development/refactor-program.md) track implemented safety/responsibility/
+The reviewed [refactor target](../archive/architecture/deployment-refactor.md) and
+[Phases 15–20](../archive/development/refactor-program.md) track implemented safety/responsibility/
 Docker/domain/TLS source changes separately from physical acceptance. They prioritize fail-closed existing-data migration,
 readiness and bounded slow-work isolation before packaging/native retirement.
 Integrated panel/subscription certificate management is specified in

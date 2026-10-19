@@ -89,8 +89,8 @@ client traffic and resource acceptance stay in Phase 20. The owner's off-host
 backup verification and explicit rebuild/publication approvals still gate that work.
 No account REST API, archive format, data contract or runtime dependency changed.
 
-Contracts: [operator journey](../operations/terminal-management.md),
-[backup/restore](../operations/backup-restore.md), [security](../operations/security.md),
+Contracts: [operator journey](../../operations/terminal-management.md),
+[backup/restore](../../operations/backup-restore.md), [security](../../operations/security.md),
 [refactor program](refactor-program.md).
 
 

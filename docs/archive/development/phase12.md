@@ -40,5 +40,5 @@ is public. Its tag resolves to `fb38c1fca0a3689b209aff6c814780cb31d1cb11`.
 Production verification covers the recorded Ubuntu 24.04 amd64 Docker/native paths only.
 Later Ubuntu releases, active firewalld, real-host UFW coexistence, physical-device testing,
 1000 simultaneous handshakes, a multi-day traffic soak and long-interval ACME renewal remain
-uncertified. See [status.md](status.md) and [release-readiness.md](release-readiness.md).
+uncertified. See [status.md](../../development/status.md) and [release-readiness.md](../../development/release-readiness.md).
 Future public versions and an official registry image require separate owner approval.

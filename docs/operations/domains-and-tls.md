@@ -1,8 +1,8 @@
 # Panel, subscription domains and certificates
 
 v0.1.10 and later implement independent domains; v0.1.9 retains its original
-single-domain flow. [Phase 18](../development/phase18.md) records source/browser
-checks; [Phase 20](../development/phase20.md) records real HTTP-01 issuance,
+single-domain flow. [Phase 18](../archive/development/phase18.md) records source/browser
+checks; [Phase 20](../archive/development/phase20.md) records real HTTP-01 issuance,
 scoped live renewal/replacement, SNI/role isolation, reboot and client forwarding.
 Unobserved DNS-01/external-proxy and long-interval renewal cells remain distinct.
 

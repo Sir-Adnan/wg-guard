@@ -175,6 +175,6 @@ first. Read-only doctor is safe anytime; no native production repair path remain
 
 ## Verification status
 
-Historical Phase 6/7 drills are recorded in [../development/phase7.md](../development/phase7.md).
+Historical Phase 6/7 drills are recorded in [../development/phase7.md](../archive/development/phase7.md).
 The Phase 8.1 lifecycle changes have host-seam/fault tests, Linux process-death lock and atomic
 filesystem tests, and executable bootstrap fixtures. Historical Docker/native certification does not certify the new Phase 17 layout/hardening. Current certification is tracked in [../development/status.md](../development/status.md).

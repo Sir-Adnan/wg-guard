@@ -470,5 +470,5 @@ Ubuntu 24.04 amd64 is the verified target. Later Ubuntu releases, active firewal
 real-host UFW coexistence, 1000 simultaneous handshakes, a multi-day traffic soak,
 and long-interval ACME renewal are **not** certified. No arm64 or non-Ubuntu claim is made.
 
-The [documentation map](docs/README.md) and [certification record](docs/development/phase11.md)
+The [documentation map](docs/README.md) and [certification record](docs/archive/development/phase11.md)
 hold details and verification limits.

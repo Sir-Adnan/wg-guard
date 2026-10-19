@@ -129,4 +129,4 @@ create-user drawer (generator, presets, auto-configs, verified Jalali calendar);
 redesign with root-cause menu fix; zinc theme + collapsible shell; capability-gated AWG
 2.0/3.x parameters verified against pinned `config.c`; docs/QA/push complete. Verification
 record and deferred list for round 1 live in git history of this file and in
-[status.md](status.md).
+[status.md](../../development/status.md).

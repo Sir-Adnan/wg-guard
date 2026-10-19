@@ -14,7 +14,7 @@ v0.1.10 removes the native production lifecycle. Docker execution retains one ho
 coordinator and narrow fault seams; host CLI, DKMS, broker tasks and fake development remain.
 The canonical recipe and bounded release loader are in `internal/install`; immutable image
 metadata/acquisition are in `internal/distribution`. `layout` separates deployment/configuration,
-node data and private host authority. See [Phase 17 evidence](../development/phase17.md).
+node data and private host authority. See [Phase 17 evidence](../archive/development/phase17.md).
 
 ```
 cmd/wg-guard/            CLI entry: version, reconcile (boot bring-up), serve (full node:

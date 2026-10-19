@@ -1,87 +1,55 @@
 # WG-Guard documentation
 
-These are the living contracts for the Go/SQLite/HTMX AmneziaWG node panel. Choose the smallest
-set of documents relevant to the current task; this map is a route, not a reading checklist.
-Implementation and test evidence must support any claimed behavior.
+The living contracts for the Go/SQLite/HTMX AmneziaWG node panel. Read the few pages your task
+touches; this map is a route, not a checklist. Code and tests must back every claimed behavior.
 
-## Choose a route
+## Start here
 
-| Need | Start with |
+| Need | Read |
 |---|---|
-| Current capability, supported host or verification claim | [Status matrix](development/status.md); use [release readiness](development/release-readiness.md) for blockers, certification history and release decisions |
-| Product behavior, panel UX or public API | [Requirements](product/requirements.md), [UI/UX contract](product/ui-ux.md), [design system and presets](product/design-system.md) ([ADR-0017](decisions/ADR-0017-design-system-and-presets.md)), [API contract](architecture/api.md) as relevant |
-| Architecture or data change | [Overview](architecture/overview.md), [project structure](architecture/project-structure.md), [database](architecture/database.md) |
-| AmneziaWG, network or webhook change | [Pinned upstream](integrations/amneziawg.md), [networking](architecture/networking.md), [webhook contract](integrations/webhooks.md) |
-| Subscription page designs | [Design system: subscription page designs](product/design-system.md#subscription-page-designs) |
-| Outbounds, balancers, routing rules or subscription client formats | [Egress routing](architecture/egress-routing.md), [ADR-0016](decisions/ADR-0016-kernel-egress-routing.md), [ADR-0018](decisions/ADR-0018-ipv6-site-bridge.md), [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
-| Security, deployment or recovery | [Security model](operations/security.md), [deployment](operations/deployment.md), [runbook](operations/runbook.md); follow the specific operations guide below |
-| Development checks or release work | [Workflow](development/workflow.md); consult [test layers](development/testing.md) for specialized coverage and [Phase 12](development/phase12.md) for the published v0.1.0 evidence |
-| Refactor phases, scope and acceptance | [Refactor program, Phases 15–20](development/refactor-program.md); [architecture target](architecture/deployment-refactor.md) |
-| Move a pre-v0.1.10 node through an off-host backup | [Migration preparation drill](operations/migration-preparation.md) |
-| Different panel/subscription domains or certificate paths | [Domains and TLS](operations/domains-and-tls.md) (v0.1.10+; v0.1.9 keeps its single-domain flow) |
+| What is supported and how it was verified | [Status](development/status.md) · [release readiness](development/release-readiness.md) · [roadmap](../ROADMAP.md) |
+| Install, update, back up or recover a node | [GitHub installation](operations/github-install.md) · [deployment](operations/deployment.md) · [backup and restore](operations/backup-restore.md) · [lifecycle recovery](operations/lifecycle-recovery.md) |
+| Product behavior and the panel | [Requirements](product/requirements.md) · [UI/UX contract](product/ui-ux.md) · [design system](product/design-system.md) |
+| Outbounds, balancers and routing rules | [Egress routing](architecture/egress-routing.md) · [client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) |
+| Architecture or data change | [Overview](architecture/overview.md) · [project structure](architecture/project-structure.md) · [database](architecture/database.md) |
+| AmneziaWG, network or webhooks | [Pinned upstream](integrations/amneziawg.md) · [networking](architecture/networking.md) · [webhooks](integrations/webhooks.md) |
+| REST API | [API contract](architecture/api.md) |
+| Security | [Security model](operations/security.md) |
+| Development checks or a release | [Workflow](development/workflow.md) · [test layers](development/testing.md) |
 
-## Reference index
+## Reference
 
-**Product and design:** [requirements](product/requirements.md) ·
-[UI/UX](product/ui-ux.md) · [design system](product/design-system.md) · [presentation primitives](product/presentation-system.md).
+**Product:** [requirements](product/requirements.md) · [UI/UX](product/ui-ux.md) ·
+[design system](product/design-system.md) · [presentation primitives](product/presentation-system.md)
 
-**Architecture and integrations:** [overview](architecture/overview.md) ·
+**Architecture:** [overview](architecture/overview.md) ·
 [project structure](architecture/project-structure.md) · [database](architecture/database.md) ·
 [API](architecture/api.md) · [networking](architecture/networking.md) ·
-[egress routing](architecture/egress-routing.md) ·
-[Docker refactor target](architecture/deployment-refactor.md) ·
-[Docker-only cleanup](architecture/docker-only-cleanup.md) ·
-[Phase 17 implementation](development/phase17.md) ·
-[Phase 18 domains/HTTPS](development/phase18.md) ·
-[Phase 19 operator journeys](development/phase19.md) ·
-[Phase 20 owner-host observations](development/phase20.md) ·
-[AmneziaWG pin and verification](integrations/amneziawg.md) ·
-[client apps, AmneziaVPN keys and WARP](integrations/client-apps-and-warp.md) ·
-[webhooks](integrations/webhooks.md) · [ADRs](decisions/).
+[egress routing](architecture/egress-routing.md) · [decisions (ADRs)](decisions/)
 
-**Operations:** [deployment](operations/deployment.md) ·
-[GitHub installation and acquisition](operations/github-install.md) ·
-[English terminal management](operations/terminal-management.md) ·
-[lifecycle recovery](operations/lifecycle-recovery.md) ·
-[Update Center](operations/update-center.md) · [account/address cleanup](operations/cleanup.md) ·
-[backup and restore](operations/backup-restore.md) · [runbook](operations/runbook.md) ·
-[migration preparation](operations/migration-preparation.md) ·
-[security](operations/security.md).
+**Integrations:** [AmneziaWG pin](integrations/amneziawg.md) ·
+[client apps and WARP](integrations/client-apps-and-warp.md) · [webhooks](integrations/webhooks.md)
 
-**Completed refactor (v0.1.10):** [Phase 15–20 execution program](development/refactor-program.md) ·
-[acceptance record](development/phase20.md) · [domain/TLS contract](operations/domains-and-tls.md).
+**Operations:** [GitHub installation](operations/github-install.md) ·
+[deployment](operations/deployment.md) · [domains and TLS](operations/domains-and-tls.md) ·
+[terminal management](operations/terminal-management.md) ·
+[Update Center](operations/update-center.md) · [backup and restore](operations/backup-restore.md) ·
+[lifecycle recovery](operations/lifecycle-recovery.md) · [cleanup](operations/cleanup.md) ·
+[runbook](operations/runbook.md) · [security](operations/security.md) ·
+[migration from pre-v0.1.10 nodes](operations/migration-preparation.md)
 
-**Development and current claims:** [workflow](development/workflow.md) ·
-[testing](development/testing.md) · [status](development/status.md) ·
-[release readiness](development/release-readiness.md) · [roadmap](../ROADMAP.md).
-[Phase 15 preparation evidence](development/phase15.md) records measured crypto/slow-delivery
-isolation and the owner's release/update/export checkpoint separately from real-host acceptance.
-[Phase 16 responsibility boundaries](development/phase16.md) records the concrete duplication
-inventory, shared operation ownership, runtime consistency and retained deployment contracts.
+**Development:** [workflow](development/workflow.md) · [testing](development/testing.md) ·
+[status](development/status.md) · [release readiness](development/release-readiness.md)
 
-**Completed phase evidence:** [Phase 8](development/phase8.md) ·
-[8.1](development/phase8.1.md) · [8.2](development/phase8.2.md) ·
-[8.3](development/phase8.3.md) · [9](development/phase9.md) ·
-[10](development/phase10.md) · [11](development/phase11.md) ·
-[12](development/phase12.md). Read only the record relevant to a changed claim or acceptance
-boundary; its historical test plan is not a standing instruction for routine edits.
+## Archive
 
-**Follow-up records (2026-10-05):** [presentation layout](development/presentation-layout.md) ·
-[acquisition staging](development/acquisition-staging.md) ·
-[backup workbench](development/backup-workbench.md) ·
-[runtime recovery](development/runtime-recovery.md) ·
-[system health](development/system-health.md).
+Completed phase records, the original specification and dated status and release history live in
+the [archive](archive/README.md). They are evidence of their time: consult one only when a
+changed claim depends on it, and never treat an old test plan as a standing instruction.
 
-**Frozen provenance:** [original specification](archive/wg-guard_SPEC.md),
-[initial upstream research](archive/INITIAL_DELIVERABLE.md),
-[architecture proposal](archive/ARCHITECTURE_V2_PROPOSAL.md) and
-[Phase 10 owner prompt](archive/phase10-owner-prompt.md). These preserve origin and context;
-the living contracts and current status above govern new work. Consult the initial research for
-upstream facts absent from the pinned integration document, then verify the relevant version
-before making a new claim. Test fixtures retain their recorded form for reproducibility.
+## Keeping docs true
 
 Update the matching living document in the same change when behavior, compatibility or a
-documented claim changes. An internal change that leaves those claims true does not require
-touching unrelated documents. Distinguish designed, implemented, automated-test verified and
-real-host verified behavior; do not infer one level from another. CI runs
-`python3 scripts/check-docs.py`, which validates links, anchors and named repository paths.
+documented claim changes; an internal change that leaves the claims true needs no doc sweep.
+Keep designed, implemented, automated-tested and real-host verified apart. CI runs
+`python3 scripts/check-docs.py` to check links, anchors and named repository paths.

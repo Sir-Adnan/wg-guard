@@ -5,163 +5,135 @@
   <p>One Go binary · SQLite · Server-rendered UI · Docker runtime · REST API</p>
   <p><strong>English</strong> · <a href="README.fa.md">فارسی</a></p>
   <p>
-    <img alt="Latest published release" src="https://img.shields.io/github/v/release/Sir-Adnan/wg-guard">
+    <a href="https://github.com/Sir-Adnan/wg-guard/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Sir-Adnan/wg-guard"></a>
     <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
     <img alt="amd64" src="https://img.shields.io/badge/amd64-verified-0891b2">
-    <img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
+    <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-16a34a"></a>
   </p>
 </div>
 
-WG-Guard brings the daily work of running a VPN node into one responsive, bilingual panel.
-It stays small and direct: Go, SQLite, server-rendered HTML, HTMX, and focused JavaScript.
-The VPN data plane stays on the host; the panel organizes access, delivery, diagnostics, and
-recovery without turning the server into a large application stack.
+WG-Guard runs a VPN node from one responsive, bilingual panel: interfaces, users, devices,
+delivery, routing, backups and updates. It stays small: Go, SQLite, server-rendered HTML and
+HTMX. The VPN data plane stays on the host; the panel only organizes it.
 
-| | Built for operators |
+> [!NOTE]
+> **New in v0.2.0:** egress routing through WARP or imported WireGuard/AmneziaWG exits with
+> balancers and rules, a site test for every exit, an opt-in IPv6 site bridge, a new design
+> system with 29 themes, and four subscription page designs. See the [changelog](CHANGELOG.md).
+
+## Features
+
+| | |
 |---|---|
-| 🛡️ | **AmneziaWG control** — interfaces with ordered IPv4 pools and capacity snapshots, generated anti-DPI profiles, peers, and guarded host reconciliation |
-| 🧭 | **Egress routing** — outbounds through WARP, imported WireGuard/AmneziaWG or a source IP, balancers, ordered rules with presets and geodata, a per-exit site test and an opt-in IPv6 site bridge |
-| 👥 | **Subscriber lifecycle** — optional technical templates, quota top-ups, expiry, first-use activation, devices, speed limits, Reset Usage, queued Next Plan, and secure subscription-link replacement |
-| 📱 | **Client delivery** — per-device configs and QR codes, bulk downloads, and a public subscription page with four selectable designs and per-app setup guides |
-| 📈 | **A useful overview** — node/AWG health, CPU, memory, disk, live rates, traffic history, alerts, and diagnostics |
-| 🔐 | **Safe operations** — owner/reseller permissions, scoped API tokens, signed webhooks, encrypted backups, updates, rollback, and owned removal |
-| 🧹 | **Reviewed maintenance** — combined account/history cleanup with status, owner and date filters, impact previews, and database space maintenance |
-| 🌐 | **A polished panel** — English/Persian, RTL/LTR, Latin/Persian numeral preferences, light/dark/system modes, selectable themes, desktop and mobile |
+| 🛡️ **AmneziaWG control** | Interfaces with ordered IPv4 pools, generated anti-DPI profiles, peers and guarded host reconciliation |
+| 🧭 **Egress routing** | Outbounds through WARP, imported WireGuard/AmneziaWG or a source IP; balancers; ordered rules with service presets and geodata; a site test per exit |
+| 👥 **Subscribers** | Templates, quotas and top-ups, expiry, first-use activation, devices, speed limits, usage reset and a queued next plan |
+| 📱 **Delivery** | Per-device configs and QR codes, bulk downloads, one-tap AmneziaVPN import and a subscription page with four designs and app guides |
+| 📈 **Overview** | Node and tunnel health, CPU, memory, disk, live rates, traffic history and diagnostics |
+| 🔐 **Safe operations** | Owner and reseller permissions, scoped API tokens, signed webhooks, encrypted backups, updates and rollback |
+| 🌐 **Polished panel** | English and Persian, RTL and LTR, light and dark, 29 themes, desktop and mobile |
 
-> Since v0.1.10, WG-Guard uses Docker-only deployment and the new private host layout.
-> Existing schema-1–3/native deployments must export and verify an off-host backup with
-> their original manager, then use fresh installation/restore. The Ubuntu 24.04
-> kernel/userspace and recovery matrix is recorded in [Phase 20](docs/development/phase20.md).
-> See [Releases](https://github.com/Sir-Adnan/wg-guard/releases) for published versions.
+## Quick start
 
-### Install
-
-**Production-verified target:** Ubuntu 24.04 LTS on amd64, with root or sudo access and a
-reachable VPN endpoint. The Docker/kernel/userspace host scope is verified on the
-listed Ubuntu 24.04 generic kernels; later Ubuntu kernels are not inferred as supported.
-The installer checks and can provision its catalogued prerequisites. Keep access to the
-server's console or SSH during setup, and choose a domain if you want managed domain HTTPS.
-
-> **v0.2.0** adds egress routing (WARP and imported WireGuard/AmneziaWG outbounds, balancers
-> and rules), the site test and IPv6 site bridge, a new design system with 29 themes and four
-> subscription page designs. Egress routing is automated-tested and not yet verified with real
-> client traffic; see the [changelog](CHANGELOG.md) and [status](docs/development/status.md#egress-routing).
-> To finish an interrupted v0.1.10 setup, see the
-> [recovery guide](docs/operations/lifecycle-recovery.md#runtime-image-inspection-failed-on-the-containerd-image-store).
-
-**Latest published stable release:**
+On a fresh **Ubuntu 24.04 amd64** server with root or sudo:
 
 ```bash
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash'
 ```
 
-**Development · latest `main` source (explicit choice):**
+The guided setup installs the latest published release. It verifies the release assets, then
+sets up the Docker runtime, the owner account and panel access. If setup is interrupted, run
+`sudo wg-guard` to continue.
 
-```bash
-bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
-```
+| Panel access | Choose it when |
+|---|---|
+| **Private SSH tunnel** | No domain yet; the panel stays on loopback |
+| **Managed HTTPS** | You have a domain or a public IP certificate; WG-Guard runs TLS itself |
+| **Existing reverse proxy** | You already run Nginx or another HTTPS proxy |
 
-**Exact published release:** replace `vX.Y.Z` with a real published tag.
+<details>
+<summary><strong>Other ways to install</strong></summary>
+
+Exact published release (replace `vX.Y.Z`):
 
 ```bash
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --release vX.Y.Z'
 ```
 
-**Exact development commit:** replace the placeholder with a real full 40-character SHA.
+Development build from `main` (not a production claim):
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit FULL_40_CHARACTER_LOWERCASE_SHA'
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh | bash -s -- --commit main'
 ```
 
-The first command chooses the latest **published release**, even though the entry script
-is fetched from `main`. `--commit main` starts the selected development manager directly,
-with source pinned to the resolved immutable SHA. It is not necessary to install a stable
-release first and switch from its older manager. Development is not a production-certification
-claim. A pre-refactor installed deployment is still not converted in-place.
-
-
-The English-language setup guides you
-through Docker runtime deployment, administrator account, and HTTPS or private access.
-It verifies the release asset before installing. The manager survives an interrupted setup,
-so a retry can start from `sudo wg-guard`.
-
-| Your goal | Use |
-|---|---|
-| **Latest stable, guided** | Run the first command; use the Docker workflow. |
-| **Inspect before running** | Download and read the script with the commands below, then run it locally. |
-| **Exact release or development commit** | Select a tag or full SHA explicitly; see the [installation guide](docs/operations/github-install.md). |
-| **Unattended setup** | Forward install flags and supply a protected owner-password file; see the [terminal guide](docs/operations/terminal-management.md). |
-
-| Panel access | When to choose it |
-|---|---|
-| **Private SSH tunnel** | No domain is ready; the panel stays on loopback and is not exposed publicly. |
-| **Managed HTTPS** | A domain or supported public-IP certificate is available. The installer handles the owned TLS path. |
-| **Existing reverse proxy** | You already operate Nginx or another HTTPS proxy; use the documented coexistence flow. |
-
-To inspect the entry script before running it:
+Read the script before running it:
 
 ```bash
-curl -fsSLo wg-guard-install.sh \
-  https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
-less wg-guard-install.sh
-bash wg-guard-install.sh
+curl -fsSLo wg-guard-install.sh https://raw.githubusercontent.com/Sir-Adnan/wg-guard/main/install.sh
+less wg-guard-install.sh && bash wg-guard-install.sh
 ```
 
-The [installation guide](docs/operations/github-install.md) gives copyable commands for
-latest and exact releases, Docker, development builds and unattended setup, plus
-prerequisites and integrity details.
+Unattended setup, exact commits and integrity details are in the
+[installation guide](docs/operations/github-install.md).
 
-### First steps in the panel
+</details>
 
-1. Check the dashboard and `sudo wg-guard doctor` for a healthy node.
-2. Create an interface and choose a plain or compatible AmneziaWG profile.
-3. Add a user; use a template only when you want shared technical defaults. A connected owner bot can supply direct entitlement terms and keep its products and prices outside WG-Guard.
-4. Create or review the device, then share its QR code, config, or subscription link.
+<details>
+<summary><strong>Upgrading a node installed before v0.1.10</strong></summary>
 
-Replacing a subscription link also replaces its device credentials so previously issued
-links and configs stop working. Review client compatibility before changing a live profile.
+v0.1.10 moved to a Docker-only runtime and a new host layout, and older native deployments are
+not converted in place. Export and verify an off-host backup with the original manager, then
+install fresh and restore it. See [migration preparation](docs/operations/migration-preparation.md).
 
-### Run
+</details>
+
+## First steps
+
+1. Check the dashboard, or run `sudo wg-guard doctor`.
+2. Create an interface with a plain or AmneziaWG profile.
+3. Add a user, then share a device's QR code, config or subscription link.
+4. Optional: under **Routing**, add a WARP outbound and send chosen services through it.
+
+## Operate
 
 ```bash
 sudo wg-guard             # management menu
 sudo wg-guard status      # service and deployment
 sudo wg-guard doctor      # host and tunnel diagnostics
-sudo wg-guard logs        # bounded operational logs
-sudo wg-guard update      # reviewed panel/core lifecycle
+sudo wg-guard logs        # recent operational logs
+sudo wg-guard update      # update or roll back panel and core
 ```
 
-The menu covers encrypted backups, restore review, schedules, rollback, access changes, and
-uninstall. Take a backup before moving the panel to a new server; restore checks the target
-environment and retains the database/master-key relationship. See the
-[recovery guide](docs/operations/backup-restore.md).
+The menu also covers encrypted backups, restore, schedules, access changes and uninstall. Take a
+backup before moving to a new server; see [backup and restore](docs/operations/backup-restore.md).
 
-Generated AmneziaWG profiles require compatible clients; plain profiles can use standard
-WireGuard clients. Active firewalld, newer Ubuntu releases, non-amd64 hosts, and 1000
-simultaneous handshakes are outside the current production claim. The exact verified cells
-and limits are in [project status](docs/development/status.md).
+## Support scope
 
-### API and design
+Verified on Ubuntu 24.04 LTS amd64 with the Docker runtime and both the kernel and userspace
+AmneziaWG backends. Generated AmneziaWG profiles need AmneziaWG-capable clients; plain profiles
+work with standard WireGuard clients. Newer Ubuntu releases, non-amd64 hosts and active
+firewalld are not supported yet. Egress routing has unit and namespace tests, but its client
+traffic on a real host is not yet verified. The [status matrix](docs/development/status.md) lists
+every verified cell.
 
-The same node exposes a documented `/api/v1` for external systems. An atomic purchase creates
-a user, device and customer link; quota top-ups also return a recoverable before/after result.
-Reseller tokens remain in their own customer namespace. Cursor pagination, scoped delivery
-receipts and signed webhooks support
-integration without screen-scraping. The web panel remains server-rendered, and the host owns
-tunnel interfaces, firewall rules, and shaping. Start with the [API contract](docs/architecture/api.md) or
-[architecture overview](docs/architecture/overview.md).
+## Integrate
 
-### Explore
+`/api/v1` is a documented REST API with scoped tokens, cursor pagination, idempotent purchases,
+reseller isolation and signed webhooks. Start with the [API contract](docs/architecture/api.md)
+and the [webhook contract](docs/integrations/webhooks.md).
+
+## Documentation
 
 [Installation](docs/operations/github-install.md) ·
 [Deployment and HTTPS](docs/operations/deployment.md) ·
+[Egress routing](docs/architecture/egress-routing.md) ·
 [Client compatibility](docs/integrations/amneziawg.md) ·
-[Account cleanup and address pools](docs/operations/cleanup.md) ·
-[REST API](docs/architecture/api.md) ·
-[Documentation map](docs/README.md)
+[Security](docs/operations/security.md) ·
+[All documentation](docs/README.md)
 
-The [latest release bundle](https://github.com/Sir-Adnan/wg-guard/releases/latest) includes
-the Linux/amd64 binary, checksums, dependency inventory, and notices. You can verify the
-downloaded files with `sha256sum --check --ignore-missing checksums.txt`. WG-Guard is
-[MIT-licensed](LICENSE); external components and their licenses are listed in
-[THIRD_PARTY.md](THIRD_PARTY.md). Contributions start with [AGENTS.md](AGENTS.md).
+Each [release](https://github.com/Sir-Adnan/wg-guard/releases/latest) ships the Linux/amd64
+binary, the runtime image, checksums, an SBOM and attestations. To check a download, run
+`sha256sum --check --ignore-missing checksums.txt`.
+
+WG-Guard is [MIT-licensed](LICENSE). Third-party components are listed in
+[THIRD_PARTY.md](THIRD_PARTY.md). Contributors start with [AGENTS.md](AGENTS.md).

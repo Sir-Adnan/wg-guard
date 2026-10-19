@@ -1,13 +1,13 @@
 # Phase 6 — Backup / ops (roadmap + verification record)
 
-Scope (from [status.md](status.md) "Phases 6–8" and the approved phase plan): backup archives
+Scope (from [status.md](../../development/status.md) "Phases 6–8" and the approved phase plan): backup archives
 (plain + optional age password), schedules, Telegram delivery, restore wizard, the full panel
 settings UI, administrators / API tokens / webhooks / audit screens, `doctor`, and the
 master-key rotation trigger. Plus the approved visual rebase: a shadcn-style neutral default
 theme (white light mode, near-black dark mode) replacing the warm-sand palette, and a
 content-alignment/centering pass for large displays.
 
-Everything in this file follows the status rules in [status.md](status.md): a stage is marked
+Everything in this file follows the status rules in [status.md](../../development/status.md): a stage is marked
 done only when its tests are green and the record below says exactly what was verified where.
 
 ## Stages

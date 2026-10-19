@@ -6,8 +6,8 @@ Current-source production choice is superseded by [ADR-0015](ADR-0015-docker-onl
 The shipped v0.1.9 preparation build still follows this historical record.
 
 Transition note (2026-10-04): this records the currently shipped two-mode decision.
-The owner has selected [complete native production removal](../architecture/docker-only-cleanup.md)
-for Phase 17 of the [refactor program](../development/refactor-program.md). It becomes
+The owner has selected [complete native production removal](../archive/architecture/docker-only-cleanup.md)
+for Phase 17 of the [refactor program](../archive/development/refactor-program.md). It becomes
 the current deployment contract only after implementation and acceptance; retained
 host CLI/systemd/DKMS tasks are not native server support. This historical record
 must not be read as a requirement to preserve the second deployment indefinitely.
