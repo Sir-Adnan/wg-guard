@@ -71,24 +71,33 @@ func SiteServiceByID(id string) (SiteService, bool) {
 	return SiteService{}, false
 }
 
+// geminiUnsupported are the countries (ISO 3166 alpha-3, as the app page
+// reports them) missing from Google's "Where you can use the Gemini web app"
+// list, reviewed 2026-10-19. Mainland China is listed for Workspace only.
+var geminiUnsupported = map[string]bool{
+	"AFG": true, "BLR": true, "CHN": true, "CUB": true, "IRN": true, "PRK": true, "RUS": true, "SYR": true,
+}
+
 func judgeGemini(_ *url.URL, status int, body []byte) (string, string) {
-	if status != http.StatusOK {
+	if status != http.StatusOK || !bytes.Contains(body, []byte("WIZ_global_data")) {
 		return SiteUnknown, ""
 	}
 	region := ""
 	if m := geminiRegion.FindSubmatch(body); m != nil {
 		region = string(m[1])
 	}
-	if bytes.Contains(body, []byte("45631641,null,true")) {
-		return SiteAvailable, region
-	}
-	// The app page without the availability flag is the region refusal
-	// (the reviewed script's "No"); a page that is not the app at all is not
-	// judged.
-	if bytes.Contains(body, []byte("WIZ_global_data")) {
+	// The app page no longer carries the availability flag the reviewed
+	// script reads (45631641,null,true), so the verdict follows the region
+	// Google places the exit in. The page is the same in every country.
+	switch {
+	case region != "" && geminiUnsupported[region]:
 		return SiteBlocked, region
+	case region != "":
+		return SiteAvailable, region
+	case bytes.Contains(body, []byte("45631641,null,true")):
+		return SiteAvailable, ""
 	}
-	return SiteUnknown, region
+	return SiteUnknown, ""
 }
 
 var googleAbuse = regexp.MustCompile(`(?i)unusual traffic from|is blocked|unaddressed abuse`)

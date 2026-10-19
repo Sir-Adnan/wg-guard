@@ -256,8 +256,16 @@ func TestSiteJudges(t *testing.T) {
 	if v, r := gemini.judge(u("https://gemini.google.com/app"), 200, []byte(`x WIZ_global_data 45631641,null,true ,2,1,200,"DEU"`)); v != SiteAvailable || r != "DEU" {
 		t.Fatalf("gemini available: %s %s", v, r)
 	}
-	if v, _ := gemini.judge(u("https://gemini.google.com/"), 200, []byte(`WIZ_global_data`)); v != SiteBlocked {
-		t.Fatalf("gemini without the flag: %s", v)
+	// The current page: the flag is gone and the region decides.
+	page := `WIZ_global_data {\"45631641\":false} "",2,1,200,"%s",null`
+	if v, r := gemini.judge(u("https://gemini.google.com/"), 200, []byte(fmt.Sprintf(page, "USA"))); v != SiteAvailable || r != "USA" {
+		t.Fatalf("gemini supported region: %s %s", v, r)
+	}
+	if v, r := gemini.judge(u("https://gemini.google.com/"), 200, []byte(fmt.Sprintf(page, "IRN"))); v != SiteBlocked || r != "IRN" {
+		t.Fatalf("gemini unsupported region: %s %s", v, r)
+	}
+	if v, _ := gemini.judge(u("https://gemini.google.com/"), 200, []byte(`WIZ_global_data`)); v != SiteUnknown {
+		t.Fatalf("gemini without flag or region: %s", v)
 	}
 	if v, _ := gemini.judge(u("https://gemini.google.com/"), 200, []byte(`<html>maintenance</html>`)); v != SiteUnknown {
 		t.Fatalf("unrecognized page must not be judged: %s", v)
