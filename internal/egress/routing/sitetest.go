@@ -87,22 +87,37 @@ type SiteResult struct {
 	TestedAt time.Time
 }
 
+// Site test address families: FamilyAuto dials the way client traffic
+// leaves (IPv6 first through an outbound whose link carries IPv6, else
+// IPv4); FamilyIPv4 and FamilyIPv6 force one family.
+const (
+	FamilyAuto = "auto"
+	FamilyIPv4 = "ip4"
+	FamilyIPv6 = "ip6"
+)
+
+// ValidFamily reports whether f is a site test family.
+func ValidFamily(f string) bool {
+	return f == FamilyAuto || f == FamilyIPv4 || f == FamilyIPv6
+}
+
 // SiteTester runs site tests through outbound marks.
 type SiteTester struct {
 	Lookup Lookup
 }
 
 // Test fetches u (following up to five redirects) through mark and judges
-// the answer with svc's detector (nil: the generic custom-URL judge). A
-// failed attempt is retried once while enough time is left: a single lost
-// handshake through a tunnel is not a verdict.
-func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, u *url.URL, svc *SiteService) SiteResult {
+// the answer with svc's detector (nil: the generic custom-URL judge).
+// family is FamilyAuto (IPv6 first when preferIPv6), FamilyIPv4 or
+// FamilyIPv6. A failed attempt is retried once while enough time is left: a
+// single lost handshake through a tunnel is not a verdict.
+func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, family string, u *url.URL, svc *SiteService) SiteResult {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, SiteTimeout)
 	defer cancel()
 	var res SiteResult
 	for attempt := 1; attempt <= 2; attempt++ {
-		res = t.attempt(ctx, mark, preferIPv6, u, svc)
+		res = t.attempt(ctx, mark, preferIPv6, family, u, svc)
 		res.Attempts = attempt
 		deadline, _ := ctx.Deadline()
 		if res.Verdict != SiteFailed || res.Error == "dns" || res.Error == "unsupported" || time.Until(deadline) < siteRetryFloor {
@@ -113,9 +128,9 @@ func (t SiteTester) Test(ctx context.Context, mark uint32, preferIPv6 bool, u *u
 	return res
 }
 
-func (t SiteTester) attempt(ctx context.Context, mark uint32, preferIPv6 bool, u *url.URL, svc *SiteService) SiteResult {
+func (t SiteTester) attempt(ctx context.Context, mark uint32, preferIPv6 bool, family string, u *url.URL, svc *SiteService) SiteResult {
 	var res SiteResult
-	client, closeIdle := t.client(mark, preferIPv6, &res.Family)
+	client, closeIdle := t.client(mark, preferIPv6, family, &res.Family)
 	defer closeIdle()
 	began := time.Now()
 	main, err := fetchSitePage(ctx, client, u.String())
@@ -157,8 +172,11 @@ func (t SiteTester) attempt(ctx context.Context, mark uint32, preferIPv6 bool, u
 
 // client builds a one-test HTTP client whose connections go through mark;
 // family records the address family of the last connection.
-func (t SiteTester) client(mark uint32, preferIPv6 bool, family *string) (*http.Client, func()) {
-	dialer := HostDialer{Mark: mark, PreferIPv6: preferIPv6, Timeout: ProbeTimeout, FirstFamilyBudget: siteFirstFamilyBudget, Lookup: t.Lookup}
+func (t SiteTester) client(mark uint32, preferIPv6 bool, only string, family *string) (*http.Client, func()) {
+	if only == FamilyAuto {
+		only = ""
+	}
+	dialer := HostDialer{Mark: mark, PreferIPv6: preferIPv6, Only: only, Timeout: ProbeTimeout, FirstFamilyBudget: siteFirstFamilyBudget, Lookup: t.Lookup}
 	transport := &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {

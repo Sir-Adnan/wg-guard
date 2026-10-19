@@ -72,16 +72,19 @@ if (panel) {
   }
 }
 
-// Rule editor: search the service tiles (the category filter is CSS), show
-// the selection count and a live summary, and suggest a name from the picked
-// services while the name field is still untouched.
+// Rule editor: the service dropdown is a native disclosure holding the
+// checkboxes; this adds its search, closes it on Escape or an outside click,
+// mirrors the picks in the "selected" box (with remove buttons), and keeps
+// the count, the save-bar summary and a suggested name up to date.
 const ruleForm = document.querySelector(".rule-form");
 if (ruleForm) {
-  const tiles = [...ruleForm.querySelectorAll(".preset-tile")];
+  const dropdown = ruleForm.querySelector("[data-svc-dropdown]");
+  const options = [...ruleForm.querySelectorAll(".svc-option")];
   const picks = [...ruleForm.querySelectorAll("input[name=preset]")];
   const search = ruleForm.querySelector("[data-preset-search]");
   const field = search?.querySelector("input");
-  const empty = ruleForm.querySelector(".preset-empty");
+  const none = ruleForm.querySelector(".svc-none");
+  const empty = ruleForm.querySelector(".svc-empty");
   const count = ruleForm.querySelector("[data-preset-count]");
   const countValue = ruleForm.querySelector("[data-preset-count-value]");
   const summary = ruleForm.querySelector("[data-rule-summary]");
@@ -92,11 +95,16 @@ if (ruleForm) {
 
   const filter = () => {
     const q = (field?.value || "").trim().toLowerCase();
-    for (const tile of tiles) tile.classList.toggle("is-filtered-out", q !== "" && !(tile.dataset.search || "").toLowerCase().includes(q));
-    if (empty) empty.hidden = tiles.some(tile => tile.offsetParent !== null);
+    for (const option of options) option.classList.toggle("is-filtered-out", q !== "" && !(option.dataset.search || "").toLowerCase().includes(q));
+    if (none) none.hidden = options.some(option => !option.classList.contains("is-filtered-out"));
   };
   const update = () => {
     const chosen = picks.filter(p => p.checked);
+    for (const p of picks) {
+      const row = ruleForm.querySelector(`.svc-row[data-preset="${CSS.escape(p.value)}"]`);
+      if (row) row.hidden = !p.checked;
+    }
+    if (empty) empty.hidden = chosen.length > 0;
     if (count && countValue) { count.hidden = chosen.length === 0; countValue.textContent = String(chosen.length); }
     const lines = (matchers?.value || "").split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#")).length;
     if (summary) {
@@ -110,11 +118,28 @@ if (ruleForm) {
       name.value = names.length > 2 ? names.slice(0, 2).join(" + ") + " …" : names.join(" + ");
     }
   };
-  if (search && field) { search.hidden = false; field.addEventListener("input", filter); }
-  ruleForm.addEventListener("change", event => {
-    if (event.target.matches("input[name=preset-cat]")) filter();
-    if (event.target.matches("input[name=preset]")) update();
-  });
+
+  if (search && field) {
+    search.hidden = false;
+    field.addEventListener("input", filter);
+    // Enter in the search must not submit the rule form.
+    field.addEventListener("keydown", event => { if (event.key === "Enter") event.preventDefault(); });
+  }
+  if (dropdown) {
+    dropdown.addEventListener("toggle", () => { if (dropdown.open) field?.focus({ preventScroll: true }); });
+    dropdown.addEventListener("keydown", event => {
+      if (event.key === "Escape" && dropdown.open) { dropdown.open = false; dropdown.querySelector("summary")?.focus(); }
+    });
+    document.addEventListener("click", event => { if (dropdown.open && !dropdown.contains(event.target)) dropdown.open = false; });
+  }
+  for (const button of ruleForm.querySelectorAll("[data-svc-remove]")) {
+    button.hidden = false;
+    button.addEventListener("click", () => {
+      const pick = picks.find(p => p.value === button.dataset.svcRemove);
+      if (pick) { pick.checked = false; update(); }
+    });
+  }
+  ruleForm.addEventListener("change", event => { if (event.target.matches("input[name=preset]")) update(); });
   matchers?.addEventListener("input", update);
   update();
 }

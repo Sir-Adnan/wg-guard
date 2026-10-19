@@ -48,10 +48,12 @@ var ErrNoRoutableAddress = errors.New("routing: no routable address")
 
 // HostDialer dials names through one outbound. With PreferIPv6 it tries the
 // name's IPv6 addresses first and falls back to IPv4, the order the IPv6 site
-// bridge uses.
+// bridge uses. Only, when set ("ip4" or "ip6"), restricts the dial to that
+// family (the site test's family choice).
 type HostDialer struct {
 	Mark       uint32
 	PreferIPv6 bool
+	Only       string
 	Timeout    time.Duration
 	Lookup     Lookup
 	// FirstFamilyBudget, when set, bounds the time spent on the preferred
@@ -71,10 +73,16 @@ func (h HostDialer) Dial(ctx context.Context, host string, port uint16) (net.Con
 		timeout = ProbeTimeout
 	}
 	families := []string{"ip4"}
-	if h.PreferIPv6 {
+	switch {
+	case h.Only == "ip4" || h.Only == "ip6":
+		families = []string{h.Only}
+	case h.PreferIPv6:
 		families = []string{"ip6", "ip4"}
 	}
 	if a, err := netip.ParseAddr(host); err == nil {
+		if h.Only != "" && familyOf(a) != h.Only {
+			return nil, "", ErrNoRoutableAddress
+		}
 		families = []string{familyOf(a)}
 	}
 	dialer := MarkedDialer(h.Mark, timeout)

@@ -17,9 +17,11 @@ delivery, routing, backups and updates. It stays small: Go, SQLite, server-rende
 HTMX. The VPN data plane stays on the host; the panel only organizes it.
 
 > [!NOTE]
-> **New in v0.2.0:** egress routing through WARP or imported WireGuard/AmneziaWG exits with
-> balancers and rules, a site test for every exit, an opt-in IPv6 site bridge, a new design
-> system with 29 themes, and four subscription page designs. See the [changelog](CHANGELOG.md).
+> **New in v0.2.1:** a Tests tab that checks every service from every exit (IPv4 and IPv6 side
+> by side), speed tests for outbounds, and redesigned Outbounds and Rules pages. v0.2.0 brought
+> egress routing through WARP or imported WireGuard/AmneziaWG exits, the IPv6 site bridge, a
+> design system with 29 themes and four subscription page designs. See the
+> [changelog](CHANGELOG.md).
 
 ## Features
 

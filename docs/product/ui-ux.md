@@ -394,15 +394,18 @@ strict CSP holds.
   list. A site check above it links to the site test with the name filled in. Encrypted DNS and
   geo data sit side by side below; the DNS card keeps a live state (Active, Waiting for a domain
   rule, Off) and folds the strict Private DNS warning into "Before you turn it on".
-- **Rule editor**: three steps. **Services** are tiles with a checkbox and an entry count; each
-  tile reveals exactly what it adds, a category filter (CSS radio segments, including
-  "Selected") and a search over service names and domains narrow the grid. **Custom entries**
-  keeps the matcher textarea with syntax help and geosite suggestions. **Destination and name**
-  holds the target select (direct and block, then outbounds and balancers in option groups), the
-  name, which JavaScript suggests from the picked services while it is untouched, and the
-  on/off switch. A sticky save bar summarizes the selection.
+- **Rule editor**: two steps. **Services and entries** opens with an **Add a service** dropdown
+  (a native disclosure holding the checkboxes, so it works without JavaScript): services grouped
+  by category, each with its entry count, and a search over names and domains. Each chosen
+  service appears in the box below as a row with its category, its entries (two lines, with a
+  CSS-only "Show all") and a remove button; the operator's own entries follow in the same box,
+  with syntax help and geosite suggestions. Escape or a click outside closes the dropdown.
+  **Destination and name** holds the target select (direct and block, then outbounds and
+  balancers in option groups), the name, which JavaScript suggests from the picked services
+  while it is untouched, and the on/off switch. A sticky save bar summarizes the selection.
 - **Tests**: the site test. Pick one service, **All services** or a custom URL (the URL field
-  appears only then). The result grid has one row per exit (this server, then every enabled
+  appears only then), and the IP version: Automatic (like device traffic), IPv4 only, IPv6 only,
+  or both side by side, which stacks a `v4` and a `v6` result in each cell. The result grid has one row per exit (this server, then every enabled
   outbound) and one column per service; cells load themselves as exits answer and each can be
   run again. A cell shows the verdict badge, the region the service reported (flag for
   two-letter codes) and the address family and time; a single-service grid adds the HTTP status

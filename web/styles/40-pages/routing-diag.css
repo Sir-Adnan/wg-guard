@@ -137,6 +137,10 @@
   .site-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-0_5) var(--s-2); margin-top: var(--s-1); font-size: var(--text-xs); color: var(--muted-foreground); min-width: 0; }
   .site-meta > bdi { max-width: 16rem; }
   @media (min-width: 801px) { .site-grid:not(.site-grid--single) .site-meta { flex-wrap: nowrap; white-space: nowrap; } }
+  .site-test-family { flex: 0 1 11rem; }
+  .site-cell--pair { display: grid; gap: var(--s-2); }
+  .site-outcome + .site-outcome { padding-top: var(--s-2); border-top: 1px dashed var(--border); }
+  .site-family { display: inline-flex; align-items: center; justify-content: center; min-width: 1.75rem; height: 1.25rem; padding-inline: var(--s-1); border-radius: var(--radius-xs); background: var(--muted); color: var(--muted-foreground); font-size: var(--text-2xs); font-weight: 600; }
   .site-pending { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 1.5rem; }
   .site-retry { opacity: 0; transition: opacity var(--dur-fast) var(--ease); margin-inline-start: auto; }
   .site-cell:hover .site-retry, .site-retry:focus-visible { opacity: 1; }
@@ -150,7 +154,7 @@
     .site-grid td.site-cell { min-width: 0; }
     .site-verdict { flex-wrap: wrap; }
     /* Every service at once: phones keep the verdict and region only. */
-    .site-grid:not(.site-grid--single) .site-cell:not([data-verdict=failed]) .site-meta { display: none; }
+    .site-grid:not(.site-grid--single) .site-outcome:not([data-verdict=failed]) .site-meta { display: none; }
   }
 
   .site-legend-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--s-3) var(--s-6); margin: 0 0 var(--s-3); }
@@ -198,45 +202,77 @@
   .routing-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--card-gap); align-items: start; }
   @media (max-width: 1000px) { .routing-settings { grid-template-columns: minmax(0, 1fr); } }
 
-  /* Rule editor: service tiles with a filter and a peek at their entries. */
-  .preset-toolbar { display: flex; align-items: center; gap: var(--s-2) var(--s-3); flex-wrap: wrap; }
-  .preset-search { flex: 1 1 12rem; }
-  .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); gap: var(--s-2); align-items: start; }
-  @media (max-width: 640px) { .preset-grid { grid-template-columns: repeat(auto-fill, minmax(9.25rem, 1fr)); } .preset-pick { padding-inline-end: 2.25rem; } }
-  .preset-tile {
-    position: relative; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-md);
-    background: var(--background); transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  /* Rule editor: a service dropdown (a native disclosure, so it works
+     without JavaScript) feeding one box that lists the chosen services with
+     what each adds, followed by the operator's own entries. */
+  .svc-dropdown { position: relative; }
+  .svc-trigger {
+    display: flex; align-items: center; gap: var(--s-2_5); min-height: var(--control-h-lg); padding: var(--s-1_5) var(--s-3);
+    border: 1px solid var(--input); border-radius: var(--radius-md); background: var(--background); cursor: pointer; list-style: none;
+    box-shadow: var(--shadow-xs); transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
   }
-  .preset-tile:hover { border-color: color-mix(in srgb, var(--foreground) 25%, var(--border)); }
-  .preset-tile:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--background)); box-shadow: 0 0 0 1px var(--primary); }
-  .preset-tile:has(input:focus-visible) { box-shadow: var(--focus-ring); }
-  .preset-pick { display: flex; align-items: flex-start; gap: var(--s-2_5); padding: var(--s-2_5) var(--s-3); padding-inline-end: 2.5rem; cursor: pointer; min-height: 3.25rem; }
-  .preset-pick > .checkbox { margin-top: 2px; flex-shrink: 0; }
-  .preset-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .preset-name { font-weight: 600; font-size: var(--text-sm); }
-  .preset-meta { font-size: var(--text-2xs); color: var(--muted-foreground); }
-  .preset-lines > summary {
-    position: absolute; inset-block-start: var(--s-2); inset-inline-end: var(--s-2); display: inline-flex; align-items: center; justify-content: center;
-    width: 1.75rem; height: 1.75rem; border-radius: var(--radius-sm); color: var(--muted-foreground); cursor: pointer; list-style: none;
+  .svc-trigger::-webkit-details-marker { display: none; }
+  .svc-trigger:hover { border-color: color-mix(in srgb, var(--foreground) 30%, var(--input)); }
+  .svc-trigger:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .svc-dropdown[open] > .svc-trigger { border-color: var(--ring); box-shadow: var(--focus-ring); }
+  .svc-trigger-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: var(--radius-sm); background: var(--primary); color: var(--primary-foreground); flex-shrink: 0; }
+  .svc-trigger-text { flex: 1; font-weight: 500; color: var(--foreground); }
+  .svc-trigger-chevron { display: inline-flex; color: var(--muted-foreground); transition: transform var(--dur-fast) var(--ease); }
+  .svc-dropdown[open] .svc-trigger-chevron { transform: rotate(180deg); }
+  .svc-panel {
+    position: absolute; inset-inline: 0; inset-block-start: calc(100% + var(--s-1_5)); z-index: var(--z-popover);
+    display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--popover); color: var(--popover-foreground);
+    box-shadow: var(--shadow-lg); animation: pop-in var(--dur-fast) var(--ease); transform-origin: top center;
   }
-  .preset-lines > summary::-webkit-details-marker { display: none; }
-  .preset-lines > summary:hover, .preset-lines[open] > summary { background: var(--accent); color: var(--accent-foreground); }
-  .preset-lines > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-  @media (pointer: coarse) { .preset-lines > summary::after { content: ""; position: absolute; inset: -.5rem; } }
-  .preset-line-list { display: flex; flex-wrap: wrap; gap: var(--s-1); margin: 0; padding: 0 var(--s-3) var(--s-3); list-style: none; max-height: 11rem; overflow: auto; }
-  .preset-line-list code { display: inline-block; padding: 1px var(--s-1_5); border-radius: var(--radius-xs); background: var(--muted); font-size: var(--text-2xs); }
-  /* The category filter is CSS (radio inputs); routing.js adds the search. */
-  .rule-services:has(input[name=preset-cat][value=ai]:checked) .preset-tile:not([data-category=ai]),
-  .rule-services:has(input[name=preset-cat][value=google]:checked) .preset-tile:not([data-category=google]),
-  .rule-services:has(input[name=preset-cat][value=media]:checked) .preset-tile:not([data-category=media]),
-  .rule-services:has(input[name=preset-cat][value=dev]:checked) .preset-tile:not([data-category=dev]),
-  .rule-services:has(input[name=preset-cat][value=ipcheck]:checked) .preset-tile:not([data-category=ipcheck]),
-  .rule-services:has(input[name=preset-cat][value=selected]:checked) .preset-tile:not(:has(input[name=preset]:checked)),
-  .preset-tile.is-filtered-out { display: none; }
+  .svc-list { max-height: min(24rem, 55dvh); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; display: flex; flex-direction: column; gap: var(--s-1); }
+  .svc-group { display: flex; flex-direction: column; }
+  .svc-group-label { margin: 0; padding: var(--s-2) var(--s-2) var(--s-1); font-size: var(--text-2xs); font-weight: 600; color: var(--muted-foreground); text-transform: none; }
+  .svc-option { display: flex; align-items: center; gap: var(--s-2_5); min-height: 2.25rem; padding: var(--s-1) var(--s-2); border-radius: var(--radius-sm); cursor: pointer; }
+  .svc-option:hover, .svc-option:has(input:focus-visible) { background: var(--accent); color: var(--accent-foreground); }
+  .svc-option:has(input:checked) .svc-option-name { font-weight: 600; }
+  .svc-option-name { flex: 1; min-width: 0; font-size: var(--text-sm); }
+  .svc-option-count { font-size: var(--text-2xs); color: var(--muted-foreground); }
+  @media (pointer: coarse) { .svc-option { min-height: var(--hit); } }
+  .svc-group:not(:has(.svc-option:not(.is-filtered-out))) { display: none; }
+  .svc-option.is-filtered-out { display: none; }
+  .svc-none { padding: var(--s-4); text-align: center; }
+
+  .svc-box { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-4); border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--muted) 40%, var(--card)); }
+  .svc-selected { display: flex; flex-direction: column; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
+  .svc-row { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); box-shadow: var(--shadow-xs); animation: pop-in var(--dur-fast) var(--ease); }
+  .svc-row[hidden] { display: none; }
+  .svc-row-head { display: flex; align-items: center; gap: var(--s-2_5); min-width: 0; }
+  .svc-avatar { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2rem; height: 2rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary-text); font-weight: 700; font-size: var(--text-sm); }
+  .svc-row-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+  .svc-row-name { font-weight: 600; font-size: var(--text-sm); }
+  .svc-row-meta { font-size: var(--text-2xs); color: var(--muted-foreground); }
+  .svc-lines { display: flex; flex-wrap: wrap; gap: var(--s-1); margin: 0; padding: 0; list-style: none; max-height: 3.3rem; overflow: hidden; }
+  .svc-lines code { display: inline-block; padding: 1px var(--s-1_5); border-radius: var(--radius-xs); background: var(--muted); font-size: var(--text-2xs); }
+  .svc-row:has(.svc-more-toggle:checked) .svc-lines { max-height: none; }
+  .svc-more { align-self: flex-start; cursor: pointer; }
+  .svc-more-hide, .svc-row:has(.svc-more-toggle:checked) .svc-more-show { display: none; }
+  .svc-row:has(.svc-more-toggle:checked) .svc-more-hide { display: inline; }
+  .svc-row:has(.svc-more-toggle:focus-visible) .svc-more { box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
+  .svc-empty { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3); border: 1px dashed var(--border); border-radius: var(--radius-md); color: var(--muted-foreground); font-size: var(--text-sm); }
+  .svc-empty[hidden] { display: none; }
+  .svc-custom { padding-top: var(--s-4); border-top: 1px solid var(--border); }
+  .svc-custom .textarea { background: var(--background); }
 
   .syntax-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--s-2) var(--s-4); margin: 0; }
   .syntax-list > div { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; }
   .syntax-list dt { flex-shrink: 0; }
   .syntax-list dd { margin: 0; font-size: var(--text-sm); color: var(--muted-foreground); }
   .rule-savebar { margin-top: 0; }
+}
+@layer pages {
+  /* Entries are LTR; in RTL they line up at the row's start edge. */
+  :root[dir="rtl"] .svc-lines { justify-content: flex-end; }
+}
+@layer pages {
+  @media (max-width: 640px) {
+    .svc-box { padding: var(--s-3); gap: var(--s-3); }
+    .svc-row { padding: var(--s-2_5); }
+    .svc-custom { padding-top: var(--s-3); }
+  }
 }

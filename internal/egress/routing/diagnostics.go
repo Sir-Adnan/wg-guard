@@ -59,10 +59,12 @@ func (m *Manager) diagTarget(id string) (mark uint32, ipv6, ok bool, err error) 
 }
 
 // TestSite opens a site through one outbound (or the node's own route, for
-// DirectSite) the way client traffic would: an outbound whose link carries
-// IPv6 is tested IPv6 first, like the bridge. It waits for a free site test
-// slot as long as ctx allows.
-func (m *Manager) TestSite(ctx context.Context, id string, u *url.URL, svc *SiteService) (SiteResult, error) {
+// DirectSite). With FamilyAuto it dials the way client traffic would: an
+// outbound whose link carries IPv6 is tested IPv6 first, like the bridge.
+// FamilyIPv6 through an outbound whose link carries no IPv6 fails at once
+// (no_ipv6): its IPv6 would leave through the node's own route instead. It
+// waits for a free site test slot as long as ctx allows.
+func (m *Manager) TestSite(ctx context.Context, id, family string, u *url.URL, svc *SiteService) (SiteResult, error) {
 	now := time.Now().UTC()
 	mark, ipv6, ok, err := m.diagTarget(id)
 	if err != nil {
@@ -74,6 +76,12 @@ func (m *Manager) TestSite(ctx context.Context, id string, u *url.URL, svc *Site
 	if !ok {
 		return SiteResult{Verdict: SiteFailed, Error: "unreachable", TestedAt: now}, nil
 	}
+	if !ValidFamily(family) {
+		family = FamilyAuto
+	}
+	if family == FamilyIPv6 && id != DirectSite && !ipv6 {
+		return SiteResult{Verdict: SiteFailed, Error: "no_ipv6", TestedAt: now}, nil
+	}
 	slots := m.diag.siteSlots()
 	select {
 	case slots <- struct{}{}:
@@ -81,7 +89,7 @@ func (m *Manager) TestSite(ctx context.Context, id string, u *url.URL, svc *Site
 	case <-ctx.Done():
 		return SiteResult{Verdict: SiteFailed, Error: "timeout", TestedAt: now}, nil
 	}
-	return m.Sites.Test(ctx, mark, ipv6, u, svc), nil
+	return m.Sites.Test(ctx, mark, ipv6, family, u, svc), nil
 }
 
 // SpeedTest measures one outbound's exit (or the node's own route, for

@@ -226,9 +226,15 @@ URL through the node's own route and every enabled outbound. It uses the same so
 client traffic; an outbound with the IPv6 site bridge is tested IPv6 first, like the bridge. The
 test never changes the kernel.
 
+- **IP version.** Automatic dials the way client traffic leaves (IPv6 first through an outbound
+  whose link carries IPv6, otherwise IPv4). IPv4 only and IPv6 only force one family; IPv6 only
+  through an outbound whose link carries no IPv6 answers at once that it has none, since that
+  IPv6 would leave through the node's own route. **IPv4 and IPv6 side by side** puts both
+  results in each cell, each holding its own test slot.
 - **Grid.** One row per exit, one column per service. With HTMX the grid renders at once and
   each cell loads itself (`POST /routing/tests/cell`), so results appear as exits answer; each
-  cell can be run again. A plain post runs the whole grid (bounded to 2 minutes) before
+  cell can be run again. An exit the runtime does not know answers "unreachable", so no cell
+  stays pending. A plain post runs the whole grid (bounded to 2 minutes) before
   answering.
 - **Bounds.** At most 6 site tests run at once on the node (`routing.SiteTestSlots`), whatever
   the number of open panels; the rest wait their turn. One test is bounded to 15 seconds,

@@ -25,6 +25,12 @@
         <label class="field-label" for="site-url">{{.T "routing.site.url"}}</label>
         <input class="input input--tech" id="site-url" name="url" type="text" dir="ltr" spellcheck="false" autocomplete="off" inputmode="url" placeholder="https://example.com" value="{{$d.URL}}">
       </div>
+      <div class="field site-test-family">
+        <label class="field-label" for="site-family">{{.T "routing.site.family"}}</label>
+        <select class="select" id="site-family" name="family">
+          {{range (list "auto" "ip4" "ip6" "both")}}<option value="{{.}}"{{if eq $d.Family .}} selected{{end}}>{{$.T (printf "routing.site.family.%s" .)}}</option>{{end}}
+        </select>
+      </div>
       <button type="submit" class="btn btn--primary site-test-run"><span class="spinner htmx-indicator" aria-hidden="true"></span>{{.IconS "activity"}}{{.T "routing.site.run"}}</button>
     </form>
     <div id="site-test-result" class="site-test-result" aria-live="polite">{{if $d.Ran}}{{template "site_test_result" (dict "v" . "d" $d)}}{{end}}</div>
@@ -70,23 +76,28 @@
 
 {{define "site_test_result_partial"}}{{template "site_test_result" (dict "v" . "d" .Data)}}{{end}}
 
-{{define "site_cell"}}{{$v := .v}}{{$c := .c}}{{$res := $c.Result}}
+{{define "site_cell"}}{{$v := .v}}{{$c := .c}}
 {{if and .lazy (not $c.Done)}}
 <td class="site-cell" data-label="{{$c.Column}}" data-verdict="pending" hx-post="/routing/tests/cell" hx-trigger="load" hx-vals="{{$c.Vals}}" hx-swap="outerHTML">
   <span class="site-pending"><span class="spinner" aria-hidden="true"></span><span class="text-sm text-muted">{{$v.T "routing.site.testing"}}</span></span>
 </td>
-{{else}}
-<td class="site-cell" data-label="{{$c.Column}}" data-verdict="{{$res.Verdict}}"{{if and (not $c.Wide) $res.Status}} title="HTTP {{$res.Status}}{{if $res.Final}} · {{$res.Final}}{{end}}"{{end}}>
-  <div class="site-verdict">
-    <span class="badge badge--{{$c.Tone}}"><span class="dot"></span>{{$v.T (printf "routing.site.verdict.%s" $res.Verdict)}}</span>
-    {{if $res.Region}}<span class="site-region" title="{{$v.T "routing.site.region"}}">{{if $c.Flag}}<span aria-hidden="true">{{$c.Flag}}</span>{{end}}<span class="tech">{{$res.Region}}</span></span>{{end}}
-    <button type="button" class="btn btn--ghost btn--icon btn--xs site-retry" hx-post="/routing/tests/cell" hx-vals="{{$c.Vals}}" hx-target="closest td" hx-swap="outerHTML" aria-label="{{$v.T "routing.site.retry"}}" data-tip="{{$v.T "routing.site.retry"}}">{{$v.IconS "rotate-ccw"}}</button>
+{{else}}{{$first := index $c.Outcomes 0}}
+<td class="site-cell{{if gt (len $c.Outcomes) 1}} site-cell--pair{{end}}" data-label="{{$c.Column}}" data-verdict="{{$first.Result.Verdict}}">
+  {{range $i, $o := $c.Outcomes}}{{$res := $o.Result}}
+  <div class="site-outcome" data-verdict="{{$res.Verdict}}"{{if and (not $c.Wide) $res.Status}} title="HTTP {{$res.Status}}{{if $res.Final}} · {{$res.Final}}{{end}}"{{end}}>
+    <div class="site-verdict">
+      {{if $o.Family}}<span class="site-family tech">{{if eq $o.Family "ip6"}}v6{{else}}v4{{end}}</span>{{end}}
+      <span class="badge badge--{{$o.Tone}}"><span class="dot"></span>{{$v.T (printf "routing.site.verdict.%s" $res.Verdict)}}</span>
+      {{if $res.Region}}<span class="site-region" title="{{$v.T "routing.site.region"}}">{{if $o.Flag}}<span aria-hidden="true">{{$o.Flag}}</span>{{end}}<span class="tech">{{$res.Region}}</span></span>{{end}}
+      {{if eq $i 0}}<button type="button" class="btn btn--ghost btn--icon btn--xs site-retry" hx-post="/routing/tests/cell" hx-vals="{{$c.Vals}}" hx-target="closest td" hx-swap="outerHTML" aria-label="{{$v.T "routing.site.retry"}}" data-tip="{{$v.T "routing.site.retry"}}">{{$v.IconS "rotate-ccw"}}</button>{{end}}
+    </div>
+    <div class="site-meta">
+      {{if eq $res.Verdict "failed"}}<span class="text-danger">{{$v.T (printf "routing.site.error.%s" $res.Error)}}</span>
+      {{else}}{{if $c.Wide}}<span class="tech">HTTP {{$res.Status}}</span>{{end}}{{if and $res.Family (not $o.Family)}}<span class="tech">{{if eq $res.Family "ip6"}}IPv6{{else}}IPv4{{end}}</span>{{end}}{{if $o.Latency}}<span class="tech">{{$v.Human $o.Latency}} ms</span>{{end}}{{if $res.Note}}<bdi class="tech truncate" title="{{$res.Note}}">{{$res.Note}}</bdi>{{end}}{{if and $c.Wide $res.Final}}<bdi class="tech truncate" title="{{$res.Final}}">{{$res.Final}}</bdi>{{end}}{{end}}
+      {{if gt $res.Attempts 1}}<span class="text-muted" title="{{$v.T "routing.site.retried"}}">↻</span>{{end}}
+    </div>
   </div>
-  <div class="site-meta">
-    {{if eq $res.Verdict "failed"}}<span class="text-danger">{{$v.T (printf "routing.site.error.%s" $res.Error)}}</span>
-    {{else}}{{if $c.Wide}}<span class="tech">HTTP {{$res.Status}}</span>{{end}}{{if $res.Family}}<span class="tech">{{if eq $res.Family "ip6"}}IPv6{{else}}IPv4{{end}}</span>{{end}}{{if $c.Latency}}<span class="tech">{{$v.Human $c.Latency}} ms</span>{{end}}{{if $res.Note}}<bdi class="tech truncate" title="{{$res.Note}}">{{$res.Note}}</bdi>{{end}}{{if and $c.Wide $res.Final}}<bdi class="tech truncate" title="{{$res.Final}}">{{$res.Final}}</bdi>{{end}}{{end}}
-    {{if gt $res.Attempts 1}}<span class="text-muted" title="{{$v.T "routing.site.retried"}}">↻</span>{{end}}
-  </div>
+  {{end}}
 </td>
 {{end}}
 {{end}}

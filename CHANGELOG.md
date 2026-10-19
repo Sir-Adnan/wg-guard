@@ -2,7 +2,18 @@
 
 ## [Unreleased]
 
+## [v0.2.1] — 2026-10-19
+
+WG-Guard 0.2.1 reworks routing diagnostics and fixes site test verdicts that called working
+exits blocked. It adds a Tests tab (every service at once, IPv4 and IPv6 side by side), speed
+tests and bulk health tests for outbounds, and redesigns the Outbounds and Rules pages for many
+exits and rules. Nothing changes in routing itself: an updated node keeps its outbounds, rules
+and traffic as they are.
+
 ### Added
+
+- Choose the IP version of a site test: automatic (like device traffic), IPv4 only, IPv6 only,
+  or both side by side in each cell.
 
 - Add a **Tests** tab to Routing. The site test can now check every service at once (Gemini,
   ChatGPT, Claude, Google Search, Netflix and an IP location lookup) or any URL, in a grid of
@@ -17,8 +28,9 @@
 
 - Redesign the Outbounds page for many exits: one dense row per outbound with state, exit IP,
   latency and speed, expandable for the details, with state filters and search.
-- Redesign the Rules page and the rule editor: a cleaner rule list, service tiles with category
-  filters and search, a suggested rule name and a summary save bar.
+- Redesign the Rules page and the rule editor: a cleaner rule list; services are added from a
+  searchable dropdown into one box that shows what each adds, next to your own entries; a
+  suggested rule name and a summary save bar.
 - On phones, user cards show identity and status on one line and a labeled bar for the
   subscription link, QR code and config.
 - The subscription page uses more of a wide screen, and a lone device's card no longer leaves

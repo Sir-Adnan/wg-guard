@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sir-Adnan/wg-guard/internal/egress"
 	"github.com/Sir-Adnan/wg-guard/internal/egress/routing"
 )
 
@@ -27,6 +25,7 @@ type siteTestData struct {
 	Groups  []siteServiceGroup
 	Service string // a service ID, "all" or "url"
 	URL     string
+	Family  string // auto | ip4 | ip6 | both
 	Ran     bool
 	Invalid bool
 	// Unavailable: this node runs no site tests (no egress runtime).
@@ -60,19 +59,38 @@ type siteTestRow struct {
 	Cells  []siteCell
 }
 
-// siteCell is one exit × service test.
+// siteCell is one exit × service test: one outcome, or one per family when
+// the form asked for both.
 type siteCell struct {
-	Exit    string
-	Service string
-	URL     string // custom URL (Service "url")
-	Column  string // column name, the phone layout's label
-	Wide    bool   // single-column grid: show the final address
-	Vals    string // hx-vals of a lazy cell and of its retry button
-	Done    bool
+	Exit     string
+	Service  string
+	URL      string // custom URL (Service "url")
+	Family   string // auto | ip4 | ip6 | both
+	Column   string // column name, the phone layout's label
+	Wide     bool   // single-column grid: show the final address
+	Vals     string // hx-vals of a lazy cell and of its retry button
+	Done     bool
+	Outcomes []siteOutcome
+}
+
+// siteOutcome is one test result of a cell.
+type siteOutcome struct {
+	Family  string // ip4 | ip6 when the cell compares both families, else ""
 	Result  routing.SiteResult
 	Tone    string
 	Latency string
 	Flag    string
+}
+
+// siteFamilyBoth asks for an IPv4 and an IPv6 result side by side.
+const siteFamilyBoth = "both"
+
+// siteFamily accepts the form's family choice; anything else is auto.
+func siteFamily(raw string) string {
+	if raw == siteFamilyBoth || routing.ValidFamily(raw) {
+		return raw
+	}
+	return routing.FamilyAuto
 }
 
 // siteCellWait bounds how long one cell waits for a free test slot and runs.
@@ -98,7 +116,7 @@ func siteServiceGroups() []siteServiceGroup {
 }
 
 func (s *Server) handleSiteTests(w http.ResponseWriter, r *http.Request) {
-	d := siteTestData{Tabs: s.loadRoutingTabs(r, "tests"), Groups: siteServiceGroups(), Service: routing.SiteServices[0].ID}
+	d := siteTestData{Tabs: s.loadRoutingTabs(r, "tests"), Groups: siteServiceGroups(), Service: routing.SiteServices[0].ID, Family: routing.FamilyAuto}
 	// ?site=<host or URL> (the rules page's route check links here)
 	// prefills a custom URL.
 	if site := strings.TrimSpace(r.URL.Query().Get("site")); site != "" && len(site) <= 2048 {
@@ -115,7 +133,8 @@ func (s *Server) handleSiteTestRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := siteTestData{Tabs: s.loadRoutingTabs(r, "tests"), Groups: siteServiceGroups(),
-		Service: r.PostFormValue("service"), URL: strings.TrimSpace(r.PostFormValue("url")), Ran: true}
+		Service: r.PostFormValue("service"), URL: strings.TrimSpace(r.PostFormValue("url")),
+		Family: siteFamily(r.PostFormValue("family")), Ran: true}
 	d.Columns, d.Label, d.Invalid = siteColumns(d.Service, d.URL)
 	if _, known := routing.SiteServiceByID(d.Service); !known && d.Service != "all" {
 		d.Service = "url"
@@ -125,7 +144,7 @@ func (s *Server) handleSiteTestRun(w http.ResponseWriter, r *http.Request) {
 	case s.EgressRuntime == nil:
 		d.Unavailable = true
 	default:
-		d.Rows = s.siteRows(r, d.Columns, d.URL)
+		d.Rows = s.siteRows(r, d.Columns, d.URL, d.Family)
 		if isHX(r) {
 			d.Lazy = true
 		} else {
@@ -160,7 +179,7 @@ func siteColumns(service, rawURL string) (cols []siteColumn, label string, inval
 
 // siteRows lists the node's own route first, then every enabled outbound in
 // name order, each with one pending cell per column.
-func (s *Server) siteRows(r *http.Request, cols []siteColumn, rawURL string) []siteTestRow {
+func (s *Server) siteRows(r *http.Request, cols []siteColumn, rawURL, family string) []siteTestRow {
 	rows := []siteTestRow{{Exit: routing.DirectSite, Direct: true}}
 	if outbounds, err := s.Egress.ListOutbounds(r.Context()); err == nil {
 		sort.SliceStable(outbounds, func(i, j int) bool { return outbounds[i].Name < outbounds[j].Name })
@@ -172,7 +191,7 @@ func (s *Server) siteRows(r *http.Request, cols []siteColumn, rawURL string) []s
 	}
 	for i := range rows {
 		for _, c := range cols {
-			cell := siteCell{Exit: rows[i].Exit, Service: c.Service, Column: c.Name, Wide: len(cols) == 1}
+			cell := siteCell{Exit: rows[i].Exit, Service: c.Service, Family: family, Column: c.Name, Wide: len(cols) == 1}
 			if c.Service == "url" {
 				cell.URL = rawURL
 			}
@@ -184,7 +203,7 @@ func (s *Server) siteRows(r *http.Request, cols []siteColumn, rawURL string) []s
 }
 
 func cellVals(c siteCell) string {
-	vals := map[string]string{"exit": c.Exit, "service": c.Service}
+	vals := map[string]string{"exit": c.Exit, "service": c.Service, "family": c.Family}
 	if c.URL != "" {
 		vals["url"] = c.URL
 	}
@@ -220,7 +239,8 @@ func (s *Server) handleSiteTestCell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cell := siteCell{Exit: r.PostFormValue("exit"), Service: r.PostFormValue("service"),
-		URL: strings.TrimSpace(r.PostFormValue("url")), Wide: r.PostFormValue("wide") == "1"}
+		URL: strings.TrimSpace(r.PostFormValue("url")), Family: siteFamily(r.PostFormValue("family")),
+		Wide: r.PostFormValue("wide") == "1"}
 	cols, _, invalid := siteColumns(cell.Service, cell.URL)
 	if invalid || len(cols) != 1 || cell.Exit == "" || s.EgressRuntime == nil {
 		s.badRequest(w, r, "bad site test")
@@ -234,13 +254,16 @@ func (s *Server) handleSiteTestCell(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), siteCellWait)
 	defer cancel()
 	if !s.runSiteCell(ctx, &cell) {
-		http.NotFound(w, r)
+		s.badRequest(w, r, "bad site test")
 		return
 	}
 	_ = s.partial(w, r, "routing_tests", "site_test_cell_partial", cell)
 }
 
-// runSiteCell fills one cell; false means the exit no longer exists.
+// runSiteCell fills one cell; false means the request names no test. Both
+// families run side by side, each holding its own test slot. An exit the
+// runtime does not know (removed, or not applied yet) answers "unreachable"
+// rather than an error, so a lazy cell never stays pending.
 func (s *Server) runSiteCell(ctx context.Context, c *siteCell) bool {
 	var svc *routing.SiteService
 	target := c.URL
@@ -251,18 +274,32 @@ func (s *Server) runSiteCell(ctx context.Context, c *siteCell) bool {
 	if err != nil {
 		return false
 	}
-	res, err := s.EgressRuntime.TestSite(ctx, c.Exit, u, svc)
-	if errors.Is(err, egress.ErrNotFound) {
-		return false
+	families := []string{c.Family}
+	if c.Family == siteFamilyBoth {
+		families = []string{routing.FamilyIPv4, routing.FamilyIPv6}
 	}
-	if err != nil {
-		res = routing.SiteResult{Verdict: routing.SiteFailed, Error: "unreachable"}
+	outcomes := make([]siteOutcome, len(families))
+	var wg sync.WaitGroup
+	for i, family := range families {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, err := s.EgressRuntime.TestSite(ctx, c.Exit, family, u, svc)
+			if err != nil {
+				res = routing.SiteResult{Verdict: routing.SiteFailed, Error: "unreachable"}
+			}
+			o := siteOutcome{Result: res, Tone: siteVerdictTone(res.Verdict), Flag: countryFlag(res.Region)}
+			if len(families) > 1 {
+				o.Family = family
+			}
+			if res.Latency > 0 {
+				o.Latency = strconv.FormatInt(res.Latency.Milliseconds(), 10)
+			}
+			outcomes[i] = o
+		}()
 	}
-	c.Done, c.Result, c.Tone = true, res, siteVerdictTone(res.Verdict)
-	if res.Latency > 0 {
-		c.Latency = strconv.FormatInt(res.Latency.Milliseconds(), 10)
-	}
-	c.Flag = countryFlag(res.Region)
+	wg.Wait()
+	c.Done, c.Outcomes = true, outcomes
 	return true
 }
 

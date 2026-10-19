@@ -8,92 +8,100 @@
   {{template "form_feedback" .}}
 
   <fieldset class="card rule-services">
-    <legend class="sr-only">{{.T "routing.rules.services"}}</legend>
+    <legend class="sr-only">{{.T "routing.rules.what"}}</legend>
     <div class="card-header">
       <div class="stack-xs">
-        <h2 class="card-title" aria-hidden="true"><span class="step">1</span>{{.T "routing.rules.services"}}</h2>
-        <p class="card-description">{{.T "routing.rules.services_hint"}}</p>
+        <h2 class="card-title" aria-hidden="true"><span class="step">1</span>{{.T "routing.rules.what"}}</h2>
+        <p class="card-description">{{.T "routing.rules.what_hint"}}</p>
       </div>
-      <div class="card-action"><span class="badge badge--outline" data-preset-count hidden><span class="num" data-preset-count-value>0</span> {{.T "routing.rules.selected"}}</span></div>
     </div>
     <div class="card-content stack">
-      <div class="preset-toolbar">
-        <div class="toggle-group preset-filter" role="radiogroup" aria-label="{{.T "routing.rules.services_filter"}}">
-          <label><input type="radio" name="preset-cat" value="all" checked>{{.T "routing.ob.filter.all"}}</label>
-          {{range .Data.Groups}}<label><input type="radio" name="preset-cat" value="{{.Category}}">{{$.T (printf "routing.category_short.%s" .Category)}}</label>{{end}}
-          <label><input type="radio" name="preset-cat" value="selected">{{.T "routing.rules.selected"}}</label>
+      <details class="svc-dropdown" data-svc-dropdown>
+        <summary class="svc-trigger">
+          <span class="svc-trigger-icon" aria-hidden="true">{{.IconS "plus"}}</span>
+          <span class="svc-trigger-text">{{.T "routing.rules.add_service"}}</span>
+          <span class="badge badge--outline svc-trigger-count" data-preset-count hidden><span class="num" data-preset-count-value>0</span> {{.T "routing.rules.selected"}}</span>
+          <span class="svc-trigger-chevron" aria-hidden="true">{{.IconS "chevron-down"}}</span>
+        </summary>
+        <div class="svc-panel">
+          <div class="input-group svc-search" data-preset-search hidden>
+            <span class="input-group-addon">{{.IconS "search"}}</span>
+            <input class="input input--sm" type="search" placeholder="{{.T "routing.rules.services_search"}}" aria-label="{{.T "routing.rules.services_search"}}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="svc-list">
+            {{range .Data.Groups}}{{$cat := .Category}}
+            <div class="svc-group" role="group" aria-label="{{$.T (printf "routing.category.%s" $cat)}}">
+              <p class="svc-group-label" aria-hidden="true">{{$.T (printf "routing.category.%s" $cat)}}</p>
+              {{range .Presets}}
+              <label class="svc-option" data-search="{{.Name}} {{range .Lines}}{{.}} {{end}}">
+                <input class="checkbox" type="checkbox" name="preset" value="{{.ID}}"{{if .Checked}} checked{{end}} data-preset-name="{{.Name}}">
+                <span class="svc-option-name">{{.Name}}</span>
+                <span class="svc-option-count num">{{$.T "routing.rules.preset_lines" ($.N (i64u (len .Lines)))}}</span>
+              </label>
+              {{end}}
+            </div>
+            {{end}}
+            <p class="svc-none text-sm text-muted" hidden>{{.T "routing.rules.services_none"}}</p>
+          </div>
         </div>
-        <div class="input-group preset-search" data-preset-search hidden>
-          <span class="input-group-addon">{{.IconS "search"}}</span>
-          <input class="input input--sm" type="search" placeholder="{{.T "routing.rules.services_search"}}" aria-label="{{.T "routing.rules.services_search"}}" autocomplete="off" spellcheck="false">
-        </div>
-      </div>
-      <div class="preset-grid">
-        {{range .Data.Groups}}{{$cat := .Category}}
-        {{range .Presets}}
-        <div class="preset-tile" data-category="{{$cat}}" data-search="{{.Name}} {{range .Lines}}{{.}} {{end}}">
-          <label class="preset-pick">
-            <input class="checkbox" type="checkbox" name="preset" value="{{.ID}}"{{if .Checked}} checked{{end}} data-preset-name="{{.Name}}" data-preset-lines="{{len .Lines}}">
-            <span class="preset-text">
-              <span class="preset-name">{{.Name}}</span>
-              <span class="preset-meta">{{$.T "routing.rules.preset_lines" ($.N (i64u (len .Lines)))}}</span>
-            </span>
-          </label>
-          <details class="preset-lines">
-            <summary aria-label="{{$.T "routing.rules.preset_show"}}: {{.Name}}" data-tip="{{$.T "routing.rules.preset_show"}}">{{$.IconS "list-filter"}}</summary>
-            <ul class="preset-line-list" dir="ltr">{{range .Lines}}<li><code class="tech">{{.}}</code></li>{{end}}</ul>
-          </details>
-        </div>
-        {{end}}{{end}}
-      </div>
-      <p class="preset-empty text-sm text-muted" hidden>{{.T "routing.rules.services_none"}}</p>
+      </details>
       {{if $f.Invalid "presets"}}<span class="field-error">{{index $f.Fields "presets"}}</span>{{end}}
+
+      <div class="svc-box">
+        <ul class="svc-selected" aria-label="{{.T "routing.rules.selected_services"}}">
+          {{$any := false}}
+          {{range .Data.Groups}}{{$cat := .Category}}{{range .Presets}}{{if .Checked}}{{$any = true}}{{end}}
+          <li class="svc-row" data-preset="{{.ID}}"{{if not .Checked}} hidden{{end}}>
+            <div class="svc-row-head">
+              <span class="svc-avatar" aria-hidden="true">{{$.Initial .Name}}</span>
+              <span class="svc-row-text"><span class="svc-row-name">{{.Name}}</span><span class="svc-row-meta">{{$.T (printf "routing.category.%s" $cat)}} · <span class="num">{{$.T "routing.rules.preset_lines" ($.N (i64u (len .Lines)))}}</span></span></span>
+              <button type="button" class="btn btn--ghost btn--icon btn--xs" data-svc-remove="{{.ID}}" hidden aria-label="{{$.T "routing.rules.remove_service"}}: {{.Name}}" data-tip="{{$.T "routing.rules.remove_service"}}">{{$.IconS "x"}}</button>
+            </div>
+            <input class="svc-more-toggle sr-only" type="checkbox" id="svc-more-{{.ID}}">
+            <ul class="svc-lines" dir="ltr">{{range .Lines}}<li><code class="tech">{{.}}</code></li>{{end}}</ul>
+            {{if gt (len .Lines) 6}}<label class="svc-more link text-xs" for="svc-more-{{.ID}}"><span class="svc-more-show">{{$.T "routing.rules.show_all" ($.N (i64u (len .Lines)))}}</span><span class="svc-more-hide">{{$.T "routing.rules.show_less"}}</span></label>{{end}}
+          </li>
+          {{end}}{{end}}
+          <li class="svc-empty"{{if $any}} hidden{{end}}>{{.IconS "list-filter"}}<span>{{.T "routing.rules.none_selected"}}</span></li>
+        </ul>
+        <div class="svc-custom field">
+          <label class="field-label" for="r-matchers">{{.T "routing.rules.custom"}} <span class="field-optional">{{.T "forms.optional"}}</span></label>
+          <textarea class="textarea textarea--tech" id="r-matchers" name="matchers" dir="ltr" rows="4" spellcheck="false" autocomplete="off" placeholder="ipdata.co&#10;geosite:google-deepmind&#10;full:api.example.com&#10;keyword:openai&#10;8.8.4.0/24&#10;geoip:us" aria-describedby="hint-matchers{{if $f.Invalid "matchers"}} err-matchers{{end}}"{{if $f.Invalid "matchers"}} aria-invalid="true"{{end}}>{{$f.V "matchers"}}</textarea>
+          {{if $f.Invalid "matchers"}}<span class="field-error" id="err-matchers">{{index $f.Fields "matchers"}}</span>{{end}}
+          <p class="field-description" id="hint-matchers">{{.T "routing.rules.custom_hint"}}</p>
+        </div>
+        <div class="accordion">
+          <details class="collapsible collapsible--plain">
+            <summary class="text-sm">{{.T "routing.rules.syntax"}}</summary>
+            <div class="collapsible-content">
+              <dl class="syntax-list">
+                <div><dt><code class="code">example.com</code></dt><dd>{{.T "routing.syntax.domain"}}</dd></div>
+                <div><dt><code class="code">full:www.example.com</code></dt><dd>{{.T "routing.syntax.full"}}</dd></div>
+                <div><dt><code class="code">keyword:openai</code></dt><dd>{{.T "routing.syntax.keyword"}}</dd></div>
+                <div><dt><code class="code">regexp:^.+\.ai$</code></dt><dd>{{.T "routing.syntax.regexp"}}</dd></div>
+                <div><dt><code class="code">geosite:google</code></dt><dd>{{.T "routing.syntax.geosite"}}</dd></div>
+                <div><dt><code class="code">1.2.3.0/24</code></dt><dd>{{.T "routing.syntax.cidr"}}</dd></div>
+                <div><dt><code class="code">geoip:de</code></dt><dd>{{.T "routing.syntax.geoip"}}</dd></div>
+                <div><dt><code class="code"># …</code></dt><dd>{{.T "routing.syntax.comment"}}</dd></div>
+              </dl>
+            </div>
+          </details>
+          {{if .Data.HasGeo}}
+          <details class="collapsible collapsible--plain">
+            <summary class="text-sm">{{.T "routing.rules.categories"}} <span class="badge badge--muted num">{{.N (i64u (len .Data.Geosite))}}</span></summary>
+            <div class="collapsible-content"><p class="field-description">{{.T "routing.rules.categories_hint"}}</p><p class="routing-category-cloud" dir="ltr">{{range .Data.Geosite}}<code class="code">{{.}}</code> {{end}}</p></div>
+          </details>
+          {{end}}
+        </div>
+        {{if not .Data.HasGeo}}<p class="text-xs text-muted row">{{.IconS "info"}}<span>{{.T "routing.rules.no_geosite"}}</span></p>{{end}}
+      </div>
     </div>
   </fieldset>
 
   <section class="card">
     <div class="card-header">
       <div class="stack-xs">
-        <h2 class="card-title"><span class="step">2</span><label for="r-matchers">{{.T "routing.rules.custom"}}</label> <span class="field-optional">{{.T "forms.optional"}}</span></h2>
-        <p class="card-description" id="hint-matchers">{{.T "routing.rules.custom_hint"}}</p>
-      </div>
-    </div>
-    <div class="card-content stack">
-      <div class="field">
-        <textarea class="textarea textarea--tech" id="r-matchers" name="matchers" dir="ltr" rows="5" spellcheck="false" autocomplete="off" placeholder="ipdata.co&#10;geosite:google-deepmind&#10;full:api.example.com&#10;keyword:openai&#10;8.8.4.0/24&#10;geoip:us" aria-describedby="hint-matchers{{if $f.Invalid "matchers"}} err-matchers{{end}}"{{if $f.Invalid "matchers"}} aria-invalid="true"{{end}}>{{$f.V "matchers"}}</textarea>
-        {{if $f.Invalid "matchers"}}<span class="field-error" id="err-matchers">{{index $f.Fields "matchers"}}</span>{{end}}
-      </div>
-      <div class="accordion">
-        <details class="collapsible collapsible--plain">
-          <summary class="text-sm">{{.T "routing.rules.syntax"}}</summary>
-          <div class="collapsible-content">
-            <dl class="syntax-list">
-              <div><dt><code class="code">example.com</code></dt><dd>{{.T "routing.syntax.domain"}}</dd></div>
-              <div><dt><code class="code">full:www.example.com</code></dt><dd>{{.T "routing.syntax.full"}}</dd></div>
-              <div><dt><code class="code">keyword:openai</code></dt><dd>{{.T "routing.syntax.keyword"}}</dd></div>
-              <div><dt><code class="code">regexp:^.+\.ai$</code></dt><dd>{{.T "routing.syntax.regexp"}}</dd></div>
-              <div><dt><code class="code">geosite:google</code></dt><dd>{{.T "routing.syntax.geosite"}}</dd></div>
-              <div><dt><code class="code">1.2.3.0/24</code></dt><dd>{{.T "routing.syntax.cidr"}}</dd></div>
-              <div><dt><code class="code">geoip:de</code></dt><dd>{{.T "routing.syntax.geoip"}}</dd></div>
-              <div><dt><code class="code"># …</code></dt><dd>{{.T "routing.syntax.comment"}}</dd></div>
-            </dl>
-          </div>
-        </details>
-        {{if .Data.HasGeo}}
-        <details class="collapsible collapsible--plain">
-          <summary class="text-sm">{{.T "routing.rules.categories"}} <span class="badge badge--muted num">{{.N (i64u (len .Data.Geosite))}}</span></summary>
-          <div class="collapsible-content"><p class="field-description">{{.T "routing.rules.categories_hint"}}</p><p class="routing-category-cloud" dir="ltr">{{range .Data.Geosite}}<code class="code">{{.}}</code> {{end}}</p></div>
-        </details>
-        {{end}}
-      </div>
-      {{if not .Data.HasGeo}}<p class="text-xs text-muted row">{{.IconS "info"}}<span>{{.T "routing.rules.no_geosite"}}</span></p>{{end}}
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="card-header">
-      <div class="stack-xs">
-        <h2 class="card-title"><span class="step">3</span>{{.T "routing.rules.where"}}</h2>
+        <h2 class="card-title"><span class="step">2</span>{{.T "routing.rules.where"}}</h2>
         <p class="card-description" id="hint-target">{{.T "routing.rules.target_hint"}}</p>
       </div>
     </div>

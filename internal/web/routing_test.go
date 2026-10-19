@@ -131,7 +131,7 @@ func TestRoutingWorkspaceEndToEnd(t *testing.T) {
 	// Rule form shows the presets by category, each with what it adds;
 	// save a multi-source rule.
 	body = e.get("/routing/rules/new?preset=gemini", cookie).Body.String()
-	if !strings.Contains(body, `value="gemini" checked`) || !strings.Contains(body, `name="preset-cat" value="ai"`) || !strings.Contains(body, "IP lookup services") || !strings.Contains(body, `<code class="tech">aistudio.google.com</code>`) {
+	if !strings.Contains(body, `value="gemini" checked`) || !strings.Contains(body, `class="svc-row" data-preset="gemini">`) || !strings.Contains(body, `data-preset="openai" hidden`) || !strings.Contains(body, "IP lookup services") || !strings.Contains(body, `<code class="tech">aistudio.google.com</code>`) {
 		t.Fatal("rule form presets")
 	}
 	rec = e.post("/routing/rules", url.Values{"name": {"Gemini"}, "enabled": {"1"}, "target": {"balancer:" + balancers[0].ID},
@@ -375,7 +375,16 @@ func TestRoutingIPv6SitesAndSiteTest(t *testing.T) {
 	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(body), "<td") || !strings.Contains(body, `data-verdict="failed"`) {
 		t.Fatalf("cell: %d %s", rec.Code, body)
 	}
-	if rec := e.postHX("/routing/tests/cell", url.Values{"exit": {"missing"}, "service": {"claude"}}, cookie, csrf); rec.Code != http.StatusNotFound {
+	// Both families: one cell, an IPv4 and an IPv6 outcome.
+	rec = e.postHX("/routing/tests/cell", url.Values{"exit": {routing.DirectSite}, "service": {"gemini"}, "family": {"both"}}, cookie, csrf)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, "site-cell--pair") || strings.Count(body, `class="site-outcome"`) != 2 || !strings.Contains(body, ">v6</span>") {
+		t.Fatalf("both families: %d %s", rec.Code, body)
+	}
+	if body := e.get("/routing/tests", cookie).Body.String(); !strings.Contains(body, `name="family"`) || !strings.Contains(body, "IPv4 and IPv6 side by side") {
+		t.Fatal("family choice missing")
+	}
+	// A removed exit still answers, so a lazy cell never stays pending.
+	if rec := e.postHX("/routing/tests/cell", url.Values{"exit": {"missing"}, "service": {"claude"}}, cookie, csrf); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Unreachable through this exit") {
 		t.Fatalf("cell for a removed exit: %d", rec.Code)
 	}
 	if rec := e.postHX("/routing/tests/cell", url.Values{"exit": {routing.DirectSite}, "service": {"url"}, "url": {"ftp://x"}}, cookie, csrf); rec.Code != http.StatusBadRequest {

@@ -37,6 +37,12 @@ func init() {
 		{"routing.toast.speed_busy", "Another speed test is running. Try again when it finishes.", "تست سرعت دیگری در حال اجراست. بعد از پایان آن دوباره امتحان کنید."},
 
 		{"routing.site.all", "All services", "همهٔ سرویس‌ها"},
+		{"routing.site.family", "IP version", "نسخهٔ IP"},
+		{"routing.site.family.auto", "Automatic (like device traffic)", "خودکار (مثل ترافیک دستگاه‌ها)"},
+		{"routing.site.family.ip4", "IPv4 only", "فقط IPv4"},
+		{"routing.site.family.ip6", "IPv6 only", "فقط IPv6"},
+		{"routing.site.family.both", "IPv4 and IPv6 side by side", "IPv4 و IPv6 کنار هم"},
+		{"routing.site.error.no_ipv6", "This outbound carries no IPv6 (turn on “Open websites over IPv6”)", "این خروجی IPv6 ندارد («باز کردن سایت‌ها با IPv6» را روشن کنید)"},
 		{"routing.site.group.ai", "AI", "هوش مصنوعی"},
 		{"routing.site.group.google", "Google", "گوگل"},
 		{"routing.site.group.media", "Streaming", "استریم"},
@@ -63,22 +69,23 @@ func init() {
 
 		// Rule editor.
 		{"routing.rules.selected", "Selected", "انتخاب‌شده"},
-		{"routing.rules.services_filter", "Service groups", "گروه سرویس‌ها"},
+		{"routing.rules.what", "Services and entries", "سرویس‌ها و موارد"},
+		{"routing.rules.what_hint", "Add ready-made services from the list, then your own domains, categories or IP ranges if you need them.", "سرویس‌های آماده را از فهرست اضافه کنید و در صورت نیاز دامنه، دسته یا رنج IP دلخواه هم بنویسید."},
+		{"routing.rules.add_service", "Add a service", "افزودن سرویس"},
+		{"routing.rules.selected_services", "Selected services", "سرویس‌های انتخاب‌شده"},
+		{"routing.rules.none_selected", "No service yet. Add one from the list above, or write your own entries below.", "هنوز سرویسی انتخاب نشده. از فهرست بالا اضافه کنید یا موارد دلخواه را پایین بنویسید."},
+		{"routing.rules.show_all", "Show all %s", "نمایش همهٔ %s مورد"},
+		{"routing.rules.show_less", "Show less", "نمایش کمتر"},
+		{"routing.rules.remove_service", "Remove", "حذف"},
 		{"routing.rules.services_search", "Search services or domains", "جست‌وجوی سرویس یا دامنه"},
 		{"routing.rules.services_none", "No service matches.", "سرویسی پیدا نشد."},
 		{"routing.rules.preset_lines", "%s entries", "%s مورد"},
-		{"routing.rules.preset_show", "Show what it adds", "نمایش موارد"},
 		{"routing.rules.where", "Destination and name", "مقصد و نام"},
 		{"routing.rules.enabled_switch", "Rule is on", "قانون فعال باشد"},
 		{"routing.rules.sum_services", "{n} services", "{n} سرویس"},
 		{"routing.rules.sum_lines", "{n} custom entries", "{n} مورد دلخواه"},
 		{"routing.rules.sum_none", "Nothing selected yet", "هنوز چیزی انتخاب نشده"},
 		{"routing.dns.before", "Before you turn it on", "پیش از روشن کردن"},
-		{"routing.category_short.ai", "AI", "هوش مصنوعی"},
-		{"routing.category_short.google", "Google", "گوگل"},
-		{"routing.category_short.media", "Media", "رسانه"},
-		{"routing.category_short.dev", "Dev", "برنامه‌نویسی"},
-		{"routing.category_short.ipcheck", "IP check", "تشخیص IP"},
 	}
 	for _, row := range rows {
 		catalogEN[row[0]] = row[1]

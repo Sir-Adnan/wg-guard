@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"github.com/Sir-Adnan/wg-guard/internal/egress"
 )
 
 // speedServer mimics Cloudflare's speed endpoints.
@@ -65,8 +67,24 @@ func TestSiteTestSlotsBoundConcurrency(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	u, _ := ParseSiteURL("example.com")
-	res, err := m.TestSite(ctx, DirectSite, u, nil)
+	res, err := m.TestSite(ctx, DirectSite, FamilyAuto, u, nil)
 	if err != nil || res.Verdict != SiteFailed || res.Error != "timeout" {
 		t.Fatalf("full slots must wait, then give up with the request: %+v %v", res, err)
+	}
+}
+
+// Forcing IPv6 through an outbound whose link carries none fails at once:
+// its IPv6 would otherwise leave through the node's own route.
+func TestSiteTestIPv6NeedsAnIPv6Link(t *testing.T) {
+	m := &Manager{Sites: &SiteTester{}}
+	m.setStatus(Status{Outbounds: map[string]OutboundStatus{"ob": {ID: "ob", Kind: egress.KindWireGuard, Enabled: true, Link: "wgo1", Mark: 7}}})
+	u, _ := ParseSiteURL("example.com")
+	res, err := m.TestSite(context.Background(), "ob", FamilyIPv6, u, nil)
+	if err != nil || res.Verdict != SiteFailed || res.Error != "no_ipv6" {
+		t.Fatalf("ipv6 without an IPv6 link: %+v %v", res, err)
+	}
+	h := HostDialer{Only: FamilyIPv4, PreferIPv6: true}
+	if _, _, err := h.Dial(context.Background(), "2001:db8::1", 443); err == nil {
+		t.Fatal("a literal of the other family must not be dialed")
 	}
 }
