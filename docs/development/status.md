@@ -1,5 +1,13 @@
 # Product and verification status
 
+**v0.2.0 release (2026-10-19):** the owner explicitly requested v0.2.0 for Phases 21–22 and their
+follow-ups: egress routing with the site test, IPv6 site bridge, connection drain and WARP
+rotation; the design system, themes and subscription designs; and the review fixes. It is cut
+from the exact main commit that carries this record, after main CI and the release workflow
+pass. Automated and namespace evidence is in [egress routing](#egress-routing) and
+[design system](#design-system-redesign); the real-host and device cells listed there as not
+verified stay unverified, and no registry image is published.
+
 **v0.1.11 published (2026-10-08):** the owner authorized v0.1.11 for the containerd image
 store admission correction, bundle `awg-2026-10`, Doctor peer eligibility, installer progress
 clarity and development-build BuildKit provisioning. Exact source
@@ -430,7 +438,7 @@ and no safe reversal contract has been approved.
 
 ## Egress routing
 
-**Egress routing and subscription portal (2026-10-16; on main, unreleased).** Kernel-native
+**Egress routing and subscription portal (2026-10-16; shipped in v0.2.0).** Kernel-native
 outbounds (WARP, WireGuard/AmneziaWG import, source IP), balancers (`sticky`, `round_robin`,
 `random`, `least_conn`, `failover`), ordered rules with presets, geosite/geoip and a built-in
 DNS resolver are implemented; see [egress routing](../architecture/egress-routing.md) and
@@ -448,7 +456,7 @@ DNS resolver are implemented; see [egress routing](../architecture/egress-routin
 
 ## Design system redesign
 
-**shadcn-anatomy design system and visual presets (2026-10-18; on main, unreleased).** Every
+**shadcn-anatomy design system and visual presets (2026-10-18; shipped in v0.2.0).** Every
 panel, auth and public subscription surface is rebuilt on `web/styles`; 29 presets in `web/themes`
 drive colors, fonts, radius, shadows, spacing and four layout axes; the subscription page has its
 own owner default and a visitor choice. See the [design system](../product/design-system.md) and
@@ -461,7 +469,7 @@ own owner default and a visitor choice. See the [design system](../product/desig
 | Subscription designs (fresh) | Ticket, Membership card, Minimal and App designs with Connect / Setup guide / Details tabs: Go tests for the Appearance picker, owner-only sample preview, reset and the `0019` mapping; `TestBrowserPhase10` suite `10.5` (56 cells) and the subscription surface per design at 320–1440 px in fa/en, Light/Dark (tab switching, one-at-a-time guide accordion, isolated quantities, device-action sizing), plus suites `10.4` and `appearance` |
 | Not verified | WebKit/Firefox, physical phones and touch hardware (coarse-pointer sizing is emulated), assistive technology, the `final` 16-width matrix and the axe scan (`WG_TEST_AXE` not installed) |
 
-**Subscription device activity and design files (2026-10-18; unreleased branch).** Device
+**Subscription device activity and design files (2026-10-18; shipped in v0.2.0).** Device
 cards on the public subscription page show each device's usage and, while it is offline, when
 it last connected. Each design's stylesheet lives at `web/styles/40-pages/sub-designs/<id>.css`.
 CI now runs `python3 scripts/check-docs.py` to check links, anchors and named repository paths.
@@ -473,7 +481,7 @@ CI now runs `python3 scripts/check-docs.py` to check links, anchors and named re
 | Browser | Public subscription surface for all four designs at 320–1440px (local Chromium) |
 | Not verified | WebKit/Firefox, physical phones and real hosts |
 
-**Review fixes: panel security, REST contract and cleanup (2026-10-18; unreleased branch).**
+**Review fixes: panel security, REST contract and cleanup (2026-10-18; shipped in v0.2.0).**
 Owner-account management is owner-only and delegated grants are capped at the granter; return
 paths, flash text and the proxy visitor address are hardened; REST optional bodies, atomic
 `PATCH /settings`, tag arrays, the bulk `start_index` default, webhook stats and replay
