@@ -158,6 +158,9 @@ outbound, so an updated node keeps sending traffic directly.
 - With reduced motion, opening the phone navigation drawer or a dialog lost keyboard focus.
 
 ### Security
+- Build releases and the userspace daemon with Go 1.27.2, which fixes standard-library
+  advisories in `net/http` (HTTP/2 and HTTP/1), `net/textproto`, `crypto/tls` and
+  `html/template` that affected Go 1.27.1.
 - An administrator holding `admins.manage` could reset the owner's password and take over the
   owner account; only the owner now manages it. Administrators other than the owner grant only
   scopes they hold.
