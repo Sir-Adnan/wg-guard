@@ -255,7 +255,7 @@ geometry does not replace visual review, screen-reader use, real-device or live-
 
 `go test -race ./...` runs under Linux; the dump parser has a bounded fuzz target. Use the
 patched stable Go toolchain for `govulncheck@v1.7.0`: an older compiler's standard-library
-advisories describe that compiler, not the candidate built with Go 1.27.1. The synthetic
+advisories describe that compiler, not the candidate built with Go 1.27.2. The synthetic
 `bench-idle.sh` seeds 0/100/1000 users and devices without API throttling, then measures a
 ten-minute steady-state window; it does not stand in for kernel traffic. The integration-tag
 1000-client-IP tc/IFB test exercises real kernel shaping in both directions, while the dedicated

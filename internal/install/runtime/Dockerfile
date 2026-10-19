@@ -9,7 +9,7 @@ RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch {{TOOLS_VE
  && git -C /src/amneziawg-tools diff --quiet {{TOOLS_COMMIT}} -- \
  && make -C /src/amneziawg-tools/src
 
-FROM golang:1.27.1-alpine AS awg-userspace-build
+FROM golang:1.27.2-alpine AS awg-userspace-build
 RUN apk add --no-cache git
 RUN git -c advice.detachedHead=false clone --quiet --depth 1 --branch {{USERSPACE_VERSION}} --single-branch https://github.com/amnezia-vpn/amneziawg-go.git /src/amneziawg-go \
  && test "$(git -C /src/amneziawg-go rev-parse HEAD)" = "{{USERSPACE_COMMIT}}" \
