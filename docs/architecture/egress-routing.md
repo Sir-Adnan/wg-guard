@@ -214,7 +214,10 @@ bridge is tested IPv6 first, like the bridge. The test never changes the kernel.
   markers of the open-source
   [RegionRestrictionCheck](https://github.com/lmc999/RegionRestrictionCheck) script
   (source-reviewed at `b6d4a6f`, 2026-10-19):
-  - Gemini: the app page's availability flag, and the region code when the page carries one.
+  - Gemini: the region code the app page reports, judged against Google's list of supported
+    countries (reviewed 2026-10-19; unsupported: AFG, BLR, CHN, CUB, IRN, PRK, RUS, SYR). The
+    page no longer carries the availability flag the script reads; a page without a region is
+    Unknown.
   - Google: the `/sorry/` CAPTCHA and the abuse texts.
   - OpenAI: `unsupported_country`.
   - Claude: the `app-unavailable-in-region` redirect.

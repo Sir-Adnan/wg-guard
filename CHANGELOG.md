@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix the **Site test** reporting Google Gemini as blocked from every exit. Gemini's page no
+  longer carries the availability flag the test read, so the verdict now follows the region
+  Google reports for the exit, checked against Google's list of supported countries.
+
 ## [v0.2.0] — 2026-10-19
 
 WG-Guard 0.2 adds egress routing (outbounds, balancers and rules, without a proxy engine), the
